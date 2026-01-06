@@ -1,0 +1,27 @@
+using Vibe.Office.Documents;
+using Vibe.Office.Primitives;
+
+namespace Vibe.Office.Rendering;
+
+public sealed class RenderOptions
+{
+    public DocColor BackgroundColor { get; set; } = new DocColor(242, 242, 242);
+    public DocColor PageColor { get; set; } = DocColor.White;
+    public DocColor PageBorderColor { get; set; } = new DocColor(220, 220, 220);
+    public float PageBorderThickness { get; set; } = 1f;
+    public DocColor TextColor { get; set; } = DocColor.Black;
+    public DocColor SelectionColor { get; set; } = DocColor.SelectionBlue;
+    public DocColor CaretColor { get; set; } = DocColor.Black;
+    public DocColor CommentHighlightColor { get; set; } = new DocColor(255, 247, 205, 160);
+    public float CaretThickness { get; set; } = 1.5f;
+    public bool ShowInvisibles { get; set; }
+    public DocColor InvisiblesColor { get; set; } = new DocColor(165, 165, 165);
+    public bool UseHarfBuzz { get; set; } = true;
+    public bool UsePictureCache { get; set; } = true;
+
+    public TextRange? Selection { get; set; }
+    public TextPosition Caret { get; set; }
+    public bool ShowCaret { get; set; } = true;
+    public IReadOnlyList<int>? DirtyPages { get; set; }
+    public long DirtyVersion { get; set; }
+}

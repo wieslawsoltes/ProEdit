@@ -1,0 +1,14 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\\Vibe.Office.Documents\\Vibe.Office.Documents.csproj" />
+    <ProjectReference Include="..\\Vibe.Office.Primitives\\Vibe.Office.Primitives.csproj" />
+  </ItemGroup>
+
+</Project>

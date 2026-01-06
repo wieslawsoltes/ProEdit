@@ -1,0 +1,17 @@
+using Vibe.Office.Documents;
+using Vibe.Office.Primitives;
+
+namespace Vibe.Office.Layout;
+
+public sealed record TableCellLayout(
+    int RowIndex,
+    int ColumnIndex,
+    int ColumnSpan,
+    int RowSpan,
+    DocRect Bounds,
+    IReadOnlyList<TableCellLine> Lines,
+    TableCellProperties Properties,
+    float Padding,
+    bool IsMergeContinuation = false,
+    int MergeOriginRowIndex = -1,
+    int MergeOriginColumnIndex = -1);

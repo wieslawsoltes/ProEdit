@@ -1,0 +1,3328 @@
+using Vibe.Office.Documents;
+using Vibe.Office.Primitives;
+
+namespace Vibe.Office.Layout;
+
+public sealed class DocumentLayouter
+{
+    public DocumentLayout Layout(Document document, LayoutSettings settings, ITextMeasurer measurer)
+    {
+        return LayoutInternal(document, settings, measurer, null, null);
+    }
+
+    public DocumentLayout Layout(Document document, LayoutSettings settings, ITextMeasurer measurer, DocumentLayout? previousLayout, int? dirtyParagraphIndex)
+    {
+        return LayoutInternal(document, settings, measurer, previousLayout, dirtyParagraphIndex);
+    }
+
+    private DocumentLayout LayoutInternal(
+        Document document,
+        LayoutSettings settings,
+        ITextMeasurer measurer,
+        DocumentLayout? previousLayout,
+        int? dirtyParagraphIndex)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(settings);
+        ArgumentNullException.ThrowIfNull(measurer);
+
+        var style = document.DefaultTextStyle;
+        var metrics = measurer.MeasureText("Mg", style);
+        var lineHeight = MathF.Max(1f, metrics.Height);
+        var ascent = metrics.Ascent;
+
+        var lines = new List<LayoutLine>();
+        var tables = new List<TableLayout>();
+        var pages = new List<PageLayout>();
+        var pageSections = new List<PageSectionSettings>();
+        var headerFooters = new List<HeaderFooterLayout>();
+        var linePageIndices = new List<int>();
+        var paragraphLineRanges = new Dictionary<int, LineRange>();
+        var listState = new ListNumberingState(document);
+        var styleResolver = new DocumentStyleResolver(document);
+        var scanState = new ParagraphScanState();
+        scanState.Scan(document);
+        var footnotesByPage = new Dictionary<int, HashSet<int>>();
+        var endnotesByPage = new Dictionary<int, HashSet<int>>();
+
+        var currentSectionIndex = 0;
+        var sectionSettings = PageSectionSettings.FromSettings(settings, document.GetSection(0).Properties, currentSectionIndex);
+        var pageWidth = 0f;
+        var pageHeight = 0f;
+        var pageX = 0f;
+        var pageY = settings.UsePagination ? settings.PageGap : 0f;
+        var pageIndex = 0;
+        var pageContentWidth = 0f;
+        var columnWidth = 0f;
+        var columnIndex = 0;
+        var columnCount = 1;
+        var columnGap = 0f;
+        var columnOffsets = Array.Empty<float>();
+        var columnWidths = Array.Empty<float>();
+        var columnX = 0f;
+        var contentTop = 0f;
+        var contentBottom = 0f;
+        var cursorY = 0f;
+        var marginLeft = 0f;
+        var marginRight = 0f;
+        var marginTop = 0f;
+        var marginBottom = 0f;
+        var paragraphIndex = 0;
+        var blockStartIndex = 0;
+
+        IReadOnlyList<Block> blocks = document.Blocks.Count == 0
+            ? new Block[] { new ParagraphBlock() }
+            : document.Blocks;
+
+        void UpdateColumnMetrics()
+        {
+            if (columnWidths.Length == 0)
+            {
+                columnWidth = pageContentWidth;
+                columnX = pageX + marginLeft;
+                return;
+            }
+
+            var safeIndex = Math.Clamp(columnIndex, 0, columnWidths.Length - 1);
+            columnWidth = columnWidths[safeIndex];
+            columnX = pageX + marginLeft + columnOffsets[safeIndex];
+        }
+
+        void ApplySectionSettings(PageSectionSettings section, bool preserveColumn, float? resumeY = null)
+        {
+            marginLeft = section.MarginLeft;
+            marginRight = section.MarginRight;
+            marginTop = section.MarginTop;
+            marginBottom = section.MarginBottom;
+            pageWidth = settings.UsePagination ? section.PageWidth : settings.ViewportWidth;
+            pageHeight = settings.UsePagination ? section.PageHeight : MathF.Max(settings.ViewportHeight, 1f);
+            pageX = settings.UsePagination ? MathF.Max(0f, (settings.ViewportWidth - pageWidth) / 2f) : 0f;
+            pageContentWidth = MathF.Max(1f, pageWidth - marginLeft - marginRight);
+            contentTop = pageY + marginTop;
+            contentBottom = pageY + pageHeight - marginBottom;
+
+            columnCount = Math.Max(1, section.ColumnCount);
+            columnGap = MathF.Max(0f, section.ColumnGap);
+            columnWidths = ResolveSectionColumnWidths(section, pageContentWidth, columnGap);
+            columnOffsets = BuildColumnOffsets(columnWidths, columnGap);
+            columnIndex = preserveColumn ? Math.Clamp(columnIndex, 0, Math.Max(0, columnCount - 1)) : 0;
+            UpdateColumnMetrics();
+            cursorY = resumeY ?? contentTop;
+        }
+
+        void AddPage()
+        {
+            var bounds = new DocRect(pageX, pageY, pageWidth, pageHeight);
+            var contentBounds = new DocRect(pageX + marginLeft, pageY + marginTop, pageContentWidth, pageHeight - marginTop - marginBottom);
+            pages.Add(new PageLayout(pageIndex, bounds, contentBounds));
+            pageSections.Add(sectionSettings);
+        }
+
+        void StartNewPage(PageSectionSettings? newSection = null)
+        {
+            pageIndex++;
+            pageY += pageHeight + settings.PageGap;
+            if (newSection is not null)
+            {
+                sectionSettings = newSection;
+                currentSectionIndex = newSection.SectionIndex;
+            }
+
+            ApplySectionSettings(sectionSettings, false);
+            AddPage();
+        }
+
+        void StartNewColumnOrPage()
+        {
+            if (columnCount > 1 && columnIndex + 1 < columnCount)
+            {
+                columnIndex++;
+                UpdateColumnMetrics();
+                cursorY = contentTop;
+                return;
+            }
+
+            StartNewPage();
+        }
+
+        int ResolveColumnIndex(float lineX)
+        {
+            if (columnOffsets.Length == 0)
+            {
+                return 0;
+            }
+
+            var relativeX = lineX - (pageX + marginLeft);
+            for (var i = columnOffsets.Length - 1; i >= 0; i--)
+            {
+                if (relativeX >= columnOffsets[i] - 0.5f)
+                {
+                    return i;
+                }
+            }
+
+            return 0;
+        }
+
+        void ApplySectionBreak(SectionBreakType breakType, PageSectionSettings nextSection)
+        {
+            if (breakType == SectionBreakType.Continuous)
+            {
+                var resumeY = cursorY;
+                sectionSettings = nextSection;
+                currentSectionIndex = nextSection.SectionIndex;
+                ApplySectionSettings(sectionSettings, true, MathF.Max(resumeY, contentTop));
+                return;
+            }
+
+            if (breakType == SectionBreakType.NextColumn)
+            {
+                sectionSettings = nextSection;
+                currentSectionIndex = nextSection.SectionIndex;
+                ApplySectionSettings(sectionSettings, true, cursorY);
+                StartNewColumnOrPage();
+                return;
+            }
+
+            if (breakType is SectionBreakType.EvenPage or SectionBreakType.OddPage)
+            {
+                var nextPageIndex = pageIndex + 1;
+                var nextIsOdd = (nextPageIndex + 1) % 2 == 1;
+                var shouldBeOdd = breakType == SectionBreakType.OddPage;
+                if (nextIsOdd != shouldBeOdd)
+                {
+                    StartNewPage();
+                }
+            }
+
+            StartNewPage(nextSection);
+        }
+
+        void AddLine(LayoutLine line)
+        {
+            lines.Add(line);
+            linePageIndices.Add(pageIndex);
+            RegisterNoteReferences(line);
+        }
+
+        void RegisterNoteReferences(LayoutLine line)
+        {
+            if (line.ParagraphIndex < 0)
+            {
+                return;
+            }
+
+            if (!scanState.NoteReferencesByParagraph.TryGetValue(line.ParagraphIndex, out var references))
+            {
+                return;
+            }
+
+            var lineEnd = line.StartOffset + line.Length;
+            foreach (var reference in references)
+            {
+                if (reference.Offset < line.StartOffset || reference.Offset >= lineEnd)
+                {
+                    continue;
+                }
+
+                var map = reference.Kind == NoteKind.Footnote ? footnotesByPage : endnotesByPage;
+                if (!map.TryGetValue(pageIndex, out var set))
+                {
+                    set = new HashSet<int>();
+                    map[pageIndex] = set;
+                }
+
+                set.Add(reference.Id);
+            }
+        }
+
+        void AddTableLines(TableLayout tableLayout)
+        {
+            if (tableLayout.Cells.Count == 0)
+            {
+                return;
+            }
+
+            var tableLines = new List<TableCellLine>();
+            foreach (var cell in tableLayout.Cells)
+            {
+                if (cell.Lines.Count == 0)
+                {
+                    continue;
+                }
+
+                tableLines.AddRange(cell.Lines);
+            }
+
+            if (tableLines.Count == 0)
+            {
+                return;
+            }
+
+            tableLines.Sort(static (left, right) =>
+            {
+                var paragraphCompare = left.ParagraphIndex.CompareTo(right.ParagraphIndex);
+                if (paragraphCompare != 0)
+                {
+                    return paragraphCompare;
+                }
+
+                var offsetCompare = left.StartOffset.CompareTo(right.StartOffset);
+                if (offsetCompare != 0)
+                {
+                    return offsetCompare;
+                }
+
+                return left.Y.CompareTo(right.Y);
+            });
+
+            var currentParagraph = -1;
+            var paragraphLineStart = 0;
+            foreach (var line in tableLines)
+            {
+                if (line.ParagraphIndex != currentParagraph)
+                {
+                    if (currentParagraph >= 0)
+                    {
+                        paragraphLineRanges[currentParagraph] = new LineRange(paragraphLineStart, lines.Count - paragraphLineStart);
+                    }
+
+                    currentParagraph = line.ParagraphIndex;
+                    paragraphLineStart = lines.Count;
+                }
+
+                AddLine(new LayoutLine(
+                    line.ParagraphIndex,
+                    line.StartOffset,
+                    line.Length,
+                    line.X,
+                    line.Y,
+                    line.Width,
+                    line.Text,
+                    line.Prefix,
+                    line.PrefixWidth,
+                    line.LineHeight,
+                    line.Ascent,
+                    line.Runs,
+                    line.Images,
+                    true));
+            }
+
+            if (currentParagraph >= 0)
+            {
+                paragraphLineRanges[currentParagraph] = new LineRange(paragraphLineStart, lines.Count - paragraphLineStart);
+            }
+        }
+
+        static bool AreSettingsCompatible(LayoutSettings current, LayoutSettings previous)
+        {
+            const float epsilon = 0.01f;
+            return current.UsePagination == previous.UsePagination
+                   && MathF.Abs(current.ViewportWidth - previous.ViewportWidth) < epsilon
+                   && MathF.Abs(current.ViewportHeight - previous.ViewportHeight) < epsilon
+                   && MathF.Abs(current.PageWidth - previous.PageWidth) < epsilon
+                   && MathF.Abs(current.PageHeight - previous.PageHeight) < epsilon
+                   && MathF.Abs(current.PageGap - previous.PageGap) < epsilon
+                   && MathF.Abs(current.MarginLeft - previous.MarginLeft) < epsilon
+                   && MathF.Abs(current.MarginTop - previous.MarginTop) < epsilon
+                   && MathF.Abs(current.MarginRight - previous.MarginRight) < epsilon
+                   && MathF.Abs(current.MarginBottom - previous.MarginBottom) < epsilon
+                   && MathF.Abs(current.HeaderOffset - previous.HeaderOffset) < epsilon
+                   && MathF.Abs(current.FooterOffset - previous.FooterOffset) < epsilon
+                   && MathF.Abs(current.ParagraphSpacing - previous.ParagraphSpacing) < epsilon
+                   && MathF.Abs(current.BlockSpacing - previous.BlockSpacing) < epsilon
+                   && MathF.Abs(current.ListIndent - previous.ListIndent) < epsilon
+                   && MathF.Abs(current.ListMarkerGap - previous.ListMarkerGap) < epsilon
+                   && MathF.Abs(current.DefaultTabWidth - previous.DefaultTabWidth) < epsilon
+                   && MathF.Abs(current.ColumnGap - previous.ColumnGap) < epsilon
+                   && MathF.Abs(current.TableCellPadding - previous.TableCellPadding) < epsilon
+                   && MathF.Abs(current.TableBorderThickness - previous.TableBorderThickness) < epsilon;
+        }
+
+        void WarmListState(int blockLimit)
+        {
+            for (var i = 0; i < blockLimit && i < blocks.Count; i++)
+            {
+                if (blocks[i] is not ParagraphBlock paragraph)
+                {
+                    continue;
+                }
+
+                var paragraphStyle = styleResolver.ResolveParagraphTextStyle(paragraph, style);
+                listState.GetMarker(paragraph.ListInfo, settings, measurer, paragraphStyle);
+            }
+        }
+
+        bool TryReusePrefix(DocumentLayout previous, int dirtyParagraph)
+        {
+            if (dirtyParagraph < 0 || document.ParagraphCount == 0)
+            {
+                return false;
+            }
+
+            if (dirtyParagraph >= document.ParagraphCount)
+            {
+                dirtyParagraph = document.ParagraphCount - 1;
+            }
+
+            if (previous.Lines.Count == 0 || previous.Pages.Count == 0)
+            {
+                return false;
+            }
+
+            if (previous.PageSections.Count != previous.Pages.Count)
+            {
+                return false;
+            }
+
+            if (!AreSettingsCompatible(settings, previous.Settings))
+            {
+                return false;
+            }
+
+            document.GetParagraph(dirtyParagraph, out var dirtyBlockIndex);
+            var startParagraphIndex = dirtyParagraph;
+            var startBlockIndex = dirtyBlockIndex;
+
+            if (dirtyBlockIndex > 0 && blocks[dirtyBlockIndex - 1] is ParagraphBlock previousParagraph)
+            {
+                var previousProperties = styleResolver.ResolveParagraphProperties(previousParagraph);
+                if (previousProperties.KeepWithNext == true)
+                {
+                    startParagraphIndex = Math.Max(0, dirtyParagraph - 1);
+                    startBlockIndex = dirtyBlockIndex - 1;
+                }
+            }
+
+            if (!previous.ParagraphLineRanges.TryGetValue(startParagraphIndex, out var range) || range.Count == 0)
+            {
+                return false;
+            }
+
+            var startLineIndex = range.Start;
+            if (startLineIndex < 0 || startLineIndex >= previous.Lines.Count)
+            {
+                return false;
+            }
+
+            var startPageIndex = previous.LineIndex.GetPageForLine(startLineIndex);
+            if (startPageIndex < 0 || startPageIndex >= previous.Pages.Count)
+            {
+                return false;
+            }
+
+            var startParagraph = document.GetParagraph(startParagraphIndex, out startBlockIndex);
+            blockStartIndex = startBlockIndex;
+            paragraphIndex = startParagraphIndex;
+
+            for (var i = 0; i < startLineIndex; i++)
+            {
+                lines.Add(previous.Lines[i]);
+                linePageIndices.Add(previous.LineIndex.GetPageForLine(i));
+            }
+
+            foreach (var pair in previous.ParagraphLineRanges)
+            {
+                if (pair.Key < startParagraphIndex)
+                {
+                    paragraphLineRanges[pair.Key] = pair.Value;
+                }
+            }
+
+            for (var i = 0; i <= startPageIndex; i++)
+            {
+                pages.Add(previous.Pages[i]);
+                pageSections.Add(previous.PageSections[i]);
+            }
+
+            sectionSettings = pageSections[startPageIndex];
+            currentSectionIndex = sectionSettings.SectionIndex;
+            pageIndex = startPageIndex;
+            pageY = pages[startPageIndex].Bounds.Y;
+
+            ApplySectionSettings(sectionSettings, true);
+            columnIndex = ResolveColumnIndex(previous.Lines[startLineIndex].X);
+            UpdateColumnMetrics();
+
+            var paragraphProperties = styleResolver.ResolveParagraphProperties(startParagraph);
+            var spacingBefore = paragraphProperties.SpacingBefore ?? settings.ParagraphSpacing;
+            var resumeY = previous.Lines[startLineIndex].Y - spacingBefore;
+            cursorY = MathF.Max(contentTop, resumeY);
+
+            WarmListState(blockStartIndex);
+
+            var tableLimit = cursorY + 0.5f;
+            foreach (var table in previous.Tables)
+            {
+                if (table.Bounds.Bottom <= tableLimit)
+                {
+                    tables.Add(table);
+                }
+            }
+
+            return true;
+        }
+
+        var reusedPrefix = previousLayout is not null
+            && dirtyParagraphIndex.HasValue
+            && TryReusePrefix(previousLayout, dirtyParagraphIndex.Value);
+
+        if (!reusedPrefix)
+        {
+            ApplySectionSettings(sectionSettings, false);
+            AddPage();
+        }
+
+        for (var blockIndex = blockStartIndex; blockIndex < blocks.Count; blockIndex++)
+        {
+            var block = blocks[blockIndex];
+            if (block is PageBreakBlock)
+            {
+                StartNewPage();
+                continue;
+            }
+
+            if (block is ColumnBreakBlock)
+            {
+                StartNewColumnOrPage();
+                continue;
+            }
+
+            if (block is SectionBreakBlock sectionBreak)
+            {
+                var nextSectionIndex = sectionBreak.SectionIndex
+                    ?? (currentSectionIndex + 1 < document.SectionCount ? currentSectionIndex + 1 : currentSectionIndex);
+                var section = document.GetSection(nextSectionIndex);
+                var nextSettings = PageSectionSettings.FromSettings(settings, section.Properties, nextSectionIndex);
+                if (sectionBreak.SectionIndex is null && sectionBreak.Properties.HasValues)
+                {
+                    nextSettings = nextSettings.ApplyOverrides(sectionBreak.Properties);
+                }
+
+                ApplySectionBreak(sectionBreak.BreakType, nextSettings);
+                continue;
+            }
+
+            if (block is ParagraphBlock paragraph)
+            {
+                var properties = styleResolver.ResolveParagraphProperties(paragraph);
+                var paragraphStyle = styleResolver.ResolveParagraphTextStyle(paragraph, style);
+                var paragraphLineStart = lines.Count;
+                if (properties.PageBreakBefore == true && cursorY > contentTop + 0.5f)
+                {
+                    StartNewPage();
+                }
+                var spacingBefore = properties.SpacingBefore ?? settings.ParagraphSpacing;
+                if (properties.ContextualSpacing == true && blockIndex > 0 && blocks[blockIndex - 1] is ParagraphBlock previousParagraph)
+                {
+                    var previousStyleId = previousParagraph.StyleId ?? document.Styles.DefaultParagraphStyleId;
+                    var currentStyleId = paragraph.StyleId ?? document.Styles.DefaultParagraphStyleId;
+                    if (!string.IsNullOrWhiteSpace(currentStyleId)
+                        && string.Equals(previousStyleId, currentStyleId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        spacingBefore = 0f;
+                    }
+                }
+                var spacingAfter = properties.SpacingAfter ?? settings.ParagraphSpacing;
+                var indentLeft = properties.IndentLeft ?? 0f;
+                var indentRight = properties.IndentRight ?? 0f;
+                var firstLineIndent = properties.FirstLineIndent ?? 0f;
+
+                var listMarker = listState.GetMarker(paragraph.ListInfo, settings, measurer, paragraphStyle);
+                var prefix = listMarker?.Prefix;
+                var listIndent = listMarker?.Indent ?? 0f;
+                var prefixWidth = listMarker?.PrefixWidth ?? 0f;
+
+                var keepWithNext = properties.KeepWithNext == true;
+                var keepLinesTogether = properties.KeepLinesTogether == true;
+                var widowControl = properties.WidowControl ?? true;
+
+                var (text, spans) = BuildInlineSpans(paragraph, paragraphStyle, styleResolver);
+                var paragraphLines = BuildParagraphLines(
+                    text,
+                    spans,
+                    indentLeft,
+                    indentRight,
+                    firstLineIndent,
+                    listIndent,
+                    prefixWidth,
+                    properties,
+                    columnWidth,
+                    settings,
+                    measurer,
+                    lineHeight,
+                    ascent);
+
+                if (paragraphLines.Count == 0)
+                {
+                    var lineX = columnX + indentLeft + listIndent + firstLineIndent + prefixWidth;
+                    var (emptyLineHeight, emptyAscent) = ApplyLineSpacing(lineHeight, ascent, properties);
+                    if (cursorY + spacingBefore + emptyLineHeight > contentBottom && cursorY > contentTop)
+                    {
+                        StartNewColumnOrPage();
+                    }
+
+                    cursorY += spacingBefore;
+                    AddLine(new LayoutLine(paragraphIndex, 0, 0, lineX, cursorY, 0, string.Empty, prefix, prefixWidth, emptyLineHeight, emptyAscent, Array.Empty<LayoutRun>(), Array.Empty<LayoutImage>()));
+                    cursorY += emptyLineHeight;
+                    paragraphIndex++;
+                    cursorY += spacingAfter;
+                    var paragraphLineCount = lines.Count - paragraphLineStart;
+                    paragraphLineRanges[paragraphIndex - 1] = new LineRange(paragraphLineStart, paragraphLineCount);
+                    continue;
+                }
+
+                var paragraphHeight = paragraphLines.Sum(line => line.Layout.LineHeight);
+                var paragraphTotalHeight = spacingBefore + paragraphHeight + spacingAfter;
+                var pageContentHeight = contentBottom - contentTop;
+                var nextBlockMinHeight = keepWithNext
+                    ? EstimateNextBlockMinHeight(blockIndex, blocks, document, styleResolver, settings, measurer, style, columnWidth, lineHeight, ascent)
+                    : 0f;
+
+                if ((keepLinesTogether || keepWithNext)
+                    && paragraphTotalHeight + nextBlockMinHeight <= pageContentHeight
+                    && cursorY + paragraphTotalHeight + nextBlockMinHeight > contentBottom
+                    && cursorY > contentTop)
+                {
+                    StartNewColumnOrPage();
+                }
+
+                var spacingBeforeApplied = false;
+                var lineIndex = 0;
+                while (lineIndex < paragraphLines.Count)
+                {
+                    if (!spacingBeforeApplied)
+                    {
+                        var firstLineHeight = paragraphLines[lineIndex].Layout.LineHeight;
+                        if (cursorY + spacingBefore + firstLineHeight > contentBottom && cursorY > contentTop)
+                        {
+                            StartNewColumnOrPage();
+                        }
+
+                        cursorY += spacingBefore;
+                        spacingBeforeApplied = true;
+                    }
+
+                    var availableHeight = contentBottom - cursorY;
+                    var linesToFit = CountParagraphLinesThatFit(paragraphLines, lineIndex, availableHeight);
+                    if (linesToFit == 0)
+                    {
+                        if (cursorY <= contentTop + 0.5f)
+                        {
+                            linesToFit = 1;
+                        }
+                        else
+                        {
+                            StartNewColumnOrPage();
+                            continue;
+                        }
+                    }
+
+                    if (widowControl && paragraphLines.Count >= 2)
+                    {
+                        var remaining = paragraphLines.Count - lineIndex;
+                        var isAtPageTop = cursorY - spacingBefore <= contentTop + 0.5f;
+                        if (linesToFit < 2 && remaining > 2 && !isAtPageTop)
+                        {
+                            StartNewColumnOrPage();
+                            continue;
+                        }
+
+                        var remainingAfter = remaining - linesToFit;
+                        if (remainingAfter > 0 && remainingAfter < 2)
+                        {
+                            var adjusted = remaining - 2;
+                            if (adjusted >= 2)
+                            {
+                                linesToFit = adjusted;
+                            }
+                            else if (lineIndex > 0 && !isAtPageTop)
+                            {
+                                StartNewColumnOrPage();
+                                continue;
+                            }
+                        }
+                    }
+
+                    for (var i = 0; i < linesToFit; i++)
+                    {
+                        var line = paragraphLines[lineIndex + i];
+                        var lineIndent = indentLeft + listIndent + (line.IsFirstLine ? firstLineIndent : 0f);
+                        var lineBaseX = columnX + lineIndent + prefixWidth;
+                        var alignment = properties.Alignment;
+                        if (!alignment.HasValue && properties.Bidi == true)
+                        {
+                            alignment = ParagraphAlignment.Right;
+                        }
+                        var alignedX = ApplyAlignment(lineBaseX, line.Layout.Width, columnWidth - lineIndent - indentRight - prefixWidth, alignment);
+                        AddLine(new LayoutLine(
+                            paragraphIndex,
+                            line.Start,
+                            line.Length,
+                            alignedX,
+                            cursorY,
+                            line.Layout.Width,
+                            line.Text,
+                            line.IsFirstLine ? prefix : null,
+                            line.IsFirstLine ? prefixWidth : 0f,
+                            line.Layout.LineHeight,
+                            line.Layout.Ascent,
+                            line.Layout.Runs,
+                            line.Layout.Images));
+                        cursorY += line.Layout.LineHeight;
+                    }
+
+                    lineIndex += linesToFit;
+                }
+
+                paragraphIndex++;
+                cursorY += spacingAfter;
+                var paragraphLineCountFinal = lines.Count - paragraphLineStart;
+                paragraphLineRanges[paragraphIndex - 1] = new LineRange(paragraphLineStart, paragraphLineCountFinal);
+                continue;
+            }
+
+            if (block is TableBlock table)
+            {
+                var tableX = columnX;
+                var tableStyle = styleResolver.ResolveTableStyle(table);
+                var resolvedTableProperties = MergeTableProperties(tableStyle?.TableProperties, table.Properties);
+                var tableLook = ResolveTableLook(table.Properties.Look ?? tableStyle?.TableProperties.Look);
+                var data = ComputeTableLayoutData(table, document, resolvedTableProperties, table.Properties, tableStyle, tableLook, columnWidth, settings, measurer, style, styleResolver, lineHeight, ascent, ref paragraphIndex);
+                var rowStart = 0;
+                var totalRows = data.RowHeights.Length;
+                if (totalRows == 0)
+                {
+                    var emptyLayout = BuildTableLayout(table, resolvedTableProperties, data, tableX, cursorY, 0, 0, settings);
+                    tables.Add(emptyLayout);
+                    cursorY += emptyLayout.Bounds.Height + settings.BlockSpacing;
+                    continue;
+                }
+
+                while (rowStart < totalRows)
+                {
+                    var availableHeight = contentBottom - cursorY;
+                    if (availableHeight <= 0f && cursorY > contentTop)
+                    {
+                        StartNewColumnOrPage();
+                        tableX = columnX;
+                        availableHeight = contentBottom - cursorY;
+                    }
+
+                    var rowsToFit = CountRowsToFit(data.RowHeights, rowStart, availableHeight);
+                    if (rowsToFit == 0)
+                    {
+                        rowsToFit = Math.Min(1, totalRows - rowStart);
+                    }
+
+                    var tableLayout = BuildTableLayout(table, resolvedTableProperties, data, tableX, cursorY, rowStart, rowsToFit, settings);
+                    tables.Add(tableLayout);
+                    AddTableLines(tableLayout);
+                    cursorY += tableLayout.Bounds.Height + settings.BlockSpacing;
+                    rowStart += rowsToFit;
+
+                    if (rowStart < totalRows)
+                    {
+                        StartNewColumnOrPage();
+                        tableX = columnX;
+                    }
+                }
+            }
+        }
+
+        var hasHeaderFooter = document.Sections.Count == 0
+            ? document.Header.Blocks.Count > 0 || document.Footer.Blocks.Count > 0
+            : document.Sections.Any(section => section.Header.Blocks.Count > 0 || section.Footer.Blocks.Count > 0);
+
+        if (hasHeaderFooter)
+        {
+            var totalPages = Math.Max(1, pages.Count);
+            for (var i = 0; i < pages.Count; i++)
+            {
+                var page = pages[i];
+                var section = pageSections[i];
+                var sectionInfo = document.GetSection(section.SectionIndex);
+                if (sectionInfo.Header.Blocks.Count == 0 && sectionInfo.Footer.Blocks.Count == 0)
+                {
+                    continue;
+                }
+
+                var pageNumber = page.Index + 1;
+                var headerFooterContentWidth = MathF.Max(1f, page.Bounds.Width - section.MarginLeft - section.MarginRight);
+                var headerLayout = LayoutHeaderFooterBlocks(
+                    sectionInfo.Header.Blocks,
+                    document,
+                    settings,
+                    measurer,
+                    style,
+                    styleResolver,
+                    headerFooterContentWidth,
+                    lineHeight,
+                    ascent,
+                    pageNumber,
+                    totalPages);
+                var footerLayout = LayoutHeaderFooterBlocks(
+                    sectionInfo.Footer.Blocks,
+                    document,
+                    settings,
+                    measurer,
+                    style,
+                    styleResolver,
+                    headerFooterContentWidth,
+                    lineHeight,
+                    ascent,
+                    pageNumber,
+                    totalPages);
+
+                var headerTop = page.Bounds.Y + section.HeaderOffset;
+                var footerTop = page.Bounds.Bottom - section.FooterOffset - footerLayout.Height;
+                var headerLines = OffsetHeaderFooterLines(headerLayout.Lines, page.Bounds.X + section.MarginLeft, headerTop);
+                var footerLines = OffsetHeaderFooterLines(footerLayout.Lines, page.Bounds.X + section.MarginLeft, footerTop);
+                headerFooters.Add(new HeaderFooterLayout(page.Index, headerLines, footerLines));
+            }
+        }
+
+        var footnotes = BuildFootnoteLayouts(
+            document,
+            pages,
+            pageSections,
+            headerFooters,
+            footnotesByPage,
+            endnotesByPage,
+            settings,
+            measurer,
+            style,
+            styleResolver,
+            lineHeight,
+            ascent);
+
+        var commentHighlightsByParagraph = scanState.BuildCommentHighlights();
+        var contentHeight = pages.Count == 0
+            ? cursorY + marginBottom
+            : pages.Last().Bounds.Bottom + settings.PageGap;
+
+        var lineIndexMap = new LineIndex(lines, linePageIndices, pages);
+        return new DocumentLayout(settings.Clone(), lines, tables, pages, headerFooters, footnotes, pageSections, lineIndexMap, paragraphLineRanges, commentHighlightsByParagraph, lineHeight, ascent, contentHeight);
+    }
+    private static TableLayout LayoutTable(
+        Document document,
+        TableBlock table,
+        float tableX,
+        float tableY,
+        float contentWidth,
+        LayoutSettings settings,
+        ITextMeasurer measurer,
+        TextStyle style,
+        DocumentStyleResolver styleResolver,
+        float lineHeight,
+        float ascent)
+    {
+        var tableStyle = styleResolver.ResolveTableStyle(table);
+        var resolvedTableProperties = MergeTableProperties(tableStyle?.TableProperties, table.Properties);
+        var tableLook = ResolveTableLook(table.Properties.Look ?? tableStyle?.TableProperties.Look);
+        var paragraphIndex = 0;
+        var data = ComputeTableLayoutData(table, document, resolvedTableProperties, table.Properties, tableStyle, tableLook, contentWidth, settings, measurer, style, styleResolver, lineHeight, ascent, ref paragraphIndex);
+        return BuildTableLayout(table, resolvedTableProperties, data, tableX, tableY, 0, data.RowHeights.Length, settings);
+    }
+
+    private sealed class TableCellPlacement
+    {
+        public TableCellPlacement(TableCell cell, int rowIndex, int columnIndex, int columnSpan)
+        {
+            Cell = cell;
+            RowIndex = rowIndex;
+            ColumnIndex = columnIndex;
+            ColumnSpan = columnSpan;
+        }
+
+        public TableCell Cell { get; }
+        public int RowIndex { get; }
+        public int ColumnIndex { get; }
+        public int ColumnSpan { get; }
+        public int RowSpan { get; set; } = 1;
+        public TableCellPlacement? MergeOrigin { get; set; }
+        public TableCellProperties Properties { get; set; } = new TableCellProperties();
+        public List<TableCellLine> Lines { get; set; } = new List<TableCellLine>();
+        public float Padding { get; set; }
+        public float ContentHeight { get; set; }
+        public bool IsMergeContinuation => MergeOrigin is not null;
+    }
+
+    private sealed record TableLayoutData(
+        float[] ColumnWidths,
+        float[] RowHeights,
+        List<TableCellPlacement> Cells,
+        int Columns,
+        int Rows);
+
+    private static TableLayoutData ComputeTableLayoutData(
+        TableBlock table,
+        Document document,
+        TableProperties resolvedTableProperties,
+        TableProperties directTableProperties,
+        TableStyleDefinition? tableStyle,
+        TableLook tableLook,
+        float contentWidth,
+        LayoutSettings settings,
+        ITextMeasurer measurer,
+        TextStyle style,
+        DocumentStyleResolver styleResolver,
+        float lineHeight,
+        float ascent,
+        ref int paragraphIndex)
+    {
+        var rows = table.Rows;
+        var rowCount = rows.Count;
+        var columnCount = ResolveTableColumnCount(rows, resolvedTableProperties);
+        var columnWidths = ResolveColumnWidths(resolvedTableProperties, columnCount, contentWidth);
+        var rowHeights = new float[rowCount];
+        var rowCanExpand = new bool[rowCount];
+        var placements = new List<TableCellPlacement>();
+        var grid = new TableCellPlacement?[rowCount, columnCount];
+        var placementsByRow = new List<TableCellPlacement>[rowCount];
+
+        for (var rowIndex = 0; rowIndex < rowCount; rowIndex++)
+        {
+            placementsByRow[rowIndex] = new List<TableCellPlacement>();
+            var row = rows[rowIndex];
+            var columnIndex = 0;
+            foreach (var cell in row.Cells)
+            {
+                while (columnIndex < columnCount && grid[rowIndex, columnIndex] is not null)
+                {
+                    columnIndex++;
+                }
+
+                if (columnIndex >= columnCount)
+                {
+                    break;
+                }
+
+                var span = Math.Clamp(cell.ColumnSpan, 1, columnCount - columnIndex);
+                var placement = new TableCellPlacement(cell, rowIndex, columnIndex, span);
+                placements.Add(placement);
+                placementsByRow[rowIndex].Add(placement);
+                for (var i = 0; i < span; i++)
+                {
+                    grid[rowIndex, columnIndex + i] = placement;
+                }
+
+                columnIndex += span;
+            }
+        }
+
+        foreach (var placement in placements)
+        {
+            if (placement.Cell.VerticalMerge != TableCellVerticalMerge.Restart)
+            {
+                placement.RowSpan = 1;
+                continue;
+            }
+
+            var rowSpan = 1;
+            for (var nextRow = placement.RowIndex + 1; nextRow < rowCount; nextRow++)
+            {
+                var nextPlacement = grid[nextRow, placement.ColumnIndex];
+                if (nextPlacement is null || nextPlacement.Cell.VerticalMerge != TableCellVerticalMerge.Continue)
+                {
+                    break;
+                }
+
+                if (nextPlacement.ColumnSpan != placement.ColumnSpan)
+                {
+                    break;
+                }
+
+                if (nextPlacement.MergeOrigin is null)
+                {
+                    nextPlacement.MergeOrigin = placement;
+                }
+
+                rowSpan++;
+            }
+
+            placement.RowSpan = rowSpan;
+        }
+
+        for (var rowIndex = 0; rowIndex < rowCount; rowIndex++)
+        {
+            var row = rows[rowIndex];
+            var maxHeight = lineHeight + settings.TableCellPadding * 2;
+            foreach (var placement in placementsByRow[rowIndex])
+            {
+                var effectiveProperties = ResolveTableCellProperties(
+                    placement.Cell,
+                    directTableProperties,
+                    tableStyle,
+                    tableLook,
+                    rowIndex,
+                    placement.ColumnIndex,
+                    rowCount,
+                    columnCount);
+                placement.Properties = effectiveProperties;
+                placement.Padding = effectiveProperties.Padding ?? settings.TableCellPadding;
+
+                if (!placement.IsMergeContinuation)
+                {
+                    var spanWidth = SumColumns(columnWidths, placement.ColumnIndex, placement.ColumnSpan);
+                    var cellLines = LayoutCellParagraphs(placement.Cell, document, spanWidth, placement.Padding, settings, measurer, style, styleResolver, lineHeight, ascent, ref paragraphIndex);
+                    placement.Lines = cellLines;
+                    placement.ContentHeight = cellLines.Count == 0 ? 0f : cellLines.Last().Y + cellLines.Last().LineHeight;
+
+                    if (placement.RowSpan <= 1)
+                    {
+                        var cellHeight = placement.ContentHeight + placement.Padding * 2;
+                        maxHeight = MathF.Max(maxHeight, MathF.Max(lineHeight + placement.Padding * 2, cellHeight));
+                    }
+                }
+            }
+
+            rowCanExpand[rowIndex] = true;
+            if (row.Properties.Height.HasValue)
+            {
+                var height = MathF.Max(0f, row.Properties.Height.Value);
+                var rule = row.Properties.HeightRule ?? TableRowHeightRule.AtLeast;
+                if (rule == TableRowHeightRule.Exact)
+                {
+                    maxHeight = height;
+                    rowCanExpand[rowIndex] = false;
+                }
+                else
+                {
+                    maxHeight = MathF.Max(maxHeight, height);
+                }
+            }
+
+            rowHeights[rowIndex] = maxHeight;
+        }
+
+        foreach (var placement in placements)
+        {
+            if (placement.IsMergeContinuation || placement.RowSpan <= 1)
+            {
+                continue;
+            }
+
+            var requiredHeight = MathF.Max(lineHeight + placement.Padding * 2, placement.ContentHeight + placement.Padding * 2);
+            var startRow = placement.RowIndex;
+            var endRow = Math.Min(rowCount, startRow + placement.RowSpan);
+            var spanHeight = 0f;
+            for (var rowIndex = startRow; rowIndex < endRow; rowIndex++)
+            {
+                spanHeight += rowHeights[rowIndex];
+            }
+
+            if (requiredHeight > spanHeight)
+            {
+                var delta = requiredHeight - spanHeight;
+                var targetRow = -1;
+                for (var rowIndex = endRow - 1; rowIndex >= startRow; rowIndex--)
+                {
+                    if (rowCanExpand[rowIndex])
+                    {
+                        targetRow = rowIndex;
+                        break;
+                    }
+                }
+
+                if (targetRow < 0)
+                {
+                    targetRow = endRow - 1;
+                }
+
+                rowHeights[targetRow] += delta;
+            }
+        }
+
+        return new TableLayoutData(columnWidths, rowHeights, placements, columnCount, rowCount);
+    }
+
+    private static TableLayout BuildTableLayout(
+        TableBlock table,
+        TableProperties tableProperties,
+        TableLayoutData data,
+        float tableX,
+        float tableY,
+        int rowStart,
+        int rowCount,
+        LayoutSettings settings)
+    {
+        var columnCount = data.Columns;
+        var cellLayouts = new List<TableCellLayout>();
+        var columnOffsets = new float[columnCount];
+        var offset = 0f;
+        for (var i = 0; i < columnCount; i++)
+        {
+            columnOffsets[i] = offset;
+            offset += data.ColumnWidths[i];
+        }
+
+        var rowOffsets = new float[rowCount];
+        var rowOffset = 0f;
+        for (var i = 0; i < rowCount; i++)
+        {
+            rowOffsets[i] = rowOffset;
+            rowOffset += data.RowHeights[rowStart + i];
+        }
+
+        var proxyOrigins = new HashSet<(int Row, int Column)>();
+        foreach (var placement in data.Cells.OrderBy(cell => cell.RowIndex).ThenBy(cell => cell.ColumnIndex))
+        {
+            var localRowIndex = placement.RowIndex - rowStart;
+            if (localRowIndex < 0 || localRowIndex >= rowCount)
+            {
+                continue;
+            }
+
+            if (placement.IsMergeContinuation && placement.MergeOrigin is { } origin && origin.RowIndex < rowStart)
+            {
+                var key = (origin.RowIndex, origin.ColumnIndex);
+                if (!proxyOrigins.Add(key))
+                {
+                    continue;
+                }
+
+                var spanOffset = rowStart - origin.RowIndex;
+                var remainingSpan = Math.Max(1, origin.RowSpan - spanOffset);
+                var spanInChunk = Math.Min(remainingSpan, rowCount - localRowIndex);
+                var cellX = tableX + columnOffsets[origin.ColumnIndex];
+                var cellWidth = SumColumns(data.ColumnWidths, origin.ColumnIndex, origin.ColumnSpan);
+                var cellY = tableY + rowOffsets[localRowIndex];
+                var cellHeight = SumRows(data.RowHeights, rowStart + localRowIndex, spanInChunk);
+                var cellBounds = new DocRect(cellX, cellY, cellWidth, cellHeight);
+                cellLayouts.Add(new TableCellLayout(
+                    placement.RowIndex,
+                    origin.ColumnIndex,
+                    origin.ColumnSpan,
+                    spanInChunk,
+                    cellBounds,
+                    Array.Empty<TableCellLine>(),
+                    origin.Properties,
+                    origin.Padding,
+                    true,
+                    origin.RowIndex,
+                    origin.ColumnIndex));
+                continue;
+            }
+
+            if (placement.IsMergeContinuation)
+            {
+                continue;
+            }
+
+            var cellXOrigin = tableX + columnOffsets[placement.ColumnIndex];
+            var cellWidthOrigin = SumColumns(data.ColumnWidths, placement.ColumnIndex, placement.ColumnSpan);
+            var cellYOrigin = tableY + rowOffsets[localRowIndex];
+            var spanInPage = Math.Min(placement.RowSpan, rowCount - localRowIndex);
+            var cellHeightOrigin = SumRows(data.RowHeights, rowStart + localRowIndex, spanInPage);
+            var cellBoundsOrigin = new DocRect(cellXOrigin, cellYOrigin, cellWidthOrigin, cellHeightOrigin);
+            var lines = placement.Lines;
+            var offsetLines = new List<TableCellLine>(lines.Count);
+            var contentHeight = lines.Count == 0 ? 0f : lines.Last().Y + lines.Last().LineHeight;
+            var availableHeight = MathF.Max(0f, cellHeightOrigin - placement.Padding * 2);
+            var verticalOffset = 0f;
+            if (contentHeight < availableHeight)
+            {
+                verticalOffset = (placement.Properties.VerticalAlignment ?? TableCellVerticalAlignment.Top) switch
+                {
+                    TableCellVerticalAlignment.Center => (availableHeight - contentHeight) / 2f,
+                    TableCellVerticalAlignment.Bottom => availableHeight - contentHeight,
+                    _ => 0f
+                };
+            }
+
+            foreach (var line in lines)
+            {
+                offsetLines.Add(new TableCellLine(
+                    line.ParagraphIndex,
+                    line.StartOffset,
+                    line.Length,
+                    cellXOrigin + placement.Padding + line.X,
+                    cellYOrigin + placement.Padding + verticalOffset + line.Y,
+                    line.Width,
+                    line.Text,
+                    line.Prefix,
+                    line.PrefixWidth,
+                    line.LineHeight,
+                    line.Ascent,
+                    line.Runs,
+                    line.Images));
+            }
+
+            cellLayouts.Add(new TableCellLayout(
+                placement.RowIndex,
+                placement.ColumnIndex,
+                placement.ColumnSpan,
+                spanInPage,
+                cellBoundsOrigin,
+                offsetLines,
+                placement.Properties,
+                placement.Padding,
+                false,
+                placement.RowIndex,
+                placement.ColumnIndex));
+        }
+
+        var tableHeight = 0f;
+        for (var i = 0; i < rowCount; i++)
+        {
+            tableHeight += data.RowHeights[rowStart + i];
+        }
+
+        var tableBounds = new DocRect(tableX, tableY, data.ColumnWidths.Sum(), tableHeight);
+        var rowHeightsSlice = data.RowHeights.Skip(rowStart).Take(rowCount).ToArray();
+        return new TableLayout(tableBounds, rowCount, columnCount, data.ColumnWidths, rowHeightsSlice, cellLayouts, tableProperties);
+    }
+
+    private static int CountRowsToFit(float[] rowHeights, int rowStart, float maxHeight)
+    {
+        if (maxHeight <= 0f)
+        {
+            return 0;
+        }
+
+        var height = 0f;
+        var count = 0;
+        for (var i = rowStart; i < rowHeights.Length; i++)
+        {
+            var rowHeight = rowHeights[i];
+            if (count > 0 && height + rowHeight > maxHeight)
+            {
+                break;
+            }
+
+            if (count == 0 && rowHeight > maxHeight)
+            {
+                return 1;
+            }
+
+            height += rowHeight;
+            count++;
+        }
+
+        return count;
+    }
+
+    private static List<TableCellLine> LayoutCellParagraphs(
+        TableCell cell,
+        Document document,
+        float columnWidth,
+        float padding,
+        LayoutSettings settings,
+        ITextMeasurer measurer,
+        TextStyle style,
+        DocumentStyleResolver styleResolver,
+        float lineHeight,
+        float ascent,
+        ref int paragraphIndex)
+    {
+        var availableWidth = MathF.Max(1f, columnWidth - padding * 2);
+        var lines = new List<TableCellLine>();
+        var y = 0f;
+        var listState = new ListNumberingState(document);
+        ParagraphBlock? previousParagraph = null;
+
+        foreach (var paragraph in cell.Paragraphs)
+        {
+            var currentParagraphIndex = paragraphIndex;
+            var properties = styleResolver.ResolveParagraphProperties(paragraph);
+            var paragraphStyle = styleResolver.ResolveParagraphTextStyle(paragraph, style);
+            var spacingBefore = properties.SpacingBefore ?? settings.ParagraphSpacing;
+            if (properties.ContextualSpacing == true && previousParagraph is not null)
+            {
+                var previousStyleId = previousParagraph.StyleId ?? document.Styles.DefaultParagraphStyleId;
+                var currentStyleId = paragraph.StyleId ?? document.Styles.DefaultParagraphStyleId;
+                if (!string.IsNullOrWhiteSpace(currentStyleId)
+                    && string.Equals(previousStyleId, currentStyleId, StringComparison.OrdinalIgnoreCase))
+                {
+                    spacingBefore = 0f;
+                }
+            }
+            var spacingAfter = properties.SpacingAfter ?? settings.ParagraphSpacing;
+            var indentLeft = properties.IndentLeft ?? 0f;
+            var indentRight = properties.IndentRight ?? 0f;
+            var firstLineIndent = properties.FirstLineIndent ?? 0f;
+
+            var listMarker = listState.GetMarker(paragraph.ListInfo, settings, measurer, paragraphStyle);
+            var prefix = listMarker?.Prefix;
+            var listIndent = listMarker?.Indent ?? 0f;
+            var prefixWidth = listMarker?.PrefixWidth ?? 0f;
+
+            y += spacingBefore;
+
+            var (text, spans) = BuildInlineSpans(paragraph, paragraphStyle, styleResolver);
+            if (text.Length == 0)
+            {
+                var lineX = indentLeft + listIndent + firstLineIndent + prefixWidth;
+                var (emptyLineHeight, emptyAscent) = ApplyLineSpacing(lineHeight, ascent, properties);
+                lines.Add(new TableCellLine(
+                    currentParagraphIndex,
+                    0,
+                    0,
+                    lineX,
+                    y,
+                    0f,
+                    string.Empty,
+                    prefix,
+                    prefixWidth,
+                    emptyLineHeight,
+                    emptyAscent,
+                    Array.Empty<LayoutRun>(),
+                    Array.Empty<LayoutImage>()));
+                y += emptyLineHeight;
+                y += spacingAfter;
+                paragraphIndex++;
+                continue;
+            }
+
+            var baseWidth = MathF.Max(1f, availableWidth - indentLeft - indentRight - listIndent - prefixWidth);
+            var firstLineWidth = MathF.Max(1f, baseWidth - firstLineIndent);
+            var otherLineWidth = MathF.Max(1f, baseWidth);
+            var isFirstLine = true;
+            foreach (var line in WrapParagraph(text, firstLineWidth, otherLineWidth,
+                (start, length) => MeasureInlineSpans(spans, start, length, properties.TabStops, settings.DefaultTabWidth, measurer)))
+            {
+                var lineIndent = indentLeft + listIndent + (isFirstLine ? firstLineIndent : 0f);
+                var lineBaseX = lineIndent + prefixWidth;
+                var lineLayout = BuildLineLayout(
+                    spans,
+                    line.Start,
+                    line.Length,
+                    properties.TabStops,
+                    settings.DefaultTabWidth,
+                    measurer,
+                    lineHeight,
+                    ascent);
+                lineLayout = ApplyLineSpacing(lineLayout, properties);
+                var alignment = properties.Alignment;
+                if (!alignment.HasValue && properties.Bidi == true)
+                {
+                    alignment = ParagraphAlignment.Right;
+                }
+                var alignedX = ApplyAlignment(lineBaseX, lineLayout.Width, availableWidth - lineIndent - indentRight - prefixWidth, alignment);
+                lines.Add(new TableCellLine(
+                    currentParagraphIndex,
+                    line.Start,
+                    line.Length,
+                    alignedX,
+                    y,
+                    lineLayout.Width,
+                    line.Text,
+                    isFirstLine ? prefix : null,
+                    isFirstLine ? prefixWidth : 0f,
+                    lineLayout.LineHeight,
+                    lineLayout.Ascent,
+                    lineLayout.Runs,
+                    lineLayout.Images));
+                y += lineLayout.LineHeight;
+                isFirstLine = false;
+            }
+
+            y += spacingAfter;
+            paragraphIndex++;
+            previousParagraph = paragraph;
+        }
+
+        return lines;
+    }
+
+    private static IEnumerable<(int Start, int Length, string Text)> WrapParagraph(
+        string text,
+        float firstLineWidth,
+        float otherLineWidth,
+        Func<int, int, float> measureWidth)
+    {
+        var start = 0;
+        var isFirstLine = true;
+        while (start < text.Length)
+        {
+            var maxWidth = isFirstLine ? firstLineWidth : otherLineWidth;
+            var length = 0;
+            var lastBreak = -1;
+            for (var i = start; i < text.Length; i++)
+            {
+                var ch = text[i];
+                if (ch == ' ' || ch == '\t')
+                {
+                    lastBreak = i;
+                }
+
+                var width = measureWidth(start, i - start + 1);
+                if (width > maxWidth && i > start)
+                {
+                    length = lastBreak >= start ? lastBreak - start : i - start;
+                    break;
+                }
+
+                length = i - start + 1;
+            }
+
+            if (length <= 0)
+            {
+                length = Math.Min(1, text.Length - start);
+            }
+
+            var lineText = text.Substring(start, length);
+            yield return (start, length, lineText);
+
+            start += length;
+            isFirstLine = false;
+            while (start < text.Length && text[start] == ' ')
+            {
+                start++;
+            }
+        }
+    }
+
+    private static List<ParagraphLine> BuildParagraphLines(
+        string text,
+        IReadOnlyList<InlineSpan> spans,
+        float indentLeft,
+        float indentRight,
+        float firstLineIndent,
+        float listIndent,
+        float prefixWidth,
+        ParagraphProperties properties,
+        float contentWidth,
+        LayoutSettings settings,
+        ITextMeasurer measurer,
+        float lineHeight,
+        float ascent)
+    {
+        var lines = new List<ParagraphLine>();
+        if (string.IsNullOrEmpty(text))
+        {
+            return lines;
+        }
+
+        var baseWidth = MathF.Max(1f, contentWidth - indentLeft - indentRight - listIndent - prefixWidth);
+        var firstLineWidth = MathF.Max(1f, baseWidth - firstLineIndent);
+        var otherLineWidth = MathF.Max(1f, baseWidth);
+        var isFirstLine = true;
+        foreach (var line in WrapParagraph(text, firstLineWidth, otherLineWidth,
+            (start, length) => MeasureInlineSpans(spans, start, length, properties.TabStops, settings.DefaultTabWidth, measurer)))
+        {
+            var lineLayout = BuildLineLayout(
+                spans,
+                line.Start,
+                line.Length,
+                properties.TabStops,
+                settings.DefaultTabWidth,
+                measurer,
+                lineHeight,
+                ascent);
+            lineLayout = ApplyLineSpacing(lineLayout, properties);
+            lines.Add(new ParagraphLine(line.Start, line.Length, line.Text, lineLayout, isFirstLine));
+            isFirstLine = false;
+        }
+
+        return lines;
+    }
+
+    private static int CountParagraphLinesThatFit(IReadOnlyList<ParagraphLine> lines, int startIndex, float availableHeight)
+    {
+        if (availableHeight <= 0f)
+        {
+            return 0;
+        }
+
+        var height = 0f;
+        var count = 0;
+        for (var i = startIndex; i < lines.Count; i++)
+        {
+            var lineHeight = lines[i].Layout.LineHeight;
+            if (count > 0 && height + lineHeight > availableHeight)
+            {
+                break;
+            }
+
+            if (count == 0 && lineHeight > availableHeight)
+            {
+                return 0;
+            }
+
+            height += lineHeight;
+            count++;
+        }
+
+        return count;
+    }
+
+    private static float EstimateNextBlockMinHeight(
+        int blockIndex,
+        IReadOnlyList<Block> blocks,
+        Document document,
+        DocumentStyleResolver styleResolver,
+        LayoutSettings settings,
+        ITextMeasurer measurer,
+        TextStyle defaultStyle,
+        float contentWidth,
+        float lineHeight,
+        float ascent)
+    {
+        if (blockIndex + 1 >= blocks.Count)
+        {
+            return 0f;
+        }
+
+        var nextBlock = blocks[blockIndex + 1];
+        if (nextBlock is PageBreakBlock || nextBlock is SectionBreakBlock || nextBlock is ColumnBreakBlock)
+        {
+            return 0f;
+        }
+
+        if (nextBlock is ParagraphBlock nextParagraph)
+        {
+            var properties = styleResolver.ResolveParagraphProperties(nextParagraph);
+            var paragraphStyle = styleResolver.ResolveParagraphTextStyle(nextParagraph, defaultStyle);
+            var spacingBefore = properties.SpacingBefore ?? settings.ParagraphSpacing;
+            var indentLeft = properties.IndentLeft ?? 0f;
+            var indentRight = properties.IndentRight ?? 0f;
+            var firstLineIndent = properties.FirstLineIndent ?? 0f;
+            var listIndent = nextParagraph.ListInfo is null ? 0f : settings.ListIndent * (nextParagraph.ListInfo.Level + 1);
+            var prefixWidth = 0f;
+
+            var (text, spans) = BuildInlineSpans(nextParagraph, paragraphStyle, styleResolver);
+            if (string.IsNullOrEmpty(text))
+            {
+                var (emptyLineHeight, _) = ApplyLineSpacing(lineHeight, ascent, properties);
+                return spacingBefore + emptyLineHeight;
+            }
+
+            var baseWidth = MathF.Max(1f, contentWidth - indentLeft - indentRight - listIndent - prefixWidth);
+            var firstLineWidth = MathF.Max(1f, baseWidth - firstLineIndent);
+            var otherLineWidth = MathF.Max(1f, baseWidth);
+            var firstLine = WrapParagraph(text, firstLineWidth, otherLineWidth,
+                (start, length) => MeasureInlineSpans(spans, start, length, properties.TabStops, settings.DefaultTabWidth, measurer))
+                .FirstOrDefault();
+            if (firstLine.Length == 0)
+            {
+                var (emptyLineHeight, _) = ApplyLineSpacing(lineHeight, ascent, properties);
+                return spacingBefore + emptyLineHeight;
+            }
+
+            var lineLayout = BuildLineLayout(
+                spans,
+                firstLine.Start,
+                firstLine.Length,
+                properties.TabStops,
+                settings.DefaultTabWidth,
+                measurer,
+                lineHeight,
+                ascent);
+            lineLayout = ApplyLineSpacing(lineLayout, properties);
+            return spacingBefore + lineLayout.LineHeight;
+        }
+
+        if (nextBlock is TableBlock table)
+        {
+            var tableStyle = styleResolver.ResolveTableStyle(table);
+            var resolvedTableProperties = MergeTableProperties(tableStyle?.TableProperties, table.Properties);
+            var tableLook = ResolveTableLook(table.Properties.Look ?? tableStyle?.TableProperties.Look);
+            var paragraphIndex = 0;
+            var data = ComputeTableLayoutData(table, document, resolvedTableProperties, table.Properties, tableStyle, tableLook, contentWidth, settings, measurer, defaultStyle, styleResolver, lineHeight, ascent, ref paragraphIndex);
+            return data.RowHeights.Length > 0 ? data.RowHeights[0] : lineHeight;
+        }
+
+        return 0f;
+    }
+
+    private static (string Text, List<InlineSpan> Spans) BuildInlineSpans(
+        ParagraphBlock paragraph,
+        TextStyle paragraphStyle,
+        DocumentStyleResolver styleResolver,
+        int? pageNumber = null,
+        int? totalPages = null)
+    {
+        var spansList = new List<InlineSpan>();
+        var builder = new System.Text.StringBuilder();
+        var contentControls = new List<ContentControlState>();
+
+        void AppendText(string text, TextStyle style)
+        {
+            if (string.IsNullOrEmpty(text))
+            {
+                return;
+            }
+
+            var (effectiveStyle, baselineOffset) = PrepareRunStyle(style);
+            AppendTextSpans(builder, spansList, text, effectiveStyle, baselineOffset);
+        }
+
+        void MarkContent()
+        {
+            if (contentControls.Count == 0)
+            {
+                return;
+            }
+
+            foreach (var state in contentControls)
+            {
+                state.HasContent = true;
+            }
+        }
+
+        void AppendContent(string text, TextStyle style)
+        {
+            if (string.IsNullOrEmpty(text))
+            {
+                return;
+            }
+
+            AppendText(text, style);
+            MarkContent();
+        }
+
+        if (paragraph.Inlines.Count == 0)
+        {
+            AppendText(paragraph.Text ?? string.Empty, paragraphStyle);
+            return (builder.ToString(), spansList);
+        }
+
+        foreach (var inline in paragraph.Inlines)
+        {
+            switch (inline)
+            {
+                case RunInline runInline:
+                {
+                    var text = runInline.GetText();
+                    if (text.Length == 0)
+                    {
+                        break;
+                    }
+
+                    var runStyle = styleResolver.ResolveRunStyle(paragraph, runInline, paragraphStyle);
+                    AppendContent(text, runStyle);
+                    break;
+                }
+                case ImageInline imageInline:
+                {
+                    var start = builder.Length;
+                    builder.Append(DocumentConstants.ObjectReplacementChar);
+                    spansList.Add(new InlineSpan(start, 1, string.Empty, paragraphStyle, imageInline, 0f));
+                    MarkContent();
+                    break;
+                }
+                case PageNumberInline pageNumberInline:
+                {
+                    var text = pageNumber?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty;
+                    if (text.Length == 0)
+                    {
+                        break;
+                    }
+
+                    AppendContent(text, pageNumberInline.Style?.Clone() ?? paragraphStyle);
+                    break;
+                }
+                case FootnoteReferenceInline footnoteReference:
+                {
+                    var text = footnoteReference.Id.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    var refStyle = styleResolver.ResolveRunStyle(footnoteReference.StyleId, footnoteReference.Style, paragraphStyle);
+                    refStyle.VerticalPosition = DocVerticalPosition.Superscript;
+                    AppendContent(text, refStyle);
+                    break;
+                }
+                case EndnoteReferenceInline endnoteReference:
+                {
+                    var text = endnoteReference.Id.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    var refStyle = styleResolver.ResolveRunStyle(endnoteReference.StyleId, endnoteReference.Style, paragraphStyle);
+                    refStyle.VerticalPosition = DocVerticalPosition.Superscript;
+                    AppendContent(text, refStyle);
+                    break;
+                }
+                case CommentReferenceInline commentReference:
+                {
+                    var text = commentReference.Id.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    var refStyle = styleResolver.ResolveRunStyle(commentReference.StyleId, commentReference.Style, paragraphStyle);
+                    refStyle.VerticalPosition = DocVerticalPosition.Superscript;
+                    AppendContent(text, refStyle);
+                    break;
+                }
+                case ContentControlStartInline controlStart:
+                {
+                    var placeholderText = ResolvePlaceholderText(controlStart.Properties);
+                    contentControls.Add(new ContentControlState(controlStart.Properties, paragraphStyle, placeholderText));
+                    break;
+                }
+                case ContentControlEndInline:
+                {
+                    if (contentControls.Count == 0)
+                    {
+                        break;
+                    }
+
+                    var state = contentControls[^1];
+                    contentControls.RemoveAt(contentControls.Count - 1);
+                    if (!state.HasContent && state.ShouldShowPlaceholder && !string.IsNullOrWhiteSpace(state.PlaceholderText))
+                    {
+                        AppendText(state.PlaceholderText, state.PlaceholderStyle);
+                        MarkContent();
+                    }
+
+                    break;
+                }
+                case FieldStartInline:
+                case FieldSeparatorInline:
+                case FieldEndInline:
+                case BookmarkStartInline:
+                case BookmarkEndInline:
+                case CommentRangeStartInline:
+                case CommentRangeEndInline:
+                    break;
+            }
+        }
+
+        var fullText = builder.ToString();
+        if (fullText.Length == 0)
+        {
+            AppendText(paragraph.Text ?? string.Empty, paragraphStyle);
+        }
+
+        return (builder.ToString(), spansList);
+    }
+
+    private const float SuperscriptScale = 0.65f;
+    private const float SubscriptScale = 0.65f;
+    private const float SuperscriptOffsetRatio = 0.35f;
+    private const float SubscriptOffsetRatio = 0.15f;
+    private const float SmallCapsScale = 0.8f;
+    private static readonly DocColor PlaceholderColor = new DocColor(150, 150, 150);
+
+    private static (TextStyle Style, float BaselineOffset) PrepareRunStyle(TextStyle style)
+    {
+        var effective = style.Clone();
+        var baselineOffset = 0f;
+        if (style.VerticalPosition == DocVerticalPosition.Superscript)
+        {
+            baselineOffset = style.FontSize * SuperscriptOffsetRatio;
+            effective.FontSize = MathF.Max(1f, style.FontSize * SuperscriptScale);
+        }
+        else if (style.VerticalPosition == DocVerticalPosition.Subscript)
+        {
+            baselineOffset = -style.FontSize * SubscriptOffsetRatio;
+            effective.FontSize = MathF.Max(1f, style.FontSize * SubscriptScale);
+        }
+
+        effective.VerticalPosition = DocVerticalPosition.Normal;
+        return (effective, baselineOffset);
+    }
+
+    private static TextStyle CreatePlaceholderStyle(TextStyle paragraphStyle)
+    {
+        var style = paragraphStyle.Clone();
+        style.Color = PlaceholderColor;
+        style.FontStyle = DocFontStyle.Italic;
+        return style;
+    }
+
+    private static string ResolvePlaceholderText(ContentControlProperties properties)
+    {
+        if (!string.IsNullOrWhiteSpace(properties.Placeholder))
+        {
+            return properties.Placeholder;
+        }
+
+        if (!string.IsNullOrWhiteSpace(properties.Alias))
+        {
+            return properties.Alias;
+        }
+
+        if (!string.IsNullOrWhiteSpace(properties.Tag))
+        {
+            return properties.Tag;
+        }
+
+        return "Content Control";
+    }
+
+    private static void AppendTextSpans(
+        System.Text.StringBuilder builder,
+        List<InlineSpan> spans,
+        string text,
+        TextStyle style,
+        float baselineOffset)
+    {
+        if (string.IsNullOrEmpty(text))
+        {
+            return;
+        }
+
+        if (!style.SmallCaps)
+        {
+            var start = builder.Length;
+            builder.Append(text);
+            spans.Add(new InlineSpan(start, text.Length, text, style, null, baselineOffset));
+            return;
+        }
+
+        var normalStyle = style.Clone();
+        normalStyle.SmallCaps = false;
+        var smallCapsStyle = style.Clone();
+        smallCapsStyle.SmallCaps = false;
+        smallCapsStyle.FontSize = MathF.Max(1f, style.FontSize * SmallCapsScale);
+
+        var segmentBuilder = new System.Text.StringBuilder();
+        bool? currentSmallCaps = null;
+        var segmentStart = builder.Length;
+
+        void FlushSegment()
+        {
+            if (segmentBuilder.Length == 0 || currentSmallCaps is null)
+            {
+                return;
+            }
+
+            var segmentText = segmentBuilder.ToString();
+            var segmentStyle = currentSmallCaps.Value ? smallCapsStyle : normalStyle;
+            spans.Add(new InlineSpan(segmentStart, segmentText.Length, segmentText, segmentStyle, null, baselineOffset));
+            segmentBuilder.Clear();
+        }
+
+        foreach (var ch in text)
+        {
+            var isLower = char.IsLetter(ch) && char.IsLower(ch);
+            if (currentSmallCaps.HasValue && currentSmallCaps.Value != isLower)
+            {
+                FlushSegment();
+                currentSmallCaps = null;
+            }
+
+            if (!currentSmallCaps.HasValue)
+            {
+                currentSmallCaps = isLower;
+                segmentStart = builder.Length;
+            }
+
+            var outputChar = isLower ? char.ToUpperInvariant(ch) : ch;
+            segmentBuilder.Append(outputChar);
+            builder.Append(outputChar);
+        }
+
+        FlushSegment();
+    }
+
+    private enum NoteKind
+    {
+        Footnote,
+        Endnote
+    }
+
+    private sealed record NoteReference(int Offset, int Length, int Id, NoteKind Kind);
+
+    private sealed record CommentMarker(int Offset, int Id, bool IsStart);
+
+    private sealed record CommentRange(int Id, TextRange Range);
+
+    private sealed record InlineScanResult(int TextLength, List<NoteReference> NoteReferences, List<CommentMarker> CommentMarkers);
+
+    private static InlineScanResult ScanParagraphInlines(ParagraphBlock paragraph, int? pageNumber = null)
+    {
+        var noteReferences = new List<NoteReference>();
+        var commentMarkers = new List<CommentMarker>();
+        var length = 0;
+
+        void AppendLength(string text)
+        {
+            if (string.IsNullOrEmpty(text))
+            {
+                return;
+            }
+
+            length += text.Length;
+        }
+
+        if (paragraph.Inlines.Count == 0)
+        {
+            length = paragraph.Text?.Length ?? 0;
+            return new InlineScanResult(length, noteReferences, commentMarkers);
+        }
+
+        foreach (var inline in paragraph.Inlines)
+        {
+            switch (inline)
+            {
+                case RunInline runInline:
+                    AppendLength(runInline.GetText());
+                    break;
+                case ImageInline:
+                    length += 1;
+                    break;
+                case PageNumberInline:
+                {
+                    var text = pageNumber?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty;
+                    AppendLength(text);
+                    break;
+                }
+                case FootnoteReferenceInline footnoteReference:
+                {
+                    var text = footnoteReference.Id.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    noteReferences.Add(new NoteReference(length, text.Length, footnoteReference.Id, NoteKind.Footnote));
+                    AppendLength(text);
+                    break;
+                }
+                case EndnoteReferenceInline endnoteReference:
+                {
+                    var text = endnoteReference.Id.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    noteReferences.Add(new NoteReference(length, text.Length, endnoteReference.Id, NoteKind.Endnote));
+                    AppendLength(text);
+                    break;
+                }
+                case CommentReferenceInline commentReference:
+                {
+                    var text = commentReference.Id.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    AppendLength(text);
+                    break;
+                }
+                case CommentRangeStartInline commentStart:
+                    commentMarkers.Add(new CommentMarker(length, commentStart.Id, true));
+                    break;
+                case CommentRangeEndInline commentEnd:
+                    commentMarkers.Add(new CommentMarker(length, commentEnd.Id, false));
+                    break;
+            }
+        }
+
+        if (length == 0)
+        {
+            length = paragraph.Text?.Length ?? 0;
+        }
+
+        return new InlineScanResult(length, noteReferences, commentMarkers);
+    }
+
+    private static (List<HeaderFooterLine> Lines, float Height) LayoutHeaderFooterBlocks(
+        IReadOnlyList<Block> blocks,
+        Document document,
+        LayoutSettings settings,
+        ITextMeasurer measurer,
+        TextStyle style,
+        DocumentStyleResolver styleResolver,
+        float contentWidth,
+        float lineHeight,
+        float ascent,
+        int pageNumber,
+        int totalPages)
+    {
+        if (blocks.Count == 0)
+        {
+            return (new List<HeaderFooterLine>(), 0f);
+        }
+
+        var lines = new List<HeaderFooterLine>();
+        var y = 0f;
+        var listState = new ListNumberingState(document);
+        ParagraphBlock? previousParagraph = null;
+
+        foreach (var block in blocks)
+        {
+            if (block is not ParagraphBlock paragraph)
+            {
+                continue;
+            }
+
+            var properties = styleResolver.ResolveParagraphProperties(paragraph);
+            var paragraphStyle = styleResolver.ResolveParagraphTextStyle(paragraph, style);
+            var spacingBefore = properties.SpacingBefore ?? settings.ParagraphSpacing;
+            if (properties.ContextualSpacing == true && previousParagraph is not null)
+            {
+                var previousStyleId = previousParagraph.StyleId ?? document.Styles.DefaultParagraphStyleId;
+                var currentStyleId = paragraph.StyleId ?? document.Styles.DefaultParagraphStyleId;
+                if (!string.IsNullOrWhiteSpace(currentStyleId)
+                    && string.Equals(previousStyleId, currentStyleId, StringComparison.OrdinalIgnoreCase))
+                {
+                    spacingBefore = 0f;
+                }
+            }
+            var spacingAfter = properties.SpacingAfter ?? settings.ParagraphSpacing;
+            var indentLeft = properties.IndentLeft ?? 0f;
+            var indentRight = properties.IndentRight ?? 0f;
+            var firstLineIndent = properties.FirstLineIndent ?? 0f;
+
+            var listMarker = listState.GetMarker(paragraph.ListInfo, settings, measurer, paragraphStyle);
+            var prefix = listMarker?.Prefix;
+            var listIndent = listMarker?.Indent ?? 0f;
+            var prefixWidth = listMarker?.PrefixWidth ?? 0f;
+
+            y += spacingBefore;
+
+            var (text, spans) = BuildInlineSpans(paragraph, paragraphStyle, styleResolver, pageNumber, totalPages);
+            if (text.Length == 0)
+            {
+                var lineX = indentLeft + listIndent + firstLineIndent + prefixWidth;
+                var (emptyLineHeight, emptyAscent) = ApplyLineSpacing(lineHeight, ascent, properties);
+                lines.Add(new HeaderFooterLine(lineX, y, 0f, string.Empty, prefix, prefixWidth, emptyLineHeight, emptyAscent, Array.Empty<LayoutRun>(), Array.Empty<LayoutImage>()));
+                y += emptyLineHeight;
+                y += spacingAfter;
+                continue;
+            }
+
+            var baseWidth = MathF.Max(1f, contentWidth - indentLeft - indentRight - listIndent - prefixWidth);
+            var firstLineWidth = MathF.Max(1f, baseWidth - firstLineIndent);
+            var otherLineWidth = MathF.Max(1f, baseWidth);
+            var isFirstLine = true;
+            foreach (var line in WrapParagraph(text, firstLineWidth, otherLineWidth,
+                (start, length) => MeasureInlineSpans(spans, start, length, properties.TabStops, settings.DefaultTabWidth, measurer)))
+            {
+                var lineIndent = indentLeft + listIndent + (isFirstLine ? firstLineIndent : 0f);
+                var lineBaseX = lineIndent + prefixWidth;
+                var lineLayout = BuildLineLayout(
+                    spans,
+                    line.Start,
+                    line.Length,
+                    properties.TabStops,
+                    settings.DefaultTabWidth,
+                    measurer,
+                    lineHeight,
+                    ascent);
+                lineLayout = ApplyLineSpacing(lineLayout, properties);
+                var alignment = properties.Alignment;
+                if (!alignment.HasValue && properties.Bidi == true)
+                {
+                    alignment = ParagraphAlignment.Right;
+                }
+                var alignedX = ApplyAlignment(lineBaseX, lineLayout.Width, contentWidth - lineIndent - indentRight - prefixWidth, alignment);
+                lines.Add(new HeaderFooterLine(
+                    alignedX,
+                    y,
+                    lineLayout.Width,
+                    line.Text,
+                    isFirstLine ? prefix : null,
+                    isFirstLine ? prefixWidth : 0f,
+                    lineLayout.LineHeight,
+                    lineLayout.Ascent,
+                    lineLayout.Runs,
+                    lineLayout.Images));
+                y += lineLayout.LineHeight;
+                isFirstLine = false;
+            }
+
+            y += spacingAfter;
+            previousParagraph = paragraph;
+        }
+
+        return (lines, y);
+    }
+
+    private static List<HeaderFooterLine> OffsetHeaderFooterLines(IReadOnlyList<HeaderFooterLine> lines, float offsetX, float offsetY)
+    {
+        if (lines.Count == 0)
+        {
+            return new List<HeaderFooterLine>();
+        }
+
+        var result = new List<HeaderFooterLine>(lines.Count);
+        foreach (var line in lines)
+        {
+            result.Add(line with { X = line.X + offsetX, Y = line.Y + offsetY });
+        }
+
+        return result;
+    }
+
+    private static List<FootnoteLayout> BuildFootnoteLayouts(
+        Document document,
+        IReadOnlyList<PageLayout> pages,
+        IReadOnlyList<PageSectionSettings> pageSections,
+        IReadOnlyList<HeaderFooterLayout> headerFooters,
+        IReadOnlyDictionary<int, HashSet<int>> footnotesByPage,
+        IReadOnlyDictionary<int, HashSet<int>> endnotesByPage,
+        LayoutSettings settings,
+        ITextMeasurer measurer,
+        TextStyle style,
+        DocumentStyleResolver styleResolver,
+        float lineHeight,
+        float ascent)
+    {
+        var footnoteLayouts = new List<FootnoteLayout>();
+        if (pages.Count == 0 || (footnotesByPage.Count == 0 && endnotesByPage.Count == 0))
+        {
+            return footnoteLayouts;
+        }
+
+        var headerFooterMap = headerFooters.ToDictionary(layout => layout.PageIndex);
+        var totalPages = Math.Max(1, pages.Count);
+
+        for (var pageIndex = 0; pageIndex < pages.Count; pageIndex++)
+        {
+            footnotesByPage.TryGetValue(pageIndex, out var footnoteIds);
+            endnotesByPage.TryGetValue(pageIndex, out var endnoteIds);
+            if ((footnoteIds is null || footnoteIds.Count == 0) && (endnoteIds is null || endnoteIds.Count == 0))
+            {
+                continue;
+            }
+
+            var blocks = new List<Block>();
+            if (footnoteIds is not null)
+            {
+                foreach (var id in footnoteIds.OrderBy(id => id))
+                {
+                    if (document.Footnotes.TryGetValue(id, out var definition))
+                    {
+                        blocks.AddRange(definition.Blocks);
+                    }
+                }
+            }
+
+            if (endnoteIds is not null)
+            {
+                foreach (var id in endnoteIds.OrderBy(id => id))
+                {
+                    if (document.Endnotes.TryGetValue(id, out var definition))
+                    {
+                        blocks.AddRange(definition.Blocks);
+                    }
+                }
+            }
+
+            if (blocks.Count == 0)
+            {
+                continue;
+            }
+
+            var page = pages[pageIndex];
+            var section = pageSections[Math.Clamp(pageIndex, 0, pageSections.Count - 1)];
+            var contentWidth = MathF.Max(1f, page.Bounds.Width - section.MarginLeft - section.MarginRight);
+            var pageNumber = page.Index + 1;
+            var layout = LayoutHeaderFooterBlocks(
+                blocks,
+                document,
+                settings,
+                measurer,
+                style,
+                styleResolver,
+                contentWidth,
+                lineHeight,
+                ascent,
+                pageNumber,
+                totalPages);
+
+            if (layout.Lines.Count == 0)
+            {
+                continue;
+            }
+
+            var footerTop = page.Bounds.Bottom - section.MarginBottom;
+            if (headerFooterMap.TryGetValue(pageIndex, out var headerFooter)
+                && headerFooter.FooterLines.Count > 0)
+            {
+                footerTop = headerFooter.FooterLines.Min(line => line.Y);
+            }
+
+            var footnoteTop = footerTop - layout.Height;
+            var offsetLines = OffsetHeaderFooterLines(layout.Lines, page.Bounds.X + section.MarginLeft, footnoteTop);
+            var separatorWidth = MathF.Min(120f, contentWidth * 0.25f);
+            var separatorX = page.Bounds.X + section.MarginLeft;
+            var separatorY = footnoteTop - MathF.Max(4f, settings.ParagraphSpacing * 0.5f);
+            var separatorBounds = separatorWidth > 0f
+                ? new DocRect(separatorX, separatorY, separatorWidth, 1f)
+                : new DocRect(separatorX, separatorY, 0f, 0f);
+
+            footnoteLayouts.Add(new FootnoteLayout(page.Index, offsetLines, separatorBounds));
+        }
+
+        return footnoteLayouts;
+    }
+
+    private static float MeasureInlineSpans(
+        IReadOnlyList<InlineSpan> spans,
+        int start,
+        int length,
+        IReadOnlyList<float> tabStops,
+        float defaultTabWidth,
+        ITextMeasurer measurer)
+    {
+        if (length <= 0)
+        {
+            return 0f;
+        }
+
+        var end = start + length;
+        var width = 0f;
+        foreach (var span in spans)
+        {
+            var spanStart = span.Start;
+            var spanEnd = span.Start + span.Length;
+            if (spanEnd <= start || spanStart >= end)
+            {
+                continue;
+            }
+
+            var segmentStart = Math.Max(spanStart, start);
+            var segmentEnd = Math.Min(spanEnd, end);
+            var segmentLength = segmentEnd - segmentStart;
+            if (segmentLength <= 0)
+            {
+                continue;
+            }
+
+            if (span.Image is not null)
+            {
+                width += span.Image.Width;
+                continue;
+            }
+
+            var segmentText = span.Text.Substring(segmentStart - spanStart, segmentLength);
+            width = MeasureTextWithTabs(segmentText, span.Style, width, tabStops, defaultTabWidth, measurer);
+        }
+
+        return width;
+    }
+
+    private static LineLayout BuildLineLayout(
+        IReadOnlyList<InlineSpan> spans,
+        int start,
+        int length,
+        IReadOnlyList<float> tabStops,
+        float defaultTabWidth,
+        ITextMeasurer measurer,
+        float defaultLineHeight,
+        float defaultAscent)
+    {
+        var runs = new List<LayoutRun>();
+        var images = new List<LayoutImage>();
+        var end = start + length;
+        var x = 0f;
+        var maxAscent = defaultAscent;
+        var maxDescent = MathF.Max(0f, defaultLineHeight - defaultAscent);
+        var maxImageHeight = 0f;
+        var metricsCache = new Dictionary<TextStyleKey, TextMetrics>();
+
+        foreach (var span in spans)
+        {
+            var spanStart = span.Start;
+            var spanEnd = span.Start + span.Length;
+            if (spanEnd <= start || spanStart >= end)
+            {
+                continue;
+            }
+
+            var segmentStart = Math.Max(spanStart, start);
+            var segmentEnd = Math.Min(spanEnd, end);
+            var segmentLength = segmentEnd - segmentStart;
+            if (segmentLength <= 0)
+            {
+                continue;
+            }
+
+            if (span.Image is not null)
+            {
+                var width = span.Image.Width;
+                var height = span.Image.Height;
+                images.Add(new LayoutImage(span.Image, x, width, height, 1));
+                x += width;
+                maxImageHeight = MathF.Max(maxImageHeight, height);
+                continue;
+            }
+
+            var metrics = GetMetrics(span.Style, measurer, metricsCache);
+            var ascent = MathF.Max(0f, metrics.Ascent + span.BaselineOffset);
+            var descent = MathF.Max(0f, metrics.Descent - span.BaselineOffset);
+            maxAscent = MathF.Max(maxAscent, ascent);
+            maxDescent = MathF.Max(maxDescent, descent);
+
+            var segmentText = span.Text.Substring(segmentStart - spanStart, segmentLength);
+            x = AppendRunsWithTabs(runs, segmentText, span.Style, span.BaselineOffset, x, tabStops, defaultTabWidth, measurer);
+        }
+
+        var lineHeight = MathF.Max(defaultLineHeight, maxAscent + maxDescent);
+        lineHeight = MathF.Max(lineHeight, maxImageHeight);
+        var lineAscent = MathF.Max(defaultAscent, maxAscent);
+        lineAscent = MathF.Max(lineAscent, maxImageHeight);
+
+        return new LineLayout(runs, images, x, lineHeight, lineAscent);
+    }
+
+    private static LineLayout ApplyLineSpacing(LineLayout layout, ParagraphProperties properties)
+    {
+        var targetHeight = ComputeLineHeight(layout.LineHeight, properties);
+        if (MathF.Abs(targetHeight - layout.LineHeight) < 0.01f)
+        {
+            return layout;
+        }
+
+        var scale = layout.LineHeight > 0f ? targetHeight / layout.LineHeight : 1f;
+        var ascent = layout.Ascent * scale;
+        return layout with { LineHeight = targetHeight, Ascent = ascent };
+    }
+
+    private static (float LineHeight, float Ascent) ApplyLineSpacing(float lineHeight, float ascent, ParagraphProperties properties)
+    {
+        var targetHeight = ComputeLineHeight(lineHeight, properties);
+        if (MathF.Abs(targetHeight - lineHeight) < 0.01f)
+        {
+            return (lineHeight, ascent);
+        }
+
+        var scale = lineHeight > 0f ? targetHeight / lineHeight : 1f;
+        return (targetHeight, ascent * scale);
+    }
+
+    private static float ComputeLineHeight(float baseHeight, ParagraphProperties properties)
+    {
+        if (!properties.LineSpacing.HasValue)
+        {
+            return baseHeight;
+        }
+
+        var lineValue = properties.LineSpacing.Value;
+        if (lineValue <= 0)
+        {
+            return baseHeight;
+        }
+
+        var rule = properties.LineSpacingRule ?? DocLineSpacingRule.Auto;
+        if (rule == DocLineSpacingRule.Auto)
+        {
+            var multiple = lineValue / 240f;
+            return MathF.Max(1f, baseHeight * multiple);
+        }
+
+        var lineDip = TwipsToDip(lineValue);
+        return rule == DocLineSpacingRule.AtLeast
+            ? MathF.Max(baseHeight, lineDip)
+            : MathF.Max(1f, lineDip);
+    }
+
+    private static float TwipsToDip(int twips)
+    {
+        return twips / 20f * 96f / 72f;
+    }
+
+    private static float AppendRunsWithTabs(
+        List<LayoutRun> runs,
+        string text,
+        TextStyle style,
+        float baselineOffset,
+        float startX,
+        IReadOnlyList<float> tabStops,
+        float defaultTabWidth,
+        ITextMeasurer measurer)
+    {
+        var x = startX;
+        var segmentStart = 0;
+        for (var i = 0; i < text.Length; i++)
+        {
+            if (text[i] != '\t')
+            {
+                continue;
+            }
+
+            if (i > segmentStart)
+            {
+                var segmentText = text.Substring(segmentStart, i - segmentStart);
+                var width = measurer.MeasureText(segmentText, style).Width;
+                runs.Add(new LayoutRun(segmentText, style, x, width, segmentText.Length, false, baselineOffset));
+                x += width;
+            }
+
+            var tabWidth = NextTabWidth(x, tabStops, defaultTabWidth);
+            runs.Add(new LayoutRun(string.Empty, style, x, tabWidth, 1, true, 0f));
+            x += tabWidth;
+            segmentStart = i + 1;
+        }
+
+        if (segmentStart < text.Length)
+        {
+            var segmentText = text.Substring(segmentStart);
+            var width = measurer.MeasureText(segmentText, style).Width;
+            runs.Add(new LayoutRun(segmentText, style, x, width, segmentText.Length, false, baselineOffset));
+            x += width;
+        }
+
+        return x;
+    }
+
+    private static float MeasureTextWithTabs(
+        string text,
+        TextStyle style,
+        float startX,
+        IReadOnlyList<float> tabStops,
+        float defaultTabWidth,
+        ITextMeasurer measurer)
+    {
+        var x = startX;
+        var segmentStart = 0;
+        for (var i = 0; i < text.Length; i++)
+        {
+            if (text[i] != '\t')
+            {
+                continue;
+            }
+
+            if (i > segmentStart)
+            {
+                var segmentText = text.Substring(segmentStart, i - segmentStart);
+                x += measurer.MeasureText(segmentText, style).Width;
+            }
+
+            x += NextTabWidth(x, tabStops, defaultTabWidth);
+            segmentStart = i + 1;
+        }
+
+        if (segmentStart < text.Length)
+        {
+            var segmentText = text.Substring(segmentStart);
+            x += measurer.MeasureText(segmentText, style).Width;
+        }
+
+        return x;
+    }
+
+    private static float NextTabWidth(float currentX, IReadOnlyList<float> tabStops, float defaultTabWidth)
+    {
+        for (var i = 0; i < tabStops.Count; i++)
+        {
+            var stop = tabStops[i];
+            if (stop > currentX)
+            {
+                return stop - currentX;
+            }
+        }
+
+        return defaultTabWidth;
+    }
+
+    private static float[] ResolveSectionColumnWidths(PageSectionSettings section, float contentWidth, float columnGap)
+    {
+        var columnCount = Math.Max(1, section.ColumnCount);
+        var availableWidth = MathF.Max(1f, contentWidth - columnGap * MathF.Max(0, columnCount - 1));
+
+        if (section.ColumnEqualWidth || section.ColumnWidths.Count == 0)
+        {
+            var width = availableWidth / columnCount;
+            var widths = new float[columnCount];
+            Array.Fill(widths, width);
+            return widths;
+        }
+
+        var resolved = new float[columnCount];
+        for (var i = 0; i < columnCount; i++)
+        {
+            resolved[i] = i < section.ColumnWidths.Count ? section.ColumnWidths[i] : section.ColumnWidths.Last();
+        }
+
+        var total = resolved.Sum();
+        if (total <= 0f)
+        {
+            var width = availableWidth / columnCount;
+            Array.Fill(resolved, width);
+            return resolved;
+        }
+
+        if (total > availableWidth && availableWidth > 0f)
+        {
+            var scale = availableWidth / total;
+            for (var i = 0; i < resolved.Length; i++)
+            {
+                resolved[i] *= scale;
+            }
+        }
+
+        return resolved;
+    }
+
+    private static float[] BuildColumnOffsets(float[] widths, float gap)
+    {
+        var offsets = new float[widths.Length];
+        var current = 0f;
+        for (var i = 0; i < widths.Length; i++)
+        {
+            offsets[i] = current;
+            current += widths[i] + gap;
+        }
+
+        return offsets;
+    }
+
+    private static float[] ResolveColumnWidths(TableProperties properties, int columnCount, float contentWidth)
+    {
+        var widths = new float[columnCount];
+        if (properties.ColumnWidths.Count == 0)
+        {
+            var defaultWidth = contentWidth / Math.Max(1, columnCount);
+            Array.Fill(widths, defaultWidth);
+            return widths;
+        }
+
+        for (var i = 0; i < columnCount; i++)
+        {
+            widths[i] = i < properties.ColumnWidths.Count ? properties.ColumnWidths[i] : properties.ColumnWidths.Last();
+        }
+
+        var total = widths.Sum();
+        if (total <= 0f)
+        {
+            var defaultWidth = contentWidth / Math.Max(1, columnCount);
+            Array.Fill(widths, defaultWidth);
+            return widths;
+        }
+
+        if (total > contentWidth && contentWidth > 0f)
+        {
+            var scale = contentWidth / total;
+            for (var i = 0; i < widths.Length; i++)
+            {
+                widths[i] *= scale;
+            }
+        }
+
+        return widths;
+    }
+
+    private static int ResolveTableColumnCount(IReadOnlyList<TableRow> rows, TableProperties properties)
+    {
+        var columnCount = properties.ColumnWidths.Count;
+        if (rows.Count == 0)
+        {
+            return Math.Max(1, columnCount);
+        }
+
+        var maxColumns = 0;
+        foreach (var row in rows)
+        {
+            var rowColumns = 0;
+            foreach (var cell in row.Cells)
+            {
+                rowColumns += Math.Max(1, cell.ColumnSpan);
+            }
+
+            maxColumns = Math.Max(maxColumns, rowColumns);
+        }
+
+        return Math.Max(1, Math.Max(columnCount, maxColumns));
+    }
+
+    private static float SumColumns(IReadOnlyList<float> widths, int start, int span)
+    {
+        if (widths.Count == 0 || span <= 0)
+        {
+            return 0f;
+        }
+
+        var end = Math.Min(widths.Count, start + span);
+        var total = 0f;
+        for (var i = Math.Max(0, start); i < end; i++)
+        {
+            total += widths[i];
+        }
+
+        return total;
+    }
+
+    private static float SumRows(IReadOnlyList<float> heights, int start, int span)
+    {
+        if (heights.Count == 0 || span <= 0)
+        {
+            return 0f;
+        }
+
+        var end = Math.Min(heights.Count, start + span);
+        var total = 0f;
+        for (var i = Math.Max(0, start); i < end; i++)
+        {
+            total += heights[i];
+        }
+
+        return total;
+    }
+
+    private static TableProperties MergeTableProperties(TableProperties? baseProperties, TableProperties? overrideProperties)
+    {
+        var merged = baseProperties?.Clone() ?? new TableProperties();
+        if (overrideProperties is not null)
+        {
+            ApplyTableProperties(merged, overrideProperties);
+        }
+
+        return merged;
+    }
+
+    private static TableLook ResolveTableLook(TableLook? look)
+    {
+        return look?.Clone() ?? new TableLook();
+    }
+
+    private static TableCellProperties ResolveTableCellProperties(
+        TableCell cell,
+        TableProperties tableProperties,
+        TableStyleDefinition? tableStyle,
+        TableLook tableLook,
+        int rowIndex,
+        int columnIndex,
+        int rowCount,
+        int columnCount)
+    {
+        var resolved = new TableCellProperties();
+
+        if (tableStyle is not null)
+        {
+            ApplyTablePropertiesToCell(resolved, tableStyle.TableProperties, rowIndex, columnIndex, rowCount, columnCount);
+            ApplyTableCellProperties(resolved, tableStyle.CellProperties);
+
+            foreach (var condition in GetApplicableTableStyleConditions(tableLook, rowIndex, columnIndex, rowCount, columnCount))
+            {
+                if (!tableStyle.Conditions.TryGetValue(condition, out var conditionProperties))
+                {
+                    continue;
+                }
+
+                ApplyTablePropertiesToCell(resolved, conditionProperties.TableProperties, rowIndex, columnIndex, rowCount, columnCount);
+                ApplyTableCellProperties(resolved, conditionProperties.CellProperties);
+            }
+        }
+
+        ApplyTablePropertiesToCell(resolved, tableProperties, rowIndex, columnIndex, rowCount, columnCount);
+        ApplyTableCellProperties(resolved, cell.Properties);
+
+        return resolved;
+    }
+
+    private static IEnumerable<TableStyleCondition> GetApplicableTableStyleConditions(
+        TableLook look,
+        int rowIndex,
+        int columnIndex,
+        int rowCount,
+        int columnCount)
+    {
+        if (look.BandedRows)
+        {
+            yield return rowIndex % 2 == 0 ? TableStyleCondition.Band1Horizontal : TableStyleCondition.Band2Horizontal;
+        }
+
+        if (look.BandedColumns)
+        {
+            yield return columnIndex % 2 == 0 ? TableStyleCondition.Band1Vertical : TableStyleCondition.Band2Vertical;
+        }
+
+        if (look.FirstRow && rowIndex == 0)
+        {
+            yield return TableStyleCondition.FirstRow;
+        }
+
+        if (look.LastRow && rowIndex == rowCount - 1)
+        {
+            yield return TableStyleCondition.LastRow;
+        }
+
+        if (look.FirstColumn && columnIndex == 0)
+        {
+            yield return TableStyleCondition.FirstColumn;
+        }
+
+        if (look.LastColumn && columnIndex == columnCount - 1)
+        {
+            yield return TableStyleCondition.LastColumn;
+        }
+    }
+
+    private static void ApplyTableProperties(TableProperties target, TableProperties source)
+    {
+        if (source.ColumnWidths.Count > 0)
+        {
+            target.ColumnWidths.Clear();
+            target.ColumnWidths.AddRange(source.ColumnWidths);
+        }
+
+        if (source.CellPadding.HasValue)
+        {
+            target.CellPadding = source.CellPadding;
+        }
+
+        if (source.ShadingColor.HasValue)
+        {
+            target.ShadingColor = source.ShadingColor;
+        }
+
+        if (source.Look is not null)
+        {
+            target.Look = source.Look.Clone();
+        }
+
+        ApplyTableBorders(target.Borders, source.Borders);
+    }
+
+    private static void ApplyTablePropertiesToCell(
+        TableCellProperties target,
+        TableProperties source,
+        int rowIndex,
+        int columnIndex,
+        int rowCount,
+        int columnCount)
+    {
+        if (source.CellPadding.HasValue)
+        {
+            target.Padding = source.CellPadding;
+        }
+
+        if (source.ShadingColor.HasValue)
+        {
+            target.ShadingColor = source.ShadingColor;
+        }
+
+        ApplyTableBordersToCell(target.Borders, source.Borders, rowIndex, columnIndex, rowCount, columnCount);
+    }
+
+    private static void ApplyTableBorders(TableBorders target, TableBorders source)
+    {
+        if (source.Top is not null)
+        {
+            target.Top = source.Top.Clone();
+        }
+
+        if (source.Bottom is not null)
+        {
+            target.Bottom = source.Bottom.Clone();
+        }
+
+        if (source.Left is not null)
+        {
+            target.Left = source.Left.Clone();
+        }
+
+        if (source.Right is not null)
+        {
+            target.Right = source.Right.Clone();
+        }
+
+        if (source.InsideHorizontal is not null)
+        {
+            target.InsideHorizontal = source.InsideHorizontal.Clone();
+        }
+
+        if (source.InsideVertical is not null)
+        {
+            target.InsideVertical = source.InsideVertical.Clone();
+        }
+    }
+
+    private static void ApplyTableBordersToCell(
+        TableCellBorders target,
+        TableBorders source,
+        int rowIndex,
+        int columnIndex,
+        int rowCount,
+        int columnCount)
+    {
+        var isFirstRow = rowIndex == 0;
+        var isLastRow = rowIndex == rowCount - 1;
+        var isFirstColumn = columnIndex == 0;
+        var isLastColumn = columnIndex == columnCount - 1;
+
+        if (isFirstRow && source.Top is not null)
+        {
+            target.Top = source.Top.Clone();
+        }
+
+        if (isLastRow && source.Bottom is not null)
+        {
+            target.Bottom = source.Bottom.Clone();
+        }
+
+        if (isFirstColumn && source.Left is not null)
+        {
+            target.Left = source.Left.Clone();
+        }
+
+        if (isLastColumn && source.Right is not null)
+        {
+            target.Right = source.Right.Clone();
+        }
+
+        if (!isLastRow && source.InsideHorizontal is not null)
+        {
+            target.Bottom = source.InsideHorizontal.Clone();
+        }
+
+        if (!isLastColumn && source.InsideVertical is not null)
+        {
+            target.Right = source.InsideVertical.Clone();
+        }
+    }
+
+    private static void ApplyTableCellProperties(TableCellProperties target, TableCellProperties source)
+    {
+        if (source.Padding.HasValue)
+        {
+            target.Padding = source.Padding;
+        }
+
+        if (source.ShadingColor.HasValue)
+        {
+            target.ShadingColor = source.ShadingColor;
+        }
+
+        if (source.VerticalAlignment.HasValue)
+        {
+            target.VerticalAlignment = source.VerticalAlignment;
+        }
+
+        ApplyTableCellBorders(target.Borders, source.Borders);
+    }
+
+    private static void ApplyTableCellBorders(TableCellBorders target, TableCellBorders source)
+    {
+        if (source.Top is not null)
+        {
+            target.Top = source.Top.Clone();
+        }
+
+        if (source.Bottom is not null)
+        {
+            target.Bottom = source.Bottom.Clone();
+        }
+
+        if (source.Left is not null)
+        {
+            target.Left = source.Left.Clone();
+        }
+
+        if (source.Right is not null)
+        {
+            target.Right = source.Right.Clone();
+        }
+    }
+
+    private static float ApplyAlignment(float baseX, float lineWidth, float availableWidth, ParagraphAlignment? alignment)
+    {
+        if (availableWidth <= 0f)
+        {
+            return baseX;
+        }
+
+        var remaining = availableWidth - lineWidth;
+        if (remaining <= 0f)
+        {
+            return baseX;
+        }
+
+        return (alignment ?? ParagraphAlignment.Left) switch
+        {
+            ParagraphAlignment.Center => baseX + remaining / 2f,
+            ParagraphAlignment.Right => baseX + remaining,
+            _ => baseX
+        };
+    }
+
+    private sealed record ListMarkerInfo(string Prefix, float Indent, float PrefixWidth);
+
+    private sealed class ListNumberingState
+    {
+        private readonly Document _document;
+        private readonly Dictionary<(int ListId, int Level), int> _counters = new();
+        private int? _activeListId;
+        private ListKind _activeKind = ListKind.None;
+
+        public ListNumberingState(Document document)
+        {
+            _document = document ?? throw new ArgumentNullException(nameof(document));
+        }
+
+        public ListMarkerInfo? GetMarker(
+            ListInfo? listInfo,
+            LayoutSettings settings,
+            ITextMeasurer measurer,
+            TextStyle style)
+        {
+            if (listInfo is null || listInfo.Kind == ListKind.None)
+            {
+                Reset();
+                return null;
+            }
+
+            var listId = listInfo.ListId ?? -1;
+            if (_activeListId != listId || _activeKind != listInfo.Kind)
+            {
+                Reset();
+                _activeListId = listId;
+                _activeKind = listInfo.Kind;
+            }
+
+            var levelDefinition = ResolveLevelDefinition(listId, listInfo.Level);
+            var prefix = BuildPrefix(listId, listInfo, levelDefinition);
+            if (string.IsNullOrEmpty(prefix))
+            {
+                return null;
+            }
+
+            var indent = ResolveListIndent(listInfo, levelDefinition, settings);
+            var prefixWidth = ResolvePrefixWidth(prefix, indent, listInfo, levelDefinition, settings, measurer, style);
+            return new ListMarkerInfo(prefix, indent, prefixWidth);
+        }
+
+        private ListLevelDefinition? ResolveLevelDefinition(int listId, int level)
+        {
+            if (listId >= 0
+                && _document.ListDefinitions.TryGetValue(listId, out var listDefinition)
+                && listDefinition.Levels.TryGetValue(level, out var levelDefinition))
+            {
+                return levelDefinition;
+            }
+
+            return null;
+        }
+
+        private string? BuildPrefix(int listId, ListInfo listInfo, ListLevelDefinition? levelDefinition)
+        {
+            var kind = ResolveKind(listInfo, levelDefinition);
+            if (kind == ListKind.Bullet)
+            {
+                return ResolveBulletSymbol(listInfo, levelDefinition);
+            }
+
+            var levelText = listInfo.LevelText ?? levelDefinition?.LevelText;
+            if (string.IsNullOrWhiteSpace(levelText))
+            {
+                levelText = "%1.";
+            }
+
+            NextNumber(listId, listInfo, levelDefinition);
+            return FormatLevelText(levelText, listId, listInfo);
+        }
+
+        private static ListKind ResolveKind(ListInfo listInfo, ListLevelDefinition? levelDefinition)
+        {
+            if (listInfo.NumberFormat == ListNumberFormat.Bullet || levelDefinition?.Format == ListNumberFormat.Bullet)
+            {
+                return ListKind.Bullet;
+            }
+
+            return listInfo.Kind;
+        }
+
+        private static string ResolveBulletSymbol(ListInfo listInfo, ListLevelDefinition? levelDefinition)
+        {
+            return listInfo.BulletSymbol
+                   ?? levelDefinition?.BulletSymbol
+                   ?? levelDefinition?.LevelText
+                   ?? "•";
+        }
+
+        private void NextNumber(int listId, ListInfo listInfo, ListLevelDefinition? levelDefinition)
+        {
+            var level = listInfo.Level;
+            var startAt = listInfo.StartAt ?? levelDefinition?.StartAt ?? 1;
+            if (!_counters.TryGetValue((listId, level), out var current))
+            {
+                current = startAt - 1;
+            }
+
+            current++;
+            _counters[(listId, level)] = current;
+
+            var keysToRemove = _counters.Keys
+                .Where(key => key.ListId == listId && key.Level > level)
+                .ToList();
+            foreach (var key in keysToRemove)
+            {
+                _counters.Remove(key);
+            }
+        }
+
+        private string FormatLevelText(string levelText, int listId, ListInfo listInfo)
+        {
+            if (levelText.IndexOf('%') < 0)
+            {
+                return levelText;
+            }
+
+            var builder = new System.Text.StringBuilder(levelText.Length);
+            for (var i = 0; i < levelText.Length; i++)
+            {
+                var ch = levelText[i];
+                if (ch != '%' || i == levelText.Length - 1)
+                {
+                    builder.Append(ch);
+                    continue;
+                }
+
+                var digitStart = i + 1;
+                var digitEnd = digitStart;
+                while (digitEnd < levelText.Length && char.IsDigit(levelText[digitEnd]))
+                {
+                    digitEnd++;
+                }
+
+                if (digitEnd == digitStart)
+                {
+                    builder.Append(ch);
+                    continue;
+                }
+
+                var token = levelText.Substring(digitStart, digitEnd - digitStart);
+                if (int.TryParse(token, out var tokenIndex))
+                {
+                    var levelIndex = Math.Max(0, tokenIndex - 1);
+                    var value = GetCounterValue(listId, levelIndex);
+                    var format = ResolveNumberFormat(listId, levelIndex, listInfo);
+                    builder.Append(FormatNumber(value, format));
+                    i = digitEnd - 1;
+                    continue;
+                }
+
+                builder.Append(ch);
+            }
+
+            return builder.ToString();
+        }
+
+        private int GetCounterValue(int listId, int level)
+        {
+            if (_counters.TryGetValue((listId, level), out var current))
+            {
+                return current;
+            }
+
+            var startAt = ResolveStartAt(listId, level);
+            _counters[(listId, level)] = startAt;
+            return startAt;
+        }
+
+        private int ResolveStartAt(int listId, int level)
+        {
+            if (listId >= 0
+                && _document.ListDefinitions.TryGetValue(listId, out var definition)
+                && definition.Levels.TryGetValue(level, out var levelDefinition))
+            {
+                return Math.Max(1, levelDefinition.StartAt);
+            }
+
+            return 1;
+        }
+
+        private ListNumberFormat ResolveNumberFormat(int listId, int level, ListInfo listInfo)
+        {
+            if (listId >= 0
+                && _document.ListDefinitions.TryGetValue(listId, out var definition)
+                && definition.Levels.TryGetValue(level, out var levelDefinition))
+            {
+                return levelDefinition.Format;
+            }
+
+            if (listInfo.NumberFormat.HasValue)
+            {
+                return listInfo.NumberFormat.Value;
+            }
+
+            return ListNumberFormat.Decimal;
+        }
+
+        private static float ResolveListIndent(ListInfo listInfo, ListLevelDefinition? levelDefinition, LayoutSettings settings)
+        {
+            var leftIndent = listInfo.LeftIndent ?? levelDefinition?.LeftIndent;
+            var hangingIndent = listInfo.HangingIndent ?? levelDefinition?.HangingIndent;
+            if (leftIndent.HasValue && hangingIndent.HasValue)
+            {
+                return MathF.Max(0f, leftIndent.Value - hangingIndent.Value);
+            }
+
+            return settings.ListIndent * (listInfo.Level + 1);
+        }
+
+        private static float ResolvePrefixWidth(
+            string prefix,
+            float listIndent,
+            ListInfo listInfo,
+            ListLevelDefinition? levelDefinition,
+            LayoutSettings settings,
+            ITextMeasurer measurer,
+            TextStyle style)
+        {
+            var width = measurer.MeasureText(prefix, style).Width + settings.ListMarkerGap;
+            var hangingIndent = listInfo.HangingIndent ?? levelDefinition?.HangingIndent;
+            if (hangingIndent.HasValue)
+            {
+                width = MathF.Max(width, hangingIndent.Value);
+            }
+
+            var tabStop = listInfo.TabStop ?? levelDefinition?.TabStop;
+            if (tabStop.HasValue)
+            {
+                width = MathF.Max(width, MathF.Max(0f, tabStop.Value - listIndent));
+            }
+
+            return width;
+        }
+
+        private static string FormatNumber(int value, ListNumberFormat format)
+        {
+            return format switch
+            {
+                ListNumberFormat.LowerLetter => ToAlphabetic(value, true),
+                ListNumberFormat.UpperLetter => ToAlphabetic(value, false),
+                ListNumberFormat.LowerRoman => ToRoman(value).ToLowerInvariant(),
+                ListNumberFormat.UpperRoman => ToRoman(value),
+                _ => value.ToString(System.Globalization.CultureInfo.InvariantCulture)
+            };
+        }
+
+        private static string ToAlphabetic(int value, bool lower)
+        {
+            if (value <= 0)
+            {
+                return value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            }
+
+            var result = new System.Text.StringBuilder();
+            var number = value;
+            while (number > 0)
+            {
+                number--;
+                var remainder = number % 26;
+                var ch = (char)((lower ? 'a' : 'A') + remainder);
+                result.Insert(0, ch);
+                number /= 26;
+            }
+
+            return result.ToString();
+        }
+
+        private static string ToRoman(int value)
+        {
+            if (value <= 0)
+            {
+                return value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            }
+
+            var map = new (int Value, string Symbol)[]
+            {
+                (1000, "M"),
+                (900, "CM"),
+                (500, "D"),
+                (400, "CD"),
+                (100, "C"),
+                (90, "XC"),
+                (50, "L"),
+                (40, "XL"),
+                (10, "X"),
+                (9, "IX"),
+                (5, "V"),
+                (4, "IV"),
+                (1, "I")
+            };
+
+            var remaining = value;
+            var builder = new System.Text.StringBuilder();
+            foreach (var (mapValue, mapSymbol) in map)
+            {
+                while (remaining >= mapValue)
+                {
+                    builder.Append(mapSymbol);
+                    remaining -= mapValue;
+                }
+            }
+
+            return builder.ToString();
+        }
+
+        private void Reset()
+        {
+            _activeKind = ListKind.None;
+            _activeListId = null;
+            _counters.Clear();
+        }
+    }
+
+    private sealed record InlineSpan(int Start, int Length, string Text, TextStyle Style, ImageInline? Image, float BaselineOffset);
+    private sealed record ParagraphLine(int Start, int Length, string Text, LineLayout Layout, bool IsFirstLine);
+
+    private sealed record LineLayout(
+        IReadOnlyList<LayoutRun> Runs,
+        IReadOnlyList<LayoutImage> Images,
+        float Width,
+        float LineHeight,
+        float Ascent);
+
+    private sealed class ContentControlState
+    {
+        public ContentControlProperties Properties { get; }
+        public string PlaceholderText { get; }
+        public TextStyle PlaceholderStyle { get; }
+        public bool ShouldShowPlaceholder { get; }
+        public bool HasContent { get; set; }
+
+        public ContentControlState(ContentControlProperties properties, TextStyle paragraphStyle, string placeholderText)
+        {
+            Properties = properties;
+            PlaceholderText = placeholderText;
+            PlaceholderStyle = CreatePlaceholderStyle(paragraphStyle);
+            ShouldShowPlaceholder = properties.ShowingPlaceholder != false;
+        }
+    }
+
+    private sealed class ParagraphScanState
+    {
+        private readonly Dictionary<int, TextPosition> _openCommentStarts = new();
+        private readonly List<CommentRange> _commentRanges = new();
+        private readonly Dictionary<int, int> _paragraphLengths = new();
+
+        public Dictionary<int, List<NoteReference>> NoteReferencesByParagraph { get; } = new();
+
+        public void Scan(Document document)
+        {
+            var paragraphIndex = 0;
+            foreach (var block in document.Blocks)
+            {
+                switch (block)
+                {
+                    case ParagraphBlock paragraph:
+                        RegisterParagraph(paragraphIndex++, paragraph);
+                        break;
+                    case TableBlock table:
+                        foreach (var row in table.Rows)
+                        {
+                            foreach (var cell in row.Cells)
+                            {
+                                foreach (var paragraph in cell.Paragraphs)
+                                {
+                                    RegisterParagraph(paragraphIndex++, paragraph);
+                                }
+                            }
+                        }
+
+                        break;
+                }
+            }
+        }
+
+        public IReadOnlyDictionary<int, IReadOnlyList<CommentHighlightSpan>> BuildCommentHighlights()
+        {
+            if (_commentRanges.Count == 0)
+            {
+                return new Dictionary<int, IReadOnlyList<CommentHighlightSpan>>();
+            }
+
+            var result = new Dictionary<int, List<CommentHighlightSpan>>();
+            foreach (var range in _commentRanges)
+            {
+                var normalized = range.Range.Normalize();
+                var start = normalized.Start;
+                var end = normalized.End;
+                if (start.ParagraphIndex > end.ParagraphIndex)
+                {
+                    continue;
+                }
+
+                for (var paragraphIndex = start.ParagraphIndex; paragraphIndex <= end.ParagraphIndex; paragraphIndex++)
+                {
+                    var paragraphLength = _paragraphLengths.TryGetValue(paragraphIndex, out var length) ? length : 0;
+                    var startOffset = paragraphIndex == start.ParagraphIndex ? start.Offset : 0;
+                    var endOffset = paragraphIndex == end.ParagraphIndex ? end.Offset : paragraphLength;
+                    if (endOffset <= startOffset)
+                    {
+                        continue;
+                    }
+
+                    if (!result.TryGetValue(paragraphIndex, out var spans))
+                    {
+                        spans = new List<CommentHighlightSpan>();
+                        result[paragraphIndex] = spans;
+                    }
+
+                    spans.Add(new CommentHighlightSpan(range.Id, startOffset, endOffset));
+                }
+            }
+
+            return result.ToDictionary(
+                static item => item.Key,
+                static item => (IReadOnlyList<CommentHighlightSpan>)item.Value);
+        }
+
+        private void RegisterParagraph(int paragraphIndex, ParagraphBlock paragraph)
+        {
+            var scan = ScanParagraphInlines(paragraph);
+            if (scan.NoteReferences.Count > 0)
+            {
+                NoteReferencesByParagraph[paragraphIndex] = scan.NoteReferences;
+            }
+
+            _paragraphLengths[paragraphIndex] = scan.TextLength;
+            if (scan.CommentMarkers.Count == 0)
+            {
+                return;
+            }
+
+            foreach (var marker in scan.CommentMarkers)
+            {
+                var position = new TextPosition(paragraphIndex, marker.Offset);
+                if (marker.IsStart)
+                {
+                    _openCommentStarts[marker.Id] = position;
+                    continue;
+                }
+
+                if (_openCommentStarts.TryGetValue(marker.Id, out var start))
+                {
+                    _commentRanges.Add(new CommentRange(marker.Id, new TextRange(start, position)));
+                    _openCommentStarts.Remove(marker.Id);
+                }
+            }
+        }
+    }
+
+    private static TextMetrics GetMetrics(TextStyle style, ITextMeasurer measurer, Dictionary<TextStyleKey, TextMetrics> cache)
+    {
+        var key = new TextStyleKey(style);
+        if (cache.TryGetValue(key, out var metrics))
+        {
+            return metrics;
+        }
+
+        metrics = measurer.MeasureText("Mg", style);
+        cache[key] = metrics;
+        return metrics;
+    }
+
+    private readonly struct TextStyleKey : IEquatable<TextStyleKey>
+    {
+        private readonly string _fontFamily;
+        private readonly float _fontSize;
+        private readonly DocFontWeight _fontWeight;
+        private readonly DocFontStyle _fontStyle;
+        private readonly DocColor _color;
+        private readonly bool _underline;
+        private readonly bool _strikethrough;
+        private readonly bool _hasHighlight;
+        private readonly DocColor _highlight;
+
+        public TextStyleKey(TextStyle style)
+        {
+            _fontFamily = style.FontFamily ?? string.Empty;
+            _fontSize = style.FontSize;
+            _fontWeight = style.FontWeight;
+            _fontStyle = style.FontStyle;
+            _color = style.Color;
+            _underline = style.Underline;
+            _strikethrough = style.Strikethrough;
+            _hasHighlight = style.HighlightColor.HasValue;
+            _highlight = style.HighlightColor ?? default;
+        }
+
+        public bool Equals(TextStyleKey other)
+        {
+            return _fontFamily == other._fontFamily
+                && _fontSize.Equals(other._fontSize)
+                && _fontWeight == other._fontWeight
+                && _fontStyle == other._fontStyle
+                && _color.Equals(other._color)
+                && _underline == other._underline
+                && _strikethrough == other._strikethrough
+                && _hasHighlight == other._hasHighlight
+                && (!_hasHighlight || _highlight.Equals(other._highlight));
+        }
+
+        public override bool Equals(object? obj) => obj is TextStyleKey other && Equals(other);
+
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(
+                _fontFamily,
+                _fontSize,
+                (int)_fontWeight,
+                (int)_fontStyle,
+                _color,
+                _underline,
+                _strikethrough,
+                _hasHighlight ? _highlight.GetHashCode() : 0);
+        }
+    }
+}

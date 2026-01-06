@@ -1,0 +1,5 @@
+using Vibe.Office.Documents;
+
+namespace Vibe.Office.Layout;
+
+public sealed record LayoutRun(string Text, TextStyle Style, float X, float Width, int Length, bool IsTab, float BaselineOffset);

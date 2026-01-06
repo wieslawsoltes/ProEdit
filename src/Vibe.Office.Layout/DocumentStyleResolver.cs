@@ -1,0 +1,718 @@
+using Vibe.Office.Documents;
+
+namespace Vibe.Office.Layout;
+
+public sealed class DocumentStyleResolver
+{
+    private readonly Document _document;
+    private readonly Dictionary<string, ParagraphStyleProperties> _paragraphPropertiesCache = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, TextStyleProperties> _paragraphRunPropertiesCache = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, TextStyleProperties> _characterPropertiesCache = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, TableStyleDefinition> _tableStyleCache = new(StringComparer.OrdinalIgnoreCase);
+
+    public DocumentStyleResolver(Document document)
+    {
+        _document = document ?? throw new ArgumentNullException(nameof(document));
+    }
+
+    public ParagraphProperties ResolveParagraphProperties(ParagraphBlock paragraph)
+    {
+        var resolved = new ParagraphProperties();
+        if (_document.DefaultParagraphStyleProperties.HasValues)
+        {
+            ApplyParagraphStyleProperties(resolved, _document.DefaultParagraphStyleProperties);
+        }
+
+        var styleId = paragraph.StyleId ?? _document.Styles.DefaultParagraphStyleId;
+        if (!string.IsNullOrWhiteSpace(styleId))
+        {
+            var styleProperties = ResolveParagraphStyleProperties(styleId);
+            ApplyParagraphStyleProperties(resolved, styleProperties);
+        }
+
+        ApplyDirectParagraphProperties(resolved, paragraph.Properties);
+        if (resolved.TabStops.Count > 1)
+        {
+            resolved.TabStops.Sort();
+        }
+        return resolved;
+    }
+
+    public TextStyle ResolveParagraphTextStyle(ParagraphBlock paragraph, TextStyle defaultStyle)
+    {
+        var resolved = defaultStyle.Clone();
+        ApplyDefaultCharacterStyle(resolved);
+
+        var styleId = paragraph.StyleId ?? _document.Styles.DefaultParagraphStyleId;
+        if (!string.IsNullOrWhiteSpace(styleId))
+        {
+            var runProperties = ResolveParagraphRunProperties(styleId);
+            runProperties.ApplyTo(resolved);
+        }
+
+        return resolved;
+    }
+
+    public TextStyle ResolveRunStyle(ParagraphBlock paragraph, RunInline run, TextStyle paragraphStyle)
+    {
+        return ResolveRunStyle(run.StyleId, run.Style, paragraphStyle);
+    }
+
+    public TextStyle ResolveRunStyle(string? styleId, TextStyleProperties? runProperties, TextStyle paragraphStyle)
+    {
+        var resolved = paragraphStyle.Clone();
+        if (!string.IsNullOrWhiteSpace(styleId))
+        {
+            var styleProperties = ResolveCharacterStyleProperties(styleId);
+            styleProperties.ApplyTo(resolved);
+        }
+
+        if (runProperties is not null)
+        {
+            runProperties.ApplyTo(resolved);
+        }
+
+        return resolved;
+    }
+
+    public TableStyleDefinition? ResolveTableStyle(TableBlock table)
+    {
+        var styleId = table.StyleId ?? _document.Styles.DefaultTableStyleId;
+        if (string.IsNullOrWhiteSpace(styleId))
+        {
+            return null;
+        }
+
+        return ResolveTableStyleDefinition(styleId);
+    }
+
+    private void ApplyDefaultCharacterStyle(TextStyle style)
+    {
+        var defaultCharacterStyleId = _document.Styles.DefaultCharacterStyleId;
+        if (string.IsNullOrWhiteSpace(defaultCharacterStyleId))
+        {
+            return;
+        }
+
+        var runProperties = ResolveCharacterStyleProperties(defaultCharacterStyleId);
+        runProperties.ApplyTo(style);
+    }
+
+    private ParagraphStyleProperties ResolveParagraphStyleProperties(string styleId)
+    {
+        if (_paragraphPropertiesCache.TryGetValue(styleId, out var cached))
+        {
+            return cached;
+        }
+
+        var resolved = new ParagraphStyleProperties();
+        foreach (var style in EnumerateParagraphStyleChain(styleId))
+        {
+            ApplyParagraphStyleProperties(resolved, style.ParagraphProperties);
+        }
+
+        _paragraphPropertiesCache[styleId] = resolved;
+        return resolved;
+    }
+
+    private TextStyleProperties ResolveParagraphRunProperties(string styleId)
+    {
+        if (_paragraphRunPropertiesCache.TryGetValue(styleId, out var cached))
+        {
+            return cached;
+        }
+
+        var resolved = new TextStyleProperties();
+        foreach (var style in EnumerateParagraphStyleChain(styleId))
+        {
+            ApplyTextStyleProperties(resolved, style.RunProperties);
+        }
+
+        _paragraphRunPropertiesCache[styleId] = resolved;
+        return resolved;
+    }
+
+    private TextStyleProperties ResolveCharacterStyleProperties(string styleId)
+    {
+        if (_characterPropertiesCache.TryGetValue(styleId, out var cached))
+        {
+            return cached;
+        }
+
+        var resolved = new TextStyleProperties();
+        foreach (var style in EnumerateCharacterStyleChain(styleId))
+        {
+            ApplyTextStyleProperties(resolved, style.RunProperties);
+        }
+
+        _characterPropertiesCache[styleId] = resolved;
+        return resolved;
+    }
+
+    private TableStyleDefinition ResolveTableStyleDefinition(string styleId)
+    {
+        if (_tableStyleCache.TryGetValue(styleId, out var cached))
+        {
+            return cached;
+        }
+
+        var resolved = new TableStyleDefinition(styleId);
+        foreach (var style in EnumerateTableStyleChain(styleId))
+        {
+            if (!string.IsNullOrWhiteSpace(style.Name))
+            {
+                resolved.Name = style.Name;
+            }
+
+            if (!string.IsNullOrWhiteSpace(style.BasedOnId))
+            {
+                resolved.BasedOnId = style.BasedOnId;
+            }
+
+            ApplyTableProperties(resolved.TableProperties, style.TableProperties);
+            ApplyTableCellProperties(resolved.CellProperties, style.CellProperties);
+
+            foreach (var (condition, conditionProperties) in style.Conditions)
+            {
+                if (!resolved.Conditions.TryGetValue(condition, out var mergedCondition))
+                {
+                    mergedCondition = new TableStyleConditionProperties();
+                    resolved.Conditions[condition] = mergedCondition;
+                }
+
+                ApplyTableProperties(mergedCondition.TableProperties, conditionProperties.TableProperties);
+                ApplyTableCellProperties(mergedCondition.CellProperties, conditionProperties.CellProperties);
+            }
+        }
+
+        _tableStyleCache[styleId] = resolved;
+        return resolved;
+    }
+
+    private IEnumerable<ParagraphStyleDefinition> EnumerateParagraphStyleChain(string styleId)
+    {
+        var stack = new Stack<ParagraphStyleDefinition>();
+        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var current = styleId;
+
+        while (!string.IsNullOrWhiteSpace(current)
+               && _document.Styles.ParagraphStyles.TryGetValue(current, out var style)
+               && visited.Add(current))
+        {
+            stack.Push(style);
+            current = style.BasedOnId;
+        }
+
+        while (stack.Count > 0)
+        {
+            yield return stack.Pop();
+        }
+    }
+
+    private IEnumerable<CharacterStyleDefinition> EnumerateCharacterStyleChain(string styleId)
+    {
+        var stack = new Stack<CharacterStyleDefinition>();
+        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var current = styleId;
+
+        while (!string.IsNullOrWhiteSpace(current)
+               && _document.Styles.CharacterStyles.TryGetValue(current, out var style)
+               && visited.Add(current))
+        {
+            stack.Push(style);
+            current = style.BasedOnId;
+        }
+
+        while (stack.Count > 0)
+        {
+            yield return stack.Pop();
+        }
+    }
+
+    private IEnumerable<TableStyleDefinition> EnumerateTableStyleChain(string styleId)
+    {
+        var stack = new Stack<TableStyleDefinition>();
+        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var current = styleId;
+
+        while (!string.IsNullOrWhiteSpace(current)
+               && _document.Styles.TableStyles.TryGetValue(current, out var style)
+               && visited.Add(current))
+        {
+            stack.Push(style);
+            current = style.BasedOnId;
+        }
+
+        while (stack.Count > 0)
+        {
+            yield return stack.Pop();
+        }
+    }
+
+    private static void ApplyParagraphStyleProperties(ParagraphProperties target, ParagraphStyleProperties source)
+    {
+        if (source.Alignment.HasValue)
+        {
+            target.Alignment = source.Alignment;
+        }
+
+        if (source.SpacingBefore.HasValue)
+        {
+            target.SpacingBefore = source.SpacingBefore;
+        }
+
+        if (source.SpacingAfter.HasValue)
+        {
+            target.SpacingAfter = source.SpacingAfter;
+        }
+
+        if (source.LineSpacing.HasValue)
+        {
+            target.LineSpacing = source.LineSpacing;
+        }
+
+        if (source.LineSpacingRule.HasValue)
+        {
+            target.LineSpacingRule = source.LineSpacingRule;
+        }
+
+        if (source.IndentLeft.HasValue)
+        {
+            target.IndentLeft = source.IndentLeft;
+        }
+
+        if (source.IndentRight.HasValue)
+        {
+            target.IndentRight = source.IndentRight;
+        }
+
+        if (source.FirstLineIndent.HasValue)
+        {
+            target.FirstLineIndent = source.FirstLineIndent;
+        }
+
+        if (source.TabStops.Count > 0)
+        {
+            target.TabStops.Clear();
+            target.TabStops.AddRange(source.TabStops);
+        }
+
+        if (source.KeepWithNext.HasValue)
+        {
+            target.KeepWithNext = source.KeepWithNext;
+        }
+
+        if (source.KeepLinesTogether.HasValue)
+        {
+            target.KeepLinesTogether = source.KeepLinesTogether;
+        }
+
+        if (source.WidowControl.HasValue)
+        {
+            target.WidowControl = source.WidowControl;
+        }
+
+        if (source.PageBreakBefore.HasValue)
+        {
+            target.PageBreakBefore = source.PageBreakBefore;
+        }
+
+        if (source.ContextualSpacing.HasValue)
+        {
+            target.ContextualSpacing = source.ContextualSpacing;
+        }
+
+        if (source.Bidi.HasValue)
+        {
+            target.Bidi = source.Bidi;
+        }
+
+        if (source.ShadingColor.HasValue)
+        {
+            target.ShadingColor = source.ShadingColor;
+        }
+
+        ApplyParagraphBorders(target.Borders, source.Borders);
+    }
+
+    private static void ApplyParagraphStyleProperties(ParagraphStyleProperties target, ParagraphStyleProperties source)
+    {
+        if (source.Alignment.HasValue)
+        {
+            target.Alignment = source.Alignment;
+        }
+
+        if (source.SpacingBefore.HasValue)
+        {
+            target.SpacingBefore = source.SpacingBefore;
+        }
+
+        if (source.SpacingAfter.HasValue)
+        {
+            target.SpacingAfter = source.SpacingAfter;
+        }
+
+        if (source.LineSpacing.HasValue)
+        {
+            target.LineSpacing = source.LineSpacing;
+        }
+
+        if (source.LineSpacingRule.HasValue)
+        {
+            target.LineSpacingRule = source.LineSpacingRule;
+        }
+
+        if (source.IndentLeft.HasValue)
+        {
+            target.IndentLeft = source.IndentLeft;
+        }
+
+        if (source.IndentRight.HasValue)
+        {
+            target.IndentRight = source.IndentRight;
+        }
+
+        if (source.FirstLineIndent.HasValue)
+        {
+            target.FirstLineIndent = source.FirstLineIndent;
+        }
+
+        if (source.TabStops.Count > 0)
+        {
+            target.TabStops.Clear();
+            target.TabStops.AddRange(source.TabStops);
+        }
+
+        if (source.KeepWithNext.HasValue)
+        {
+            target.KeepWithNext = source.KeepWithNext;
+        }
+
+        if (source.KeepLinesTogether.HasValue)
+        {
+            target.KeepLinesTogether = source.KeepLinesTogether;
+        }
+
+        if (source.WidowControl.HasValue)
+        {
+            target.WidowControl = source.WidowControl;
+        }
+
+        if (source.PageBreakBefore.HasValue)
+        {
+            target.PageBreakBefore = source.PageBreakBefore;
+        }
+
+        if (source.ContextualSpacing.HasValue)
+        {
+            target.ContextualSpacing = source.ContextualSpacing;
+        }
+
+        if (source.Bidi.HasValue)
+        {
+            target.Bidi = source.Bidi;
+        }
+
+        if (source.ShadingColor.HasValue)
+        {
+            target.ShadingColor = source.ShadingColor;
+        }
+
+        ApplyParagraphBorders(target.Borders, source.Borders);
+    }
+
+    private static void ApplyDirectParagraphProperties(ParagraphProperties target, ParagraphProperties source)
+    {
+        if (source.Alignment.HasValue)
+        {
+            target.Alignment = source.Alignment;
+        }
+
+        if (source.SpacingBefore.HasValue)
+        {
+            target.SpacingBefore = source.SpacingBefore;
+        }
+
+        if (source.SpacingAfter.HasValue)
+        {
+            target.SpacingAfter = source.SpacingAfter;
+        }
+
+        if (source.LineSpacing.HasValue)
+        {
+            target.LineSpacing = source.LineSpacing;
+        }
+
+        if (source.LineSpacingRule.HasValue)
+        {
+            target.LineSpacingRule = source.LineSpacingRule;
+        }
+
+        if (source.IndentLeft.HasValue)
+        {
+            target.IndentLeft = source.IndentLeft;
+        }
+
+        if (source.IndentRight.HasValue)
+        {
+            target.IndentRight = source.IndentRight;
+        }
+
+        if (source.FirstLineIndent.HasValue)
+        {
+            target.FirstLineIndent = source.FirstLineIndent;
+        }
+
+        if (source.TabStops.Count > 0)
+        {
+            target.TabStops.Clear();
+            target.TabStops.AddRange(source.TabStops);
+        }
+
+        if (source.KeepWithNext.HasValue)
+        {
+            target.KeepWithNext = source.KeepWithNext;
+        }
+
+        if (source.KeepLinesTogether.HasValue)
+        {
+            target.KeepLinesTogether = source.KeepLinesTogether;
+        }
+
+        if (source.WidowControl.HasValue)
+        {
+            target.WidowControl = source.WidowControl;
+        }
+
+        if (source.PageBreakBefore.HasValue)
+        {
+            target.PageBreakBefore = source.PageBreakBefore;
+        }
+
+        if (source.ContextualSpacing.HasValue)
+        {
+            target.ContextualSpacing = source.ContextualSpacing;
+        }
+
+        if (source.Bidi.HasValue)
+        {
+            target.Bidi = source.Bidi;
+        }
+
+        if (source.ShadingColor.HasValue)
+        {
+            target.ShadingColor = source.ShadingColor;
+        }
+
+        ApplyParagraphBorders(target.Borders, source.Borders);
+    }
+
+    private static void ApplyTextStyleProperties(TextStyleProperties target, TextStyleProperties source)
+    {
+        if (!string.IsNullOrWhiteSpace(source.FontFamily))
+        {
+            target.FontFamily = source.FontFamily;
+        }
+
+        if (source.FontSize.HasValue)
+        {
+            target.FontSize = source.FontSize;
+        }
+
+        if (source.FontWeight.HasValue)
+        {
+            target.FontWeight = source.FontWeight;
+        }
+
+        if (source.FontStyle.HasValue)
+        {
+            target.FontStyle = source.FontStyle;
+        }
+
+        if (source.Color.HasValue)
+        {
+            target.Color = source.Color;
+        }
+
+        if (source.VerticalPosition.HasValue)
+        {
+            target.VerticalPosition = source.VerticalPosition;
+        }
+
+        if (source.SmallCaps.HasValue)
+        {
+            target.SmallCaps = source.SmallCaps;
+        }
+
+        if (source.Underline.HasValue)
+        {
+            target.Underline = source.Underline;
+        }
+
+        if (source.UnderlineStyle.HasValue)
+        {
+            target.UnderlineStyle = source.UnderlineStyle;
+            target.Underline = source.UnderlineStyle.Value != DocUnderlineStyle.None;
+        }
+
+        if (source.UnderlineColor.HasValue)
+        {
+            target.UnderlineColor = source.UnderlineColor;
+        }
+
+        if (source.Strikethrough.HasValue)
+        {
+            target.Strikethrough = source.Strikethrough;
+        }
+
+        if (source.HighlightColor.HasValue)
+        {
+            target.HighlightColor = source.HighlightColor;
+        }
+
+        if (source.ThemeFontAscii.HasValue)
+        {
+            target.ThemeFontAscii = source.ThemeFontAscii;
+        }
+
+        if (source.ThemeFontHighAnsi.HasValue)
+        {
+            target.ThemeFontHighAnsi = source.ThemeFontHighAnsi;
+        }
+
+        if (source.ThemeFontEastAsia.HasValue)
+        {
+            target.ThemeFontEastAsia = source.ThemeFontEastAsia;
+        }
+
+        if (source.ThemeFontComplexScript.HasValue)
+        {
+            target.ThemeFontComplexScript = source.ThemeFontComplexScript;
+        }
+    }
+
+    private static void ApplyParagraphBorders(ParagraphBorders target, ParagraphBorders source)
+    {
+        if (source.Top is not null)
+        {
+            target.Top = source.Top.Clone();
+        }
+
+        if (source.Bottom is not null)
+        {
+            target.Bottom = source.Bottom.Clone();
+        }
+
+        if (source.Left is not null)
+        {
+            target.Left = source.Left.Clone();
+        }
+
+        if (source.Right is not null)
+        {
+            target.Right = source.Right.Clone();
+        }
+    }
+
+    private static void ApplyTableProperties(TableProperties target, TableProperties source)
+    {
+        if (source.ColumnWidths.Count > 0)
+        {
+            target.ColumnWidths.Clear();
+            target.ColumnWidths.AddRange(source.ColumnWidths);
+        }
+
+        if (source.CellPadding.HasValue)
+        {
+            target.CellPadding = source.CellPadding;
+        }
+
+        if (source.ShadingColor.HasValue)
+        {
+            target.ShadingColor = source.ShadingColor;
+        }
+
+        if (source.Look is not null)
+        {
+            target.Look = source.Look.Clone();
+        }
+
+        ApplyTableBorders(target.Borders, source.Borders);
+    }
+
+    private static void ApplyTableBorders(TableBorders target, TableBorders source)
+    {
+        if (source.Top is not null)
+        {
+            target.Top = source.Top.Clone();
+        }
+
+        if (source.Bottom is not null)
+        {
+            target.Bottom = source.Bottom.Clone();
+        }
+
+        if (source.Left is not null)
+        {
+            target.Left = source.Left.Clone();
+        }
+
+        if (source.Right is not null)
+        {
+            target.Right = source.Right.Clone();
+        }
+
+        if (source.InsideHorizontal is not null)
+        {
+            target.InsideHorizontal = source.InsideHorizontal.Clone();
+        }
+
+        if (source.InsideVertical is not null)
+        {
+            target.InsideVertical = source.InsideVertical.Clone();
+        }
+    }
+
+    private static void ApplyTableCellProperties(TableCellProperties target, TableCellProperties source)
+    {
+        if (source.Padding.HasValue)
+        {
+            target.Padding = source.Padding;
+        }
+
+        if (source.ShadingColor.HasValue)
+        {
+            target.ShadingColor = source.ShadingColor;
+        }
+
+        if (source.VerticalAlignment.HasValue)
+        {
+            target.VerticalAlignment = source.VerticalAlignment;
+        }
+
+        ApplyTableCellBorders(target.Borders, source.Borders);
+    }
+
+    private static void ApplyTableCellBorders(TableCellBorders target, TableCellBorders source)
+    {
+        if (source.Top is not null)
+        {
+            target.Top = source.Top.Clone();
+        }
+
+        if (source.Bottom is not null)
+        {
+            target.Bottom = source.Bottom.Clone();
+        }
+
+        if (source.Left is not null)
+        {
+            target.Left = source.Left.Clone();
+        }
+
+        if (source.Right is not null)
+        {
+            target.Right = source.Right.Clone();
+        }
+    }
+}
