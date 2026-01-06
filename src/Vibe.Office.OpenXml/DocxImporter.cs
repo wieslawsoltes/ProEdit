@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -8,6 +9,7 @@ using OpenXmlTableBorders = DocumentFormat.OpenXml.Wordprocessing.TableBorders;
 using OpenXmlTableCellBorders = DocumentFormat.OpenXml.Wordprocessing.TableCellBorders;
 using OpenXmlParagraphBorders = DocumentFormat.OpenXml.Wordprocessing.ParagraphBorders;
 using Vibe.Office.Documents;
+using Vibe.Office.Primitives;
 using VibeDocument = Vibe.Office.Documents.Document;
 
 namespace Vibe.Office.OpenXml;
@@ -610,6 +612,43 @@ public sealed class DocxImporter
                             buffer.Append(text.Text);
                         }
                         break;
+                    case OpenXmlElement element when element.LocalName == "sym":
+                    {
+                        if (fieldStack.Count > 0 && !fieldStack.Peek().InResult)
+                        {
+                            break;
+                        }
+
+                        if (suppressResultText)
+                        {
+                            break;
+                        }
+
+                        var fontValue = element.GetAttribute("font", element.NamespaceUri).Value;
+                        var charValue = element.GetAttribute("char", element.NamespaceUri).Value;
+                        var symbolText = ParseSymbolChar(charValue);
+                        if (symbolText.Length == 0)
+                        {
+                            break;
+                        }
+
+                        FlushRunBuffer(buffer, style, runStyleId, current, builder, hyperlink);
+                        var symbolStyle = style?.Clone() ?? new TextStyleProperties();
+                        if (!string.IsNullOrWhiteSpace(fontValue))
+                        {
+                            symbolStyle.FontFamily = fontValue;
+                        }
+
+                        var inline = new RunInline(symbolText, symbolStyle) { StyleId = runStyleId };
+                        if (hyperlink is not null)
+                        {
+                            inline.Hyperlink = hyperlink;
+                        }
+
+                        current.Inlines.Add(inline);
+                        builder.Append(symbolText);
+                        break;
+                    }
                     case TabChar:
                         if (fieldStack.Count == 0 || fieldStack.Peek().InResult)
                         {
@@ -726,6 +765,18 @@ public sealed class DocxImporter
                         {
                             FlushRunBuffer(buffer, style, runStyleId, current, builder, hyperlink);
                             var imageInline = imageResolver.TryCreateImage(drawing);
+                            if (imageInline is not null)
+                            {
+                                AddInline(imageInline, true, hyperlink);
+                            }
+                        }
+
+                        break;
+                    case OpenXmlElement element when element.LocalName == "object" || element.LocalName == "pict":
+                        if (!suppressResultText)
+                        {
+                            FlushRunBuffer(buffer, style, runStyleId, current, builder, hyperlink);
+                            var imageInline = imageResolver.TryCreateImageFromVml(element);
                             if (imageInline is not null)
                             {
                                 AddInline(imageInline, true, hyperlink);
@@ -943,6 +994,11 @@ public sealed class DocxImporter
             if (columns.EqualWidth?.Value is bool equalWidth)
             {
                 properties.ColumnEqualWidth = equalWidth;
+            }
+
+            if (columns.Separator?.Value is bool separator)
+            {
+                properties.ColumnSeparator = separator;
             }
 
             foreach (var column in columns.Elements<Column>())
@@ -1623,10 +1679,19 @@ public sealed class DocxImporter
             properties.TabStops.Clear();
             foreach (var tab in tabs.Elements<TabStop>())
             {
+                if (tab.Val?.Value == TabStopValues.Clear)
+                {
+                    continue;
+                }
+
                 if (tab.Position?.Value is int position)
                 {
                     var value = TwipsToDip(position);
-                    properties.TabStops.Add(value);
+                    properties.TabStops.Add(new TabStopDefinition(value)
+                    {
+                        Alignment = MapTabAlignment(tab.Val?.Value),
+                        Leader = MapTabLeader(tab.Leader?.Value)
+                    });
                 }
             }
         }
@@ -1747,10 +1812,19 @@ public sealed class DocxImporter
             properties.TabStops.Clear();
             foreach (var tab in tabs.Elements<TabStop>())
             {
+                if (tab.Val?.Value == TabStopValues.Clear)
+                {
+                    continue;
+                }
+
                 if (tab.Position?.Value is int position)
                 {
                     var value = TwipsToDip(position);
-                    properties.TabStops.Add(value);
+                    properties.TabStops.Add(new TabStopDefinition(value)
+                    {
+                        Alignment = MapTabAlignment(tab.Val?.Value),
+                        Leader = MapTabLeader(tab.Leader?.Value)
+                    });
                 }
             }
         }
@@ -2365,13 +2439,23 @@ public sealed class DocxImporter
         return points * 96f / 72f;
     }
 
-    private static float? ParseCellPadding(object? leftTwips, object? rightTwips, object? topTwips, object? bottomTwips)
+    private static DocThickness? ParseCellPadding(object? leftTwips, object? rightTwips, object? topTwips, object? bottomTwips)
     {
-        var value = TryParseTwips(leftTwips)
-                    ?? TryParseTwips(rightTwips)
-                    ?? TryParseTwips(topTwips)
-                    ?? TryParseTwips(bottomTwips);
-        return value.HasValue ? TwipsToDip(value.Value) : null;
+        var left = TryParseTwips(leftTwips);
+        var right = TryParseTwips(rightTwips);
+        var top = TryParseTwips(topTwips);
+        var bottom = TryParseTwips(bottomTwips);
+
+        if (!left.HasValue && !right.HasValue && !top.HasValue && !bottom.HasValue)
+        {
+            return null;
+        }
+
+        return new DocThickness(
+            left.HasValue ? TwipsToDip(left.Value) : float.NaN,
+            top.HasValue ? TwipsToDip(top.Value) : float.NaN,
+            right.HasValue ? TwipsToDip(right.Value) : float.NaN,
+            bottom.HasValue ? TwipsToDip(bottom.Value) : float.NaN);
     }
 
     private static float? TryParseTwips(object? value)
@@ -2742,6 +2826,58 @@ public sealed class DocxImporter
         return DocLineSpacingRule.Auto;
     }
 
+    private static TabAlignment MapTabAlignment(TabStopValues? value)
+    {
+        if (!value.HasValue)
+        {
+            return TabAlignment.Left;
+        }
+
+        var resolved = value.Value;
+        if (resolved == TabStopValues.Center)
+        {
+            return TabAlignment.Center;
+        }
+
+        if (resolved == TabStopValues.Right)
+        {
+            return TabAlignment.Right;
+        }
+
+        if (resolved == TabStopValues.Decimal)
+        {
+            return TabAlignment.Decimal;
+        }
+
+        return TabAlignment.Left;
+    }
+
+    private static TabLeader MapTabLeader(TabStopLeaderCharValues? value)
+    {
+        if (!value.HasValue)
+        {
+            return TabLeader.None;
+        }
+
+        var resolved = value.Value;
+        if (resolved == TabStopLeaderCharValues.Dot)
+        {
+            return TabLeader.Dot;
+        }
+
+        if (resolved == TabStopLeaderCharValues.Hyphen)
+        {
+            return TabLeader.Hyphen;
+        }
+
+        if (resolved == TabStopLeaderCharValues.Underscore)
+        {
+            return TabLeader.Underscore;
+        }
+
+        return TabLeader.None;
+    }
+
     private static DocVerticalPosition MapVerticalPosition(VerticalPositionValues value)
     {
         if (value == VerticalPositionValues.Superscript)
@@ -2783,9 +2919,25 @@ public sealed class DocxImporter
         return true;
     }
 
+    private static string ParseSymbolChar(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        if (!int.TryParse(value, System.Globalization.NumberStyles.HexNumber, System.Globalization.CultureInfo.InvariantCulture, out var code))
+        {
+            return string.Empty;
+        }
+
+        return code <= 0xFFFF ? new string((char)code, 1) : char.ConvertFromUtf32(code);
+    }
+
     private sealed class ImageResolver
     {
         private readonly OpenXmlPart? _part;
+        private const string RelationshipNamespace = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
 
         public ImageResolver(OpenXmlPart? part)
         {
@@ -2823,9 +2975,134 @@ public sealed class DocxImporter
             return new ImageInline(data, width, height, imagePart.ContentType);
         }
 
+        public ImageInline? TryCreateImageFromVml(OpenXmlElement element)
+        {
+            if (_part is null)
+            {
+                return null;
+            }
+
+            var (width, height) = GetVmlSize(element);
+            var imageData = element.Descendants()
+                .FirstOrDefault(node => node.LocalName.Equals("imagedata", StringComparison.OrdinalIgnoreCase));
+            if (imageData is null)
+            {
+                return new ImageInline(Array.Empty<byte>(), width, height, "application/vnd.ms-office.ole");
+            }
+
+            var idAttribute = imageData.GetAttribute("id", RelationshipNamespace);
+            if (string.IsNullOrWhiteSpace(idAttribute.Value))
+            {
+                return new ImageInline(Array.Empty<byte>(), width, height, "application/vnd.ms-office.ole");
+            }
+
+            if (_part.GetPartById(idAttribute.Value) is not ImagePart imagePart)
+            {
+                return new ImageInline(Array.Empty<byte>(), width, height, "application/vnd.ms-office.ole");
+            }
+
+            using var stream = imagePart.GetStream();
+            using var memory = new MemoryStream();
+            stream.CopyTo(memory);
+            var data = memory.ToArray();
+
+            return new ImageInline(data, width, height, imagePart.ContentType);
+        }
+
         private static float EmuToDip(long emu)
         {
             return (float)(emu / 914400d * 96d);
+        }
+
+        private static (float Width, float Height) GetVmlSize(OpenXmlElement element)
+        {
+            var shape = element.Descendants()
+                .FirstOrDefault(node => node.LocalName.Equals("shape", StringComparison.OrdinalIgnoreCase));
+            if (shape is null)
+            {
+                return (100f, 100f);
+            }
+
+            var styleValue = shape.GetAttribute("style", string.Empty).Value;
+            if (string.IsNullOrWhiteSpace(styleValue))
+            {
+                return (100f, 100f);
+            }
+
+            var width = 0f;
+            var height = 0f;
+            foreach (var part in styleValue.Split(';', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var piece = part.Trim();
+                if (piece.StartsWith("width", StringComparison.OrdinalIgnoreCase))
+                {
+                    var value = piece.Split(':', 2);
+                    if (value.Length == 2 && TryParseVmlLength(value[1], out var parsed))
+                    {
+                        width = parsed;
+                    }
+                }
+                else if (piece.StartsWith("height", StringComparison.OrdinalIgnoreCase))
+                {
+                    var value = piece.Split(':', 2);
+                    if (value.Length == 2 && TryParseVmlLength(value[1], out var parsed))
+                    {
+                        height = parsed;
+                    }
+                }
+            }
+
+            if (width <= 0f)
+            {
+                width = 100f;
+            }
+
+            if (height <= 0f)
+            {
+                height = 100f;
+            }
+
+            return (width, height);
+        }
+
+        private static bool TryParseVmlLength(string value, out float dip)
+        {
+            dip = 0f;
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return false;
+            }
+
+            var trimmed = value.Trim();
+            var index = 0;
+            while (index < trimmed.Length && (char.IsDigit(trimmed[index]) || trimmed[index] == '.' || trimmed[index] == '-'))
+            {
+                index++;
+            }
+
+            if (index == 0)
+            {
+                return false;
+            }
+
+            if (!float.TryParse(trimmed[..index], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var number))
+            {
+                return false;
+            }
+
+            var unit = trimmed[index..].Trim().ToLowerInvariant();
+            dip = unit switch
+            {
+                "in" => number * 96f,
+                "pt" => number * 96f / 72f,
+                "px" => number,
+                "cm" => number * 96f / 2.54f,
+                "mm" => number * 96f / 25.4f,
+                "" => number,
+                _ => number
+            };
+
+            return true;
         }
     }
 

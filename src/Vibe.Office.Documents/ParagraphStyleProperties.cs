@@ -10,7 +10,7 @@ public sealed class ParagraphStyleProperties
     public float? IndentLeft { get; set; }
     public float? IndentRight { get; set; }
     public float? FirstLineIndent { get; set; }
-    public List<float> TabStops { get; } = new List<float>();
+    public List<TabStopDefinition> TabStops { get; } = new List<TabStopDefinition>();
     public bool? KeepWithNext { get; set; }
     public bool? KeepLinesTogether { get; set; }
     public bool? WidowControl { get; set; }

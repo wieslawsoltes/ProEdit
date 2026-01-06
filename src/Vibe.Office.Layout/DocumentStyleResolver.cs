@@ -1,4 +1,5 @@
 using Vibe.Office.Documents;
+using Vibe.Office.Primitives;
 
 namespace Vibe.Office.Layout;
 
@@ -294,7 +295,10 @@ public sealed class DocumentStyleResolver
         if (source.TabStops.Count > 0)
         {
             target.TabStops.Clear();
-            target.TabStops.AddRange(source.TabStops);
+            foreach (var tabStop in source.TabStops)
+            {
+                target.TabStops.Add(tabStop.Clone());
+            }
         }
 
         if (source.KeepWithNext.HasValue)
@@ -380,7 +384,10 @@ public sealed class DocumentStyleResolver
         if (source.TabStops.Count > 0)
         {
             target.TabStops.Clear();
-            target.TabStops.AddRange(source.TabStops);
+            foreach (var tabStop in source.TabStops)
+            {
+                target.TabStops.Add(tabStop.Clone());
+            }
         }
 
         if (source.KeepWithNext.HasValue)
@@ -466,7 +473,10 @@ public sealed class DocumentStyleResolver
         if (source.TabStops.Count > 0)
         {
             target.TabStops.Clear();
-            target.TabStops.AddRange(source.TabStops);
+            foreach (var tabStop in source.TabStops)
+            {
+                target.TabStops.Add(tabStop.Clone());
+            }
         }
 
         if (source.KeepWithNext.HasValue)
@@ -624,7 +634,7 @@ public sealed class DocumentStyleResolver
 
         if (source.CellPadding.HasValue)
         {
-            target.CellPadding = source.CellPadding;
+            target.CellPadding = MergePadding(target.CellPadding, source.CellPadding.Value);
         }
 
         if (source.ShadingColor.HasValue)
@@ -677,7 +687,7 @@ public sealed class DocumentStyleResolver
     {
         if (source.Padding.HasValue)
         {
-            target.Padding = source.Padding;
+            target.Padding = MergePadding(target.Padding, source.Padding.Value);
         }
 
         if (source.ShadingColor.HasValue)
@@ -714,5 +724,20 @@ public sealed class DocumentStyleResolver
         {
             target.Right = source.Right.Clone();
         }
+    }
+
+    private static DocThickness MergePadding(DocThickness? basePadding, DocThickness overridePadding)
+    {
+        if (!basePadding.HasValue)
+        {
+            return overridePadding;
+        }
+
+        var value = basePadding.Value;
+        return new DocThickness(
+            float.IsNaN(overridePadding.Left) ? value.Left : overridePadding.Left,
+            float.IsNaN(overridePadding.Top) ? value.Top : overridePadding.Top,
+            float.IsNaN(overridePadding.Right) ? value.Right : overridePadding.Right,
+            float.IsNaN(overridePadding.Bottom) ? value.Bottom : overridePadding.Bottom);
     }
 }

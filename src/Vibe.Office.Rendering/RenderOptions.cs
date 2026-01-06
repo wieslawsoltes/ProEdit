@@ -9,10 +9,15 @@ public sealed class RenderOptions
     public DocColor PageColor { get; set; } = DocColor.White;
     public DocColor PageBorderColor { get; set; } = new DocColor(220, 220, 220);
     public float PageBorderThickness { get; set; } = 1f;
+    public DocColor ColumnSeparatorColor { get; set; } = new DocColor(200, 200, 200);
+    public float ColumnSeparatorThickness { get; set; } = 1f;
     public DocColor TextColor { get; set; } = DocColor.Black;
     public DocColor SelectionColor { get; set; } = DocColor.SelectionBlue;
     public DocColor CaretColor { get; set; } = DocColor.Black;
     public DocColor CommentHighlightColor { get; set; } = new DocColor(255, 247, 205, 160);
+    public DocColor PlaceholderFillColor { get; set; } = new DocColor(248, 248, 248);
+    public DocColor PlaceholderStrokeColor { get; set; } = new DocColor(180, 180, 180);
+    public DocColor PlaceholderTextColor { get; set; } = new DocColor(120, 120, 120);
     public float CaretThickness { get; set; } = 1.5f;
     public bool ShowInvisibles { get; set; }
     public DocColor InvisiblesColor { get; set; } = new DocColor(165, 165, 165);

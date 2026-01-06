@@ -13,6 +13,7 @@ public sealed class SectionProperties
     public int? ColumnCount { get; set; }
     public float? ColumnGap { get; set; }
     public bool? ColumnEqualWidth { get; set; }
+    public bool? ColumnSeparator { get; set; }
     public List<float> ColumnWidths { get; } = new List<float>();
 
     public bool HasValues =>
@@ -27,5 +28,6 @@ public sealed class SectionProperties
         || ColumnCount.HasValue
         || ColumnGap.HasValue
         || ColumnEqualWidth.HasValue
+        || ColumnSeparator.HasValue
         || ColumnWidths.Count > 0;
 }

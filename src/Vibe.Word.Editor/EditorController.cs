@@ -923,7 +923,10 @@ public sealed class EditorController
             target.Borders.Right = source.Borders.Right?.Clone();
         }
         target.TabStops.Clear();
-        target.TabStops.AddRange(source.TabStops);
+        foreach (var tabStop in source.TabStops)
+        {
+            target.TabStops.Add(tabStop.Clone());
+        }
     }
 
     private readonly struct InlinePosition

@@ -11,7 +11,7 @@ public sealed record TableCellLayout(
     DocRect Bounds,
     IReadOnlyList<TableCellLine> Lines,
     TableCellProperties Properties,
-    float Padding,
+    DocThickness Padding,
     bool IsMergeContinuation = false,
     int MergeOriginRowIndex = -1,
     int MergeOriginColumnIndex = -1);

@@ -13,6 +13,7 @@ public sealed record PageSectionSettings(
     float FooterOffset,
     int ColumnCount,
     float ColumnGap,
+    bool ColumnSeparator,
     bool ColumnEqualWidth,
     IReadOnlyList<float> ColumnWidths,
     int SectionIndex)
@@ -30,6 +31,7 @@ public sealed record PageSectionSettings(
             settings.FooterOffset,
             1,
             settings.ColumnGap,
+            false,
             true,
             Array.Empty<float>(),
             sectionIndex);
@@ -51,6 +53,7 @@ public sealed record PageSectionSettings(
             ?? (properties.ColumnWidths.Count > 0 ? properties.ColumnWidths.Count : ColumnCount);
         columnCount = Math.Max(1, columnCount);
         var columnGap = properties.ColumnGap ?? ColumnGap;
+        var columnSeparator = properties.ColumnSeparator ?? ColumnSeparator;
         var columnEqualWidth = properties.ColumnEqualWidth
             ?? (columnWidths.Length == 0 && columnCount > 1);
 
@@ -65,6 +68,7 @@ public sealed record PageSectionSettings(
             properties.FooterOffset ?? FooterOffset,
             columnCount,
             columnGap,
+            columnSeparator,
             columnEqualWidth,
             columnWidths,
             SectionIndex);

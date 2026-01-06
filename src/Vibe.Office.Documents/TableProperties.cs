@@ -5,7 +5,7 @@ namespace Vibe.Office.Documents;
 public sealed class TableProperties
 {
     public List<float> ColumnWidths { get; } = new List<float>();
-    public float? CellPadding { get; set; }
+    public DocThickness? CellPadding { get; set; }
     public TableBorders Borders { get; } = new TableBorders();
     public DocColor? ShadingColor { get; set; }
     public TableLook? Look { get; set; }

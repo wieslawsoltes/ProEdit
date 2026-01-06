@@ -11,6 +11,7 @@ using A = DocumentFormat.OpenXml.Drawing;
 using DW = DocumentFormat.OpenXml.Drawing.Wordprocessing;
 using PIC = DocumentFormat.OpenXml.Drawing.Pictures;
 using Vibe.Office.Documents;
+using Vibe.Office.Primitives;
 using VibeDocument = Vibe.Office.Documents.Document;
 
 namespace Vibe.Office.OpenXml;
@@ -516,16 +517,10 @@ public sealed class DocxExporter
             props.TableBorders = borders;
         }
 
-        if (properties.CellPadding.HasValue)
+        var defaultMargin = BuildTableCellMarginDefault(properties.CellPadding);
+        if (defaultMargin is not null)
         {
-            var marginSize = DipToTwipsInt16(properties.CellPadding.Value);
-            props.TableCellMarginDefault = new TableCellMarginDefault
-            {
-                TableCellLeftMargin = new TableCellLeftMargin { Width = marginSize, Type = TableWidthValues.Dxa },
-                TableCellRightMargin = new TableCellRightMargin { Width = marginSize, Type = TableWidthValues.Dxa },
-                TopMargin = new TopMargin { Width = DipToTwips(properties.CellPadding.Value), Type = TableWidthUnitValues.Dxa },
-                BottomMargin = new BottomMargin { Width = DipToTwips(properties.CellPadding.Value), Type = TableWidthUnitValues.Dxa }
-            };
+            props.TableCellMarginDefault = defaultMargin;
         }
 
         if (properties.ShadingColor.HasValue)
@@ -544,15 +539,10 @@ public sealed class DocxExporter
         }
 
         var props = new StyleTableCellProperties();
-        if (properties.Padding.HasValue)
+        var cellMargin = BuildTableCellMargin(properties.Padding);
+        if (cellMargin is not null)
         {
-            props.TableCellMargin = new TableCellMargin
-            {
-                LeftMargin = new LeftMargin { Width = DipToTwips(properties.Padding.Value), Type = TableWidthUnitValues.Dxa },
-                RightMargin = new RightMargin { Width = DipToTwips(properties.Padding.Value), Type = TableWidthUnitValues.Dxa },
-                TopMargin = new TopMargin { Width = DipToTwips(properties.Padding.Value), Type = TableWidthUnitValues.Dxa },
-                BottomMargin = new BottomMargin { Width = DipToTwips(properties.Padding.Value), Type = TableWidthUnitValues.Dxa }
-            };
+            props.TableCellMargin = cellMargin;
         }
 
         if (properties.VerticalAlignment.HasValue && properties.VerticalAlignment != Vibe.Office.Documents.TableCellVerticalAlignment.Top)
@@ -613,16 +603,10 @@ public sealed class DocxExporter
             props.TableBorders = borders;
         }
 
-        if (properties.CellPadding.HasValue)
+        var defaultMargin = BuildTableCellMarginDefault(properties.CellPadding);
+        if (defaultMargin is not null)
         {
-            var marginSize = DipToTwipsInt16(properties.CellPadding.Value);
-            props.TableCellMarginDefault = new TableCellMarginDefault
-            {
-                TableCellLeftMargin = new TableCellLeftMargin { Width = marginSize, Type = TableWidthValues.Dxa },
-                TableCellRightMargin = new TableCellRightMargin { Width = marginSize, Type = TableWidthValues.Dxa },
-                TopMargin = new TopMargin { Width = DipToTwips(properties.CellPadding.Value), Type = TableWidthUnitValues.Dxa },
-                BottomMargin = new BottomMargin { Width = DipToTwips(properties.CellPadding.Value), Type = TableWidthUnitValues.Dxa }
-            };
+            props.TableCellMarginDefault = defaultMargin;
         }
 
         if (properties.ShadingColor.HasValue)
@@ -647,15 +631,10 @@ public sealed class DocxExporter
             props.TableCellBorders = borders;
         }
 
-        if (properties.Padding.HasValue)
+        var cellMargin = BuildTableCellMargin(properties.Padding);
+        if (cellMargin is not null)
         {
-            props.TableCellMargin = new TableCellMargin
-            {
-                LeftMargin = new LeftMargin { Width = DipToTwips(properties.Padding.Value), Type = TableWidthUnitValues.Dxa },
-                RightMargin = new RightMargin { Width = DipToTwips(properties.Padding.Value), Type = TableWidthUnitValues.Dxa },
-                TopMargin = new TopMargin { Width = DipToTwips(properties.Padding.Value), Type = TableWidthUnitValues.Dxa },
-                BottomMargin = new BottomMargin { Width = DipToTwips(properties.Padding.Value), Type = TableWidthUnitValues.Dxa }
-            };
+            props.TableCellMargin = cellMargin;
         }
 
         if (properties.VerticalAlignment.HasValue && properties.VerticalAlignment != Vibe.Office.Documents.TableCellVerticalAlignment.Top)
@@ -1235,11 +1214,18 @@ public sealed class DocxExporter
             var tabs = new Tabs();
             foreach (var tabStop in properties.TabStops)
             {
-                tabs.AppendChild(new TabStop
+                var tab = new TabStop
                 {
-                    Position = DipToTwipsValue(tabStop),
-                    Val = TabStopValues.Left
-                });
+                    Position = DipToTwipsValue(tabStop.Position),
+                    Val = MapTabAlignment(tabStop.Alignment)
+                };
+                var leader = MapTabLeader(tabStop.Leader);
+                if (leader.HasValue)
+                {
+                    tab.Leader = leader;
+                }
+
+                tabs.AppendChild(tab);
             }
 
             paragraphProperties.Tabs = tabs;
@@ -1985,11 +1971,18 @@ public sealed class DocxExporter
             var tabs = new Tabs();
             foreach (var tabStop in properties.TabStops)
             {
-                tabs.AppendChild(new TabStop
+                var tab = new TabStop
                 {
-                    Position = DipToTwipsValue(tabStop),
-                    Val = TabStopValues.Left
-                });
+                    Position = DipToTwipsValue(tabStop.Position),
+                    Val = MapTabAlignment(tabStop.Alignment)
+                };
+                var leader = MapTabLeader(tabStop.Leader);
+                if (leader.HasValue)
+                {
+                    tab.Leader = leader;
+                }
+
+                tabs.AppendChild(tab);
             }
 
             paragraphProperties.Tabs = tabs;
@@ -2105,11 +2098,18 @@ public sealed class DocxExporter
             var tabs = new Tabs();
             foreach (var tabStop in properties.TabStops)
             {
-                tabs.AppendChild(new TabStop
+                var tab = new TabStop
                 {
-                    Position = DipToTwipsValue(tabStop),
-                    Val = TabStopValues.Left
-                });
+                    Position = DipToTwipsValue(tabStop.Position),
+                    Val = MapTabAlignment(tabStop.Alignment)
+                };
+                var leader = MapTabLeader(tabStop.Leader);
+                if (leader.HasValue)
+                {
+                    tab.Leader = leader;
+                }
+
+                tabs.AppendChild(tab);
             }
 
             paragraphProperties.Tabs = tabs;
@@ -2350,6 +2350,28 @@ public sealed class DocxExporter
         };
     }
 
+    private static TabStopValues MapTabAlignment(TabAlignment alignment)
+    {
+        return alignment switch
+        {
+            TabAlignment.Center => TabStopValues.Center,
+            TabAlignment.Right => TabStopValues.Right,
+            TabAlignment.Decimal => TabStopValues.Decimal,
+            _ => TabStopValues.Left
+        };
+    }
+
+    private static TabStopLeaderCharValues? MapTabLeader(TabLeader leader)
+    {
+        return leader switch
+        {
+            TabLeader.Dot => TabStopLeaderCharValues.Dot,
+            TabLeader.Hyphen => TabStopLeaderCharValues.Hyphen,
+            TabLeader.Underscore => TabStopLeaderCharValues.Underscore,
+            _ => null
+        };
+    }
+
     private static StringValue DipToTwips(float value)
     {
         var twips = value / (96f / 72f) * 20f;
@@ -2455,6 +2477,7 @@ public sealed class DocxExporter
         if (properties.ColumnCount.HasValue
             || properties.ColumnGap.HasValue
             || properties.ColumnEqualWidth.HasValue
+            || properties.ColumnSeparator.HasValue
             || properties.ColumnWidths.Count > 0)
         {
             var columns = target.GetFirstChild<Columns>() ?? target.AppendChild(new Columns());
@@ -2472,6 +2495,11 @@ public sealed class DocxExporter
             if (properties.ColumnEqualWidth.HasValue)
             {
                 columns.EqualWidth = properties.ColumnEqualWidth.Value;
+            }
+
+            if (properties.ColumnSeparator.HasValue)
+            {
+                columns.Separator = properties.ColumnSeparator.Value;
             }
 
             if (properties.ColumnWidths.Count > 0)
@@ -2500,17 +2528,10 @@ public sealed class DocxExporter
             props.TableBorders = borders;
         }
 
-        if (properties.CellPadding.HasValue)
+        var defaultMargin = BuildTableCellMarginDefault(properties.CellPadding);
+        if (defaultMargin is not null)
         {
-            var marginSize = DipToTwipsInt16(properties.CellPadding.Value);
-            var margin = new TableCellMarginDefault
-            {
-                TableCellLeftMargin = new TableCellLeftMargin { Width = marginSize, Type = TableWidthValues.Dxa },
-                TableCellRightMargin = new TableCellRightMargin { Width = marginSize, Type = TableWidthValues.Dxa },
-                TopMargin = new TopMargin { Width = DipToTwips(properties.CellPadding.Value), Type = TableWidthUnitValues.Dxa },
-                BottomMargin = new BottomMargin { Width = DipToTwips(properties.CellPadding.Value), Type = TableWidthUnitValues.Dxa }
-            };
-            props.TableCellMarginDefault = margin;
+            props.TableCellMarginDefault = defaultMargin;
         }
 
         if (properties.ShadingColor.HasValue)
@@ -2544,15 +2565,10 @@ public sealed class DocxExporter
             cellProps.TableCellBorders = borders;
         }
 
-        if (properties.Padding.HasValue)
+        var cellMargin = BuildTableCellMargin(properties.Padding);
+        if (cellMargin is not null)
         {
-            cellProps.TableCellMargin = new TableCellMargin
-            {
-                LeftMargin = new LeftMargin { Width = DipToTwips(properties.Padding.Value), Type = TableWidthUnitValues.Dxa },
-                RightMargin = new RightMargin { Width = DipToTwips(properties.Padding.Value), Type = TableWidthUnitValues.Dxa },
-                TopMargin = new TopMargin { Width = DipToTwips(properties.Padding.Value), Type = TableWidthUnitValues.Dxa },
-                BottomMargin = new BottomMargin { Width = DipToTwips(properties.Padding.Value), Type = TableWidthUnitValues.Dxa }
-            };
+            cellProps.TableCellMargin = cellMargin;
         }
 
         if (properties.VerticalAlignment.HasValue && properties.VerticalAlignment != Vibe.Office.Documents.TableCellVerticalAlignment.Top)
@@ -2609,19 +2625,97 @@ public sealed class DocxExporter
         }
     }
 
+    private static TableCellMarginDefault? BuildTableCellMarginDefault(DocThickness? padding)
+    {
+        if (!HasPaddingValues(padding))
+        {
+            return null;
+        }
+
+        var value = padding!.Value;
+        var margin = new TableCellMarginDefault();
+        if (!float.IsNaN(value.Left))
+        {
+            margin.TableCellLeftMargin = new TableCellLeftMargin { Width = DipToTwipsInt16(value.Left), Type = TableWidthValues.Dxa };
+        }
+
+        if (!float.IsNaN(value.Right))
+        {
+            margin.TableCellRightMargin = new TableCellRightMargin { Width = DipToTwipsInt16(value.Right), Type = TableWidthValues.Dxa };
+        }
+
+        if (!float.IsNaN(value.Top))
+        {
+            margin.TopMargin = new TopMargin { Width = DipToTwips(value.Top), Type = TableWidthUnitValues.Dxa };
+        }
+
+        if (!float.IsNaN(value.Bottom))
+        {
+            margin.BottomMargin = new BottomMargin { Width = DipToTwips(value.Bottom), Type = TableWidthUnitValues.Dxa };
+        }
+
+        return margin.ChildElements.Count > 0 ? margin : null;
+    }
+
+    private static TableCellMargin? BuildTableCellMargin(DocThickness? padding)
+    {
+        if (!HasPaddingValues(padding))
+        {
+            return null;
+        }
+
+        var value = padding!.Value;
+        var margin = new TableCellMargin();
+        if (!float.IsNaN(value.Left))
+        {
+            margin.LeftMargin = new LeftMargin { Width = DipToTwips(value.Left), Type = TableWidthUnitValues.Dxa };
+        }
+
+        if (!float.IsNaN(value.Right))
+        {
+            margin.RightMargin = new RightMargin { Width = DipToTwips(value.Right), Type = TableWidthUnitValues.Dxa };
+        }
+
+        if (!float.IsNaN(value.Top))
+        {
+            margin.TopMargin = new TopMargin { Width = DipToTwips(value.Top), Type = TableWidthUnitValues.Dxa };
+        }
+
+        if (!float.IsNaN(value.Bottom))
+        {
+            margin.BottomMargin = new BottomMargin { Width = DipToTwips(value.Bottom), Type = TableWidthUnitValues.Dxa };
+        }
+
+        return margin.ChildElements.Count > 0 ? margin : null;
+    }
+
     private static bool HasTableProperties(Vibe.Office.Documents.TableProperties properties)
     {
-        return properties.CellPadding.HasValue
+        return HasPaddingValues(properties.CellPadding)
                || properties.ShadingColor.HasValue
                || HasTableBorders(properties.Borders);
     }
 
     private static bool HasTableCellProperties(Vibe.Office.Documents.TableCellProperties properties)
     {
-        return properties.Padding.HasValue
+        return HasPaddingValues(properties.Padding)
                || properties.ShadingColor.HasValue
                || properties.VerticalAlignment.HasValue
                || HasTableCellBorders(properties.Borders);
+    }
+
+    private static bool HasPaddingValues(DocThickness? padding)
+    {
+        if (!padding.HasValue)
+        {
+            return false;
+        }
+
+        var value = padding.Value;
+        return !float.IsNaN(value.Left)
+               || !float.IsNaN(value.Top)
+               || !float.IsNaN(value.Right)
+               || !float.IsNaN(value.Bottom);
     }
 
     private static bool HasTableBorders(Vibe.Office.Documents.TableBorders borders)

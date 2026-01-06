@@ -903,7 +903,7 @@ public sealed class DocumentLayouter
         public TableCellPlacement? MergeOrigin { get; set; }
         public TableCellProperties Properties { get; set; } = new TableCellProperties();
         public List<TableCellLine> Lines { get; set; } = new List<TableCellLine>();
-        public float Padding { get; set; }
+        public DocThickness Padding { get; set; }
         public float ContentHeight { get; set; }
         public bool IsMergeContinuation => MergeOrigin is not null;
     }
@@ -940,6 +940,8 @@ public sealed class DocumentLayouter
         var placements = new List<TableCellPlacement>();
         var grid = new TableCellPlacement?[rowCount, columnCount];
         var placementsByRow = new List<TableCellPlacement>[rowCount];
+        var defaultPadding = DocThickness.Uniform(settings.TableCellPadding);
+        var tablePadding = ResolveTablePadding(resolvedTableProperties.CellPadding, defaultPadding);
 
         for (var rowIndex = 0; rowIndex < rowCount; rowIndex++)
         {
@@ -1007,7 +1009,7 @@ public sealed class DocumentLayouter
         for (var rowIndex = 0; rowIndex < rowCount; rowIndex++)
         {
             var row = rows[rowIndex];
-            var maxHeight = lineHeight + settings.TableCellPadding * 2;
+            var maxHeight = lineHeight + defaultPadding.Vertical;
             foreach (var placement in placementsByRow[rowIndex])
             {
                 var effectiveProperties = ResolveTableCellProperties(
@@ -1020,7 +1022,7 @@ public sealed class DocumentLayouter
                     rowCount,
                     columnCount);
                 placement.Properties = effectiveProperties;
-                placement.Padding = effectiveProperties.Padding ?? settings.TableCellPadding;
+                placement.Padding = ResolvePadding(effectiveProperties.Padding, tablePadding);
 
                 if (!placement.IsMergeContinuation)
                 {
@@ -1031,8 +1033,9 @@ public sealed class DocumentLayouter
 
                     if (placement.RowSpan <= 1)
                     {
-                        var cellHeight = placement.ContentHeight + placement.Padding * 2;
-                        maxHeight = MathF.Max(maxHeight, MathF.Max(lineHeight + placement.Padding * 2, cellHeight));
+                        var cellHeight = placement.ContentHeight + placement.Padding.Vertical;
+                        var minHeight = lineHeight + placement.Padding.Vertical;
+                        maxHeight = MathF.Max(maxHeight, MathF.Max(minHeight, cellHeight));
                     }
                 }
             }
@@ -1063,7 +1066,7 @@ public sealed class DocumentLayouter
                 continue;
             }
 
-            var requiredHeight = MathF.Max(lineHeight + placement.Padding * 2, placement.ContentHeight + placement.Padding * 2);
+            var requiredHeight = MathF.Max(lineHeight + placement.Padding.Vertical, placement.ContentHeight + placement.Padding.Vertical);
             var startRow = placement.RowIndex;
             var endRow = Math.Min(rowCount, startRow + placement.RowSpan);
             var spanHeight = 0f;
@@ -1179,7 +1182,7 @@ public sealed class DocumentLayouter
             var lines = placement.Lines;
             var offsetLines = new List<TableCellLine>(lines.Count);
             var contentHeight = lines.Count == 0 ? 0f : lines.Last().Y + lines.Last().LineHeight;
-            var availableHeight = MathF.Max(0f, cellHeightOrigin - placement.Padding * 2);
+            var availableHeight = MathF.Max(0f, cellHeightOrigin - placement.Padding.Vertical);
             var verticalOffset = 0f;
             if (contentHeight < availableHeight)
             {
@@ -1197,8 +1200,8 @@ public sealed class DocumentLayouter
                     line.ParagraphIndex,
                     line.StartOffset,
                     line.Length,
-                    cellXOrigin + placement.Padding + line.X,
-                    cellYOrigin + placement.Padding + verticalOffset + line.Y,
+                    cellXOrigin + placement.Padding.Left + line.X,
+                    cellYOrigin + placement.Padding.Top + verticalOffset + line.Y,
                     line.Width,
                     line.Text,
                     line.Prefix,
@@ -1267,7 +1270,7 @@ public sealed class DocumentLayouter
         TableCell cell,
         Document document,
         float columnWidth,
-        float padding,
+        DocThickness padding,
         LayoutSettings settings,
         ITextMeasurer measurer,
         TextStyle style,
@@ -1276,7 +1279,7 @@ public sealed class DocumentLayouter
         float ascent,
         ref int paragraphIndex)
     {
-        var availableWidth = MathF.Max(1f, columnWidth - padding * 2);
+        var availableWidth = MathF.Max(1f, columnWidth - padding.Horizontal);
         var lines = new List<TableCellLine>();
         var y = 0f;
         var listState = new ListNumberingState(document);
@@ -2187,7 +2190,7 @@ public sealed class DocumentLayouter
         IReadOnlyList<InlineSpan> spans,
         int start,
         int length,
-        IReadOnlyList<float> tabStops,
+        IReadOnlyList<TabStopDefinition> tabStops,
         float defaultTabWidth,
         ITextMeasurer measurer)
     {
@@ -2196,43 +2199,15 @@ public sealed class DocumentLayouter
             return 0f;
         }
 
-        var end = start + length;
-        var width = 0f;
-        foreach (var span in spans)
-        {
-            var spanStart = span.Start;
-            var spanEnd = span.Start + span.Length;
-            if (spanEnd <= start || spanStart >= end)
-            {
-                continue;
-            }
-
-            var segmentStart = Math.Max(spanStart, start);
-            var segmentEnd = Math.Min(spanEnd, end);
-            var segmentLength = segmentEnd - segmentStart;
-            if (segmentLength <= 0)
-            {
-                continue;
-            }
-
-            if (span.Image is not null)
-            {
-                width += span.Image.Width;
-                continue;
-            }
-
-            var segmentText = span.Text.Substring(segmentStart - spanStart, segmentLength);
-            width = MeasureTextWithTabs(segmentText, span.Style, width, tabStops, defaultTabWidth, measurer);
-        }
-
-        return width;
+        var items = CollectLineItems(spans, start, length, measurer);
+        return MeasureLineItems(items, tabStops, defaultTabWidth, measurer);
     }
 
     private static LineLayout BuildLineLayout(
         IReadOnlyList<InlineSpan> spans,
         int start,
         int length,
-        IReadOnlyList<float> tabStops,
+        IReadOnlyList<TabStopDefinition> tabStops,
         float defaultTabWidth,
         ITextMeasurer measurer,
         float defaultLineHeight,
@@ -2240,48 +2215,50 @@ public sealed class DocumentLayouter
     {
         var runs = new List<LayoutRun>();
         var images = new List<LayoutImage>();
-        var end = start + length;
+        var items = CollectLineItems(spans, start, length, measurer);
         var x = 0f;
         var maxAscent = defaultAscent;
         var maxDescent = MathF.Max(0f, defaultLineHeight - defaultAscent);
         var maxImageHeight = 0f;
         var metricsCache = new Dictionary<TextStyleKey, TextMetrics>();
 
-        foreach (var span in spans)
+        for (var i = 0; i < items.Count; i++)
         {
-            var spanStart = span.Start;
-            var spanEnd = span.Start + span.Length;
-            if (spanEnd <= start || spanStart >= end)
+            var item = items[i];
+            switch (item.Kind)
             {
-                continue;
+                case LineItemKind.Text:
+                {
+                    var metrics = GetMetrics(item.Style, measurer, metricsCache);
+                    var ascent = MathF.Max(0f, metrics.Ascent + item.BaselineOffset);
+                    var descent = MathF.Max(0f, metrics.Descent - item.BaselineOffset);
+                    maxAscent = MathF.Max(maxAscent, ascent);
+                    maxDescent = MathF.Max(maxDescent, descent);
+
+                    runs.Add(new LayoutRun(item.Text, item.Style, x, item.Width, item.Text.Length, false, item.BaselineOffset));
+                    x += item.Width;
+                    break;
+                }
+                case LineItemKind.Image:
+                {
+                    var width = item.Width;
+                    var height = item.Height;
+                    images.Add(new LayoutImage(item.Image!, x, width, height, 1));
+                    x += width;
+                    maxImageHeight = MathF.Max(maxImageHeight, height);
+                    break;
+                }
+                case LineItemKind.Tab:
+                {
+                    var tabStop = ResolveNextTabStop(x, tabStops, defaultTabWidth);
+                    var nextTabIndex = FindNextTabIndex(items, i + 1);
+                    var (fieldWidth, widthBeforeDecimal) = MeasureTabField(items, i + 1, nextTabIndex, measurer);
+                    var tabWidth = ComputeTabWidth(tabStop, x, fieldWidth, widthBeforeDecimal);
+                    runs.Add(new LayoutRun(string.Empty, item.Style, x, tabWidth, 1, true, item.BaselineOffset, tabStop.Leader));
+                    x += tabWidth;
+                    break;
+                }
             }
-
-            var segmentStart = Math.Max(spanStart, start);
-            var segmentEnd = Math.Min(spanEnd, end);
-            var segmentLength = segmentEnd - segmentStart;
-            if (segmentLength <= 0)
-            {
-                continue;
-            }
-
-            if (span.Image is not null)
-            {
-                var width = span.Image.Width;
-                var height = span.Image.Height;
-                images.Add(new LayoutImage(span.Image, x, width, height, 1));
-                x += width;
-                maxImageHeight = MathF.Max(maxImageHeight, height);
-                continue;
-            }
-
-            var metrics = GetMetrics(span.Style, measurer, metricsCache);
-            var ascent = MathF.Max(0f, metrics.Ascent + span.BaselineOffset);
-            var descent = MathF.Max(0f, metrics.Descent - span.BaselineOffset);
-            maxAscent = MathF.Max(maxAscent, ascent);
-            maxDescent = MathF.Max(maxDescent, descent);
-
-            var segmentText = span.Text.Substring(segmentStart - spanStart, segmentLength);
-            x = AppendRunsWithTabs(runs, segmentText, span.Style, span.BaselineOffset, x, tabStops, defaultTabWidth, measurer);
         }
 
         var lineHeight = MathF.Max(defaultLineHeight, maxAscent + maxDescent);
@@ -2348,17 +2325,109 @@ public sealed class DocumentLayouter
         return twips / 20f * 96f / 72f;
     }
 
-    private static float AppendRunsWithTabs(
-        List<LayoutRun> runs,
+    private enum LineItemKind
+    {
+        Text,
+        Tab,
+        Image
+    }
+
+    private readonly struct LineItem
+    {
+        public LineItemKind Kind { get; }
+        public string Text { get; }
+        public TextStyle Style { get; }
+        public float BaselineOffset { get; }
+        public ImageInline? Image { get; }
+        public float Width { get; }
+        public float Height { get; }
+
+        private LineItem(LineItemKind kind, string text, TextStyle style, float baselineOffset, ImageInline? image, float width, float height)
+        {
+            Kind = kind;
+            Text = text;
+            Style = style;
+            BaselineOffset = baselineOffset;
+            Image = image;
+            Width = width;
+            Height = height;
+        }
+
+        public static LineItem TextSegment(string text, TextStyle style, float baselineOffset, float width)
+        {
+            return new LineItem(LineItemKind.Text, text, style, baselineOffset, null, width, 0f);
+        }
+
+        public static LineItem Tab(TextStyle style, float baselineOffset)
+        {
+            return new LineItem(LineItemKind.Tab, string.Empty, style, baselineOffset, null, 0f, 0f);
+        }
+
+        public static LineItem ImageSegment(ImageInline image, TextStyle style, float width, float height)
+        {
+            return new LineItem(LineItemKind.Image, string.Empty, style, 0f, image, width, height);
+        }
+    }
+
+    private readonly record struct TabStopInfo(float Position, TabAlignment Alignment, TabLeader Leader);
+
+    private static List<LineItem> CollectLineItems(
+        IReadOnlyList<InlineSpan> spans,
+        int start,
+        int length,
+        ITextMeasurer measurer)
+    {
+        var items = new List<LineItem>();
+        if (length <= 0)
+        {
+            return items;
+        }
+
+        var end = start + length;
+        foreach (var span in spans)
+        {
+            var spanStart = span.Start;
+            var spanEnd = span.Start + span.Length;
+            if (spanEnd <= start || spanStart >= end)
+            {
+                continue;
+            }
+
+            var segmentStart = Math.Max(spanStart, start);
+            var segmentEnd = Math.Min(spanEnd, end);
+            var segmentLength = segmentEnd - segmentStart;
+            if (segmentLength <= 0)
+            {
+                continue;
+            }
+
+            if (span.Image is not null)
+            {
+                var width = span.Image.Width;
+                var height = span.Image.Height;
+                items.Add(LineItem.ImageSegment(span.Image, span.Style, width, height));
+                continue;
+            }
+
+            var segmentText = span.Text.Substring(segmentStart - spanStart, segmentLength);
+            AppendTextItems(items, segmentText, span.Style, span.BaselineOffset, measurer);
+        }
+
+        return items;
+    }
+
+    private static void AppendTextItems(
+        List<LineItem> items,
         string text,
         TextStyle style,
         float baselineOffset,
-        float startX,
-        IReadOnlyList<float> tabStops,
-        float defaultTabWidth,
         ITextMeasurer measurer)
     {
-        var x = startX;
+        if (string.IsNullOrEmpty(text))
+        {
+            return;
+        }
+
         var segmentStart = 0;
         for (var i = 0; i < text.Length; i++)
         {
@@ -2371,13 +2440,10 @@ public sealed class DocumentLayouter
             {
                 var segmentText = text.Substring(segmentStart, i - segmentStart);
                 var width = measurer.MeasureText(segmentText, style).Width;
-                runs.Add(new LayoutRun(segmentText, style, x, width, segmentText.Length, false, baselineOffset));
-                x += width;
+                items.Add(LineItem.TextSegment(segmentText, style, baselineOffset, width));
             }
 
-            var tabWidth = NextTabWidth(x, tabStops, defaultTabWidth);
-            runs.Add(new LayoutRun(string.Empty, style, x, tabWidth, 1, true, 0f));
-            x += tabWidth;
+            items.Add(LineItem.Tab(style, baselineOffset));
             segmentStart = i + 1;
         }
 
@@ -2385,61 +2451,156 @@ public sealed class DocumentLayouter
         {
             var segmentText = text.Substring(segmentStart);
             var width = measurer.MeasureText(segmentText, style).Width;
-            runs.Add(new LayoutRun(segmentText, style, x, width, segmentText.Length, false, baselineOffset));
-            x += width;
+            items.Add(LineItem.TextSegment(segmentText, style, baselineOffset, width));
         }
-
-        return x;
     }
 
-    private static float MeasureTextWithTabs(
-        string text,
-        TextStyle style,
-        float startX,
-        IReadOnlyList<float> tabStops,
+    private static float MeasureLineItems(
+        IReadOnlyList<LineItem> items,
+        IReadOnlyList<TabStopDefinition> tabStops,
         float defaultTabWidth,
         ITextMeasurer measurer)
     {
-        var x = startX;
-        var segmentStart = 0;
-        for (var i = 0; i < text.Length; i++)
+        var x = 0f;
+        for (var i = 0; i < items.Count; i++)
         {
-            if (text[i] != '\t')
+            var item = items[i];
+            switch (item.Kind)
             {
-                continue;
+                case LineItemKind.Text:
+                case LineItemKind.Image:
+                    x += item.Width;
+                    break;
+                case LineItemKind.Tab:
+                {
+                    var tabStop = ResolveNextTabStop(x, tabStops, defaultTabWidth);
+                    var nextTabIndex = FindNextTabIndex(items, i + 1);
+                    var (fieldWidth, widthBeforeDecimal) = MeasureTabField(items, i + 1, nextTabIndex, measurer);
+                    var tabWidth = ComputeTabWidth(tabStop, x, fieldWidth, widthBeforeDecimal);
+                    x += tabWidth;
+                    break;
+                }
             }
-
-            if (i > segmentStart)
-            {
-                var segmentText = text.Substring(segmentStart, i - segmentStart);
-                x += measurer.MeasureText(segmentText, style).Width;
-            }
-
-            x += NextTabWidth(x, tabStops, defaultTabWidth);
-            segmentStart = i + 1;
-        }
-
-        if (segmentStart < text.Length)
-        {
-            var segmentText = text.Substring(segmentStart);
-            x += measurer.MeasureText(segmentText, style).Width;
         }
 
         return x;
     }
 
-    private static float NextTabWidth(float currentX, IReadOnlyList<float> tabStops, float defaultTabWidth)
+    private static int FindNextTabIndex(IReadOnlyList<LineItem> items, int startIndex)
+    {
+        for (var i = startIndex; i < items.Count; i++)
+        {
+            if (items[i].Kind == LineItemKind.Tab)
+            {
+                return i;
+            }
+        }
+
+        return items.Count;
+    }
+
+    private static (float FieldWidth, float WidthBeforeDecimal) MeasureTabField(
+        IReadOnlyList<LineItem> items,
+        int startIndex,
+        int endIndex,
+        ITextMeasurer measurer)
+    {
+        var fieldWidth = 0f;
+        var beforeDecimalWidth = 0f;
+        var decimalFound = false;
+
+        for (var i = startIndex; i < endIndex; i++)
+        {
+            var item = items[i];
+            if (item.Kind == LineItemKind.Text)
+            {
+                if (!decimalFound)
+                {
+                    var decimalIndex = FindDecimalIndex(item.Text);
+                    if (decimalIndex >= 0)
+                    {
+                        if (decimalIndex > 0)
+                        {
+                            var beforeText = item.Text.Substring(0, decimalIndex);
+                            beforeDecimalWidth += measurer.MeasureText(beforeText, item.Style).Width;
+                        }
+
+                        decimalFound = true;
+                    }
+                    else
+                    {
+                        beforeDecimalWidth += item.Width;
+                    }
+                }
+
+                fieldWidth += item.Width;
+            }
+            else if (item.Kind == LineItemKind.Image)
+            {
+                fieldWidth += item.Width;
+                if (!decimalFound)
+                {
+                    beforeDecimalWidth += item.Width;
+                }
+            }
+        }
+
+        if (!decimalFound)
+        {
+            beforeDecimalWidth = fieldWidth;
+        }
+
+        return (fieldWidth, beforeDecimalWidth);
+    }
+
+    private static int FindDecimalIndex(string text)
+    {
+        var dot = text.IndexOf('.');
+        var comma = text.IndexOf(',');
+        if (dot < 0)
+        {
+            return comma;
+        }
+
+        if (comma < 0)
+        {
+            return dot;
+        }
+
+        return Math.Min(dot, comma);
+    }
+
+    private static TabStopInfo ResolveNextTabStop(
+        float currentX,
+        IReadOnlyList<TabStopDefinition> tabStops,
+        float defaultTabWidth)
     {
         for (var i = 0; i < tabStops.Count; i++)
         {
             var stop = tabStops[i];
-            if (stop > currentX)
+            if (stop.Position > currentX)
             {
-                return stop - currentX;
+                return new TabStopInfo(stop.Position, stop.Alignment, stop.Leader);
             }
         }
 
-        return defaultTabWidth;
+        var safeWidth = MathF.Max(1f, defaultTabWidth);
+        var next = MathF.Floor(currentX / safeWidth) * safeWidth + safeWidth;
+        return new TabStopInfo(next, TabAlignment.Left, TabLeader.None);
+    }
+
+    private static float ComputeTabWidth(TabStopInfo stop, float currentX, float fieldWidth, float widthBeforeDecimal)
+    {
+        var target = stop.Position;
+        var width = stop.Alignment switch
+        {
+            TabAlignment.Center => target - currentX - fieldWidth / 2f,
+            TabAlignment.Right => target - currentX - fieldWidth,
+            TabAlignment.Decimal => target - currentX - widthBeforeDecimal,
+            _ => target - currentX
+        };
+
+        return MathF.Max(0f, width);
     }
 
     private static float[] ResolveSectionColumnWidths(PageSectionSettings section, float contentWidth, float columnGap)
@@ -2685,7 +2846,7 @@ public sealed class DocumentLayouter
 
         if (source.CellPadding.HasValue)
         {
-            target.CellPadding = source.CellPadding;
+            target.CellPadding = MergePadding(target.CellPadding, source.CellPadding.Value);
         }
 
         if (source.ShadingColor.HasValue)
@@ -2701,6 +2862,56 @@ public sealed class DocumentLayouter
         ApplyTableBorders(target.Borders, source.Borders);
     }
 
+    private static DocThickness ResolvePadding(DocThickness? padding, DocThickness fallback)
+    {
+        if (!padding.HasValue)
+        {
+            return fallback;
+        }
+
+        var value = padding.Value;
+        return new DocThickness(
+            ResolvePaddingSide(value.Left, fallback.Left),
+            ResolvePaddingSide(value.Top, fallback.Top),
+            ResolvePaddingSide(value.Right, fallback.Right),
+            ResolvePaddingSide(value.Bottom, fallback.Bottom));
+    }
+
+    private static DocThickness ResolveTablePadding(DocThickness? padding, DocThickness fallback)
+    {
+        if (!padding.HasValue)
+        {
+            return fallback;
+        }
+
+        var value = padding.Value;
+        return new DocThickness(
+            float.IsNaN(value.Left) ? 0f : value.Left,
+            float.IsNaN(value.Top) ? 0f : value.Top,
+            float.IsNaN(value.Right) ? 0f : value.Right,
+            float.IsNaN(value.Bottom) ? 0f : value.Bottom);
+    }
+
+    private static float ResolvePaddingSide(float value, float fallback)
+    {
+        return float.IsNaN(value) ? fallback : value;
+    }
+
+    private static DocThickness MergePadding(DocThickness? basePadding, DocThickness overridePadding)
+    {
+        if (!basePadding.HasValue)
+        {
+            return overridePadding;
+        }
+
+        var value = basePadding.Value;
+        return new DocThickness(
+            float.IsNaN(overridePadding.Left) ? value.Left : overridePadding.Left,
+            float.IsNaN(overridePadding.Top) ? value.Top : overridePadding.Top,
+            float.IsNaN(overridePadding.Right) ? value.Right : overridePadding.Right,
+            float.IsNaN(overridePadding.Bottom) ? value.Bottom : overridePadding.Bottom);
+    }
+
     private static void ApplyTablePropertiesToCell(
         TableCellProperties target,
         TableProperties source,
@@ -2711,7 +2922,7 @@ public sealed class DocumentLayouter
     {
         if (source.CellPadding.HasValue)
         {
-            target.Padding = source.CellPadding;
+            target.Padding = MergePadding(target.Padding, source.CellPadding.Value);
         }
 
         if (source.ShadingColor.HasValue)
@@ -2803,7 +3014,7 @@ public sealed class DocumentLayouter
     {
         if (source.Padding.HasValue)
         {
-            target.Padding = source.Padding;
+            target.Padding = MergePadding(target.Padding, source.Padding.Value);
         }
 
         if (source.ShadingColor.HasValue)

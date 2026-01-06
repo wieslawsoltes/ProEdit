@@ -4,7 +4,7 @@ namespace Vibe.Office.Documents;
 
 public sealed class TableCellProperties
 {
-    public float? Padding { get; set; }
+    public DocThickness? Padding { get; set; }
     public DocColor? ShadingColor { get; set; }
     public TableCellBorders Borders { get; } = new TableCellBorders();
     public TableCellVerticalAlignment? VerticalAlignment { get; set; }

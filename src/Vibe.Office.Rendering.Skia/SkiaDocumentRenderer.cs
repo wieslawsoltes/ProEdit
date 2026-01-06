@@ -149,6 +149,14 @@ public sealed class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             IsAntialias = true
         };
 
+        using var columnSeparatorPaint = new SKPaint
+        {
+            Style = SKPaintStyle.Stroke,
+            Color = ToSkColor(options.ColumnSeparatorColor),
+            StrokeWidth = options.ColumnSeparatorThickness,
+            IsAntialias = true
+        };
+
         using var selectionPaint = new SKPaint
         {
             Style = SKPaintStyle.Fill,
@@ -264,29 +272,62 @@ public sealed class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             var baseline = lineY + lineAscent;
             foreach (var run in runs)
             {
-                if (run.IsTab || string.IsNullOrEmpty(run.Text))
+                if (run.IsTab)
+                {
+                    if (run.TabLeader != TabLeader.None && run.Width > 0f)
+                    {
+                        var leaderChar = run.TabLeader switch
+                        {
+                            TabLeader.Dot => '.',
+                            TabLeader.Hyphen => '-',
+                            TabLeader.Underscore => '_',
+                            _ => '\0'
+                        };
+
+                        if (leaderChar != '\0')
+                        {
+                            var paint = GetPaint(run.Style);
+                            var glyphWidth = paint.MeasureText(leaderChar.ToString());
+                            if (glyphWidth > 0f)
+                            {
+                                var count = Math.Max(1, (int)MathF.Ceiling(run.Width / glyphWidth));
+                                var text = new string(leaderChar, count);
+                                var startX = lineX + run.X;
+                                var clipRect = new SKRect(startX, lineY, startX + run.Width, lineY + lineHeight);
+                                targetCanvas.Save();
+                                targetCanvas.ClipRect(clipRect);
+                                targetCanvas.DrawText(text, startX, baseline, paint);
+                                targetCanvas.Restore();
+                            }
+                        }
+                    }
+
+                    continue;
+                }
+
+                if (string.IsNullOrEmpty(run.Text))
                 {
                     continue;
                 }
 
                 var runBaseline = baseline - run.BaselineOffset;
-                var paint = GetPaint(run.Style);
+                var runPaint = GetPaint(run.Style);
                 var shaper = GetShaper(run.Style);
                 if (shaper is null)
                 {
-                    targetCanvas.DrawText(run.Text, lineX + run.X, runBaseline, paint);
+                    targetCanvas.DrawText(run.Text, lineX + run.X, runBaseline, runPaint);
                 }
                 else
                 {
-                    targetCanvas.DrawShapedText(shaper, run.Text, lineX + run.X, runBaseline, paint);
+                    targetCanvas.DrawShapedText(shaper, run.Text, lineX + run.X, runBaseline, runPaint);
                 }
-                DrawUnderlineIfNeeded(targetCanvas, runBaseline, lineX, run, paint);
-                DrawStrikeThroughIfNeeded(targetCanvas, runBaseline, lineX, run, paint);
+                DrawUnderlineIfNeeded(targetCanvas, runBaseline, lineX, run, runPaint);
+                DrawStrikeThroughIfNeeded(targetCanvas, runBaseline, lineX, run, runPaint);
             }
 
             foreach (var image in images)
             {
-                DrawImage(targetCanvas, image, lineX, baseline, lineAscent);
+                DrawImage(targetCanvas, image, lineX, baseline, lineAscent, options);
             }
         }
 
@@ -359,6 +400,12 @@ public sealed class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             if (options.PageBorderThickness > 0)
             {
                 targetCanvas.DrawRect(rect, pageBorderPaint);
+            }
+
+            if (options.ColumnSeparatorThickness > 0f
+                && pageIndex < layout.PageSections.Count)
+            {
+                DrawColumnSeparators(page, layout.PageSections[pageIndex]);
             }
 
             if (headerFooterMap.TryGetValue(pageIndex, out var headerFooter))
@@ -488,6 +535,30 @@ public sealed class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                     DrawLineContent(line.X, line.Y, line.LineHeight, line.Ascent, line.Prefix, line.PrefixWidth, line.Runs, line.Images);
                     DrawLineInvisibles(line.X, line.Y, line.LineHeight, line.Ascent, line.Runs, false, 0f);
                 }
+            }
+        }
+
+        void DrawColumnSeparators(PageLayout page, PageSectionSettings section)
+        {
+            if (!section.ColumnSeparator || section.ColumnCount <= 1)
+            {
+                return;
+            }
+
+            var columnGap = MathF.Max(0f, section.ColumnGap);
+            var columnWidths = ResolveSectionColumnWidths(section, page.ContentBounds.Width, columnGap);
+            if (columnWidths.Length <= 1)
+            {
+                return;
+            }
+
+            var columnOffsets = BuildColumnOffsets(columnWidths, columnGap);
+            var top = page.ContentBounds.Y;
+            var bottom = page.ContentBounds.Bottom;
+            for (var i = 0; i < columnWidths.Length - 1; i++)
+            {
+                var x = page.ContentBounds.X + columnOffsets[i] + columnWidths[i] + columnGap * 0.5f;
+                targetCanvas.DrawLine(x, top, x, bottom, columnSeparatorPaint);
             }
         }
 
@@ -1232,11 +1303,48 @@ public sealed class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
         canvas.DrawLine(startX, y, endX, y, strikePaint);
     }
 
-    private void DrawImage(SKCanvas canvas, LayoutImage image, float lineX, float baseline, float ascent)
+    private void DrawImage(SKCanvas canvas, LayoutImage image, float lineX, float baseline, float ascent, RenderOptions options)
     {
         var bitmap = GetBitmap(image.Image);
         if (bitmap is null)
         {
+            var placeholderX = lineX + image.X;
+            var placeholderY = baseline - image.Height;
+            var rect = new SKRect(placeholderX, placeholderY, placeholderX + image.Width, placeholderY + image.Height);
+            using var fillPaint = new SKPaint
+            {
+                Style = SKPaintStyle.Fill,
+                Color = ToSkColor(options.PlaceholderFillColor),
+                IsAntialias = true
+            };
+            using var borderPaint = new SKPaint
+            {
+                Style = SKPaintStyle.Stroke,
+                Color = ToSkColor(options.PlaceholderStrokeColor),
+                StrokeWidth = 1f,
+                IsAntialias = true
+            };
+            using var textPaint = new SKPaint
+            {
+                Style = SKPaintStyle.Fill,
+                Color = ToSkColor(options.PlaceholderTextColor),
+                IsAntialias = true,
+                TextAlign = SKTextAlign.Center
+            };
+
+            canvas.DrawRect(rect, fillPaint);
+            canvas.DrawRect(rect, borderPaint);
+
+            var contentType = image.Image.ContentType ?? string.Empty;
+            var label = contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase)
+                ? "Image"
+                : contentType.Contains("ole", StringComparison.OrdinalIgnoreCase) || contentType.Contains("object", StringComparison.OrdinalIgnoreCase)
+                    ? "OLE Object"
+                    : "Object";
+
+            textPaint.TextSize = MathF.Max(8f, MathF.Min(14f, image.Height / 4f));
+            var textY = rect.MidY + textPaint.TextSize * 0.35f;
+            canvas.DrawText(label, rect.MidX, textY, textPaint);
             return;
         }
 
@@ -1308,6 +1416,67 @@ public sealed class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
         {
             yield return segment.Segment;
         }
+    }
+
+    private static float[] ResolveSectionColumnWidths(PageSectionSettings section, float contentWidth, float columnGap)
+    {
+        var columnCount = Math.Max(1, section.ColumnCount);
+        var availableWidth = MathF.Max(1f, contentWidth - columnGap * MathF.Max(0, columnCount - 1));
+
+        if (section.ColumnEqualWidth || section.ColumnWidths.Count == 0)
+        {
+            var width = availableWidth / columnCount;
+            var widths = new float[columnCount];
+            Array.Fill(widths, width);
+            return widths;
+        }
+
+        var resolved = new float[columnCount];
+        for (var i = 0; i < columnCount; i++)
+        {
+            resolved[i] = i < section.ColumnWidths.Count ? section.ColumnWidths[i] : section.ColumnWidths.Last();
+        }
+
+        var total = resolved.Sum();
+        if (total <= 0f)
+        {
+            var width = availableWidth / columnCount;
+            Array.Fill(resolved, width);
+            return resolved;
+        }
+
+        if (total > availableWidth && availableWidth > 0f)
+        {
+            var scale = availableWidth / total;
+            for (var i = 0; i < resolved.Length; i++)
+            {
+                resolved[i] *= scale;
+            }
+        }
+
+        return resolved;
+    }
+
+    private static float[] BuildColumnOffsets(float[] widths, float gap)
+    {
+        if (widths.Length == 0)
+        {
+            return Array.Empty<float>();
+        }
+
+        var offsets = new float[widths.Length];
+        var current = 0f;
+        for (var i = 0; i < widths.Length; i++)
+        {
+            offsets[i] = current;
+            current += widths[i];
+            if (i < widths.Length - 1)
+            {
+                current += gap;
+            }
+        }
+
+        return offsets;
     }
 
     private readonly Dictionary<Guid, SKBitmap> _imageCache = new();
