@@ -325,6 +325,20 @@ public sealed class DocumentView : Control, ILogicalScrollable
             return false;
         }
 
+        if (targetRect.Width <= 0 || targetRect.Height <= 0)
+        {
+            return false;
+        }
+
+        var viewportSize = Bounds.Size;
+        if (targetRect.X <= 0.5
+            && targetRect.Y <= 0.5
+            && targetRect.Width >= viewportSize.Width - 0.5
+            && targetRect.Height >= viewportSize.Height - 0.5)
+        {
+            return false;
+        }
+
         var offsetY = _scrollOffset.Y;
         if (targetRect.Top < _scrollOffset.Y)
         {
