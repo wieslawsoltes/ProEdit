@@ -1248,12 +1248,31 @@ public sealed class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
 
     private SKBitmap? GetBitmap(ImageInline inline)
     {
+        if (_invalidImages.Contains(inline.Id))
+        {
+            return null;
+        }
+
         if (!_imageCache.TryGetValue(inline.Id, out var bitmap))
         {
-            bitmap = SKBitmap.Decode(inline.Data);
-            if (bitmap is not null)
+            if (inline.Data is null || inline.Data.Length == 0)
             {
-                _imageCache[inline.Id] = bitmap;
+                _invalidImages.Add(inline.Id);
+                return null;
+            }
+
+            try
+            {
+                bitmap = SKBitmap.Decode(inline.Data);
+                if (bitmap is not null)
+                {
+                    _imageCache[inline.Id] = bitmap;
+                }
+            }
+            catch
+            {
+                _invalidImages.Add(inline.Id);
+                return null;
             }
         }
 
@@ -1292,6 +1311,7 @@ public sealed class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
     }
 
     private readonly Dictionary<Guid, SKBitmap> _imageCache = new();
+    private readonly HashSet<Guid> _invalidImages = new();
 
     private readonly struct LineSegment
     {
