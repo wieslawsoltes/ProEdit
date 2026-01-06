@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -936,45 +937,53 @@ public sealed class DocxImporter
     {
         var properties = new Vibe.Office.Documents.SectionProperties();
         var pageSize = sectionProps.GetFirstChild<PageSize>();
-        if (pageSize?.Width?.Value is uint widthTwips)
+        var pageWidthTwips = TryParseTwips(pageSize?.Width);
+        if (pageWidthTwips.HasValue)
         {
-            properties.PageWidth = TwipsToDip(widthTwips);
+            properties.PageWidth = TwipsToDip(pageWidthTwips.Value);
         }
 
-        if (pageSize?.Height?.Value is uint heightTwips)
+        var pageHeightTwips = TryParseTwips(pageSize?.Height);
+        if (pageHeightTwips.HasValue)
         {
-            properties.PageHeight = TwipsToDip(heightTwips);
+            properties.PageHeight = TwipsToDip(pageHeightTwips.Value);
         }
 
         var pageMargin = sectionProps.GetFirstChild<PageMargin>();
-        if (pageMargin?.Left?.Value is uint leftTwips)
+        var marginLeftTwips = TryParseTwips(pageMargin?.Left);
+        if (marginLeftTwips.HasValue)
         {
-            properties.MarginLeft = TwipsToDip(leftTwips);
+            properties.MarginLeft = TwipsToDip(marginLeftTwips.Value);
         }
 
-        if (pageMargin?.Right?.Value is uint rightTwips)
+        var marginRightTwips = TryParseTwips(pageMargin?.Right);
+        if (marginRightTwips.HasValue)
         {
-            properties.MarginRight = TwipsToDip(rightTwips);
+            properties.MarginRight = TwipsToDip(marginRightTwips.Value);
         }
 
-        if (pageMargin?.Top?.Value is int topTwips)
+        var marginTopTwips = TryParseTwips(pageMargin?.Top);
+        if (marginTopTwips.HasValue)
         {
-            properties.MarginTop = TwipsToDip(topTwips);
+            properties.MarginTop = TwipsToDip(marginTopTwips.Value);
         }
 
-        if (pageMargin?.Bottom?.Value is int bottomTwips)
+        var marginBottomTwips = TryParseTwips(pageMargin?.Bottom);
+        if (marginBottomTwips.HasValue)
         {
-            properties.MarginBottom = TwipsToDip(bottomTwips);
+            properties.MarginBottom = TwipsToDip(marginBottomTwips.Value);
         }
 
-        if (pageMargin?.Header?.Value is uint headerTwips)
+        var headerTwips = TryParseTwips(pageMargin?.Header);
+        if (headerTwips.HasValue)
         {
-            properties.HeaderOffset = TwipsToDip(headerTwips);
+            properties.HeaderOffset = TwipsToDip(headerTwips.Value);
         }
 
-        if (pageMargin?.Footer?.Value is uint footerTwips)
+        var footerTwips = TryParseTwips(pageMargin?.Footer);
+        if (footerTwips.HasValue)
         {
-            properties.FooterOffset = TwipsToDip(footerTwips);
+            properties.FooterOffset = TwipsToDip(footerTwips.Value);
         }
 
         var columns = sectionProps.GetFirstChild<Columns>();
@@ -985,7 +994,7 @@ public sealed class DocxImporter
                 properties.ColumnCount = columns.ColumnCount.Value;
             }
 
-            var columnSpaceTwips = TryParseTwips(columns.Space?.Value);
+            var columnSpaceTwips = TryParseTwips(columns.Space);
             if (columnSpaceTwips.HasValue)
             {
                 properties.ColumnGap = TwipsToDip(columnSpaceTwips.Value);
@@ -1003,15 +1012,15 @@ public sealed class DocxImporter
 
             foreach (var column in columns.Elements<Column>())
             {
-                if (column.Width?.Value is string widthValue && float.TryParse(widthValue, out var columnWidthTwips))
+                var columnWidthTwips = TryParseTwips(column.Width);
+                if (columnWidthTwips.HasValue)
                 {
-                    properties.ColumnWidths.Add(TwipsToDip(columnWidthTwips));
+                    properties.ColumnWidths.Add(TwipsToDip(columnWidthTwips.Value));
                 }
 
                 if (!properties.ColumnGap.HasValue)
                 {
-                    var spaceValue = column.Space?.Value;
-                    var columnSpace = TryParseTwips(spaceValue);
+                    var columnSpace = TryParseTwips(column.Space);
                     if (columnSpace.HasValue)
                     {
                         properties.ColumnGap = TwipsToDip(columnSpace.Value);
@@ -1543,9 +1552,13 @@ public sealed class DocxImporter
             if (paragraphProperties is not null)
             {
                 var indentation = paragraphProperties.Indentation;
-                if (indentation?.Left is not null)
+                if (indentation is not null)
                 {
-                    definition.LeftIndent = ParseTwips(indentation.Left);
+                    var leftIndent = ParseTwips(indentation.Left) ?? ParseTwips(indentation.Start);
+                    if (leftIndent.HasValue)
+                    {
+                        definition.LeftIndent = leftIndent;
+                    }
                 }
 
                 if (indentation?.Hanging is not null)
@@ -1564,9 +1577,10 @@ public sealed class DocxImporter
 
                 var tabs = paragraphProperties.GetFirstChild<Tabs>();
                 var tab = tabs?.Elements<TabStop>().FirstOrDefault();
-                if (tab?.Position?.Value is int position)
+                var positionTwips = TryParseTwips(tab?.Position);
+                if (positionTwips.HasValue)
                 {
-                    definition.TabStop = TwipsToDip(position);
+                    definition.TabStop = TwipsToDip(positionTwips.Value);
                 }
             }
 
@@ -1638,6 +1652,14 @@ public sealed class DocxImporter
             {
                 properties.Alignment = ParagraphAlignment.Right;
             }
+            else if (justification == JustificationValues.End)
+            {
+                properties.Alignment = ParagraphAlignment.Right;
+            }
+            else if (justification == JustificationValues.Start)
+            {
+                properties.Alignment = ParagraphAlignment.Left;
+            }
             else if (justification == JustificationValues.Both)
             {
                 properties.Alignment = ParagraphAlignment.Justify;
@@ -1653,10 +1675,10 @@ public sealed class DocxImporter
         {
             properties.SpacingBefore = ParseTwips(spacing.Before);
             properties.SpacingAfter = ParseTwips(spacing.After);
-            if (spacing.Line?.Value is string lineValue
-                && int.TryParse(lineValue, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var lineSpacing))
+            var lineSpacingTwips = TryParseTwips(spacing.Line);
+            if (lineSpacingTwips.HasValue)
             {
-                properties.LineSpacing = lineSpacing;
+                properties.LineSpacing = (int)MathF.Round(lineSpacingTwips.Value);
             }
 
             if (spacing.LineRule?.Value is LineSpacingRuleValues rule)
@@ -1668,9 +1690,17 @@ public sealed class DocxImporter
         var indentation = props.GetFirstChild<Indentation>();
         if (indentation is not null)
         {
-            properties.IndentLeft = ParseTwips(indentation.Left);
-            properties.IndentRight = ParseTwips(indentation.Right);
-            properties.FirstLineIndent = ParseTwips(indentation.FirstLine);
+            properties.IndentLeft = ParseTwips(indentation.Left) ?? ParseTwips(indentation.Start);
+            properties.IndentRight = ParseTwips(indentation.Right) ?? ParseTwips(indentation.End);
+            var firstLine = ParseTwips(indentation.FirstLine);
+            if (firstLine.HasValue)
+            {
+                properties.FirstLineIndent = firstLine;
+            }
+            else if (ParseTwips(indentation.Hanging) is { } hanging)
+            {
+                properties.FirstLineIndent = -hanging;
+            }
         }
 
         var tabs = props.GetFirstChild<Tabs>();
@@ -1684,9 +1714,10 @@ public sealed class DocxImporter
                     continue;
                 }
 
-                if (tab.Position?.Value is int position)
+                var positionTwips = TryParseTwips(tab.Position);
+                if (positionTwips.HasValue)
                 {
-                    var value = TwipsToDip(position);
+                    var value = TwipsToDip(positionTwips.Value);
                     properties.TabStops.Add(new TabStopDefinition(value)
                     {
                         Alignment = MapTabAlignment(tab.Val?.Value),
@@ -1771,6 +1802,14 @@ public sealed class DocxImporter
             {
                 properties.Alignment = ParagraphAlignment.Right;
             }
+            else if (justification == JustificationValues.End)
+            {
+                properties.Alignment = ParagraphAlignment.Right;
+            }
+            else if (justification == JustificationValues.Start)
+            {
+                properties.Alignment = ParagraphAlignment.Left;
+            }
             else if (justification == JustificationValues.Both)
             {
                 properties.Alignment = ParagraphAlignment.Justify;
@@ -1786,10 +1825,10 @@ public sealed class DocxImporter
         {
             properties.SpacingBefore = ParseTwips(spacing.Before);
             properties.SpacingAfter = ParseTwips(spacing.After);
-            if (spacing.Line?.Value is string lineValue
-                && int.TryParse(lineValue, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var lineSpacing))
+            var lineSpacingTwips = TryParseTwips(spacing.Line);
+            if (lineSpacingTwips.HasValue)
             {
-                properties.LineSpacing = lineSpacing;
+                properties.LineSpacing = (int)MathF.Round(lineSpacingTwips.Value);
             }
 
             if (spacing.LineRule?.Value is LineSpacingRuleValues rule)
@@ -1801,9 +1840,17 @@ public sealed class DocxImporter
         var indentation = props.GetFirstChild<Indentation>();
         if (indentation is not null)
         {
-            properties.IndentLeft = ParseTwips(indentation.Left);
-            properties.IndentRight = ParseTwips(indentation.Right);
-            properties.FirstLineIndent = ParseTwips(indentation.FirstLine);
+            properties.IndentLeft = ParseTwips(indentation.Left) ?? ParseTwips(indentation.Start);
+            properties.IndentRight = ParseTwips(indentation.Right) ?? ParseTwips(indentation.End);
+            var firstLine = ParseTwips(indentation.FirstLine);
+            if (firstLine.HasValue)
+            {
+                properties.FirstLineIndent = firstLine;
+            }
+            else if (ParseTwips(indentation.Hanging) is { } hanging)
+            {
+                properties.FirstLineIndent = -hanging;
+            }
         }
 
         var tabs = props.GetFirstChild<Tabs>();
@@ -1817,9 +1864,10 @@ public sealed class DocxImporter
                     continue;
                 }
 
-                if (tab.Position?.Value is int position)
+                var positionTwips = TryParseTwips(tab.Position);
+                if (positionTwips.HasValue)
                 {
-                    var value = TwipsToDip(position);
+                    var value = TwipsToDip(positionTwips.Value);
                     properties.TabStops.Add(new TabStopDefinition(value)
                     {
                         Alignment = MapTabAlignment(tab.Val?.Value),
@@ -2158,9 +2206,10 @@ public sealed class DocxImporter
         {
             foreach (var column in grid.Elements<GridColumn>())
             {
-                if (column.Width?.Value is string widthValue && float.TryParse(widthValue, out var widthTwips))
+                var widthTwips = TryParseTwips(column.Width);
+                if (widthTwips.HasValue)
                 {
-                    properties.ColumnWidths.Add(TwipsToDip(widthTwips));
+                    properties.ColumnWidths.Add(TwipsToDip(widthTwips.Value));
                 }
             }
         }
@@ -2188,10 +2237,21 @@ public sealed class DocxImporter
         }
 
         var cellMargin = props.GetFirstChild<TableCellMarginDefault>();
-        properties.CellPadding = ParseCellPadding(cellMargin?.TableCellLeftMargin?.Width?.Value,
-            cellMargin?.TableCellRightMargin?.Width?.Value,
-            cellMargin?.TopMargin?.Width?.Value,
-            cellMargin?.BottomMargin?.Width?.Value);
+        OpenXmlSimpleType? leftMargin = cellMargin?.TableCellLeftMargin?.Width;
+        if (leftMargin is null)
+        {
+            leftMargin = cellMargin?.StartMargin?.Width;
+        }
+
+        OpenXmlSimpleType? rightMargin = cellMargin?.TableCellRightMargin?.Width;
+        if (rightMargin is null)
+        {
+            rightMargin = cellMargin?.EndMargin?.Width;
+        }
+        properties.CellPadding = ParseCellPadding(leftMargin,
+            rightMargin,
+            cellMargin?.TopMargin?.Width,
+            cellMargin?.BottomMargin?.Width);
 
         var shading = props.GetFirstChild<Shading>();
         if (shading?.Fill?.Value is string fill && TryParseHexColor(fill, out var color))
@@ -2253,7 +2313,7 @@ public sealed class DocxImporter
         }
 
         var rowHeight = props.GetFirstChild<TableRowHeight>();
-        var heightTwips = TryParseTwips(rowHeight?.Val?.Value);
+        var heightTwips = TryParseTwips(rowHeight?.Val);
         if (heightTwips.HasValue)
         {
             properties.Height = TwipsToDip(heightTwips.Value);
@@ -2315,11 +2375,22 @@ public sealed class DocxImporter
         }
 
         var margin = props.GetFirstChild<TableCellMargin>();
+        OpenXmlSimpleType? leftCellMargin = margin?.LeftMargin?.Width;
+        if (leftCellMargin is null)
+        {
+            leftCellMargin = margin?.StartMargin?.Width;
+        }
+
+        OpenXmlSimpleType? rightCellMargin = margin?.RightMargin?.Width;
+        if (rightCellMargin is null)
+        {
+            rightCellMargin = margin?.EndMargin?.Width;
+        }
         properties.Padding = ParseCellPadding(
-            margin?.LeftMargin?.Width?.Value,
-            margin?.RightMargin?.Width?.Value,
-            margin?.TopMargin?.Width?.Value,
-            margin?.BottomMargin?.Width?.Value);
+            leftCellMargin,
+            rightCellMargin,
+            margin?.TopMargin?.Width,
+            margin?.BottomMargin?.Width);
     }
 
     private static TableStyleCondition? MapTableStyleCondition(TableStyleOverrideValues? value)
@@ -2399,17 +2470,8 @@ public sealed class DocxImporter
 
     private static float? ParseTwips(StringValue? value)
     {
-        if (value is null)
-        {
-            return null;
-        }
-
-        if (!float.TryParse(value.Value, out var twips))
-        {
-            return null;
-        }
-
-        return TwipsToDip(twips);
+        var twips = TryParseTwips(value);
+        return twips.HasValue ? TwipsToDip(twips.Value) : null;
     }
 
     private static float TwipsToDip(float twips)
@@ -2467,13 +2529,59 @@ public sealed class DocxImporter
 
         return value switch
         {
+            OpenXmlSimpleType simple => TryParseTwipsString(simple.InnerText),
             short shortValue => shortValue,
             int intValue => intValue,
             uint uintValue => uintValue,
             long longValue => longValue,
             float floatValue => floatValue,
             double doubleValue => (float)doubleValue,
-            string stringValue when float.TryParse(stringValue, out var parsed) => parsed,
+            string stringValue => TryParseTwipsString(stringValue),
+            _ => null
+        };
+    }
+
+    private static float? TryParseTwipsString(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var trimmed = value.Trim();
+        if (float.TryParse(trimmed, NumberStyles.Float, CultureInfo.InvariantCulture, out var numeric))
+        {
+            return numeric;
+        }
+
+        var unitIndex = trimmed.Length;
+        while (unitIndex > 0 && char.IsLetter(trimmed[unitIndex - 1]))
+        {
+            unitIndex--;
+        }
+
+        if (unitIndex <= 0 || unitIndex >= trimmed.Length)
+        {
+            return null;
+        }
+
+        var numberPart = trimmed.Substring(0, unitIndex);
+        if (!float.TryParse(numberPart, NumberStyles.Float, CultureInfo.InvariantCulture, out var valuePart))
+        {
+            return null;
+        }
+
+        var unit = trimmed.Substring(unitIndex).ToLowerInvariant();
+        return unit switch
+        {
+            "pt" => valuePart * 20f,
+            "in" => valuePart * 72f * 20f,
+            "cm" => valuePart / 2.54f * 72f * 20f,
+            "mm" => valuePart / 25.4f * 72f * 20f,
+            "pc" => valuePart * 12f * 20f,
+            "pi" => valuePart * 12f * 20f,
+            "twip" => valuePart,
+            "twips" => valuePart,
             _ => null
         };
     }
@@ -2844,6 +2952,16 @@ public sealed class DocxImporter
             return TabAlignment.Right;
         }
 
+        if (resolved == TabStopValues.End)
+        {
+            return TabAlignment.Right;
+        }
+
+        if (resolved == TabStopValues.Start)
+        {
+            return TabAlignment.Left;
+        }
+
         if (resolved == TabStopValues.Decimal)
         {
             return TabAlignment.Decimal;
@@ -2955,12 +3073,12 @@ public sealed class DocxImporter
             var embed = blip?.Embed?.Value;
             if (string.IsNullOrWhiteSpace(embed))
             {
-                return null;
+                return CreateDrawingPlaceholder(drawing);
             }
 
             if (_part.GetPartById(embed) is not ImagePart imagePart)
             {
-                return null;
+                return CreateDrawingPlaceholder(drawing);
             }
 
             using var stream = imagePart.GetStream();
@@ -3012,6 +3130,47 @@ public sealed class DocxImporter
         private static float EmuToDip(long emu)
         {
             return (float)(emu / 914400d * 96d);
+        }
+
+        private static ImageInline? CreateDrawingPlaceholder(Drawing drawing)
+        {
+            var extent = drawing.Descendants<DocumentFormat.OpenXml.Drawing.Wordprocessing.Extent>().FirstOrDefault();
+            var width = extent?.Cx?.Value is long cx ? EmuToDip(cx) : 100f;
+            var height = extent?.Cy?.Value is long cy ? EmuToDip(cy) : 100f;
+            var contentType = ResolveDrawingContentType(drawing);
+            if (string.IsNullOrWhiteSpace(contentType))
+            {
+                return null;
+            }
+
+            return new ImageInline(Array.Empty<byte>(), width, height, contentType);
+        }
+
+        private static string? ResolveDrawingContentType(Drawing drawing)
+        {
+            var graphicData = drawing.Descendants<DocumentFormat.OpenXml.Drawing.GraphicData>().FirstOrDefault();
+            var uri = graphicData?.Uri?.Value;
+            if (string.IsNullOrWhiteSpace(uri))
+            {
+                return null;
+            }
+
+            if (uri.Contains("drawingml/chart", StringComparison.OrdinalIgnoreCase))
+            {
+                return "application/vnd.openxmlformats-officedocument.drawingml.chart";
+            }
+
+            if (uri.Contains("drawingml/diagram", StringComparison.OrdinalIgnoreCase))
+            {
+                return "application/vnd.openxmlformats-officedocument.drawingml.diagram";
+            }
+
+            if (uri.Contains("wordprocessingShape", StringComparison.OrdinalIgnoreCase))
+            {
+                return "application/vnd.openxmlformats-officedocument.drawingml.shape";
+            }
+
+            return "application/vnd.openxmlformats-officedocument.oleObject";
         }
 
         private static (float Width, float Height) GetVmlSize(OpenXmlElement element)
