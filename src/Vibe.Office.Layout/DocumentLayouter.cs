@@ -380,17 +380,23 @@ public sealed class DocumentLayouter
                 return false;
             }
 
-            document.GetParagraph(dirtyParagraph, out var dirtyBlockIndex);
+            var dirtyLocation = document.GetParagraphLocation(dirtyParagraph);
             var startParagraphIndex = dirtyParagraph;
-            var startBlockIndex = dirtyBlockIndex;
+            var startBlockIndex = dirtyLocation.BlockIndex;
 
-            if (dirtyBlockIndex > 0 && blocks[dirtyBlockIndex - 1] is ParagraphBlock previousParagraph)
+            if (dirtyLocation.IsInTable)
+            {
+                var paragraphsBefore = CountParagraphsBeforeInTable(dirtyLocation);
+                startParagraphIndex = Math.Max(0, dirtyParagraph - paragraphsBefore);
+            }
+
+            if (startBlockIndex > 0 && blocks[startBlockIndex - 1] is ParagraphBlock previousParagraph)
             {
                 var previousProperties = styleResolver.ResolveParagraphProperties(previousParagraph);
                 if (previousProperties.KeepWithNext == true)
                 {
-                    startParagraphIndex = Math.Max(0, dirtyParagraph - 1);
-                    startBlockIndex = dirtyBlockIndex - 1;
+                    startParagraphIndex = Math.Max(0, startParagraphIndex - 1);
+                    startBlockIndex = startBlockIndex - 1;
                 }
             }
 
@@ -444,10 +450,24 @@ public sealed class DocumentLayouter
             columnIndex = ResolveColumnIndex(previous.Lines[startLineIndex].X);
             UpdateColumnMetrics();
 
-            var paragraphProperties = styleResolver.ResolveParagraphProperties(startParagraph);
-            var spacingBefore = paragraphProperties.SpacingBefore ?? settings.ParagraphSpacing;
-            var resumeY = previous.Lines[startLineIndex].Y - spacingBefore;
-            cursorY = MathF.Max(contentTop, resumeY);
+            var startLine = previous.Lines[startLineIndex];
+            if (startLine.IsInTable)
+            {
+                var tableLayout = FindContainingTable(previous.Tables, startLine);
+                if (tableLayout is null)
+                {
+                    return false;
+                }
+
+                cursorY = MathF.Max(contentTop, tableLayout.Bounds.Top);
+            }
+            else
+            {
+                var paragraphProperties = styleResolver.ResolveParagraphProperties(startParagraph);
+                var spacingBefore = paragraphProperties.SpacingBefore ?? settings.ParagraphSpacing;
+                var resumeY = previous.Lines[startLineIndex].Y - spacingBefore;
+                cursorY = MathF.Max(contentTop, resumeY);
+            }
 
             WarmListState(blockStartIndex);
 
@@ -461,6 +481,46 @@ public sealed class DocumentLayouter
             }
 
             return true;
+        }
+
+        static int CountParagraphsBeforeInTable(ParagraphLocation location)
+        {
+            if (location.Table is null)
+            {
+                return 0;
+            }
+
+            var count = 0;
+            for (var rowIndex = 0; rowIndex < location.RowIndex; rowIndex++)
+            {
+                var row = location.Table.Rows[rowIndex];
+                foreach (var cell in row.Cells)
+                {
+                    count += cell.Paragraphs.Count;
+                }
+            }
+
+            var currentRow = location.Table.Rows[location.RowIndex];
+            for (var columnIndex = 0; columnIndex < location.ColumnIndex; columnIndex++)
+            {
+                count += currentRow.Cells[columnIndex].Paragraphs.Count;
+            }
+
+            count += Math.Max(0, location.ParagraphIndexInCell);
+            return count;
+        }
+
+        static TableLayout? FindContainingTable(IReadOnlyList<TableLayout> tableLayouts, LayoutLine line)
+        {
+            foreach (var tableLayout in tableLayouts)
+            {
+                if (tableLayout.Bounds.Contains(line.X, line.Y))
+                {
+                    return tableLayout;
+                }
+            }
+
+            return null;
         }
 
         var reusedPrefix = previousLayout is not null
