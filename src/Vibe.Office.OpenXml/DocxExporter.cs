@@ -45,6 +45,9 @@ public sealed class DocxExporter
         var chartWriter = new ChartWriter(mainPart);
         var hyperlinkWriter = new HyperlinkWriter(mainPart);
         var sectionParts = new Dictionary<int, SectionPartInfo>();
+        var includeEvenHeaders = document.EvenAndOddHeaders
+            || document.Sections.Any(section => section.EvenHeader.Blocks.Count > 0 || section.EvenFooter.Blocks.Count > 0);
+        EnsureDocumentSettings(mainPart, document, includeEvenHeaders);
 
         SectionPartInfo EnsureSectionParts(int sectionIndex)
         {
@@ -54,6 +57,10 @@ public sealed class DocxExporter
             }
 
             var section = document.GetSection(sectionIndex);
+            var useFirstHeaderFooter = section.Properties.DifferentFirstPageHeaderFooter == true
+                || section.FirstHeader.Blocks.Count > 0
+                || section.FirstFooter.Blocks.Count > 0;
+
             string? headerId = null;
             if (section.Header.Blocks.Count > 0)
             {
@@ -76,7 +83,45 @@ public sealed class DocxExporter
                 footerId = mainPart.GetIdOfPart(footerPart);
             }
 
-            var info = new SectionPartInfo(headerId, footerId);
+            string? firstHeaderId = null;
+            string? firstFooterId = null;
+            if (useFirstHeaderFooter)
+            {
+                var firstHeaderPart = mainPart.AddNewPart<HeaderPart>();
+                var firstHeaderWriter = new ImageWriter(firstHeaderPart);
+                var firstHeaderChartWriter = new ChartWriter(firstHeaderPart);
+                var firstHeaderLinkWriter = new HyperlinkWriter(firstHeaderPart);
+                firstHeaderPart.Header = CreateHeader(section.FirstHeader, numberingContext, firstHeaderWriter, firstHeaderChartWriter, firstHeaderLinkWriter);
+                firstHeaderId = mainPart.GetIdOfPart(firstHeaderPart);
+
+                var firstFooterPart = mainPart.AddNewPart<FooterPart>();
+                var firstFooterWriter = new ImageWriter(firstFooterPart);
+                var firstFooterChartWriter = new ChartWriter(firstFooterPart);
+                var firstFooterLinkWriter = new HyperlinkWriter(firstFooterPart);
+                firstFooterPart.Footer = CreateFooter(section.FirstFooter, numberingContext, firstFooterWriter, firstFooterChartWriter, firstFooterLinkWriter);
+                firstFooterId = mainPart.GetIdOfPart(firstFooterPart);
+            }
+
+            string? evenHeaderId = null;
+            string? evenFooterId = null;
+            if (includeEvenHeaders)
+            {
+                var evenHeaderPart = mainPart.AddNewPart<HeaderPart>();
+                var evenHeaderWriter = new ImageWriter(evenHeaderPart);
+                var evenHeaderChartWriter = new ChartWriter(evenHeaderPart);
+                var evenHeaderLinkWriter = new HyperlinkWriter(evenHeaderPart);
+                evenHeaderPart.Header = CreateHeader(section.EvenHeader, numberingContext, evenHeaderWriter, evenHeaderChartWriter, evenHeaderLinkWriter);
+                evenHeaderId = mainPart.GetIdOfPart(evenHeaderPart);
+
+                var evenFooterPart = mainPart.AddNewPart<FooterPart>();
+                var evenFooterWriter = new ImageWriter(evenFooterPart);
+                var evenFooterChartWriter = new ChartWriter(evenFooterPart);
+                var evenFooterLinkWriter = new HyperlinkWriter(evenFooterPart);
+                evenFooterPart.Footer = CreateFooter(section.EvenFooter, numberingContext, evenFooterWriter, evenFooterChartWriter, evenFooterLinkWriter);
+                evenFooterId = mainPart.GetIdOfPart(evenFooterPart);
+            }
+
+            var info = new SectionPartInfo(headerId, footerId, firstHeaderId, firstFooterId, evenHeaderId, evenFooterId);
             sectionParts[sectionIndex] = info;
             return info;
         }
@@ -119,7 +164,12 @@ public sealed class DocxExporter
         var shouldWriteFinalSection = document.SectionCount > 1
             || finalSection.Properties.HasValues
             || finalSection.Header.Blocks.Count > 0
-            || finalSection.Footer.Blocks.Count > 0;
+            || finalSection.Footer.Blocks.Count > 0
+            || finalSection.FirstHeader.Blocks.Count > 0
+            || finalSection.FirstFooter.Blocks.Count > 0
+            || finalSection.EvenHeader.Blocks.Count > 0
+            || finalSection.EvenFooter.Blocks.Count > 0
+            || finalSection.Properties.DifferentFirstPageHeaderFooter == true;
 
         if (shouldWriteFinalSection)
         {
@@ -265,6 +315,34 @@ public sealed class DocxExporter
             var commentsPart = mainPart.AddNewPart<WordprocessingCommentsPart>();
             PopulateComments(commentsPart, document, numberingContext);
         }
+    }
+
+    private static void EnsureDocumentSettings(MainDocumentPart mainPart, VibeDocument document, bool includeEvenHeaders)
+    {
+        if (!document.MirrorMargins && !document.GutterAtTop && !includeEvenHeaders)
+        {
+            return;
+        }
+
+        var settingsPart = mainPart.AddNewPart<DocumentSettingsPart>();
+        var settings = new Settings();
+
+        if (document.MirrorMargins)
+        {
+            settings.AppendChild(new MirrorMargins());
+        }
+
+        if (document.GutterAtTop)
+        {
+            settings.AppendChild(new GutterAtTop());
+        }
+
+        if (includeEvenHeaders)
+        {
+            settings.AppendChild(new EvenAndOddHeaders());
+        }
+
+        settingsPart.Settings = settings;
     }
 
     private static AbstractNum CreateAbstractNumbering(int abstractId, NumberFormatValues format, string levelText)
@@ -837,6 +915,34 @@ public sealed class DocxExporter
         if (!string.IsNullOrWhiteSpace(parts.FooterId))
         {
             sectionProperties.AppendChild(new FooterReference { Type = HeaderFooterValues.Default, Id = parts.FooterId });
+        }
+
+        if (!string.IsNullOrWhiteSpace(parts.FirstHeaderId))
+        {
+            sectionProperties.AppendChild(new HeaderReference { Type = HeaderFooterValues.First, Id = parts.FirstHeaderId });
+        }
+
+        if (!string.IsNullOrWhiteSpace(parts.FirstFooterId))
+        {
+            sectionProperties.AppendChild(new FooterReference { Type = HeaderFooterValues.First, Id = parts.FirstFooterId });
+        }
+
+        if (!string.IsNullOrWhiteSpace(parts.EvenHeaderId))
+        {
+            sectionProperties.AppendChild(new HeaderReference { Type = HeaderFooterValues.Even, Id = parts.EvenHeaderId });
+        }
+
+        if (!string.IsNullOrWhiteSpace(parts.EvenFooterId))
+        {
+            sectionProperties.AppendChild(new FooterReference { Type = HeaderFooterValues.Even, Id = parts.EvenFooterId });
+        }
+
+        if (!string.IsNullOrWhiteSpace(parts.FirstHeaderId)
+            || !string.IsNullOrWhiteSpace(parts.FirstFooterId)
+            || section.Properties.DifferentFirstPageHeaderFooter == true
+            || overrides?.DifferentFirstPageHeaderFooter == true)
+        {
+            sectionProperties.AppendChild(new TitlePage());
         }
 
         return sectionProperties;
@@ -2802,7 +2908,7 @@ public sealed class DocxExporter
 
     private static void ApplySectionProperties(DocumentFormat.OpenXml.Wordprocessing.SectionProperties target, Vibe.Office.Documents.SectionProperties properties)
     {
-        if (properties.PageWidth.HasValue || properties.PageHeight.HasValue)
+        if (properties.PageWidth.HasValue || properties.PageHeight.HasValue || properties.Orientation.HasValue)
         {
             var pageSize = target.GetFirstChild<PageSize>() ?? target.AppendChild(new PageSize());
             if (properties.PageWidth.HasValue)
@@ -2814,6 +2920,13 @@ public sealed class DocxExporter
             {
                 pageSize.Height = DipToTwipsUInt32(properties.PageHeight.Value);
             }
+
+            if (properties.Orientation.HasValue)
+            {
+                pageSize.Orient = properties.Orientation == Vibe.Office.Documents.PageOrientation.Landscape
+                    ? PageOrientationValues.Landscape
+                    : PageOrientationValues.Portrait;
+            }
         }
 
         if (properties.MarginLeft.HasValue
@@ -2821,7 +2934,8 @@ public sealed class DocxExporter
             || properties.MarginTop.HasValue
             || properties.MarginBottom.HasValue
             || properties.HeaderOffset.HasValue
-            || properties.FooterOffset.HasValue)
+            || properties.FooterOffset.HasValue
+            || properties.Gutter.HasValue)
         {
             var margins = target.GetFirstChild<PageMargin>() ?? target.AppendChild(new PageMargin());
             if (properties.MarginLeft.HasValue)
@@ -2852,6 +2966,11 @@ public sealed class DocxExporter
             if (properties.FooterOffset.HasValue)
             {
                 margins.Footer = DipToTwipsUInt32(properties.FooterOffset.Value);
+            }
+
+            if (properties.Gutter.HasValue)
+            {
+                margins.Gutter = DipToTwipsUInt32(properties.Gutter.Value);
             }
         }
 
@@ -3645,7 +3764,13 @@ public sealed class DocxExporter
         return (uint)Math.Max(0, Math.Round(eighths));
     }
 
-    private sealed record SectionPartInfo(string? HeaderId, string? FooterId);
+    private sealed record SectionPartInfo(
+        string? HeaderId,
+        string? FooterId,
+        string? FirstHeaderId,
+        string? FirstFooterId,
+        string? EvenHeaderId,
+        string? EvenFooterId);
 
     private sealed class HyperlinkWriter
     {

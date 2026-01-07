@@ -35,7 +35,8 @@ public sealed class DocxImporter
         var document = new VibeDocument();
         document.Blocks.Clear();
         document.Sections.Clear();
-        document.Sections.Add(new DocumentSection(document.SectionProperties, document.Header, document.Footer));
+        LoadDocumentSettings(mainPart, document);
+        document.Sections.Add(new DocumentSection(document.SectionProperties, document.Header, document.Footer, document.FirstHeader, document.FirstFooter, document.EvenHeader, document.EvenFooter));
 
         if (body is null)
         {
@@ -64,10 +65,17 @@ public sealed class DocxImporter
                     if (sectionProps is not null)
                     {
                         ApplySectionProperties(currentSection.Properties, ParseSectionProperties(sectionProps));
-                        LoadSectionHeaderFooter(mainPart, sectionProps, currentSection, listResolver, styleResolver);
+                        LoadSectionHeaderFooter(mainPart, sectionProps, currentSection, document, listResolver, styleResolver);
 
                         var breakType = ParseSectionBreakType(sectionProps);
-                        var nextSection = new DocumentSection();
+                        var nextSection = new DocumentSection(
+                            document.SectionProperties.Clone(),
+                            new HeaderFooter(),
+                            new HeaderFooter(),
+                            new HeaderFooter(),
+                            new HeaderFooter(),
+                            new HeaderFooter(),
+                            new HeaderFooter());
                         document.Sections.Add(nextSection);
                         currentSectionIndex = document.Sections.Count - 1;
                         document.Blocks.Add(new SectionBreakBlock
@@ -94,7 +102,7 @@ public sealed class DocxImporter
         if (bodySectionProps is not null)
         {
             ApplySectionProperties(currentSection.Properties, ParseSectionProperties(bodySectionProps));
-            LoadSectionHeaderFooter(mainPart, bodySectionProps, currentSection, listResolver, styleResolver);
+            LoadSectionHeaderFooter(mainPart, bodySectionProps, currentSection, document, listResolver, styleResolver);
         }
 
         if (document.Blocks.Count == 0 || document.ParagraphCount == 0)
@@ -202,56 +210,136 @@ public sealed class DocxImporter
         return tableBlock;
     }
 
-    private static void LoadSectionHeaderFooter(MainDocumentPart? mainPart, DocumentFormat.OpenXml.Wordprocessing.SectionProperties sectionProps, DocumentSection section, ListResolver listResolver, StyleResolver styleResolver)
+    private static void LoadSectionHeaderFooter(
+        MainDocumentPart? mainPart,
+        DocumentFormat.OpenXml.Wordprocessing.SectionProperties sectionProps,
+        DocumentSection section,
+        VibeDocument document,
+        ListResolver listResolver,
+        StyleResolver styleResolver)
     {
         if (mainPart is null)
         {
             return;
         }
 
-        var headerRef = sectionProps.Elements<HeaderReference>()
-            .FirstOrDefault(item => item.Type is null || item.Type == HeaderFooterValues.Default);
-        HeaderPart? headerPart = null;
-        if (headerRef?.Id?.Value is string headerId)
+        static void PopulateHeader(HeaderFooter target, HeaderPart? headerPart, ListResolver listResolver, StyleResolver styleResolver)
         {
-            headerPart = mainPart.GetPartById(headerId) as HeaderPart;
-        }
-        else if (mainPart.HeaderParts.Count() == 1)
-        {
-            headerPart = mainPart.HeaderParts.FirstOrDefault();
-        }
+            if (headerPart?.Header is null)
+            {
+                return;
+            }
 
-        if (headerPart?.Header is not null)
-        {
-            section.Header.Blocks.Clear();
+            target.Blocks.Clear();
             var headerBlocks = ParseHeaderFooter(headerPart.Header, listResolver, new ImageResolver(headerPart), new ChartResolver(headerPart), new HyperlinkResolver(headerPart), styleResolver);
             foreach (var block in headerBlocks)
             {
-                section.Header.Blocks.Add(block);
+                target.Blocks.Add(block);
             }
         }
 
-        var footerRef = sectionProps.Elements<FooterReference>()
-            .FirstOrDefault(item => item.Type is null || item.Type == HeaderFooterValues.Default);
-        FooterPart? footerPart = null;
-        if (footerRef?.Id?.Value is string footerId)
+        static void PopulateFooter(HeaderFooter target, FooterPart? footerPart, ListResolver listResolver, StyleResolver styleResolver)
         {
-            footerPart = mainPart.GetPartById(footerId) as FooterPart;
-        }
-        else if (mainPart.FooterParts.Count() == 1)
-        {
-            footerPart = mainPart.FooterParts.FirstOrDefault();
-        }
+            if (footerPart?.Footer is null)
+            {
+                return;
+            }
 
-        if (footerPart?.Footer is not null)
-        {
-            section.Footer.Blocks.Clear();
+            target.Blocks.Clear();
             var footerBlocks = ParseHeaderFooter(footerPart.Footer, listResolver, new ImageResolver(footerPart), new ChartResolver(footerPart), new HyperlinkResolver(footerPart), styleResolver);
             foreach (var block in footerBlocks)
             {
-                section.Footer.Blocks.Add(block);
+                target.Blocks.Add(block);
             }
         }
+
+        static HeaderPart? ResolveHeaderPart(MainDocumentPart mainPart, DocumentFormat.OpenXml.Wordprocessing.SectionProperties sectionProps, HeaderFooterValues type, bool allowFallback)
+        {
+            var headerRef = sectionProps.Elements<HeaderReference>()
+                .FirstOrDefault(item => (item.Type?.Value ?? HeaderFooterValues.Default) == type);
+            if (headerRef?.Id?.Value is string headerId)
+            {
+                return mainPart.GetPartById(headerId) as HeaderPart;
+            }
+
+            if (allowFallback && mainPart.HeaderParts.Count() == 1)
+            {
+                return mainPart.HeaderParts.FirstOrDefault();
+            }
+
+            return null;
+        }
+
+        static FooterPart? ResolveFooterPart(MainDocumentPart mainPart, DocumentFormat.OpenXml.Wordprocessing.SectionProperties sectionProps, HeaderFooterValues type, bool allowFallback)
+        {
+            var footerRef = sectionProps.Elements<FooterReference>()
+                .FirstOrDefault(item => (item.Type?.Value ?? HeaderFooterValues.Default) == type);
+            if (footerRef?.Id?.Value is string footerId)
+            {
+                return mainPart.GetPartById(footerId) as FooterPart;
+            }
+
+            if (allowFallback && mainPart.FooterParts.Count() == 1)
+            {
+                return mainPart.FooterParts.FirstOrDefault();
+            }
+
+            return null;
+        }
+
+        if (sectionProps.Elements<HeaderReference>().Any(item => item.Type?.Value == HeaderFooterValues.Even)
+            || sectionProps.Elements<FooterReference>().Any(item => item.Type?.Value == HeaderFooterValues.Even))
+        {
+            document.EvenAndOddHeaders = true;
+        }
+
+        PopulateHeader(section.Header, ResolveHeaderPart(mainPart, sectionProps, HeaderFooterValues.Default, true), listResolver, styleResolver);
+        PopulateFooter(section.Footer, ResolveFooterPart(mainPart, sectionProps, HeaderFooterValues.Default, true), listResolver, styleResolver);
+        PopulateHeader(section.FirstHeader, ResolveHeaderPart(mainPart, sectionProps, HeaderFooterValues.First, false), listResolver, styleResolver);
+        PopulateFooter(section.FirstFooter, ResolveFooterPart(mainPart, sectionProps, HeaderFooterValues.First, false), listResolver, styleResolver);
+        PopulateHeader(section.EvenHeader, ResolveHeaderPart(mainPart, sectionProps, HeaderFooterValues.Even, false), listResolver, styleResolver);
+        PopulateFooter(section.EvenFooter, ResolveFooterPart(mainPart, sectionProps, HeaderFooterValues.Even, false), listResolver, styleResolver);
+    }
+
+    private static void LoadDocumentSettings(MainDocumentPart? mainPart, VibeDocument document)
+    {
+        if (mainPart?.DocumentSettingsPart?.Settings is not Settings settings)
+        {
+            return;
+        }
+
+        var mirrorMargins = ReadOnOff(settings.GetFirstChild<MirrorMargins>());
+        if (mirrorMargins.HasValue)
+        {
+            document.MirrorMargins = mirrorMargins.Value;
+        }
+
+        var gutterAtTop = ReadOnOff(settings.GetFirstChild<GutterAtTop>());
+        if (gutterAtTop.HasValue)
+        {
+            document.GutterAtTop = gutterAtTop.Value;
+        }
+
+        var evenAndOddHeaders = ReadOnOff(settings.GetFirstChild<EvenAndOddHeaders>());
+        if (evenAndOddHeaders.HasValue)
+        {
+            document.EvenAndOddHeaders = evenAndOddHeaders.Value;
+        }
+    }
+
+    private static bool? ReadOnOff(OpenXmlElement? element)
+    {
+        if (element is null)
+        {
+            return null;
+        }
+
+        if (element is OnOffType onOff)
+        {
+            return onOff.Val?.Value ?? true;
+        }
+
+        return true;
     }
 
     private static void LoadNotesAndComments(MainDocumentPart? mainPart, VibeDocument document, ListResolver listResolver, StyleResolver styleResolver)
@@ -1008,6 +1096,13 @@ public sealed class DocxImporter
             properties.PageHeight = TwipsToDip(pageHeightTwips.Value);
         }
 
+        if (pageSize?.Orient?.Value is PageOrientationValues orientation)
+        {
+            properties.Orientation = orientation == PageOrientationValues.Landscape
+                ? PageOrientation.Landscape
+                : PageOrientation.Portrait;
+        }
+
         var pageMargin = sectionProps.GetFirstChild<PageMargin>();
         var marginLeftTwips = TryParseTwips(pageMargin?.Left);
         if (marginLeftTwips.HasValue)
@@ -1043,6 +1138,26 @@ public sealed class DocxImporter
         if (footerTwips.HasValue)
         {
             properties.FooterOffset = TwipsToDip(footerTwips.Value);
+        }
+
+        var gutterTwips = TryParseTwips(pageMargin?.Gutter);
+        if (gutterTwips.HasValue)
+        {
+            properties.Gutter = TwipsToDip(gutterTwips.Value);
+        }
+
+        if (sectionProps.GetFirstChild<TitlePage>() is not null)
+        {
+            properties.DifferentFirstPageHeaderFooter = true;
+        }
+
+        if (properties.DifferentFirstPageHeaderFooter != true)
+        {
+            if (sectionProps.Elements<HeaderReference>().Any(item => item.Type?.Value == HeaderFooterValues.First)
+                || sectionProps.Elements<FooterReference>().Any(item => item.Type?.Value == HeaderFooterValues.First))
+            {
+                properties.DifferentFirstPageHeaderFooter = true;
+            }
         }
 
         var columns = sectionProps.GetFirstChild<Columns>();
@@ -1119,6 +1234,13 @@ public sealed class DocxImporter
             return SectionBreakType.NextColumn;
         }
 
+        if (sectionProps.GetFirstChild<TitlePage>() is not null
+            || sectionProps.Elements<HeaderReference>().Any(item => item.Type?.Value == HeaderFooterValues.First)
+            || sectionProps.Elements<FooterReference>().Any(item => item.Type?.Value == HeaderFooterValues.First))
+        {
+            return SectionBreakType.Continuous;
+        }
+
         return SectionBreakType.NextPage;
     }
 
@@ -1162,6 +1284,21 @@ public sealed class DocxImporter
         if (source.FooterOffset.HasValue)
         {
             target.FooterOffset = source.FooterOffset;
+        }
+
+        if (source.Gutter.HasValue)
+        {
+            target.Gutter = source.Gutter;
+        }
+
+        if (source.Orientation.HasValue)
+        {
+            target.Orientation = source.Orientation;
+        }
+
+        if (source.DifferentFirstPageHeaderFooter.HasValue)
+        {
+            target.DifferentFirstPageHeaderFooter = source.DifferentFirstPageHeaderFooter;
         }
 
         if (source.ColumnCount.HasValue)
