@@ -714,6 +714,11 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                         var columnLeft = contentLeft + columnOffsets[i];
                         var columnRight = columnLeft + columnWidths[i];
                         targetCanvas.DrawRect(new SKRect(columnLeft, contentTop, columnRight, contentBottom), layoutGuideLightPaint);
+                        if (i < columnWidths.Length - 1)
+                        {
+                            var separatorX = columnRight + columnGap * 0.5f;
+                            targetCanvas.DrawLine(separatorX, contentTop, separatorX, contentBottom, layoutGuideLightPaint);
+                        }
                     }
                 }
             }
