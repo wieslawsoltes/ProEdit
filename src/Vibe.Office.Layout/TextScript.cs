@@ -10,4 +10,25 @@ internal static class TextScript
                || (code >= 0x00C0 && code <= 0x024F)
                || (code >= 0x1E00 && code <= 0x1EFF);
     }
+
+    public static bool IsLatinText(ReadOnlySpan<char> text)
+    {
+        var hasLetter = false;
+        for (var i = 0; i < text.Length; i++)
+        {
+            var ch = text[i];
+            if (!char.IsLetter(ch))
+            {
+                continue;
+            }
+
+            hasLetter = true;
+            if (!IsLatinChar(ch))
+            {
+                return false;
+            }
+        }
+
+        return hasLetter;
+    }
 }

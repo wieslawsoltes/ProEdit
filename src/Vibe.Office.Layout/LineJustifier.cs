@@ -38,11 +38,11 @@ internal static class LineJustifier
         }
 
         var letterGapUnits = 0f;
-        Dictionary<TextStyleKey, Dictionary<string, int>>? letterGapCache = null;
+        Dictionary<TextStyleKey, Dictionary<TextSliceKey, int>>? letterGapCache = null;
         var letterContribution = 0f;
         if (remaining != 0f && measurer is ITextMeasurerAdvanced advanced)
         {
-            letterGapCache = new Dictionary<TextStyleKey, Dictionary<string, int>>();
+            letterGapCache = new Dictionary<TextStyleKey, Dictionary<TextSliceKey, int>>();
             letterGapUnits = MeasureLatinLetterGapUnits(layout, advanced, letterGapCache);
             if (letterGapUnits > 0f)
             {
@@ -72,7 +72,7 @@ internal static class LineJustifier
         if (letterContribution != 0f && letterGapUnits > 0f && measurer is ITextMeasurerAdvanced advancedSpacing)
         {
             var letterSpacingEm = letterContribution / letterGapUnits;
-            result = ApplyLetterSpacing(result, letterSpacingEm, advancedSpacing, letterGapCache ?? new Dictionary<TextStyleKey, Dictionary<string, int>>());
+            result = ApplyLetterSpacing(result, letterSpacingEm, advancedSpacing, letterGapCache ?? new Dictionary<TextStyleKey, Dictionary<TextSliceKey, int>>());
         }
 
         return result;
@@ -120,7 +120,7 @@ internal static class LineJustifier
     private static float MeasureLatinLetterGapUnits(
         LineLayout layout,
         ITextMeasurerAdvanced advanced,
-        Dictionary<TextStyleKey, Dictionary<string, int>> cache)
+        Dictionary<TextStyleKey, Dictionary<TextSliceKey, int>> cache)
     {
         var units = 0f;
         foreach (var run in layout.Runs)
@@ -141,8 +141,7 @@ internal static class LineJustifier
 
                 if (i > segmentStart)
                 {
-                    var token = text.Substring(segmentStart, i - segmentStart);
-                    var gapCount = GetLatinGapCountCached(token, run.Style, advanced, cache);
+                    var gapCount = GetLatinGapCountCached(text, segmentStart, i - segmentStart, run.Style, advanced, cache);
                     if (gapCount > 0)
                     {
                         units += gapCount * run.Style.FontSize;
@@ -154,8 +153,7 @@ internal static class LineJustifier
 
             if (segmentStart < text.Length)
             {
-                var token = text.Substring(segmentStart);
-                var gapCount = GetLatinGapCountCached(token, run.Style, advanced, cache);
+                var gapCount = GetLatinGapCountCached(text, segmentStart, text.Length - segmentStart, run.Style, advanced, cache);
                 if (gapCount > 0)
                 {
                     units += gapCount * run.Style.FontSize;
@@ -170,7 +168,7 @@ internal static class LineJustifier
         LineLayout layout,
         float letterSpacingEm,
         ITextMeasurerAdvanced advanced,
-        Dictionary<TextStyleKey, Dictionary<string, int>> cache)
+        Dictionary<TextStyleKey, Dictionary<TextSliceKey, int>> cache)
     {
         if (MathF.Abs(letterSpacingEm) < 0.0001f)
         {
@@ -200,7 +198,7 @@ internal static class LineJustifier
                         break;
                     }
 
-                    var gapCount = GetLatinGapCountCached(run.Text, run.Style, advanced, cache);
+                    var gapCount = GetLatinGapCountCached(run.Text, 0, run.Text.Length, run.Style, advanced, cache);
                     if (gapCount > 0)
                     {
                         var letterSpacing = letterSpacingEm * run.Style.FontSize;
@@ -259,12 +257,20 @@ internal static class LineJustifier
     }
 
     private static int GetLatinGapCountCached(
-        string text,
+        string source,
+        int start,
+        int length,
         TextStyle style,
         ITextMeasurerAdvanced advanced,
-        Dictionary<TextStyleKey, Dictionary<string, int>> cache)
+        Dictionary<TextStyleKey, Dictionary<TextSliceKey, int>> cache)
     {
-        if (string.IsNullOrEmpty(text) || !IsLatinText(text))
+        if (string.IsNullOrEmpty(source) || length <= 0)
+        {
+            return 0;
+        }
+
+        var span = source.AsSpan(start, length);
+        if (!TextScript.IsLatinText(span))
         {
             return 0;
         }
@@ -272,40 +278,23 @@ internal static class LineJustifier
         var key = new TextStyleKey(style);
         if (!cache.TryGetValue(key, out var map))
         {
-            map = new Dictionary<string, int>(StringComparer.Ordinal);
+            map = new Dictionary<TextSliceKey, int>();
             cache[key] = map;
         }
 
-        if (map.TryGetValue(text, out var count))
+        var slice = new TextSliceKey(source, start, length);
+        if (map.TryGetValue(slice, out var count))
         {
             return count;
         }
 
-        var shaped = advanced.ShapeText(text, style);
+        var shaped = advanced is ITextMeasurerAdvancedSpan advancedSpan
+            ? advancedSpan.ShapeText(span, style)
+            : advanced.ShapeText(span.ToString(), style);
         var clusterCount = shaped.ClusterOffsets.Length;
         count = Math.Max(0, clusterCount - 1);
-        map[text] = count;
+        map[slice] = count;
         return count;
-    }
-
-    private static bool IsLatinText(string text)
-    {
-        var hasLetter = false;
-        foreach (var ch in text)
-        {
-            if (!char.IsLetter(ch))
-            {
-                continue;
-            }
-
-            hasLetter = true;
-            if (!TextScript.IsLatinChar(ch))
-            {
-                return false;
-            }
-        }
-
-        return hasLetter;
     }
 
     private static LineLayout BuildSpaceJustifiedLayout(
@@ -467,14 +456,14 @@ internal static class LineJustifier
                     var text = run.Text;
                     for (var chIndex = 0; chIndex < text.Length; chIndex++)
                     {
-                        var ch = text[chIndex];
-                        var width = measurer.MeasureText(ch.ToString(), run.Style).Width;
+                        var glyph = new string(text[chIndex], 1);
+                        var width = measurer.MeasureText(glyph, run.Style).Width;
                         if (chIndex < text.Length - 1)
                         {
                             width += extraPerGap;
                         }
 
-                        runs.Add(new LayoutRun(ch.ToString(), run.Style, x, width, 1, false, run.BaselineOffset, run.TabLeader));
+                        runs.Add(new LayoutRun(glyph, run.Style, x, width, 1, false, run.BaselineOffset, run.TabLeader));
                         x += width;
                     }
                     break;
@@ -578,7 +567,9 @@ internal static class LineJustifier
             return width;
         }
 
-        width = measurer.MeasureText(" ", style).Width;
+        width = measurer is ITextMeasurerSpan spanMeasurer
+            ? spanMeasurer.MeasureText(" ".AsSpan(), style).Width
+            : measurer.MeasureText(" ", style).Width;
         cache[key] = width;
         return width;
     }
