@@ -16,6 +16,7 @@ public sealed class EditorController
     public DocumentLayout Layout { get; private set; }
     public TextPosition Caret { get; private set; }
     public TextRange Selection { get; private set; }
+    public Guid? SelectedFloatingObjectId { get; private set; }
     public IReadOnlyList<int> DirtyPages { get; private set; } = Array.Empty<int>();
     public long DirtyVersion { get; private set; }
 
@@ -94,6 +95,7 @@ public sealed class EditorController
             NormalizeInlines(newParagraph);
         }
 
+        SplitFloatingAnchors(paragraph, newParagraph, offset);
         Document.InsertParagraphAfter(location, newParagraph);
 
         MoveCaret(new TextPosition(Caret.ParagraphIndex + 1, 0), false);
@@ -263,6 +265,12 @@ public sealed class EditorController
             return;
         }
 
+        if (TrySelectFloatingObject(x, y))
+        {
+            return;
+        }
+
+        ClearFloatingSelection();
         if (TrySetCaretFromTable(x, y, extendSelection))
         {
             return;
@@ -278,6 +286,55 @@ public sealed class EditorController
 
         var offset = GetOffsetFromLine(line, x);
         MoveCaret(new TextPosition(line.ParagraphIndex, offset), extendSelection);
+    }
+
+    private bool TrySelectFloatingObject(float x, float y)
+    {
+        if (Layout.FloatingObjects.Count == 0)
+        {
+            return false;
+        }
+
+        for (var i = Layout.FloatingObjects.Count - 1; i >= 0; i--)
+        {
+            var floating = Layout.FloatingObjects[i];
+            if (!floating.Bounds.Contains(x, y))
+            {
+                continue;
+            }
+
+            SetFloatingSelection(floating.Object.Id, floating.PageIndex);
+            return true;
+        }
+
+        return false;
+    }
+
+    private void SetFloatingSelection(Guid id, int pageIndex)
+    {
+        if (SelectedFloatingObjectId == id)
+        {
+            return;
+        }
+
+        var previousSelection = Selection;
+        SelectedFloatingObjectId = id;
+        Selection = new TextRange(Caret, Caret);
+
+        var dirty = new HashSet<int>(ComputeDirtyPagesForSelection(previousSelection, Selection, Layout));
+        if (pageIndex >= 0)
+        {
+            dirty.Add(pageIndex);
+        }
+
+        DirtyPages = dirty.Count == 0 ? Array.Empty<int>() : dirty.ToArray();
+        DirtyVersion++;
+        OnChanged();
+    }
+
+    private void ClearFloatingSelection()
+    {
+        SelectedFloatingObjectId = null;
     }
 
     private bool TrySetCaretFromTable(float x, float y, bool extendSelection)
@@ -344,13 +401,13 @@ public sealed class EditorController
 
         var offsetInLine = 0;
         var remainingX = relativeX;
-        foreach (var segment in EnumerateSegments(line.Runs, line.Images))
+        foreach (var segment in EnumerateSegments(line.Runs, line.Images, line.Shapes, line.Charts))
         {
             var segmentWidth = GetSegmentWidth(segment);
             if (remainingX <= segmentWidth)
             {
-                if (segment.IsTab || segment.IsImage)
-                {
+            if (segment.IsTab || segment.IsImage || segment.IsShape || segment.IsChart)
+            {
                     var advance = remainingX >= segmentWidth / 2f ? 1 : 0;
                     return line.StartOffset + offsetInLine + advance;
                 }
@@ -370,6 +427,7 @@ public sealed class EditorController
     private void MoveCaret(TextPosition position, bool extendSelection)
     {
         var previousSelection = Selection;
+        var previousFloating = SelectedFloatingObjectId;
         var clamped = ClampPosition(position);
         Caret = clamped;
 
@@ -378,10 +436,38 @@ public sealed class EditorController
             _selectionAnchor = clamped;
         }
 
+        if (previousFloating.HasValue)
+        {
+            SelectedFloatingObjectId = null;
+        }
+
         Selection = new TextRange(_selectionAnchor, clamped);
-        DirtyPages = ComputeDirtyPagesForSelection(previousSelection, Selection, Layout);
+        var dirty = new HashSet<int>(ComputeDirtyPagesForSelection(previousSelection, Selection, Layout));
+        if (previousFloating.HasValue)
+        {
+            var pageIndex = ResolveFloatingPageIndex(previousFloating.Value);
+            if (pageIndex.HasValue)
+            {
+                dirty.Add(pageIndex.Value);
+            }
+        }
+
+        DirtyPages = dirty.Count == 0 ? Array.Empty<int>() : dirty.ToArray();
         DirtyVersion++;
         OnChanged();
+    }
+
+    private int? ResolveFloatingPageIndex(Guid id)
+    {
+        foreach (var floating in Layout.FloatingObjects)
+        {
+            if (floating.Object.Id == id)
+            {
+                return floating.PageIndex;
+            }
+        }
+
+        return null;
     }
 
     private void Reflow(int? dirtyParagraphIndex)
@@ -527,6 +613,7 @@ public sealed class EditorController
     private void InsertTextAtPosition(ParagraphBlock paragraph, int offset, string text)
     {
         EnsureParagraphInlines(paragraph);
+        ShiftFloatingAnchorsOnInsert(paragraph, offset, text.Length);
         if (paragraph.Inlines.Count == 0)
         {
             paragraph.Inlines.Add(new RunInline(text));
@@ -551,6 +638,27 @@ public sealed class EditorController
         NormalizeInlines(paragraph);
     }
 
+    private static void ShiftFloatingAnchorsOnInsert(ParagraphBlock paragraph, int offset, int length)
+    {
+        if (length <= 0 || paragraph.FloatingObjects.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var floating in paragraph.FloatingObjects)
+        {
+            if (floating.Anchor.AnchorOffset is not { } anchorOffset)
+            {
+                continue;
+            }
+
+            if (anchorOffset >= offset)
+            {
+                floating.Anchor.AnchorOffset = anchorOffset + length;
+            }
+        }
+    }
+
     private static int GetParagraphLength(ParagraphBlock paragraph)
     {
         if (paragraph.Inlines.Count == 0)
@@ -573,6 +681,8 @@ public sealed class EditorController
         {
             RunInline run => run.Text.Length,
             ImageInline => 1,
+            ShapeInline => 1,
+            ChartInline => 1,
             PageNumberInline => 1,
             FootnoteReferenceInline footnote => footnote.Id.ToString(System.Globalization.CultureInfo.InvariantCulture).Length,
             EndnoteReferenceInline endnote => endnote.Id.ToString(System.Globalization.CultureInfo.InvariantCulture).Length,
@@ -625,6 +735,8 @@ public sealed class EditorController
                     builder.Append(run.Text.GetText());
                     break;
                 case ImageInline:
+                case ShapeInline:
+                case ChartInline:
                 case PageNumberInline:
                     builder.Append(DocumentConstants.ObjectReplacementChar);
                     break;
@@ -727,6 +839,30 @@ public sealed class EditorController
         }
     }
 
+    private static void SplitFloatingAnchors(ParagraphBlock source, ParagraphBlock target, int splitOffset)
+    {
+        if (source.FloatingObjects.Count == 0)
+        {
+            return;
+        }
+
+        for (var i = source.FloatingObjects.Count - 1; i >= 0; i--)
+        {
+            var floating = source.FloatingObjects[i];
+            if (floating.Anchor.AnchorOffset is not { } anchorOffset)
+            {
+                continue;
+            }
+
+            if (anchorOffset >= splitOffset)
+            {
+                floating.Anchor.AnchorOffset = Math.Max(0, anchorOffset - splitOffset);
+                source.FloatingObjects.RemoveAt(i);
+                target.FloatingObjects.Add(floating);
+            }
+        }
+    }
+
     private void DeleteRangeInParagraph(ParagraphBlock paragraph, int startOffset, int endOffset)
     {
         var length = GetParagraphLength(paragraph);
@@ -737,6 +873,7 @@ public sealed class EditorController
             return;
         }
 
+        ShiftFloatingAnchorsOnDelete(paragraph, start, end);
         if (paragraph.Inlines.Count == 0)
         {
             var text = paragraph.Text ?? string.Empty;
@@ -779,24 +916,54 @@ public sealed class EditorController
         NormalizeInlines(paragraph);
     }
 
+    private static void ShiftFloatingAnchorsOnDelete(ParagraphBlock paragraph, int start, int end)
+    {
+        if (paragraph.FloatingObjects.Count == 0 || end <= start)
+        {
+            return;
+        }
+
+        var delta = end - start;
+        foreach (var floating in paragraph.FloatingObjects)
+        {
+            if (floating.Anchor.AnchorOffset is not { } anchorOffset)
+            {
+                continue;
+            }
+
+            if (anchorOffset >= end)
+            {
+                floating.Anchor.AnchorOffset = anchorOffset - delta;
+            }
+            else if (anchorOffset >= start)
+            {
+                floating.Anchor.AnchorOffset = start;
+            }
+        }
+    }
+
     private void AppendParagraphContent(ParagraphBlock target, ParagraphBlock source)
     {
+        var targetLength = GetParagraphLength(target);
         if (source.Inlines.Count == 0)
         {
             var sourceText = source.Text ?? string.Empty;
             if (sourceText.Length == 0)
             {
+                AppendFloatingAnchors(target, source, targetLength);
                 return;
             }
 
             if (target.Inlines.Count == 0)
             {
                 target.Text = (target.Text ?? string.Empty) + sourceText;
+                AppendFloatingAnchors(target, source, targetLength);
                 return;
             }
 
             target.Inlines.Add(new RunInline(sourceText));
             NormalizeInlines(target);
+            AppendFloatingAnchors(target, source, targetLength);
             return;
         }
 
@@ -807,6 +974,27 @@ public sealed class EditorController
         }
 
         NormalizeInlines(target);
+        AppendFloatingAnchors(target, source, targetLength);
+    }
+
+    private static void AppendFloatingAnchors(ParagraphBlock target, ParagraphBlock source, int targetLength)
+    {
+        if (source.FloatingObjects.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var floating in source.FloatingObjects)
+        {
+            if (floating.Anchor.AnchorOffset is { } anchorOffset)
+            {
+                floating.Anchor.AnchorOffset = anchorOffset + targetLength;
+            }
+
+            target.FloatingObjects.Add(floating);
+        }
+
+        source.FloatingObjects.Clear();
     }
 
     private static void NormalizeInlines(ParagraphBlock paragraph)
@@ -1028,7 +1216,7 @@ public sealed class EditorController
             var segmentWidth = GetSegmentWidth(segment);
             if (relativeX <= segmentWidth)
             {
-                if (segment.IsTab || segment.IsImage)
+                if (segment.IsTab || segment.IsImage || segment.IsShape || segment.IsChart)
                 {
                     var advance = relativeX >= segmentWidth / 2f ? 1 : 0;
                     return line.StartOffset + offsetInLine + advance;
@@ -1063,7 +1251,7 @@ public sealed class EditorController
                 break;
             }
 
-            if (segment.IsImage)
+            if (segment.IsImage || segment.IsShape || segment.IsChart)
             {
                 width += segment.Width;
                 remaining -= segment.Length;
@@ -1091,10 +1279,10 @@ public sealed class EditorController
 
     private IEnumerable<LineSegment> EnumerateSegments(LayoutLine line)
     {
-        return EnumerateSegments(line.Runs, line.Images);
+        return EnumerateSegments(line.Runs, line.Images, line.Shapes, line.Charts);
     }
 
-    private IEnumerable<LineSegment> EnumerateSegments(IReadOnlyList<LayoutRun> runs, IReadOnlyList<LayoutImage> images)
+    private IEnumerable<LineSegment> EnumerateSegments(IReadOnlyList<LayoutRun> runs, IReadOnlyList<LayoutImage> images, IReadOnlyList<LayoutShape> shapes, IReadOnlyList<LayoutChart> charts)
     {
         var segments = new List<(float X, LineSegment Segment)>();
         foreach (var run in runs)
@@ -1114,6 +1302,16 @@ public sealed class EditorController
             segments.Add((image.X, LineSegment.Image(image.Width)));
         }
 
+        foreach (var shape in shapes)
+        {
+            segments.Add((shape.X, LineSegment.Shape(shape.Width)));
+        }
+
+        foreach (var chart in charts)
+        {
+            segments.Add((chart.X, LineSegment.Chart(chart.Width)));
+        }
+
         foreach (var segment in segments.OrderBy(item => item.X))
         {
             yield return segment.Segment;
@@ -1122,7 +1320,7 @@ public sealed class EditorController
 
     private float GetSegmentWidth(LineSegment segment)
     {
-        if (segment.IsImage || segment.IsTab)
+        if (segment.IsImage || segment.IsShape || segment.IsChart || segment.IsTab)
         {
             return segment.Width;
         }
@@ -1184,8 +1382,10 @@ public sealed class EditorController
         public int Length { get; }
         public bool IsTab { get; }
         public bool IsImage { get; }
+        public bool IsShape { get; }
+        public bool IsChart { get; }
 
-        private LineSegment(string text, TextStyle style, float width, int length, bool isTab, bool isImage)
+        private LineSegment(string text, TextStyle style, float width, int length, bool isTab, bool isImage, bool isShape, bool isChart)
         {
             Text = text;
             Style = style;
@@ -1193,21 +1393,33 @@ public sealed class EditorController
             Length = length;
             IsTab = isTab;
             IsImage = isImage;
+            IsShape = isShape;
+            IsChart = isChart;
         }
 
         public static LineSegment CreateText(string text, TextStyle style)
         {
-            return new LineSegment(text, style, 0f, text.Length, false, false);
+            return new LineSegment(text, style, 0f, text.Length, false, false, false, false);
         }
 
         public static LineSegment Tab(float width)
         {
-            return new LineSegment(string.Empty, new TextStyle(), width, 1, true, false);
+            return new LineSegment(string.Empty, new TextStyle(), width, 1, true, false, false, false);
         }
 
         public static LineSegment Image(float width)
         {
-            return new LineSegment(string.Empty, new TextStyle(), width, 1, false, true);
+            return new LineSegment(string.Empty, new TextStyle(), width, 1, false, true, false, false);
+        }
+
+        public static LineSegment Shape(float width)
+        {
+            return new LineSegment(string.Empty, new TextStyle(), width, 1, false, false, true, false);
+        }
+
+        public static LineSegment Chart(float width)
+        {
+            return new LineSegment(string.Empty, new TextStyle(), width, 1, false, false, false, true);
         }
     }
 

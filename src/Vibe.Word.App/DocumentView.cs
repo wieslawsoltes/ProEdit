@@ -417,6 +417,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
 
             _options.Caret = _editor.Caret;
             _options.Selection = _editor.Selection.IsEmpty ? null : _editor.Selection;
+            _options.SelectedFloatingObjectId = _editor.SelectedFloatingObjectId;
 
             _renderer.Render(canvas, _editor.Document, _editor.Layout, _options);
 

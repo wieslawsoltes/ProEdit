@@ -13,6 +13,7 @@ public sealed class RenderOptions
     public float ColumnSeparatorThickness { get; set; } = 1f;
     public DocColor TextColor { get; set; } = DocColor.Black;
     public DocColor SelectionColor { get; set; } = DocColor.SelectionBlue;
+    public DocColor FloatingSelectionColor { get; set; } = new DocColor(45, 125, 240, 180);
     public DocColor CaretColor { get; set; } = DocColor.Black;
     public DocColor CommentHighlightColor { get; set; } = new DocColor(255, 247, 205, 160);
     public DocColor PlaceholderFillColor { get; set; } = new DocColor(248, 248, 248);
@@ -27,6 +28,7 @@ public sealed class RenderOptions
     public TextRange? Selection { get; set; }
     public TextPosition Caret { get; set; }
     public bool ShowCaret { get; set; } = true;
+    public Guid? SelectedFloatingObjectId { get; set; }
     public IReadOnlyList<int>? DirtyPages { get; set; }
     public long DirtyVersion { get; set; }
 }

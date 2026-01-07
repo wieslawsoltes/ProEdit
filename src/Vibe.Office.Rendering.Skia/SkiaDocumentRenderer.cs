@@ -1,3 +1,4 @@
+using System.Text;
 using SkiaSharp;
 using SkiaSharp.HarfBuzz;
 using Vibe.Office.Documents;
@@ -164,6 +165,15 @@ public sealed class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             IsAntialias = true
         };
 
+        using var floatingSelectionPaint = new SKPaint
+        {
+            Style = SKPaintStyle.Stroke,
+            Color = ToSkColor(options.FloatingSelectionColor),
+            StrokeWidth = 1.5f,
+            IsAntialias = true,
+            PathEffect = SKPathEffect.CreateDash(new[] { 4f, 3f }, 0f)
+        };
+
         using var caretPaint = new SKPaint
         {
             Style = SKPaintStyle.Fill,
@@ -215,7 +225,7 @@ public sealed class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             }
         }
 
-        void DrawCommentHighlights(int paragraphIndex, int lineStart, int lineLength, float lineX, float lineY, float lineHeight, IReadOnlyList<LayoutRun> runs, IReadOnlyList<LayoutImage> images)
+        void DrawCommentHighlights(int paragraphIndex, int lineStart, int lineLength, float lineX, float lineY, float lineHeight, IReadOnlyList<LayoutRun> runs, IReadOnlyList<LayoutImage> images, IReadOnlyList<LayoutShape> shapes, IReadOnlyList<LayoutChart> charts)
         {
             if (lineLength <= 0 || commentHighlightsByParagraph.Count == 0 || options.CommentHighlightColor.A == 0)
             {
@@ -240,8 +250,8 @@ public sealed class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
 
                 var startOffset = spanStart - lineStart;
                 var endOffset = spanEnd - lineStart;
-                var highlightX1 = lineX + MeasureLineOffset(runs, images, startOffset, GetPaint);
-                var highlightX2 = lineX + MeasureLineOffset(runs, images, endOffset, GetPaint);
+                var highlightX1 = lineX + MeasureLineOffset(runs, images, shapes, charts, startOffset, GetPaint);
+                var highlightX2 = lineX + MeasureLineOffset(runs, images, shapes, charts, endOffset, GetPaint);
                 if (highlightX2 <= highlightX1)
                 {
                     continue;
@@ -252,7 +262,7 @@ public sealed class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             }
         }
 
-        void DrawLineContent(float lineX, float lineY, float lineHeight, float lineAscent, string? prefix, float prefixWidth, IReadOnlyList<LayoutRun> runs, IReadOnlyList<LayoutImage> images)
+        void DrawLineContent(float lineX, float lineY, float lineHeight, float lineAscent, string? prefix, float prefixWidth, IReadOnlyList<LayoutRun> runs, IReadOnlyList<LayoutImage> images, IReadOnlyList<LayoutShape> shapes, IReadOnlyList<LayoutChart> charts)
         {
             if (!string.IsNullOrEmpty(prefix))
             {
@@ -329,6 +339,16 @@ public sealed class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             {
                 DrawImage(targetCanvas, image, lineX, baseline, lineAscent, options);
             }
+
+            foreach (var shape in shapes)
+            {
+                DrawShape(targetCanvas, shape, lineX, baseline, lineAscent, options, style);
+            }
+
+            foreach (var chart in charts)
+            {
+                DrawChart(targetCanvas, chart, lineX, baseline, options);
+            }
         }
 
         void DrawLineInvisibles(float lineX, float lineY, float lineHeight, float lineAscent, IReadOnlyList<LayoutRun> runs, bool showParagraphMark, float paragraphMarkX)
@@ -383,6 +403,81 @@ public sealed class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             }
         }
 
+        void DrawFloatingObject(FloatingLayoutObject floating)
+        {
+            var bounds = floating.Bounds;
+            switch (floating.Object.Content)
+            {
+                case ImageInline image:
+                {
+                    var layoutImage = new LayoutImage(image, 0f, bounds.Width, bounds.Height, 1);
+                    DrawImage(targetCanvas, layoutImage, bounds.X, bounds.Y + bounds.Height, 0f, options);
+                    break;
+                }
+                case ShapeInline shape:
+                {
+                    var layoutShape = new LayoutShape(shape, 0f, bounds.Width, bounds.Height, 1);
+                    DrawShape(targetCanvas, layoutShape, bounds.X, bounds.Y + bounds.Height, 0f, options, style);
+                    break;
+                }
+                case ChartInline chart:
+                {
+                    var layoutChart = new LayoutChart(chart, 0f, bounds.Width, bounds.Height, 1);
+                    DrawChart(targetCanvas, layoutChart, bounds.X, bounds.Y + bounds.Height, options);
+                    break;
+                }
+            }
+        }
+
+        void DrawFloatingObjects(int pageIndex, bool behindText)
+        {
+            if (layout.FloatingObjects.Count == 0)
+            {
+                return;
+            }
+
+            foreach (var floating in layout.FloatingObjects)
+            {
+                if (floating.PageIndex != pageIndex)
+                {
+                    continue;
+                }
+
+                if (floating.Object.Anchor.BehindText != behindText)
+                {
+                    continue;
+                }
+
+                DrawFloatingObject(floating);
+            }
+        }
+
+        void DrawFloatingSelection(int pageIndex)
+        {
+            if (!options.SelectedFloatingObjectId.HasValue || layout.FloatingObjects.Count == 0)
+            {
+                return;
+            }
+
+            foreach (var floating in layout.FloatingObjects)
+            {
+                if (floating.PageIndex != pageIndex)
+                {
+                    continue;
+                }
+
+                if (floating.Object.Id != options.SelectedFloatingObjectId.Value)
+                {
+                    continue;
+                }
+
+                var bounds = floating.Bounds;
+                var selectionRect = new SKRect(bounds.X, bounds.Y, bounds.Right, bounds.Bottom);
+                targetCanvas.DrawRect(selectionRect, floatingSelectionPaint);
+                break;
+            }
+        }
+
         var headerFooterMap = layout.HeaderFooters.ToDictionary(item => item.PageIndex);
 
         static bool IntersectsPage(DocRect pageBounds, DocRect elementBounds)
@@ -408,19 +503,21 @@ public sealed class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                 DrawColumnSeparators(page, layout.PageSections[pageIndex]);
             }
 
+            DrawFloatingObjects(pageIndex, true);
+
             if (headerFooterMap.TryGetValue(pageIndex, out var headerFooter))
             {
                 foreach (var line in headerFooter.HeaderLines)
                 {
                     DrawLineHighlights(line.X, line.Y, line.LineHeight, line.Runs);
-                    DrawLineContent(line.X, line.Y, line.LineHeight, line.Ascent, line.Prefix, line.PrefixWidth, line.Runs, line.Images);
+                    DrawLineContent(line.X, line.Y, line.LineHeight, line.Ascent, line.Prefix, line.PrefixWidth, line.Runs, line.Images, line.Shapes, line.Charts);
                     DrawLineInvisibles(line.X, line.Y, line.LineHeight, line.Ascent, line.Runs, false, 0f);
                 }
 
                 foreach (var line in headerFooter.FooterLines)
                 {
                     DrawLineHighlights(line.X, line.Y, line.LineHeight, line.Runs);
-                    DrawLineContent(line.X, line.Y, line.LineHeight, line.Ascent, line.Prefix, line.PrefixWidth, line.Runs, line.Images);
+                    DrawLineContent(line.X, line.Y, line.LineHeight, line.Ascent, line.Prefix, line.PrefixWidth, line.Runs, line.Images, line.Shapes, line.Charts);
                     DrawLineInvisibles(line.X, line.Y, line.LineHeight, line.Ascent, line.Runs, false, 0f);
                 }
             }
@@ -449,17 +546,17 @@ public sealed class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
 
                     foreach (var line in cell.Lines)
                     {
-                        DrawCommentHighlights(line.ParagraphIndex, line.StartOffset, line.Length, line.X, line.Y, line.LineHeight, line.Runs, line.Images);
+                        DrawCommentHighlights(line.ParagraphIndex, line.StartOffset, line.Length, line.X, line.Y, line.LineHeight, line.Runs, line.Images, line.Shapes, line.Charts);
                         DrawLineHighlights(line.X, line.Y, line.LineHeight, line.Runs);
                         if (selection.HasValue && TryGetSelectionSpan(selection.Value, line.ParagraphIndex, line.StartOffset, line.Length, out var startOffset, out var endOffset))
                         {
-                            var selectionX1 = line.X + MeasureLineOffset(line.Runs, line.Images, startOffset - line.StartOffset, GetPaint);
-                            var selectionX2 = line.X + MeasureLineOffset(line.Runs, line.Images, endOffset - line.StartOffset, GetPaint);
+                            var selectionX1 = line.X + MeasureLineOffset(line.Runs, line.Images, line.Shapes, line.Charts, startOffset - line.StartOffset, GetPaint);
+                            var selectionX2 = line.X + MeasureLineOffset(line.Runs, line.Images, line.Shapes, line.Charts, endOffset - line.StartOffset, GetPaint);
                             var selectionRect = new SKRect(selectionX1, line.Y, selectionX2, line.Y + line.LineHeight);
                             targetCanvas.DrawRect(selectionRect, selectionPaint);
                         }
 
-                        DrawLineContent(line.X, line.Y, line.LineHeight, line.Ascent, line.Prefix, line.PrefixWidth, line.Runs, line.Images);
+                        DrawLineContent(line.X, line.Y, line.LineHeight, line.Ascent, line.Prefix, line.PrefixWidth, line.Runs, line.Images, line.Shapes, line.Charts);
                         DrawLineInvisibles(line.X, line.Y, line.LineHeight, line.Ascent, line.Runs, false, 0f);
                     }
                 }
@@ -480,7 +577,7 @@ public sealed class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                 var isTableLine = line.IsInTable;
                 if (!isTableLine)
                 {
-                    DrawCommentHighlights(line.ParagraphIndex, line.StartOffset, line.Length, line.X, line.Y, line.LineHeight, line.Runs, line.Images);
+                    DrawCommentHighlights(line.ParagraphIndex, line.StartOffset, line.Length, line.X, line.Y, line.LineHeight, line.Runs, line.Images, line.Shapes, line.Charts);
                     DrawLineHighlights(line.X, line.Y, line.LineHeight, line.Runs);
                     if (selection.HasValue && TryGetSelectionSpan(selection.Value, line, out var startOffset, out var endOffset))
                     {
@@ -493,7 +590,7 @@ public sealed class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
 
                 if (!isTableLine)
                 {
-                    DrawLineContent(line.X, line.Y, line.LineHeight, line.Ascent, line.Prefix, line.PrefixWidth, line.Runs, line.Images);
+                    DrawLineContent(line.X, line.Y, line.LineHeight, line.Ascent, line.Prefix, line.PrefixWidth, line.Runs, line.Images, line.Shapes, line.Charts);
                 }
 
                 var isLastLine = lineIndex == layout.Lines.Count - 1
@@ -532,10 +629,13 @@ public sealed class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                 foreach (var line in footnoteLayout.Lines)
                 {
                     DrawLineHighlights(line.X, line.Y, line.LineHeight, line.Runs);
-                    DrawLineContent(line.X, line.Y, line.LineHeight, line.Ascent, line.Prefix, line.PrefixWidth, line.Runs, line.Images);
+                    DrawLineContent(line.X, line.Y, line.LineHeight, line.Ascent, line.Prefix, line.PrefixWidth, line.Runs, line.Images, line.Shapes, line.Charts);
                     DrawLineInvisibles(line.X, line.Y, line.LineHeight, line.Ascent, line.Runs, false, 0f);
                 }
             }
+
+            DrawFloatingObjects(pageIndex, false);
+            DrawFloatingSelection(pageIndex);
         }
 
         void DrawColumnSeparators(PageLayout page, PageSectionSettings section)
@@ -781,10 +881,10 @@ public sealed class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
 
     private static float MeasureLineOffset(LayoutLine line, int length, Func<TextStyle, SKPaint> paintProvider)
     {
-        return MeasureLineOffset(line.Runs, line.Images, length, paintProvider);
+        return MeasureLineOffset(line.Runs, line.Images, line.Shapes, line.Charts, length, paintProvider);
     }
 
-    private static float MeasureLineOffset(IReadOnlyList<LayoutRun> runs, IReadOnlyList<LayoutImage> images, int length, Func<TextStyle, SKPaint> paintProvider)
+    private static float MeasureLineOffset(IReadOnlyList<LayoutRun> runs, IReadOnlyList<LayoutImage> images, IReadOnlyList<LayoutShape> shapes, IReadOnlyList<LayoutChart> charts, int length, Func<TextStyle, SKPaint> paintProvider)
     {
         if (length <= 0)
         {
@@ -794,14 +894,14 @@ public sealed class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
         var remaining = length;
         var width = 0f;
 
-        foreach (var segment in EnumerateSegments(runs, images))
+        foreach (var segment in EnumerateSegments(runs, images, shapes, charts))
         {
             if (remaining <= 0)
             {
                 break;
             }
 
-            if (segment.IsImage)
+            if (segment.IsImage || segment.IsShape || segment.IsChart)
             {
                 if (remaining >= segment.Length)
                 {
@@ -1354,6 +1454,748 @@ public sealed class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
         canvas.DrawBitmap(bitmap, dest);
     }
 
+    private void DrawChart(SKCanvas canvas, LayoutChart chartLayout, float lineX, float baseline, RenderOptions options)
+    {
+        var chart = chartLayout.Chart;
+        var width = chartLayout.Width;
+        var height = chartLayout.Height;
+        if (width <= 0f || height <= 0f)
+        {
+            return;
+        }
+
+        var x = lineX + chartLayout.X;
+        var y = baseline - height;
+        var rect = new SKRect(x, y, x + width, y + height);
+        DrawChartContent(canvas, rect, chart, options);
+    }
+
+    private static void DrawChartContent(SKCanvas canvas, SKRect rect, ChartInline chart, RenderOptions options)
+    {
+        using var borderPaint = new SKPaint
+        {
+            Style = SKPaintStyle.Stroke,
+            Color = ToSkColor(options.PlaceholderStrokeColor),
+            StrokeWidth = 1f,
+            IsAntialias = true
+        };
+
+        using var fillPaint = new SKPaint
+        {
+            Style = SKPaintStyle.Fill,
+            Color = ToSkColor(options.PlaceholderFillColor),
+            IsAntialias = true
+        };
+
+        canvas.DrawRect(rect, fillPaint);
+        canvas.DrawRect(rect, borderPaint);
+
+        var model = chart.Model;
+        if (model is null || model.Series.Count == 0)
+        {
+            DrawChartPlaceholder(canvas, rect, options, "Chart");
+            return;
+        }
+
+        var padding = MathF.Max(6f, rect.Width * 0.05f);
+        var titleHeight = 0f;
+        if (!string.IsNullOrWhiteSpace(model.Title))
+        {
+            using var titlePaint = new SKPaint
+            {
+                Style = SKPaintStyle.Fill,
+                Color = ToSkColor(options.PlaceholderTextColor),
+                IsAntialias = true,
+                TextAlign = SKTextAlign.Center,
+                TextSize = MathF.Max(10f, rect.Height * 0.08f)
+            };
+            var titleY = rect.Top + titlePaint.TextSize + 2f;
+            canvas.DrawText(model.Title, rect.MidX, titleY, titlePaint);
+            titleHeight = titlePaint.TextSize + padding * 0.5f;
+        }
+
+        var plotRect = new SKRect(
+            rect.Left + padding,
+            rect.Top + padding + titleHeight,
+            rect.Right - padding,
+            rect.Bottom - padding);
+
+        if (plotRect.Width <= 4f || plotRect.Height <= 4f)
+        {
+            DrawChartPlaceholder(canvas, rect, options, "Chart");
+            return;
+        }
+
+        switch (model.Type)
+        {
+            case ChartType.Pie:
+                DrawPieChart(canvas, plotRect, model);
+                break;
+            case ChartType.Line:
+                DrawLineChart(canvas, plotRect, model);
+                break;
+            case ChartType.Scatter:
+                DrawScatterChart(canvas, plotRect, model);
+                break;
+            case ChartType.Area:
+                DrawAreaChart(canvas, plotRect, model);
+                break;
+            default:
+                DrawBarChart(canvas, plotRect, model);
+                break;
+        }
+    }
+
+    private static void DrawChartPlaceholder(SKCanvas canvas, SKRect rect, RenderOptions options, string label)
+    {
+        using var textPaint = new SKPaint
+        {
+            Style = SKPaintStyle.Fill,
+            Color = ToSkColor(options.PlaceholderTextColor),
+            IsAntialias = true,
+            TextAlign = SKTextAlign.Center,
+            TextSize = MathF.Max(9f, MathF.Min(14f, rect.Height / 4f))
+        };
+
+        var textY = rect.MidY + textPaint.TextSize * 0.35f;
+        canvas.DrawText(label, rect.MidX, textY, textPaint);
+    }
+
+    private static void DrawBarChart(SKCanvas canvas, SKRect plotRect, ChartModel model)
+    {
+        var seriesCount = model.Series.Count;
+        var categoryCount = model.Series.Max(series => series.Points.Count);
+        if (categoryCount == 0)
+        {
+            return;
+        }
+
+        var maxValue = model.Series
+            .SelectMany(series => series.Points)
+            .Max(point => point.Value);
+        if (maxValue <= 0)
+        {
+            maxValue = 1;
+        }
+
+        var groupWidth = plotRect.Width / categoryCount;
+        var barWidth = groupWidth / Math.Max(1, seriesCount);
+        var gap = barWidth * 0.15f;
+
+        for (var categoryIndex = 0; categoryIndex < categoryCount; categoryIndex++)
+        {
+            var groupStart = plotRect.Left + categoryIndex * groupWidth;
+            for (var seriesIndex = 0; seriesIndex < seriesCount; seriesIndex++)
+            {
+                var series = model.Series[seriesIndex];
+                var value = categoryIndex < series.Points.Count ? series.Points[categoryIndex].Value : 0d;
+                var height = (float)(value / maxValue) * plotRect.Height;
+                var barLeft = groupStart + seriesIndex * barWidth + gap;
+                var barRight = barLeft + barWidth - gap * 2f;
+                var barTop = plotRect.Bottom - height;
+
+                using var barPaint = new SKPaint
+                {
+                    Style = SKPaintStyle.Fill,
+                    Color = ResolveChartColor(seriesIndex),
+                    IsAntialias = true
+                };
+                canvas.DrawRect(new SKRect(barLeft, barTop, barRight, plotRect.Bottom), barPaint);
+            }
+        }
+    }
+
+    private static void DrawLineChart(SKCanvas canvas, SKRect plotRect, ChartModel model)
+    {
+        var maxValue = model.Series
+            .SelectMany(series => series.Points)
+            .DefaultIfEmpty(new ChartPoint { Value = 1 })
+            .Max(point => point.Value);
+        if (maxValue <= 0)
+        {
+            maxValue = 1;
+        }
+
+        for (var seriesIndex = 0; seriesIndex < model.Series.Count; seriesIndex++)
+        {
+            var series = model.Series[seriesIndex];
+            if (series.Points.Count == 0)
+            {
+                continue;
+            }
+
+            using var paint = new SKPaint
+            {
+                Style = SKPaintStyle.Stroke,
+                Color = ResolveChartColor(seriesIndex),
+                StrokeWidth = 2f,
+                IsAntialias = true
+            };
+
+            using var path = new SKPath();
+            for (var i = 0; i < series.Points.Count; i++)
+            {
+                var x = plotRect.Left + i * (plotRect.Width / Math.Max(1, series.Points.Count - 1));
+                var y = plotRect.Bottom - (float)(series.Points[i].Value / maxValue) * plotRect.Height;
+                if (i == 0)
+                {
+                    path.MoveTo(x, y);
+                }
+                else
+                {
+                    path.LineTo(x, y);
+                }
+            }
+
+            canvas.DrawPath(path, paint);
+        }
+    }
+
+    private static void DrawAreaChart(SKCanvas canvas, SKRect plotRect, ChartModel model)
+    {
+        var series = model.Series.FirstOrDefault();
+        if (series is null || series.Points.Count == 0)
+        {
+            return;
+        }
+
+        var maxValue = series.Points.Max(point => point.Value);
+        if (maxValue <= 0)
+        {
+            maxValue = 1;
+        }
+
+        using var paint = new SKPaint
+        {
+            Style = SKPaintStyle.Fill,
+            Color = ResolveChartColor(0).WithAlpha(160),
+            IsAntialias = true
+        };
+
+        using var path = new SKPath();
+        path.MoveTo(plotRect.Left, plotRect.Bottom);
+        for (var i = 0; i < series.Points.Count; i++)
+        {
+            var x = plotRect.Left + i * (plotRect.Width / Math.Max(1, series.Points.Count - 1));
+            var y = plotRect.Bottom - (float)(series.Points[i].Value / maxValue) * plotRect.Height;
+            path.LineTo(x, y);
+        }
+        path.LineTo(plotRect.Right, plotRect.Bottom);
+        path.Close();
+        canvas.DrawPath(path, paint);
+    }
+
+    private static void DrawScatterChart(SKCanvas canvas, SKRect plotRect, ChartModel model)
+    {
+        var series = model.Series.FirstOrDefault();
+        if (series is null || series.Points.Count == 0)
+        {
+            return;
+        }
+
+        var maxValue = series.Points.Max(point => point.Value);
+        if (maxValue <= 0)
+        {
+            maxValue = 1;
+        }
+
+        using var paint = new SKPaint
+        {
+            Style = SKPaintStyle.Fill,
+            Color = ResolveChartColor(0),
+            IsAntialias = true
+        };
+
+        for (var i = 0; i < series.Points.Count; i++)
+        {
+            var x = plotRect.Left + i * (plotRect.Width / Math.Max(1, series.Points.Count - 1));
+            var y = plotRect.Bottom - (float)(series.Points[i].Value / maxValue) * plotRect.Height;
+            canvas.DrawCircle(x, y, 3f, paint);
+        }
+    }
+
+    private static void DrawPieChart(SKCanvas canvas, SKRect plotRect, ChartModel model)
+    {
+        var series = model.Series.FirstOrDefault();
+        if (series is null || series.Points.Count == 0)
+        {
+            return;
+        }
+
+        var total = series.Points.Sum(point => Math.Max(0, point.Value));
+        if (total <= 0)
+        {
+            return;
+        }
+
+        var centerX = plotRect.MidX;
+        var centerY = plotRect.MidY;
+        var radius = MathF.Min(plotRect.Width, plotRect.Height) / 2f;
+        var startAngle = -90f;
+
+        for (var i = 0; i < series.Points.Count; i++)
+        {
+            var value = Math.Max(0, series.Points[i].Value);
+            var sweep = (float)(value / total) * 360f;
+            using var paint = new SKPaint
+            {
+                Style = SKPaintStyle.Fill,
+                Color = ResolveChartColor(i),
+                IsAntialias = true
+            };
+
+            using var path = new SKPath();
+            path.MoveTo(centerX, centerY);
+            path.ArcTo(new SKRect(centerX - radius, centerY - radius, centerX + radius, centerY + radius), startAngle, sweep, false);
+            path.Close();
+            canvas.DrawPath(path, paint);
+
+            startAngle += sweep;
+        }
+    }
+
+    private static SKColor ResolveChartColor(int index)
+    {
+        var palette = new[]
+        {
+            new SKColor(79, 129, 189),
+            new SKColor(192, 80, 77),
+            new SKColor(155, 187, 89),
+            new SKColor(128, 100, 162),
+            new SKColor(75, 172, 198),
+            new SKColor(247, 150, 70)
+        };
+
+        return palette[index % palette.Length];
+    }
+
+    private void DrawShape(SKCanvas canvas, LayoutShape shapeLayout, float lineX, float baseline, float ascent, RenderOptions options, TextStyle defaultStyle)
+    {
+        var shape = shapeLayout.Shape;
+        var width = shapeLayout.Width;
+        var height = shapeLayout.Height;
+        if (width <= 0f || height <= 0f)
+        {
+            return;
+        }
+
+        var originX = lineX + shapeLayout.X;
+        var originY = baseline - height;
+        var properties = shape.Properties;
+        var kind = ResolveShapeKind(properties.PresetGeometry);
+        var isLine = kind == ShapeKind.Line;
+        var fillColor = properties.FillColor;
+        var outline = properties.Outline;
+        var hasFill = fillColor.HasValue && fillColor.Value.A > 0;
+        var hasOutline = outline is not null && outline.IsVisible;
+        var rect = new SKRect(0f, 0f, width, height);
+
+        canvas.Save();
+        canvas.Translate(originX, originY);
+        ApplyShapeTransform(canvas, properties, width, height);
+
+        var path = CreateShapePath(kind, rect);
+        if (!hasFill && !hasOutline)
+        {
+            DrawShapePlaceholder(canvas, rect, options, "Shape");
+        }
+        else
+        {
+            if (hasFill && !isLine)
+            {
+                using var fillPaint = new SKPaint
+                {
+                    Style = SKPaintStyle.Fill,
+                    Color = ToSkColor(fillColor!.Value),
+                    IsAntialias = true
+                };
+                canvas.DrawPath(path, fillPaint);
+            }
+
+            if (hasOutline)
+            {
+                var thickness = MathF.Max(0.5f, GetBorderThickness(outline!));
+                using var strokePaint = new SKPaint
+                {
+                    Style = SKPaintStyle.Stroke,
+                    Color = ToSkColor(outline!.Color),
+                    StrokeWidth = thickness,
+                    IsAntialias = true,
+                    StrokeCap = outline.Style == DocBorderStyle.Dotted ? SKStrokeCap.Round : SKStrokeCap.Butt,
+                    PathEffect = CreateBorderEffect(outline.Style, thickness)
+                };
+                canvas.DrawPath(path, strokePaint);
+            }
+        }
+
+        if (shape.TextBox is { Blocks.Count: > 0 })
+        {
+            DrawShapeText(canvas, shape.TextBox, rect, options, defaultStyle);
+        }
+
+        canvas.Restore();
+    }
+
+    private static void ApplyShapeTransform(SKCanvas canvas, ShapeProperties properties, float width, float height)
+    {
+        if (!properties.FlipHorizontal && !properties.FlipVertical && MathF.Abs(properties.Rotation) < 0.01f)
+        {
+            return;
+        }
+
+        var centerX = width / 2f;
+        var centerY = height / 2f;
+        canvas.Translate(centerX, centerY);
+        if (properties.FlipHorizontal || properties.FlipVertical)
+        {
+            var scaleX = properties.FlipHorizontal ? -1f : 1f;
+            var scaleY = properties.FlipVertical ? -1f : 1f;
+            canvas.Scale(scaleX, scaleY);
+        }
+
+        if (MathF.Abs(properties.Rotation) >= 0.01f)
+        {
+            canvas.RotateDegrees(properties.Rotation);
+        }
+
+        canvas.Translate(-centerX, -centerY);
+    }
+
+    private static void DrawShapePlaceholder(SKCanvas canvas, SKRect rect, RenderOptions options, string label)
+    {
+        using var fillPaint = new SKPaint
+        {
+            Style = SKPaintStyle.Fill,
+            Color = ToSkColor(options.PlaceholderFillColor),
+            IsAntialias = true
+        };
+        using var borderPaint = new SKPaint
+        {
+            Style = SKPaintStyle.Stroke,
+            Color = ToSkColor(options.PlaceholderStrokeColor),
+            StrokeWidth = 1f,
+            IsAntialias = true
+        };
+        using var textPaint = new SKPaint
+        {
+            Style = SKPaintStyle.Fill,
+            Color = ToSkColor(options.PlaceholderTextColor),
+            IsAntialias = true,
+            TextAlign = SKTextAlign.Center
+        };
+
+        canvas.DrawRect(rect, fillPaint);
+        canvas.DrawRect(rect, borderPaint);
+        if (!string.IsNullOrWhiteSpace(label))
+        {
+            textPaint.TextSize = MathF.Max(8f, MathF.Min(14f, rect.Height / 4f));
+            var textY = rect.MidY + textPaint.TextSize * 0.35f;
+            canvas.DrawText(label, rect.MidX, textY, textPaint);
+        }
+    }
+
+    private static void DrawShapeText(SKCanvas canvas, ShapeTextBox textBox, SKRect bounds, RenderOptions options, TextStyle defaultStyle)
+    {
+        var padding = textBox.Properties.Padding;
+        var left = bounds.Left + padding.Left;
+        var top = bounds.Top + padding.Top;
+        var right = bounds.Right - padding.Right;
+        var bottom = bounds.Bottom - padding.Bottom;
+        var width = right - left;
+        var height = bottom - top;
+        if (width <= 1f || height <= 1f)
+        {
+            return;
+        }
+
+        var textStyle = defaultStyle.Clone();
+        textStyle.Color = options.TextColor;
+        using var paint = SkiaTextMeasurer.CreatePaint(textStyle);
+        paint.Color = ToSkColor(options.TextColor);
+
+        var metrics = paint.FontMetrics;
+        var ascent = MathF.Max(1f, -metrics.Ascent);
+        var descent = MathF.Max(0f, metrics.Descent);
+        var lineHeight = ascent + descent;
+
+        var lines = BuildShapeTextLines(textBox.Blocks, width, paint);
+        if (lines.Count == 0)
+        {
+            return;
+        }
+
+        var totalHeight = lineHeight * lines.Count;
+        var startY = top;
+        if (totalHeight < height)
+        {
+            startY = textBox.Properties.VerticalAlignment switch
+            {
+                ShapeTextVerticalAlignment.Center => top + (height - totalHeight) / 2f,
+                ShapeTextVerticalAlignment.Bottom => top + (height - totalHeight),
+                _ => top
+            };
+        }
+
+        canvas.Save();
+        canvas.ClipRect(new SKRect(left, top, right, bottom));
+
+        var y = startY;
+        foreach (var line in lines)
+        {
+            var baseline = y + ascent;
+            var lineWidth = paint.MeasureText(line.Text);
+            var x = left;
+            if (line.Alignment == ParagraphAlignment.Center)
+            {
+                x = left + (width - lineWidth) / 2f;
+            }
+            else if (line.Alignment == ParagraphAlignment.Right)
+            {
+                x = left + (width - lineWidth);
+            }
+
+            canvas.DrawText(line.Text, x, baseline, paint);
+            y += lineHeight;
+            if (y > bottom)
+            {
+                break;
+            }
+        }
+
+        canvas.Restore();
+    }
+
+    private static List<ShapeTextLine> BuildShapeTextLines(IReadOnlyList<Block> blocks, float maxWidth, SKPaint paint)
+    {
+        var lines = new List<ShapeTextLine>();
+        if (blocks.Count == 0 || maxWidth <= 1f)
+        {
+            return lines;
+        }
+
+        for (var index = 0; index < blocks.Count; index++)
+        {
+            if (blocks[index] is not ParagraphBlock paragraph)
+            {
+                continue;
+            }
+
+            var alignment = paragraph.Properties.Alignment;
+            var text = GetParagraphText(paragraph);
+            if (string.IsNullOrEmpty(text))
+            {
+                lines.Add(new ShapeTextLine(string.Empty, alignment));
+            }
+            else
+            {
+                var paragraphLines = text.Split('\n');
+                for (var p = 0; p < paragraphLines.Length; p++)
+                {
+                    foreach (var line in WrapShapeText(paragraphLines[p], maxWidth, paint))
+                    {
+                        lines.Add(new ShapeTextLine(line, alignment));
+                    }
+                }
+            }
+
+            if (index < blocks.Count - 1)
+            {
+                lines.Add(new ShapeTextLine(string.Empty, alignment));
+            }
+        }
+
+        return lines;
+    }
+
+    private static IEnumerable<string> WrapShapeText(string text, float maxWidth, SKPaint paint)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            yield return string.Empty;
+            yield break;
+        }
+
+        var words = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var builder = new StringBuilder();
+        foreach (var word in words)
+        {
+            var candidate = builder.Length == 0 ? word : $"{builder} {word}";
+            var width = paint.MeasureText(candidate);
+            if (width <= maxWidth || builder.Length == 0)
+            {
+                builder.Clear();
+                builder.Append(candidate);
+            }
+            else
+            {
+                yield return builder.ToString();
+                builder.Clear();
+                builder.Append(word);
+            }
+        }
+
+        if (builder.Length > 0)
+        {
+            yield return builder.ToString();
+        }
+    }
+
+    private static string GetParagraphText(ParagraphBlock paragraph)
+    {
+        if (!string.IsNullOrEmpty(paragraph.Text))
+        {
+            return paragraph.Text;
+        }
+
+        if (paragraph.Inlines.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        var builder = new StringBuilder();
+        foreach (var inline in paragraph.Inlines)
+        {
+            if (inline is RunInline run)
+            {
+                builder.Append(run.GetText());
+            }
+        }
+
+        return builder.ToString();
+    }
+
+    private static ShapeKind ResolveShapeKind(string? preset)
+    {
+        if (string.IsNullOrWhiteSpace(preset))
+        {
+            return ShapeKind.Rectangle;
+        }
+
+        var value = preset.Trim();
+        return value.ToLowerInvariant() switch
+        {
+            "rect" or "rectangle" => ShapeKind.Rectangle,
+            "roundrect" or "roundrectangle" => ShapeKind.RoundRectangle,
+            "ellipse" or "oval" => ShapeKind.Ellipse,
+            "line" => ShapeKind.Line,
+            "triangle" => ShapeKind.Triangle,
+            "diamond" => ShapeKind.Diamond,
+            "parallelogram" => ShapeKind.Parallelogram,
+            "trapezoid" => ShapeKind.Trapezoid,
+            "hexagon" => ShapeKind.Hexagon,
+            "octagon" => ShapeKind.Octagon,
+            _ => ShapeKind.Unknown
+        };
+    }
+
+    private static SKPath CreateShapePath(ShapeKind kind, SKRect rect)
+    {
+        var path = new SKPath();
+        var width = rect.Width;
+        var height = rect.Height;
+        switch (kind)
+        {
+            case ShapeKind.Rectangle:
+                path.AddRect(rect);
+                break;
+            case ShapeKind.RoundRectangle:
+            {
+                var radius = MathF.Min(width, height) * 0.12f;
+                path.AddRoundRect(rect, radius, radius);
+                break;
+            }
+            case ShapeKind.Ellipse:
+                path.AddOval(rect);
+                break;
+            case ShapeKind.Line:
+                path.MoveTo(rect.Left, rect.MidY);
+                path.LineTo(rect.Right, rect.MidY);
+                break;
+            case ShapeKind.Triangle:
+                path.MoveTo(rect.MidX, rect.Top);
+                path.LineTo(rect.Right, rect.Bottom);
+                path.LineTo(rect.Left, rect.Bottom);
+                path.Close();
+                break;
+            case ShapeKind.Diamond:
+                path.MoveTo(rect.MidX, rect.Top);
+                path.LineTo(rect.Right, rect.MidY);
+                path.LineTo(rect.MidX, rect.Bottom);
+                path.LineTo(rect.Left, rect.MidY);
+                path.Close();
+                break;
+            case ShapeKind.Parallelogram:
+            {
+                var offset = width * 0.2f;
+                path.MoveTo(rect.Left + offset, rect.Top);
+                path.LineTo(rect.Right, rect.Top);
+                path.LineTo(rect.Right - offset, rect.Bottom);
+                path.LineTo(rect.Left, rect.Bottom);
+                path.Close();
+                break;
+            }
+            case ShapeKind.Trapezoid:
+            {
+                var inset = width * 0.2f;
+                path.MoveTo(rect.Left + inset, rect.Top);
+                path.LineTo(rect.Right - inset, rect.Top);
+                path.LineTo(rect.Right, rect.Bottom);
+                path.LineTo(rect.Left, rect.Bottom);
+                path.Close();
+                break;
+            }
+            case ShapeKind.Hexagon:
+            {
+                var dx = width * 0.2f;
+                path.MoveTo(rect.Left + dx, rect.Top);
+                path.LineTo(rect.Right - dx, rect.Top);
+                path.LineTo(rect.Right, rect.MidY);
+                path.LineTo(rect.Right - dx, rect.Bottom);
+                path.LineTo(rect.Left + dx, rect.Bottom);
+                path.LineTo(rect.Left, rect.MidY);
+                path.Close();
+                break;
+            }
+            case ShapeKind.Octagon:
+            {
+                var dx = width * 0.2f;
+                var dy = height * 0.2f;
+                path.MoveTo(rect.Left + dx, rect.Top);
+                path.LineTo(rect.Right - dx, rect.Top);
+                path.LineTo(rect.Right, rect.Top + dy);
+                path.LineTo(rect.Right, rect.Bottom - dy);
+                path.LineTo(rect.Right - dx, rect.Bottom);
+                path.LineTo(rect.Left + dx, rect.Bottom);
+                path.LineTo(rect.Left, rect.Bottom - dy);
+                path.LineTo(rect.Left, rect.Top + dy);
+                path.Close();
+                break;
+            }
+            default:
+                path.AddRect(rect);
+                break;
+        }
+
+        return path;
+    }
+
+    private sealed record ShapeTextLine(string Text, ParagraphAlignment? Alignment);
+
+    private enum ShapeKind
+    {
+        Unknown,
+        Rectangle,
+        RoundRectangle,
+        Ellipse,
+        Line,
+        Triangle,
+        Diamond,
+        Parallelogram,
+        Trapezoid,
+        Hexagon,
+        Octagon
+    }
+
     private SKBitmap? GetBitmap(ImageInline inline)
     {
         if (_invalidImages.Contains(inline.Id))
@@ -1389,10 +2231,10 @@ public sealed class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
 
     private static IEnumerable<LineSegment> EnumerateSegments(LayoutLine line)
     {
-        return EnumerateSegments(line.Runs, line.Images);
+        return EnumerateSegments(line.Runs, line.Images, line.Shapes, line.Charts);
     }
 
-    private static IEnumerable<LineSegment> EnumerateSegments(IReadOnlyList<LayoutRun> runs, IReadOnlyList<LayoutImage> images)
+    private static IEnumerable<LineSegment> EnumerateSegments(IReadOnlyList<LayoutRun> runs, IReadOnlyList<LayoutImage> images, IReadOnlyList<LayoutShape> shapes, IReadOnlyList<LayoutChart> charts)
     {
         var segments = new List<(float X, LineSegment Segment)>();
         foreach (var run in runs)
@@ -1410,6 +2252,16 @@ public sealed class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
         foreach (var image in images)
         {
             segments.Add((image.X, LineSegment.Image(image.Width)));
+        }
+
+        foreach (var shape in shapes)
+        {
+            segments.Add((shape.X, LineSegment.Shape(shape.Width)));
+        }
+
+        foreach (var chart in charts)
+        {
+            segments.Add((chart.X, LineSegment.Chart(chart.Width)));
         }
 
         foreach (var segment in segments.OrderBy(item => item.X))
@@ -1490,8 +2342,10 @@ public sealed class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
         public int Length { get; }
         public bool IsTab { get; }
         public bool IsImage { get; }
+        public bool IsShape { get; }
+        public bool IsChart { get; }
 
-        private LineSegment(string text, TextStyle style, float width, int length, bool isTab, bool isImage)
+        private LineSegment(string text, TextStyle style, float width, int length, bool isTab, bool isImage, bool isShape, bool isChart)
         {
             Text = text;
             Style = style;
@@ -1499,21 +2353,33 @@ public sealed class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             Length = length;
             IsTab = isTab;
             IsImage = isImage;
+            IsShape = isShape;
+            IsChart = isChart;
         }
 
         public static LineSegment CreateText(string text, TextStyle style)
         {
-            return new LineSegment(text, style, 0f, text.Length, false, false);
+            return new LineSegment(text, style, 0f, text.Length, false, false, false, false);
         }
 
         public static LineSegment Tab(float width)
         {
-            return new LineSegment(string.Empty, new TextStyle(), width, 1, true, false);
+            return new LineSegment(string.Empty, new TextStyle(), width, 1, true, false, false, false);
         }
 
         public static LineSegment Image(float width)
         {
-            return new LineSegment(string.Empty, new TextStyle(), width, 1, false, true);
+            return new LineSegment(string.Empty, new TextStyle(), width, 1, false, true, false, false);
+        }
+
+        public static LineSegment Shape(float width)
+        {
+            return new LineSegment(string.Empty, new TextStyle(), width, 1, false, false, true, false);
+        }
+
+        public static LineSegment Chart(float width)
+        {
+            return new LineSegment(string.Empty, new TextStyle(), width, 1, false, false, false, true);
         }
     }
 
