@@ -38,6 +38,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
     private Size _extent;
     private Size _viewport;
     private EquationInline? _selectedEquation;
+    private long _renderVersion;
 
     public DocumentView()
     {
@@ -63,7 +64,22 @@ public sealed class DocumentView : Control, ILogicalScrollable
             }
 
             _renderOptions.ShowInvisibles = value;
-            InvalidateVisual();
+            InvalidateAllPages();
+        }
+    }
+
+    public bool ShowLayout
+    {
+        get => _renderOptions.ShowLayout;
+        set
+        {
+            if (_renderOptions.ShowLayout == value)
+            {
+                return;
+            }
+
+            _renderOptions.ShowLayout = value;
+            InvalidateAllPages();
         }
     }
 
@@ -227,8 +243,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
         _editor = CreateEditor(document);
         _editor.UpdateLayout((float)Bounds.Width, (float)Bounds.Height);
         _scrollOffset = default;
-        _renderOptions.DirtyPages = _editor.DirtyPages;
-        _renderOptions.DirtyVersion = _editor.DirtyVersion;
+        UpdateDirtyPages(GetAllPages());
         UpdateScrollMetrics();
         UpdateSelectedEquation();
         InvalidateVisual();
@@ -285,10 +300,33 @@ public sealed class DocumentView : Control, ILogicalScrollable
     private void OnEditorChanged(object? sender, EventArgs e)
     {
         UpdateScrollMetrics();
-        _renderOptions.DirtyPages = _editor.DirtyPages;
-        _renderOptions.DirtyVersion = _editor.DirtyVersion;
+        UpdateDirtyPages(_editor.DirtyPages);
         UpdateSelectedEquation();
         InvalidateVisual();
+    }
+
+    private void InvalidateAllPages()
+    {
+        UpdateDirtyPages(GetAllPages());
+        InvalidateVisual();
+    }
+
+    private void UpdateDirtyPages(IReadOnlyList<int> pages)
+    {
+        _renderVersion++;
+        _renderOptions.DirtyPages = pages;
+        _renderOptions.DirtyVersion = _renderVersion;
+    }
+
+    private IReadOnlyList<int> GetAllPages()
+    {
+        var count = _editor.Layout.Pages.Count;
+        if (count <= 0)
+        {
+            return Array.Empty<int>();
+        }
+
+        return Enumerable.Range(0, count).ToArray();
     }
 
     private void UpdateSelectedEquation()
