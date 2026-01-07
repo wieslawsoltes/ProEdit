@@ -42,15 +42,19 @@ public sealed class DocumentStyleResolver
     public TextStyle ResolveParagraphTextStyle(ParagraphBlock paragraph, TextStyle defaultStyle)
     {
         var resolved = defaultStyle.Clone();
-        ApplyDefaultCharacterStyle(resolved);
+        var hasExplicitFontFamily = false;
+        var hasExplicitThemeFont = false;
+        ApplyDefaultCharacterStyle(resolved, ref hasExplicitFontFamily, ref hasExplicitThemeFont);
 
         var styleId = paragraph.StyleId ?? _document.Styles.DefaultParagraphStyleId;
         if (!string.IsNullOrWhiteSpace(styleId))
         {
             var runProperties = ResolveParagraphRunProperties(styleId);
+            UpdateFontFlags(runProperties, ref hasExplicitFontFamily, ref hasExplicitThemeFont);
             runProperties.ApplyTo(resolved);
         }
 
+        ResolveThemeFont(resolved, hasExplicitFontFamily, hasExplicitThemeFont);
         return resolved;
     }
 
@@ -62,17 +66,22 @@ public sealed class DocumentStyleResolver
     public TextStyle ResolveRunStyle(string? styleId, TextStyleProperties? runProperties, TextStyle paragraphStyle)
     {
         var resolved = paragraphStyle.Clone();
+        var hasExplicitFontFamily = false;
+        var hasExplicitThemeFont = false;
         if (!string.IsNullOrWhiteSpace(styleId))
         {
             var styleProperties = ResolveCharacterStyleProperties(styleId);
+            UpdateFontFlags(styleProperties, ref hasExplicitFontFamily, ref hasExplicitThemeFont);
             styleProperties.ApplyTo(resolved);
         }
 
         if (runProperties is not null)
         {
+            UpdateFontFlags(runProperties, ref hasExplicitFontFamily, ref hasExplicitThemeFont);
             runProperties.ApplyTo(resolved);
         }
 
+        ResolveThemeFont(resolved, hasExplicitFontFamily, hasExplicitThemeFont);
         return resolved;
     }
 
@@ -87,7 +96,7 @@ public sealed class DocumentStyleResolver
         return ResolveTableStyleDefinition(styleId);
     }
 
-    private void ApplyDefaultCharacterStyle(TextStyle style)
+    private void ApplyDefaultCharacterStyle(TextStyle style, ref bool hasExplicitFontFamily, ref bool hasExplicitThemeFont)
     {
         var defaultCharacterStyleId = _document.Styles.DefaultCharacterStyleId;
         if (string.IsNullOrWhiteSpace(defaultCharacterStyleId))
@@ -96,7 +105,56 @@ public sealed class DocumentStyleResolver
         }
 
         var runProperties = ResolveCharacterStyleProperties(defaultCharacterStyleId);
+        UpdateFontFlags(runProperties, ref hasExplicitFontFamily, ref hasExplicitThemeFont);
         runProperties.ApplyTo(style);
+    }
+
+    private static void UpdateFontFlags(TextStyleProperties properties, ref bool hasExplicitFontFamily, ref bool hasExplicitThemeFont)
+    {
+        if (!string.IsNullOrWhiteSpace(properties.FontFamily))
+        {
+            hasExplicitFontFamily = true;
+        }
+
+        if (properties.ThemeFontAscii.HasValue
+            || properties.ThemeFontHighAnsi.HasValue
+            || properties.ThemeFontEastAsia.HasValue
+            || properties.ThemeFontComplexScript.HasValue)
+        {
+            hasExplicitThemeFont = true;
+        }
+    }
+
+    private void ResolveThemeFont(TextStyle style, bool hasExplicitFontFamily, bool hasExplicitThemeFont)
+    {
+        if (hasExplicitFontFamily || !hasExplicitThemeFont)
+        {
+            return;
+        }
+
+        var themeFonts = _document.Fonts.Theme;
+        if (style.ThemeFontAscii.HasValue && themeFonts.TryGet(style.ThemeFontAscii.Value, out var family))
+        {
+            style.FontFamily = family;
+            return;
+        }
+
+        if (style.ThemeFontHighAnsi.HasValue && themeFonts.TryGet(style.ThemeFontHighAnsi.Value, out family))
+        {
+            style.FontFamily = family;
+            return;
+        }
+
+        if (style.ThemeFontEastAsia.HasValue && themeFonts.TryGet(style.ThemeFontEastAsia.Value, out family))
+        {
+            style.FontFamily = family;
+            return;
+        }
+
+        if (style.ThemeFontComplexScript.HasValue && themeFonts.TryGet(style.ThemeFontComplexScript.Value, out family))
+        {
+            style.FontFamily = family;
+        }
     }
 
     private ParagraphStyleProperties ResolveParagraphStyleProperties(string styleId)

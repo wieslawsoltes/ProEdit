@@ -21,6 +21,8 @@ namespace Vibe.Office.OpenXml;
 
 public sealed class DocxImporter
 {
+    private const string RelationshipNamespace = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+
     public VibeDocument Load(string filePath)
     {
         if (string.IsNullOrWhiteSpace(filePath))
@@ -35,6 +37,7 @@ public sealed class DocxImporter
         var document = new VibeDocument();
         document.Blocks.Clear();
         document.Sections.Clear();
+        LoadFonts(mainPart, document);
         LoadDocumentSettings(mainPart, document);
         document.Sections.Add(new DocumentSection(document.SectionProperties, document.Header, document.Footer, document.FirstHeader, document.FirstFooter, document.EvenHeader, document.EvenFooter));
 
@@ -325,6 +328,150 @@ public sealed class DocxImporter
         {
             document.EvenAndOddHeaders = evenAndOddHeaders.Value;
         }
+    }
+
+    private static void LoadFonts(MainDocumentPart? mainPart, VibeDocument document)
+    {
+        if (mainPart is null)
+        {
+            return;
+        }
+
+        LoadThemeFonts(mainPart.ThemePart?.Theme, document.Fonts);
+        LoadFontTable(mainPart.FontTablePart, document.Fonts);
+    }
+
+    private static void LoadThemeFonts(A.Theme? theme, DocumentFonts fonts)
+    {
+        if (theme?.ThemeElements?.FontScheme is not A.FontScheme fontScheme)
+        {
+            return;
+        }
+
+        ApplyThemeFontCollection(fontScheme.MajorFont, true, fonts.Theme);
+        ApplyThemeFontCollection(fontScheme.MinorFont, false, fonts.Theme);
+    }
+
+    private static void ApplyThemeFontCollection(OpenXmlElement? collection, bool isMajor, DocumentThemeFontMap themeFonts)
+    {
+        if (collection is null)
+        {
+            return;
+        }
+
+        var latin = collection.GetFirstChild<A.LatinFont>()?.Typeface?.Value;
+        var eastAsia = collection.GetFirstChild<A.EastAsianFont>()?.Typeface?.Value;
+        var complex = collection.GetFirstChild<A.ComplexScriptFont>()?.Typeface?.Value;
+
+        if (isMajor)
+        {
+            themeFonts.Set(DocThemeFont.MajorAscii, latin);
+            themeFonts.Set(DocThemeFont.MajorHighAnsi, latin);
+            themeFonts.Set(DocThemeFont.MajorEastAsia, eastAsia);
+            themeFonts.Set(DocThemeFont.MajorBidi, complex);
+        }
+        else
+        {
+            themeFonts.Set(DocThemeFont.MinorAscii, latin);
+            themeFonts.Set(DocThemeFont.MinorHighAnsi, latin);
+            themeFonts.Set(DocThemeFont.MinorEastAsia, eastAsia);
+            themeFonts.Set(DocThemeFont.MinorBidi, complex);
+        }
+    }
+
+    private static void LoadFontTable(FontTablePart? fontTablePart, DocumentFonts fonts)
+    {
+        if (fontTablePart?.Fonts is null)
+        {
+            return;
+        }
+
+        foreach (var font in fontTablePart.Fonts.Elements<Font>())
+        {
+            var name = font.Name?.Value;
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                continue;
+            }
+
+            var definition = new DocumentFontDefinition(name);
+            definition.AltName = font.GetFirstChild<AltName>()?.Val?.Value;
+            definition.Charset = GetFontMetadataValue(font, "charset");
+            definition.Family = GetFontMetadataValue(font, "family");
+            definition.Pitch = GetFontMetadataValue(font, "pitch");
+            definition.Panose1 = GetFontMetadataValue(font, "panose1");
+
+            definition.Regular = ReadEmbeddedFont(fontTablePart, font, "embedRegular");
+            definition.Bold = ReadEmbeddedFont(fontTablePart, font, "embedBold");
+            definition.Italic = ReadEmbeddedFont(fontTablePart, font, "embedItalic");
+            definition.BoldItalic = ReadEmbeddedFont(fontTablePart, font, "embedBoldItalic");
+
+            fonts.FontTable[name] = definition;
+        }
+    }
+
+    private static string? GetFontMetadataValue(Font font, string localName)
+    {
+        var element = font.Elements().FirstOrDefault(child => string.Equals(child.LocalName, localName, StringComparison.OrdinalIgnoreCase));
+        if (element is null)
+        {
+            return null;
+        }
+
+        return GetAttributeValue(element, "val", element.NamespaceUri) ?? GetAttributeValue(element, "val");
+    }
+
+    private static EmbeddedFontData? ReadEmbeddedFont(FontTablePart fontTablePart, Font font, string localName)
+    {
+        var element = font.Elements().FirstOrDefault(child => string.Equals(child.LocalName, localName, StringComparison.OrdinalIgnoreCase));
+        if (element is null)
+        {
+            return null;
+        }
+
+        var relId = GetAttributeValue(element, "id", RelationshipNamespace);
+        if (string.IsNullOrWhiteSpace(relId))
+        {
+            return null;
+        }
+
+        if (fontTablePart.GetPartById(relId) is not OpenXmlPart fontPart)
+        {
+            return null;
+        }
+
+        using var stream = fontPart.GetStream();
+        using var memory = new MemoryStream();
+        stream.CopyTo(memory);
+        var data = memory.ToArray();
+
+        var fontKey = GetAttributeValue(element, "fontKey", element.NamespaceUri);
+        if (!string.IsNullOrWhiteSpace(fontKey))
+        {
+            data = DeobfuscateFontData(data, fontKey);
+        }
+
+        return new EmbeddedFontData(data, fontPart.ContentType, fontKey);
+    }
+
+    private static byte[] DeobfuscateFontData(byte[] data, string fontKey)
+    {
+        if (data.Length == 0 || !Guid.TryParse(fontKey, out var guid))
+        {
+            return data;
+        }
+
+        var keyBytes = guid.ToByteArray();
+        var result = new byte[data.Length];
+        Buffer.BlockCopy(data, 0, result, 0, data.Length);
+
+        var count = Math.Min(32, result.Length);
+        for (var i = 0; i < count; i++)
+        {
+            result[i] ^= keyBytes[i % keyBytes.Length];
+        }
+
+        return result;
     }
 
     private static bool? ReadOnOff(OpenXmlElement? element)

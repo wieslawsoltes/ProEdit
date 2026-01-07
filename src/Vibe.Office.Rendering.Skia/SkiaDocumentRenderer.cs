@@ -13,6 +13,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
     private DocumentLayout? _cachedLayout;
     private readonly Dictionary<int, SKPicture> _pageCache = new();
     private long _lastDirtyVersion = -1;
+    public ISkiaTypefaceResolver? TypefaceResolver { get; set; }
 
     public void Render(SKCanvas canvas, Document document, DocumentLayout layout, RenderOptions options)
     {
@@ -40,7 +41,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                 return cached;
             }
 
-            var paint = SkiaTextMeasurer.CreatePaint(runStyle);
+            var paint = SkiaTextMeasurer.CreatePaint(runStyle, TypefaceResolver);
             paint.Color = ToSkColor(runStyle.Color);
             paintCache[key] = paint;
             return paint;
@@ -105,7 +106,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                 return cached;
             }
 
-            var paint = SkiaTextMeasurer.CreatePaint(runStyle);
+            var paint = SkiaTextMeasurer.CreatePaint(runStyle, TypefaceResolver);
             paint.Color = ToSkColor(options.InvisiblesColor);
             invisibleTextPaintCache[key] = paint;
             return paint;
@@ -132,7 +133,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             return paint;
         }
 
-        using var defaultPaint = SkiaTextMeasurer.CreatePaint(style);
+        using var defaultPaint = SkiaTextMeasurer.CreatePaint(style, TypefaceResolver);
         defaultPaint.Color = ToSkColor(options.TextColor);
 
         using var pagePaint = new SKPaint

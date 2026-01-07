@@ -17,6 +17,7 @@ public sealed class Document
     public TextStyle DefaultTextStyle { get; } = new TextStyle();
     public ParagraphStyleProperties DefaultParagraphStyleProperties { get; } = new ParagraphStyleProperties();
     public DocumentStyles Styles { get; } = new DocumentStyles();
+    public DocumentFonts Fonts { get; } = new DocumentFonts();
     public Dictionary<int, ListDefinition> ListDefinitions { get; } = new();
     public Dictionary<int, FootnoteDefinition> Footnotes { get; } = new();
     public Dictionary<int, EndnoteDefinition> Endnotes { get; } = new();

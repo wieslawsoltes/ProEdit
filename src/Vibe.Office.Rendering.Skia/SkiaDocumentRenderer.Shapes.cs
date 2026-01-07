@@ -69,7 +69,7 @@ public sealed partial class SkiaDocumentRenderer
 
         if (shape.TextBox is { Blocks.Count: > 0 })
         {
-            DrawShapeText(canvas, shape.TextBox, rect, options, defaultStyle);
+            DrawShapeText(canvas, shape.TextBox, rect, options, defaultStyle, TypefaceResolver);
         }
 
         canvas.Restore();
@@ -133,7 +133,13 @@ public sealed partial class SkiaDocumentRenderer
         }
     }
 
-    private static void DrawShapeText(SKCanvas canvas, ShapeTextBox textBox, SKRect bounds, RenderOptions options, TextStyle defaultStyle)
+    private static void DrawShapeText(
+        SKCanvas canvas,
+        ShapeTextBox textBox,
+        SKRect bounds,
+        RenderOptions options,
+        TextStyle defaultStyle,
+        ISkiaTypefaceResolver? typefaceResolver)
     {
         var padding = textBox.Properties.Padding;
         var left = bounds.Left + padding.Left;
@@ -149,7 +155,7 @@ public sealed partial class SkiaDocumentRenderer
 
         var textStyle = defaultStyle.Clone();
         textStyle.Color = options.TextColor;
-        using var paint = SkiaTextMeasurer.CreatePaint(textStyle);
+        using var paint = SkiaTextMeasurer.CreatePaint(textStyle, typefaceResolver);
         paint.Color = ToSkColor(options.TextColor);
 
         var metrics = paint.FontMetrics;

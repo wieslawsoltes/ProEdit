@@ -9,6 +9,7 @@ public sealed class SkiaTextMeasurer : ITextMeasurer, ITextMeasurerAdvanced
 {
     private bool _disableShaping;
     private bool _useHarfBuzz = true;
+    public ISkiaTypefaceResolver? TypefaceResolver { get; set; }
 
     public bool UseHarfBuzz
     {
@@ -20,7 +21,7 @@ public sealed class SkiaTextMeasurer : ITextMeasurer, ITextMeasurerAdvanced
     {
         ArgumentNullException.ThrowIfNull(style);
 
-        using var paint = CreatePaint(style);
+        using var paint = CreatePaint(style, TypefaceResolver);
         var value = text ?? string.Empty;
         var width = 0f;
         if (value.Length > 0 && _useHarfBuzz && !_disableShaping)
@@ -69,7 +70,7 @@ public sealed class SkiaTextMeasurer : ITextMeasurer, ITextMeasurerAdvanced
             return new TextShapeInfo(0, Array.Empty<int>(), Array.Empty<float>());
         }
 
-        using var paint = CreatePaint(style);
+        using var paint = CreatePaint(style, TypefaceResolver);
         if (_useHarfBuzz && !_disableShaping)
         {
             try
@@ -173,11 +174,12 @@ public sealed class SkiaTextMeasurer : ITextMeasurer, ITextMeasurerAdvanced
         return new TextShapeInfo(textLength, offsets, advances);
     }
 
-    internal static SKPaint CreatePaint(TextStyle style)
+    internal static SKPaint CreatePaint(TextStyle style, ISkiaTypefaceResolver? typefaceResolver = null)
     {
         var weight = style.FontWeight == DocFontWeight.Bold ? SKFontStyleWeight.Bold : SKFontStyleWeight.Normal;
         var slant = style.FontStyle == DocFontStyle.Italic ? SKFontStyleSlant.Italic : SKFontStyleSlant.Upright;
-        var typeface = SKTypeface.FromFamilyName(style.FontFamily, weight, SKFontStyleWidth.Normal, slant);
+        var typeface = typefaceResolver?.ResolveTypeface(style)
+                       ?? SKTypeface.FromFamilyName(style.FontFamily, weight, SKFontStyleWidth.Normal, slant);
 
         return new SKPaint
         {
