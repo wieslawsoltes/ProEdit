@@ -468,7 +468,7 @@ public sealed class EditorController
                     return line.StartOffset + offsetInLine + advance;
                 }
 
-                var metrics = GetRunMetrics(segment.Text, segment.Style);
+                var metrics = GetRunMetrics(segment.Text, segment.Style, segment.LetterSpacing);
                 var localOffset = metrics.GetOffsetForX(remainingX);
                 return line.StartOffset + offsetInLine + localOffset;
             }
@@ -1348,7 +1348,7 @@ public sealed class EditorController
                     return line.StartOffset + offsetInLine + advance;
                 }
 
-                var metrics = GetRunMetrics(segment.Text, segment.Style);
+                var metrics = GetRunMetrics(segment.Text, segment.Style, segment.LetterSpacing);
                 if (segment.Width > 0f && segment.Length == 1 && MathF.Abs(segment.Width - metrics.Width) > 0.01f)
                 {
                     var advance = relativeX >= segment.Width / 2f ? 1 : 0;
@@ -1407,7 +1407,7 @@ public sealed class EditorController
                     continue;
                 }
 
-                var metrics = GetRunMetrics(segment.Text, segment.Style);
+                var metrics = GetRunMetrics(segment.Text, segment.Style, segment.LetterSpacing);
                 if (segment.Width > 0f && take == segment.Length && MathF.Abs(segment.Width - metrics.Width) > 0.01f)
                 {
                     width += segment.Width;
@@ -1439,7 +1439,7 @@ public sealed class EditorController
             }
             else if (!string.IsNullOrEmpty(run.Text))
             {
-                segments.Add((run.X, LineSegment.CreateText(run.Text, run.Style, run.Width)));
+                segments.Add((run.X, LineSegment.CreateText(run.Text, run.Style, run.Width, run.Length, run.LetterSpacing)));
             }
         }
 
@@ -1476,7 +1476,7 @@ public sealed class EditorController
             return segment.Width;
         }
 
-        var metrics = GetRunMetrics(segment.Text, segment.Style);
+        var metrics = GetRunMetrics(segment.Text, segment.Style, segment.LetterSpacing);
         if (segment.Width > 0f)
         {
             if (segment.Length == 1)
@@ -1493,21 +1493,21 @@ public sealed class EditorController
         return metrics.Width;
     }
 
-    private RunMetrics GetRunMetrics(string text, TextStyle style)
+    private RunMetrics GetRunMetrics(string text, TextStyle style, float letterSpacing)
     {
         if (string.IsNullOrEmpty(text))
         {
             return RunMetrics.Empty;
         }
 
-        var key = new RunMetricsKey(text, style);
+        var key = new RunMetricsKey(text, style, letterSpacing);
         if (_runMetricsCache.TryGetValue(key, out var cached))
         {
             return cached;
         }
 
         var shapeInfo = BuildShapeInfo(text, style);
-        var metrics = new RunMetrics(shapeInfo);
+        var metrics = new RunMetrics(shapeInfo, letterSpacing);
         _runMetricsCache[key] = metrics;
         return metrics;
     }
@@ -1545,18 +1545,20 @@ public sealed class EditorController
         public TextStyle Style { get; }
         public float Width { get; }
         public int Length { get; }
+        public float LetterSpacing { get; }
         public bool IsTab { get; }
         public bool IsImage { get; }
         public bool IsShape { get; }
         public bool IsChart { get; }
         public bool IsEquation { get; }
 
-        private LineSegment(string text, TextStyle style, float width, int length, bool isTab, bool isImage, bool isShape, bool isChart, bool isEquation)
+        private LineSegment(string text, TextStyle style, float width, int length, float letterSpacing, bool isTab, bool isImage, bool isShape, bool isChart, bool isEquation)
         {
             Text = text;
             Style = style;
             Width = width;
             Length = length;
+            LetterSpacing = letterSpacing;
             IsTab = isTab;
             IsImage = isImage;
             IsShape = isShape;
@@ -1564,34 +1566,34 @@ public sealed class EditorController
             IsEquation = isEquation;
         }
 
-        public static LineSegment CreateText(string text, TextStyle style, float width)
+        public static LineSegment CreateText(string text, TextStyle style, float width, int length, float letterSpacing)
         {
-            return new LineSegment(text, style, width, text.Length, false, false, false, false, false);
+            return new LineSegment(text, style, width, length, letterSpacing, false, false, false, false, false);
         }
 
         public static LineSegment Tab(float width)
         {
-            return new LineSegment(string.Empty, new TextStyle(), width, 1, true, false, false, false, false);
+            return new LineSegment(string.Empty, new TextStyle(), width, 1, 0f, true, false, false, false, false);
         }
 
         public static LineSegment Image(float width)
         {
-            return new LineSegment(string.Empty, new TextStyle(), width, 1, false, true, false, false, false);
+            return new LineSegment(string.Empty, new TextStyle(), width, 1, 0f, false, true, false, false, false);
         }
 
         public static LineSegment Shape(float width)
         {
-            return new LineSegment(string.Empty, new TextStyle(), width, 1, false, false, true, false, false);
+            return new LineSegment(string.Empty, new TextStyle(), width, 1, 0f, false, false, true, false, false);
         }
 
         public static LineSegment Chart(float width)
         {
-            return new LineSegment(string.Empty, new TextStyle(), width, 1, false, false, false, true, false);
+            return new LineSegment(string.Empty, new TextStyle(), width, 1, 0f, false, false, false, true, false);
         }
 
         public static LineSegment Equation(float width)
         {
-            return new LineSegment(string.Empty, new TextStyle(), width, 1, false, false, false, false, true);
+            return new LineSegment(string.Empty, new TextStyle(), width, 1, 0f, false, false, false, false, true);
         }
     }
 
@@ -1653,32 +1655,34 @@ public sealed class EditorController
     {
         private readonly string _text;
         private readonly TextStyleKey _styleKey;
+        private readonly float _letterSpacing;
 
-        public RunMetricsKey(string text, TextStyle style)
+        public RunMetricsKey(string text, TextStyle style, float letterSpacing)
         {
             _text = text;
             _styleKey = new TextStyleKey(style);
+            _letterSpacing = letterSpacing;
         }
 
         public bool Equals(RunMetricsKey other)
         {
-            return _text == other._text && _styleKey.Equals(other._styleKey);
+            return _text == other._text && _styleKey.Equals(other._styleKey) && _letterSpacing.Equals(other._letterSpacing);
         }
 
         public override bool Equals(object? obj) => obj is RunMetricsKey other && Equals(other);
 
-        public override int GetHashCode() => HashCode.Combine(_text, _styleKey);
+        public override int GetHashCode() => HashCode.Combine(_text, _styleKey, _letterSpacing);
     }
 
     private sealed class RunMetrics
     {
-        public static readonly RunMetrics Empty = new RunMetrics(new TextShapeInfo(0, Array.Empty<int>(), Array.Empty<float>()));
+        public static readonly RunMetrics Empty = new RunMetrics(new TextShapeInfo(0, Array.Empty<int>(), Array.Empty<float>()), 0f);
         private readonly int _textLength;
         private readonly int[] _clusterOffsets;
         private readonly float[] _clusterPositions;
         private readonly float _totalWidth;
 
-        public RunMetrics(TextShapeInfo shape)
+        public RunMetrics(TextShapeInfo shape, float letterSpacing)
         {
             _textLength = Math.Max(0, shape.TextLength);
             _clusterOffsets = shape.ClusterOffsets.Length == 0 ? Array.Empty<int>() : shape.ClusterOffsets;
@@ -1689,6 +1693,11 @@ public sealed class EditorController
             {
                 _clusterPositions[i] = total;
                 var advance = i < shape.ClusterAdvances.Length ? shape.ClusterAdvances[i] : 0f;
+                if (letterSpacing != 0f && i < _clusterOffsets.Length - 1)
+                {
+                    advance += letterSpacing;
+                }
+
                 total += advance;
             }
 
