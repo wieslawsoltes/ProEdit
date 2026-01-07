@@ -14,4 +14,6 @@ public sealed record LayoutLine(
     float Ascent,
     IReadOnlyList<LayoutRun> Runs,
     IReadOnlyList<LayoutImage> Images,
+    IReadOnlyList<LayoutShape> Shapes,
+    IReadOnlyList<LayoutChart> Charts,
     bool IsInTable = false);

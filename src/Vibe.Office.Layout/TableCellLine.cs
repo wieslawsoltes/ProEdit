@@ -13,4 +13,6 @@ public sealed record TableCellLine(
     float LineHeight,
     float Ascent,
     IReadOnlyList<LayoutRun> Runs,
-    IReadOnlyList<LayoutImage> Images);
+    IReadOnlyList<LayoutImage> Images,
+    IReadOnlyList<LayoutShape> Shapes,
+    IReadOnlyList<LayoutChart> Charts);

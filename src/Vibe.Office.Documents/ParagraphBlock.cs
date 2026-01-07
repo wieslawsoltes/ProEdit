@@ -7,6 +7,7 @@ public sealed class ParagraphBlock : Block
     public string? StyleId { get; set; }
     public ParagraphProperties Properties { get; } = new ParagraphProperties();
     public List<Inline> Inlines { get; } = new List<Inline>();
+    public List<FloatingObject> FloatingObjects { get; } = new List<FloatingObject>();
 
     public ParagraphBlock(string text = "", ListInfo? listInfo = null)
     {

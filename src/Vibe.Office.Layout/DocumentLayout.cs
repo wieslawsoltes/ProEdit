@@ -8,6 +8,7 @@ public sealed class DocumentLayout
     public IReadOnlyList<PageLayout> Pages { get; }
     public IReadOnlyList<HeaderFooterLayout> HeaderFooters { get; }
     public IReadOnlyList<FootnoteLayout> Footnotes { get; }
+    public IReadOnlyList<FloatingLayoutObject> FloatingObjects { get; }
     public IReadOnlyList<PageSectionSettings> PageSections { get; }
     public LineIndex LineIndex { get; }
     public IReadOnlyDictionary<int, LineRange> ParagraphLineRanges { get; }
@@ -23,6 +24,7 @@ public sealed class DocumentLayout
         IReadOnlyList<PageLayout> pages,
         IReadOnlyList<HeaderFooterLayout> headerFooters,
         IReadOnlyList<FootnoteLayout> footnotes,
+        IReadOnlyList<FloatingLayoutObject> floatingObjects,
         IReadOnlyList<PageSectionSettings> pageSections,
         LineIndex lineIndex,
         IReadOnlyDictionary<int, LineRange> paragraphLineRanges,
@@ -37,6 +39,7 @@ public sealed class DocumentLayout
         Pages = pages;
         HeaderFooters = headerFooters;
         Footnotes = footnotes;
+        FloatingObjects = floatingObjects;
         PageSections = pageSections;
         LineIndex = lineIndex;
         ParagraphLineRanges = paragraphLineRanges;
