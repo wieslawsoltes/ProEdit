@@ -19,6 +19,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
     private EditorController _editor;
     private readonly SkiaTextMeasurer _textMeasurer = new SkiaTextMeasurer();
     private readonly SkiaDocumentRenderer _renderer = new SkiaDocumentRenderer();
+    private SkiaDocumentFontResolver? _fontResolver;
     private readonly RenderOptions _renderOptions = new RenderOptions
     {
         BackgroundColor = new DocColor(242, 242, 242),
@@ -352,9 +353,17 @@ public sealed class DocumentView : Control, ILogicalScrollable
     private void ConfigureMeasurer(Document document)
     {
         _textMeasurer.UseHarfBuzz = _renderOptions.UseHarfBuzz;
-        var resolver = new SkiaDocumentFontResolver(document.Fonts);
-        _textMeasurer.TypefaceResolver = resolver;
-        _renderer.TypefaceResolver = resolver;
+        _fontResolver?.Dispose();
+        _fontResolver = new SkiaDocumentFontResolver(document.Fonts);
+        _textMeasurer.TypefaceResolver = _fontResolver;
+        _renderer.TypefaceResolver = _fontResolver;
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnDetachedFromVisualTree(e);
+        _fontResolver?.Dispose();
+        _fontResolver = null;
     }
 
     private void ApplyEditorState()

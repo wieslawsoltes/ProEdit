@@ -2,7 +2,7 @@ using System.Text;
 
 namespace Vibe.Office.Layout;
 
-internal static class Utf16Decoder
+public static class Utf16Decoder
 {
     public static bool TryDecodeFromUtf16(ReadOnlySpan<char> text, out Rune rune, out int charsConsumed)
     {

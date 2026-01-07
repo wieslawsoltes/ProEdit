@@ -1,5 +1,6 @@
 using SkiaSharp;
 using Vibe.Office.Documents;
+using Vibe.Office.Layout;
 
 namespace Vibe.Office.Rendering.Skia;
 
@@ -13,13 +14,14 @@ public interface ISkiaTypefaceFallbackResolver : ISkiaTypefaceResolver
     SKTypeface? ResolveFallbackTypeface(TextStyle style, ReadOnlySpan<char> text);
 }
 
-public sealed class SkiaDocumentFontResolver : ISkiaTypefaceFallbackResolver
+public sealed class SkiaDocumentFontResolver : ISkiaTypefaceFallbackResolver, IDisposable
 {
     private readonly DocumentFonts _fonts;
     private readonly Dictionary<FontKey, SKTypeface> _cache = new();
     private readonly Dictionary<EmbeddedFontData, SKTypeface> _embeddedCache = new();
     private readonly Dictionary<EmbeddedFontData, SKData> _embeddedData = new();
     private readonly Dictionary<FallbackKey, SKTypeface?> _fallbackCache = new();
+    private bool _disposed;
 
     public SkiaDocumentFontResolver(DocumentFonts fonts)
     {
@@ -28,6 +30,7 @@ public sealed class SkiaDocumentFontResolver : ISkiaTypefaceFallbackResolver
 
     public SKTypeface ResolveTypeface(TextStyle style)
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
         var family = style.FontFamily ?? string.Empty;
         var key = new FontKey(family, style.FontWeight, style.FontStyle);
         if (_cache.TryGetValue(key, out var cached))
@@ -47,6 +50,7 @@ public sealed class SkiaDocumentFontResolver : ISkiaTypefaceFallbackResolver
 
     public SKTypeface? ResolveFallbackTypeface(TextStyle style, ReadOnlySpan<char> text)
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
         if (text.IsEmpty)
         {
             return null;
@@ -220,6 +224,49 @@ public sealed class SkiaDocumentFontResolver : ISkiaTypefaceFallbackResolver
         var weight = style.FontWeight == DocFontWeight.Bold ? SKFontStyleWeight.Bold : SKFontStyleWeight.Normal;
         var slant = style.FontStyle == DocFontStyle.Italic ? SKFontStyleSlant.Italic : SKFontStyleSlant.Upright;
         return SKTypeface.FromFamilyName(family, weight, SKFontStyleWidth.Normal, slant);
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+
+        var disposedTypefaces = new HashSet<SKTypeface>();
+        DisposeTypefaces(_cache.Values, disposedTypefaces);
+        DisposeTypefaces(_embeddedCache.Values, disposedTypefaces);
+        DisposeTypefaces(_fallbackCache.Values, disposedTypefaces);
+
+        foreach (var data in _embeddedData.Values)
+        {
+            data.Dispose();
+        }
+
+        _cache.Clear();
+        _embeddedCache.Clear();
+        _fallbackCache.Clear();
+        _embeddedData.Clear();
+    }
+
+    private static void DisposeTypefaces(IEnumerable<SKTypeface?> typefaces, HashSet<SKTypeface> disposed)
+    {
+        foreach (var typeface in typefaces)
+        {
+            if (typeface is null || ReferenceEquals(typeface, SKTypeface.Default))
+            {
+                continue;
+            }
+
+            if (!disposed.Add(typeface))
+            {
+                continue;
+            }
+
+            typeface.Dispose();
+        }
     }
 
     private readonly record struct FontKey(string Family, DocFontWeight Weight, DocFontStyle Style);
