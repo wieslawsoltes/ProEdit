@@ -1816,28 +1816,47 @@ public sealed class DocxExporter
             run.RunProperties = props;
         }
 
-        var lines = text.Split('\n');
-        for (var lineIndex = 0; lineIndex < lines.Length; lineIndex++)
+        var span = text.AsSpan();
+        var lineStart = 0;
+        for (var i = 0; i <= span.Length; i++)
         {
-            var line = lines[lineIndex];
-            var segments = line.Split('\t');
-            for (var i = 0; i < segments.Length; i++)
+            if (i < span.Length && span[i] != '\n')
             {
-                if (segments[i].Length > 0)
+                continue;
+            }
+
+            var lineSpan = span.Slice(lineStart, i - lineStart);
+            var segmentStart = 0;
+            for (var j = 0; j <= lineSpan.Length; j++)
+            {
+                if (j < lineSpan.Length && lineSpan[j] != '\t')
                 {
-                    run.AppendChild(new Text(segments[i]) { Space = SpaceProcessingModeValues.Preserve });
+                    continue;
                 }
 
-                if (i < segments.Length - 1)
+                var segmentLength = j - segmentStart;
+                if (segmentLength > 0)
+                {
+                    run.AppendChild(new Text(new string(lineSpan.Slice(segmentStart, segmentLength)))
+                    {
+                        Space = SpaceProcessingModeValues.Preserve
+                    });
+                }
+
+                if (j < lineSpan.Length)
                 {
                     run.AppendChild(new TabChar());
                 }
+
+                segmentStart = j + 1;
             }
 
-            if (lineIndex < lines.Length - 1)
+            if (i < span.Length)
             {
                 run.AppendChild(new Break());
             }
+
+            lineStart = i + 1;
         }
 
         container.AppendChild(run);
@@ -3720,20 +3739,61 @@ public sealed class DocxExporter
             return A.ShapeTypeValues.Rectangle;
         }
 
-        return preset.Trim().ToLowerInvariant() switch
+        var span = preset.AsSpan().Trim();
+        if (span.Equals("rect", StringComparison.OrdinalIgnoreCase)
+            || span.Equals("rectangle", StringComparison.OrdinalIgnoreCase))
         {
-            "rect" or "rectangle" => A.ShapeTypeValues.Rectangle,
-            "roundrect" or "roundrectangle" => A.ShapeTypeValues.RoundRectangle,
-            "ellipse" or "oval" => A.ShapeTypeValues.Ellipse,
-            "line" => A.ShapeTypeValues.Line,
-            "triangle" => A.ShapeTypeValues.Triangle,
-            "diamond" => A.ShapeTypeValues.Diamond,
-            "parallelogram" => A.ShapeTypeValues.Parallelogram,
-            "trapezoid" => A.ShapeTypeValues.Trapezoid,
-            "hexagon" => A.ShapeTypeValues.Hexagon,
-            "octagon" => A.ShapeTypeValues.Octagon,
-            _ => A.ShapeTypeValues.Rectangle
-        };
+            return A.ShapeTypeValues.Rectangle;
+        }
+
+        if (span.Equals("roundrect", StringComparison.OrdinalIgnoreCase)
+            || span.Equals("roundrectangle", StringComparison.OrdinalIgnoreCase))
+        {
+            return A.ShapeTypeValues.RoundRectangle;
+        }
+
+        if (span.Equals("ellipse", StringComparison.OrdinalIgnoreCase)
+            || span.Equals("oval", StringComparison.OrdinalIgnoreCase))
+        {
+            return A.ShapeTypeValues.Ellipse;
+        }
+
+        if (span.Equals("line", StringComparison.OrdinalIgnoreCase))
+        {
+            return A.ShapeTypeValues.Line;
+        }
+
+        if (span.Equals("triangle", StringComparison.OrdinalIgnoreCase))
+        {
+            return A.ShapeTypeValues.Triangle;
+        }
+
+        if (span.Equals("diamond", StringComparison.OrdinalIgnoreCase))
+        {
+            return A.ShapeTypeValues.Diamond;
+        }
+
+        if (span.Equals("parallelogram", StringComparison.OrdinalIgnoreCase))
+        {
+            return A.ShapeTypeValues.Parallelogram;
+        }
+
+        if (span.Equals("trapezoid", StringComparison.OrdinalIgnoreCase))
+        {
+            return A.ShapeTypeValues.Trapezoid;
+        }
+
+        if (span.Equals("hexagon", StringComparison.OrdinalIgnoreCase))
+        {
+            return A.ShapeTypeValues.Hexagon;
+        }
+
+        if (span.Equals("octagon", StringComparison.OrdinalIgnoreCase))
+        {
+            return A.ShapeTypeValues.Octagon;
+        }
+
+        return A.ShapeTypeValues.Rectangle;
     }
 
     private static A.Outline? BuildShapeOutline(BorderLine? border)

@@ -2896,42 +2896,62 @@ public sealed class DocxImporter
             return null;
         }
 
-        var trimmed = value.Trim();
-        if (float.TryParse(trimmed, NumberStyles.Float, CultureInfo.InvariantCulture, out var numeric))
+        var span = value.AsSpan().Trim();
+        if (float.TryParse(span, NumberStyles.Float, CultureInfo.InvariantCulture, out var numeric))
         {
             return numeric;
         }
 
-        var unitIndex = trimmed.Length;
-        while (unitIndex > 0 && char.IsLetter(trimmed[unitIndex - 1]))
+        var unitIndex = span.Length;
+        while (unitIndex > 0 && char.IsLetter(span[unitIndex - 1]))
         {
             unitIndex--;
         }
 
-        if (unitIndex <= 0 || unitIndex >= trimmed.Length)
+        if (unitIndex <= 0 || unitIndex >= span.Length)
         {
             return null;
         }
 
-        var numberPart = trimmed.Substring(0, unitIndex);
-        if (!float.TryParse(numberPart, NumberStyles.Float, CultureInfo.InvariantCulture, out var valuePart))
+        if (!float.TryParse(span[..unitIndex], NumberStyles.Float, CultureInfo.InvariantCulture, out var valuePart))
         {
             return null;
         }
 
-        var unit = trimmed.Substring(unitIndex).ToLowerInvariant();
-        return unit switch
+        var unit = span[unitIndex..];
+        if (unit.Equals("pt", StringComparison.OrdinalIgnoreCase))
         {
-            "pt" => valuePart * 20f,
-            "in" => valuePart * 72f * 20f,
-            "cm" => valuePart / 2.54f * 72f * 20f,
-            "mm" => valuePart / 25.4f * 72f * 20f,
-            "pc" => valuePart * 12f * 20f,
-            "pi" => valuePart * 12f * 20f,
-            "twip" => valuePart,
-            "twips" => valuePart,
-            _ => null
-        };
+            return valuePart * 20f;
+        }
+
+        if (unit.Equals("in", StringComparison.OrdinalIgnoreCase))
+        {
+            return valuePart * 72f * 20f;
+        }
+
+        if (unit.Equals("cm", StringComparison.OrdinalIgnoreCase))
+        {
+            return valuePart / 2.54f * 72f * 20f;
+        }
+
+        if (unit.Equals("mm", StringComparison.OrdinalIgnoreCase))
+        {
+            return valuePart / 25.4f * 72f * 20f;
+        }
+
+        if (unit.Equals("pc", StringComparison.OrdinalIgnoreCase)
+            || unit.Equals("pi", StringComparison.OrdinalIgnoreCase))
+        {
+            return valuePart * 12f * 20f;
+        }
+
+        if (unit.Equals("twip", StringComparison.OrdinalIgnoreCase)
+            || unit.Equals("twips", StringComparison.OrdinalIgnoreCase))
+        {
+            return valuePart;
+        }
+
+        return null;
     }
 
     private static BorderLine? ParseBorderLine(BorderType? border)
@@ -3745,24 +3765,31 @@ public sealed class DocxImporter
                     continue;
                 }
 
-                switch (value.Trim().ToLowerInvariant())
+                var span = value.AsSpan().Trim();
+                if (span.Length == 0)
                 {
-                    case "b":
-                        style.FontWeight = DocFontWeight.Bold;
-                        style.FontStyle = DocFontStyle.Normal;
-                        break;
-                    case "i":
-                        style.FontWeight = DocFontWeight.Normal;
-                        style.FontStyle = DocFontStyle.Italic;
-                        break;
-                    case "bi":
-                        style.FontWeight = DocFontWeight.Bold;
-                        style.FontStyle = DocFontStyle.Italic;
-                        break;
-                    case "p":
-                        style.FontWeight = DocFontWeight.Normal;
-                        style.FontStyle = DocFontStyle.Normal;
-                        break;
+                    continue;
+                }
+
+                if (span.Equals("b", StringComparison.OrdinalIgnoreCase))
+                {
+                    style.FontWeight = DocFontWeight.Bold;
+                    style.FontStyle = DocFontStyle.Normal;
+                }
+                else if (span.Equals("i", StringComparison.OrdinalIgnoreCase))
+                {
+                    style.FontWeight = DocFontWeight.Normal;
+                    style.FontStyle = DocFontStyle.Italic;
+                }
+                else if (span.Equals("bi", StringComparison.OrdinalIgnoreCase))
+                {
+                    style.FontWeight = DocFontWeight.Bold;
+                    style.FontStyle = DocFontStyle.Italic;
+                }
+                else if (span.Equals("p", StringComparison.OrdinalIgnoreCase))
+                {
+                    style.FontWeight = DocFontWeight.Normal;
+                    style.FontStyle = DocFontStyle.Normal;
                 }
             }
             else if (string.Equals(child.LocalName, "nor", StringComparison.OrdinalIgnoreCase))
@@ -4119,26 +4146,84 @@ public sealed class DocxImporter
             return result;
         }
 
-        foreach (var part in styleValue.Split(';', StringSplitOptions.RemoveEmptyEntries))
+        var span = styleValue.AsSpan();
+        var index = 0;
+        while (index <= span.Length)
         {
-            var piece = part.Trim();
-            var splitIndex = piece.IndexOf(':');
-            if (splitIndex <= 0)
+            var next = span[index..].IndexOf(';');
+            var end = next >= 0 ? index + next : span.Length;
+            var segment = span.Slice(index, end - index);
+            if (TrySplitStylePair(segment, out var key, out var value))
             {
-                continue;
+                result[new string(key)] = new string(value);
             }
 
-            var key = piece[..splitIndex].Trim();
-            var value = piece[(splitIndex + 1)..].Trim();
-            if (key.Length == 0)
-            {
-                continue;
-            }
-
-            result[key] = value;
+            index = end + 1;
         }
 
         return result;
+    }
+
+    private static bool TrySplitStylePair(ReadOnlySpan<char> segment, out ReadOnlySpan<char> key, out ReadOnlySpan<char> value)
+    {
+        var trimmed = segment.Trim();
+        if (trimmed.IsEmpty)
+        {
+            key = ReadOnlySpan<char>.Empty;
+            value = ReadOnlySpan<char>.Empty;
+            return false;
+        }
+
+        var splitIndex = trimmed.IndexOf(':');
+        if (splitIndex <= 0)
+        {
+            key = ReadOnlySpan<char>.Empty;
+            value = ReadOnlySpan<char>.Empty;
+            return false;
+        }
+
+        key = trimmed[..splitIndex].Trim();
+        if (key.IsEmpty)
+        {
+            value = ReadOnlySpan<char>.Empty;
+            return false;
+        }
+
+        value = trimmed[(splitIndex + 1)..].Trim();
+        return true;
+    }
+
+    private static ReadOnlySpan<char> TrimSpan(string? value)
+    {
+        return value is null ? ReadOnlySpan<char>.Empty : value.AsSpan().Trim();
+    }
+
+    private static bool EqualsNormalizedToken(ReadOnlySpan<char> span, string token)
+    {
+        var tokenSpan = token.AsSpan();
+        var tokenIndex = 0;
+        for (var i = 0; i < span.Length; i++)
+        {
+            var ch = span[i];
+            if (ch is '-' or '_' or ' ')
+            {
+                continue;
+            }
+
+            if (tokenIndex >= tokenSpan.Length)
+            {
+                return false;
+            }
+
+            if (char.ToUpperInvariant(ch) != char.ToUpperInvariant(tokenSpan[tokenIndex]))
+            {
+                return false;
+            }
+
+            tokenIndex++;
+        }
+
+        return tokenIndex == tokenSpan.Length;
     }
 
     private static bool TryResolveVmlWrap(
@@ -4187,79 +4272,132 @@ public sealed class DocxImporter
 
     private static FloatingWrapStyle MapVmlWrapStyle(string? value)
     {
-        if (string.IsNullOrWhiteSpace(value))
+        var span = TrimSpan(value);
+        if (span.IsEmpty)
         {
             return FloatingWrapStyle.None;
         }
 
-        var normalized = value.Trim().ToLowerInvariant()
-            .Replace("-", string.Empty, StringComparison.Ordinal)
-            .Replace("_", string.Empty, StringComparison.Ordinal)
-            .Replace(" ", string.Empty, StringComparison.Ordinal);
-        return normalized switch
+        if (EqualsNormalizedToken(span, "square"))
         {
-            "square" => FloatingWrapStyle.Square,
-            "tight" => FloatingWrapStyle.Tight,
-            "through" => FloatingWrapStyle.Through,
-            "topandbottom" => FloatingWrapStyle.TopBottom,
-            "topbottom" => FloatingWrapStyle.TopBottom,
-            "none" => FloatingWrapStyle.None,
-            _ => FloatingWrapStyle.None
-        };
+            return FloatingWrapStyle.Square;
+        }
+
+        if (EqualsNormalizedToken(span, "tight"))
+        {
+            return FloatingWrapStyle.Tight;
+        }
+
+        if (EqualsNormalizedToken(span, "through"))
+        {
+            return FloatingWrapStyle.Through;
+        }
+
+        if (EqualsNormalizedToken(span, "topandbottom") || EqualsNormalizedToken(span, "topbottom"))
+        {
+            return FloatingWrapStyle.TopBottom;
+        }
+
+        return FloatingWrapStyle.None;
     }
 
     private static FloatingWrapSide MapVmlWrapSide(string? value)
     {
-        if (string.IsNullOrWhiteSpace(value))
+        var span = TrimSpan(value);
+        if (span.IsEmpty)
         {
             return FloatingWrapSide.Both;
         }
 
-        return value.Trim().ToLowerInvariant() switch
+        if (span.Equals("left", StringComparison.OrdinalIgnoreCase))
         {
-            "left" => FloatingWrapSide.Left,
-            "right" => FloatingWrapSide.Right,
-            "largest" => FloatingWrapSide.Largest,
-            "both" => FloatingWrapSide.Both,
-            _ => FloatingWrapSide.Both
-        };
+            return FloatingWrapSide.Left;
+        }
+
+        if (span.Equals("right", StringComparison.OrdinalIgnoreCase))
+        {
+            return FloatingWrapSide.Right;
+        }
+
+        if (span.Equals("largest", StringComparison.OrdinalIgnoreCase))
+        {
+            return FloatingWrapSide.Largest;
+        }
+
+        if (span.Equals("both", StringComparison.OrdinalIgnoreCase))
+        {
+            return FloatingWrapSide.Both;
+        }
+
+        return FloatingWrapSide.Both;
     }
 
     private static FloatingHorizontalReference MapVmlHorizontalReference(string? value)
     {
-        if (string.IsNullOrWhiteSpace(value))
+        var span = TrimSpan(value);
+        if (span.IsEmpty)
         {
             return FloatingHorizontalReference.Margin;
         }
 
-        return value.Trim().ToLowerInvariant() switch
+        if (span.Equals("page", StringComparison.OrdinalIgnoreCase))
         {
-            "page" => FloatingHorizontalReference.Page,
-            "margin" => FloatingHorizontalReference.Margin,
-            "column" => FloatingHorizontalReference.Column,
-            "character" => FloatingHorizontalReference.Character,
-            "char" => FloatingHorizontalReference.Character,
-            "text" => FloatingHorizontalReference.Paragraph,
-            "paragraph" => FloatingHorizontalReference.Paragraph,
-            _ => FloatingHorizontalReference.Margin
-        };
+            return FloatingHorizontalReference.Page;
+        }
+
+        if (span.Equals("margin", StringComparison.OrdinalIgnoreCase))
+        {
+            return FloatingHorizontalReference.Margin;
+        }
+
+        if (span.Equals("column", StringComparison.OrdinalIgnoreCase))
+        {
+            return FloatingHorizontalReference.Column;
+        }
+
+        if (span.Equals("character", StringComparison.OrdinalIgnoreCase) || span.Equals("char", StringComparison.OrdinalIgnoreCase))
+        {
+            return FloatingHorizontalReference.Character;
+        }
+
+        if (span.Equals("text", StringComparison.OrdinalIgnoreCase)
+            || span.Equals("paragraph", StringComparison.OrdinalIgnoreCase))
+        {
+            return FloatingHorizontalReference.Paragraph;
+        }
+
+        return FloatingHorizontalReference.Margin;
     }
 
     private static FloatingVerticalReference MapVmlVerticalReference(string? value)
     {
-        if (string.IsNullOrWhiteSpace(value))
+        var span = TrimSpan(value);
+        if (span.IsEmpty)
         {
             return FloatingVerticalReference.Margin;
         }
 
-        return value.Trim().ToLowerInvariant() switch
+        if (span.Equals("page", StringComparison.OrdinalIgnoreCase))
         {
-            "page" => FloatingVerticalReference.Page,
-            "margin" => FloatingVerticalReference.Margin,
-            "paragraph" => FloatingVerticalReference.Paragraph,
-            "line" => FloatingVerticalReference.Line,
-            _ => FloatingVerticalReference.Margin
-        };
+            return FloatingVerticalReference.Page;
+        }
+
+        if (span.Equals("margin", StringComparison.OrdinalIgnoreCase))
+        {
+            return FloatingVerticalReference.Margin;
+        }
+
+        if (span.Equals("paragraph", StringComparison.OrdinalIgnoreCase))
+        {
+            return FloatingVerticalReference.Paragraph;
+        }
+
+        if (span.Equals("line", StringComparison.OrdinalIgnoreCase))
+        {
+            return FloatingVerticalReference.Line;
+        }
+
+        return FloatingVerticalReference.Margin;
     }
 
     private static bool TryGetVmlStyleLength(
@@ -4513,38 +4651,74 @@ public sealed class DocxImporter
 
     private static FloatingHorizontalAlignment MapHorizontalAlignment(string? value)
     {
-        if (string.IsNullOrWhiteSpace(value))
+        var span = TrimSpan(value);
+        if (span.IsEmpty)
         {
             return FloatingHorizontalAlignment.None;
         }
 
-        return value.Trim().ToLowerInvariant() switch
+        if (span.Equals("left", StringComparison.OrdinalIgnoreCase))
         {
-            "left" => FloatingHorizontalAlignment.Left,
-            "center" => FloatingHorizontalAlignment.Center,
-            "right" => FloatingHorizontalAlignment.Right,
-            "inside" => FloatingHorizontalAlignment.Inside,
-            "outside" => FloatingHorizontalAlignment.Outside,
-            _ => FloatingHorizontalAlignment.None
-        };
+            return FloatingHorizontalAlignment.Left;
+        }
+
+        if (span.Equals("center", StringComparison.OrdinalIgnoreCase))
+        {
+            return FloatingHorizontalAlignment.Center;
+        }
+
+        if (span.Equals("right", StringComparison.OrdinalIgnoreCase))
+        {
+            return FloatingHorizontalAlignment.Right;
+        }
+
+        if (span.Equals("inside", StringComparison.OrdinalIgnoreCase))
+        {
+            return FloatingHorizontalAlignment.Inside;
+        }
+
+        if (span.Equals("outside", StringComparison.OrdinalIgnoreCase))
+        {
+            return FloatingHorizontalAlignment.Outside;
+        }
+
+        return FloatingHorizontalAlignment.None;
     }
 
     private static FloatingVerticalAlignment MapVerticalAlignment(string? value)
     {
-        if (string.IsNullOrWhiteSpace(value))
+        var span = TrimSpan(value);
+        if (span.IsEmpty)
         {
             return FloatingVerticalAlignment.None;
         }
 
-        return value.Trim().ToLowerInvariant() switch
+        if (span.Equals("top", StringComparison.OrdinalIgnoreCase))
         {
-            "top" => FloatingVerticalAlignment.Top,
-            "center" => FloatingVerticalAlignment.Center,
-            "bottom" => FloatingVerticalAlignment.Bottom,
-            "inside" => FloatingVerticalAlignment.Inside,
-            "outside" => FloatingVerticalAlignment.Outside,
-            _ => FloatingVerticalAlignment.None
-        };
+            return FloatingVerticalAlignment.Top;
+        }
+
+        if (span.Equals("center", StringComparison.OrdinalIgnoreCase))
+        {
+            return FloatingVerticalAlignment.Center;
+        }
+
+        if (span.Equals("bottom", StringComparison.OrdinalIgnoreCase))
+        {
+            return FloatingVerticalAlignment.Bottom;
+        }
+
+        if (span.Equals("inside", StringComparison.OrdinalIgnoreCase))
+        {
+            return FloatingVerticalAlignment.Inside;
+        }
+
+        if (span.Equals("outside", StringComparison.OrdinalIgnoreCase))
+        {
+            return FloatingVerticalAlignment.Outside;
+        }
+
+        return FloatingVerticalAlignment.None;
     }
 
     private static void ApplyShapeProperties(Wps.ShapeProperties? shapeProperties, ShapeProperties properties)
@@ -4745,25 +4919,32 @@ public sealed class DocxImporter
 
         var width = 0f;
         var height = 0f;
-        foreach (var part in styleValue.Split(';', StringSplitOptions.RemoveEmptyEntries))
+        var span = styleValue.AsSpan();
+        var index = 0;
+        while (index <= span.Length)
         {
-            var piece = part.Trim();
-            if (piece.StartsWith("width", StringComparison.OrdinalIgnoreCase))
+            var next = span[index..].IndexOf(';');
+            var end = next >= 0 ? index + next : span.Length;
+            var segment = span.Slice(index, end - index);
+            if (TrySplitStylePair(segment, out var key, out var value))
             {
-                var value = piece.Split(':', 2);
-                if (value.Length == 2 && TryParseVmlLength(value[1], out var parsed))
+                if (key.Equals("width", StringComparison.OrdinalIgnoreCase))
                 {
-                    width = parsed;
+                    if (TryParseVmlLengthCore(value, out var parsed))
+                    {
+                        width = parsed;
+                    }
+                }
+                else if (key.Equals("height", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (TryParseVmlLengthCore(value, out var parsed))
+                    {
+                        height = parsed;
+                    }
                 }
             }
-            else if (piece.StartsWith("height", StringComparison.OrdinalIgnoreCase))
-            {
-                var value = piece.Split(':', 2);
-                if (value.Length == 2 && TryParseVmlLength(value[1], out var parsed))
-                {
-                    height = parsed;
-                }
-            }
+
+            index = end + 1;
         }
 
         if (width <= 0f)
@@ -4781,13 +4962,18 @@ public sealed class DocxImporter
 
     private static bool TryParseVmlLength(string value, out float dip)
     {
+        return TryParseVmlLengthCore(value.AsSpan(), out dip);
+    }
+
+    private static bool TryParseVmlLengthCore(ReadOnlySpan<char> value, out float dip)
+    {
         dip = 0f;
-        if (string.IsNullOrWhiteSpace(value))
+        var trimmed = value.Trim();
+        if (trimmed.IsEmpty)
         {
             return false;
         }
 
-        var trimmed = value.Trim();
         var index = 0;
         while (index < trimmed.Length && (char.IsDigit(trimmed[index]) || trimmed[index] == '.' || trimmed[index] == '-'))
         {
@@ -4804,18 +4990,44 @@ public sealed class DocxImporter
             return false;
         }
 
-        var unit = trimmed[index..].Trim().ToLowerInvariant();
-        dip = unit switch
+        var unit = trimmed[index..].Trim();
+        if (unit.IsEmpty)
         {
-            "in" => number * 96f,
-            "pt" => number * 96f / 72f,
-            "px" => number,
-            "cm" => number * 96f / 2.54f,
-            "mm" => number * 96f / 25.4f,
-            "" => number,
-            _ => number
-        };
+            dip = number;
+            return true;
+        }
 
+        if (unit.Equals("in", StringComparison.OrdinalIgnoreCase))
+        {
+            dip = number * 96f;
+            return true;
+        }
+
+        if (unit.Equals("pt", StringComparison.OrdinalIgnoreCase))
+        {
+            dip = number * 96f / 72f;
+            return true;
+        }
+
+        if (unit.Equals("px", StringComparison.OrdinalIgnoreCase))
+        {
+            dip = number;
+            return true;
+        }
+
+        if (unit.Equals("cm", StringComparison.OrdinalIgnoreCase))
+        {
+            dip = number * 96f / 2.54f;
+            return true;
+        }
+
+        if (unit.Equals("mm", StringComparison.OrdinalIgnoreCase))
+        {
+            dip = number * 96f / 25.4f;
+            return true;
+        }
+
+        dip = number;
         return true;
     }
 
@@ -4974,25 +5186,32 @@ public sealed class DocxImporter
 
             var width = 0f;
             var height = 0f;
-            foreach (var part in styleValue.Split(';', StringSplitOptions.RemoveEmptyEntries))
+            var span = styleValue.AsSpan();
+            var index = 0;
+            while (index <= span.Length)
             {
-                var piece = part.Trim();
-                if (piece.StartsWith("width", StringComparison.OrdinalIgnoreCase))
+                var next = span[index..].IndexOf(';');
+                var end = next >= 0 ? index + next : span.Length;
+                var segment = span.Slice(index, end - index);
+                if (TrySplitStylePair(segment, out var key, out var value))
                 {
-                    var value = piece.Split(':', 2);
-                    if (value.Length == 2 && TryParseVmlLength(value[1], out var parsed))
+                    if (key.Equals("width", StringComparison.OrdinalIgnoreCase))
                     {
-                        width = parsed;
+                        if (TryParseVmlLengthCore(value, out var parsed))
+                        {
+                            width = parsed;
+                        }
+                    }
+                    else if (key.Equals("height", StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (TryParseVmlLengthCore(value, out var parsed))
+                        {
+                            height = parsed;
+                        }
                     }
                 }
-                else if (piece.StartsWith("height", StringComparison.OrdinalIgnoreCase))
-                {
-                    var value = piece.Split(':', 2);
-                    if (value.Length == 2 && TryParseVmlLength(value[1], out var parsed))
-                    {
-                        height = parsed;
-                    }
-                }
+
+                index = end + 1;
             }
 
             if (width <= 0f)
@@ -5010,42 +5229,7 @@ public sealed class DocxImporter
 
         private static bool TryParseVmlLength(string value, out float dip)
         {
-            dip = 0f;
-            if (string.IsNullOrWhiteSpace(value))
-            {
-                return false;
-            }
-
-            var trimmed = value.Trim();
-            var index = 0;
-            while (index < trimmed.Length && (char.IsDigit(trimmed[index]) || trimmed[index] == '.' || trimmed[index] == '-'))
-            {
-                index++;
-            }
-
-            if (index == 0)
-            {
-                return false;
-            }
-
-            if (!float.TryParse(trimmed[..index], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var number))
-            {
-                return false;
-            }
-
-            var unit = trimmed[index..].Trim().ToLowerInvariant();
-            dip = unit switch
-            {
-                "in" => number * 96f,
-                "pt" => number * 96f / 72f,
-                "px" => number,
-                "cm" => number * 96f / 2.54f,
-                "mm" => number * 96f / 25.4f,
-                "" => number,
-                _ => number
-            };
-
-            return true;
+            return TryParseVmlLengthCore(value.AsSpan(), out dip);
         }
     }
 
