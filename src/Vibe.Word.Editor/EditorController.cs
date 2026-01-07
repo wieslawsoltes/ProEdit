@@ -455,29 +455,37 @@ public sealed class EditorController
             return line.StartOffset;
         }
 
-        var offsetInLine = 0;
-        var remainingX = relativeX;
-        foreach (var segment in EnumerateSegments(line.Runs, line.Images, line.Shapes, line.Charts, line.Equations))
+        var segments = BuildVisualSegments(line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations);
+        if (segments.Count == 0)
         {
-            var segmentWidth = GetSegmentWidth(segment);
-            if (remainingX <= segmentWidth)
-            {
-                if (segment.IsTab || segment.IsImage || segment.IsShape || segment.IsChart || segment.IsEquation)
-                {
-                    var advance = remainingX >= segmentWidth / 2f ? 1 : 0;
-                    return line.StartOffset + offsetInLine + advance;
-                }
-
-                var metrics = GetRunMetrics(segment.Text, segment.Style, segment.LetterSpacing);
-                var localOffset = metrics.GetOffsetForX(remainingX);
-                return line.StartOffset + offsetInLine + localOffset;
-            }
-
-            remainingX -= segmentWidth;
-            offsetInLine += segment.Length;
+            return line.StartOffset;
         }
 
-        return line.StartOffset + offsetInLine;
+        var totalWidth = segments[^1].X + segments[^1].Width;
+        if (relativeX >= totalWidth)
+        {
+            return line.StartOffset + line.Length;
+        }
+
+        foreach (var segment in segments)
+        {
+            var segmentEndX = segment.X + segment.Width;
+            if (relativeX > segmentEndX)
+            {
+                continue;
+            }
+
+            var localX = relativeX - segment.X;
+            if (segment.IsRtl)
+            {
+                localX = segment.Width - localX;
+            }
+
+            var offsetInSegment = GetOffsetForSegmentX(segment, localX);
+            return line.StartOffset + segment.StartOffset + offsetInSegment;
+        }
+
+        return line.StartOffset + line.Length;
     }
 
     private void MoveCaret(TextPosition position, bool extendSelection)
@@ -1335,34 +1343,37 @@ public sealed class EditorController
             return line.StartOffset;
         }
 
-        var offsetInLine = 0;
-        foreach (var segment in EnumerateSegments(line))
+        var segments = BuildVisualSegments(line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations);
+        if (segments.Count == 0)
         {
-            var segmentWidth = GetSegmentWidth(segment);
-            if (relativeX <= segmentWidth)
-            {
-                if (segment.IsTab || segment.IsImage || segment.IsShape || segment.IsChart || segment.IsEquation)
-                {
-                    var advance = relativeX >= segmentWidth / 2f ? 1 : 0;
-                    return line.StartOffset + offsetInLine + advance;
-                }
-
-                var metrics = GetRunMetrics(segment.Text, segment.Style, segment.LetterSpacing);
-                if (segment.Width > 0f && segment.Length == 1 && MathF.Abs(segment.Width - metrics.Width) > 0.01f)
-                {
-                    var advance = relativeX >= segment.Width / 2f ? 1 : 0;
-                    return line.StartOffset + offsetInLine + advance;
-                }
-
-                var localOffset = metrics.GetOffsetForX(relativeX);
-                return line.StartOffset + offsetInLine + localOffset;
-            }
-
-            relativeX -= segmentWidth;
-            offsetInLine += segment.Length;
+            return line.StartOffset;
         }
 
-        return line.StartOffset + offsetInLine;
+        var totalWidth = segments[^1].X + segments[^1].Width;
+        if (relativeX >= totalWidth)
+        {
+            return line.StartOffset + line.Length;
+        }
+
+        foreach (var segment in segments)
+        {
+            var segmentEndX = segment.X + segment.Width;
+            if (relativeX > segmentEndX)
+            {
+                continue;
+            }
+
+            var localX = relativeX - segment.X;
+            if (segment.IsRtl)
+            {
+                localX = segment.Width - localX;
+            }
+
+            var offsetInSegment = GetOffsetForSegmentX(segment, localX);
+            return line.StartOffset + segment.StartOffset + offsetInSegment;
+        }
+
+        return line.StartOffset + line.Length;
     }
 
     private float MeasureLineOffset(LayoutLine line, int length)
@@ -1372,54 +1383,395 @@ public sealed class EditorController
             return 0f;
         }
 
-        var remaining = length;
-        var width = 0f;
-
-        foreach (var segment in EnumerateSegments(line))
+        var segments = BuildVisualSegments(line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations);
+        if (segments.Count == 0)
         {
-            if (remaining <= 0)
+            return 0f;
+        }
+
+        var totalWidth = segments[^1].X + segments[^1].Width;
+        var target = Math.Clamp(length, 0, int.MaxValue);
+        VisualSegment? containing = null;
+        foreach (var segment in segments)
+        {
+            if (target == segment.StartOffset)
             {
+                containing = segment;
                 break;
             }
 
-            if (segment.IsImage || segment.IsShape || segment.IsChart || segment.IsEquation)
+            if (containing is null && target > segment.StartOffset && target <= segment.StartOffset + segment.Length)
             {
-                width += segment.Width;
-                remaining -= segment.Length;
-                continue;
-            }
-
-            if (segment.IsTab)
-            {
-                width += segment.Width;
-                remaining -= segment.Length;
-                continue;
-            }
-
-            var take = Math.Min(remaining, segment.Length);
-            if (take > 0)
-            {
-                if (segment.Width > 0f && segment.Length == 1)
-                {
-                    width += segment.Width;
-                    remaining -= take;
-                    continue;
-                }
-
-                var metrics = GetRunMetrics(segment.Text, segment.Style, segment.LetterSpacing);
-                if (segment.Width > 0f && take == segment.Length && MathF.Abs(segment.Width - metrics.Width) > 0.01f)
-                {
-                    width += segment.Width;
-                }
-                else
-                {
-                    width += metrics.GetWidth(take);
-                }
-                remaining -= take;
+                containing = segment;
             }
         }
 
+        if (containing is not null)
+        {
+            var offsetInSegment = Math.Clamp(target - containing.StartOffset, 0, containing.Length);
+            var localX = MeasureSegmentOffset(containing, offsetInSegment);
+            return containing.X + localX;
+        }
+
+        return target <= 0 ? 0f : totalWidth;
+    }
+
+    private List<VisualSegment> BuildVisualSegments(
+        ReadOnlySpan<char> lineText,
+        bool baseRtl,
+        IReadOnlyList<LayoutRun> runs,
+        IReadOnlyList<LayoutImage> images,
+        IReadOnlyList<LayoutShape> shapes,
+        IReadOnlyList<LayoutChart> charts,
+        IReadOnlyList<LayoutEquation> equations)
+    {
+        var logicalSegments = new List<LogicalSegment>(runs.Count + images.Count + shapes.Count + charts.Count + equations.Count);
+        foreach (var run in runs)
+        {
+            if (run.Length <= 0)
+            {
+                continue;
+            }
+
+            logicalSegments.Add(LogicalSegment.FromRun(run));
+        }
+
+        foreach (var image in images)
+        {
+            if (image.Length <= 0)
+            {
+                continue;
+            }
+
+            logicalSegments.Add(LogicalSegment.FromImage(image));
+        }
+
+        foreach (var shape in shapes)
+        {
+            if (shape.Length <= 0)
+            {
+                continue;
+            }
+
+            logicalSegments.Add(LogicalSegment.FromShape(shape));
+        }
+
+        foreach (var chart in charts)
+        {
+            if (chart.Length <= 0)
+            {
+                continue;
+            }
+
+            logicalSegments.Add(LogicalSegment.FromChart(chart));
+        }
+
+        foreach (var equation in equations)
+        {
+            if (equation.Length <= 0)
+            {
+                continue;
+            }
+
+            logicalSegments.Add(LogicalSegment.FromEquation(equation));
+        }
+
+        if (logicalSegments.Count == 0)
+        {
+            return new List<VisualSegment>();
+        }
+
+        logicalSegments.Sort((left, right) => left.X.CompareTo(right.X));
+
+        var offset = 0;
+        for (var i = 0; i < logicalSegments.Count; i++)
+        {
+            logicalSegments[i].StartOffset = offset;
+            offset += logicalSegments[i].Length;
+        }
+
+        var bidiSpans = TextBidi.GetBidiSpans(lineText, baseRtl);
+        if (bidiSpans.Count == 0)
+        {
+            bidiSpans.Add(new BidiSpan(0, lineText.Length, baseRtl ? 1 : 0));
+        }
+
+        var segments = new List<VisualSegment>();
+        var spanIndex = 0;
+        foreach (var logical in logicalSegments)
+        {
+            var segmentStart = logical.StartOffset;
+            var segmentEnd = segmentStart + logical.Length;
+            if (segmentEnd <= segmentStart)
+            {
+                continue;
+            }
+
+            while (spanIndex < bidiSpans.Count && bidiSpans[spanIndex].Start + bidiSpans[spanIndex].Length <= segmentStart)
+            {
+                spanIndex++;
+            }
+
+            var scanIndex = spanIndex;
+            while (scanIndex < bidiSpans.Count)
+            {
+                var span = bidiSpans[scanIndex];
+                var spanStart = span.Start;
+                var spanEnd = span.Start + span.Length;
+                if (spanStart >= segmentEnd)
+                {
+                    break;
+                }
+
+                var overlapStart = Math.Max(segmentStart, spanStart);
+                var overlapEnd = Math.Min(segmentEnd, spanEnd);
+                var overlapLength = overlapEnd - overlapStart;
+                if (overlapLength <= 0)
+                {
+                    scanIndex++;
+                    continue;
+                }
+
+                if (logical.Run is not null)
+                {
+                    var run = logical.Run;
+                    if (run.IsTab)
+                    {
+                        segments.Add(new VisualSegment(overlapStart, overlapLength, span.Level, logical.Width, 1f, run, 0, null, null, null, null));
+                    }
+                    else
+                    {
+                        var runStart = overlapStart - segmentStart;
+                        var metricsWidth = MeasureRunSegmentWidth(run, runStart, overlapLength, out var scale);
+                        segments.Add(new VisualSegment(overlapStart, overlapLength, span.Level, metricsWidth, scale, run, runStart, null, null, null, null));
+                    }
+                }
+                else if (logical.Image is not null)
+                {
+                    segments.Add(new VisualSegment(overlapStart, overlapLength, span.Level, logical.Width, 1f, null, 0, logical.Image, null, null, null));
+                }
+                else if (logical.Shape is not null)
+                {
+                    segments.Add(new VisualSegment(overlapStart, overlapLength, span.Level, logical.Width, 1f, null, 0, null, logical.Shape, null, null));
+                }
+                else if (logical.Chart is not null)
+                {
+                    segments.Add(new VisualSegment(overlapStart, overlapLength, span.Level, logical.Width, 1f, null, 0, null, null, logical.Chart, null));
+                }
+                else if (logical.Equation is not null)
+                {
+                    segments.Add(new VisualSegment(overlapStart, overlapLength, span.Level, logical.Width, 1f, null, 0, null, null, null, logical.Equation));
+                }
+
+                scanIndex++;
+            }
+        }
+
+        if (segments.Count == 0)
+        {
+            return segments;
+        }
+
+        var baseLevel = baseRtl ? 1 : 0;
+        TextBidi.ReorderByLevels(segments, segment => segment.Level, baseLevel);
+
+        var x = 0f;
+        for (var i = 0; i < segments.Count; i++)
+        {
+            var segment = segments[i];
+            segment.X = x;
+            x += segment.Width;
+        }
+
+        return segments;
+    }
+
+    private float MeasureRunSegmentWidth(LayoutRun run, int segmentStart, int segmentLength, out float scale)
+    {
+        scale = 1f;
+        if (string.IsNullOrEmpty(run.Text) || segmentLength <= 0)
+        {
+            return 0f;
+        }
+
+        var metrics = GetRunMetrics(run.Text, run.Style, run.LetterSpacing);
+        var runLength = run.Text.Length;
+        if (segmentLength >= runLength)
+        {
+            if (metrics.Width > 0f && MathF.Abs(run.Width - metrics.Width) > 0.01f)
+            {
+                scale = run.Width / metrics.Width;
+                return run.Width;
+            }
+
+            return metrics.Width;
+        }
+
+        var startWidth = metrics.GetWidth(segmentStart);
+        var endWidth = metrics.GetWidth(segmentStart + segmentLength);
+        var width = endWidth - startWidth;
+        if (metrics.Width > 0f && MathF.Abs(run.Width - metrics.Width) > 0.01f)
+        {
+            scale = run.Width / metrics.Width;
+            width *= scale;
+        }
+
         return width;
+    }
+
+    private float MeasureSegmentOffset(VisualSegment segment, int offsetInSegment)
+    {
+        if (offsetInSegment <= 0)
+        {
+            return segment.IsRtl ? segment.Width : 0f;
+        }
+
+        float width;
+        if (segment.IsText && segment.Run is not null)
+        {
+            var run = segment.Run;
+            var metrics = GetRunMetrics(run.Text, run.Style, run.LetterSpacing);
+            var startWidth = metrics.GetWidth(segment.RunStart);
+            var endWidth = metrics.GetWidth(segment.RunStart + offsetInSegment);
+            width = MathF.Max(0f, endWidth - startWidth);
+            if (segment.Scale != 1f)
+            {
+                width *= segment.Scale;
+            }
+        }
+        else
+        {
+            width = offsetInSegment >= segment.Length ? segment.Width : 0f;
+        }
+
+        return segment.IsRtl ? segment.Width - width : width;
+    }
+
+    private int GetOffsetForSegmentX(VisualSegment segment, float localX)
+    {
+        if (segment.Length <= 0)
+        {
+            return 0;
+        }
+
+        if (!segment.IsText || segment.Run is null)
+        {
+            return localX >= segment.Width / 2f ? segment.Length : 0;
+        }
+
+        var run = segment.Run;
+        var metrics = GetRunMetrics(run.Text, run.Style, run.LetterSpacing);
+        var startWidth = metrics.GetWidth(segment.RunStart);
+        var adjustedX = segment.Scale != 1f && segment.Scale != 0f
+            ? startWidth + localX / segment.Scale
+            : startWidth + localX;
+        var offsetInRun = metrics.GetOffsetForX(adjustedX);
+        var offsetInSegment = offsetInRun - segment.RunStart;
+        return Math.Clamp(offsetInSegment, 0, segment.Length);
+    }
+
+    private sealed class VisualSegment
+    {
+        public int StartOffset { get; }
+        public int Length { get; }
+        public int Level { get; }
+        public float Width { get; }
+        public float Scale { get; }
+        public float X { get; set; }
+        public LayoutRun? Run { get; }
+        public int RunStart { get; }
+        public LayoutImage? Image { get; }
+        public LayoutShape? Shape { get; }
+        public LayoutChart? Chart { get; }
+        public LayoutEquation? Equation { get; }
+
+        public VisualSegment(
+            int startOffset,
+            int length,
+            int level,
+            float width,
+            float scale,
+            LayoutRun? run,
+            int runStart,
+            LayoutImage? image,
+            LayoutShape? shape,
+            LayoutChart? chart,
+            LayoutEquation? equation)
+        {
+            StartOffset = startOffset;
+            Length = length;
+            Level = level;
+            Width = width;
+            Scale = scale;
+            Run = run;
+            RunStart = runStart;
+            Image = image;
+            Shape = shape;
+            Chart = chart;
+            Equation = equation;
+        }
+
+        public bool IsRtl => (Level & 1) != 0;
+        public bool IsTab => Run?.IsTab == true;
+        public bool IsText => Run is not null && !Run.IsTab;
+    }
+
+    private sealed class LogicalSegment
+    {
+        public float X { get; }
+        public int Length { get; }
+        public float Width { get; }
+        public LayoutRun? Run { get; }
+        public LayoutImage? Image { get; }
+        public LayoutShape? Shape { get; }
+        public LayoutChart? Chart { get; }
+        public LayoutEquation? Equation { get; }
+        public int StartOffset { get; set; }
+
+        private LogicalSegment(
+            float x,
+            int length,
+            float width,
+            LayoutRun? run,
+            LayoutImage? image,
+            LayoutShape? shape,
+            LayoutChart? chart,
+            LayoutEquation? equation)
+        {
+            X = x;
+            Length = length;
+            Width = width;
+            Run = run;
+            Image = image;
+            Shape = shape;
+            Chart = chart;
+            Equation = equation;
+        }
+
+        public static LogicalSegment FromRun(LayoutRun run)
+        {
+            return new LogicalSegment(run.X, run.Length, run.Width, run, null, null, null, null);
+        }
+
+        public static LogicalSegment FromImage(LayoutImage image)
+        {
+            return new LogicalSegment(image.X, image.Length, image.Width, null, image, null, null, null);
+        }
+
+        public static LogicalSegment FromShape(LayoutShape shape)
+        {
+            return new LogicalSegment(shape.X, shape.Length, shape.Width, null, null, shape, null, null);
+        }
+
+        public static LogicalSegment FromChart(LayoutChart chart)
+        {
+            return new LogicalSegment(chart.X, chart.Length, chart.Width, null, null, null, chart, null);
+        }
+
+        public static LogicalSegment FromEquation(LayoutEquation equation)
+        {
+            return new LogicalSegment(equation.X, equation.Length, equation.Width, null, null, null, null, equation);
+        }
     }
 
     private IEnumerable<LineSegment> EnumerateSegments(LayoutLine line)
@@ -1607,6 +1959,9 @@ public sealed class EditorController
         private readonly bool _strikethrough;
         private readonly bool _hasHighlight;
         private readonly DocColor _highlight;
+        private readonly string _language;
+        private readonly string _languageEastAsia;
+        private readonly string _languageBidi;
 
         public TextStyleKey(TextStyle style)
         {
@@ -1619,6 +1974,9 @@ public sealed class EditorController
             _strikethrough = style.Strikethrough;
             _hasHighlight = style.HighlightColor.HasValue;
             _highlight = style.HighlightColor ?? default;
+            _language = style.Language ?? string.Empty;
+            _languageEastAsia = style.LanguageEastAsia ?? string.Empty;
+            _languageBidi = style.LanguageBidi ?? string.Empty;
         }
 
         public bool Equals(TextStyleKey other)
@@ -1631,14 +1989,17 @@ public sealed class EditorController
                 && _underline == other._underline
                 && _strikethrough == other._strikethrough
                 && _hasHighlight == other._hasHighlight
-                && (!_hasHighlight || _highlight.Equals(other._highlight));
+                && (!_hasHighlight || _highlight.Equals(other._highlight))
+                && _language == other._language
+                && _languageEastAsia == other._languageEastAsia
+                && _languageBidi == other._languageBidi;
         }
 
         public override bool Equals(object? obj) => obj is TextStyleKey other && Equals(other);
 
         public override int GetHashCode()
         {
-            return HashCode.Combine(
+            var hash = HashCode.Combine(
                 _fontFamily,
                 _fontSize,
                 (int)_fontWeight,
@@ -1647,6 +2008,9 @@ public sealed class EditorController
                 _underline,
                 _strikethrough,
                 _hasHighlight ? _highlight.GetHashCode() : 0);
+            hash = HashCode.Combine(hash, _language);
+            hash = HashCode.Combine(hash, _languageEastAsia);
+            return HashCode.Combine(hash, _languageBidi);
         }
     }
 
