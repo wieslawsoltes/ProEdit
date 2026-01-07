@@ -9,7 +9,12 @@ namespace Vibe.Word.App;
 public partial class MainWindow : Window
 {
     private readonly DocumentView? _editorView;
+    private readonly Border? _loadingOverlay;
+    private readonly TextBlock? _loadingText;
+    private readonly Button? _openButton;
+    private readonly Button? _saveButton;
     private string? _currentPath;
+    private bool _isLoading;
     private static readonly FilePickerFileType DocxFileType = new("Word Documents")
     {
         Patterns = new[] { "*.docx" }
@@ -27,21 +32,23 @@ public partial class MainWindow : Window
         _editorView = this.FindControl<DocumentView>("EditorView");
         var equationEditor = this.FindControl<EquationEditor>("EquationEditor");
         var equationPanel = this.FindControl<Border>("EquationEditorPanel");
-        var openButton = this.FindControl<Button>("OpenButton");
-        var saveButton = this.FindControl<Button>("SaveButton");
+        _openButton = this.FindControl<Button>("OpenButton");
+        _saveButton = this.FindControl<Button>("SaveButton");
         var invisiblesCheckBox = this.FindControl<CheckBox>("ShowInvisiblesCheckBox");
         var layoutCheckBox = this.FindControl<CheckBox>("ShowLayoutCheckBox");
         var harfBuzzCheckBox = this.FindControl<CheckBox>("UseHarfBuzzCheckBox");
         var pictureCacheCheckBox = this.FindControl<CheckBox>("UsePictureCacheCheckBox");
+        _loadingOverlay = this.FindControl<Border>("LoadingOverlay");
+        _loadingText = this.FindControl<TextBlock>("LoadingText");
 
-        if (openButton is not null)
+        if (_openButton is not null)
         {
-            openButton.Click += OnOpenClicked;
+            _openButton.Click += OnOpenClicked;
         }
 
-        if (saveButton is not null)
+        if (_saveButton is not null)
         {
-            saveButton.Click += OnSaveClicked;
+            _saveButton.Click += OnSaveClicked;
         }
 
         if (invisiblesCheckBox is not null)
@@ -91,10 +98,19 @@ public partial class MainWindow : Window
             _editorView?.LoadDocument(document);
             _currentPath = path;
         }
+        else if (!string.IsNullOrWhiteSpace(path))
+        {
+            Opened += async (_, _) => await LoadDocumentAsync(path);
+        }
     }
 
     private async void OnOpenClicked(object? sender, RoutedEventArgs e)
     {
+        if (_isLoading)
+        {
+            return;
+        }
+
         var result = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
             AllowMultiple = false,
@@ -112,14 +128,12 @@ public partial class MainWindow : Window
             return;
         }
 
-        var document = new DocxImporter().Load(path);
-        _editorView?.LoadDocument(document);
-        _currentPath = path;
+        await LoadDocumentAsync(path);
     }
 
     private async void OnSaveClicked(object? sender, RoutedEventArgs e)
     {
-        if (_editorView is null)
+        if (_editorView is null || _isLoading)
         {
             return;
         }
@@ -194,6 +208,56 @@ public partial class MainWindow : Window
         if (sender is CheckBox checkBox)
         {
             _editorView.UsePictureCache = checkBox.IsChecked == true;
+        }
+    }
+
+    private async Task LoadDocumentAsync(string path)
+    {
+        if (_editorView is null)
+        {
+            return;
+        }
+
+        SetLoadingState(true, $"Loading {Path.GetFileName(path)}...");
+        try
+        {
+            var document = await Task.Run(() => new DocxImporter().Load(path));
+            await _editorView.LoadDocumentAsync(document);
+            _currentPath = path;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to load document: {ex.Message}");
+        }
+        finally
+        {
+            SetLoadingState(false);
+        }
+    }
+
+    private void SetLoadingState(bool isLoading, string? message = null)
+    {
+        _isLoading = isLoading;
+        _editorView?.SetLoading(isLoading);
+        if (_loadingOverlay is not null)
+        {
+            _loadingOverlay.IsVisible = isLoading;
+            _loadingOverlay.IsHitTestVisible = isLoading;
+        }
+
+        if (_loadingText is not null && !string.IsNullOrWhiteSpace(message))
+        {
+            _loadingText.Text = message;
+        }
+
+        if (_openButton is not null)
+        {
+            _openButton.IsEnabled = !isLoading;
+        }
+
+        if (_saveButton is not null)
+        {
+            _saveButton.IsEnabled = !isLoading;
         }
     }
 }

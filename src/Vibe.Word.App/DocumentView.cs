@@ -34,6 +34,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
     };
 
     private bool _isSelecting;
+    private bool _isLoading;
     private Vector _scrollOffset;
     private Size _extent;
     private Size _viewport;
@@ -44,7 +45,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
     {
         Focusable = true;
         _editor = CreateEditor(CreateSampleDocument());
-        UpdateScrollMetrics();
+        ApplyEditorState();
     }
 
     public Document Document => _editor.Document;
@@ -119,6 +120,11 @@ public sealed class DocumentView : Control, ILogicalScrollable
     protected override void OnSizeChanged(SizeChangedEventArgs e)
     {
         base.OnSizeChanged(e);
+        if (_isLoading)
+        {
+            return;
+        }
+
         if (Bounds.Width > 0 && Bounds.Height > 0)
         {
             _editor.UpdateLayout((float)Bounds.Width, (float)Bounds.Height);
@@ -129,6 +135,11 @@ public sealed class DocumentView : Control, ILogicalScrollable
     protected override void OnTextInput(TextInputEventArgs e)
     {
         base.OnTextInput(e);
+        if (_isLoading)
+        {
+            return;
+        }
+
         if (string.IsNullOrEmpty(e.Text))
         {
             return;
@@ -149,6 +160,10 @@ public sealed class DocumentView : Control, ILogicalScrollable
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
+        if (_isLoading)
+        {
+            return;
+        }
 
         var extend = e.KeyModifiers.HasFlag(KeyModifiers.Shift);
         switch (e.Key)
@@ -187,6 +202,10 @@ public sealed class DocumentView : Control, ILogicalScrollable
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
         base.OnPointerPressed(e);
+        if (_isLoading)
+        {
+            return;
+        }
         Focus();
 
         var point = e.GetPosition(this);
@@ -202,6 +221,10 @@ public sealed class DocumentView : Control, ILogicalScrollable
     protected override void OnPointerMoved(PointerEventArgs e)
     {
         base.OnPointerMoved(e);
+        if (_isLoading)
+        {
+            return;
+        }
         if (!_isSelecting)
         {
             return;
@@ -222,6 +245,11 @@ public sealed class DocumentView : Control, ILogicalScrollable
     protected override void OnPointerReleased(PointerReleasedEventArgs e)
     {
         base.OnPointerReleased(e);
+        if (_isLoading)
+        {
+            return;
+        }
+
         if (_isSelecting)
         {
             _isSelecting = false;
@@ -242,16 +270,42 @@ public sealed class DocumentView : Control, ILogicalScrollable
         _editor.Changed -= OnEditorChanged;
         _editor = CreateEditor(document);
         _editor.UpdateLayout((float)Bounds.Width, (float)Bounds.Height);
-        _scrollOffset = default;
-        UpdateDirtyPages(GetAllPages());
-        UpdateScrollMetrics();
-        UpdateSelectedEquation();
-        InvalidateVisual();
+        ApplyEditorState();
+    }
+
+    public async Task LoadDocumentAsync(Document document)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+
+        _editor.Changed -= OnEditorChanged;
+        ConfigureMeasurer(document);
+
+        var width = MathF.Max(1f, (float)Bounds.Width);
+        var height = MathF.Max(1f, (float)Bounds.Height);
+
+        var editor = await Task.Run(() =>
+        {
+            var newEditor = new EditorController(_textMeasurer, document);
+            newEditor.UpdateLayout(width, height);
+            return newEditor;
+        }).ConfigureAwait(true);
+
+        _editor = editor;
+        ApplyEditorState();
     }
 
     public void RefreshLayout()
     {
         _editor.RefreshLayout();
+    }
+
+    public void SetLoading(bool isLoading)
+    {
+        _isLoading = isLoading;
+        if (isLoading)
+        {
+            _isSelecting = false;
+        }
     }
 
     private static Document CreateSampleDocument()
@@ -291,10 +345,26 @@ public sealed class DocumentView : Control, ILogicalScrollable
 
     private EditorController CreateEditor(Document document)
     {
+        ConfigureMeasurer(document);
+        return new EditorController(_textMeasurer, document);
+    }
+
+    private void ConfigureMeasurer(Document document)
+    {
         _textMeasurer.UseHarfBuzz = _renderOptions.UseHarfBuzz;
-        var editor = new EditorController(_textMeasurer, document);
-        editor.Changed += OnEditorChanged;
-        return editor;
+        var resolver = new SkiaDocumentFontResolver(document.Fonts);
+        _textMeasurer.TypefaceResolver = resolver;
+        _renderer.TypefaceResolver = resolver;
+    }
+
+    private void ApplyEditorState()
+    {
+        _editor.Changed += OnEditorChanged;
+        _scrollOffset = default;
+        UpdateDirtyPages(GetAllPages());
+        UpdateScrollMetrics();
+        UpdateSelectedEquation();
+        InvalidateVisual();
     }
 
     private void OnEditorChanged(object? sender, EventArgs e)
