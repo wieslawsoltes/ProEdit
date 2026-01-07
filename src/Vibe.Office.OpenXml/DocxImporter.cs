@@ -1086,6 +1086,11 @@ public sealed class DocxImporter
                     }
                 }
             }
+
+            if (!properties.ColumnCount.HasValue && properties.ColumnWidths.Count == 0)
+            {
+                properties.ColumnCount = 1;
+            }
         }
 
         return properties;
