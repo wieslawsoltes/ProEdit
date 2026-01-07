@@ -7,7 +7,7 @@ public sealed record TableCellLine(
     float X,
     float Y,
     float Width,
-    string Text,
+    TextSlice TextSlice,
     string? Prefix,
     float PrefixWidth,
     float LineHeight,
@@ -16,4 +16,11 @@ public sealed record TableCellLine(
     IReadOnlyList<LayoutImage> Images,
     IReadOnlyList<LayoutShape> Shapes,
     IReadOnlyList<LayoutChart> Charts,
-    IReadOnlyList<LayoutEquation> Equations);
+    IReadOnlyList<LayoutEquation> Equations)
+{
+    private string? _text;
+
+    public string Text => _text ??= TextSlice.ToString();
+
+    public ReadOnlySpan<char> TextSpan => TextSlice.Span;
+}

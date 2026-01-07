@@ -7,7 +7,7 @@ public sealed record LayoutLine(
     float X,
     float Y,
     float Width,
-    string Text,
+    TextSlice TextSlice,
     string? Prefix,
     float PrefixWidth,
     float LineHeight,
@@ -17,4 +17,11 @@ public sealed record LayoutLine(
     IReadOnlyList<LayoutShape> Shapes,
     IReadOnlyList<LayoutChart> Charts,
     IReadOnlyList<LayoutEquation> Equations,
-    bool IsInTable = false);
+    bool IsInTable = false)
+{
+    private string? _text;
+
+    public string Text => _text ??= TextSlice.ToString();
+
+    public ReadOnlySpan<char> TextSpan => TextSlice.Span;
+}
