@@ -22,6 +22,9 @@ public sealed class RenderOptions
     public float CaretThickness { get; set; } = 1.5f;
     public bool ShowInvisibles { get; set; }
     public DocColor InvisiblesColor { get; set; } = new DocColor(165, 165, 165);
+    public bool ShowLayout { get; set; }
+    public DocColor LayoutGuideColor { get; set; } = new DocColor(170, 170, 170, 170);
+    public float LayoutGuideThickness { get; set; } = 1f;
     public bool UseHarfBuzz { get; set; } = true;
     public bool UsePictureCache { get; set; } = true;
 
