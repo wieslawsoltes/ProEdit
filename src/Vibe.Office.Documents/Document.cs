@@ -6,7 +6,14 @@ public sealed class Document
     public List<DocumentSection> Sections { get; } = new List<DocumentSection>();
     public HeaderFooter Header { get; } = new HeaderFooter();
     public HeaderFooter Footer { get; } = new HeaderFooter();
+    public HeaderFooter FirstHeader { get; } = new HeaderFooter();
+    public HeaderFooter FirstFooter { get; } = new HeaderFooter();
+    public HeaderFooter EvenHeader { get; } = new HeaderFooter();
+    public HeaderFooter EvenFooter { get; } = new HeaderFooter();
     public SectionProperties SectionProperties { get; } = new SectionProperties();
+    public bool MirrorMargins { get; set; }
+    public bool GutterAtTop { get; set; }
+    public bool EvenAndOddHeaders { get; set; }
     public TextStyle DefaultTextStyle { get; } = new TextStyle();
     public ParagraphStyleProperties DefaultParagraphStyleProperties { get; } = new ParagraphStyleProperties();
     public DocumentStyles Styles { get; } = new DocumentStyles();
@@ -17,7 +24,7 @@ public sealed class Document
 
     public Document()
     {
-        Sections.Add(new DocumentSection(SectionProperties, Header, Footer));
+        Sections.Add(new DocumentSection(SectionProperties, Header, Footer, FirstHeader, FirstFooter, EvenHeader, EvenFooter));
         Blocks.Add(new ParagraphBlock());
     }
 
@@ -27,7 +34,7 @@ public sealed class Document
     {
         if (Sections.Count == 0)
         {
-            Sections.Add(new DocumentSection(SectionProperties, Header, Footer));
+            Sections.Add(new DocumentSection(SectionProperties, Header, Footer, FirstHeader, FirstFooter, EvenHeader, EvenFooter));
         }
 
         if (sectionIndex < 0 || sectionIndex >= Sections.Count)
