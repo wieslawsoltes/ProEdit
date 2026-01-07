@@ -10,6 +10,7 @@ using OpenXmlParagraphBorders = DocumentFormat.OpenXml.Wordprocessing.ParagraphB
 using A = DocumentFormat.OpenXml.Drawing;
 using C = DocumentFormat.OpenXml.Drawing.Charts;
 using DW = DocumentFormat.OpenXml.Drawing.Wordprocessing;
+using M = DocumentFormat.OpenXml.Math;
 using PIC = DocumentFormat.OpenXml.Drawing.Pictures;
 using Wps = DocumentFormat.OpenXml.Office2010.Word.DrawingShape;
 using Vibe.Office.Documents;
@@ -1497,6 +1498,15 @@ public sealed class DocxExporter
                     container.AppendChild(run);
                     break;
                 }
+                case EquationInline equationInline:
+                {
+                    var math = BuildOfficeMath(equationInline);
+                    if (math is not null)
+                    {
+                        container.AppendChild(math);
+                    }
+                    break;
+                }
                 case PageNumberInline pageNumberInline:
                     container.AppendChild(CreatePageNumberField(pageNumberInline.Style));
                     break;
@@ -1610,6 +1620,313 @@ public sealed class DocxExporter
         }
 
         container.AppendChild(run);
+    }
+
+    private static M.OfficeMath? BuildOfficeMath(EquationInline equation)
+    {
+        if (equation.Root is null)
+        {
+            return null;
+        }
+
+        var math = new M.OfficeMath();
+        AppendMathElements(math, equation.Root);
+        return math.ChildElements.Count == 0 ? null : math;
+    }
+
+    private static void AppendMathElements(OpenXmlCompositeElement parent, MathElement element)
+    {
+        switch (element)
+        {
+            case MathRow row:
+                foreach (var child in row.Elements)
+                {
+                    AppendMathElements(parent, child);
+                }
+                break;
+            case MathRun run:
+                parent.AppendChild(BuildMathRun(run));
+                break;
+            case MathFraction fraction:
+                parent.AppendChild(BuildMathFraction(fraction));
+                break;
+            case MathAccent accent:
+                parent.AppendChild(BuildMathAccent(accent));
+                break;
+            case MathDelimiter delimiter:
+                parent.AppendChild(BuildMathDelimiter(delimiter));
+                break;
+            case MathNary nary:
+                parent.AppendChild(BuildMathNary(nary));
+                break;
+            case MathMatrix matrix:
+                parent.AppendChild(BuildMathMatrix(matrix));
+                break;
+            case MathScript script:
+                AppendMathScript(parent, script);
+                break;
+            case MathRadical radical:
+                parent.AppendChild(BuildMathRadical(radical));
+                break;
+        }
+    }
+
+    private static M.Run BuildMathRun(MathRun run)
+    {
+        var mathRun = new M.Run();
+        var props = BuildMathRunProperties(run.Style);
+        if (props is not null)
+        {
+            mathRun.MathRunProperties = props;
+        }
+
+        var text = run.Text ?? string.Empty;
+        if (text.Length == 0)
+        {
+            mathRun.AppendChild(new M.Text(string.Empty));
+            return mathRun;
+        }
+
+        var mathText = new M.Text(text) { Space = SpaceProcessingModeValues.Preserve };
+        mathRun.AppendChild(mathText);
+        return mathRun;
+    }
+
+    private static M.Fraction BuildMathFraction(MathFraction fraction)
+    {
+        var mathFraction = new M.Fraction();
+        if (!fraction.HasBar)
+        {
+            mathFraction.FractionProperties = new M.FractionProperties
+            {
+                FractionType = new M.FractionType { Val = M.FractionTypeValues.NoBar }
+            };
+        }
+
+        var numerator = new M.Numerator();
+        AppendMathElements(numerator, fraction.Numerator);
+        var denominator = new M.Denominator();
+        AppendMathElements(denominator, fraction.Denominator);
+        mathFraction.Numerator = numerator;
+        mathFraction.Denominator = denominator;
+        return mathFraction;
+    }
+
+    private static M.Accent BuildMathAccent(MathAccent accent)
+    {
+        var node = new M.Accent
+        {
+            Base = BuildMathBase(accent.Base)
+        };
+
+        if (!string.IsNullOrWhiteSpace(accent.AccentChar))
+        {
+            node.AccentProperties = new M.AccentProperties
+            {
+                AccentChar = new M.AccentChar { Val = accent.AccentChar }
+            };
+        }
+
+        return node;
+    }
+
+    private static M.Delimiter BuildMathDelimiter(MathDelimiter delimiter)
+    {
+        var node = new M.Delimiter();
+        node.AppendChild(BuildMathBase(delimiter.Body));
+
+        if (!string.IsNullOrWhiteSpace(delimiter.BeginChar)
+            || !string.IsNullOrWhiteSpace(delimiter.EndChar)
+            || !string.IsNullOrWhiteSpace(delimiter.SeparatorChar))
+        {
+            node.DelimiterProperties = new M.DelimiterProperties();
+            if (!string.IsNullOrWhiteSpace(delimiter.BeginChar))
+            {
+                node.DelimiterProperties.BeginChar = new M.BeginChar { Val = delimiter.BeginChar };
+            }
+
+            if (!string.IsNullOrWhiteSpace(delimiter.EndChar))
+            {
+                node.DelimiterProperties.EndChar = new M.EndChar { Val = delimiter.EndChar };
+            }
+
+            if (!string.IsNullOrWhiteSpace(delimiter.SeparatorChar))
+            {
+                node.DelimiterProperties.SeparatorChar = new M.SeparatorChar { Val = delimiter.SeparatorChar };
+            }
+        }
+
+        return node;
+    }
+
+    private static M.Nary BuildMathNary(MathNary nary)
+    {
+        var node = new M.Nary
+        {
+            Base = BuildMathBase(nary.Base)
+        };
+
+        if (nary.Subscript is not null)
+        {
+            node.SubArgument = BuildMathSubArgument(nary.Subscript);
+        }
+
+        if (nary.Superscript is not null)
+        {
+            node.SuperArgument = BuildMathSuperArgument(nary.Superscript);
+        }
+
+        if (!string.IsNullOrWhiteSpace(nary.OperatorChar)
+            || nary.HideSub
+            || nary.HideSup)
+        {
+            node.NaryProperties = new M.NaryProperties();
+            if (!string.IsNullOrWhiteSpace(nary.OperatorChar))
+            {
+                node.NaryProperties.AccentChar = new M.AccentChar { Val = nary.OperatorChar };
+            }
+
+            if (nary.HideSub)
+            {
+                node.NaryProperties.HideSubArgument = new M.HideSubArgument();
+            }
+
+            if (nary.HideSup)
+            {
+                node.NaryProperties.HideSuperArgument = new M.HideSuperArgument();
+            }
+        }
+
+        return node;
+    }
+
+    private static M.Matrix BuildMathMatrix(MathMatrix matrix)
+    {
+        var node = new M.Matrix();
+        foreach (var row in matrix.Rows)
+        {
+            var rowNode = new M.MatrixRow();
+            foreach (var cell in row)
+            {
+                rowNode.AppendChild(BuildMathBase(cell));
+            }
+
+            node.AppendChild(rowNode);
+        }
+
+        return node;
+    }
+
+    private static void AppendMathScript(OpenXmlCompositeElement parent, MathScript script)
+    {
+        var hasSub = script.Subscript is not null;
+        var hasSup = script.Superscript is not null;
+        if (hasSub && hasSup)
+        {
+            var node = new M.SubSuperscript
+            {
+                Base = BuildMathBase(script.Base),
+                SubArgument = BuildMathSubArgument(script.Subscript!),
+                SuperArgument = BuildMathSuperArgument(script.Superscript!)
+            };
+            parent.AppendChild(node);
+            return;
+        }
+
+        if (hasSub)
+        {
+            var node = new M.Subscript
+            {
+                Base = BuildMathBase(script.Base),
+                SubArgument = BuildMathSubArgument(script.Subscript!)
+            };
+            parent.AppendChild(node);
+            return;
+        }
+
+        if (hasSup)
+        {
+            var node = new M.Superscript
+            {
+                Base = BuildMathBase(script.Base),
+                SuperArgument = BuildMathSuperArgument(script.Superscript!)
+            };
+            parent.AppendChild(node);
+            return;
+        }
+
+        AppendMathElements(parent, script.Base);
+    }
+
+    private static M.Radical BuildMathRadical(MathRadical radical)
+    {
+        var node = new M.Radical
+        {
+            Base = BuildMathBase(radical.Radicand)
+        };
+
+        if (radical.Degree is not null)
+        {
+            node.Degree = BuildMathDegree(radical.Degree);
+        }
+
+        return node;
+    }
+
+    private static M.Base BuildMathBase(MathElement element)
+    {
+        var container = new M.Base();
+        AppendMathElements(container, element);
+        return container;
+    }
+
+    private static M.SubArgument BuildMathSubArgument(MathElement element)
+    {
+        var container = new M.SubArgument();
+        AppendMathElements(container, element);
+        return container;
+    }
+
+    private static M.SuperArgument BuildMathSuperArgument(MathElement element)
+    {
+        var container = new M.SuperArgument();
+        AppendMathElements(container, element);
+        return container;
+    }
+
+    private static M.Degree BuildMathDegree(MathElement element)
+    {
+        var container = new M.Degree();
+        AppendMathElements(container, element);
+        return container;
+    }
+
+    private static M.RunProperties? BuildMathRunProperties(TextStyleProperties? style)
+    {
+        if (style is null)
+        {
+            return null;
+        }
+
+        var hasStyle = style.FontWeight.HasValue || style.FontStyle.HasValue;
+        if (!hasStyle)
+        {
+            return null;
+        }
+
+        var bold = style.FontWeight == DocFontWeight.Bold;
+        var italic = style.FontStyle == DocFontStyle.Italic;
+        var value = bold && italic
+            ? M.StyleValues.BoldItalic
+            : bold
+                ? M.StyleValues.Bold
+                : italic
+                    ? M.StyleValues.Italic
+                    : M.StyleValues.Plain;
+
+        var props = new M.RunProperties();
+        props.AppendChild(new M.Style { Val = value });
+        return props;
     }
 
     private static SimpleField CreatePageNumberField(TextStyle? style)

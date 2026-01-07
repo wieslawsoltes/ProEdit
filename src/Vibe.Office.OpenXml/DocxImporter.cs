@@ -896,6 +896,16 @@ public sealed class DocxImporter
                     AddInline(new ContentControlEndInline(properties.Id), false, null);
                     break;
                 }
+                case OpenXmlElement mathElement when IsMathContainer(mathElement):
+                {
+                    var mathRoot = ParseMathContainer(mathElement);
+                    if (mathRoot is not null)
+                    {
+                        AddInline(new EquationInline(mathRoot), true, hyperlink);
+                    }
+
+                    break;
+                }
                 case BookmarkStart bookmarkStart:
                 {
                     var id = 0;
@@ -3099,6 +3109,497 @@ public sealed class DocxImporter
         }
 
         return code <= 0xFFFF ? new string((char)code, 1) : char.ConvertFromUtf32(code);
+    }
+
+    private static bool IsMathContainer(OpenXmlElement element)
+    {
+        if (element is null)
+        {
+            return false;
+        }
+
+        var localName = element.LocalName;
+        if (!string.Equals(localName, "oMath", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(localName, "oMathPara", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return IsMathNamespace(element) || string.Equals(element.NamespaceUri, "http://schemas.openxmlformats.org/wordprocessingml/2006/main", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsMathNamespace(OpenXmlElement element)
+    {
+        var ns = element.NamespaceUri;
+        if (string.IsNullOrWhiteSpace(ns))
+        {
+            return false;
+        }
+
+        return ns.Contains("/math", StringComparison.OrdinalIgnoreCase)
+               || ns.Contains("omml", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static MathElement? ParseMathContainer(OpenXmlElement element)
+    {
+        if (element is null)
+        {
+            return null;
+        }
+
+        var elements = new List<MathElement>();
+        foreach (var child in element.Elements())
+        {
+            if (!IsMathNamespace(child))
+            {
+                continue;
+            }
+
+            var parsed = ParseMathElement(child);
+            if (parsed is not null)
+            {
+                elements.Add(parsed);
+            }
+        }
+
+        if (elements.Count == 1)
+        {
+            return elements[0];
+        }
+
+        if (elements.Count > 1)
+        {
+            var row = new MathRow();
+            row.Elements.AddRange(elements);
+            return row;
+        }
+
+        var fallbackText = CollectMathText(element);
+        if (string.IsNullOrWhiteSpace(fallbackText))
+        {
+            return null;
+        }
+
+        return new MathRun { Text = fallbackText };
+    }
+
+    private static MathElement? ParseMathElement(OpenXmlElement element)
+    {
+        return element.LocalName switch
+        {
+            "oMath" => ParseMathContainer(element),
+            "oMathPara" => ParseMathContainer(element),
+            "row" => ParseMathGroup(element),
+            "r" => ParseMathRun(element),
+            "f" => ParseMathFraction(element),
+            "acc" => ParseMathAccent(element),
+            "d" => ParseMathDelimiter(element),
+            "nary" => ParseMathNary(element),
+            "m" => ParseMathMatrix(element),
+            "mr" => ParseMathMatrixRow(element),
+            "sSup" => ParseMathScript(element),
+            "sSub" => ParseMathScript(element),
+            "sSubSup" => ParseMathScript(element),
+            "rad" => ParseMathRadical(element),
+            "e" => ParseMathGroup(element),
+            "num" => ParseMathGroup(element),
+            "den" => ParseMathGroup(element),
+            "sub" => ParseMathGroup(element),
+            "sup" => ParseMathGroup(element),
+            "deg" => ParseMathGroup(element),
+            _ => ParseMathGroup(element)
+        };
+    }
+
+    private static MathElement ParseMathGroup(OpenXmlElement element)
+    {
+        var elements = new List<MathElement>();
+        foreach (var child in element.Elements())
+        {
+            if (!IsMathNamespace(child))
+            {
+                continue;
+            }
+
+            var parsed = ParseMathElement(child);
+            if (parsed is not null)
+            {
+                elements.Add(parsed);
+            }
+        }
+
+        if (elements.Count == 1)
+        {
+            return elements[0];
+        }
+
+        if (elements.Count > 1)
+        {
+            var row = new MathRow();
+            row.Elements.AddRange(elements);
+            return row;
+        }
+
+        var text = CollectMathText(element);
+        return new MathRun { Text = text };
+    }
+
+    private static MathElement ParseMathRun(OpenXmlElement element)
+    {
+        TextStyleProperties? mathStyle = null;
+        TextStyleProperties? wordStyle = null;
+        var builder = new StringBuilder();
+
+        foreach (var child in element.Elements())
+        {
+            if (string.Equals(child.LocalName, "rPr", StringComparison.OrdinalIgnoreCase))
+            {
+                if (IsMathNamespace(child))
+                {
+                    mathStyle = ExtractMathRunStyleProperties(child);
+                }
+                else
+                {
+                    wordStyle = ExtractRunStyleProperties(child);
+                }
+
+                continue;
+            }
+
+            if (string.Equals(child.LocalName, "t", StringComparison.OrdinalIgnoreCase))
+            {
+                builder.Append(child.InnerText);
+            }
+        }
+
+        var text = builder.ToString();
+        var style = MergeRunStyleProperties(wordStyle, mathStyle);
+        return new MathRun { Text = text, Style = style };
+    }
+
+    private static MathElement ParseMathFraction(OpenXmlElement element)
+    {
+        var numeratorElement = element.Elements().FirstOrDefault(child => string.Equals(child.LocalName, "num", StringComparison.OrdinalIgnoreCase));
+        var denominatorElement = element.Elements().FirstOrDefault(child => string.Equals(child.LocalName, "den", StringComparison.OrdinalIgnoreCase));
+        var numerator = numeratorElement is not null ? ParseMathGroup(numeratorElement) : new MathRun();
+        var denominator = denominatorElement is not null ? ParseMathGroup(denominatorElement) : new MathRun();
+        return new MathFraction(numerator, denominator);
+    }
+
+    private static MathElement ParseMathScript(OpenXmlElement element)
+    {
+        var baseElement = element.Elements().FirstOrDefault(child => string.Equals(child.LocalName, "e", StringComparison.OrdinalIgnoreCase));
+        var subElement = element.Elements().FirstOrDefault(child => string.Equals(child.LocalName, "sub", StringComparison.OrdinalIgnoreCase));
+        var supElement = element.Elements().FirstOrDefault(child => string.Equals(child.LocalName, "sup", StringComparison.OrdinalIgnoreCase));
+
+        var baseValue = baseElement is not null ? ParseMathGroup(baseElement) : new MathRun();
+        var script = new MathScript(baseValue)
+        {
+            Subscript = subElement is not null ? ParseMathGroup(subElement) : null,
+            Superscript = supElement is not null ? ParseMathGroup(supElement) : null
+        };
+
+        return script;
+    }
+
+    private static MathElement ParseMathRadical(OpenXmlElement element)
+    {
+        var baseElement = element.Elements().FirstOrDefault(child => string.Equals(child.LocalName, "e", StringComparison.OrdinalIgnoreCase));
+        var degreeElement = element.Elements().FirstOrDefault(child => string.Equals(child.LocalName, "deg", StringComparison.OrdinalIgnoreCase));
+        var radicand = baseElement is not null ? ParseMathGroup(baseElement) : new MathRun();
+        var radical = new MathRadical(radicand)
+        {
+            Degree = degreeElement is not null ? ParseMathGroup(degreeElement) : null
+        };
+
+        return radical;
+    }
+
+    private static MathElement ParseMathAccent(OpenXmlElement element)
+    {
+        var accentChar = string.Empty;
+        var props = element.Elements().FirstOrDefault(child => string.Equals(child.LocalName, "accPr", StringComparison.OrdinalIgnoreCase));
+        if (props is not null)
+        {
+            var charElement = props.Elements().FirstOrDefault(child => string.Equals(child.LocalName, "chr", StringComparison.OrdinalIgnoreCase));
+            accentChar = charElement is not null ? GetAttributeValue(charElement, "val", charElement.NamespaceUri) ?? string.Empty : string.Empty;
+        }
+
+        var baseElement = element.Elements().FirstOrDefault(child => string.Equals(child.LocalName, "e", StringComparison.OrdinalIgnoreCase));
+        var baseValue = baseElement is not null ? ParseMathGroup(baseElement) : new MathRun();
+        var accent = new MathAccent(baseValue);
+        if (!string.IsNullOrWhiteSpace(accentChar))
+        {
+            accent.AccentChar = accentChar;
+        }
+
+        return accent;
+    }
+
+    private static MathElement ParseMathDelimiter(OpenXmlElement element)
+    {
+        string? beginChar = null;
+        string? endChar = null;
+        string? separatorChar = null;
+        var props = element.Elements().FirstOrDefault(child => string.Equals(child.LocalName, "dPr", StringComparison.OrdinalIgnoreCase));
+        if (props is not null)
+        {
+            var beginElement = props.Elements().FirstOrDefault(child => string.Equals(child.LocalName, "begChr", StringComparison.OrdinalIgnoreCase));
+            var endElement = props.Elements().FirstOrDefault(child => string.Equals(child.LocalName, "endChr", StringComparison.OrdinalIgnoreCase));
+            var sepElement = props.Elements().FirstOrDefault(child => string.Equals(child.LocalName, "sepChr", StringComparison.OrdinalIgnoreCase));
+            beginChar = beginElement is not null ? GetAttributeValue(beginElement, "val", beginElement.NamespaceUri) : null;
+            endChar = endElement is not null ? GetAttributeValue(endElement, "val", endElement.NamespaceUri) : null;
+            separatorChar = sepElement is not null ? GetAttributeValue(sepElement, "val", sepElement.NamespaceUri) : null;
+        }
+
+        var baseElement = element.Elements().FirstOrDefault(child => string.Equals(child.LocalName, "e", StringComparison.OrdinalIgnoreCase));
+        var body = baseElement is not null ? ParseMathGroup(baseElement) : new MathRun();
+        var delimiter = new MathDelimiter(body)
+        {
+            BeginChar = beginChar,
+            EndChar = endChar,
+            SeparatorChar = separatorChar
+        };
+
+        return delimiter;
+    }
+
+    private static MathElement ParseMathNary(OpenXmlElement element)
+    {
+        string? operatorChar = null;
+        var hideSub = false;
+        var hideSup = false;
+        var props = element.Elements().FirstOrDefault(child => string.Equals(child.LocalName, "naryPr", StringComparison.OrdinalIgnoreCase));
+        if (props is not null)
+        {
+            var charElement = props.Elements().FirstOrDefault(child => string.Equals(child.LocalName, "chr", StringComparison.OrdinalIgnoreCase));
+            operatorChar = charElement is not null ? GetAttributeValue(charElement, "val", charElement.NamespaceUri) : null;
+            hideSub = props.Elements().Any(child => string.Equals(child.LocalName, "subHide", StringComparison.OrdinalIgnoreCase));
+            hideSup = props.Elements().Any(child => string.Equals(child.LocalName, "supHide", StringComparison.OrdinalIgnoreCase));
+        }
+
+        var baseElement = element.Elements().FirstOrDefault(child => string.Equals(child.LocalName, "e", StringComparison.OrdinalIgnoreCase));
+        var subElement = element.Elements().FirstOrDefault(child => string.Equals(child.LocalName, "sub", StringComparison.OrdinalIgnoreCase));
+        var supElement = element.Elements().FirstOrDefault(child => string.Equals(child.LocalName, "sup", StringComparison.OrdinalIgnoreCase));
+        var baseValue = baseElement is not null ? ParseMathGroup(baseElement) : new MathRun();
+
+        var nary = new MathNary(baseValue)
+        {
+            Subscript = subElement is not null ? ParseMathGroup(subElement) : null,
+            Superscript = supElement is not null ? ParseMathGroup(supElement) : null,
+            HideSub = hideSub,
+            HideSup = hideSup
+        };
+
+        if (!string.IsNullOrWhiteSpace(operatorChar))
+        {
+            nary.OperatorChar = operatorChar;
+        }
+
+        return nary;
+    }
+
+    private static MathElement ParseMathMatrix(OpenXmlElement element)
+    {
+        var rows = new List<List<MathElement>>();
+        foreach (var rowElement in element.Elements().Where(child => string.Equals(child.LocalName, "mr", StringComparison.OrdinalIgnoreCase)))
+        {
+            rows.Add(ParseMathMatrixRowElements(rowElement));
+        }
+
+        if (rows.Count == 0)
+        {
+            return ParseMathGroup(element);
+        }
+
+        return new MathMatrix(rows);
+    }
+
+    private static MathElement ParseMathMatrixRow(OpenXmlElement element)
+    {
+        var row = new MathRow();
+        row.Elements.AddRange(ParseMathMatrixRowElements(element));
+        return row;
+    }
+
+    private static List<MathElement> ParseMathMatrixRowElements(OpenXmlElement rowElement)
+    {
+        var cells = new List<MathElement>();
+        foreach (var cellElement in rowElement.Elements().Where(child => string.Equals(child.LocalName, "e", StringComparison.OrdinalIgnoreCase)))
+        {
+            cells.Add(ParseMathGroup(cellElement));
+        }
+
+        if (cells.Count == 0)
+        {
+            cells.Add(ParseMathGroup(rowElement));
+        }
+
+        return cells;
+    }
+
+    private static TextStyleProperties? ExtractMathRunStyleProperties(OpenXmlElement? properties)
+    {
+        if (properties is null)
+        {
+            return null;
+        }
+
+        var style = new TextStyleProperties();
+        foreach (var child in properties.Elements())
+        {
+            if (string.Equals(child.LocalName, "sty", StringComparison.OrdinalIgnoreCase))
+            {
+                var value = GetAttributeValue(child, "val", child.NamespaceUri) ?? GetAttributeValue(child, "val");
+                if (string.IsNullOrWhiteSpace(value))
+                {
+                    continue;
+                }
+
+                switch (value.Trim().ToLowerInvariant())
+                {
+                    case "b":
+                        style.FontWeight = DocFontWeight.Bold;
+                        style.FontStyle = DocFontStyle.Normal;
+                        break;
+                    case "i":
+                        style.FontWeight = DocFontWeight.Normal;
+                        style.FontStyle = DocFontStyle.Italic;
+                        break;
+                    case "bi":
+                        style.FontWeight = DocFontWeight.Bold;
+                        style.FontStyle = DocFontStyle.Italic;
+                        break;
+                    case "p":
+                        style.FontWeight = DocFontWeight.Normal;
+                        style.FontStyle = DocFontStyle.Normal;
+                        break;
+                }
+            }
+            else if (string.Equals(child.LocalName, "nor", StringComparison.OrdinalIgnoreCase))
+            {
+                style.FontWeight = DocFontWeight.Normal;
+                style.FontStyle = DocFontStyle.Normal;
+            }
+        }
+
+        return style.HasValues ? style : null;
+    }
+
+    private static TextStyleProperties? MergeRunStyleProperties(TextStyleProperties? baseStyle, TextStyleProperties? overrides)
+    {
+        if (baseStyle is null)
+        {
+            return overrides?.Clone();
+        }
+
+        if (overrides is null)
+        {
+            return baseStyle;
+        }
+
+        var result = baseStyle.Clone();
+        ApplyRunStyleOverrides(result, overrides);
+        return result;
+    }
+
+    private static void ApplyRunStyleOverrides(TextStyleProperties target, TextStyleProperties overrides)
+    {
+        if (!string.IsNullOrWhiteSpace(overrides.FontFamily))
+        {
+            target.FontFamily = overrides.FontFamily;
+        }
+
+        if (overrides.FontSize.HasValue)
+        {
+            target.FontSize = overrides.FontSize;
+        }
+
+        if (overrides.FontWeight.HasValue)
+        {
+            target.FontWeight = overrides.FontWeight;
+        }
+
+        if (overrides.FontStyle.HasValue)
+        {
+            target.FontStyle = overrides.FontStyle;
+        }
+
+        if (overrides.Color.HasValue)
+        {
+            target.Color = overrides.Color;
+        }
+
+        if (overrides.VerticalPosition.HasValue)
+        {
+            target.VerticalPosition = overrides.VerticalPosition;
+        }
+
+        if (overrides.SmallCaps.HasValue)
+        {
+            target.SmallCaps = overrides.SmallCaps;
+        }
+
+        if (overrides.Underline.HasValue)
+        {
+            target.Underline = overrides.Underline;
+        }
+
+        if (overrides.UnderlineStyle.HasValue)
+        {
+            target.UnderlineStyle = overrides.UnderlineStyle;
+        }
+
+        if (overrides.UnderlineColor.HasValue)
+        {
+            target.UnderlineColor = overrides.UnderlineColor;
+        }
+
+        if (overrides.Strikethrough.HasValue)
+        {
+            target.Strikethrough = overrides.Strikethrough;
+        }
+
+        if (overrides.HighlightColor.HasValue)
+        {
+            target.HighlightColor = overrides.HighlightColor;
+        }
+
+        if (overrides.ThemeFontAscii.HasValue)
+        {
+            target.ThemeFontAscii = overrides.ThemeFontAscii;
+        }
+
+        if (overrides.ThemeFontHighAnsi.HasValue)
+        {
+            target.ThemeFontHighAnsi = overrides.ThemeFontHighAnsi;
+        }
+
+        if (overrides.ThemeFontEastAsia.HasValue)
+        {
+            target.ThemeFontEastAsia = overrides.ThemeFontEastAsia;
+        }
+
+        if (overrides.ThemeFontComplexScript.HasValue)
+        {
+            target.ThemeFontComplexScript = overrides.ThemeFontComplexScript;
+        }
+    }
+
+    private static string CollectMathText(OpenXmlElement element)
+    {
+        var builder = new StringBuilder();
+        foreach (var child in element.Descendants())
+        {
+            if (!string.Equals(child.LocalName, "t", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            builder.Append(child.InnerText);
+        }
+
+        return builder.ToString();
     }
 
     private static string? GetAttributeValue(OpenXmlElement element, string localName, string? namespaceUri = null)
