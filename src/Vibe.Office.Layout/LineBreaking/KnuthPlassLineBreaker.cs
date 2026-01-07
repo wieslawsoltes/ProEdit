@@ -1,3 +1,4 @@
+using System.Buffers;
 using Vibe.Office.Documents;
 
 namespace Vibe.Office.Layout;
@@ -11,6 +12,7 @@ internal static class KnuthPlassLineBreaker
     private const float KnuthPlassFitnessDemerit = 300f;
     private const float KnuthPlassFlaggedDemerit = 100f;
     private static readonly Lazy<Hyphenator> DefaultHyphenator = new Lazy<Hyphenator>(Hyphenator.CreateDefault);
+    private static readonly MathLayoutEngine SharedMathLayoutEngine = new MathLayoutEngine();
 
     private enum LineBreakNodeKind
     {
@@ -75,7 +77,7 @@ internal static class KnuthPlassLineBreaker
         }
     }
 
-    private sealed class LineBreakState
+    private readonly struct LineBreakState
     {
         public int Position { get; }
         public int Line { get; }
@@ -131,10 +133,10 @@ internal static class KnuthPlassLineBreaker
     {
         nodes = new List<LineBreakNode>();
         var hyphenator = DefaultHyphenator.Value;
-        var wordWidthCache = new Dictionary<TextStyleKey, Dictionary<string, float>>();
+        var wordWidthCache = new Dictionary<TextStyleKey, Dictionary<TextSliceKey, float>>();
         var spaceWidthCache = new Dictionary<TextStyleKey, float>();
         var hyphenWidthCache = new Dictionary<TextStyleKey, float>();
-        var mathLayoutEngine = new MathLayoutEngine();
+        var mathLayoutEngine = SharedMathLayoutEngine;
         var atParagraphStart = true;
 
         foreach (var span in spans)
@@ -220,9 +222,9 @@ internal static class KnuthPlassLineBreaker
                     index++;
                 }
 
-                var word = segmentText.Substring(wordStart, index - wordStart);
+                var wordLength = index - wordStart;
                 var wordOffset = segmentStartOffset + wordStart;
-                AddWordNodes(word, wordOffset, span.Style, span.BaselineOffset, measurer, hyphenator, wordWidthCache, hyphenWidthCache, nodes);
+                AddWordNodes(segmentText, wordStart, wordLength, wordOffset, span.Style, span.BaselineOffset, measurer, hyphenator, wordWidthCache, hyphenWidthCache, nodes);
                 atParagraphStart = false;
             }
         }
@@ -232,63 +234,69 @@ internal static class KnuthPlassLineBreaker
     }
 
     private static void AddWordNodes(
-        string word,
+        string source,
+        int start,
+        int length,
         int wordOffset,
         TextStyle style,
         float baselineOffset,
         ITextMeasurer measurer,
         Hyphenator hyphenator,
-        Dictionary<TextStyleKey, Dictionary<string, float>> wordWidthCache,
+        Dictionary<TextStyleKey, Dictionary<TextSliceKey, float>> wordWidthCache,
         Dictionary<TextStyleKey, float> hyphenWidthCache,
         List<LineBreakNode> nodes)
     {
-        if (string.IsNullOrEmpty(word))
+        if (string.IsNullOrEmpty(source) || length <= 0)
         {
             return;
         }
 
-        var hyphenPoints = ShouldHyphenate(word, hyphenator) ? hyphenator.GetHyphenationPoints(word) : Array.Empty<int>();
+        var wordSpan = source.AsSpan(start, length);
+        var hyphenPoints = ShouldHyphenate(wordSpan, hyphenator)
+            ? hyphenator.GetHyphenationPoints(source, start, length)
+            : Array.Empty<int>();
         if (hyphenPoints.Length == 0)
         {
-            var width = MeasureTextCached(word, style, measurer, wordWidthCache);
-            nodes.Add(LineBreakNode.Box(width, wordOffset, word.Length));
+            var width = MeasureTextCached(source, start, length, style, measurer, wordWidthCache);
+            nodes.Add(LineBreakNode.Box(width, wordOffset, length));
             return;
         }
 
         var segmentStart = 0;
         foreach (var point in hyphenPoints)
         {
-            if (point <= segmentStart || point >= word.Length)
+            if (point <= segmentStart || point >= length)
             {
                 continue;
             }
 
-            var segment = word.Substring(segmentStart, point - segmentStart);
-            var segmentWidth = MeasureTextCached(segment, style, measurer, wordWidthCache);
-            nodes.Add(LineBreakNode.Box(segmentWidth, wordOffset + segmentStart, segment.Length));
+            var segmentLength = point - segmentStart;
+            var segmentWidth = MeasureTextCached(source, start + segmentStart, segmentLength, style, measurer, wordWidthCache);
+            nodes.Add(LineBreakNode.Box(segmentWidth, wordOffset + segmentStart, segmentLength));
 
             var hyphenWidth = MeasureHyphenCached(style, measurer, hyphenWidthCache);
             nodes.Add(LineBreakNode.PenaltyNode(hyphenWidth, KnuthPlassHyphenPenalty, true, wordOffset + point, style, baselineOffset));
             segmentStart = point;
         }
 
-        if (segmentStart < word.Length)
+        if (segmentStart < length)
         {
-            var segment = word.Substring(segmentStart);
-            var segmentWidth = MeasureTextCached(segment, style, measurer, wordWidthCache);
-            nodes.Add(LineBreakNode.Box(segmentWidth, wordOffset + segmentStart, segment.Length));
+            var segmentLength = length - segmentStart;
+            var segmentWidth = MeasureTextCached(source, start + segmentStart, segmentLength, style, measurer, wordWidthCache);
+            nodes.Add(LineBreakNode.Box(segmentWidth, wordOffset + segmentStart, segmentLength));
         }
     }
 
-    private static bool ShouldHyphenate(string word, Hyphenator hyphenator)
+    private static bool ShouldHyphenate(ReadOnlySpan<char> word, Hyphenator hyphenator)
     {
         if (word.Length < hyphenator.LeftMin + hyphenator.RightMin + 1)
         {
             return false;
         }
 
-        foreach (var ch in word)
+        for (var i = 0; i < word.Length; i++)
         {
+            var ch = word[i];
             if (!char.IsLetter(ch) || !TextScript.IsLatinChar(ch))
             {
                 return false;
@@ -299,25 +307,31 @@ internal static class KnuthPlassLineBreaker
     }
 
     private static float MeasureTextCached(
-        string text,
+        string source,
+        int start,
+        int length,
         TextStyle style,
         ITextMeasurer measurer,
-        Dictionary<TextStyleKey, Dictionary<string, float>> cache)
+        Dictionary<TextStyleKey, Dictionary<TextSliceKey, float>> cache)
     {
         var key = new TextStyleKey(style);
         if (!cache.TryGetValue(key, out var map))
         {
-            map = new Dictionary<string, float>(StringComparer.Ordinal);
+            map = new Dictionary<TextSliceKey, float>();
             cache[key] = map;
         }
 
-        if (map.TryGetValue(text, out var width))
+        var slice = new TextSliceKey(source, start, length);
+        if (map.TryGetValue(slice, out var width))
         {
             return width;
         }
 
-        width = measurer.MeasureText(text, style).Width;
-        map[text] = width;
+        var span = source.AsSpan(start, length);
+        width = measurer is ITextMeasurerSpan spanMeasurer
+            ? spanMeasurer.MeasureText(span, style).Width
+            : measurer.MeasureText(span.ToString(), style).Width;
+        map[slice] = width;
         return width;
     }
 
@@ -332,7 +346,9 @@ internal static class KnuthPlassLineBreaker
             return width;
         }
 
-        width = measurer.MeasureText("-", style).Width;
+        width = measurer is ITextMeasurerSpan spanMeasurer
+            ? spanMeasurer.MeasureText("-".AsSpan(), style).Width
+            : measurer.MeasureText("-", style).Width;
         cache[key] = width;
         return width;
     }
@@ -349,181 +365,213 @@ internal static class KnuthPlassLineBreaker
             return false;
         }
 
-        var prefixWidth = new float[nodes.Count + 1];
-        var prefixStretch = new float[nodes.Count + 1];
-        var prefixShrink = new float[nodes.Count + 1];
-        for (var i = 0; i < nodes.Count; i++)
-        {
-            var node = nodes[i];
-            prefixWidth[i + 1] = prefixWidth[i] + (node.Kind == LineBreakNodeKind.Penalty ? 0f : node.Width);
-            prefixStretch[i + 1] = prefixStretch[i] + (node.Kind == LineBreakNodeKind.Glue ? node.Stretch : 0f);
-            prefixShrink[i + 1] = prefixShrink[i] + (node.Kind == LineBreakNodeKind.Glue ? node.Shrink : 0f);
-        }
+        var prefixLength = nodes.Count + 1;
+        var pool = ArrayPool<float>.Shared;
+        var prefixWidth = pool.Rent(prefixLength);
+        var prefixStretch = pool.Rent(prefixLength);
+        var prefixShrink = pool.Rent(prefixLength);
 
-        var states = new List<LineBreakState> { new LineBreakState(-1, 0, 0f, 1, false, -1) };
-        var active = new List<int> { 0 };
-
-        for (var breakIndex = 0; breakIndex < nodes.Count; breakIndex++)
+        try
         {
-            var breakNode = nodes[breakIndex];
-            if (!breakNode.IsBreakable)
+            prefixWidth[0] = 0f;
+            prefixStretch[0] = 0f;
+            prefixShrink[0] = 0f;
+            for (var i = 0; i < nodes.Count; i++)
             {
-                continue;
+                var node = nodes[i];
+                prefixWidth[i + 1] = prefixWidth[i] + (node.Kind == LineBreakNodeKind.Penalty ? 0f : node.Width);
+                prefixStretch[i + 1] = prefixStretch[i] + (node.Kind == LineBreakNodeKind.Glue ? node.Stretch : 0f);
+                prefixShrink[i + 1] = prefixShrink[i] + (node.Kind == LineBreakNodeKind.Glue ? node.Shrink : 0f);
             }
 
-            var bestDemerits = new float[4] { float.PositiveInfinity, float.PositiveInfinity, float.PositiveInfinity, float.PositiveInfinity };
-            var bestActive = new int[4] { -1, -1, -1, -1 };
-            var bestFitness = new int[4];
-            var bestFlagged = new bool[4];
-            var toRemove = new bool[active.Count];
+            var states = new List<LineBreakState>(nodes.Count) { new LineBreakState(-1, 0, 0f, 1, false, -1) };
+            var active = new List<int>(Math.Min(nodes.Count, 64)) { 0 };
+            var filteredActive = new List<int>(active.Capacity);
+            var newActive = new List<int>(8);
+            var boolPool = ArrayPool<bool>.Shared;
+            Span<float> bestDemerits = stackalloc float[4];
+            Span<int> bestActive = stackalloc int[4];
+            Span<bool> bestFlagged = stackalloc bool[4];
+            Span<bool> removalStack = stackalloc bool[256];
 
-            for (var activeIndex = 0; activeIndex < active.Count; activeIndex++)
+            for (var breakIndex = 0; breakIndex < nodes.Count; breakIndex++)
             {
-                var stateIndex = active[activeIndex];
-                var state = states[stateIndex];
-                var lineWidth = state.Line == 0 ? firstLineWidth : otherLineWidth;
-                ComputeLineDimensions(nodes, prefixWidth, prefixStretch, prefixShrink, state.Position, breakIndex,
-                    out var width, out var stretch, out var shrink);
-
-                var difference = lineWidth - width;
-                float ratio;
-                if (difference > 0f)
-                {
-                    ratio = stretch > 0f ? difference / stretch : float.PositiveInfinity;
-                }
-                else if (difference < 0f)
-                {
-                    ratio = shrink > 0f ? difference / shrink : float.NegativeInfinity;
-                }
-                else
-                {
-                    ratio = 0f;
-                }
-
-                if (ratio < -1f)
-                {
-                    toRemove[activeIndex] = true;
-                    continue;
-                }
-
-                if (ratio > KnuthPlassTolerance)
+                var breakNode = nodes[breakIndex];
+                if (!breakNode.IsBreakable)
                 {
                     continue;
                 }
 
-                var badness = 100f * MathF.Pow(MathF.Abs(ratio), 3f);
-                var fitness = GetFitnessClass(ratio);
-                var demerits = KnuthPlassLinePenalty + badness;
-                demerits *= demerits;
+                bestDemerits[0] = float.PositiveInfinity;
+                bestDemerits[1] = float.PositiveInfinity;
+                bestDemerits[2] = float.PositiveInfinity;
+                bestDemerits[3] = float.PositiveInfinity;
+                bestActive.Fill(-1);
+                bestFlagged.Clear();
 
-                if (breakNode.Penalty >= 0)
-                {
-                    demerits += breakNode.Penalty * breakNode.Penalty;
-                }
-                else if (breakNode.Penalty > -KnuthPlassInfinitePenalty)
-                {
-                    demerits -= breakNode.Penalty * breakNode.Penalty;
-                }
+                bool[]? toRemoveBuffer = null;
+                var toRemove = active.Count <= removalStack.Length
+                    ? removalStack[..active.Count]
+                    : (toRemoveBuffer = boolPool.Rent(active.Count));
+                toRemove.Clear();
+                var hasRemove = false;
 
-                if (breakNode.IsFlagged && state.IsFlagged)
+                try
                 {
-                    demerits += KnuthPlassFlaggedDemerit;
-                }
-
-                if (Math.Abs(fitness - state.FitnessClass) > 1)
-                {
-                    demerits += KnuthPlassFitnessDemerit;
-                }
-
-                var total = state.Demerits + demerits;
-                if (total < bestDemerits[fitness])
-                {
-                    bestDemerits[fitness] = total;
-                    bestActive[fitness] = stateIndex;
-                    bestFitness[fitness] = fitness;
-                    bestFlagged[fitness] = breakNode.IsFlagged;
-                }
-            }
-
-            var hasRemove = false;
-            for (var i = 0; i < toRemove.Length; i++)
-            {
-                if (toRemove[i])
-                {
-                    hasRemove = true;
-                    break;
-                }
-            }
-
-            if (hasRemove)
-            {
-                var nextActive = new List<int>(active.Count);
-                for (var i = 0; i < active.Count; i++)
-                {
-                    if (!toRemove[i])
+                    for (var activeIndex = 0; activeIndex < active.Count; activeIndex++)
                     {
-                        nextActive.Add(active[i]);
+                        var stateIndex = active[activeIndex];
+                        var state = states[stateIndex];
+                        var lineWidth = state.Line == 0 ? firstLineWidth : otherLineWidth;
+                        ComputeLineDimensions(nodes, prefixWidth, prefixStretch, prefixShrink, state.Position, breakIndex,
+                            out var width, out var stretch, out var shrink);
+
+                        var difference = lineWidth - width;
+                        float ratio;
+                        if (difference > 0f)
+                        {
+                            ratio = stretch > 0f ? difference / stretch : float.PositiveInfinity;
+                        }
+                        else if (difference < 0f)
+                        {
+                            ratio = shrink > 0f ? difference / shrink : float.NegativeInfinity;
+                        }
+                        else
+                        {
+                            ratio = 0f;
+                        }
+
+                        if (ratio < -1f)
+                        {
+                            toRemove[activeIndex] = true;
+                            hasRemove = true;
+                            continue;
+                        }
+
+                        if (ratio > KnuthPlassTolerance)
+                        {
+                            continue;
+                        }
+
+                        var badness = 100f * MathF.Pow(MathF.Abs(ratio), 3f);
+                        var fitness = GetFitnessClass(ratio);
+                        var demerits = KnuthPlassLinePenalty + badness;
+                        demerits *= demerits;
+
+                        if (breakNode.Penalty >= 0)
+                        {
+                            demerits += breakNode.Penalty * breakNode.Penalty;
+                        }
+                        else if (breakNode.Penalty > -KnuthPlassInfinitePenalty)
+                        {
+                            demerits -= breakNode.Penalty * breakNode.Penalty;
+                        }
+
+                        if (breakNode.IsFlagged && state.IsFlagged)
+                        {
+                            demerits += KnuthPlassFlaggedDemerit;
+                        }
+
+                        if (Math.Abs(fitness - state.FitnessClass) > 1)
+                        {
+                            demerits += KnuthPlassFitnessDemerit;
+                        }
+
+                        var total = state.Demerits + demerits;
+                        if (total < bestDemerits[fitness])
+                        {
+                            bestDemerits[fitness] = total;
+                            bestActive[fitness] = stateIndex;
+                            bestFlagged[fitness] = breakNode.IsFlagged;
+                        }
+                    }
+
+                    if (hasRemove)
+                    {
+                        filteredActive.Clear();
+                        for (var i = 0; i < active.Count; i++)
+                        {
+                            if (!toRemove[i])
+                            {
+                                filteredActive.Add(active[i]);
+                            }
+                        }
+
+                        var swap = active;
+                        active = filteredActive;
+                        filteredActive = swap;
+                    }
+
+                    newActive.Clear();
+                    for (var fitness = 0; fitness < bestActive.Length; fitness++)
+                    {
+                        var prevIndex = bestActive[fitness];
+                        if (prevIndex < 0)
+                        {
+                            continue;
+                        }
+
+                        var prevState = states[prevIndex];
+                        var newState = new LineBreakState(breakIndex, prevState.Line + 1, bestDemerits[fitness], fitness, bestFlagged[fitness], prevIndex);
+                        states.Add(newState);
+                        newActive.Add(states.Count - 1);
+                    }
+
+                    if (breakNode.Penalty <= -KnuthPlassInfinitePenalty)
+                    {
+                        active = newActive;
+                        break;
+                    }
+
+                    if (newActive.Count > 0)
+                    {
+                        active.AddRange(newActive);
                     }
                 }
-
-                active = nextActive;
+                finally
+                {
+                    if (toRemoveBuffer is not null)
+                    {
+                        boolPool.Return(toRemoveBuffer);
+                    }
+                }
             }
 
-            var newActive = new List<int>();
-            for (var fitness = 0; fitness < bestActive.Length; fitness++)
+            if (active.Count == 0)
             {
-                var prevIndex = bestActive[fitness];
-                if (prevIndex < 0)
+                return false;
+            }
+
+            var bestFinal = active[0];
+            for (var i = 1; i < active.Count; i++)
+            {
+                if (states[active[i]].Demerits < states[bestFinal].Demerits)
                 {
-                    continue;
+                    bestFinal = active[i];
+                }
+            }
+
+            var current = bestFinal;
+            while (current >= 0)
+            {
+                var state = states[current];
+                if (state.Position >= 0)
+                {
+                    breakpoints.Add(state.Position);
                 }
 
-                var prevState = states[prevIndex];
-                var newState = new LineBreakState(breakIndex, prevState.Line + 1, bestDemerits[fitness], bestFitness[fitness], bestFlagged[fitness], prevIndex);
-                states.Add(newState);
-                newActive.Add(states.Count - 1);
+                current = state.Previous;
             }
 
-            if (breakNode.Penalty <= -KnuthPlassInfinitePenalty)
-            {
-                active = newActive;
-                break;
-            }
-
-            if (newActive.Count > 0)
-            {
-                active.AddRange(newActive);
-            }
+            breakpoints.Reverse();
+            return breakpoints.Count > 0;
         }
-
-        if (active.Count == 0)
+        finally
         {
-            return false;
+            pool.Return(prefixWidth);
+            pool.Return(prefixStretch);
+            pool.Return(prefixShrink);
         }
-
-        var bestFinal = active[0];
-        for (var i = 1; i < active.Count; i++)
-        {
-            if (states[active[i]].Demerits < states[bestFinal].Demerits)
-            {
-                bestFinal = active[i];
-            }
-        }
-
-        var current = bestFinal;
-        while (current >= 0)
-        {
-            var state = states[current];
-            if (state.Position >= 0)
-            {
-                breakpoints.Add(state.Position);
-            }
-
-            current = state.Previous;
-        }
-
-        breakpoints.Reverse();
-        return breakpoints.Count > 0;
     }
 
     private static void ComputeLineDimensions(
@@ -632,7 +680,9 @@ internal static class KnuthPlassLineBreaker
             return width;
         }
 
-        width = measurer.MeasureText(" ", style).Width;
+        width = measurer is ITextMeasurerSpan spanMeasurer
+            ? spanMeasurer.MeasureText(" ".AsSpan(), style).Width
+            : measurer.MeasureText(" ", style).Width;
         cache[key] = width;
         return width;
     }
