@@ -404,7 +404,8 @@ public sealed class DocumentLayouter
                     line.Shapes,
                     line.Charts,
                     line.Equations,
-                    true));
+                    true,
+                    line.IsRtl));
             }
 
             if (currentParagraph >= 0)
@@ -880,34 +881,35 @@ public sealed class DocumentLayouter
                 var lineX = columnX + indentLeft + listIndent + firstLineIndent + prefixWidth;
                 var lineRight = columnX + columnWidth - indentRight;
                 var (emptyLineHeight, emptyAscent) = ApplyLineSpacing(lineHeight, ascent, properties);
+                var emptyIsRtl = ResolveLineIsRtl(properties, TextSlice.Empty);
                 if (cursorY + spacingBefore + emptyLineHeight > contentBottom && cursorY > columnTop)
                 {
                     StartNewColumnOrPage();
                 }
 
                 cursorY += spacingBefore;
-                    if (wrapResolver is not null)
+                if (wrapResolver is not null)
+                {
+                    var adjustedY = ApplyTopBottomWrap(cursorY, emptyLineHeight);
+                    if (adjustedY + emptyLineHeight > contentBottom && cursorY > columnTop)
                     {
-                        var adjustedY = ApplyTopBottomWrap(cursorY, emptyLineHeight);
-                        if (adjustedY + emptyLineHeight > contentBottom && cursorY > columnTop)
-                        {
-                            StartNewColumnOrPage();
-                            adjustedY = ApplyTopBottomWrap(columnTop, emptyLineHeight);
-                        }
-
-                        cursorY = adjustedY;
-                        var wrap = ResolveWrapForLine(ref adjustedY, emptyLineHeight, lineX, lineRight, wrapResolver);
-                        if (adjustedY + emptyLineHeight > contentBottom && cursorY > columnTop)
-                        {
-                            StartNewColumnOrPage();
-                            adjustedY = ApplyTopBottomWrap(columnTop, emptyLineHeight);
-                            wrap = ResolveWrapForLine(ref adjustedY, emptyLineHeight, lineX, lineRight, wrapResolver);
-                        }
-
-                        cursorY = adjustedY;
-                        lineX = wrap.Left;
-                        lineRight = wrap.Right;
+                        StartNewColumnOrPage();
+                        adjustedY = ApplyTopBottomWrap(columnTop, emptyLineHeight);
                     }
+
+                    cursorY = adjustedY;
+                    var wrap = ResolveWrapForLine(ref adjustedY, emptyLineHeight, lineX, lineRight, wrapResolver);
+                    if (adjustedY + emptyLineHeight > contentBottom && cursorY > columnTop)
+                    {
+                        StartNewColumnOrPage();
+                        adjustedY = ApplyTopBottomWrap(columnTop, emptyLineHeight);
+                        wrap = ResolveWrapForLine(ref adjustedY, emptyLineHeight, lineX, lineRight, wrapResolver);
+                    }
+
+                    cursorY = adjustedY;
+                    lineX = wrap.Left;
+                    lineRight = wrap.Right;
+                }
 
                 var alignment = properties.Alignment;
                 if (!alignment.HasValue && properties.Bidi == true)
@@ -916,7 +918,7 @@ public sealed class DocumentLayouter
                 }
 
                 var alignedX = ApplyAlignment(lineX, 0f, MathF.Max(1f, lineRight - lineX), alignment);
-                AddLine(new LayoutLine(paragraphIndex, 0, 0, alignedX, cursorY, 0, TextSlice.Empty, prefix, prefixWidth, emptyLineHeight, emptyAscent, Array.Empty<LayoutRun>(), Array.Empty<LayoutImage>(), Array.Empty<LayoutShape>(), Array.Empty<LayoutChart>(), Array.Empty<LayoutEquation>()));
+                AddLine(new LayoutLine(paragraphIndex, 0, 0, alignedX, cursorY, 0, TextSlice.Empty, prefix, prefixWidth, emptyLineHeight, emptyAscent, Array.Empty<LayoutRun>(), Array.Empty<LayoutImage>(), Array.Empty<LayoutShape>(), Array.Empty<LayoutChart>(), Array.Empty<LayoutEquation>(), false, emptyIsRtl));
                 cursorY += emptyLineHeight;
                 cursorY += spacingAfter;
                 return new LineRange(paragraphLineStart, lines.Count - paragraphLineStart);
@@ -1039,23 +1041,26 @@ public sealed class DocumentLayouter
                     }
 
                     var alignedX = ApplyAlignment(lineLeft, lineLayout.Width, availableWidth, alignment);
+                    var isRtl = ResolveLineIsRtl(properties, line.TextSlice);
                     AddLine(new LayoutLine(
                         paragraphIndex,
-                    line.Start,
-                    line.Length,
-                    alignedX,
-                    currentY,
-                    lineLayout.Width,
-                    line.TextSlice,
-                    line.IsFirstLine ? prefix : null,
-                    line.IsFirstLine ? prefixWidth : 0f,
-                    lineLayout.LineHeight,
-                    lineLayout.Ascent,
-                    lineLayout.Runs,
+                        line.Start,
+                        line.Length,
+                        alignedX,
+                        currentY,
+                        lineLayout.Width,
+                        line.TextSlice,
+                        line.IsFirstLine ? prefix : null,
+                        line.IsFirstLine ? prefixWidth : 0f,
+                        lineLayout.LineHeight,
+                        lineLayout.Ascent,
+                        lineLayout.Runs,
                         lineLayout.Images,
                         lineLayout.Shapes,
                         lineLayout.Charts,
-                        lineLayout.Equations));
+                        lineLayout.Equations,
+                        false,
+                        isRtl));
                     cursorY = currentY + lineLayout.LineHeight;
                 }
 
@@ -2616,7 +2621,8 @@ public sealed class DocumentLayouter
                     line.Images,
                     line.Shapes,
                     line.Charts,
-                    line.Equations));
+                    line.Equations,
+                    line.IsRtl));
             }
 
             cellLayouts.Add(new TableCellLayout(
@@ -2725,6 +2731,7 @@ public sealed class DocumentLayouter
             {
                 var lineX = indentLeft + listIndent + firstLineIndent + prefixWidth;
                 var (emptyLineHeight, emptyAscent) = ApplyLineSpacing(lineHeight, ascent, properties);
+                var emptyIsRtl = ResolveLineIsRtl(properties, TextSlice.Empty);
                 lines.Add(new TableCellLine(
                     currentParagraphIndex,
                     0,
@@ -2741,7 +2748,8 @@ public sealed class DocumentLayouter
                     Array.Empty<LayoutImage>(),
                     Array.Empty<LayoutShape>(),
                     Array.Empty<LayoutChart>(),
-                    Array.Empty<LayoutEquation>()));
+                    Array.Empty<LayoutEquation>(),
+                    emptyIsRtl));
                 y += emptyLineHeight;
                 y += spacingAfter;
                 paragraphIndex++;
@@ -2783,6 +2791,8 @@ public sealed class DocumentLayouter
                 }
 
                 var alignedX = ApplyAlignment(lineBaseX, lineLayout.Width, alignWidth, alignment);
+                var lineSlice = new TextSlice(text, line.Start, line.Length);
+                var isRtl = ResolveLineIsRtl(properties, lineSlice);
                 lines.Add(new TableCellLine(
                     currentParagraphIndex,
                     line.Start,
@@ -2790,7 +2800,7 @@ public sealed class DocumentLayouter
                     alignedX,
                     y,
                     lineLayout.Width,
-                    new TextSlice(text, line.Start, line.Length),
+                    lineSlice,
                     isFirstLine ? prefix : null,
                     isFirstLine ? prefixWidth : 0f,
                     lineLayout.LineHeight,
@@ -2799,7 +2809,8 @@ public sealed class DocumentLayouter
                     lineLayout.Images,
                     lineLayout.Shapes,
                     lineLayout.Charts,
-                    lineLayout.Equations));
+                    lineLayout.Equations,
+                    isRtl));
                 y += lineLayout.LineHeight;
                 isFirstLine = false;
             }
@@ -3263,11 +3274,19 @@ public sealed class DocumentLayouter
         {
             baselineOffset = style.FontSize * SuperscriptOffsetRatio;
             effective.FontSize = MathF.Max(1f, style.FontSize * SuperscriptScale);
+            if (style.FontSizeComplexScript.HasValue)
+            {
+                effective.FontSizeComplexScript = MathF.Max(1f, style.FontSizeComplexScript.Value * SuperscriptScale);
+            }
         }
         else if (style.VerticalPosition == DocVerticalPosition.Subscript)
         {
             baselineOffset = -style.FontSize * SubscriptOffsetRatio;
             effective.FontSize = MathF.Max(1f, style.FontSize * SubscriptScale);
+            if (style.FontSizeComplexScript.HasValue)
+            {
+                effective.FontSizeComplexScript = MathF.Max(1f, style.FontSizeComplexScript.Value * SubscriptScale);
+            }
         }
 
         effective.VerticalPosition = DocVerticalPosition.Normal;
@@ -3302,6 +3321,11 @@ public sealed class DocumentLayouter
         return "Content Control";
     }
 
+    private static bool ResolveLineIsRtl(ParagraphProperties properties, TextSlice textSlice)
+    {
+        return TextBidi.ResolveBaseIsRtl(textSlice.Span, properties.Bidi);
+    }
+
     private static void AppendTextSpans(
         System.Text.StringBuilder builder,
         List<InlineSpan> spans,
@@ -3314,6 +3338,143 @@ public sealed class DocumentLayouter
             return;
         }
 
+        if (RequiresScriptSegmentation(style))
+        {
+            AppendScriptSpans(builder, spans, text, style, baselineOffset);
+            return;
+        }
+
+        AppendSegmentSpan(builder, spans, text, style, baselineOffset);
+    }
+
+    private static bool RequiresScriptSegmentation(TextStyle style)
+    {
+        return !string.IsNullOrWhiteSpace(style.FontFamilyAscii)
+               || !string.IsNullOrWhiteSpace(style.FontFamilyHighAnsi)
+               || !string.IsNullOrWhiteSpace(style.FontFamilyEastAsia)
+               || !string.IsNullOrWhiteSpace(style.FontFamilyComplexScript)
+               || style.FontSizeComplexScript.HasValue
+               || !string.IsNullOrWhiteSpace(style.LanguageEastAsia)
+               || !string.IsNullOrWhiteSpace(style.LanguageBidi);
+    }
+
+    private static void AppendScriptSpans(
+        System.Text.StringBuilder builder,
+        List<InlineSpan> spans,
+        string text,
+        TextStyle style,
+        float baselineOffset)
+    {
+        var index = 0;
+        var segmentStart = 0;
+        var currentScript = TextScriptKind.Neutral;
+        var lastStrong = TextScriptKind.Latin;
+
+        while (index < text.Length)
+        {
+            if (!System.Text.Rune.TryDecodeFromUtf16(text.AsSpan(index), out var rune, out var consumed))
+            {
+                rune = new System.Text.Rune(text[index]);
+                consumed = 1;
+            }
+
+            var script = TextScript.ClassifyRune(rune);
+            if (script == TextScriptKind.Neutral)
+            {
+                script = lastStrong;
+            }
+            else
+            {
+                lastStrong = script;
+            }
+
+            if (currentScript == TextScriptKind.Neutral)
+            {
+                currentScript = script;
+                segmentStart = index;
+            }
+            else if (script != currentScript)
+            {
+                AppendScriptSegment(builder, spans, text, segmentStart, index - segmentStart, style, currentScript, baselineOffset);
+                currentScript = script;
+                segmentStart = index;
+            }
+
+            index += consumed;
+        }
+
+        if (segmentStart < text.Length)
+        {
+            AppendScriptSegment(builder, spans, text, segmentStart, text.Length - segmentStart, style, currentScript, baselineOffset);
+        }
+    }
+
+    private static void AppendScriptSegment(
+        System.Text.StringBuilder builder,
+        List<InlineSpan> spans,
+        string text,
+        int start,
+        int length,
+        TextStyle style,
+        TextScriptKind script,
+        float baselineOffset)
+    {
+        if (length <= 0)
+        {
+            return;
+        }
+
+        var segmentText = text.Substring(start, length);
+        var segmentStyle = ResolveScriptStyle(style, script);
+        AppendSegmentSpan(builder, spans, segmentText, segmentStyle, baselineOffset);
+    }
+
+    private static TextStyle ResolveScriptStyle(TextStyle style, TextScriptKind script)
+    {
+        var family = style.FontFamily;
+        var size = style.FontSize;
+        var language = style.Language;
+
+        switch (script)
+        {
+            case TextScriptKind.EastAsian:
+                family = style.FontFamilyEastAsia ?? family;
+                language = style.LanguageEastAsia ?? language;
+                break;
+            case TextScriptKind.Complex:
+                family = style.FontFamilyComplexScript ?? family;
+                if (style.FontSizeComplexScript.HasValue && style.FontSizeComplexScript.Value > 0)
+                {
+                    size = style.FontSizeComplexScript.Value;
+                }
+                language = style.LanguageBidi ?? language;
+                break;
+            case TextScriptKind.Latin:
+                family = style.FontFamilyAscii ?? style.FontFamilyHighAnsi ?? family;
+                break;
+        }
+
+        if (string.Equals(family, style.FontFamily, StringComparison.Ordinal)
+            && size.Equals(style.FontSize)
+            && string.Equals(language, style.Language, StringComparison.Ordinal))
+        {
+            return style;
+        }
+
+        var resolved = style.Clone();
+        resolved.FontFamily = family;
+        resolved.FontSize = size;
+        resolved.Language = language;
+        return resolved;
+    }
+
+    private static void AppendSegmentSpan(
+        System.Text.StringBuilder builder,
+        List<InlineSpan> spans,
+        string text,
+        TextStyle style,
+        float baselineOffset)
+    {
         if (!style.SmallCaps)
         {
             var start = builder.Length;
@@ -3523,7 +3684,8 @@ public sealed class DocumentLayouter
             {
                 var lineX = indentLeft + listIndent + firstLineIndent + prefixWidth;
                 var (emptyLineHeight, emptyAscent) = ApplyLineSpacing(lineHeight, ascent, properties);
-                lines.Add(new HeaderFooterLine(lineX, y, 0f, TextSlice.Empty, prefix, prefixWidth, emptyLineHeight, emptyAscent, Array.Empty<LayoutRun>(), Array.Empty<LayoutImage>(), Array.Empty<LayoutShape>(), Array.Empty<LayoutChart>(), Array.Empty<LayoutEquation>()));
+                var emptyIsRtl = ResolveLineIsRtl(properties, TextSlice.Empty);
+                lines.Add(new HeaderFooterLine(lineX, y, 0f, TextSlice.Empty, prefix, prefixWidth, emptyLineHeight, emptyAscent, Array.Empty<LayoutRun>(), Array.Empty<LayoutImage>(), Array.Empty<LayoutShape>(), Array.Empty<LayoutChart>(), Array.Empty<LayoutEquation>(), emptyIsRtl));
                 y += emptyLineHeight;
                 y += spacingAfter;
                 continue;
@@ -3564,11 +3726,13 @@ public sealed class DocumentLayouter
                 }
 
                 var alignedX = ApplyAlignment(lineBaseX, lineLayout.Width, alignWidth, alignment);
+                var lineSlice = new TextSlice(text, line.Start, line.Length);
+                var isRtl = ResolveLineIsRtl(properties, lineSlice);
                 lines.Add(new HeaderFooterLine(
                     alignedX,
                     y,
                     lineLayout.Width,
-                    new TextSlice(text, line.Start, line.Length),
+                    lineSlice,
                     isFirstLine ? prefix : null,
                     isFirstLine ? prefixWidth : 0f,
                     lineLayout.LineHeight,
@@ -3577,7 +3741,8 @@ public sealed class DocumentLayouter
                     lineLayout.Images,
                     lineLayout.Shapes,
                     lineLayout.Charts,
-                    lineLayout.Equations));
+                    lineLayout.Equations,
+                    isRtl));
                 y += lineLayout.LineHeight;
                 isFirstLine = false;
             }

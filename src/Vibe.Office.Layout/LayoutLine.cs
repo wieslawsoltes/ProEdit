@@ -17,7 +17,8 @@ public sealed record LayoutLine(
     IReadOnlyList<LayoutShape> Shapes,
     IReadOnlyList<LayoutChart> Charts,
     IReadOnlyList<LayoutEquation> Equations,
-    bool IsInTable = false)
+    bool IsInTable = false,
+    bool IsRtl = false)
 {
     private string? _text;
 

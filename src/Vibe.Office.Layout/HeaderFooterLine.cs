@@ -13,7 +13,8 @@ public sealed record HeaderFooterLine(
     IReadOnlyList<LayoutImage> Images,
     IReadOnlyList<LayoutShape> Shapes,
     IReadOnlyList<LayoutChart> Charts,
-    IReadOnlyList<LayoutEquation> Equations)
+    IReadOnlyList<LayoutEquation> Equations,
+    bool IsRtl = false)
 {
     private string? _text;
 
