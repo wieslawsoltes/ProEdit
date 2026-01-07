@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Reflection;
 
 namespace Vibe.Office.Layout;
@@ -5,7 +6,7 @@ namespace Vibe.Office.Layout;
 internal sealed class Hyphenator
 {
     private readonly HyphenationPatternTrie _trie;
-    private readonly Dictionary<string, int[]> _cache = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<TextSliceKeyIgnoreCase, int[]> _cache = new();
 
     public int LeftMin { get; }
     public int RightMin { get; }
@@ -24,14 +25,64 @@ internal sealed class Hyphenator
             return Array.Empty<int>();
         }
 
-        if (_cache.TryGetValue(word, out var cached))
+        return GetHyphenationPoints(word, 0, word.Length);
+    }
+
+    public int[] GetHyphenationPoints(string source, int start, int length)
+    {
+        if (string.IsNullOrEmpty(source) || length <= 0)
+        {
+            return Array.Empty<int>();
+        }
+
+        if ((uint)start >= (uint)source.Length || start + length > source.Length)
+        {
+            return Array.Empty<int>();
+        }
+
+        var span = source.AsSpan(start, length);
+        if (IsWhiteSpace(span))
+        {
+            return Array.Empty<int>();
+        }
+
+        var key = new TextSliceKeyIgnoreCase(source, start, length);
+        if (_cache.TryGetValue(key, out var cached))
         {
             return cached;
         }
 
-        var points = _trie.GetHyphenationPoints(word, LeftMin, RightMin);
-        _cache[word] = points;
+        var points = _trie.GetHyphenationPoints(span, LeftMin, RightMin);
+        _cache[key] = points;
         return points;
+    }
+
+    public int[] GetHyphenationPoints(ReadOnlySpan<char> word)
+    {
+        if (IsWhiteSpace(word))
+        {
+            return Array.Empty<int>();
+        }
+
+        return _trie.GetHyphenationPoints(word, LeftMin, RightMin);
+    }
+
+    private static bool IsWhiteSpace(ReadOnlySpan<char> span)
+    {
+        if (span.Length == 0)
+        {
+            return true;
+        }
+
+        for (var i = 0; i < span.Length; i++)
+        {
+            if (!char.IsWhiteSpace(span[i]))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     public static Hyphenator CreateDefault()
@@ -58,63 +109,101 @@ internal sealed class HyphenationPatternTrie
             return Array.Empty<int>();
         }
 
-        var normalized = word.ToLowerInvariant();
-        var extended = "." + normalized + ".";
-        var scores = new int[normalized.Length + 1];
+        return GetHyphenationPoints(word.AsSpan(), leftMin, rightMin);
+    }
 
-        for (var i = 0; i < extended.Length; i++)
+    public int[] GetHyphenationPoints(ReadOnlySpan<char> word, int leftMin, int rightMin)
+    {
+        if (word.IsEmpty)
         {
-            var node = _root;
-            for (var j = i; j < extended.Length; j++)
+            return Array.Empty<int>();
+        }
+
+        var normalizedLength = word.Length;
+        var normalizedBuffer = ArrayPool<char>.Shared.Rent(normalizedLength);
+        var scoresLength = normalizedLength + 1;
+        var scores = ArrayPool<int>.Shared.Rent(scoresLength);
+
+        try
+        {
+            for (var i = 0; i < normalizedLength; i++)
             {
-                var ch = extended[j];
-                if (!node.Children.TryGetValue(ch, out var next))
-                {
-                    break;
-                }
+                normalizedBuffer[i] = char.ToLowerInvariant(word[i]);
+            }
 
-                node = next;
-                if (node.Values is not null)
+            Array.Clear(scores, 0, scoresLength);
+            var normalized = normalizedBuffer.AsSpan(0, normalizedLength);
+            var extendedLength = normalizedLength + 2;
+
+            for (var i = 0; i < extendedLength; i++)
+            {
+                var node = _root;
+                for (var j = i; j < extendedLength; j++)
                 {
-                    for (var k = 0; k < node.Values.Length; k++)
+                    var ch = GetExtendedChar(normalized, normalizedLength, j);
+                    if (!node.Children.TryGetValue(ch, out var next))
                     {
-                        var index = i + k - 1;
-                        if (index < 0 || index >= scores.Length)
-                        {
-                            continue;
-                        }
+                        break;
+                    }
 
-                        var value = node.Values[k];
-                        if (value > scores[index])
+                    node = next;
+                    if (node.Values is not null)
+                    {
+                        for (var k = 0; k < node.Values.Length; k++)
                         {
-                            scores[index] = value;
+                            var index = i + k - 1;
+                            if (index < 0 || index >= scoresLength)
+                            {
+                                continue;
+                            }
+
+                            var value = node.Values[k];
+                            if (value > scores[index])
+                            {
+                                scores[index] = value;
+                            }
                         }
                     }
                 }
             }
-        }
 
-        if (leftMin < 0)
-        {
-            leftMin = 0;
-        }
-
-        if (rightMin < 0)
-        {
-            rightMin = 0;
-        }
-
-        var maxIndex = normalized.Length - rightMin;
-        var points = new List<int>();
-        for (var i = leftMin; i <= maxIndex; i++)
-        {
-            if ((scores[i] & 1) == 1)
+            if (leftMin < 0)
             {
-                points.Add(i);
+                leftMin = 0;
             }
+
+            if (rightMin < 0)
+            {
+                rightMin = 0;
+            }
+
+            var maxIndex = normalizedLength - rightMin;
+            var points = new List<int>();
+            for (var i = leftMin; i <= maxIndex; i++)
+            {
+                if ((scores[i] & 1) == 1)
+                {
+                    points.Add(i);
+                }
+            }
+
+            return points.Count == 0 ? Array.Empty<int>() : points.ToArray();
+        }
+        finally
+        {
+            ArrayPool<char>.Shared.Return(normalizedBuffer);
+            ArrayPool<int>.Shared.Return(scores);
+        }
+    }
+
+    private static char GetExtendedChar(ReadOnlySpan<char> normalized, int normalizedLength, int index)
+    {
+        if (index <= 0 || index > normalizedLength)
+        {
+            return '.';
         }
 
-        return points.Count == 0 ? Array.Empty<int>() : points.ToArray();
+        return normalized[index - 1];
     }
 
     public static HyphenationPatternTrie Build(IEnumerable<string> patterns)
