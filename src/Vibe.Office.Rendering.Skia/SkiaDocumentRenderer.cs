@@ -37,7 +37,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
         var canShapeText = options.UseHarfBuzz;
         var fallbackResolver = TypefaceResolver as ISkiaTypefaceFallbackResolver;
 
-        SKPaint GetPaint(TextStyle runStyle)
+        SKPaint GetRunPaint(TextStyle runStyle)
         {
             var key = new TextStyleKey(runStyle);
             if (paintCache.TryGetValue(key, out var cached))
@@ -51,9 +51,9 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             return paint;
         }
 
-        SKPaint GetPaint(TextStyle runStyle, SKTypeface typeface)
+        SKPaint GetTypefacePaint(TextStyle runStyle, SKTypeface typeface)
         {
-            var basePaint = GetPaint(runStyle);
+            var basePaint = GetRunPaint(runStyle);
             if (ReferenceEquals(basePaint.Typeface, typeface))
             {
                 return basePaint;
@@ -90,7 +90,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             typefaceShaperCache.Clear();
         }
 
-        SKShaper? GetShaper(TextStyle runStyle)
+        SKShaper? GetRunShaper(TextStyle runStyle)
         {
             if (!canShapeText)
             {
@@ -105,7 +105,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
 
             try
             {
-                var paint = GetPaint(runStyle);
+                var paint = GetRunPaint(runStyle);
                 var typeface = paint.Typeface ?? SKTypeface.Default;
                 var shaper = new SKShaper(typeface);
                 shaperCache[key] = shaper;
@@ -118,7 +118,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             }
         }
 
-        SKShaper? GetShaper(SKTypeface typeface)
+        SKShaper? GetTypefaceShaper(SKTypeface typeface)
         {
             if (!canShapeText)
             {
@@ -167,12 +167,12 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                 }
             }
 
-            var paint = GetPaint(runStyle);
+            var paint = GetRunPaint(runStyle);
             var textSpan = text.AsSpan();
             var needsFallback = fallbackResolver is not null && !paint.ContainsGlyphs(text);
             if (!needsFallback)
             {
-                var shaper = GetShaper(runStyle);
+                var shaper = GetRunShaper(runStyle);
                 if (shaper is not null)
                 {
                     try
@@ -202,10 +202,10 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             foreach (var segment in segments)
             {
                 var segmentSpan = textSpan.Slice(segment.Start, segment.Length);
-                var segmentPaint = GetPaint(runStyle, segment.Typeface);
+                var segmentPaint = GetTypefacePaint(runStyle, segment.Typeface);
                 if (canShapeText)
                 {
-                    var shaper = GetShaper(segment.Typeface);
+                    var shaper = GetTypefaceShaper(segment.Typeface);
                     if (shaper is not null)
                     {
                         try
@@ -507,7 +507,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                 var lineWidth = segments.Count > 0 ? segments[^1].X + segments[^1].Width : 0f;
                 var prefixX = baseRtl ? lineX + lineWidth : lineX - prefixWidth;
                 var prefixBaseline = lineY + lineAscent;
-                var prefixShaper = GetShaper(style);
+                var prefixShaper = GetRunShaper(style);
                 if (prefixShaper is null)
                 {
                     targetCanvas.DrawText(prefix, prefixX, prefixBaseline, defaultPaint);
@@ -534,7 +534,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
 
                         if (leaderChar != '\0')
                         {
-                            var paint = GetPaint(run.Style);
+                            var paint = GetRunPaint(run.Style);
                             var glyphWidth = MeasureChar(paint, leaderChar);
                             if (glyphWidth > 0f)
                             {
@@ -562,7 +562,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                     }
 
                     var runBaseline = baseline - run.BaselineOffset;
-                    var runPaint = GetPaint(run.Style);
+                    var runPaint = GetRunPaint(run.Style);
                     var segmentText = run.Text.Substring(segment.RunStart, segment.Length);
                     var segmentSpan = segmentText.AsSpan();
                     var segmentX = lineX + segment.X;
@@ -576,7 +576,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                         || fallbackSegments.Count == 0
                         || (fallbackSegments.Count == 1 && ReferenceEquals(fallbackSegments[0].Typeface, baseTypeface)))
                     {
-                        var shaper = GetShaper(run.Style);
+                        var shaper = GetRunShaper(run.Style);
                         if (run.LetterSpacing == 0f)
                         {
                             if (shaper is null)
@@ -602,8 +602,8 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                         foreach (var fallbackSegment in fallbackSegments)
                         {
                             var fallbackText = segmentSpan.Slice(fallbackSegment.Start, fallbackSegment.Length).ToString();
-                            var fallbackPaint = GetPaint(run.Style, fallbackSegment.Typeface);
-                            var fallbackShaper = GetShaper(fallbackSegment.Typeface);
+                            var fallbackPaint = GetTypefacePaint(run.Style, fallbackSegment.Typeface);
+                            var fallbackShaper = GetTypefaceShaper(fallbackSegment.Typeface);
                             var localX = segmentMetrics.GetWidth(fallbackSegment.Start) * scale;
                             var fallbackX = segment.IsRtl ? drawX - localX : drawX + localX;
 
@@ -644,7 +644,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                 }
                 else if (segment.Equation is not null)
                 {
-                    DrawEquation(targetCanvas, segment.Equation with { X = segment.X }, lineX, baseline, GetPaint, GetShaper);
+                    DrawEquation(targetCanvas, segment.Equation with { X = segment.X }, lineX, baseline, GetRunPaint, GetRunShaper);
                 }
             }
         }
