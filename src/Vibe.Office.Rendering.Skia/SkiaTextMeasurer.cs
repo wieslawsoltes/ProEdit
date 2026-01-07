@@ -9,14 +9,27 @@ namespace Vibe.Office.Rendering.Skia;
 
 public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
 {
-    private bool _disableShaping;
     private bool _useHarfBuzz = true;
+    private readonly HashSet<SKTypeface> _failedTypefaces = new();
     public ISkiaTypefaceResolver? TypefaceResolver { get; set; }
+    private static readonly TextShapeInfo EmptyShapeInfo = new TextShapeInfo(0, Array.Empty<int>(), Array.Empty<float>());
 
     public bool UseHarfBuzz
     {
         get => _useHarfBuzz;
-        set => _useHarfBuzz = value;
+        set
+        {
+            if (_useHarfBuzz == value)
+            {
+                return;
+            }
+
+            _useHarfBuzz = value;
+            if (value)
+            {
+                _failedTypefaces.Clear();
+            }
+        }
     }
 
     public TextMetrics MeasureText(string text, TextStyle style)
@@ -31,31 +44,36 @@ public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
 
         using var paint = CreatePaint(style, TypefaceResolver);
         var fallbackResolver = TypefaceResolver as ISkiaTypefaceFallbackResolver;
+        var baseTypeface = paint.Typeface ?? SKTypeface.Default;
         var width = 0f;
-        if (text.Length > 0 && _useHarfBuzz && !_disableShaping)
+        if (text.Length > 0 && CanShape(baseTypeface))
         {
             var needsFallback = fallbackResolver is not null && !paint.ContainsGlyphs(text);
             if (needsFallback)
             {
-                width = MeasureTextWithFallback(text, style, paint, fallbackResolver!, useShaper: true);
+                width = MeasureTextWithFallback(text, style, paint, fallbackResolver!, useShaper: _useHarfBuzz);
             }
             else
             {
                 try
                 {
-                    using var shaper = new SKShaper(paint.Typeface ?? SKTypeface.Default);
+                    using var shaper = new SKShaper(baseTypeface);
                     using var buffer = CreateBuffer(text, style);
                     var result = shaper.Shape(buffer, paint);
                     width = MathF.Abs(result.Width);
-                    if (float.IsNaN(width) || float.IsInfinity(width) || width <= 0f)
+                    if (float.IsNaN(width) || float.IsInfinity(width))
                     {
-                        _disableShaping = true;
+                        MarkShaperFailed(baseTypeface);
+                        width = paint.MeasureText(text);
+                    }
+                    else if (width <= 0f)
+                    {
                         width = paint.MeasureText(text);
                     }
                 }
                 catch
                 {
-                    _disableShaping = true;
+                    MarkShaperFailed(baseTypeface);
                     width = paint.MeasureText(text);
                 }
             }
@@ -64,7 +82,7 @@ public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
         {
             var needsFallback = fallbackResolver is not null && !paint.ContainsGlyphs(text);
             width = needsFallback
-                ? MeasureTextWithFallback(text, style, paint, fallbackResolver!, useShaper: false)
+                ? MeasureTextWithFallback(text, style, paint, fallbackResolver!, useShaper: _useHarfBuzz)
                 : paint.MeasureText(text);
         }
 
@@ -97,20 +115,21 @@ public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
 
         using var paint = CreatePaint(style, TypefaceResolver);
         var fallbackResolver = TypefaceResolver as ISkiaTypefaceFallbackResolver;
+        var baseTypeface = paint.Typeface ?? SKTypeface.Default;
         var needsFallback = fallbackResolver is not null && !paint.ContainsGlyphs(text);
-        if (!needsFallback && _useHarfBuzz && !_disableShaping)
+        if (!needsFallback && CanShape(baseTypeface))
         {
             if (TryShapeTextSegment(text, style, paint, out var shaped))
             {
                 return shaped;
             }
 
-            _disableShaping = true;
+            MarkShaperFailed(baseTypeface);
         }
 
         if (needsFallback)
         {
-            return ShapeTextWithFallback(text, style, paint, fallbackResolver!, _useHarfBuzz && !_disableShaping);
+            return ShapeTextWithFallback(text, style, paint, fallbackResolver!, _useHarfBuzz);
         }
 
         return BuildSimpleShapeInfo(text, paint);
@@ -135,11 +154,11 @@ public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
                 var segmentSpan = text.Slice(segment.Start, segment.Length);
                 var paint = GetDerivedPaint(basePaint, segment.Typeface, paintCache);
 
-                if (useShaper && !_disableShaping)
+                if (useShaper)
                 {
                     try
                     {
-                        var shaper = GetShaper(segment.Typeface, shaperCache!);
+                        var shaper = TryGetShaper(segment.Typeface, shaperCache!);
                         if (shaper is not null)
                         {
                             using var buffer = CreateBuffer(segmentSpan, style);
@@ -150,11 +169,13 @@ public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
                                 width += segmentWidth;
                                 continue;
                             }
+
+                            MarkShaperFailed(segment.Typeface);
                         }
                     }
                     catch
                     {
-                        _disableShaping = true;
+                        MarkShaperFailed(segment.Typeface);
                     }
                 }
 
@@ -201,20 +222,25 @@ public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
                 var paint = GetDerivedPaint(basePaint, segment.Typeface, paintCache);
 
                 TextShapeInfo segmentShape;
-                if (useShaper && !_disableShaping)
+                if (useShaper)
                 {
                     try
                     {
-                        var shaper = GetShaper(segment.Typeface, shaperCache!);
-                        if (shaper is not null && TryShapeTextSegment(segmentSpan, style, paint, shaper, out segmentShape))
+                        var shaper = TryGetShaper(segment.Typeface, shaperCache!);
+                        if (shaper is not null)
                         {
-                            AppendShapeInfo(segmentShape, segment.Start, offsets, advances);
-                            continue;
+                            if (TryShapeTextSegment(segmentSpan, style, paint, shaper, out segmentShape))
+                            {
+                                AppendShapeInfo(segmentShape, segment.Start, offsets, advances);
+                                continue;
+                            }
+
+                            MarkShaperFailed(segment.Typeface);
                         }
                     }
                     catch
                     {
-                        _disableShaping = true;
+                        MarkShaperFailed(segment.Typeface);
                     }
                 }
 
@@ -260,7 +286,7 @@ public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
 
     internal static bool TryShapeTextSegment(ReadOnlySpan<char> text, TextStyle style, SKPaint paint, out TextShapeInfo shape)
     {
-        shape = default;
+        shape = EmptyShapeInfo;
         try
         {
             using var shaper = new SKShaper(paint.Typeface ?? SKTypeface.Default);
@@ -274,7 +300,7 @@ public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
 
     internal static bool TryShapeTextSegment(ReadOnlySpan<char> text, TextStyle style, SKPaint paint, SKShaper shaper, out TextShapeInfo shape)
     {
-        shape = default;
+        shape = EmptyShapeInfo;
         using var buffer = CreateBuffer(text, style);
         var result = shaper.Shape(buffer, paint);
         var shaped = BuildShapeInfo(text.Length, result);
@@ -364,97 +390,7 @@ public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
 
     private static int GetNextClusterLength(ReadOnlySpan<char> text, int start)
     {
-        if ((uint)start >= (uint)text.Length)
-        {
-            return 0;
-        }
-
-        if (!Utf16Decoder.TryDecodeFromUtf16(text[start..], out var rune, out var consumed))
-        {
-            rune = new Rune(text[start]);
-            consumed = 1;
-        }
-
-        var index = start + consumed;
-        var pendingJoiner = false;
-        var lastWasRegionalIndicator = IsRegionalIndicator(rune);
-
-        while (index < text.Length)
-        {
-            if (!Utf16Decoder.TryDecodeFromUtf16(text[index..], out var nextRune, out var nextConsumed))
-            {
-                nextRune = new Rune(text[index]);
-                nextConsumed = 1;
-            }
-
-            if (pendingJoiner)
-            {
-                index += nextConsumed;
-                pendingJoiner = false;
-                lastWasRegionalIndicator = IsRegionalIndicator(nextRune);
-                continue;
-            }
-
-            if (IsZeroWidthJoiner(nextRune))
-            {
-                index += nextConsumed;
-                pendingJoiner = true;
-                lastWasRegionalIndicator = false;
-                continue;
-            }
-
-            if (IsCombiningMark(nextRune) || IsVariationSelector(nextRune) || IsEmojiModifier(nextRune) || IsEmojiTag(nextRune))
-            {
-                index += nextConsumed;
-                continue;
-            }
-
-            if (IsRegionalIndicator(nextRune) && lastWasRegionalIndicator)
-            {
-                index += nextConsumed;
-                lastWasRegionalIndicator = false;
-                continue;
-            }
-
-            break;
-        }
-
-        return Math.Max(1, index - start);
-    }
-
-    private static bool IsCombiningMark(Rune rune)
-    {
-        var category = Rune.GetUnicodeCategory(rune);
-        return category == UnicodeCategory.NonSpacingMark
-               || category == UnicodeCategory.SpacingCombiningMark
-               || category == UnicodeCategory.EnclosingMark;
-    }
-
-    private static bool IsVariationSelector(Rune rune)
-    {
-        var code = rune.Value;
-        return (code >= 0xFE00 && code <= 0xFE0F)
-               || (code >= 0xE0100 && code <= 0xE01EF);
-    }
-
-    private static bool IsEmojiModifier(Rune rune)
-    {
-        var code = rune.Value;
-        return code >= 0x1F3FB && code <= 0x1F3FF;
-    }
-
-    private static bool IsZeroWidthJoiner(Rune rune) => rune.Value == 0x200D;
-
-    private static bool IsRegionalIndicator(Rune rune)
-    {
-        var code = rune.Value;
-        return code >= 0x1F1E6 && code <= 0x1F1FF;
-    }
-
-    private static bool IsEmojiTag(Rune rune)
-    {
-        var code = rune.Value;
-        return code >= 0xE0020 && code <= 0xE007F;
+        return TextCluster.GetNextClusterLength(text, start);
     }
 
     private static SKPaint GetDerivedPaint(SKPaint basePaint, SKTypeface typeface, Dictionary<SKTypeface, SKPaint> cache)
@@ -490,16 +426,29 @@ public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
         };
     }
 
-    private static SKShaper? GetShaper(SKTypeface typeface, Dictionary<SKTypeface, SKShaper> cache)
+    private SKShaper? TryGetShaper(SKTypeface typeface, Dictionary<SKTypeface, SKShaper> cache)
     {
+        if (!CanShape(typeface))
+        {
+            return null;
+        }
+
         if (cache.TryGetValue(typeface, out var cached))
         {
             return cached;
         }
 
-        var shaper = new SKShaper(typeface);
-        cache[typeface] = shaper;
-        return shaper;
+        try
+        {
+            var shaper = new SKShaper(typeface);
+            cache[typeface] = shaper;
+            return shaper;
+        }
+        catch
+        {
+            MarkShaperFailed(typeface);
+            return null;
+        }
     }
 
     internal static TextShapeInfo BuildShapeInfo(int textLength, SKShaper.Result result)
@@ -585,36 +534,27 @@ public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
             buffer.Language = new HarfBuzzSharp.Language(style.Language);
         }
         buffer.GuessSegmentProperties();
-        if (HasRtlCharacters(text))
-        {
-            buffer.Direction = HarfBuzzSharp.Direction.RightToLeft;
-        }
+        var direction = TextBidi.FindFirstStrongDirection(text);
+        buffer.Direction = direction == BidiDirection.Rtl
+            ? HarfBuzzSharp.Direction.RightToLeft
+            : HarfBuzzSharp.Direction.LeftToRight;
         return buffer;
     }
 
-    private static bool HasRtlCharacters(ReadOnlySpan<char> text)
+    private bool CanShape(SKTypeface? typeface)
     {
-        var index = 0;
-        while (index < text.Length)
+        if (!_useHarfBuzz)
         {
-            if (!Utf16Decoder.TryDecodeFromUtf16(text[index..], out var rune, out var consumed))
-            {
-                rune = new System.Text.Rune(text[index]);
-                consumed = 1;
-            }
-
-            var code = rune.Value;
-            if ((code >= 0x0590 && code <= 0x08FF)
-                || (code >= 0xFB1D && code <= 0xFDFF)
-                || (code >= 0xFE70 && code <= 0xFEFF))
-            {
-                return true;
-            }
-
-            index += consumed;
+            return false;
         }
 
-        return false;
+        var resolved = typeface ?? SKTypeface.Default;
+        return !_failedTypefaces.Contains(resolved);
+    }
+
+    private void MarkShaperFailed(SKTypeface typeface)
+    {
+        _failedTypefaces.Add(typeface);
     }
 
     internal static SKPaint CreatePaint(TextStyle style, ISkiaTypefaceResolver? typefaceResolver = null)
