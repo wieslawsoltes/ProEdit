@@ -1630,43 +1630,109 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
 
     private static IEnumerable<LineSegment> EnumerateSegments(IReadOnlyList<LayoutRun> runs, IReadOnlyList<LayoutImage> images, IReadOnlyList<LayoutShape> shapes, IReadOnlyList<LayoutChart> charts, IReadOnlyList<LayoutEquation> equations)
     {
-        var segments = new List<(float X, LineSegment Segment)>();
-        foreach (var run in runs)
+        var runIndex = 0;
+        var imageIndex = 0;
+        var shapeIndex = 0;
+        var chartIndex = 0;
+        var equationIndex = 0;
+
+        while (true)
         {
-            if (run.IsTab)
+            var hasRun = TryPeekRun(runs, ref runIndex, out var run);
+            var hasImage = imageIndex < images.Count;
+            var hasShape = shapeIndex < shapes.Count;
+            var hasChart = chartIndex < charts.Count;
+            var hasEquation = equationIndex < equations.Count;
+
+            if (!hasRun && !hasImage && !hasShape && !hasChart && !hasEquation)
             {
-                segments.Add((run.X, LineSegment.Tab(run.Width)));
+                yield break;
             }
-            else if (!string.IsNullOrEmpty(run.Text))
+
+            var kind = SegmentKind.None;
+            var minX = float.PositiveInfinity;
+            if (hasRun)
             {
-                segments.Add((run.X, LineSegment.CreateText(run.Text, run.Style, run.Width, run.Length, run.LetterSpacing)));
+                minX = run.X;
+                kind = SegmentKind.Run;
+            }
+
+            if (hasImage && images[imageIndex].X < minX)
+            {
+                minX = images[imageIndex].X;
+                kind = SegmentKind.Image;
+            }
+
+            if (hasShape && shapes[shapeIndex].X < minX)
+            {
+                minX = shapes[shapeIndex].X;
+                kind = SegmentKind.Shape;
+            }
+
+            if (hasChart && charts[chartIndex].X < minX)
+            {
+                minX = charts[chartIndex].X;
+                kind = SegmentKind.Chart;
+            }
+
+            if (hasEquation && equations[equationIndex].X < minX)
+            {
+                kind = SegmentKind.Equation;
+            }
+
+            switch (kind)
+            {
+                case SegmentKind.Run:
+                    yield return run.IsTab
+                        ? LineSegment.Tab(run.Width)
+                        : LineSegment.CreateText(run.Text, run.Style, run.Width, run.Length, run.LetterSpacing);
+                    runIndex++;
+                    break;
+                case SegmentKind.Image:
+                    yield return LineSegment.Image(images[imageIndex].Width);
+                    imageIndex++;
+                    break;
+                case SegmentKind.Shape:
+                    yield return LineSegment.Shape(shapes[shapeIndex].Width);
+                    shapeIndex++;
+                    break;
+                case SegmentKind.Chart:
+                    yield return LineSegment.Chart(charts[chartIndex].Width);
+                    chartIndex++;
+                    break;
+                case SegmentKind.Equation:
+                    yield return LineSegment.Equation(equations[equationIndex].Width);
+                    equationIndex++;
+                    break;
             }
         }
+    }
 
-        foreach (var image in images)
+    private static bool TryPeekRun(IReadOnlyList<LayoutRun> runs, ref int index, out LayoutRun run)
+    {
+        while (index < runs.Count)
         {
-            segments.Add((image.X, LineSegment.Image(image.Width)));
+            run = runs[index];
+            if (run.IsTab || !string.IsNullOrEmpty(run.Text))
+            {
+                return true;
+            }
+
+            index++;
         }
 
-        foreach (var shape in shapes)
-        {
-            segments.Add((shape.X, LineSegment.Shape(shape.Width)));
-        }
+        run = null!;
+        return false;
+    }
 
-        foreach (var chart in charts)
-        {
-            segments.Add((chart.X, LineSegment.Chart(chart.Width)));
-        }
-
-        foreach (var equation in equations)
-        {
-            segments.Add((equation.X, LineSegment.Equation(equation.Width)));
-        }
-
-        foreach (var segment in segments.OrderBy(item => item.X))
-        {
-            yield return segment.Segment;
-        }
+    private enum SegmentKind
+    {
+        None,
+        Run,
+        Image,
+        Shape,
+        Chart,
+        Equation
     }
 
     private static float[] ResolveSectionColumnWidths(PageSectionSettings section, float contentWidth, float columnGap)
