@@ -37,6 +37,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
     private Vector _scrollOffset;
     private Size _extent;
     private Size _viewport;
+    private EquationInline? _selectedEquation;
 
     public DocumentView()
     {
@@ -46,6 +47,10 @@ public sealed class DocumentView : Control, ILogicalScrollable
     }
 
     public Document Document => _editor.Document;
+
+    public EquationInline? SelectedEquation => _selectedEquation;
+
+    public event EventHandler<EquationInline?>? SelectedEquationChanged;
 
     public bool ShowInvisibles
     {
@@ -225,7 +230,13 @@ public sealed class DocumentView : Control, ILogicalScrollable
         _renderOptions.DirtyPages = _editor.DirtyPages;
         _renderOptions.DirtyVersion = _editor.DirtyVersion;
         UpdateScrollMetrics();
+        UpdateSelectedEquation();
         InvalidateVisual();
+    }
+
+    public void RefreshLayout()
+    {
+        _editor.RefreshLayout();
     }
 
     private static Document CreateSampleDocument()
@@ -276,7 +287,20 @@ public sealed class DocumentView : Control, ILogicalScrollable
         UpdateScrollMetrics();
         _renderOptions.DirtyPages = _editor.DirtyPages;
         _renderOptions.DirtyVersion = _editor.DirtyVersion;
+        UpdateSelectedEquation();
         InvalidateVisual();
+    }
+
+    private void UpdateSelectedEquation()
+    {
+        var equation = _editor.GetEquationAtCaret();
+        if (ReferenceEquals(equation, _selectedEquation))
+        {
+            return;
+        }
+
+        _selectedEquation = equation;
+        SelectedEquationChanged?.Invoke(this, equation);
     }
 
     public bool CanHorizontallyScroll

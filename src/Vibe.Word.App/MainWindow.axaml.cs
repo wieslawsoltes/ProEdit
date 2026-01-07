@@ -25,6 +25,8 @@ public partial class MainWindow : Window
         InitializeComponent();
 
         _editorView = this.FindControl<DocumentView>("EditorView");
+        var equationEditor = this.FindControl<EquationEditor>("EquationEditor");
+        var equationPanel = this.FindControl<Border>("EquationEditorPanel");
         var openButton = this.FindControl<Button>("OpenButton");
         var saveButton = this.FindControl<Button>("SaveButton");
         var invisiblesCheckBox = this.FindControl<CheckBox>("ShowInvisiblesCheckBox");
@@ -57,6 +59,24 @@ public partial class MainWindow : Window
         {
             pictureCacheCheckBox.IsChecked = _editorView?.UsePictureCache ?? true;
             pictureCacheCheckBox.IsCheckedChanged += OnUsePictureCacheChanged;
+        }
+
+        if (_editorView is not null && equationEditor is not null)
+        {
+            void UpdateEquationEditor(EquationInline? equation)
+            {
+                equationEditor.SetEquation(equation);
+                var visible = equation is not null;
+                equationEditor.IsVisible = visible;
+                if (equationPanel is not null)
+                {
+                    equationPanel.IsVisible = visible;
+                }
+            }
+
+            _editorView.SelectedEquationChanged += (_, equation) => UpdateEquationEditor(equation);
+            equationEditor.EquationEdited += (_, _) => _editorView.RefreshLayout();
+            UpdateEquationEditor(_editorView.SelectedEquation);
         }
 
         if (document is not null)

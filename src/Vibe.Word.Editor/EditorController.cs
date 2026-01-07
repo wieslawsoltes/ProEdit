@@ -62,6 +62,46 @@ public sealed class EditorController
         Reflow(dirtyParagraphIndex);
     }
 
+    public void InsertEquation(MathElement root, TextStyleProperties? style = null, string? styleId = null)
+    {
+        ArgumentNullException.ThrowIfNull(root);
+
+        var dirtyParagraphIndex = GetDirtyParagraphIndex();
+        DeleteSelectionIfAny();
+
+        var paragraph = Document.GetParagraph(Caret.ParagraphIndex);
+        if (style is null && styleId is null)
+        {
+            EnsureParagraphInlines(paragraph);
+            if (paragraph.Inlines.Count > 0)
+            {
+                var position = FindInlinePosition(paragraph, Caret.Offset);
+                if (paragraph.Inlines[position.Index] is RunInline run && run.Text.Length > 0)
+                {
+                    style = run.Style?.Clone();
+                    styleId = run.StyleId;
+                }
+                else
+                {
+                    var insertIndex = position.OffsetInInline <= 0 ? position.Index : position.Index + 1;
+                    var (adjacentStyle, adjacentStyleId) = GetAdjacentRunStyle(paragraph, insertIndex);
+                    style = adjacentStyle;
+                    styleId = adjacentStyleId;
+                }
+            }
+        }
+
+        var equation = new EquationInline(root)
+        {
+            Style = style,
+            StyleId = styleId
+        };
+
+        InsertInlineAtPosition(paragraph, Caret.Offset, equation);
+        MoveCaret(new TextPosition(Caret.ParagraphIndex, Caret.Offset + 1), false);
+        Reflow(dirtyParagraphIndex);
+    }
+
     public void InsertParagraphBreak()
     {
         var dirtyParagraphIndex = GetDirtyParagraphIndex();
@@ -288,6 +328,22 @@ public sealed class EditorController
         MoveCaret(new TextPosition(line.ParagraphIndex, offset), extendSelection);
     }
 
+    public EquationInline? GetEquationAtCaret()
+    {
+        return GetEquationAtPosition(Caret);
+    }
+
+    public EquationInline? GetEquationAtPosition(TextPosition position)
+    {
+        if (position.ParagraphIndex < 0 || position.ParagraphIndex >= Document.ParagraphCount)
+        {
+            return null;
+        }
+
+        var paragraph = Document.GetParagraph(position.ParagraphIndex);
+        return FindEquationInline(paragraph, position.Offset);
+    }
+
     private bool TrySelectFloatingObject(float x, float y)
     {
         if (Layout.FloatingObjects.Count == 0)
@@ -401,13 +457,13 @@ public sealed class EditorController
 
         var offsetInLine = 0;
         var remainingX = relativeX;
-        foreach (var segment in EnumerateSegments(line.Runs, line.Images, line.Shapes, line.Charts))
+        foreach (var segment in EnumerateSegments(line.Runs, line.Images, line.Shapes, line.Charts, line.Equations))
         {
             var segmentWidth = GetSegmentWidth(segment);
             if (remainingX <= segmentWidth)
             {
-            if (segment.IsTab || segment.IsImage || segment.IsShape || segment.IsChart)
-            {
+                if (segment.IsTab || segment.IsImage || segment.IsShape || segment.IsChart || segment.IsEquation)
+                {
                     var advance = remainingX >= segmentWidth / 2f ? 1 : 0;
                     return line.StartOffset + offsetInLine + advance;
                 }
@@ -638,6 +694,52 @@ public sealed class EditorController
         NormalizeInlines(paragraph);
     }
 
+    private void InsertInlineAtPosition(ParagraphBlock paragraph, int offset, Inline inline)
+    {
+        EnsureParagraphInlines(paragraph);
+        var inlineLength = GetInlineLength(inline);
+        ShiftFloatingAnchorsOnInsert(paragraph, offset, inlineLength);
+        if (paragraph.Inlines.Count == 0)
+        {
+            paragraph.Inlines.Add(inline);
+            UpdateParagraphText(paragraph);
+            return;
+        }
+
+        var position = FindInlinePosition(paragraph, offset);
+        var current = paragraph.Inlines[position.Index];
+        if (current is RunInline run)
+        {
+            var insertAt = Math.Clamp(position.OffsetInInline, 0, run.Text.Length);
+            if (insertAt <= 0)
+            {
+                paragraph.Inlines.Insert(position.Index, inline);
+            }
+            else if (insertAt >= run.Text.Length)
+            {
+                paragraph.Inlines.Insert(position.Index + 1, inline);
+            }
+            else
+            {
+                var beforeText = run.Text.SliceBuffer(0, insertAt);
+                var afterText = run.Text.SliceBuffer(insertAt, run.Text.Length - insertAt);
+                var beforeRun = new RunInline(beforeText, run.Style) { StyleId = run.StyleId };
+                var afterRun = new RunInline(afterText, run.Style) { StyleId = run.StyleId };
+                paragraph.Inlines.RemoveAt(position.Index);
+                paragraph.Inlines.Insert(position.Index, beforeRun);
+                paragraph.Inlines.Insert(position.Index + 1, inline);
+                paragraph.Inlines.Insert(position.Index + 2, afterRun);
+            }
+        }
+        else
+        {
+            var insertIndex = position.OffsetInInline <= 0 ? position.Index : position.Index + 1;
+            paragraph.Inlines.Insert(insertIndex, inline);
+        }
+
+        NormalizeInlines(paragraph);
+    }
+
     private static void ShiftFloatingAnchorsOnInsert(ParagraphBlock paragraph, int offset, int length)
     {
         if (length <= 0 || paragraph.FloatingObjects.Count == 0)
@@ -675,6 +777,28 @@ public sealed class EditorController
         return length;
     }
 
+    private static EquationInline? FindEquationInline(ParagraphBlock paragraph, int offset)
+    {
+        if (paragraph.Inlines.Count == 0)
+        {
+            return null;
+        }
+
+        var position = 0;
+        foreach (var inline in paragraph.Inlines)
+        {
+            var inlineLength = GetInlineLength(inline);
+            if (offset >= position && offset < position + inlineLength)
+            {
+                return inline as EquationInline;
+            }
+
+            position += inlineLength;
+        }
+
+        return null;
+    }
+
     private static int GetInlineLength(Inline inline)
     {
         return inline switch
@@ -683,6 +807,7 @@ public sealed class EditorController
             ImageInline => 1,
             ShapeInline => 1,
             ChartInline => 1,
+            EquationInline => 1,
             PageNumberInline => 1,
             FootnoteReferenceInline footnote => footnote.Id.ToString(System.Globalization.CultureInfo.InvariantCulture).Length,
             EndnoteReferenceInline endnote => endnote.Id.ToString(System.Globalization.CultureInfo.InvariantCulture).Length,
@@ -737,6 +862,7 @@ public sealed class EditorController
                 case ImageInline:
                 case ShapeInline:
                 case ChartInline:
+                case EquationInline:
                 case PageNumberInline:
                     builder.Append(DocumentConstants.ObjectReplacementChar);
                     break;
@@ -1216,7 +1342,7 @@ public sealed class EditorController
             var segmentWidth = GetSegmentWidth(segment);
             if (relativeX <= segmentWidth)
             {
-                if (segment.IsTab || segment.IsImage || segment.IsShape || segment.IsChart)
+                if (segment.IsTab || segment.IsImage || segment.IsShape || segment.IsChart || segment.IsEquation)
                 {
                     var advance = relativeX >= segmentWidth / 2f ? 1 : 0;
                     return line.StartOffset + offsetInLine + advance;
@@ -1251,7 +1377,7 @@ public sealed class EditorController
                 break;
             }
 
-            if (segment.IsImage || segment.IsShape || segment.IsChart)
+            if (segment.IsImage || segment.IsShape || segment.IsChart || segment.IsEquation)
             {
                 width += segment.Width;
                 remaining -= segment.Length;
@@ -1279,10 +1405,10 @@ public sealed class EditorController
 
     private IEnumerable<LineSegment> EnumerateSegments(LayoutLine line)
     {
-        return EnumerateSegments(line.Runs, line.Images, line.Shapes, line.Charts);
+        return EnumerateSegments(line.Runs, line.Images, line.Shapes, line.Charts, line.Equations);
     }
 
-    private IEnumerable<LineSegment> EnumerateSegments(IReadOnlyList<LayoutRun> runs, IReadOnlyList<LayoutImage> images, IReadOnlyList<LayoutShape> shapes, IReadOnlyList<LayoutChart> charts)
+    private IEnumerable<LineSegment> EnumerateSegments(IReadOnlyList<LayoutRun> runs, IReadOnlyList<LayoutImage> images, IReadOnlyList<LayoutShape> shapes, IReadOnlyList<LayoutChart> charts, IReadOnlyList<LayoutEquation> equations)
     {
         var segments = new List<(float X, LineSegment Segment)>();
         foreach (var run in runs)
@@ -1312,6 +1438,11 @@ public sealed class EditorController
             segments.Add((chart.X, LineSegment.Chart(chart.Width)));
         }
 
+        foreach (var equation in equations)
+        {
+            segments.Add((equation.X, LineSegment.Equation(equation.Width)));
+        }
+
         foreach (var segment in segments.OrderBy(item => item.X))
         {
             yield return segment.Segment;
@@ -1320,7 +1451,7 @@ public sealed class EditorController
 
     private float GetSegmentWidth(LineSegment segment)
     {
-        if (segment.IsImage || segment.IsShape || segment.IsChart || segment.IsTab)
+        if (segment.IsImage || segment.IsShape || segment.IsChart || segment.IsEquation || segment.IsTab)
         {
             return segment.Width;
         }
@@ -1384,8 +1515,9 @@ public sealed class EditorController
         public bool IsImage { get; }
         public bool IsShape { get; }
         public bool IsChart { get; }
+        public bool IsEquation { get; }
 
-        private LineSegment(string text, TextStyle style, float width, int length, bool isTab, bool isImage, bool isShape, bool isChart)
+        private LineSegment(string text, TextStyle style, float width, int length, bool isTab, bool isImage, bool isShape, bool isChart, bool isEquation)
         {
             Text = text;
             Style = style;
@@ -1395,31 +1527,37 @@ public sealed class EditorController
             IsImage = isImage;
             IsShape = isShape;
             IsChart = isChart;
+            IsEquation = isEquation;
         }
 
         public static LineSegment CreateText(string text, TextStyle style)
         {
-            return new LineSegment(text, style, 0f, text.Length, false, false, false, false);
+            return new LineSegment(text, style, 0f, text.Length, false, false, false, false, false);
         }
 
         public static LineSegment Tab(float width)
         {
-            return new LineSegment(string.Empty, new TextStyle(), width, 1, true, false, false, false);
+            return new LineSegment(string.Empty, new TextStyle(), width, 1, true, false, false, false, false);
         }
 
         public static LineSegment Image(float width)
         {
-            return new LineSegment(string.Empty, new TextStyle(), width, 1, false, true, false, false);
+            return new LineSegment(string.Empty, new TextStyle(), width, 1, false, true, false, false, false);
         }
 
         public static LineSegment Shape(float width)
         {
-            return new LineSegment(string.Empty, new TextStyle(), width, 1, false, false, true, false);
+            return new LineSegment(string.Empty, new TextStyle(), width, 1, false, false, true, false, false);
         }
 
         public static LineSegment Chart(float width)
         {
-            return new LineSegment(string.Empty, new TextStyle(), width, 1, false, false, false, true);
+            return new LineSegment(string.Empty, new TextStyle(), width, 1, false, false, false, true, false);
+        }
+
+        public static LineSegment Equation(float width)
+        {
+            return new LineSegment(string.Empty, new TextStyle(), width, 1, false, false, false, false, true);
         }
     }
 

@@ -16,9 +16,20 @@
                 <CheckBox x:Name="UsePictureCacheCheckBox" Content="Use Page Cache" />
             </StackPanel>
         </Border>
-        <ScrollViewer HorizontalScrollBarVisibility="Auto"
-                      VerticalScrollBarVisibility="Auto">
-            <local:DocumentView x:Name="EditorView" />
-        </ScrollViewer>
+        <Grid ColumnDefinitions="*,Auto">
+            <ScrollViewer Grid.Column="0"
+                          HorizontalScrollBarVisibility="Auto"
+                          VerticalScrollBarVisibility="Auto">
+                <local:DocumentView x:Name="EditorView" />
+            </ScrollViewer>
+            <Border x:Name="EquationEditorPanel"
+                    Grid.Column="1"
+                    Width="320"
+                    Background="#FBFBFB"
+                    BorderBrush="#DDDDDD"
+                    BorderThickness="1,0,0,0">
+                <local:EquationEditor x:Name="EquationEditor" />
+            </Border>
+        </Grid>
     </DockPanel>
 </Window>
