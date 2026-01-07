@@ -394,7 +394,7 @@ public sealed class DocumentLayouter
                     line.X,
                     line.Y,
                     line.Width,
-                    line.Text,
+                    line.TextSlice,
                     line.Prefix,
                     line.PrefixWidth,
                     line.LineHeight,
@@ -916,7 +916,7 @@ public sealed class DocumentLayouter
                 }
 
                 var alignedX = ApplyAlignment(lineX, 0f, MathF.Max(1f, lineRight - lineX), alignment);
-                AddLine(new LayoutLine(paragraphIndex, 0, 0, alignedX, cursorY, 0, string.Empty, prefix, prefixWidth, emptyLineHeight, emptyAscent, Array.Empty<LayoutRun>(), Array.Empty<LayoutImage>(), Array.Empty<LayoutShape>(), Array.Empty<LayoutChart>(), Array.Empty<LayoutEquation>()));
+                AddLine(new LayoutLine(paragraphIndex, 0, 0, alignedX, cursorY, 0, TextSlice.Empty, prefix, prefixWidth, emptyLineHeight, emptyAscent, Array.Empty<LayoutRun>(), Array.Empty<LayoutImage>(), Array.Empty<LayoutShape>(), Array.Empty<LayoutChart>(), Array.Empty<LayoutEquation>()));
                 cursorY += emptyLineHeight;
                 cursorY += spacingAfter;
                 return new LineRange(paragraphLineStart, lines.Count - paragraphLineStart);
@@ -1041,17 +1041,17 @@ public sealed class DocumentLayouter
                     var alignedX = ApplyAlignment(lineLeft, lineLayout.Width, availableWidth, alignment);
                     AddLine(new LayoutLine(
                         paragraphIndex,
-                        line.Start,
-                        line.Length,
-                        alignedX,
-                        currentY,
-                        lineLayout.Width,
-                        line.Text,
-                        line.IsFirstLine ? prefix : null,
-                        line.IsFirstLine ? prefixWidth : 0f,
-                        lineLayout.LineHeight,
-                        lineLayout.Ascent,
-                        lineLayout.Runs,
+                    line.Start,
+                    line.Length,
+                    alignedX,
+                    currentY,
+                    lineLayout.Width,
+                    line.TextSlice,
+                    line.IsFirstLine ? prefix : null,
+                    line.IsFirstLine ? prefixWidth : 0f,
+                    lineLayout.LineHeight,
+                    lineLayout.Ascent,
+                    lineLayout.Runs,
                         lineLayout.Images,
                         lineLayout.Shapes,
                         lineLayout.Charts,
@@ -2607,7 +2607,7 @@ public sealed class DocumentLayouter
                     cellXOrigin + placement.Padding.Left + line.X,
                     cellYOrigin + placement.Padding.Top + verticalOffset + line.Y,
                     line.Width,
-                    line.Text,
+                    line.TextSlice,
                     line.Prefix,
                     line.PrefixWidth,
                     line.LineHeight,
@@ -2732,7 +2732,7 @@ public sealed class DocumentLayouter
                     lineX,
                     y,
                     0f,
-                    string.Empty,
+                    TextSlice.Empty,
                     prefix,
                     prefixWidth,
                     emptyLineHeight,
@@ -2790,7 +2790,7 @@ public sealed class DocumentLayouter
                     alignedX,
                     y,
                     lineLayout.Width,
-                    line.Text(text),
+                    new TextSlice(text, line.Start, line.Length),
                     isFirstLine ? prefix : null,
                     isFirstLine ? prefixWidth : 0f,
                     lineLayout.LineHeight,
@@ -2910,7 +2910,7 @@ public sealed class DocumentLayouter
                     lineLayout = AppendHyphenRun(lineLayout, line.HyphenStyle, line.HyphenBaselineOffset, measurer);
                 }
 
-                lines.Add(new ParagraphLine(line.Start, line.Length, line.Text(text), lineLayout, isFirstLineLocal));
+                lines.Add(new ParagraphLine(line.Start, line.Length, new TextSlice(text, line.Start, line.Length), lineLayout, isFirstLineLocal));
                 lineTop += lineLayout.LineHeight;
                 isFirstLineLocal = false;
             }
@@ -2937,7 +2937,7 @@ public sealed class DocumentLayouter
             var maxWidth = MathF.Max(1f, baseRight - baseLeft);
             var length = FindLineLength(text, start, maxWidth,
                 (offset, runLength) => MeasureInlineSpans(spans, offset, runLength, properties.TabStops, settings.DefaultTabWidth, measurer));
-            var lineText = text.Substring(start, length);
+            var textSlice = new TextSlice(text, start, length);
 
             var lineLayout = BuildLineLayout(
                 spans,
@@ -2949,7 +2949,7 @@ public sealed class DocumentLayouter
                 lineHeight,
                 ascent);
             lineLayout = ApplyLineSpacing(lineLayout, properties);
-            lines.Add(new ParagraphLine(start, length, lineText, lineLayout, isFirstLine));
+            lines.Add(new ParagraphLine(start, length, textSlice, lineLayout, isFirstLine));
             lineTop += lineLayout.LineHeight;
             start += length;
             isFirstLine = false;
@@ -3523,7 +3523,7 @@ public sealed class DocumentLayouter
             {
                 var lineX = indentLeft + listIndent + firstLineIndent + prefixWidth;
                 var (emptyLineHeight, emptyAscent) = ApplyLineSpacing(lineHeight, ascent, properties);
-                lines.Add(new HeaderFooterLine(lineX, y, 0f, string.Empty, prefix, prefixWidth, emptyLineHeight, emptyAscent, Array.Empty<LayoutRun>(), Array.Empty<LayoutImage>(), Array.Empty<LayoutShape>(), Array.Empty<LayoutChart>(), Array.Empty<LayoutEquation>()));
+                lines.Add(new HeaderFooterLine(lineX, y, 0f, TextSlice.Empty, prefix, prefixWidth, emptyLineHeight, emptyAscent, Array.Empty<LayoutRun>(), Array.Empty<LayoutImage>(), Array.Empty<LayoutShape>(), Array.Empty<LayoutChart>(), Array.Empty<LayoutEquation>()));
                 y += emptyLineHeight;
                 y += spacingAfter;
                 continue;
@@ -3568,7 +3568,7 @@ public sealed class DocumentLayouter
                     alignedX,
                     y,
                     lineLayout.Width,
-                    line.Text(text),
+                    new TextSlice(text, line.Start, line.Length),
                     isFirstLine ? prefix : null,
                     isFirstLine ? prefixWidth : 0f,
                     lineLayout.LineHeight,
@@ -5105,7 +5105,7 @@ public sealed class DocumentLayouter
         }
     }
 
-    private sealed record ParagraphLine(int Start, int Length, string Text, LineLayout Layout, bool IsFirstLine);
+    private sealed record ParagraphLine(int Start, int Length, TextSlice TextSlice, LineLayout Layout, bool IsFirstLine);
     private readonly record struct WrapBounds(float Left, float Right, float BlockBottom);
     private delegate WrapBounds WrapResolver(float LineTop, float LineHeight, float BaseLeft, float BaseRight);
 
