@@ -12,6 +12,7 @@
                 <Button x:Name="OpenButton" Content="Open" />
                 <Button x:Name="SaveButton" Content="Save" />
                 <CheckBox x:Name="ShowInvisiblesCheckBox" Content="Show Invisibles" />
+                <CheckBox x:Name="ShowLayoutCheckBox" Content="Show Layout" />
                 <CheckBox x:Name="UseHarfBuzzCheckBox" Content="Use HarfBuzz" />
                 <CheckBox x:Name="UsePictureCacheCheckBox" Content="Use Page Cache" />
             </StackPanel>

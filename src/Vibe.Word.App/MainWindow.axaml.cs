@@ -30,6 +30,7 @@ public partial class MainWindow : Window
         var openButton = this.FindControl<Button>("OpenButton");
         var saveButton = this.FindControl<Button>("SaveButton");
         var invisiblesCheckBox = this.FindControl<CheckBox>("ShowInvisiblesCheckBox");
+        var layoutCheckBox = this.FindControl<CheckBox>("ShowLayoutCheckBox");
         var harfBuzzCheckBox = this.FindControl<CheckBox>("UseHarfBuzzCheckBox");
         var pictureCacheCheckBox = this.FindControl<CheckBox>("UsePictureCacheCheckBox");
 
@@ -47,6 +48,12 @@ public partial class MainWindow : Window
         {
             invisiblesCheckBox.IsChecked = _editorView?.ShowInvisibles ?? false;
             invisiblesCheckBox.IsCheckedChanged += OnShowInvisiblesChanged;
+        }
+
+        if (layoutCheckBox is not null)
+        {
+            layoutCheckBox.IsChecked = _editorView?.ShowLayout ?? false;
+            layoutCheckBox.IsCheckedChanged += OnShowLayoutChanged;
         }
 
         if (harfBuzzCheckBox is not null)
@@ -148,6 +155,19 @@ public partial class MainWindow : Window
         if (sender is CheckBox checkBox)
         {
             _editorView.ShowInvisibles = checkBox.IsChecked == true;
+        }
+    }
+
+    private void OnShowLayoutChanged(object? sender, RoutedEventArgs e)
+    {
+        if (_editorView is null)
+        {
+            return;
+        }
+
+        if (sender is CheckBox checkBox)
+        {
+            _editorView.ShowLayout = checkBox.IsChecked == true;
         }
     }
 
