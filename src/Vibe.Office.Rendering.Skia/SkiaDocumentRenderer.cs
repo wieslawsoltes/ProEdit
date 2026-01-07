@@ -502,10 +502,9 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                 targetCanvas.DrawRect(rect, pageBorderPaint);
             }
 
-            if (options.ColumnSeparatorThickness > 0f
-                && pageIndex < layout.PageSections.Count)
+            if (options.ColumnSeparatorThickness > 0f)
             {
-                DrawColumnSeparators(page, layout.PageSections[pageIndex]);
+                DrawColumnSeparators(page, pageIndex);
             }
 
             DrawFloatingObjects(pageIndex, true);
@@ -643,27 +642,81 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             DrawFloatingSelection(pageIndex);
         }
 
-        void DrawColumnSeparators(PageLayout page, PageSectionSettings section)
+        void DrawColumnSeparators(PageLayout page, int pageIndex)
         {
-            if (!section.ColumnSeparator || section.ColumnCount <= 1)
+            if (layout.ParagraphSectionIndices.Count == 0)
             {
                 return;
             }
 
-            var columnGap = MathF.Max(0f, section.ColumnGap);
-            var columnWidths = ResolveSectionColumnWidths(section, page.ContentBounds.Width, columnGap);
-            if (columnWidths.Length <= 1)
+            var lineRange = layout.LineIndex.GetLineRangeForPage(pageIndex);
+            if (lineRange.Count == 0)
             {
                 return;
             }
 
-            var columnOffsets = BuildColumnOffsets(columnWidths, columnGap);
-            var top = page.ContentBounds.Y;
-            var bottom = page.ContentBounds.Bottom;
-            for (var i = 0; i < columnWidths.Length - 1; i++)
+            var rangesBySection = new Dictionary<int, (float Top, float Bottom)>();
+            for (var i = lineRange.Start; i < lineRange.End && i < layout.Lines.Count; i++)
             {
-                var x = page.ContentBounds.X + columnOffsets[i] + columnWidths[i] + columnGap * 0.5f;
-                targetCanvas.DrawLine(x, top, x, bottom, columnSeparatorPaint);
+                var line = layout.Lines[i];
+                if (line.ParagraphIndex < 0)
+                {
+                    continue;
+                }
+
+                if (!layout.ParagraphSectionIndices.TryGetValue(line.ParagraphIndex, out var sectionIndex))
+                {
+                    continue;
+                }
+
+                var top = line.Y;
+                var bottom = line.Y + line.LineHeight;
+                if (rangesBySection.TryGetValue(sectionIndex, out var range))
+                {
+                    rangesBySection[sectionIndex] = (MathF.Min(range.Top, top), MathF.Max(range.Bottom, bottom));
+                }
+                else
+                {
+                    rangesBySection[sectionIndex] = (top, bottom);
+                }
+            }
+
+            foreach (var entry in rangesBySection)
+            {
+                if (!layout.SectionSettings.TryGetValue(entry.Key, out var section))
+                {
+                    continue;
+                }
+
+                if (!section.ColumnSeparator || section.ColumnCount <= 1)
+                {
+                    continue;
+                }
+
+                var contentLeft = page.Bounds.X + section.MarginLeft;
+                var contentTop = page.Bounds.Y + section.MarginTop;
+                var contentBottom = page.Bounds.Bottom - section.MarginBottom;
+                var top = MathF.Max(entry.Value.Top, contentTop);
+                var bottom = MathF.Min(entry.Value.Bottom, contentBottom);
+                if (bottom <= top)
+                {
+                    continue;
+                }
+
+                var columnGap = MathF.Max(0f, section.ColumnGap);
+                var contentWidth = MathF.Max(1f, page.Bounds.Width - section.MarginLeft - section.MarginRight);
+                var columnWidths = ResolveSectionColumnWidths(section, contentWidth, columnGap);
+                if (columnWidths.Length <= 1)
+                {
+                    continue;
+                }
+
+                var columnOffsets = BuildColumnOffsets(columnWidths, columnGap);
+                for (var i = 0; i < columnWidths.Length - 1; i++)
+                {
+                    var x = contentLeft + columnOffsets[i] + columnWidths[i] + columnGap * 0.5f;
+                    targetCanvas.DrawLine(x, top, x, bottom, columnSeparatorPaint);
+                }
             }
         }
 

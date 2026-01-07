@@ -44,11 +44,15 @@ public sealed class DocumentLayouter
         var styleResolver = new DocumentStyleResolver(document);
         var scanState = new ParagraphScanState();
         scanState.Scan(document);
+        var paragraphSectionIndices = BuildParagraphSectionIndices(document);
+        var sectionSettingsByIndex = BuildSectionSettingsByIndex(document, settings);
         var footnotesByPage = new Dictionary<int, HashSet<int>>();
         var endnotesByPage = new Dictionary<int, HashSet<int>>();
 
         var currentSectionIndex = 0;
-        var sectionSettings = PageSectionSettings.FromSettings(settings, document.GetSection(0).Properties, currentSectionIndex);
+        var sectionSettings = sectionSettingsByIndex.TryGetValue(currentSectionIndex, out var initialSection)
+            ? initialSection
+            : PageSectionSettings.FromSettings(settings, document.GetSection(0).Properties, currentSectionIndex);
         var pageWidth = 0f;
         var pageHeight = 0f;
         var pageX = 0f;
@@ -1105,23 +1109,39 @@ public sealed class DocumentLayouter
             }
 
             var pageLineRanges = BuildPageLineRanges(linePageIndices, pages.Count);
-            var pageIndex = 0;
-            while (pageIndex < pages.Count)
+            var lastPageBySection = new Dictionary<int, int>();
+            for (var i = 0; i < lines.Count && i < linePageIndices.Count; i++)
             {
-                var sectionIndex = pageSections[Math.Clamp(pageIndex, 0, pageSections.Count - 1)].SectionIndex;
-                var sectionEnd = pageIndex;
-                while (sectionEnd + 1 < pages.Count
-                    && pageSections[sectionEnd + 1].SectionIndex == sectionIndex)
+                var line = lines[i];
+                if (line.ParagraphIndex < 0)
                 {
-                    sectionEnd++;
+                    continue;
                 }
 
-                BalancePageColumns(sectionEnd, pageLineRanges[sectionEnd], pageSections[sectionEnd]);
-                pageIndex = sectionEnd + 1;
+                if (!paragraphSectionIndices.TryGetValue(line.ParagraphIndex, out var sectionIndex))
+                {
+                    continue;
+                }
+
+                var pageIndex = linePageIndices[i];
+                if (!lastPageBySection.TryGetValue(sectionIndex, out var lastPage) || pageIndex > lastPage)
+                {
+                    lastPageBySection[sectionIndex] = pageIndex;
+                }
+            }
+
+            foreach (var entry in lastPageBySection)
+            {
+                if (!sectionSettingsByIndex.TryGetValue(entry.Key, out var section))
+                {
+                    continue;
+                }
+
+                BalancePageColumns(entry.Value, pageLineRanges[entry.Value], section, entry.Key);
             }
         }
 
-        void BalancePageColumns(int pageIndex, LineRange range, PageSectionSettings section)
+        void BalancePageColumns(int pageIndex, LineRange range, PageSectionSettings section, int sectionIndex)
         {
             if (section.ColumnCount <= 1 || pageIndex < 0 || pageIndex >= pages.Count)
             {
@@ -1129,8 +1149,11 @@ public sealed class DocumentLayouter
             }
 
             var page = pages[pageIndex];
+            var contentLeft = page.Bounds.X + section.MarginLeft;
+            var contentTop = page.Bounds.Y + section.MarginTop;
+            var contentWidth = MathF.Max(1f, page.Bounds.Width - section.MarginLeft - section.MarginRight);
             var columnGap = MathF.Max(0f, section.ColumnGap);
-            var columnWidths = ResolveSectionColumnWidths(section, page.ContentBounds.Width, columnGap);
+            var columnWidths = ResolveSectionColumnWidths(section, contentWidth, columnGap);
             if (columnWidths.Length <= 1)
             {
                 return;
@@ -1142,27 +1165,25 @@ public sealed class DocumentLayouter
                 return;
             }
 
-            var tableIndices = new List<int>();
-            for (var i = 0; i < tables.Count; i++)
-            {
-                var bounds = tables[i].Bounds;
-                if (bounds.Bottom > page.Bounds.Y && bounds.Y < page.Bounds.Bottom)
-                {
-                    tableIndices.Add(i);
-                }
-            }
-            var tableIndexSet = tableIndices.Count == 0 ? null : new HashSet<int>(tableIndices);
-
             var lineIndices = new List<int>(Math.Max(0, range.Count));
             var tableAnchorIndices = new Dictionary<int, int>();
+            var tableIndices = new HashSet<int>();
             for (var i = range.Start; i < range.End && i < lines.Count; i++)
             {
                 var line = lines[i];
+                if (line.ParagraphIndex < 0
+                    || !paragraphSectionIndices.TryGetValue(line.ParagraphIndex, out var lineSection)
+                    || lineSection != sectionIndex)
+                {
+                    continue;
+                }
+
                 if (line.IsInTable)
                 {
                     var tableIndex = FindContainingTableIndex(tables, line);
-                    if (tableIndex >= 0 && tableIndexSet is not null && tableIndexSet.Contains(tableIndex))
+                    if (tableIndex >= 0)
                     {
+                        tableIndices.Add(tableIndex);
                         if (!tableAnchorIndices.TryGetValue(tableIndex, out var anchorIndex) || i < anchorIndex)
                         {
                             tableAnchorIndices[tableIndex] = i;
@@ -1267,7 +1288,6 @@ public sealed class DocumentLayouter
             }
 
             var targetHeight = totalHeight / section.ColumnCount;
-            var contentTop = page.ContentBounds.Y;
             var columnIndexBalance = 0;
             var currentY = contentTop;
 
@@ -1303,9 +1323,9 @@ public sealed class DocumentLayouter
 
                 currentY += gap;
 
-                var oldColumnIndex = ResolveColumnIndexFromX(item.X, page.ContentBounds.X, columnOffsets);
-                var oldColumnLeft = page.ContentBounds.X + columnOffsets[Math.Clamp(oldColumnIndex, 0, columnOffsets.Length - 1)];
-                var newColumnLeft = page.ContentBounds.X + columnOffsets[Math.Clamp(columnIndexBalance, 0, columnOffsets.Length - 1)];
+                var oldColumnIndex = ResolveColumnIndexFromX(item.X, contentLeft, columnOffsets);
+                var oldColumnLeft = contentLeft + columnOffsets[Math.Clamp(oldColumnIndex, 0, columnOffsets.Length - 1)];
+                var newColumnLeft = contentLeft + columnOffsets[Math.Clamp(columnIndexBalance, 0, columnOffsets.Length - 1)];
                 var newX = item.X + (newColumnLeft - oldColumnLeft);
 
                 if (item.Kind == BalanceItemKind.Line)
@@ -1397,8 +1417,9 @@ public sealed class DocumentLayouter
             {
                 var nextSectionIndex = sectionBreak.SectionIndex
                     ?? (currentSectionIndex + 1 < document.SectionCount ? currentSectionIndex + 1 : currentSectionIndex);
-                var section = document.GetSection(nextSectionIndex);
-                var nextSettings = PageSectionSettings.FromSettings(settings, section.Properties, nextSectionIndex);
+                var nextSettings = sectionSettingsByIndex.TryGetValue(nextSectionIndex, out var section)
+                    ? section
+                    : PageSectionSettings.FromSettings(settings, document.GetSection(nextSectionIndex).Properties, nextSectionIndex);
                 if (sectionBreak.SectionIndex is null && sectionBreak.Properties.HasValues)
                 {
                     nextSettings = nextSettings.ApplyOverrides(sectionBreak.Properties);
@@ -1671,7 +1692,23 @@ public sealed class DocumentLayouter
 
         var lineIndexMap = new LineIndex(lines, linePageIndices, pages);
         var floatingObjects = BuildFloatingObjects(document, lines, pages, pageSections, paragraphLineRanges, lineIndexMap);
-        return new DocumentLayout(settings.Clone(), lines, tables, pages, headerFooters, footnotes, floatingObjects, pageSections, lineIndexMap, paragraphLineRanges, commentHighlightsByParagraph, lineHeight, ascent, contentHeight);
+        return new DocumentLayout(
+            settings.Clone(),
+            lines,
+            tables,
+            pages,
+            headerFooters,
+            footnotes,
+            floatingObjects,
+            pageSections,
+            sectionSettingsByIndex,
+            lineIndexMap,
+            paragraphLineRanges,
+            paragraphSectionIndices,
+            commentHighlightsByParagraph,
+            lineHeight,
+            ascent,
+            contentHeight);
     }
 
     private static List<FloatingLayoutObject> BuildFloatingObjects(
@@ -3960,6 +3997,54 @@ public sealed class DocumentLayouter
         }
 
         return offsets;
+    }
+
+    private static Dictionary<int, PageSectionSettings> BuildSectionSettingsByIndex(Document document, LayoutSettings settings)
+    {
+        var result = new Dictionary<int, PageSectionSettings>();
+        var count = Math.Max(1, document.SectionCount);
+        for (var i = 0; i < count; i++)
+        {
+            var section = document.GetSection(i);
+            result[i] = PageSectionSettings.FromSettings(settings, section.Properties, i);
+        }
+
+        return result;
+    }
+
+    private static Dictionary<int, int> BuildParagraphSectionIndices(Document document)
+    {
+        var map = new Dictionary<int, int>();
+        var currentSectionIndex = 0;
+        var paragraphIndex = 0;
+
+        foreach (var block in document.Blocks)
+        {
+            switch (block)
+            {
+                case SectionBreakBlock sectionBreak:
+                    currentSectionIndex = sectionBreak.SectionIndex ?? currentSectionIndex;
+                    break;
+                case ParagraphBlock:
+                    map[paragraphIndex++] = currentSectionIndex;
+                    break;
+                case TableBlock table:
+                    foreach (var row in table.Rows)
+                    {
+                        foreach (var cell in row.Cells)
+                        {
+                            foreach (var _ in cell.Paragraphs)
+                            {
+                                map[paragraphIndex++] = currentSectionIndex;
+                            }
+                        }
+                    }
+
+                    break;
+            }
+        }
+
+        return map;
     }
 
     private static float[] ResolveColumnWidths(TableProperties properties, int columnCount, float contentWidth)
