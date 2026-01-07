@@ -37,6 +37,30 @@ public sealed class DocumentLayouter
         }
     }
 
+    private readonly record struct ParagraphLayoutPlan(
+        ParagraphBlock Paragraph,
+        ParagraphProperties Properties,
+        TextStyle ParagraphStyle,
+        string? Prefix,
+        float ListIndent,
+        float PrefixWidth,
+        float SpacingBefore,
+        float SpacingAfter,
+        float IndentLeft,
+        float IndentRight,
+        float FirstLineIndent,
+        bool KeepWithNext,
+        bool KeepLinesTogether,
+        bool WidowControl,
+        float NextBlockMinHeight,
+        bool CanReflow);
+
+    private readonly record struct TableLayoutPlan(
+        TableBlock Table,
+        TableProperties ResolvedProperties,
+        TableLayoutData Data,
+        float TableX);
+
     public DocumentLayout Layout(Document document, LayoutSettings settings, ITextMeasurer measurer)
     {
         return LayoutInternal(document, settings, measurer, null, null);
@@ -1520,14 +1544,10 @@ public sealed class DocumentLayouter
             ApplySectionBreak(sectionBreak.BreakType, nextSettings);
         }
 
-        void HandleParagraph(ParagraphBlock paragraph, int blockIndex)
+        ParagraphLayoutPlan BuildParagraphPlan(ParagraphBlock paragraph, int blockIndex)
         {
             var properties = styleResolver.ResolveParagraphProperties(paragraph);
             var paragraphStyle = styleResolver.ResolveParagraphTextStyle(paragraph, style);
-            if (properties.PageBreakBefore == true && cursorY > contentTop + 0.5f)
-            {
-                StartNewPage();
-            }
             var spacingBefore = properties.SpacingBefore ?? settings.ParagraphSpacing;
             if (properties.ContextualSpacing == true && blockIndex > 0 && blocks[blockIndex - 1] is ParagraphBlock previousParagraph)
             {
@@ -1558,6 +1578,28 @@ public sealed class DocumentLayouter
                 : 0f;
 
             var canReflow = paragraph.FloatingObjects.Count > 0;
+            return new ParagraphLayoutPlan(
+                paragraph,
+                properties,
+                paragraphStyle,
+                prefix,
+                listIndent,
+                prefixWidth,
+                spacingBefore,
+                spacingAfter,
+                indentLeft,
+                indentRight,
+                firstLineIndent,
+                keepWithNext,
+                keepLinesTogether,
+                widowControl,
+                nextBlockMinHeight,
+                canReflow);
+        }
+
+        LineRange LayoutParagraphWithReflow(ParagraphLayoutPlan plan)
+        {
+            var canReflow = plan.CanReflow;
             var wrapStartCount = wrapFloatingObjects.Count;
             ParagraphLayoutSnapshot? snapshot = null;
             Dictionary<int, HashSet<int>>? footnotesSnapshot = null;
@@ -1606,21 +1648,21 @@ public sealed class DocumentLayouter
                 }
 
                 lineRange = LayoutParagraphLines(
-                    paragraph,
-                    properties,
-                    paragraphStyle,
-                    prefix,
-                    listIndent,
-                    prefixWidth,
-                    spacingBefore,
-                    spacingAfter,
-                    indentLeft,
-                    indentRight,
-                    firstLineIndent,
-                    keepWithNext,
-                    keepLinesTogether,
-                    widowControl,
-                    nextBlockMinHeight);
+                    plan.Paragraph,
+                    plan.Properties,
+                    plan.ParagraphStyle,
+                    plan.Prefix,
+                    plan.ListIndent,
+                    plan.PrefixWidth,
+                    plan.SpacingBefore,
+                    plan.SpacingAfter,
+                    plan.IndentLeft,
+                    plan.IndentRight,
+                    plan.FirstLineIndent,
+                    plan.KeepWithNext,
+                    plan.KeepLinesTogether,
+                    plan.WidowControl,
+                    plan.NextBlockMinHeight);
                 paragraphLineRanges[paragraphIndex] = lineRange;
 
                 if (!canReflow)
@@ -1628,7 +1670,7 @@ public sealed class DocumentLayouter
                     break;
                 }
 
-                var updatedFloats = CollectParagraphFloatingObjects(paragraph, paragraphIndex, lineRange);
+                var updatedFloats = CollectParagraphFloatingObjects(plan.Paragraph, paragraphIndex, lineRange);
                 if (pass == 0 && !RequiresParagraphReflow(updatedFloats))
                 {
                     localFloats = updatedFloats.ToArray();
@@ -1657,21 +1699,40 @@ public sealed class DocumentLayouter
                 }
             }
 
+            return lineRange;
+        }
+
+        void HandleParagraph(ParagraphBlock paragraph, int blockIndex)
+        {
+            var plan = BuildParagraphPlan(paragraph, blockIndex);
+            if (plan.Properties.PageBreakBefore == true && cursorY > contentTop + 0.5f)
+            {
+                StartNewPage();
+            }
+            paragraphSpacingBefore[paragraphIndex] = plan.SpacingBefore;
+            _ = LayoutParagraphWithReflow(plan);
             paragraphIndex++;
         }
 
-        void HandleTable(TableBlock table, int __)
+        TableLayoutPlan BuildTablePlan(TableBlock table)
         {
             var tableX = columnX;
             var tableStyle = styleResolver.ResolveTableStyle(table);
             var resolvedTableProperties = MergeTableProperties(tableStyle?.TableProperties, table.Properties);
             var tableLook = ResolveTableLook(table.Properties.Look ?? tableStyle?.TableProperties.Look);
             var data = ComputeTableLayoutData(table, document, resolvedTableProperties, table.Properties, tableStyle, tableLook, columnWidth, settings, measurer, style, styleResolver, lineHeight, ascent, ref paragraphIndex);
+            return new TableLayoutPlan(table, resolvedTableProperties, data, tableX);
+        }
+
+        void LayoutTablePlan(TableLayoutPlan plan)
+        {
+            var tableX = plan.TableX;
+            var data = plan.Data;
             var rowStart = 0;
             var totalRows = data.RowHeights.Length;
             if (totalRows == 0)
             {
-                var emptyLayout = BuildTableLayout(table, resolvedTableProperties, data, tableX, cursorY, 0, 0, settings);
+                var emptyLayout = BuildTableLayout(plan.Table, plan.ResolvedProperties, data, tableX, cursorY, 0, 0, settings);
                 tables.Add(emptyLayout);
                 cursorY += emptyLayout.Bounds.Height + settings.BlockSpacing;
                 return;
@@ -1693,7 +1754,7 @@ public sealed class DocumentLayouter
                     rowsToFit = Math.Min(1, totalRows - rowStart);
                 }
 
-                var tableLayout = BuildTableLayout(table, resolvedTableProperties, data, tableX, cursorY, rowStart, rowsToFit, settings);
+                var tableLayout = BuildTableLayout(plan.Table, plan.ResolvedProperties, data, tableX, cursorY, rowStart, rowsToFit, settings);
                 tables.Add(tableLayout);
                 AddTableLines(tableLayout);
                 cursorY += tableLayout.Bounds.Height + settings.BlockSpacing;
@@ -1707,6 +1768,12 @@ public sealed class DocumentLayouter
             }
         }
 
+        void HandleTable(TableBlock table, int __)
+        {
+            var plan = BuildTablePlan(table);
+            LayoutTablePlan(plan);
+        }
+
         void ApplyBlockRules(LayoutBlockRule[] rules, Block block, int blockIndex)
         {
             foreach (var rule in rules)
@@ -1718,14 +1785,19 @@ public sealed class DocumentLayouter
             }
         }
 
-        var blockRules = new[]
+        LayoutBlockRule[] BuildBlockRules()
         {
-            LayoutBlockRule.For<PageBreakBlock>(HandlePageBreak),
-            LayoutBlockRule.For<ColumnBreakBlock>(HandleColumnBreak),
-            LayoutBlockRule.For<SectionBreakBlock>(HandleSectionBreak),
-            LayoutBlockRule.For<ParagraphBlock>(HandleParagraph),
-            LayoutBlockRule.For<TableBlock>(HandleTable)
-        };
+            return new[]
+            {
+                LayoutBlockRule.For<PageBreakBlock>(HandlePageBreak),
+                LayoutBlockRule.For<ColumnBreakBlock>(HandleColumnBreak),
+                LayoutBlockRule.For<SectionBreakBlock>(HandleSectionBreak),
+                LayoutBlockRule.For<ParagraphBlock>(HandleParagraph),
+                LayoutBlockRule.For<TableBlock>(HandleTable)
+            };
+        }
+
+        var blockRules = BuildBlockRules();
 
         for (var blockIndex = blockStartIndex; blockIndex < blocks.Count; blockIndex++)
         {
@@ -1845,12 +1917,17 @@ public sealed class DocumentLayouter
             }
         }
 
-        var postLayoutPasses = new[]
+        LayoutPass[] BuildPostLayoutPasses()
         {
-            new LayoutPass(BalanceSectionColumns),
-            new LayoutPass(LayoutHeaderFooters),
-            new LayoutPass(LayoutFootnotes)
-        };
+            return new[]
+            {
+                new LayoutPass(BalanceSectionColumns),
+                new LayoutPass(LayoutHeaderFooters),
+                new LayoutPass(LayoutFootnotes)
+            };
+        }
+
+        var postLayoutPasses = BuildPostLayoutPasses();
 
         ApplyLayoutPasses(postLayoutPasses);
 
