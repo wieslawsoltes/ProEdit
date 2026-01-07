@@ -69,6 +69,7 @@ public sealed class DocumentLayouter
         var columnX = 0f;
         var contentTop = 0f;
         var contentBottom = 0f;
+        var columnTop = 0f;
         var cursorY = 0f;
         var marginLeft = 0f;
         var marginRight = 0f;
@@ -114,7 +115,14 @@ public sealed class DocumentLayouter
             columnOffsets = BuildColumnOffsets(columnWidths, columnGap);
             columnIndex = preserveColumn ? Math.Clamp(columnIndex, 0, Math.Max(0, columnCount - 1)) : 0;
             UpdateColumnMetrics();
-            cursorY = resumeY ?? contentTop;
+            var top = resumeY ?? contentTop;
+            if (top < contentTop)
+            {
+                top = contentTop;
+            }
+
+            columnTop = top;
+            cursorY = top;
         }
 
         void AddPage()
@@ -168,7 +176,7 @@ public sealed class DocumentLayouter
             {
                 columnIndex++;
                 UpdateColumnMetrics();
-                cursorY = contentTop;
+                cursorY = columnTop;
                 return;
             }
 
@@ -492,14 +500,14 @@ public sealed class DocumentLayouter
                     return false;
                 }
 
-                cursorY = MathF.Max(contentTop, tableLayout.Bounds.Top);
+                cursorY = MathF.Max(columnTop, tableLayout.Bounds.Top);
             }
             else
             {
                 var paragraphProperties = styleResolver.ResolveParagraphProperties(startParagraph);
                 var spacingBefore = paragraphProperties.SpacingBefore ?? settings.ParagraphSpacing;
                 var resumeY = previous.Lines[startLineIndex].Y - spacingBefore;
-                cursorY = MathF.Max(contentTop, resumeY);
+                cursorY = MathF.Max(columnTop, resumeY);
             }
 
             WarmListState(blockStartIndex);
@@ -813,7 +821,7 @@ public sealed class DocumentLayouter
                 var lineX = columnX + indentLeft + listIndent + firstLineIndent + prefixWidth;
                 var lineRight = columnX + columnWidth - indentRight;
                 var (emptyLineHeight, emptyAscent) = ApplyLineSpacing(lineHeight, ascent, properties);
-                if (cursorY + spacingBefore + emptyLineHeight > contentBottom && cursorY > contentTop)
+                if (cursorY + spacingBefore + emptyLineHeight > contentBottom && cursorY > columnTop)
                 {
                     StartNewColumnOrPage();
                 }
@@ -822,18 +830,18 @@ public sealed class DocumentLayouter
                     if (wrapResolver is not null)
                     {
                         var adjustedY = ApplyTopBottomWrap(cursorY, emptyLineHeight);
-                        if (adjustedY + emptyLineHeight > contentBottom && cursorY > contentTop)
+                        if (adjustedY + emptyLineHeight > contentBottom && cursorY > columnTop)
                         {
                             StartNewColumnOrPage();
-                            adjustedY = ApplyTopBottomWrap(contentTop, emptyLineHeight);
+                            adjustedY = ApplyTopBottomWrap(columnTop, emptyLineHeight);
                         }
 
                         cursorY = adjustedY;
                         var wrap = ResolveWrapForLine(ref adjustedY, emptyLineHeight, lineX, lineRight, wrapResolver);
-                        if (adjustedY + emptyLineHeight > contentBottom && cursorY > contentTop)
+                        if (adjustedY + emptyLineHeight > contentBottom && cursorY > columnTop)
                         {
                             StartNewColumnOrPage();
-                            adjustedY = ApplyTopBottomWrap(contentTop, emptyLineHeight);
+                            adjustedY = ApplyTopBottomWrap(columnTop, emptyLineHeight);
                             wrap = ResolveWrapForLine(ref adjustedY, emptyLineHeight, lineX, lineRight, wrapResolver);
                         }
 
@@ -857,12 +865,12 @@ public sealed class DocumentLayouter
 
             var paragraphHeight = paragraphLines.Sum(line => line.Layout.LineHeight);
             var paragraphTotalHeight = spacingBefore + paragraphHeight + spacingAfter;
-            var pageContentHeight = contentBottom - contentTop;
+            var pageContentHeight = contentBottom - columnTop;
 
             if ((keepLinesTogether || keepWithNext)
                 && paragraphTotalHeight + nextBlockMinHeight <= pageContentHeight
                 && cursorY + paragraphTotalHeight + nextBlockMinHeight > contentBottom
-                && cursorY > contentTop)
+                && cursorY > columnTop)
             {
                 StartNewColumnOrPage();
             }
@@ -874,7 +882,7 @@ public sealed class DocumentLayouter
                 if (!spacingBeforeApplied)
                 {
                     var firstLineHeight = paragraphLines[lineIndex].Layout.LineHeight;
-                    if (cursorY + spacingBefore + firstLineHeight > contentBottom && cursorY > contentTop)
+                    if (cursorY + spacingBefore + firstLineHeight > contentBottom && cursorY > columnTop)
                     {
                         StartNewColumnOrPage();
                     }
@@ -887,7 +895,7 @@ public sealed class DocumentLayouter
                 var linesToFit = CountParagraphLinesThatFit(paragraphLines, lineIndex, availableHeight);
                 if (linesToFit == 0)
                 {
-                    if (cursorY <= contentTop + 0.5f)
+                    if (cursorY <= columnTop + 0.5f)
                     {
                         linesToFit = 1;
                     }
@@ -901,7 +909,7 @@ public sealed class DocumentLayouter
                 if (widowControl && paragraphLines.Count >= 2)
                 {
                     var remaining = paragraphLines.Count - lineIndex;
-                    var isAtPageTop = cursorY - spacingBefore <= contentTop + 0.5f;
+                    var isAtPageTop = cursorY - spacingBefore <= columnTop + 0.5f;
                     if (linesToFit < 2 && remaining > 2 && !isAtPageTop)
                     {
                         StartNewColumnOrPage();
@@ -936,7 +944,7 @@ public sealed class DocumentLayouter
                         if (wrapResolver is not null)
                         {
                             var adjustedY = ApplyTopBottomWrap(currentY, line.Layout.LineHeight);
-                            if (adjustedY + line.Layout.LineHeight > contentBottom && currentY > contentTop)
+                            if (adjustedY + line.Layout.LineHeight > contentBottom && currentY > columnTop)
                             {
                                 StartNewColumnOrPage();
                                 restartLineFlow = true;
@@ -945,7 +953,7 @@ public sealed class DocumentLayouter
 
                             currentY = adjustedY;
                             var wrap = ResolveWrapForLine(ref adjustedY, line.Layout.LineHeight, lineLeft, lineRight, wrapResolver);
-                            if (adjustedY + line.Layout.LineHeight > contentBottom && currentY > contentTop)
+                            if (adjustedY + line.Layout.LineHeight > contentBottom && currentY > columnTop)
                             {
                                 StartNewColumnOrPage();
                                 restartLineFlow = true;
@@ -1072,6 +1080,7 @@ public sealed class DocumentLayouter
             columnIndex = snapshot.ColumnIndex;
             columnX = snapshot.ColumnX;
             columnWidth = snapshot.ColumnWidth;
+            columnTop = snapshot.ColumnTop;
             contentTop = snapshot.ContentTop;
             contentBottom = snapshot.ContentBottom;
             footnotesByPage = footnotesSnapshot;
@@ -1189,7 +1198,7 @@ public sealed class DocumentLayouter
 
             var page = pages[pageIndex];
             var contentLeft = page.Bounds.X + section.MarginLeft;
-            var contentTop = page.Bounds.Y + section.MarginTop;
+            var sectionTop = page.Bounds.Y + section.MarginTop;
             var contentWidth = MathF.Max(1f, page.Bounds.Width - section.MarginLeft - section.MarginRight);
             var columnGap = MathF.Max(0f, section.ColumnGap);
             var columnWidths = ResolveSectionColumnWidths(section, contentWidth, columnGap);
@@ -1301,12 +1310,23 @@ public sealed class DocumentLayouter
                 return;
             }
 
+            var firstItem = items[0];
+            var adjustedTop = firstItem.Y;
+            if (firstItem.Kind == BalanceItemKind.Line
+                && firstItem.StartOffset == 0
+                && paragraphSpacingBefore.TryGetValue(firstItem.ParagraphIndex, out var firstSpacingBefore))
+            {
+                adjustedTop -= firstSpacingBefore;
+            }
+
+            sectionTop = MathF.Max(sectionTop, adjustedTop);
+
             var advances = new float[items.Count];
             for (var i = 0; i < items.Count; i++)
             {
                 if (i == 0)
                 {
-                    advances[i] = MathF.Max(0f, items[i].Y - page.ContentBounds.Y);
+                    advances[i] = MathF.Max(0f, items[i].Y - sectionTop);
                 }
                 else
                 {
@@ -1328,12 +1348,12 @@ public sealed class DocumentLayouter
 
             var targetHeight = totalHeight / section.ColumnCount;
             var columnIndexBalance = 0;
-            var currentY = contentTop;
+            var currentY = sectionTop;
 
             for (var i = 0; i < items.Count; i++)
             {
                 var item = items[i];
-                var isFirstInColumn = currentY <= contentTop + 0.5f;
+                var isFirstInColumn = currentY <= sectionTop + 0.5f;
                 var gap = advances[i];
                 if (item.Kind == BalanceItemKind.Line && isFirstInColumn && item.StartOffset == 0
                     && paragraphSpacingBefore.TryGetValue(item.ParagraphIndex, out var spacingBefore))
@@ -1347,10 +1367,10 @@ public sealed class DocumentLayouter
 
                 if (columnIndexBalance < section.ColumnCount - 1
                     && !isFirstInColumn
-                    && currentY + gap + item.Height > contentTop + targetHeight)
+                    && currentY + gap + item.Height > sectionTop + targetHeight)
                 {
                     columnIndexBalance++;
-                    currentY = contentTop;
+                    currentY = sectionTop;
                     isFirstInColumn = true;
                     gap = 0f;
                     if (item.Kind == BalanceItemKind.Line && item.StartOffset == 0
@@ -1526,6 +1546,7 @@ public sealed class DocumentLayouter
                         columnIndex,
                         columnX,
                         columnWidth,
+                        columnTop,
                         contentTop,
                         contentBottom);
                     footnotesSnapshot = CloneNoteMap(footnotesByPage);
@@ -1630,7 +1651,7 @@ public sealed class DocumentLayouter
                 while (rowStart < totalRows)
                 {
                     var availableHeight = contentBottom - cursorY;
-                    if (availableHeight <= 0f && cursorY > contentTop)
+                    if (availableHeight <= 0f && cursorY > columnTop)
                     {
                         StartNewColumnOrPage();
                         tableX = columnX;
@@ -4853,6 +4874,7 @@ public sealed class DocumentLayouter
         public int ColumnIndex { get; }
         public float ColumnX { get; }
         public float ColumnWidth { get; }
+        public float ColumnTop { get; }
         public float ContentTop { get; }
         public float ContentBottom { get; }
 
@@ -4867,6 +4889,7 @@ public sealed class DocumentLayouter
             int columnIndex,
             float columnX,
             float columnWidth,
+            float columnTop,
             float contentTop,
             float contentBottom)
         {
@@ -4880,6 +4903,7 @@ public sealed class DocumentLayouter
             ColumnIndex = columnIndex;
             ColumnX = columnX;
             ColumnWidth = columnWidth;
+            ColumnTop = columnTop;
             ContentTop = contentTop;
             ContentBottom = contentBottom;
         }
