@@ -11,4 +11,8 @@
     <ProjectReference Include="..\\Vibe.Office.Primitives\\Vibe.Office.Primitives.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="Hyphenation\\*.pat.txt" />
+  </ItemGroup>
+
 </Project>
