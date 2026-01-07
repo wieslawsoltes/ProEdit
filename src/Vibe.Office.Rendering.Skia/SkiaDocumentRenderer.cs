@@ -413,13 +413,19 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                 foreach (var ch in run.Text)
                 {
                     var glyphWidth = paint.MeasureText(ch.ToString());
+                    var advance = glyphWidth;
+                    if (ch == ' ' && run.Text.Length == 1 && run.Width > glyphWidth + 0.01f)
+                    {
+                        advance = run.Width;
+                    }
+
                     if (ch == ' ' || ch == '\u00A0')
                     {
-                        var dotX = x + glyphWidth / 2f;
+                        var dotX = x + advance / 2f;
                         targetCanvas.DrawCircle(dotX, dotY, 1.3f, invisiblesFillPaint);
                     }
 
-                    x += glyphWidth;
+                    x += advance;
                 }
             }
 
@@ -1150,8 +1156,23 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             var take = Math.Min(remaining, segment.Length);
             if (take > 0)
             {
+                if (segment.Width > 0f && segment.Length == 1)
+                {
+                    width += segment.Width;
+                    remaining -= take;
+                    continue;
+                }
+
                 var paint = paintProvider(segment.Style);
-                width += paint.MeasureText(segment.Text.Substring(0, take));
+                if (segment.Width > 0f && take == segment.Length)
+                {
+                    var measured = paint.MeasureText(segment.Text);
+                    width += MathF.Abs(segment.Width - measured) > 0.01f ? segment.Width : measured;
+                }
+                else
+                {
+                    width += paint.MeasureText(segment.Text.Substring(0, take));
+                }
                 remaining -= take;
             }
         }
@@ -1411,7 +1432,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             }
             else if (!string.IsNullOrEmpty(run.Text))
             {
-                segments.Add((run.X, LineSegment.CreateText(run.Text, run.Style)));
+                segments.Add((run.X, LineSegment.CreateText(run.Text, run.Style, run.Width)));
             }
         }
 
@@ -1530,9 +1551,9 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             IsEquation = isEquation;
         }
 
-        public static LineSegment CreateText(string text, TextStyle style)
+        public static LineSegment CreateText(string text, TextStyle style, float width)
         {
-            return new LineSegment(text, style, 0f, text.Length, false, false, false, false, false);
+            return new LineSegment(text, style, width, text.Length, false, false, false, false, false);
         }
 
         public static LineSegment Tab(float width)

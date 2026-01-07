@@ -1349,6 +1349,12 @@ public sealed class EditorController
                 }
 
                 var metrics = GetRunMetrics(segment.Text, segment.Style);
+                if (segment.Width > 0f && segment.Length == 1 && MathF.Abs(segment.Width - metrics.Width) > 0.01f)
+                {
+                    var advance = relativeX >= segment.Width / 2f ? 1 : 0;
+                    return line.StartOffset + offsetInLine + advance;
+                }
+
                 var localOffset = metrics.GetOffsetForX(relativeX);
                 return line.StartOffset + offsetInLine + localOffset;
             }
@@ -1394,8 +1400,22 @@ public sealed class EditorController
             var take = Math.Min(remaining, segment.Length);
             if (take > 0)
             {
+                if (segment.Width > 0f && segment.Length == 1)
+                {
+                    width += segment.Width;
+                    remaining -= take;
+                    continue;
+                }
+
                 var metrics = GetRunMetrics(segment.Text, segment.Style);
-                width += metrics.GetWidth(take);
+                if (segment.Width > 0f && take == segment.Length && MathF.Abs(segment.Width - metrics.Width) > 0.01f)
+                {
+                    width += segment.Width;
+                }
+                else
+                {
+                    width += metrics.GetWidth(take);
+                }
                 remaining -= take;
             }
         }
@@ -1419,7 +1439,7 @@ public sealed class EditorController
             }
             else if (!string.IsNullOrEmpty(run.Text))
             {
-                segments.Add((run.X, LineSegment.CreateText(run.Text, run.Style)));
+                segments.Add((run.X, LineSegment.CreateText(run.Text, run.Style, run.Width)));
             }
         }
 
@@ -1456,7 +1476,21 @@ public sealed class EditorController
             return segment.Width;
         }
 
-        return GetRunMetrics(segment.Text, segment.Style).Width;
+        var metrics = GetRunMetrics(segment.Text, segment.Style);
+        if (segment.Width > 0f)
+        {
+            if (segment.Length == 1)
+            {
+                return segment.Width;
+            }
+
+            if (MathF.Abs(segment.Width - metrics.Width) > 0.01f)
+            {
+                return segment.Width;
+            }
+        }
+
+        return metrics.Width;
     }
 
     private RunMetrics GetRunMetrics(string text, TextStyle style)
@@ -1530,9 +1564,9 @@ public sealed class EditorController
             IsEquation = isEquation;
         }
 
-        public static LineSegment CreateText(string text, TextStyle style)
+        public static LineSegment CreateText(string text, TextStyle style, float width)
         {
-            return new LineSegment(text, style, 0f, text.Length, false, false, false, false, false);
+            return new LineSegment(text, style, width, text.Length, false, false, false, false, false);
         }
 
         public static LineSegment Tab(float width)
