@@ -6,6 +6,10 @@ using System.Text;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
+using A = DocumentFormat.OpenXml.Drawing;
+using C = DocumentFormat.OpenXml.Drawing.Charts;
+using DW = DocumentFormat.OpenXml.Drawing.Wordprocessing;
+using Wps = DocumentFormat.OpenXml.Office2010.Word.DrawingShape;
 using OpenXmlTableBorders = DocumentFormat.OpenXml.Wordprocessing.TableBorders;
 using OpenXmlTableCellBorders = DocumentFormat.OpenXml.Wordprocessing.TableCellBorders;
 using OpenXmlParagraphBorders = DocumentFormat.OpenXml.Wordprocessing.ParagraphBorders;
@@ -42,6 +46,7 @@ public sealed class DocxImporter
         var styleResolver = new StyleResolver(mainPart, document);
         var listResolver = new ListResolver(mainPart, document, styleResolver);
         var imageResolver = new ImageResolver(mainPart);
+        var chartResolver = new ChartResolver(mainPart);
         var hyperlinkResolver = new HyperlinkResolver(mainPart);
         LoadNotesAndComments(mainPart, document, listResolver, styleResolver);
         var currentSectionIndex = 0;
@@ -51,7 +56,7 @@ public sealed class DocxImporter
             switch (element)
             {
                 case Paragraph paragraph:
-                    foreach (var block in ParseParagraphBlocks(paragraph, listResolver, imageResolver, hyperlinkResolver, styleResolver, true))
+                    foreach (var block in ParseParagraphBlocks(paragraph, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, true))
                     {
                         document.Blocks.Add(block);
                     }
@@ -74,10 +79,10 @@ public sealed class DocxImporter
                     }
                     break;
                 case Table table:
-                    document.Blocks.Add(ParseTable(table, listResolver, imageResolver, hyperlinkResolver, styleResolver));
+                    document.Blocks.Add(ParseTable(table, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver));
                     break;
                 case SdtBlock sdtBlock:
-                    foreach (var block in ParseSdtBlock(sdtBlock, listResolver, imageResolver, hyperlinkResolver, styleResolver))
+                    foreach (var block in ParseSdtBlock(sdtBlock, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver))
                     {
                         document.Blocks.Add(block);
                     }
@@ -100,9 +105,9 @@ public sealed class DocxImporter
         return document;
     }
 
-    private static ParagraphBlock ParseParagraph(Paragraph paragraph, ListResolver listResolver, ImageResolver imageResolver, HyperlinkResolver hyperlinkResolver, StyleResolver styleResolver)
+    private static ParagraphBlock ParseParagraph(Paragraph paragraph, ListResolver listResolver, ImageResolver imageResolver, ChartResolver chartResolver, HyperlinkResolver hyperlinkResolver, StyleResolver styleResolver)
     {
-        var blocks = ParseParagraphBlocks(paragraph, listResolver, imageResolver, hyperlinkResolver, styleResolver, false);
+        var blocks = ParseParagraphBlocks(paragraph, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, false);
         foreach (var block in blocks)
         {
             if (block is ParagraphBlock paragraphBlock)
@@ -114,7 +119,7 @@ public sealed class DocxImporter
         return new ParagraphBlock();
     }
 
-    private static TableBlock ParseTable(Table table, ListResolver listResolver, ImageResolver imageResolver, HyperlinkResolver hyperlinkResolver, StyleResolver styleResolver)
+    private static TableBlock ParseTable(Table table, ListResolver listResolver, ImageResolver imageResolver, ChartResolver chartResolver, HyperlinkResolver hyperlinkResolver, StyleResolver styleResolver)
     {
         var tableBlock = new TableBlock();
         var tableProps = table.Elements<DocumentFormat.OpenXml.Wordprocessing.TableProperties>().FirstOrDefault();
@@ -133,7 +138,7 @@ public sealed class DocxImporter
             ApplyTableCellProperties(cell, tableCell.Properties);
             foreach (var paragraph in cell.Elements<Paragraph>())
             {
-                tableCell.Paragraphs.Add(ParseParagraph(paragraph, listResolver, imageResolver, hyperlinkResolver, styleResolver));
+                tableCell.Paragraphs.Add(ParseParagraph(paragraph, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver));
             }
 
             if (tableCell.Paragraphs.Count == 0)
@@ -219,7 +224,7 @@ public sealed class DocxImporter
         if (headerPart?.Header is not null)
         {
             section.Header.Blocks.Clear();
-            var headerBlocks = ParseHeaderFooter(headerPart.Header, listResolver, new ImageResolver(headerPart), new HyperlinkResolver(headerPart), styleResolver);
+            var headerBlocks = ParseHeaderFooter(headerPart.Header, listResolver, new ImageResolver(headerPart), new ChartResolver(headerPart), new HyperlinkResolver(headerPart), styleResolver);
             foreach (var block in headerBlocks)
             {
                 section.Header.Blocks.Add(block);
@@ -241,7 +246,7 @@ public sealed class DocxImporter
         if (footerPart?.Footer is not null)
         {
             section.Footer.Blocks.Clear();
-            var footerBlocks = ParseHeaderFooter(footerPart.Footer, listResolver, new ImageResolver(footerPart), new HyperlinkResolver(footerPart), styleResolver);
+            var footerBlocks = ParseHeaderFooter(footerPart.Footer, listResolver, new ImageResolver(footerPart), new ChartResolver(footerPart), new HyperlinkResolver(footerPart), styleResolver);
             foreach (var block in footerBlocks)
             {
                 section.Footer.Blocks.Add(block);
@@ -263,6 +268,7 @@ public sealed class DocxImporter
         if (mainPart.FootnotesPart?.Footnotes is { } footnotes)
         {
             var imageResolver = new ImageResolver(mainPart.FootnotesPart);
+            var chartResolver = new ChartResolver(mainPart.FootnotesPart);
             var hyperlinkResolver = new HyperlinkResolver(mainPart.FootnotesPart);
             foreach (var footnote in footnotes.Elements<Footnote>())
             {
@@ -274,7 +280,7 @@ public sealed class DocxImporter
                 }
 
                 var definition = new FootnoteDefinition(id);
-                foreach (var block in ParseHeaderFooter(footnote, listResolver, imageResolver, hyperlinkResolver, styleResolver))
+                foreach (var block in ParseHeaderFooter(footnote, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver))
                 {
                     definition.Blocks.Add(block);
                 }
@@ -286,6 +292,7 @@ public sealed class DocxImporter
         if (mainPart.EndnotesPart?.Endnotes is { } endnotes)
         {
             var imageResolver = new ImageResolver(mainPart.EndnotesPart);
+            var chartResolver = new ChartResolver(mainPart.EndnotesPart);
             var hyperlinkResolver = new HyperlinkResolver(mainPart.EndnotesPart);
             foreach (var endnote in endnotes.Elements<Endnote>())
             {
@@ -297,7 +304,7 @@ public sealed class DocxImporter
                 }
 
                 var definition = new EndnoteDefinition(id);
-                foreach (var block in ParseHeaderFooter(endnote, listResolver, imageResolver, hyperlinkResolver, styleResolver))
+                foreach (var block in ParseHeaderFooter(endnote, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver))
                 {
                     definition.Blocks.Add(block);
                 }
@@ -309,6 +316,7 @@ public sealed class DocxImporter
         if (mainPart.WordprocessingCommentsPart?.Comments is { } comments)
         {
             var imageResolver = new ImageResolver(mainPart.WordprocessingCommentsPart);
+            var chartResolver = new ChartResolver(mainPart.WordprocessingCommentsPart);
             var hyperlinkResolver = new HyperlinkResolver(mainPart.WordprocessingCommentsPart);
             foreach (var comment in comments.Elements<Comment>())
             {
@@ -326,7 +334,7 @@ public sealed class DocxImporter
                     Date = comment.Date?.Value
                 };
 
-                foreach (var block in ParseHeaderFooter(comment, listResolver, imageResolver, hyperlinkResolver, styleResolver))
+                foreach (var block in ParseHeaderFooter(comment, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver))
                 {
                     definition.Blocks.Add(block);
                 }
@@ -336,7 +344,7 @@ public sealed class DocxImporter
         }
     }
 
-    private static List<Block> ParseHeaderFooter(OpenXmlCompositeElement root, ListResolver listResolver, ImageResolver imageResolver, HyperlinkResolver hyperlinkResolver, StyleResolver styleResolver)
+    private static List<Block> ParseHeaderFooter(OpenXmlCompositeElement root, ListResolver listResolver, ImageResolver imageResolver, ChartResolver chartResolver, HyperlinkResolver hyperlinkResolver, StyleResolver styleResolver)
     {
         var blocks = new List<Block>();
         foreach (var element in root.Elements())
@@ -344,13 +352,13 @@ public sealed class DocxImporter
             switch (element)
             {
                 case Paragraph paragraph:
-                    blocks.AddRange(ParseParagraphBlocks(paragraph, listResolver, imageResolver, hyperlinkResolver, styleResolver, false));
+                    blocks.AddRange(ParseParagraphBlocks(paragraph, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, false));
                     break;
                 case Table table:
-                    blocks.Add(ParseTable(table, listResolver, imageResolver, hyperlinkResolver, styleResolver));
+                    blocks.Add(ParseTable(table, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver));
                     break;
                 case SdtBlock sdtBlock:
-                    blocks.AddRange(ParseSdtBlock(sdtBlock, listResolver, imageResolver, hyperlinkResolver, styleResolver));
+                    blocks.AddRange(ParseSdtBlock(sdtBlock, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver));
                     break;
             }
         }
@@ -362,6 +370,7 @@ public sealed class DocxImporter
         SdtBlock sdtBlock,
         ListResolver listResolver,
         ImageResolver imageResolver,
+        ChartResolver chartResolver,
         HyperlinkResolver hyperlinkResolver,
         StyleResolver styleResolver)
     {
@@ -377,13 +386,13 @@ public sealed class DocxImporter
                 switch (element)
                 {
                     case Paragraph paragraph:
-                        blocks.AddRange(ParseParagraphBlocks(paragraph, listResolver, imageResolver, hyperlinkResolver, styleResolver, false));
+                        blocks.AddRange(ParseParagraphBlocks(paragraph, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, false));
                         break;
                     case Table table:
-                        blocks.Add(ParseTable(table, listResolver, imageResolver, hyperlinkResolver, styleResolver));
+                        blocks.Add(ParseTable(table, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver));
                         break;
                     case SdtBlock nestedBlock:
-                        blocks.AddRange(ParseSdtBlock(nestedBlock, listResolver, imageResolver, hyperlinkResolver, styleResolver));
+                        blocks.AddRange(ParseSdtBlock(nestedBlock, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver));
                         break;
                 }
             }
@@ -444,6 +453,7 @@ public sealed class DocxImporter
         Paragraph paragraph,
         ListResolver listResolver,
         ImageResolver imageResolver,
+        ChartResolver chartResolver,
         HyperlinkResolver hyperlinkResolver,
         StyleResolver styleResolver,
         bool splitOnPageBreaks)
@@ -491,6 +501,19 @@ public sealed class DocxImporter
             {
                 builder.Append(DocumentConstants.ObjectReplacementChar);
             }
+        }
+
+        void AddFloatingObject(Inline inline, DW.Anchor anchorElement, HyperlinkInfo? hyperlink, int anchorOffset)
+        {
+            if (hyperlink is not null)
+            {
+                inline.Hyperlink = hyperlink;
+            }
+
+            var floating = new FloatingObject(inline);
+            ApplyAnchorProperties(anchorElement, floating.Anchor);
+            floating.Anchor.AnchorOffset = anchorOffset;
+            current.FloatingObjects.Add(floating);
         }
 
         void FinalizeFieldInstruction(FieldParseState state)
@@ -625,8 +648,8 @@ public sealed class DocxImporter
                             break;
                         }
 
-                        var fontValue = element.GetAttribute("font", element.NamespaceUri).Value;
-                        var charValue = element.GetAttribute("char", element.NamespaceUri).Value;
+                        var fontValue = GetAttributeValue(element, "font", element.NamespaceUri) ?? string.Empty;
+                        var charValue = GetAttributeValue(element, "char", element.NamespaceUri) ?? string.Empty;
                         var symbolText = ParseSymbolChar(charValue);
                         if (symbolText.Length == 0)
                         {
@@ -765,10 +788,22 @@ public sealed class DocxImporter
                         if (!suppressResultText)
                         {
                             FlushRunBuffer(buffer, style, runStyleId, current, builder, hyperlink);
-                            var imageInline = imageResolver.TryCreateImage(drawing);
-                            if (imageInline is not null)
+                            var anchor = drawing.Descendants<DW.Anchor>().FirstOrDefault();
+                            if (anchor is not null)
                             {
-                                AddInline(imageInline, true, hyperlink);
+                                var inline = TryCreateInlineObject(drawing, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver);
+                                if (inline is not null)
+                                {
+                                    AddFloatingObject(inline, anchor, hyperlink, builder.Length);
+                                }
+                            }
+                            else
+                            {
+                                var inline = TryCreateInlineObject(drawing, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver);
+                                if (inline is not null)
+                                {
+                                    AddInline(inline, true, hyperlink);
+                                }
                             }
                         }
 
@@ -777,10 +812,24 @@ public sealed class DocxImporter
                         if (!suppressResultText)
                         {
                             FlushRunBuffer(buffer, style, runStyleId, current, builder, hyperlink);
-                            var imageInline = imageResolver.TryCreateImageFromVml(element);
-                            if (imageInline is not null)
+                            var inline = TryCreateInlineObjectFromVml(element, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver);
+                            if (inline is not null)
                             {
-                                AddInline(imageInline, true, hyperlink);
+                                var floating = new FloatingObject(inline);
+                                if (TryApplyVmlAnchor(element, floating.Anchor))
+                                {
+                                    if (hyperlink is not null)
+                                    {
+                                        inline.Hyperlink = hyperlink;
+                                    }
+
+                                    floating.Anchor.AnchorOffset = builder.Length;
+                                    current.FloatingObjects.Add(floating);
+                                }
+                                else
+                                {
+                                    AddInline(inline, true, hyperlink);
+                                }
                             }
                         }
 
@@ -3052,6 +3101,951 @@ public sealed class DocxImporter
         return code <= 0xFFFF ? new string((char)code, 1) : char.ConvertFromUtf32(code);
     }
 
+    private static string? GetAttributeValue(OpenXmlElement element, string localName, string? namespaceUri = null)
+    {
+        foreach (var attribute in element.GetAttributes())
+        {
+            if (!string.Equals(attribute.LocalName, localName, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (namespaceUri is null
+                || string.Equals(attribute.NamespaceUri, namespaceUri, StringComparison.OrdinalIgnoreCase))
+            {
+                return attribute.Value;
+            }
+        }
+
+        return null;
+    }
+
+    private static Inline? TryCreateInlineObject(
+        Drawing drawing,
+        ListResolver listResolver,
+        ImageResolver imageResolver,
+        ChartResolver chartResolver,
+        HyperlinkResolver hyperlinkResolver,
+        StyleResolver styleResolver)
+    {
+        var graphicData = drawing.Descendants<A.GraphicData>().FirstOrDefault();
+        var uri = graphicData?.Uri?.Value ?? string.Empty;
+        if (uri.Contains("drawingml/chart", StringComparison.OrdinalIgnoreCase) || uri.Contains("drawingml/2006/chart", StringComparison.OrdinalIgnoreCase) || uri.Contains("chart", StringComparison.OrdinalIgnoreCase))
+        {
+            var chartInline = chartResolver.TryCreateChart(drawing);
+            if (chartInline is not null)
+            {
+                return chartInline;
+            }
+        }
+
+        if (uri.Contains("wordprocessingShape", StringComparison.OrdinalIgnoreCase))
+        {
+            var shape = graphicData?.GetFirstChild<Wps.WordprocessingShape>()
+                       ?? drawing.Descendants<Wps.WordprocessingShape>().FirstOrDefault();
+            if (shape is not null)
+            {
+                var inline = TryCreateWordprocessingShape(drawing, shape, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver);
+                if (inline is not null)
+                {
+                    return inline;
+                }
+            }
+        }
+
+        return imageResolver.TryCreateImage(drawing);
+    }
+
+    private static Inline? TryCreateInlineObjectFromVml(
+        OpenXmlElement element,
+        ListResolver listResolver,
+        ImageResolver imageResolver,
+        ChartResolver chartResolver,
+        HyperlinkResolver hyperlinkResolver,
+        StyleResolver styleResolver)
+    {
+        var hasImageData = element.Descendants()
+            .Any(node => node.LocalName.Equals("imagedata", StringComparison.OrdinalIgnoreCase));
+        if (hasImageData)
+        {
+            var imageInline = imageResolver.TryCreateImageFromVml(element);
+            if (imageInline is not null)
+            {
+                return imageInline;
+            }
+        }
+
+        var shapeElement = element.Descendants()
+            .FirstOrDefault(node => node.LocalName.Equals("shape", StringComparison.OrdinalIgnoreCase));
+        if (shapeElement is null)
+        {
+            return null;
+        }
+
+        var (width, height) = GetVmlSize(element);
+        var shapeInline = new ShapeInline(width, height)
+        {
+            Name = GetAttributeValue(shapeElement, "id")
+        };
+
+        shapeInline.Properties.PresetGeometry = "rect";
+
+        var fillColor = GetAttributeValue(shapeElement, "fillcolor") ?? string.Empty;
+        if (!string.IsNullOrWhiteSpace(fillColor) && TryParseVmlColor(fillColor, out var fill))
+        {
+            shapeInline.Properties.FillColor = fill;
+        }
+
+        var strokeColor = GetAttributeValue(shapeElement, "strokecolor") ?? string.Empty;
+        var strokeWeight = GetAttributeValue(shapeElement, "strokeweight") ?? string.Empty;
+        if (!string.IsNullOrWhiteSpace(strokeColor) && TryParseVmlColor(strokeColor, out var stroke))
+        {
+            var border = new BorderLine { Color = stroke };
+            if (!string.IsNullOrWhiteSpace(strokeWeight) && TryParseVmlLength(strokeWeight, out var weight))
+            {
+                border.Thickness = weight;
+            }
+
+            shapeInline.Properties.Outline = border;
+        }
+
+        var textBoxContent = element.Descendants<TextBoxContent>().FirstOrDefault();
+        if (textBoxContent is not null)
+        {
+            var blocks = ParseTextBoxContent(textBoxContent, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver);
+            var textBox = new ShapeTextBox();
+            textBox.Blocks.AddRange(blocks);
+            shapeInline.TextBox = textBox;
+        }
+
+        return shapeInline;
+    }
+
+    private static bool TryApplyVmlAnchor(OpenXmlElement element, FloatingAnchor target)
+    {
+        var shape = element.Descendants()
+            .FirstOrDefault(node => node.LocalName.Equals("shape", StringComparison.OrdinalIgnoreCase));
+        if (shape is null)
+        {
+            return false;
+        }
+
+        var styleValue = GetAttributeValue(shape, "style") ?? string.Empty;
+        var style = ParseVmlStyle(styleValue);
+        var hasWrapInfo = TryResolveVmlWrap(element, style, out var wrapStyle, out var wrapSide);
+        var hasPosition = style.TryGetValue("position", out var position)
+            && position.Equals("absolute", StringComparison.OrdinalIgnoreCase);
+        var hasLegacyPosition = style.ContainsKey("mso-position-horizontal")
+            || style.ContainsKey("mso-position-vertical")
+            || style.ContainsKey("mso-position-horizontal-relative")
+            || style.ContainsKey("mso-position-vertical-relative");
+        var hasOffset = style.ContainsKey("left")
+            || style.ContainsKey("top")
+            || style.ContainsKey("margin-left")
+            || style.ContainsKey("margin-top");
+
+        if (!hasWrapInfo && !hasPosition && !hasLegacyPosition && !hasOffset)
+        {
+            return false;
+        }
+
+        target.WrapStyle = wrapStyle;
+        target.WrapSide = wrapSide;
+
+        if (style.TryGetValue("mso-position-horizontal-relative", out var horizontalReference))
+        {
+            target.HorizontalReference = MapVmlHorizontalReference(horizontalReference);
+        }
+
+        if (style.TryGetValue("mso-position-vertical-relative", out var verticalReference))
+        {
+            target.VerticalReference = MapVmlVerticalReference(verticalReference);
+        }
+
+        if (style.TryGetValue("mso-position-horizontal", out var horizontalAlignment))
+        {
+            target.HorizontalAlignment = MapHorizontalAlignment(horizontalAlignment);
+        }
+
+        if (style.TryGetValue("mso-position-vertical", out var verticalAlignment))
+        {
+            target.VerticalAlignment = MapVerticalAlignment(verticalAlignment);
+        }
+
+        if (TryGetVmlStyleLength(style, "margin-left", out var offsetX)
+            || TryGetVmlStyleLength(style, "left", out offsetX))
+        {
+            target.OffsetX = offsetX;
+        }
+
+        if (TryGetVmlStyleLength(style, "margin-top", out var offsetY)
+            || TryGetVmlStyleLength(style, "top", out offsetY))
+        {
+            target.OffsetY = offsetY;
+        }
+
+        var hasDistance = false;
+        var left = 0f;
+        var top = 0f;
+        var right = 0f;
+        var bottom = 0f;
+        if (TryGetVmlStyleLength(style, "mso-wrap-distance-left", out var distanceLeft))
+        {
+            left = distanceLeft;
+            hasDistance = true;
+        }
+
+        if (TryGetVmlStyleLength(style, "mso-wrap-distance-top", out var distanceTop))
+        {
+            top = distanceTop;
+            hasDistance = true;
+        }
+
+        if (TryGetVmlStyleLength(style, "mso-wrap-distance-right", out var distanceRight))
+        {
+            right = distanceRight;
+            hasDistance = true;
+        }
+
+        if (TryGetVmlStyleLength(style, "mso-wrap-distance-bottom", out var distanceBottom))
+        {
+            bottom = distanceBottom;
+            hasDistance = true;
+        }
+
+        if (hasDistance)
+        {
+            target.Distance = new DocThickness(left, top, right, bottom);
+        }
+
+        return true;
+    }
+
+    private static Dictionary<string, string> ParseVmlStyle(string styleValue)
+    {
+        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (string.IsNullOrWhiteSpace(styleValue))
+        {
+            return result;
+        }
+
+        foreach (var part in styleValue.Split(';', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var piece = part.Trim();
+            var splitIndex = piece.IndexOf(':');
+            if (splitIndex <= 0)
+            {
+                continue;
+            }
+
+            var key = piece[..splitIndex].Trim();
+            var value = piece[(splitIndex + 1)..].Trim();
+            if (key.Length == 0)
+            {
+                continue;
+            }
+
+            result[key] = value;
+        }
+
+        return result;
+    }
+
+    private static bool TryResolveVmlWrap(
+        OpenXmlElement element,
+        IReadOnlyDictionary<string, string> style,
+        out FloatingWrapStyle wrapStyle,
+        out FloatingWrapSide wrapSide)
+    {
+        wrapStyle = FloatingWrapStyle.None;
+        wrapSide = FloatingWrapSide.Both;
+        var hasWrapInfo = false;
+
+        if (style.TryGetValue("mso-wrap-style", out var styleValue))
+        {
+            wrapStyle = MapVmlWrapStyle(styleValue);
+            hasWrapInfo = true;
+        }
+
+        if (style.TryGetValue("mso-wrap-side", out var sideValue))
+        {
+            wrapSide = MapVmlWrapSide(sideValue);
+            hasWrapInfo = true;
+        }
+
+        var wrapElement = element.Descendants()
+            .FirstOrDefault(node => node.LocalName.Equals("wrap", StringComparison.OrdinalIgnoreCase));
+        if (wrapElement is not null)
+        {
+            var type = GetAttributeValue(wrapElement, "type");
+            if (!string.IsNullOrWhiteSpace(type))
+            {
+                wrapStyle = MapVmlWrapStyle(type);
+                hasWrapInfo = true;
+            }
+
+            var side = GetAttributeValue(wrapElement, "side");
+            if (!string.IsNullOrWhiteSpace(side))
+            {
+                wrapSide = MapVmlWrapSide(side);
+                hasWrapInfo = true;
+            }
+        }
+
+        return hasWrapInfo;
+    }
+
+    private static FloatingWrapStyle MapVmlWrapStyle(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return FloatingWrapStyle.None;
+        }
+
+        var normalized = value.Trim().ToLowerInvariant()
+            .Replace("-", string.Empty, StringComparison.Ordinal)
+            .Replace("_", string.Empty, StringComparison.Ordinal)
+            .Replace(" ", string.Empty, StringComparison.Ordinal);
+        return normalized switch
+        {
+            "square" => FloatingWrapStyle.Square,
+            "tight" => FloatingWrapStyle.Tight,
+            "through" => FloatingWrapStyle.Through,
+            "topandbottom" => FloatingWrapStyle.TopBottom,
+            "topbottom" => FloatingWrapStyle.TopBottom,
+            "none" => FloatingWrapStyle.None,
+            _ => FloatingWrapStyle.None
+        };
+    }
+
+    private static FloatingWrapSide MapVmlWrapSide(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return FloatingWrapSide.Both;
+        }
+
+        return value.Trim().ToLowerInvariant() switch
+        {
+            "left" => FloatingWrapSide.Left,
+            "right" => FloatingWrapSide.Right,
+            "largest" => FloatingWrapSide.Largest,
+            "both" => FloatingWrapSide.Both,
+            _ => FloatingWrapSide.Both
+        };
+    }
+
+    private static FloatingHorizontalReference MapVmlHorizontalReference(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return FloatingHorizontalReference.Margin;
+        }
+
+        return value.Trim().ToLowerInvariant() switch
+        {
+            "page" => FloatingHorizontalReference.Page,
+            "margin" => FloatingHorizontalReference.Margin,
+            "column" => FloatingHorizontalReference.Column,
+            "character" => FloatingHorizontalReference.Character,
+            "char" => FloatingHorizontalReference.Character,
+            "text" => FloatingHorizontalReference.Paragraph,
+            "paragraph" => FloatingHorizontalReference.Paragraph,
+            _ => FloatingHorizontalReference.Margin
+        };
+    }
+
+    private static FloatingVerticalReference MapVmlVerticalReference(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return FloatingVerticalReference.Margin;
+        }
+
+        return value.Trim().ToLowerInvariant() switch
+        {
+            "page" => FloatingVerticalReference.Page,
+            "margin" => FloatingVerticalReference.Margin,
+            "paragraph" => FloatingVerticalReference.Paragraph,
+            "line" => FloatingVerticalReference.Line,
+            _ => FloatingVerticalReference.Margin
+        };
+    }
+
+    private static bool TryGetVmlStyleLength(
+        IReadOnlyDictionary<string, string> style,
+        string key,
+        out float value)
+    {
+        value = 0f;
+        if (!style.TryGetValue(key, out var raw))
+        {
+            return false;
+        }
+
+        return TryParseVmlLength(raw, out value);
+    }
+
+    private static ShapeInline? TryCreateWordprocessingShape(
+        Drawing drawing,
+        Wps.WordprocessingShape shape,
+        ListResolver listResolver,
+        ImageResolver imageResolver,
+        ChartResolver chartResolver,
+        HyperlinkResolver hyperlinkResolver,
+        StyleResolver styleResolver)
+    {
+        var extent = drawing.Descendants<DW.Extent>().FirstOrDefault();
+        var width = extent?.Cx?.Value is long cx ? EmuToDip(cx) : 0f;
+        var height = extent?.Cy?.Value is long cy ? EmuToDip(cy) : 0f;
+
+        var spPr = shape.GetFirstChild<Wps.ShapeProperties>();
+        var transform = spPr?.GetFirstChild<A.Transform2D>();
+        if (width <= 0f && transform?.Extents?.Cx?.Value is long tcx)
+        {
+            width = EmuToDip(tcx);
+        }
+
+        if (height <= 0f && transform?.Extents?.Cy?.Value is long tcy)
+        {
+            height = EmuToDip(tcy);
+        }
+
+        if (width <= 0f)
+        {
+            width = 100f;
+        }
+
+        if (height <= 0f)
+        {
+            height = 100f;
+        }
+
+        var shapeInline = new ShapeInline(width, height);
+        var docProps = drawing.Descendants<DW.DocProperties>().FirstOrDefault();
+        shapeInline.Name = docProps?.Name?.Value
+            ?? shape.GetFirstChild<Wps.NonVisualDrawingProperties>()?.Name?.Value;
+
+        ApplyShapeProperties(spPr, shapeInline.Properties);
+        if (transform is not null)
+        {
+            if (transform.Rotation?.Value is int rotation)
+            {
+                shapeInline.Properties.Rotation = rotation / 60000f;
+            }
+
+            shapeInline.Properties.FlipHorizontal = transform.HorizontalFlip?.Value ?? false;
+            shapeInline.Properties.FlipVertical = transform.VerticalFlip?.Value ?? false;
+        }
+
+        var bodyPr = shape.GetFirstChild<Wps.TextBodyProperties>();
+        var textBoxContent = shape.GetFirstChild<Wps.TextBoxInfo2>()?.TextBoxContent;
+        if (textBoxContent is not null || bodyPr is not null)
+        {
+            var textBox = new ShapeTextBox();
+            ApplyTextBodyProperties(bodyPr, textBox.Properties);
+            if (textBoxContent is not null)
+            {
+                var blocks = ParseTextBoxContent(textBoxContent, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver);
+                textBox.Blocks.AddRange(blocks);
+            }
+
+            if (textBox.Blocks.Count > 0 || bodyPr is not null)
+            {
+                shapeInline.TextBox = textBox;
+            }
+        }
+
+        return shapeInline;
+    }
+
+    private static void ApplyAnchorProperties(DW.Anchor anchor, FloatingAnchor target)
+    {
+        target.BehindText = anchor.BehindDoc?.Value ?? false;
+
+        var left = anchor.DistanceFromLeft?.Value;
+        var top = anchor.DistanceFromTop?.Value;
+        var right = anchor.DistanceFromRight?.Value;
+        var bottom = anchor.DistanceFromBottom?.Value;
+        if (left.HasValue || top.HasValue || right.HasValue || bottom.HasValue)
+        {
+            target.Distance = new DocThickness(
+                left.HasValue ? EmuToDip(left.Value) : 0f,
+                top.HasValue ? EmuToDip(top.Value) : 0f,
+                right.HasValue ? EmuToDip(right.Value) : 0f,
+                bottom.HasValue ? EmuToDip(bottom.Value) : 0f);
+        }
+
+        if (anchor.SimplePos?.Value == true && anchor.SimplePosition is { } simplePosition)
+        {
+            if (simplePosition.X?.Value is long simpleX)
+            {
+                target.OffsetX = EmuToDip(simpleX);
+            }
+
+            if (simplePosition.Y?.Value is long simpleY)
+            {
+                target.OffsetY = EmuToDip(simpleY);
+            }
+
+            target.HorizontalReference = FloatingHorizontalReference.Page;
+            target.VerticalReference = FloatingVerticalReference.Page;
+        }
+
+        if (anchor.HorizontalPosition is { } horizontal)
+        {
+            target.HorizontalReference = MapHorizontalReference(horizontal.RelativeFrom?.Value);
+            var alignment = horizontal.HorizontalAlignment?.Text;
+            target.HorizontalAlignment = MapHorizontalAlignment(alignment);
+            if (horizontal.PositionOffset?.Text is { Length: > 0 } offsetText
+                && long.TryParse(offsetText, out var offset))
+            {
+                target.OffsetX = EmuToDip(offset);
+            }
+        }
+
+        if (anchor.VerticalPosition is { } vertical)
+        {
+            target.VerticalReference = MapVerticalReference(vertical.RelativeFrom?.Value);
+            var alignment = vertical.VerticalAlignment?.Text;
+            target.VerticalAlignment = MapVerticalAlignment(alignment);
+            if (vertical.PositionOffset?.Text is { Length: > 0 } offsetText
+                && long.TryParse(offsetText, out var offset))
+            {
+                target.OffsetY = EmuToDip(offset);
+            }
+        }
+
+        var wrapSquare = anchor.GetFirstChild<DW.WrapSquare>();
+        var wrapTight = anchor.GetFirstChild<DW.WrapTight>();
+        var wrapThrough = anchor.GetFirstChild<DW.WrapThrough>();
+        if (wrapSquare is not null)
+        {
+            target.WrapStyle = FloatingWrapStyle.Square;
+            target.WrapSide = MapWrapSide(wrapSquare.WrapText?.Value);
+        }
+        else if (wrapTight is not null)
+        {
+            target.WrapStyle = FloatingWrapStyle.Tight;
+            target.WrapSide = MapWrapSide(wrapTight.WrapText?.Value);
+        }
+        else if (anchor.GetFirstChild<DW.WrapTopBottom>() is not null)
+        {
+            target.WrapStyle = FloatingWrapStyle.TopBottom;
+            target.WrapSide = FloatingWrapSide.Both;
+        }
+        else if (wrapThrough is not null)
+        {
+            target.WrapStyle = FloatingWrapStyle.Through;
+            target.WrapSide = MapWrapSide(wrapThrough.WrapText?.Value);
+        }
+        else
+        {
+            target.WrapStyle = FloatingWrapStyle.None;
+            target.WrapSide = FloatingWrapSide.Both;
+        }
+    }
+
+    private static FloatingWrapSide MapWrapSide(DW.WrapTextValues? value)
+    {
+        if (!value.HasValue)
+        {
+            return FloatingWrapSide.Both;
+        }
+
+        if (value.Value == DW.WrapTextValues.Left)
+        {
+            return FloatingWrapSide.Left;
+        }
+
+        if (value.Value == DW.WrapTextValues.Right)
+        {
+            return FloatingWrapSide.Right;
+        }
+
+        if (value.Value == DW.WrapTextValues.Largest)
+        {
+            return FloatingWrapSide.Largest;
+        }
+
+        return FloatingWrapSide.Both;
+    }
+
+    private static FloatingHorizontalReference MapHorizontalReference(DW.HorizontalRelativePositionValues? value)
+    {
+        if (value is null)
+        {
+            return FloatingHorizontalReference.Margin;
+        }
+
+        if (value.Value == DW.HorizontalRelativePositionValues.Page)
+        {
+            return FloatingHorizontalReference.Page;
+        }
+
+        if (value.Value == DW.HorizontalRelativePositionValues.Column)
+        {
+            return FloatingHorizontalReference.Column;
+        }
+
+        if (value.Value == DW.HorizontalRelativePositionValues.Character)
+        {
+            return FloatingHorizontalReference.Character;
+        }
+
+        return FloatingHorizontalReference.Margin;
+    }
+
+    private static FloatingVerticalReference MapVerticalReference(DW.VerticalRelativePositionValues? value)
+    {
+        if (value is null)
+        {
+            return FloatingVerticalReference.Margin;
+        }
+
+        if (value.Value == DW.VerticalRelativePositionValues.Page)
+        {
+            return FloatingVerticalReference.Page;
+        }
+
+        if (value.Value == DW.VerticalRelativePositionValues.Paragraph)
+        {
+            return FloatingVerticalReference.Paragraph;
+        }
+
+        if (value.Value == DW.VerticalRelativePositionValues.Line)
+        {
+            return FloatingVerticalReference.Line;
+        }
+
+        return FloatingVerticalReference.Margin;
+    }
+
+    private static FloatingHorizontalAlignment MapHorizontalAlignment(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return FloatingHorizontalAlignment.None;
+        }
+
+        return value.Trim().ToLowerInvariant() switch
+        {
+            "left" => FloatingHorizontalAlignment.Left,
+            "center" => FloatingHorizontalAlignment.Center,
+            "right" => FloatingHorizontalAlignment.Right,
+            "inside" => FloatingHorizontalAlignment.Inside,
+            "outside" => FloatingHorizontalAlignment.Outside,
+            _ => FloatingHorizontalAlignment.None
+        };
+    }
+
+    private static FloatingVerticalAlignment MapVerticalAlignment(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return FloatingVerticalAlignment.None;
+        }
+
+        return value.Trim().ToLowerInvariant() switch
+        {
+            "top" => FloatingVerticalAlignment.Top,
+            "center" => FloatingVerticalAlignment.Center,
+            "bottom" => FloatingVerticalAlignment.Bottom,
+            "inside" => FloatingVerticalAlignment.Inside,
+            "outside" => FloatingVerticalAlignment.Outside,
+            _ => FloatingVerticalAlignment.None
+        };
+    }
+
+    private static void ApplyShapeProperties(Wps.ShapeProperties? shapeProperties, ShapeProperties properties)
+    {
+        if (shapeProperties is null)
+        {
+            return;
+        }
+
+        var preset = shapeProperties.GetFirstChild<A.PresetGeometry>()?.Preset?.Value;
+        properties.PresetGeometry = preset?.ToString();
+        properties.FillColor = TryParseDrawingFillColor(shapeProperties);
+        properties.Outline = ParseShapeOutline(shapeProperties.GetFirstChild<A.Outline>());
+    }
+
+    private static void ApplyTextBodyProperties(Wps.TextBodyProperties? bodyProperties, ShapeTextBoxProperties properties)
+    {
+        if (bodyProperties is null)
+        {
+            return;
+        }
+
+        var left = bodyProperties.LeftInset?.Value;
+        var top = bodyProperties.TopInset?.Value;
+        var right = bodyProperties.RightInset?.Value;
+        var bottom = bodyProperties.BottomInset?.Value;
+
+        if (left.HasValue || top.HasValue || right.HasValue || bottom.HasValue)
+        {
+            properties.Padding = new DocThickness(
+                left.HasValue ? EmuToDip(left.Value) : 0f,
+                top.HasValue ? EmuToDip(top.Value) : 0f,
+                right.HasValue ? EmuToDip(right.Value) : 0f,
+                bottom.HasValue ? EmuToDip(bottom.Value) : 0f);
+        }
+
+        var anchor = bodyProperties.Anchor?.Value;
+        if (anchor is not null)
+        {
+            if (anchor == A.TextAnchoringTypeValues.Center)
+            {
+                properties.VerticalAlignment = ShapeTextVerticalAlignment.Center;
+            }
+            else if (anchor == A.TextAnchoringTypeValues.Bottom)
+            {
+                properties.VerticalAlignment = ShapeTextVerticalAlignment.Bottom;
+            }
+            else
+            {
+                properties.VerticalAlignment = ShapeTextVerticalAlignment.Top;
+            }
+        }
+    }
+
+    private static List<Block> ParseTextBoxContent(
+        TextBoxContent content,
+        ListResolver listResolver,
+        ImageResolver imageResolver,
+        ChartResolver chartResolver,
+        HyperlinkResolver hyperlinkResolver,
+        StyleResolver styleResolver)
+    {
+        var blocks = new List<Block>();
+        foreach (var element in content.Elements())
+        {
+            switch (element)
+            {
+                case Paragraph paragraph:
+                    blocks.AddRange(ParseParagraphBlocks(paragraph, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, false));
+                    break;
+                case Table table:
+                    blocks.Add(ParseTable(table, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver));
+                    break;
+                case SdtBlock sdtBlock:
+                    blocks.AddRange(ParseSdtBlock(sdtBlock, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver));
+                    break;
+            }
+        }
+
+        if (blocks.Count == 0)
+        {
+            blocks.Add(new ParagraphBlock());
+        }
+
+        return blocks;
+    }
+
+    private static DocColor? TryParseDrawingFillColor(OpenXmlElement element)
+    {
+        if (element.GetFirstChild<A.NoFill>() is not null)
+        {
+            return null;
+        }
+
+        var solidFill = element.GetFirstChild<A.SolidFill>();
+        return TryParseSolidFillColor(solidFill);
+    }
+
+    private static DocColor? TryParseSolidFillColor(A.SolidFill? solidFill)
+    {
+        if (solidFill is null)
+        {
+            return null;
+        }
+
+        var rgb = solidFill.GetFirstChild<A.RgbColorModelHex>()?.Val?.Value;
+        if (!string.IsNullOrWhiteSpace(rgb) && TryParseHexColor(rgb, out var color))
+        {
+            return color;
+        }
+
+        return null;
+    }
+
+    private static BorderLine? ParseShapeOutline(A.Outline? outline)
+    {
+        if (outline is null)
+        {
+            return null;
+        }
+
+        if (outline.GetFirstChild<A.NoFill>() is not null)
+        {
+            return new BorderLine { Style = DocBorderStyle.None };
+        }
+
+        var border = new BorderLine();
+        if (outline.Width?.Value is int width)
+        {
+            border.Thickness = EmuToDip(width);
+        }
+
+        var color = TryParseSolidFillColor(outline.GetFirstChild<A.SolidFill>());
+        if (color.HasValue)
+        {
+            border.Color = color.Value;
+        }
+
+        var dash = outline.GetFirstChild<A.PresetDash>()?.Val?.Value;
+        border.Style = MapLineDash(dash);
+        return border;
+    }
+
+    private static DocBorderStyle MapLineDash(A.PresetLineDashValues? dash)
+    {
+        if (dash is null)
+        {
+            return DocBorderStyle.Single;
+        }
+
+        if (dash == A.PresetLineDashValues.Dot || dash == A.PresetLineDashValues.SystemDot)
+        {
+            return DocBorderStyle.Dotted;
+        }
+
+        if (dash == A.PresetLineDashValues.Dash
+            || dash == A.PresetLineDashValues.SystemDash
+            || dash == A.PresetLineDashValues.LargeDash)
+        {
+            return DocBorderStyle.Dashed;
+        }
+
+        if (dash == A.PresetLineDashValues.DashDot
+            || dash == A.PresetLineDashValues.SystemDashDot
+            || dash == A.PresetLineDashValues.LargeDashDot)
+        {
+            return DocBorderStyle.DotDash;
+        }
+
+        if (dash == A.PresetLineDashValues.SystemDashDotDot
+            || dash == A.PresetLineDashValues.LargeDashDotDot)
+        {
+            return DocBorderStyle.DotDotDash;
+        }
+
+        return DocBorderStyle.Single;
+    }
+
+    private static float EmuToDip(long emu)
+    {
+        return (float)(emu / 914400d * 96d);
+    }
+
+    private static (float Width, float Height) GetVmlSize(OpenXmlElement element)
+    {
+        var shape = element.Descendants()
+            .FirstOrDefault(node => node.LocalName.Equals("shape", StringComparison.OrdinalIgnoreCase));
+        if (shape is null)
+        {
+            return (100f, 100f);
+        }
+
+            var styleValue = GetAttributeValue(shape, "style") ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(styleValue))
+        {
+            return (100f, 100f);
+        }
+
+        var width = 0f;
+        var height = 0f;
+        foreach (var part in styleValue.Split(';', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var piece = part.Trim();
+            if (piece.StartsWith("width", StringComparison.OrdinalIgnoreCase))
+            {
+                var value = piece.Split(':', 2);
+                if (value.Length == 2 && TryParseVmlLength(value[1], out var parsed))
+                {
+                    width = parsed;
+                }
+            }
+            else if (piece.StartsWith("height", StringComparison.OrdinalIgnoreCase))
+            {
+                var value = piece.Split(':', 2);
+                if (value.Length == 2 && TryParseVmlLength(value[1], out var parsed))
+                {
+                    height = parsed;
+                }
+            }
+        }
+
+        if (width <= 0f)
+        {
+            width = 100f;
+        }
+
+        if (height <= 0f)
+        {
+            height = 100f;
+        }
+
+        return (width, height);
+    }
+
+    private static bool TryParseVmlLength(string value, out float dip)
+    {
+        dip = 0f;
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        var trimmed = value.Trim();
+        var index = 0;
+        while (index < trimmed.Length && (char.IsDigit(trimmed[index]) || trimmed[index] == '.' || trimmed[index] == '-'))
+        {
+            index++;
+        }
+
+        if (index == 0)
+        {
+            return false;
+        }
+
+        if (!float.TryParse(trimmed[..index], NumberStyles.Float, CultureInfo.InvariantCulture, out var number))
+        {
+            return false;
+        }
+
+        var unit = trimmed[index..].Trim().ToLowerInvariant();
+        dip = unit switch
+        {
+            "in" => number * 96f,
+            "pt" => number * 96f / 72f,
+            "px" => number,
+            "cm" => number * 96f / 2.54f,
+            "mm" => number * 96f / 25.4f,
+            "" => number,
+            _ => number
+        };
+
+        return true;
+    }
+
+    private static bool TryParseVmlColor(string value, out DocColor color)
+    {
+        color = DocColor.Black;
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        var trimmed = value.Trim();
+        if (trimmed.StartsWith("#", StringComparison.Ordinal))
+        {
+            trimmed = trimmed[1..];
+        }
+
+        return TryParseHexColor(trimmed, out color);
+    }
+
     private sealed class ImageResolver
     {
         private readonly OpenXmlPart? _part;
@@ -3108,13 +4102,13 @@ public sealed class DocxImporter
                 return new ImageInline(Array.Empty<byte>(), width, height, "application/vnd.ms-office.ole");
             }
 
-            var idAttribute = imageData.GetAttribute("id", RelationshipNamespace);
-            if (string.IsNullOrWhiteSpace(idAttribute.Value))
+            var idAttribute = GetAttributeValue(imageData, "id", RelationshipNamespace);
+            if (string.IsNullOrWhiteSpace(idAttribute))
             {
                 return new ImageInline(Array.Empty<byte>(), width, height, "application/vnd.ms-office.ole");
             }
 
-            if (_part.GetPartById(idAttribute.Value) is not ImagePart imagePart)
+            if (_part.GetPartById(idAttribute) is not ImagePart imagePart)
             {
                 return new ImageInline(Array.Empty<byte>(), width, height, "application/vnd.ms-office.ole");
             }
@@ -3182,7 +4176,7 @@ public sealed class DocxImporter
                 return (100f, 100f);
             }
 
-            var styleValue = shape.GetAttribute("style", string.Empty).Value;
+            var styleValue = GetAttributeValue(shape, "style") ?? string.Empty;
             if (string.IsNullOrWhiteSpace(styleValue))
             {
                 return (100f, 100f);
@@ -3263,6 +4257,226 @@ public sealed class DocxImporter
 
             return true;
         }
+    }
+
+    private sealed class ChartResolver
+    {
+        private readonly OpenXmlPart? _part;
+
+        public ChartResolver(OpenXmlPart? part)
+        {
+            _part = part;
+        }
+
+        public ChartInline? TryCreateChart(Drawing drawing)
+        {
+            if (_part is null)
+            {
+                return null;
+            }
+
+            var chartRef = drawing.Descendants<C.ChartReference>().FirstOrDefault();
+            var relId = chartRef?.Id?.Value;
+            if (string.IsNullOrWhiteSpace(relId))
+            {
+                return null;
+            }
+
+            if (_part.GetPartById(relId) is not ChartPart chartPart)
+            {
+                return null;
+            }
+
+            using var stream = chartPart.GetStream();
+            using var memory = new MemoryStream();
+            stream.CopyTo(memory);
+            var data = memory.ToArray();
+
+            var extent = drawing.Descendants<DW.Extent>().FirstOrDefault();
+            var width = extent?.Cx?.Value is long cx ? EmuToDip(cx) : 100f;
+            var height = extent?.Cy?.Value is long cy ? EmuToDip(cy) : 100f;
+            var model = TryParseChartModel(chartPart);
+            var chart = new ChartInline(width, height, model, data)
+            {
+                Name = drawing.Descendants<DW.DocProperties>().FirstOrDefault()?.Name?.Value
+            };
+
+            return chart;
+        }
+    }
+
+    private static ChartModel? TryParseChartModel(ChartPart chartPart)
+    {
+        var chartSpace = chartPart.ChartSpace;
+        var chart = chartSpace?.GetFirstChild<C.Chart>();
+        if (chart is null)
+        {
+            return null;
+        }
+
+        var model = new ChartModel
+        {
+            Title = ExtractChartTitle(chart)
+        };
+
+        var plotArea = chart.PlotArea;
+        if (plotArea is null)
+        {
+            return model;
+        }
+
+        if (plotArea.GetFirstChild<C.BarChart>() is { } barChart)
+        {
+            model.Type = ChartType.Bar;
+            AddSeries(barChart, model);
+            return model;
+        }
+
+        if (plotArea.GetFirstChild<C.LineChart>() is { } lineChart)
+        {
+            model.Type = ChartType.Line;
+            AddSeries(lineChart, model);
+            return model;
+        }
+
+        if (plotArea.GetFirstChild<C.PieChart>() is { } pieChart)
+        {
+            model.Type = ChartType.Pie;
+            AddSeries(pieChart, model);
+            return model;
+        }
+
+        if (plotArea.GetFirstChild<C.ScatterChart>() is { } scatterChart)
+        {
+            model.Type = ChartType.Scatter;
+            AddSeries(scatterChart, model);
+            return model;
+        }
+
+        if (plotArea.GetFirstChild<C.AreaChart>() is { } areaChart)
+        {
+            model.Type = ChartType.Area;
+            AddSeries(areaChart, model);
+            return model;
+        }
+
+        model.Type = ChartType.Unknown;
+        return model;
+    }
+
+    private static string? ExtractChartTitle(C.Chart chart)
+    {
+        var title = chart.Title;
+        if (title is null)
+        {
+            return null;
+        }
+
+        var text = title.InnerText?.Trim();
+        return string.IsNullOrWhiteSpace(text) ? null : text;
+    }
+
+    private static void AddSeries(OpenXmlElement chartElement, ChartModel model)
+    {
+        foreach (var seriesElement in chartElement.Elements().Where(element => element.LocalName == "ser"))
+        {
+            var series = new ChartSeries
+            {
+                Name = ExtractSeriesName(seriesElement)
+            };
+
+            var categories = ExtractCategories(seriesElement);
+            var values = ExtractValues(seriesElement);
+            var pointCount = Math.Max(categories.Count, values.Count);
+            for (var i = 0; i < pointCount; i++)
+            {
+                var point = new ChartPoint
+                {
+                    Category = i < categories.Count ? categories[i] : null,
+                    Value = i < values.Count ? values[i] : 0d
+                };
+                series.Points.Add(point);
+            }
+
+            if (series.Points.Count > 0)
+            {
+                model.Series.Add(series);
+            }
+        }
+    }
+
+    private static string? ExtractSeriesName(OpenXmlElement seriesElement)
+    {
+        var text = seriesElement.Descendants<C.SeriesText>().FirstOrDefault();
+        if (text is null)
+        {
+            return null;
+        }
+
+        var value = text.Descendants<C.NumericValue>().FirstOrDefault()?.Text;
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            return value;
+        }
+
+        var inner = text.InnerText?.Trim();
+        return string.IsNullOrWhiteSpace(inner) ? null : inner;
+    }
+
+    private static List<string> ExtractCategories(OpenXmlElement seriesElement)
+    {
+        OpenXmlElement? categoryData = seriesElement.Descendants<C.CategoryAxisData>().FirstOrDefault();
+        categoryData ??= seriesElement.Descendants<C.XValues>().FirstOrDefault();
+        var categories = ReadStringCache(categoryData);
+        if (categories.Count > 0)
+        {
+            return categories;
+        }
+
+        var numbers = ReadNumberCache(categoryData);
+        return numbers.Select(value => value.ToString(CultureInfo.InvariantCulture)).ToList();
+    }
+
+    private static List<double> ExtractValues(OpenXmlElement seriesElement)
+    {
+        OpenXmlElement? valuesElement = seriesElement.Descendants<C.Values>().FirstOrDefault();
+        valuesElement ??= seriesElement.Descendants<C.YValues>().FirstOrDefault();
+        return ReadNumberCache(valuesElement);
+    }
+
+    private static List<string> ReadStringCache(OpenXmlElement? element)
+    {
+        var cache = element?.Descendants<C.StringCache>().FirstOrDefault();
+        if (cache is null)
+        {
+            return new List<string>();
+        }
+
+        return cache.Elements<C.StringPoint>()
+            .OrderBy(point => point.Index?.Value ?? 0)
+            .Select(point => point.NumericValue?.Text ?? point.InnerText ?? string.Empty)
+            .ToList();
+    }
+
+    private static List<double> ReadNumberCache(OpenXmlElement? element)
+    {
+        var cache = element?.Descendants<C.NumberingCache>().FirstOrDefault();
+        if (cache is null)
+        {
+            return new List<double>();
+        }
+
+        var values = new List<double>();
+        foreach (var point in cache.Elements<C.NumericPoint>().OrderBy(point => point.Index?.Value ?? 0))
+        {
+            var text = point.NumericValue?.Text;
+            if (double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value))
+            {
+                values.Add(value);
+            }
+        }
+
+        return values;
     }
 
     private sealed class HyperlinkResolver
