@@ -100,7 +100,7 @@ public sealed class SkiaTextMeasurer : ITextMeasurer, ITextMeasurerAdvanced
         return new TextShapeInfo(value.Length, offsets, advances);
     }
 
-    private static TextShapeInfo BuildShapeInfo(int textLength, SKShaper.Result result)
+    internal static TextShapeInfo BuildShapeInfo(int textLength, SKShaper.Result result)
     {
         if (textLength <= 0)
         {

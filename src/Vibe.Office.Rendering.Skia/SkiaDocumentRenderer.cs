@@ -81,6 +81,64 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             }
         }
 
+        var runMetricsCache = new Dictionary<RunMetricsKey, RunMetrics>();
+
+        TextShapeInfo ShapeText(string text, TextStyle runStyle)
+        {
+            if (string.IsNullOrEmpty(text))
+            {
+                return new TextShapeInfo(0, Array.Empty<int>(), Array.Empty<float>());
+            }
+
+            var paint = GetPaint(runStyle);
+            var shaper = GetShaper(runStyle);
+            if (shaper is not null)
+            {
+                try
+                {
+                    var result = shaper.Shape(text, paint);
+                    var shaped = SkiaTextMeasurer.BuildShapeInfo(text.Length, result);
+                    if (shaped.ClusterOffsets.Length == shaped.ClusterAdvances.Length)
+                    {
+                        return shaped;
+                    }
+                }
+                catch
+                {
+                    // fall back to per-character measurement
+                }
+            }
+
+            var offsets = new int[text.Length];
+            var advances = new float[text.Length];
+            for (var i = 0; i < text.Length; i++)
+            {
+                offsets[i] = i;
+                advances[i] = paint.MeasureText(text[i].ToString());
+            }
+
+            return new TextShapeInfo(text.Length, offsets, advances);
+        }
+
+        RunMetrics GetRunMetrics(string text, TextStyle runStyle, float letterSpacing)
+        {
+            if (string.IsNullOrEmpty(text))
+            {
+                return RunMetrics.Empty;
+            }
+
+            var key = new RunMetricsKey(text, runStyle, letterSpacing);
+            if (runMetricsCache.TryGetValue(key, out var cached))
+            {
+                return cached;
+            }
+
+            var shape = ShapeText(text, runStyle);
+            var metrics = new RunMetrics(shape, letterSpacing);
+            runMetricsCache[key] = metrics;
+            return metrics;
+        }
+
         SKPaint GetHighlightPaint(DocColor color)
         {
             if (highlightPaintCache.TryGetValue(color, out var cached))
@@ -273,8 +331,8 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
 
                 var startOffset = spanStart - lineStart;
                 var endOffset = spanEnd - lineStart;
-                var highlightX1 = lineX + MeasureLineOffset(runs, images, shapes, charts, equations, startOffset, GetPaint);
-                var highlightX2 = lineX + MeasureLineOffset(runs, images, shapes, charts, equations, endOffset, GetPaint);
+                var highlightX1 = lineX + MeasureLineOffset(runs, images, shapes, charts, equations, startOffset, GetRunMetrics);
+                var highlightX2 = lineX + MeasureLineOffset(runs, images, shapes, charts, equations, endOffset, GetRunMetrics);
                 if (highlightX2 <= highlightX1)
                 {
                     continue;
@@ -346,13 +404,20 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                 var runBaseline = baseline - run.BaselineOffset;
                 var runPaint = GetPaint(run.Style);
                 var shaper = GetShaper(run.Style);
-                if (shaper is null)
+                if (run.LetterSpacing == 0f)
                 {
-                    targetCanvas.DrawText(run.Text, lineX + run.X, runBaseline, runPaint);
+                    if (shaper is null)
+                    {
+                        targetCanvas.DrawText(run.Text, lineX + run.X, runBaseline, runPaint);
+                    }
+                    else
+                    {
+                        targetCanvas.DrawShapedText(shaper, run.Text, lineX + run.X, runBaseline, runPaint);
+                    }
                 }
                 else
                 {
-                    targetCanvas.DrawShapedText(shaper, run.Text, lineX + run.X, runBaseline, runPaint);
+                    DrawTextWithLetterSpacing(targetCanvas, run.Text, lineX + run.X, runBaseline, runPaint, shaper, run.LetterSpacing);
                 }
                 DrawUnderlineIfNeeded(targetCanvas, runBaseline, lineX, run, runPaint);
                 DrawStrikeThroughIfNeeded(targetCanvas, runBaseline, lineX, run, runPaint);
@@ -583,8 +648,8 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                         DrawLineHighlights(line.X, line.Y, line.LineHeight, line.Runs);
                         if (selection.HasValue && TryGetSelectionSpan(selection.Value, line.ParagraphIndex, line.StartOffset, line.Length, out var startOffset, out var endOffset))
                         {
-                            var selectionX1 = line.X + MeasureLineOffset(line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, startOffset - line.StartOffset, GetPaint);
-                            var selectionX2 = line.X + MeasureLineOffset(line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, endOffset - line.StartOffset, GetPaint);
+                            var selectionX1 = line.X + MeasureLineOffset(line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, startOffset - line.StartOffset, GetRunMetrics);
+                            var selectionX2 = line.X + MeasureLineOffset(line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, endOffset - line.StartOffset, GetRunMetrics);
                             var selectionRect = new SKRect(selectionX1, line.Y, selectionX2, line.Y + line.LineHeight);
                             targetCanvas.DrawRect(selectionRect, selectionPaint);
                         }
@@ -614,8 +679,8 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                     DrawLineHighlights(line.X, line.Y, line.LineHeight, line.Runs);
                     if (selection.HasValue && TryGetSelectionSpan(selection.Value, line, out var startOffset, out var endOffset))
                     {
-                        var selectionX1 = line.X + MeasureLineOffset(line, startOffset - line.StartOffset, GetPaint);
-                        var selectionX2 = line.X + MeasureLineOffset(line, endOffset - line.StartOffset, GetPaint);
+                        var selectionX1 = line.X + MeasureLineOffset(line, startOffset - line.StartOffset, GetRunMetrics);
+                        var selectionX2 = line.X + MeasureLineOffset(line, endOffset - line.StartOffset, GetRunMetrics);
                         var selectionRect = new SKRect(selectionX1, line.Y, selectionX2, line.Y + line.LineHeight);
                         targetCanvas.DrawRect(selectionRect, selectionPaint);
                     }
@@ -642,7 +707,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                         if (options.Caret.Offset != lineEndOffset || isLastLine)
                         {
                             var offsetInLine = Math.Clamp(options.Caret.Offset - line.StartOffset, 0, line.Length);
-                            var caretX = line.X + MeasureLineOffset(line, offsetInLine, GetPaint);
+                            var caretX = line.X + MeasureLineOffset(line, offsetInLine, GetRunMetrics);
                             var caretRect = new SKRect(caretX, line.Y, caretX + options.CaretThickness, line.Y + line.LineHeight);
                             targetCanvas.DrawRect(caretRect, caretPaint);
                             caretDrawn = true;
@@ -1114,12 +1179,12 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
         }
     }
 
-    private static float MeasureLineOffset(LayoutLine line, int length, Func<TextStyle, SKPaint> paintProvider)
+    private static float MeasureLineOffset(LayoutLine line, int length, Func<string, TextStyle, float, RunMetrics> metricsProvider)
     {
-        return MeasureLineOffset(line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, length, paintProvider);
+        return MeasureLineOffset(line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, length, metricsProvider);
     }
 
-    private static float MeasureLineOffset(IReadOnlyList<LayoutRun> runs, IReadOnlyList<LayoutImage> images, IReadOnlyList<LayoutShape> shapes, IReadOnlyList<LayoutChart> charts, IReadOnlyList<LayoutEquation> equations, int length, Func<TextStyle, SKPaint> paintProvider)
+    private static float MeasureLineOffset(IReadOnlyList<LayoutRun> runs, IReadOnlyList<LayoutImage> images, IReadOnlyList<LayoutShape> shapes, IReadOnlyList<LayoutChart> charts, IReadOnlyList<LayoutEquation> equations, int length, Func<string, TextStyle, float, RunMetrics> metricsProvider)
     {
         if (length <= 0)
         {
@@ -1168,15 +1233,14 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                     continue;
                 }
 
-                var paint = paintProvider(segment.Style);
-                if (segment.Width > 0f && take == segment.Length)
+                var metrics = metricsProvider(segment.Text, segment.Style, segment.LetterSpacing);
+                if (segment.Width > 0f && take == segment.Length && MathF.Abs(segment.Width - metrics.Width) > 0.01f)
                 {
-                    var measured = paint.MeasureText(segment.Text);
-                    width += MathF.Abs(segment.Width - measured) > 0.01f ? segment.Width : measured;
+                    width += segment.Width;
                 }
                 else
                 {
-                    width += paint.MeasureText(segment.Text.Substring(0, take));
+                    width += metrics.GetWidth(take);
                 }
                 remaining -= take;
             }
@@ -1267,14 +1331,123 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
 
         if (underlineStyle == DocUnderlineStyle.Words)
         {
-            DrawUnderlineWords(canvas, run.Text, startX, y, underlinePaint, thickness, paint);
+            DrawUnderlineWords(canvas, run.Text, startX, y, underlinePaint, thickness, paint, run.LetterSpacing);
             return;
         }
 
         DrawUnderlineSegment(canvas, startX, endX, y, underlineStyle, underlinePaint, thickness);
     }
 
-    private static void DrawUnderlineWords(SKCanvas canvas, string text, float startX, float y, SKPaint underlinePaint, float thickness, SKPaint textPaint)
+    private static void DrawTextWithLetterSpacing(SKCanvas canvas, string text, float x, float baseline, SKPaint paint, SKShaper? shaper, float letterSpacing)
+    {
+        if (string.IsNullOrEmpty(text))
+        {
+            return;
+        }
+
+        if (shaper is null)
+        {
+            DrawTextWithLetterSpacingFallback(canvas, text, x, baseline, paint, letterSpacing);
+            return;
+        }
+
+        try
+        {
+            var result = shaper.Shape(text, paint);
+            var clusters = result.Clusters;
+            var points = result.Points;
+            var codepoints = result.Codepoints;
+            if (clusters is null || points is null || codepoints is null)
+            {
+                DrawTextWithLetterSpacingFallback(canvas, text, x, baseline, paint, letterSpacing);
+                return;
+            }
+
+            var shapeInfo = SkiaTextMeasurer.BuildShapeInfo(text.Length, result);
+            if (shapeInfo.ClusterOffsets.Length == 0)
+            {
+                DrawTextWithLetterSpacingFallback(canvas, text, x, baseline, paint, letterSpacing);
+                return;
+            }
+
+            var orderByCluster = new int[text.Length];
+            Array.Fill(orderByCluster, -1);
+            for (var i = 0; i < shapeInfo.ClusterOffsets.Length; i++)
+            {
+                var clusterIndex = shapeInfo.ClusterOffsets[i];
+                if ((uint)clusterIndex < (uint)orderByCluster.Length)
+                {
+                    orderByCluster[clusterIndex] = i;
+                }
+            }
+
+            var glyphCount = Math.Min(codepoints.Length, Math.Min(points.Length, clusters.Length));
+            if (glyphCount == 0)
+            {
+                DrawTextWithLetterSpacingFallback(canvas, text, x, baseline, paint, letterSpacing);
+                return;
+            }
+
+            var positions = new SKPoint[glyphCount];
+            var glyphs = new ushort[glyphCount];
+            for (var i = 0; i < glyphCount; i++)
+            {
+                var clusterIndex = (int)clusters[i];
+                var order = (uint)clusterIndex < (uint)orderByCluster.Length ? orderByCluster[clusterIndex] : -1;
+                if (order < 0)
+                {
+                    order = 0;
+                }
+
+                var point = points[i];
+                var offsetX = letterSpacing * order;
+                positions[i] = new SKPoint(point.X + offsetX, point.Y);
+
+                var codepoint = codepoints[i];
+                if (codepoint > ushort.MaxValue)
+                {
+                    DrawTextWithLetterSpacingFallback(canvas, text, x, baseline, paint, letterSpacing);
+                    return;
+                }
+
+                glyphs[i] = (ushort)codepoint;
+            }
+
+            using var font = paint.ToFont();
+            using var blobBuilder = new SKTextBlobBuilder();
+            blobBuilder.AddPositionedRun(glyphs, font, positions);
+            using var blob = blobBuilder.Build();
+            if (blob is null)
+            {
+                DrawTextWithLetterSpacingFallback(canvas, text, x, baseline, paint, letterSpacing);
+                return;
+            }
+
+            canvas.DrawText(blob, x, baseline, paint);
+        }
+        catch
+        {
+            DrawTextWithLetterSpacingFallback(canvas, text, x, baseline, paint, letterSpacing);
+        }
+    }
+
+    private static void DrawTextWithLetterSpacingFallback(SKCanvas canvas, string text, float x, float baseline, SKPaint paint, float letterSpacing)
+    {
+        for (var i = 0; i < text.Length; i++)
+        {
+            var glyph = text[i].ToString();
+            canvas.DrawText(glyph, x, baseline, paint);
+            var advance = paint.MeasureText(glyph);
+            if (i < text.Length - 1)
+            {
+                advance += letterSpacing;
+            }
+
+            x += advance;
+        }
+    }
+
+    private static void DrawUnderlineWords(SKCanvas canvas, string text, float startX, float y, SKPaint underlinePaint, float thickness, SKPaint textPaint, float letterSpacing)
     {
         if (string.IsNullOrEmpty(text))
         {
@@ -1283,6 +1456,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
 
         var x = startX;
         var segmentStart = -1f;
+        var applySpacing = MathF.Abs(letterSpacing) > 0.001f;
         for (var i = 0; i < text.Length; i++)
         {
             var ch = text[i];
@@ -1306,6 +1480,10 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             }
 
             x += width;
+            if (applySpacing && i < text.Length - 1)
+            {
+                x += letterSpacing;
+            }
         }
 
         if (segmentStart >= 0f)
@@ -1437,7 +1615,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             }
             else if (!string.IsNullOrEmpty(run.Text))
             {
-                segments.Add((run.X, LineSegment.CreateText(run.Text, run.Style, run.Width)));
+                segments.Add((run.X, LineSegment.CreateText(run.Text, run.Style, run.Width, run.Length, run.LetterSpacing)));
             }
         }
 
@@ -1537,18 +1715,20 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
         public TextStyle Style { get; }
         public float Width { get; }
         public int Length { get; }
+        public float LetterSpacing { get; }
         public bool IsTab { get; }
         public bool IsImage { get; }
         public bool IsShape { get; }
         public bool IsChart { get; }
         public bool IsEquation { get; }
 
-        private LineSegment(string text, TextStyle style, float width, int length, bool isTab, bool isImage, bool isShape, bool isChart, bool isEquation)
+        private LineSegment(string text, TextStyle style, float width, int length, float letterSpacing, bool isTab, bool isImage, bool isShape, bool isChart, bool isEquation)
         {
             Text = text;
             Style = style;
             Width = width;
             Length = length;
+            LetterSpacing = letterSpacing;
             IsTab = isTab;
             IsImage = isImage;
             IsShape = isShape;
@@ -1556,34 +1736,34 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             IsEquation = isEquation;
         }
 
-        public static LineSegment CreateText(string text, TextStyle style, float width)
+        public static LineSegment CreateText(string text, TextStyle style, float width, int length, float letterSpacing)
         {
-            return new LineSegment(text, style, width, text.Length, false, false, false, false, false);
+            return new LineSegment(text, style, width, length, letterSpacing, false, false, false, false, false);
         }
 
         public static LineSegment Tab(float width)
         {
-            return new LineSegment(string.Empty, new TextStyle(), width, 1, true, false, false, false, false);
+            return new LineSegment(string.Empty, new TextStyle(), width, 1, 0f, true, false, false, false, false);
         }
 
         public static LineSegment Image(float width)
         {
-            return new LineSegment(string.Empty, new TextStyle(), width, 1, false, true, false, false, false);
+            return new LineSegment(string.Empty, new TextStyle(), width, 1, 0f, false, true, false, false, false);
         }
 
         public static LineSegment Shape(float width)
         {
-            return new LineSegment(string.Empty, new TextStyle(), width, 1, false, false, true, false, false);
+            return new LineSegment(string.Empty, new TextStyle(), width, 1, 0f, false, false, true, false, false);
         }
 
         public static LineSegment Chart(float width)
         {
-            return new LineSegment(string.Empty, new TextStyle(), width, 1, false, false, false, true, false);
+            return new LineSegment(string.Empty, new TextStyle(), width, 1, 0f, false, false, false, true, false);
         }
 
         public static LineSegment Equation(float width)
         {
-            return new LineSegment(string.Empty, new TextStyle(), width, 1, false, false, false, false, true);
+            return new LineSegment(string.Empty, new TextStyle(), width, 1, 0f, false, false, false, false, true);
         }
     }
 
@@ -1637,6 +1817,107 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                 _underline,
                 _strikethrough,
                 _hasHighlight ? _highlight.GetHashCode() : 0);
+        }
+    }
+
+    private readonly struct RunMetricsKey : IEquatable<RunMetricsKey>
+    {
+        private readonly string _text;
+        private readonly TextStyleKey _styleKey;
+        private readonly float _letterSpacing;
+
+        public RunMetricsKey(string text, TextStyle style, float letterSpacing)
+        {
+            _text = text;
+            _styleKey = new TextStyleKey(style);
+            _letterSpacing = letterSpacing;
+        }
+
+        public bool Equals(RunMetricsKey other)
+        {
+            return _text == other._text && _styleKey.Equals(other._styleKey) && _letterSpacing.Equals(other._letterSpacing);
+        }
+
+        public override bool Equals(object? obj) => obj is RunMetricsKey other && Equals(other);
+        public override int GetHashCode() => HashCode.Combine(_text, _styleKey, _letterSpacing);
+    }
+
+    private sealed class RunMetrics
+    {
+        public static readonly RunMetrics Empty = new RunMetrics(new TextShapeInfo(0, Array.Empty<int>(), Array.Empty<float>()), 0f);
+        private readonly int _textLength;
+        private readonly int[] _clusterOffsets;
+        private readonly float[] _clusterPositions;
+        private readonly float _totalWidth;
+
+        public RunMetrics(TextShapeInfo shape, float letterSpacing)
+        {
+            _textLength = Math.Max(0, shape.TextLength);
+            _clusterOffsets = shape.ClusterOffsets.Length == 0 ? Array.Empty<int>() : shape.ClusterOffsets;
+            _clusterPositions = new float[_clusterOffsets.Length];
+
+            var total = 0f;
+            for (var i = 0; i < _clusterOffsets.Length; i++)
+            {
+                _clusterPositions[i] = total;
+                var advance = i < shape.ClusterAdvances.Length ? shape.ClusterAdvances[i] : 0f;
+                if (letterSpacing != 0f && i < _clusterOffsets.Length - 1)
+                {
+                    advance += letterSpacing;
+                }
+
+                total += advance;
+            }
+
+            _totalWidth = total;
+        }
+
+        public float Width => _totalWidth;
+
+        public float GetWidth(int length)
+        {
+            if (length <= 0 || _clusterOffsets.Length == 0)
+            {
+                return 0f;
+            }
+
+            if (length >= _textLength)
+            {
+                return Width;
+            }
+
+            var index = GetClusterIndexForOffset(length);
+            if (index <= 0)
+            {
+                return _clusterPositions[0];
+            }
+
+            return _clusterPositions[index];
+        }
+
+        private int GetClusterIndexForOffset(int offset)
+        {
+            if (_clusterOffsets.Length == 0)
+            {
+                return 0;
+            }
+
+            var low = 0;
+            var high = _clusterOffsets.Length - 1;
+            while (low < high)
+            {
+                var mid = low + (high - low + 1) / 2;
+                if (_clusterOffsets[mid] <= offset)
+                {
+                    low = mid;
+                }
+                else
+                {
+                    high = mid - 1;
+                }
+            }
+
+            return low;
         }
     }
 }
