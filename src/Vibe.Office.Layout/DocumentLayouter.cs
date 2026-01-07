@@ -3239,8 +3239,7 @@ public sealed class DocumentLayouter
             }
         }
 
-        var fullText = builder.ToString();
-        if (fullText.Length == 0)
+        if (builder.Length == 0)
         {
             AppendText(paragraph.Text ?? string.Empty, paragraphStyle);
         }
@@ -4158,8 +4157,11 @@ public sealed class DocumentLayouter
                     {
                         if (decimalIndex > 0)
                         {
-                            var beforeText = item.Text.Substring(0, decimalIndex);
-                            beforeDecimalWidth += measurer.MeasureText(beforeText, item.Style).Width;
+                            var beforeSpan = item.Text.AsSpan(0, decimalIndex);
+                            var beforeWidth = measurer is ITextMeasurerSpan spanMeasurer
+                                ? spanMeasurer.MeasureText(beforeSpan, item.Style).Width
+                                : measurer.MeasureText(new string(beforeSpan), item.Style).Width;
+                            beforeDecimalWidth += beforeWidth;
                         }
 
                         decimalFound = true;
@@ -4929,8 +4931,8 @@ public sealed class DocumentLayouter
                     continue;
                 }
 
-                var token = levelText.Substring(digitStart, digitEnd - digitStart);
-                if (int.TryParse(token, out var tokenIndex))
+                var tokenSpan = levelText.AsSpan(digitStart, digitEnd - digitStart);
+                if (int.TryParse(tokenSpan, out var tokenIndex))
                 {
                     var levelIndex = Math.Max(0, tokenIndex - 1);
                     var value = GetCounterValue(listId, levelIndex);
