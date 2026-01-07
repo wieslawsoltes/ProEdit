@@ -450,7 +450,7 @@ public sealed class EditorController
             return line.StartOffset;
         }
 
-        if (line.Text.Length == 0)
+        if (line.Length == 0)
         {
             return line.StartOffset;
         }
@@ -1330,8 +1330,7 @@ public sealed class EditorController
             return line.StartOffset;
         }
 
-        var text = line.Text;
-        if (text.Length == 0)
+        if (line.Length == 0)
         {
             return line.StartOffset;
         }
