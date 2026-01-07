@@ -12,4 +12,5 @@ public sealed record HeaderFooterLine(
     IReadOnlyList<LayoutRun> Runs,
     IReadOnlyList<LayoutImage> Images,
     IReadOnlyList<LayoutShape> Shapes,
-    IReadOnlyList<LayoutChart> Charts);
+    IReadOnlyList<LayoutChart> Charts,
+    IReadOnlyList<LayoutEquation> Equations);

@@ -16,4 +16,5 @@ public sealed record LayoutLine(
     IReadOnlyList<LayoutImage> Images,
     IReadOnlyList<LayoutShape> Shapes,
     IReadOnlyList<LayoutChart> Charts,
+    IReadOnlyList<LayoutEquation> Equations,
     bool IsInTable = false);

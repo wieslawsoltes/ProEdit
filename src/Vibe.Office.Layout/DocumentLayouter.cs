@@ -309,6 +309,7 @@ public sealed class DocumentLayouter
                     line.Images,
                     line.Shapes,
                     line.Charts,
+                    line.Equations,
                     true));
             }
 
@@ -805,7 +806,7 @@ public sealed class DocumentLayouter
                 }
 
                 var alignedX = ApplyAlignment(lineX, 0f, MathF.Max(1f, lineRight - lineX), alignment);
-                AddLine(new LayoutLine(paragraphIndex, 0, 0, alignedX, cursorY, 0, string.Empty, prefix, prefixWidth, emptyLineHeight, emptyAscent, Array.Empty<LayoutRun>(), Array.Empty<LayoutImage>(), Array.Empty<LayoutShape>(), Array.Empty<LayoutChart>()));
+                AddLine(new LayoutLine(paragraphIndex, 0, 0, alignedX, cursorY, 0, string.Empty, prefix, prefixWidth, emptyLineHeight, emptyAscent, Array.Empty<LayoutRun>(), Array.Empty<LayoutImage>(), Array.Empty<LayoutShape>(), Array.Empty<LayoutChart>(), Array.Empty<LayoutEquation>()));
                 cursorY += emptyLineHeight;
                 cursorY += spacingAfter;
                 return new LineRange(paragraphLineStart, lines.Count - paragraphLineStart);
@@ -936,7 +937,8 @@ public sealed class DocumentLayouter
                         line.Layout.Runs,
                         line.Layout.Images,
                         line.Layout.Shapes,
-                        line.Layout.Charts));
+                        line.Layout.Charts,
+                        line.Layout.Equations));
                     cursorY = currentY + line.Layout.LineHeight;
                 }
 
@@ -2322,7 +2324,8 @@ public sealed class DocumentLayouter
                     line.Runs,
                     line.Images,
                     line.Shapes,
-                    line.Charts));
+                    line.Charts,
+                    line.Equations));
             }
 
             cellLayouts.Add(new TableCellLayout(
@@ -2446,7 +2449,8 @@ public sealed class DocumentLayouter
                     Array.Empty<LayoutRun>(),
                     Array.Empty<LayoutImage>(),
                     Array.Empty<LayoutShape>(),
-                    Array.Empty<LayoutChart>()));
+                    Array.Empty<LayoutChart>(),
+                    Array.Empty<LayoutEquation>()));
                 y += emptyLineHeight;
                 y += spacingAfter;
                 paragraphIndex++;
@@ -2493,7 +2497,8 @@ public sealed class DocumentLayouter
                     lineLayout.Runs,
                     lineLayout.Images,
                     lineLayout.Shapes,
-                    lineLayout.Charts));
+                    lineLayout.Charts,
+                    lineLayout.Equations));
                 y += lineLayout.LineHeight;
                 isFirstLine = false;
             }
@@ -2833,7 +2838,7 @@ public sealed class DocumentLayouter
                 {
                     var start = builder.Length;
                     builder.Append(DocumentConstants.ObjectReplacementChar);
-                    spansList.Add(new InlineSpan(start, 1, string.Empty, paragraphStyle, imageInline, null, null, 0f));
+                    spansList.Add(new InlineSpan(start, 1, string.Empty, paragraphStyle, imageInline, null, null, null, 0f));
                     MarkContent();
                     break;
                 }
@@ -2841,7 +2846,7 @@ public sealed class DocumentLayouter
                 {
                     var start = builder.Length;
                     builder.Append(DocumentConstants.ObjectReplacementChar);
-                    spansList.Add(new InlineSpan(start, 1, string.Empty, paragraphStyle, null, shapeInline, null, 0f));
+                    spansList.Add(new InlineSpan(start, 1, string.Empty, paragraphStyle, null, shapeInline, null, null, 0f));
                     MarkContent();
                     break;
                 }
@@ -2849,7 +2854,16 @@ public sealed class DocumentLayouter
                 {
                     var start = builder.Length;
                     builder.Append(DocumentConstants.ObjectReplacementChar);
-                    spansList.Add(new InlineSpan(start, 1, string.Empty, paragraphStyle, null, null, chartInline, 0f));
+                    spansList.Add(new InlineSpan(start, 1, string.Empty, paragraphStyle, null, null, chartInline, null, 0f));
+                    MarkContent();
+                    break;
+                }
+                case EquationInline equationInline:
+                {
+                    var start = builder.Length;
+                    builder.Append(DocumentConstants.ObjectReplacementChar);
+                    var equationStyle = styleResolver.ResolveRunStyle(equationInline.StyleId, equationInline.Style, paragraphStyle);
+                    spansList.Add(new InlineSpan(start, 1, string.Empty, equationStyle, null, null, null, equationInline, 0f));
                     MarkContent();
                     break;
                 }
@@ -3001,7 +3015,7 @@ public sealed class DocumentLayouter
         {
             var start = builder.Length;
             builder.Append(text);
-            spans.Add(new InlineSpan(start, text.Length, text, style, null, null, null, baselineOffset));
+            spans.Add(new InlineSpan(start, text.Length, text, style, null, null, null, null, baselineOffset));
             return;
         }
 
@@ -3024,7 +3038,7 @@ public sealed class DocumentLayouter
 
             var segmentText = segmentBuilder.ToString();
             var segmentStyle = currentSmallCaps.Value ? smallCapsStyle : normalStyle;
-            spans.Add(new InlineSpan(segmentStart, segmentText.Length, segmentText, segmentStyle, null, null, null, baselineOffset));
+            spans.Add(new InlineSpan(segmentStart, segmentText.Length, segmentText, segmentStyle, null, null, null, null, baselineOffset));
             segmentBuilder.Clear();
         }
 
@@ -3098,6 +3112,9 @@ public sealed class DocumentLayouter
                     length += 1;
                     break;
                 case ChartInline:
+                    length += 1;
+                    break;
+                case EquationInline:
                     length += 1;
                     break;
                 case PageNumberInline:
@@ -3203,7 +3220,7 @@ public sealed class DocumentLayouter
             {
                 var lineX = indentLeft + listIndent + firstLineIndent + prefixWidth;
                 var (emptyLineHeight, emptyAscent) = ApplyLineSpacing(lineHeight, ascent, properties);
-                lines.Add(new HeaderFooterLine(lineX, y, 0f, string.Empty, prefix, prefixWidth, emptyLineHeight, emptyAscent, Array.Empty<LayoutRun>(), Array.Empty<LayoutImage>(), Array.Empty<LayoutShape>(), Array.Empty<LayoutChart>()));
+                lines.Add(new HeaderFooterLine(lineX, y, 0f, string.Empty, prefix, prefixWidth, emptyLineHeight, emptyAscent, Array.Empty<LayoutRun>(), Array.Empty<LayoutImage>(), Array.Empty<LayoutShape>(), Array.Empty<LayoutChart>(), Array.Empty<LayoutEquation>()));
                 y += emptyLineHeight;
                 y += spacingAfter;
                 continue;
@@ -3246,7 +3263,8 @@ public sealed class DocumentLayouter
                     lineLayout.Runs,
                     lineLayout.Images,
                     lineLayout.Shapes,
-                    lineLayout.Charts));
+                    lineLayout.Charts,
+                    lineLayout.Equations));
                 y += lineLayout.LineHeight;
                 isFirstLine = false;
             }
@@ -3409,6 +3427,7 @@ public sealed class DocumentLayouter
         var images = new List<LayoutImage>();
         var shapes = new List<LayoutShape>();
         var charts = new List<LayoutChart>();
+        var equations = new List<LayoutEquation>();
         var items = CollectLineItems(spans, start, length, measurer);
         var x = 0f;
         var maxAscent = defaultAscent;
@@ -3460,6 +3479,17 @@ public sealed class DocumentLayouter
                     maxImageHeight = MathF.Max(maxImageHeight, height);
                     break;
                 }
+                case LineItemKind.Equation:
+                {
+                    var layout = item.EquationLayout!;
+                    var width = layout.Width;
+                    var height = layout.Height;
+                    equations.Add(new LayoutEquation(item.Equation!, layout, x, width, height, 1));
+                    x += width;
+                    maxAscent = MathF.Max(maxAscent, layout.Baseline);
+                    maxDescent = MathF.Max(maxDescent, MathF.Max(0f, height - layout.Baseline));
+                    break;
+                }
                 case LineItemKind.Tab:
                 {
                     var tabStop = ResolveNextTabStop(x, tabStops, defaultTabWidth);
@@ -3478,7 +3508,7 @@ public sealed class DocumentLayouter
         var lineAscent = MathF.Max(defaultAscent, maxAscent);
         lineAscent = MathF.Max(lineAscent, maxImageHeight);
 
-        return new LineLayout(runs, images, shapes, charts, x, lineHeight, lineAscent);
+        return new LineLayout(runs, images, shapes, charts, equations, x, lineHeight, lineAscent);
     }
 
     private static LineLayout ApplyLineSpacing(LineLayout layout, ParagraphProperties properties)
@@ -3543,7 +3573,8 @@ public sealed class DocumentLayouter
         Tab,
         Image,
         Shape,
-        Chart
+        Chart,
+        Equation
     }
 
     private readonly struct LineItem
@@ -3555,10 +3586,23 @@ public sealed class DocumentLayouter
         public ImageInline? Image { get; }
         public ShapeInline? Shape { get; }
         public ChartInline? Chart { get; }
+        public EquationInline? Equation { get; }
+        public MathLayout? EquationLayout { get; }
         public float Width { get; }
         public float Height { get; }
 
-        private LineItem(LineItemKind kind, string text, TextStyle style, float baselineOffset, ImageInline? image, ShapeInline? shape, ChartInline? chart, float width, float height)
+        private LineItem(
+            LineItemKind kind,
+            string text,
+            TextStyle style,
+            float baselineOffset,
+            ImageInline? image,
+            ShapeInline? shape,
+            ChartInline? chart,
+            EquationInline? equation,
+            MathLayout? equationLayout,
+            float width,
+            float height)
         {
             Kind = kind;
             Text = text;
@@ -3567,33 +3611,40 @@ public sealed class DocumentLayouter
             Image = image;
             Shape = shape;
             Chart = chart;
+            Equation = equation;
+            EquationLayout = equationLayout;
             Width = width;
             Height = height;
         }
 
         public static LineItem TextSegment(string text, TextStyle style, float baselineOffset, float width)
         {
-            return new LineItem(LineItemKind.Text, text, style, baselineOffset, null, null, null, width, 0f);
+            return new LineItem(LineItemKind.Text, text, style, baselineOffset, null, null, null, null, null, width, 0f);
         }
 
         public static LineItem Tab(TextStyle style, float baselineOffset)
         {
-            return new LineItem(LineItemKind.Tab, string.Empty, style, baselineOffset, null, null, null, 0f, 0f);
+            return new LineItem(LineItemKind.Tab, string.Empty, style, baselineOffset, null, null, null, null, null, 0f, 0f);
         }
 
         public static LineItem ImageSegment(ImageInline image, TextStyle style, float width, float height)
         {
-            return new LineItem(LineItemKind.Image, string.Empty, style, 0f, image, null, null, width, height);
+            return new LineItem(LineItemKind.Image, string.Empty, style, 0f, image, null, null, null, null, width, height);
         }
 
         public static LineItem ShapeSegment(ShapeInline shape, TextStyle style, float width, float height)
         {
-            return new LineItem(LineItemKind.Shape, string.Empty, style, 0f, null, shape, null, width, height);
+            return new LineItem(LineItemKind.Shape, string.Empty, style, 0f, null, shape, null, null, null, width, height);
         }
 
         public static LineItem ChartSegment(ChartInline chart, TextStyle style, float width, float height)
         {
-            return new LineItem(LineItemKind.Chart, string.Empty, style, 0f, null, null, chart, width, height);
+            return new LineItem(LineItemKind.Chart, string.Empty, style, 0f, null, null, chart, null, null, width, height);
+        }
+
+        public static LineItem EquationSegment(EquationInline equation, MathLayout layout, TextStyle style, float width, float height)
+        {
+            return new LineItem(LineItemKind.Equation, string.Empty, style, 0f, null, null, null, equation, layout, width, height);
         }
     }
 
@@ -3611,6 +3662,7 @@ public sealed class DocumentLayouter
             return items;
         }
 
+        var mathLayoutEngine = new MathLayoutEngine();
         var end = start + length;
         foreach (var span in spans)
         {
@@ -3650,6 +3702,14 @@ public sealed class DocumentLayouter
                 var width = span.Chart.Width;
                 var height = span.Chart.Height;
                 items.Add(LineItem.ChartSegment(span.Chart, span.Style, width, height));
+                continue;
+            }
+
+            if (span.Equation is not null)
+            {
+                var baseStyle = span.Style;
+                var layout = mathLayoutEngine.Layout(span.Equation.Root, baseStyle, measurer);
+                items.Add(LineItem.EquationSegment(span.Equation, layout, baseStyle, layout.Width, layout.Height));
                 continue;
             }
 
@@ -3715,6 +3775,7 @@ public sealed class DocumentLayouter
                 case LineItemKind.Image:
                 case LineItemKind.Shape:
                 case LineItemKind.Chart:
+                case LineItemKind.Equation:
                     x += item.Width;
                     break;
                 case LineItemKind.Tab:
@@ -3781,7 +3842,7 @@ public sealed class DocumentLayouter
 
                 fieldWidth += item.Width;
             }
-            else if (item.Kind == LineItemKind.Image || item.Kind == LineItemKind.Shape)
+            else if (item.Kind == LineItemKind.Image || item.Kind == LineItemKind.Shape || item.Kind == LineItemKind.Equation)
             {
                 fieldWidth += item.Width;
                 if (!decimalFound)
@@ -4639,7 +4700,7 @@ public sealed class DocumentLayouter
         }
     }
 
-    private sealed record InlineSpan(int Start, int Length, string Text, TextStyle Style, ImageInline? Image, ShapeInline? Shape, ChartInline? Chart, float BaselineOffset);
+    private sealed record InlineSpan(int Start, int Length, string Text, TextStyle Style, ImageInline? Image, ShapeInline? Shape, ChartInline? Chart, EquationInline? Equation, float BaselineOffset);
     private sealed record ParagraphLine(int Start, int Length, string Text, LineLayout Layout, bool IsFirstLine);
     private readonly record struct WrapBounds(float Left, float Right, float BlockBottom);
     private delegate WrapBounds WrapResolver(float LineTop, float LineHeight, float BaseLeft, float BaseRight);
@@ -4649,6 +4710,7 @@ public sealed class DocumentLayouter
         IReadOnlyList<LayoutImage> Images,
         IReadOnlyList<LayoutShape> Shapes,
         IReadOnlyList<LayoutChart> Charts,
+        IReadOnlyList<LayoutEquation> Equations,
         float Width,
         float LineHeight,
         float Ascent);
