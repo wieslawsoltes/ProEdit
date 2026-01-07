@@ -5,6 +5,38 @@ namespace Vibe.Office.Layout;
 
 public sealed class DocumentLayouter
 {
+    private readonly record struct LayoutBlockRule(
+        Func<Block, bool> Matches,
+        Action<Block, int> Apply)
+    {
+        public bool TryApply(Block block, int blockIndex)
+        {
+            if (!Matches(block))
+            {
+                return false;
+            }
+
+            Apply(block, blockIndex);
+            return true;
+        }
+
+        public static LayoutBlockRule For<TBlock>(Action<TBlock, int> apply)
+            where TBlock : Block
+        {
+            return new LayoutBlockRule(
+                static block => block is TBlock,
+                (block, blockIndex) => apply((TBlock)block, blockIndex));
+        }
+    }
+
+    private readonly record struct LayoutPass(Action Apply)
+    {
+        public void Run()
+        {
+            Apply();
+        }
+    }
+
     public DocumentLayout Layout(Document document, LayoutSettings settings, ITextMeasurer measurer)
     {
         return LayoutInternal(document, settings, measurer, null, null);
@@ -1461,229 +1493,246 @@ public sealed class DocumentLayouter
             return ranges;
         }
 
-        for (var blockIndex = blockStartIndex; blockIndex < blocks.Count; blockIndex++)
+        void HandlePageBreak(PageBreakBlock _, int __)
         {
-            var block = blocks[blockIndex];
-            if (block is PageBreakBlock)
+            AddBreakMarker(BreakMarkerKind.Page, "Page Break");
+            StartNewPage();
+        }
+
+        void HandleColumnBreak(ColumnBreakBlock _, int __)
+        {
+            StartNewColumnOrPage();
+        }
+
+        void HandleSectionBreak(SectionBreakBlock sectionBreak, int __)
+        {
+            AddBreakMarker(BreakMarkerKind.Section, FormatSectionBreakLabel(sectionBreak.BreakType));
+            var nextSectionIndex = sectionBreak.SectionIndex
+                ?? (currentSectionIndex + 1 < document.SectionCount ? currentSectionIndex + 1 : currentSectionIndex);
+            var nextSettings = sectionSettingsByIndex.TryGetValue(nextSectionIndex, out var section)
+                ? section
+                : PageSectionSettings.FromSettings(settings, document.GetSection(nextSectionIndex).Properties, nextSectionIndex, document.MirrorMargins, document.GutterAtTop);
+            if (sectionBreak.SectionIndex is null && sectionBreak.Properties.HasValues)
             {
-                AddBreakMarker(BreakMarkerKind.Page, "Page Break");
+                nextSettings = nextSettings.ApplyOverrides(sectionBreak.Properties);
+            }
+
+            ApplySectionBreak(sectionBreak.BreakType, nextSettings);
+        }
+
+        void HandleParagraph(ParagraphBlock paragraph, int blockIndex)
+        {
+            var properties = styleResolver.ResolveParagraphProperties(paragraph);
+            var paragraphStyle = styleResolver.ResolveParagraphTextStyle(paragraph, style);
+            if (properties.PageBreakBefore == true && cursorY > contentTop + 0.5f)
+            {
                 StartNewPage();
-                continue;
+            }
+            var spacingBefore = properties.SpacingBefore ?? settings.ParagraphSpacing;
+            if (properties.ContextualSpacing == true && blockIndex > 0 && blocks[blockIndex - 1] is ParagraphBlock previousParagraph)
+            {
+                var previousStyleId = previousParagraph.StyleId ?? document.Styles.DefaultParagraphStyleId;
+                var currentStyleId = paragraph.StyleId ?? document.Styles.DefaultParagraphStyleId;
+                if (!string.IsNullOrWhiteSpace(currentStyleId)
+                    && string.Equals(previousStyleId, currentStyleId, StringComparison.OrdinalIgnoreCase))
+                {
+                    spacingBefore = 0f;
+                }
+            }
+            paragraphSpacingBefore[paragraphIndex] = spacingBefore;
+            var spacingAfter = properties.SpacingAfter ?? settings.ParagraphSpacing;
+            var indentLeft = properties.IndentLeft ?? 0f;
+            var indentRight = properties.IndentRight ?? 0f;
+            var firstLineIndent = properties.FirstLineIndent ?? 0f;
+
+            var listMarker = listState.GetMarker(paragraph.ListInfo, settings, measurer, paragraphStyle);
+            var prefix = listMarker?.Prefix;
+            var listIndent = listMarker?.Indent ?? 0f;
+            var prefixWidth = listMarker?.PrefixWidth ?? 0f;
+
+            var keepWithNext = properties.KeepWithNext == true;
+            var keepLinesTogether = properties.KeepLinesTogether == true;
+            var widowControl = properties.WidowControl ?? true;
+            var nextBlockMinHeight = keepWithNext
+                ? EstimateNextBlockMinHeight(blockIndex, blocks, document, styleResolver, settings, measurer, style, columnWidth, lineHeight, ascent)
+                : 0f;
+
+            var canReflow = paragraph.FloatingObjects.Count > 0;
+            var wrapStartCount = wrapFloatingObjects.Count;
+            ParagraphLayoutSnapshot? snapshot = null;
+            Dictionary<int, HashSet<int>>? footnotesSnapshot = null;
+            Dictionary<int, HashSet<int>>? endnotesSnapshot = null;
+
+            if (canReflow)
+            {
+                snapshot = new ParagraphLayoutSnapshot(
+                    lines.Count,
+                    linePageIndices.Count,
+                    pages.Count,
+                    pageSections.Count,
+                    cursorY,
+                    pageIndex,
+                    pageY,
+                    columnIndex,
+                    columnX,
+                    columnWidth,
+                    columnTop,
+                    contentTop,
+                    contentBottom);
+                footnotesSnapshot = CloneNoteMap(footnotesByPage);
+                endnotesSnapshot = CloneNoteMap(endnotesByPage);
             }
 
-            if (block is ColumnBreakBlock)
+            var localFloats = Array.Empty<FloatingLayoutObject>();
+            LineRange lineRange = default;
+            var maxPasses = canReflow ? 3 : 1;
+
+            for (var pass = 0; pass < maxPasses; pass++)
             {
-                StartNewColumnOrPage();
-                continue;
-            }
-
-            if (block is SectionBreakBlock sectionBreak)
-            {
-                AddBreakMarker(BreakMarkerKind.Section, FormatSectionBreakLabel(sectionBreak.BreakType));
-                var nextSectionIndex = sectionBreak.SectionIndex
-                    ?? (currentSectionIndex + 1 < document.SectionCount ? currentSectionIndex + 1 : currentSectionIndex);
-                var nextSettings = sectionSettingsByIndex.TryGetValue(nextSectionIndex, out var section)
-                    ? section
-                    : PageSectionSettings.FromSettings(settings, document.GetSection(nextSectionIndex).Properties, nextSectionIndex, document.MirrorMargins, document.GutterAtTop);
-                if (sectionBreak.SectionIndex is null && sectionBreak.Properties.HasValues)
+                if (pass > 0 && canReflow)
                 {
-                    nextSettings = nextSettings.ApplyOverrides(sectionBreak.Properties);
+                    RestoreParagraphSnapshot(snapshot!.Value, footnotesSnapshot!, endnotesSnapshot!);
+                    paragraphLineRanges.Remove(paragraphIndex);
                 }
 
-                ApplySectionBreak(sectionBreak.BreakType, nextSettings);
-                continue;
-            }
-
-            if (block is ParagraphBlock paragraph)
-            {
-                var properties = styleResolver.ResolveParagraphProperties(paragraph);
-                var paragraphStyle = styleResolver.ResolveParagraphTextStyle(paragraph, style);
-                if (properties.PageBreakBefore == true && cursorY > contentTop + 0.5f)
+                if (wrapFloatingObjects.Count > wrapStartCount)
                 {
-                    StartNewPage();
-                }
-                var spacingBefore = properties.SpacingBefore ?? settings.ParagraphSpacing;
-                if (properties.ContextualSpacing == true && blockIndex > 0 && blocks[blockIndex - 1] is ParagraphBlock previousParagraph)
-                {
-                    var previousStyleId = previousParagraph.StyleId ?? document.Styles.DefaultParagraphStyleId;
-                    var currentStyleId = paragraph.StyleId ?? document.Styles.DefaultParagraphStyleId;
-                    if (!string.IsNullOrWhiteSpace(currentStyleId)
-                        && string.Equals(previousStyleId, currentStyleId, StringComparison.OrdinalIgnoreCase))
-                    {
-                        spacingBefore = 0f;
-                    }
-                }
-                paragraphSpacingBefore[paragraphIndex] = spacingBefore;
-                var spacingAfter = properties.SpacingAfter ?? settings.ParagraphSpacing;
-                var indentLeft = properties.IndentLeft ?? 0f;
-                var indentRight = properties.IndentRight ?? 0f;
-                var firstLineIndent = properties.FirstLineIndent ?? 0f;
-
-                var listMarker = listState.GetMarker(paragraph.ListInfo, settings, measurer, paragraphStyle);
-                var prefix = listMarker?.Prefix;
-                var listIndent = listMarker?.Indent ?? 0f;
-                var prefixWidth = listMarker?.PrefixWidth ?? 0f;
-
-                var keepWithNext = properties.KeepWithNext == true;
-                var keepLinesTogether = properties.KeepLinesTogether == true;
-                var widowControl = properties.WidowControl ?? true;
-                var nextBlockMinHeight = keepWithNext
-                    ? EstimateNextBlockMinHeight(blockIndex, blocks, document, styleResolver, settings, measurer, style, columnWidth, lineHeight, ascent)
-                    : 0f;
-
-                var canReflow = paragraph.FloatingObjects.Count > 0;
-                var wrapStartCount = wrapFloatingObjects.Count;
-                ParagraphLayoutSnapshot? snapshot = null;
-                Dictionary<int, HashSet<int>>? footnotesSnapshot = null;
-                Dictionary<int, HashSet<int>>? endnotesSnapshot = null;
-
-                if (canReflow)
-                {
-                    snapshot = new ParagraphLayoutSnapshot(
-                        lines.Count,
-                        linePageIndices.Count,
-                        pages.Count,
-                        pageSections.Count,
-                        cursorY,
-                        pageIndex,
-                        pageY,
-                        columnIndex,
-                        columnX,
-                        columnWidth,
-                        columnTop,
-                        contentTop,
-                        contentBottom);
-                    footnotesSnapshot = CloneNoteMap(footnotesByPage);
-                    endnotesSnapshot = CloneNoteMap(endnotesByPage);
+                    wrapFloatingObjects.RemoveRange(wrapStartCount, wrapFloatingObjects.Count - wrapStartCount);
                 }
 
-                var localFloats = Array.Empty<FloatingLayoutObject>();
-                LineRange lineRange = default;
-                var maxPasses = canReflow ? 3 : 1;
-
-                for (var pass = 0; pass < maxPasses; pass++)
+                if (localFloats.Length > 0)
                 {
-                    if (pass > 0 && canReflow)
-                    {
-                        RestoreParagraphSnapshot(snapshot!.Value, footnotesSnapshot!, endnotesSnapshot!);
-                        paragraphLineRanges.Remove(paragraphIndex);
-                    }
+                    wrapFloatingObjects.AddRange(localFloats);
+                }
 
-                    if (wrapFloatingObjects.Count > wrapStartCount)
-                    {
-                        wrapFloatingObjects.RemoveRange(wrapStartCount, wrapFloatingObjects.Count - wrapStartCount);
-                    }
+                lineRange = LayoutParagraphLines(
+                    paragraph,
+                    properties,
+                    paragraphStyle,
+                    prefix,
+                    listIndent,
+                    prefixWidth,
+                    spacingBefore,
+                    spacingAfter,
+                    indentLeft,
+                    indentRight,
+                    firstLineIndent,
+                    keepWithNext,
+                    keepLinesTogether,
+                    widowControl,
+                    nextBlockMinHeight);
+                paragraphLineRanges[paragraphIndex] = lineRange;
 
-                    if (localFloats.Length > 0)
-                    {
-                        wrapFloatingObjects.AddRange(localFloats);
-                    }
+                if (!canReflow)
+                {
+                    break;
+                }
 
-                    lineRange = LayoutParagraphLines(
-                        paragraph,
-                        properties,
-                        paragraphStyle,
-                        prefix,
-                        listIndent,
-                        prefixWidth,
-                        spacingBefore,
-                        spacingAfter,
-                        indentLeft,
-                        indentRight,
-                        firstLineIndent,
-                        keepWithNext,
-                        keepLinesTogether,
-                        widowControl,
-                        nextBlockMinHeight);
-                    paragraphLineRanges[paragraphIndex] = lineRange;
-
-                    if (!canReflow)
-                    {
-                        break;
-                    }
-
-                    var updatedFloats = CollectParagraphFloatingObjects(paragraph, paragraphIndex, lineRange);
-                    if (pass == 0 && !RequiresParagraphReflow(updatedFloats))
-                    {
-                        localFloats = updatedFloats.ToArray();
-                        break;
-                    }
-
-                    if (AreFloatsEquivalent(localFloats, updatedFloats))
-                    {
-                        localFloats = updatedFloats.ToArray();
-                        break;
-                    }
-
+                var updatedFloats = CollectParagraphFloatingObjects(paragraph, paragraphIndex, lineRange);
+                if (pass == 0 && !RequiresParagraphReflow(updatedFloats))
+                {
                     localFloats = updatedFloats.ToArray();
+                    break;
                 }
 
-                if (canReflow)
+                if (AreFloatsEquivalent(localFloats, updatedFloats))
                 {
-                    if (wrapFloatingObjects.Count > wrapStartCount)
-                    {
-                        wrapFloatingObjects.RemoveRange(wrapStartCount, wrapFloatingObjects.Count - wrapStartCount);
-                    }
-
-                    if (localFloats.Length > 0)
-                    {
-                        wrapFloatingObjects.AddRange(localFloats);
-                    }
+                    localFloats = updatedFloats.ToArray();
+                    break;
                 }
 
-                paragraphIndex++;
-                continue;
+                localFloats = updatedFloats.ToArray();
             }
 
-            if (block is TableBlock table)
+            if (canReflow)
             {
-                var tableX = columnX;
-                var tableStyle = styleResolver.ResolveTableStyle(table);
-                var resolvedTableProperties = MergeTableProperties(tableStyle?.TableProperties, table.Properties);
-                var tableLook = ResolveTableLook(table.Properties.Look ?? tableStyle?.TableProperties.Look);
-                var data = ComputeTableLayoutData(table, document, resolvedTableProperties, table.Properties, tableStyle, tableLook, columnWidth, settings, measurer, style, styleResolver, lineHeight, ascent, ref paragraphIndex);
-                var rowStart = 0;
-                var totalRows = data.RowHeights.Length;
-                if (totalRows == 0)
+                if (wrapFloatingObjects.Count > wrapStartCount)
                 {
-                    var emptyLayout = BuildTableLayout(table, resolvedTableProperties, data, tableX, cursorY, 0, 0, settings);
-                    tables.Add(emptyLayout);
-                    cursorY += emptyLayout.Bounds.Height + settings.BlockSpacing;
-                    continue;
+                    wrapFloatingObjects.RemoveRange(wrapStartCount, wrapFloatingObjects.Count - wrapStartCount);
                 }
 
-                while (rowStart < totalRows)
+                if (localFloats.Length > 0)
                 {
-                    var availableHeight = contentBottom - cursorY;
-                    if (availableHeight <= 0f && cursorY > columnTop)
-                    {
-                        StartNewColumnOrPage();
-                        tableX = columnX;
-                        availableHeight = contentBottom - cursorY;
-                    }
+                    wrapFloatingObjects.AddRange(localFloats);
+                }
+            }
 
-                    var rowsToFit = CountRowsToFit(data.RowHeights, rowStart, availableHeight);
-                    if (rowsToFit == 0)
-                    {
-                        rowsToFit = Math.Min(1, totalRows - rowStart);
-                    }
+            paragraphIndex++;
+        }
 
-                    var tableLayout = BuildTableLayout(table, resolvedTableProperties, data, tableX, cursorY, rowStart, rowsToFit, settings);
-                    tables.Add(tableLayout);
-                    AddTableLines(tableLayout);
-                    cursorY += tableLayout.Bounds.Height + settings.BlockSpacing;
-                    rowStart += rowsToFit;
+        void HandleTable(TableBlock table, int __)
+        {
+            var tableX = columnX;
+            var tableStyle = styleResolver.ResolveTableStyle(table);
+            var resolvedTableProperties = MergeTableProperties(tableStyle?.TableProperties, table.Properties);
+            var tableLook = ResolveTableLook(table.Properties.Look ?? tableStyle?.TableProperties.Look);
+            var data = ComputeTableLayoutData(table, document, resolvedTableProperties, table.Properties, tableStyle, tableLook, columnWidth, settings, measurer, style, styleResolver, lineHeight, ascent, ref paragraphIndex);
+            var rowStart = 0;
+            var totalRows = data.RowHeights.Length;
+            if (totalRows == 0)
+            {
+                var emptyLayout = BuildTableLayout(table, resolvedTableProperties, data, tableX, cursorY, 0, 0, settings);
+                tables.Add(emptyLayout);
+                cursorY += emptyLayout.Bounds.Height + settings.BlockSpacing;
+                return;
+            }
 
-                    if (rowStart < totalRows)
-                    {
-                        StartNewColumnOrPage();
-                        tableX = columnX;
-                    }
+            while (rowStart < totalRows)
+            {
+                var availableHeight = contentBottom - cursorY;
+                if (availableHeight <= 0f && cursorY > columnTop)
+                {
+                    StartNewColumnOrPage();
+                    tableX = columnX;
+                    availableHeight = contentBottom - cursorY;
+                }
+
+                var rowsToFit = CountRowsToFit(data.RowHeights, rowStart, availableHeight);
+                if (rowsToFit == 0)
+                {
+                    rowsToFit = Math.Min(1, totalRows - rowStart);
+                }
+
+                var tableLayout = BuildTableLayout(table, resolvedTableProperties, data, tableX, cursorY, rowStart, rowsToFit, settings);
+                tables.Add(tableLayout);
+                AddTableLines(tableLayout);
+                cursorY += tableLayout.Bounds.Height + settings.BlockSpacing;
+                rowStart += rowsToFit;
+
+                if (rowStart < totalRows)
+                {
+                    StartNewColumnOrPage();
+                    tableX = columnX;
                 }
             }
         }
 
-        BalanceSectionColumns();
+        void ApplyBlockRules(LayoutBlockRule[] rules, Block block, int blockIndex)
+        {
+            foreach (var rule in rules)
+            {
+                if (rule.TryApply(block, blockIndex))
+                {
+                    return;
+                }
+            }
+        }
+
+        var blockRules = new[]
+        {
+            LayoutBlockRule.For<PageBreakBlock>(HandlePageBreak),
+            LayoutBlockRule.For<ColumnBreakBlock>(HandleColumnBreak),
+            LayoutBlockRule.For<SectionBreakBlock>(HandleSectionBreak),
+            LayoutBlockRule.For<ParagraphBlock>(HandleParagraph),
+            LayoutBlockRule.For<TableBlock>(HandleTable)
+        };
+
+        for (var blockIndex = blockStartIndex; blockIndex < blocks.Count; blockIndex++)
+        {
+            ApplyBlockRules(blockRules, blocks[blockIndex], blockIndex);
+        }
+
+        IReadOnlyList<FootnoteLayout> footnotes = Array.Empty<FootnoteLayout>();
 
         static bool HasHeaderFooterContent(params HeaderFooter[] headers)
         {
@@ -1698,12 +1747,17 @@ public sealed class DocumentLayouter
             return false;
         }
 
-        var hasHeaderFooter = document.Sections.Count == 0
-            ? HasHeaderFooterContent(document.Header, document.Footer, document.FirstHeader, document.FirstFooter, document.EvenHeader, document.EvenFooter)
-            : document.Sections.Any(section => HasHeaderFooterContent(section.Header, section.Footer, section.FirstHeader, section.FirstFooter, section.EvenHeader, section.EvenFooter));
-
-        if (hasHeaderFooter)
+        void LayoutHeaderFooters()
         {
+            var hasHeaderFooter = document.Sections.Count == 0
+                ? HasHeaderFooterContent(document.Header, document.Footer, document.FirstHeader, document.FirstFooter, document.EvenHeader, document.EvenFooter)
+                : document.Sections.Any(section => HasHeaderFooterContent(section.Header, section.Footer, section.FirstHeader, section.FirstFooter, section.EvenHeader, section.EvenFooter));
+
+            if (!hasHeaderFooter)
+            {
+                return;
+            }
+
             var totalPages = Math.Max(1, pages.Count);
             for (var i = 0; i < pages.Count; i++)
             {
@@ -1766,19 +1820,39 @@ public sealed class DocumentLayouter
             }
         }
 
-        var footnotes = BuildFootnoteLayouts(
-            document,
-            pages,
-            pageSections,
-            headerFooters,
-            footnotesByPage,
-            endnotesByPage,
-            settings,
-            measurer,
-            style,
-            styleResolver,
-            lineHeight,
-            ascent);
+        void LayoutFootnotes()
+        {
+            footnotes = BuildFootnoteLayouts(
+                document,
+                pages,
+                pageSections,
+                headerFooters,
+                footnotesByPage,
+                endnotesByPage,
+                settings,
+                measurer,
+                style,
+                styleResolver,
+                lineHeight,
+                ascent);
+        }
+
+        void ApplyLayoutPasses(LayoutPass[] passes)
+        {
+            foreach (var pass in passes)
+            {
+                pass.Run();
+            }
+        }
+
+        var postLayoutPasses = new[]
+        {
+            new LayoutPass(BalanceSectionColumns),
+            new LayoutPass(LayoutHeaderFooters),
+            new LayoutPass(LayoutFootnotes)
+        };
+
+        ApplyLayoutPasses(postLayoutPasses);
 
         var commentHighlightsByParagraph = scanState.BuildCommentHighlights();
         var contentHeight = pages.Count == 0
