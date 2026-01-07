@@ -756,14 +756,16 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                     continue;
                 }
 
-                if (!section.ColumnSeparator || section.ColumnCount <= 1)
+                var pageSection = section.ResolveForPage(pageIndex);
+
+                if (!pageSection.ColumnSeparator || pageSection.ColumnCount <= 1)
                 {
                     continue;
                 }
 
-                var contentLeft = page.Bounds.X + section.MarginLeft;
-                var contentTop = page.Bounds.Y + section.MarginTop;
-                var contentBottom = page.Bounds.Bottom - section.MarginBottom;
+                var contentLeft = page.Bounds.X + pageSection.MarginLeft;
+                var contentTop = page.Bounds.Y + pageSection.MarginTop;
+                var contentBottom = page.Bounds.Bottom - pageSection.MarginBottom;
                 var top = MathF.Max(entry.Value.Top, contentTop);
                 var bottom = MathF.Min(entry.Value.Bottom, contentBottom);
                 if (bottom <= top)
@@ -771,9 +773,9 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                     continue;
                 }
 
-                var columnGap = MathF.Max(0f, section.ColumnGap);
-                var contentWidth = MathF.Max(1f, page.Bounds.Width - section.MarginLeft - section.MarginRight);
-                var columnWidths = ResolveSectionColumnWidths(section, contentWidth, columnGap);
+                var columnGap = MathF.Max(0f, pageSection.ColumnGap);
+                var contentWidth = MathF.Max(1f, page.Bounds.Width - pageSection.MarginLeft - pageSection.MarginRight);
+                var columnWidths = ResolveSectionColumnWidths(pageSection, contentWidth, columnGap);
                 if (columnWidths.Length <= 1)
                 {
                     continue;

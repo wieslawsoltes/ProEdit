@@ -53,12 +53,13 @@ public sealed class DocumentLayouter
         var currentSectionIndex = 0;
         var sectionSettings = sectionSettingsByIndex.TryGetValue(currentSectionIndex, out var initialSection)
             ? initialSection
-            : PageSectionSettings.FromSettings(settings, document.GetSection(0).Properties, currentSectionIndex);
+            : PageSectionSettings.FromSettings(settings, document.GetSection(0).Properties, currentSectionIndex, document.MirrorMargins, document.GutterAtTop);
         var pageWidth = 0f;
         var pageHeight = 0f;
         var pageX = 0f;
         var pageY = settings.UsePagination ? settings.PageGap : 0f;
         var pageIndex = 0;
+        var pageSettings = sectionSettings.ResolveForPage(pageIndex);
         var pageContentWidth = 0f;
         var columnWidth = 0f;
         var columnIndex = 0;
@@ -98,12 +99,13 @@ public sealed class DocumentLayouter
 
         void ApplySectionSettings(PageSectionSettings section, bool preserveColumn, float? resumeY = null)
         {
-            marginLeft = section.MarginLeft;
-            marginRight = section.MarginRight;
-            marginTop = section.MarginTop;
-            marginBottom = section.MarginBottom;
-            pageWidth = settings.UsePagination ? section.PageWidth : settings.ViewportWidth;
-            pageHeight = settings.UsePagination ? section.PageHeight : MathF.Max(settings.ViewportHeight, 1f);
+            pageSettings = section.ResolveForPage(pageIndex);
+            marginLeft = pageSettings.MarginLeft;
+            marginRight = pageSettings.MarginRight;
+            marginTop = pageSettings.MarginTop;
+            marginBottom = pageSettings.MarginBottom;
+            pageWidth = settings.UsePagination ? pageSettings.PageWidth : settings.ViewportWidth;
+            pageHeight = settings.UsePagination ? pageSettings.PageHeight : MathF.Max(settings.ViewportHeight, 1f);
             pageX = settings.UsePagination ? MathF.Max(0f, (settings.ViewportWidth - pageWidth) / 2f) : 0f;
             pageContentWidth = MathF.Max(1f, pageWidth - marginLeft - marginRight);
             contentTop = pageY + marginTop;
@@ -130,7 +132,7 @@ public sealed class DocumentLayouter
             var bounds = new DocRect(pageX, pageY, pageWidth, pageHeight);
             var contentBounds = new DocRect(pageX + marginLeft, pageY + marginTop, pageContentWidth, pageHeight - marginTop - marginBottom);
             pages.Add(new PageLayout(pageIndex, bounds, contentBounds));
-            pageSections.Add(sectionSettings);
+            pageSections.Add(pageSettings);
         }
 
         void StartNewPage(PageSectionSettings? newSection = null)
@@ -370,6 +372,7 @@ public sealed class DocumentLayouter
                    && MathF.Abs(current.MarginBottom - previous.MarginBottom) < epsilon
                    && MathF.Abs(current.HeaderOffset - previous.HeaderOffset) < epsilon
                    && MathF.Abs(current.FooterOffset - previous.FooterOffset) < epsilon
+                   && MathF.Abs(current.Gutter - previous.Gutter) < epsilon
                    && MathF.Abs(current.ParagraphSpacing - previous.ParagraphSpacing) < epsilon
                    && MathF.Abs(current.BlockSpacing - previous.BlockSpacing) < epsilon
                    && MathF.Abs(current.ListIndent - previous.ListIndent) < epsilon
@@ -1197,11 +1200,12 @@ public sealed class DocumentLayouter
             }
 
             var page = pages[pageIndex];
-            var contentLeft = page.Bounds.X + section.MarginLeft;
-            var sectionTop = page.Bounds.Y + section.MarginTop;
-            var contentWidth = MathF.Max(1f, page.Bounds.Width - section.MarginLeft - section.MarginRight);
-            var columnGap = MathF.Max(0f, section.ColumnGap);
-            var columnWidths = ResolveSectionColumnWidths(section, contentWidth, columnGap);
+            var pageSection = section.ResolveForPage(pageIndex);
+            var contentLeft = page.Bounds.X + pageSection.MarginLeft;
+            var sectionTop = page.Bounds.Y + pageSection.MarginTop;
+            var contentWidth = MathF.Max(1f, page.Bounds.Width - pageSection.MarginLeft - pageSection.MarginRight);
+            var columnGap = MathF.Max(0f, pageSection.ColumnGap);
+            var columnWidths = ResolveSectionColumnWidths(pageSection, contentWidth, columnGap);
             if (columnWidths.Length <= 1)
             {
                 return;
@@ -1480,7 +1484,7 @@ public sealed class DocumentLayouter
                     ?? (currentSectionIndex + 1 < document.SectionCount ? currentSectionIndex + 1 : currentSectionIndex);
                 var nextSettings = sectionSettingsByIndex.TryGetValue(nextSectionIndex, out var section)
                     ? section
-                    : PageSectionSettings.FromSettings(settings, document.GetSection(nextSectionIndex).Properties, nextSectionIndex);
+                    : PageSectionSettings.FromSettings(settings, document.GetSection(nextSectionIndex).Properties, nextSectionIndex, document.MirrorMargins, document.GutterAtTop);
                 if (sectionBreak.SectionIndex is null && sectionBreak.Properties.HasValues)
                 {
                     nextSettings = nextSettings.ApplyOverrides(sectionBreak.Properties);
@@ -1681,9 +1685,22 @@ public sealed class DocumentLayouter
 
         BalanceSectionColumns();
 
+        static bool HasHeaderFooterContent(params HeaderFooter[] headers)
+        {
+            foreach (var headerFooter in headers)
+            {
+                if (headerFooter.Blocks.Count > 0)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         var hasHeaderFooter = document.Sections.Count == 0
-            ? document.Header.Blocks.Count > 0 || document.Footer.Blocks.Count > 0
-            : document.Sections.Any(section => section.Header.Blocks.Count > 0 || section.Footer.Blocks.Count > 0);
+            ? HasHeaderFooterContent(document.Header, document.Footer, document.FirstHeader, document.FirstFooter, document.EvenHeader, document.EvenFooter)
+            : document.Sections.Any(section => HasHeaderFooterContent(section.Header, section.Footer, section.FirstHeader, section.FirstFooter, section.EvenHeader, section.EvenFooter));
 
         if (hasHeaderFooter)
         {
@@ -1693,15 +1710,31 @@ public sealed class DocumentLayouter
                 var page = pages[i];
                 var section = pageSections[i];
                 var sectionInfo = document.GetSection(section.SectionIndex);
-                if (sectionInfo.Header.Blocks.Count == 0 && sectionInfo.Footer.Blocks.Count == 0)
+                var pageNumber = page.Index + 1;
+                var isFirstPageOfSection = i == 0 || pageSections[i - 1].SectionIndex != section.SectionIndex;
+                var isEvenPage = pageNumber % 2 == 0;
+                var headerSource = sectionInfo.Header;
+                var footerSource = sectionInfo.Footer;
+
+                if (isFirstPageOfSection && sectionInfo.Properties.DifferentFirstPageHeaderFooter == true)
+                {
+                    headerSource = sectionInfo.FirstHeader;
+                    footerSource = sectionInfo.FirstFooter;
+                }
+                else if (document.EvenAndOddHeaders && isEvenPage)
+                {
+                    headerSource = sectionInfo.EvenHeader;
+                    footerSource = sectionInfo.EvenFooter;
+                }
+
+                if (headerSource.Blocks.Count == 0 && footerSource.Blocks.Count == 0)
                 {
                     continue;
                 }
 
-                var pageNumber = page.Index + 1;
                 var headerFooterContentWidth = MathF.Max(1f, page.Bounds.Width - section.MarginLeft - section.MarginRight);
                 var headerLayout = LayoutHeaderFooterBlocks(
-                    sectionInfo.Header.Blocks,
+                    headerSource.Blocks,
                     document,
                     settings,
                     measurer,
@@ -1713,7 +1746,7 @@ public sealed class DocumentLayouter
                     pageNumber,
                     totalPages);
                 var footerLayout = LayoutHeaderFooterBlocks(
-                    sectionInfo.Footer.Blocks,
+                    footerSource.Blocks,
                     document,
                     settings,
                     measurer,
@@ -4069,7 +4102,7 @@ public sealed class DocumentLayouter
         for (var i = 0; i < count; i++)
         {
             var section = document.GetSection(i);
-            result[i] = PageSectionSettings.FromSettings(settings, section.Properties, i);
+            result[i] = PageSectionSettings.FromSettings(settings, section.Properties, i, document.MirrorMargins, document.GutterAtTop);
         }
 
         return result;
