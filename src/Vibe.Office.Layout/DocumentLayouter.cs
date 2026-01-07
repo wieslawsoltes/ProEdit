@@ -3253,6 +3253,7 @@ public sealed class DocumentLayouter
     private const float SuperscriptOffsetRatio = 0.35f;
     private const float SubscriptOffsetRatio = 0.15f;
     private const float SmallCapsScale = 0.8f;
+    private static readonly MathLayoutEngine SharedMathLayoutEngine = new MathLayoutEngine();
     private static readonly DocColor PlaceholderColor = new DocColor(150, 150, 150);
 
     private static (TextStyle Style, float BaselineOffset) PrepareRunStyle(TextStyle style)
@@ -3839,7 +3840,9 @@ public sealed class DocumentLayouter
 
     private static LineLayout AppendHyphenRun(LineLayout layout, TextStyle style, float baselineOffset, ITextMeasurer measurer)
     {
-        var width = measurer.MeasureText("-", style).Width;
+        var width = measurer is ITextMeasurerSpan spanMeasurer
+            ? spanMeasurer.MeasureText("-".AsSpan(), style).Width
+            : measurer.MeasureText("-", style).Width;
         if (width <= 0f)
         {
             return layout;
@@ -3989,7 +3992,7 @@ public sealed class DocumentLayouter
             return items;
         }
 
-        var mathLayoutEngine = new MathLayoutEngine();
+        var mathLayoutEngine = SharedMathLayoutEngine;
         var end = start + length;
         foreach (var span in spans)
         {
@@ -4040,7 +4043,7 @@ public sealed class DocumentLayouter
                 continue;
             }
 
-            var segmentText = span.Text.Substring(segmentStart - spanStart, segmentLength);
+            var segmentText = span.Text.AsSpan(segmentStart - spanStart, segmentLength);
             AppendTextItems(items, segmentText, span.Style, span.BaselineOffset, measurer);
         }
 
@@ -4049,12 +4052,12 @@ public sealed class DocumentLayouter
 
     private static void AppendTextItems(
         List<LineItem> items,
-        string text,
+        ReadOnlySpan<char> text,
         TextStyle style,
         float baselineOffset,
         ITextMeasurer measurer)
     {
-        if (string.IsNullOrEmpty(text))
+        if (text.IsEmpty)
         {
             return;
         }
@@ -4069,7 +4072,7 @@ public sealed class DocumentLayouter
 
             if (i > segmentStart)
             {
-                var segmentText = text.Substring(segmentStart, i - segmentStart);
+                var segmentText = new string(text.Slice(segmentStart, i - segmentStart));
                 var width = measurer.MeasureText(segmentText, style).Width;
                 items.Add(LineItem.TextSegment(segmentText, style, baselineOffset, width));
             }
@@ -4080,7 +4083,7 @@ public sealed class DocumentLayouter
 
         if (segmentStart < text.Length)
         {
-            var segmentText = text.Substring(segmentStart);
+            var segmentText = new string(text.Slice(segmentStart));
             var width = measurer.MeasureText(segmentText, style).Width;
             items.Add(LineItem.TextSegment(segmentText, style, baselineOffset, width));
         }
