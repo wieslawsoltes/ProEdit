@@ -36,14 +36,13 @@ public static class TextBidi
         var index = 0;
         while (index < text.Length)
         {
-            if (!Rune.TryDecodeFromUtf16(text[index..], out var rune, out var consumed))
+            if (!Utf16Decoder.TryDecodeFromUtf16(text[index..], out var rune, out var consumed))
             {
                 rune = new Rune(text[index]);
                 consumed = 1;
             }
 
-            var category = CharUnicodeInfo.GetBidiCategory(rune.Value);
-            var klass = Classify(category);
+            var klass = Classify(rune);
             if (klass == BidiClass.L)
             {
                 return BidiDirection.Ltr;
@@ -76,14 +75,13 @@ public static class TextBidi
 
         while (index < text.Length)
         {
-            if (!Rune.TryDecodeFromUtf16(text[index..], out var rune, out var consumed))
+            if (!Utf16Decoder.TryDecodeFromUtf16(text[index..], out var rune, out var consumed))
             {
                 rune = new Rune(text[index]);
                 consumed = 1;
             }
 
-            var category = CharUnicodeInfo.GetBidiCategory(rune.Value);
-            var klass = Classify(category);
+            var klass = Classify(rune);
             var effective = klass;
             if (klass == BidiClass.Neutral)
             {
@@ -174,16 +172,55 @@ public static class TextBidi
         }
     }
 
-    private static BidiClass Classify(BidiCategory category)
+    private static BidiClass Classify(Rune rune)
     {
-        return category switch
+        if (IsRtlCodepoint(rune))
         {
-            BidiCategory.LeftToRight => BidiClass.L,
-            BidiCategory.RightToLeft => BidiClass.R,
-            BidiCategory.RightToLeftArabic => BidiClass.R,
-            BidiCategory.EuropeanNumber => BidiClass.Number,
-            BidiCategory.ArabicNumber => BidiClass.Number,
-            _ => BidiClass.Neutral
-        };
+            return BidiClass.R;
+        }
+
+        if (Rune.IsDigit(rune))
+        {
+            return BidiClass.Number;
+        }
+
+        var category = Rune.GetUnicodeCategory(rune);
+        if (IsNeutralCategory(category) || Rune.IsWhiteSpace(rune))
+        {
+            return BidiClass.Neutral;
+        }
+
+        if (Rune.IsLetter(rune))
+        {
+            return BidiClass.L;
+        }
+
+        return BidiClass.Neutral;
+    }
+
+    private static bool IsRtlCodepoint(Rune rune)
+    {
+        var code = rune.Value;
+        return (code >= 0x0590 && code <= 0x08FF)
+               || (code >= 0xFB1D && code <= 0xFDFF)
+               || (code >= 0xFE70 && code <= 0xFEFF);
+    }
+
+    private static bool IsNeutralCategory(UnicodeCategory category)
+    {
+        return category == UnicodeCategory.NonSpacingMark
+               || category == UnicodeCategory.SpacingCombiningMark
+               || category == UnicodeCategory.EnclosingMark
+               || category == UnicodeCategory.ConnectorPunctuation
+               || category == UnicodeCategory.DashPunctuation
+               || category == UnicodeCategory.OpenPunctuation
+               || category == UnicodeCategory.ClosePunctuation
+               || category == UnicodeCategory.InitialQuotePunctuation
+               || category == UnicodeCategory.FinalQuotePunctuation
+               || category == UnicodeCategory.OtherPunctuation
+               || category == UnicodeCategory.MathSymbol
+               || category == UnicodeCategory.CurrencySymbol
+               || category == UnicodeCategory.ModifierSymbol
+               || category == UnicodeCategory.OtherSymbol;
     }
 }

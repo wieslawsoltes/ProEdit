@@ -28,7 +28,7 @@ internal static class TextScript
         var index = 0;
         while (index < text.Length)
         {
-            if (!Rune.TryDecodeFromUtf16(text[index..], out var rune, out var consumed))
+            if (!Utf16Decoder.TryDecodeFromUtf16(text[index..], out var rune, out var consumed))
             {
                 rune = new Rune(text[index]);
                 consumed = 1;
@@ -87,7 +87,7 @@ internal static class TextScript
         var index = 0;
         while (index < text.Length)
         {
-            if (!Rune.TryDecodeFromUtf16(text[index..], out var rune, out var consumed))
+            if (!Utf16Decoder.TryDecodeFromUtf16(text[index..], out var rune, out var consumed))
             {
                 rune = new Rune(text[index]);
                 consumed = 1;

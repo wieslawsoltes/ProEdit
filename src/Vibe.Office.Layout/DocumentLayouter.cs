@@ -3372,7 +3372,7 @@ public sealed class DocumentLayouter
 
         while (index < text.Length)
         {
-            if (!System.Text.Rune.TryDecodeFromUtf16(text.AsSpan(index), out var rune, out var consumed))
+            if (!Utf16Decoder.TryDecodeFromUtf16(text.AsSpan(index), out var rune, out var consumed))
             {
                 rune = new System.Text.Rune(text[index]);
                 consumed = 1;

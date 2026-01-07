@@ -314,7 +314,7 @@ internal static class KnuthPlassLineBreaker
         var index = 0;
         while (index < word.Length)
         {
-            if (!System.Text.Rune.TryDecodeFromUtf16(word[index..], out var rune, out var consumed))
+            if (!Utf16Decoder.TryDecodeFromUtf16(word[index..], out var rune, out var consumed))
             {
                 rune = new System.Text.Rune(word[index]);
                 consumed = 1;
@@ -422,7 +422,7 @@ internal static class KnuthPlassLineBreaker
             return 0;
         }
 
-        if (!Rune.TryDecodeFromUtf16(text[start..], out var rune, out var consumed))
+        if (!Utf16Decoder.TryDecodeFromUtf16(text[start..], out var rune, out var consumed))
         {
             rune = new Rune(text[start]);
             consumed = 1;
@@ -434,7 +434,7 @@ internal static class KnuthPlassLineBreaker
 
         while (index < text.Length)
         {
-            if (!Rune.TryDecodeFromUtf16(text[index..], out var nextRune, out var nextConsumed))
+            if (!Utf16Decoder.TryDecodeFromUtf16(text[index..], out var nextRune, out var nextConsumed))
             {
                 nextRune = new Rune(text[index]);
                 nextConsumed = 1;
