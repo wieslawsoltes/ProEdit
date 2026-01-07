@@ -1570,9 +1570,68 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
         return paint.MeasureText(buffer);
     }
 
-    private static string GetCharString(char ch)
+    private static float MeasureCluster(SKPaint paint, ReadOnlySpan<char> cluster)
     {
-        return ch < AsciiCharCache.Length ? AsciiCharCache[ch] : ch.ToString();
+        return cluster.Length == 1 ? MeasureChar(paint, cluster[0]) : paint.MeasureText(cluster);
+    }
+
+    private static float MeasureTextElements(SKPaint paint, ReadOnlySpan<char> text, float letterSpacing)
+    {
+        if (text.IsEmpty)
+        {
+            return 0f;
+        }
+
+        var width = 0f;
+        var index = 0;
+        var applySpacing = MathF.Abs(letterSpacing) > 0.001f;
+        while (index < text.Length)
+        {
+            var length = TextCluster.GetNextClusterLength(text, index);
+            if (length <= 0)
+            {
+                break;
+            }
+
+            width += MeasureCluster(paint, text.Slice(index, length));
+            if (applySpacing && index + length < text.Length)
+            {
+                width += letterSpacing;
+            }
+
+            index += length;
+        }
+
+        return width;
+    }
+
+    private static string GetClusterString(ReadOnlySpan<char> cluster)
+    {
+        if (cluster.Length == 1)
+        {
+            var ch = cluster[0];
+            return ch < AsciiCharCache.Length ? AsciiCharCache[ch] : ch.ToString();
+        }
+
+        return cluster.ToString();
+    }
+
+    private static bool IsWhitespaceCluster(ReadOnlySpan<char> cluster)
+    {
+        if (cluster.IsEmpty)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < cluster.Length; i++)
+        {
+            if (!char.IsWhiteSpace(cluster[i]))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static string[] BuildAsciiCharCache()
@@ -1639,7 +1698,9 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
 
         if (underlineStyle == DocUnderlineStyle.Words)
         {
-            DrawUnderlineWords(canvas, text, startX, y, underlinePaint, thickness, paint, letterSpacing);
+            var measuredWidth = MeasureTextElements(paint, text.AsSpan(), letterSpacing);
+            var scale = measuredWidth > 0f ? width / measuredWidth : 1f;
+            DrawUnderlineWords(canvas, text.AsSpan(), startX, y, underlinePaint, thickness, paint, letterSpacing, scale);
             return;
         }
 
@@ -1742,23 +1803,48 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
 
     private static void DrawTextWithLetterSpacingFallback(SKCanvas canvas, string text, float x, float baseline, SKPaint paint, float letterSpacing)
     {
-        for (var i = 0; i < text.Length; i++)
+        if (string.IsNullOrEmpty(text))
         {
-            var glyph = GetCharString(text[i]);
+            return;
+        }
+
+        var span = text.AsSpan();
+        var index = 0;
+        while (index < span.Length)
+        {
+            var length = TextCluster.GetNextClusterLength(span, index);
+            if (length <= 0)
+            {
+                break;
+            }
+
+            var cluster = span.Slice(index, length);
+            var glyph = GetClusterString(cluster);
             canvas.DrawText(glyph, x, baseline, paint);
-            var advance = MeasureChar(paint, text[i]);
-            if (i < text.Length - 1)
+
+            var advance = MeasureCluster(paint, cluster);
+            if (index + length < span.Length)
             {
                 advance += letterSpacing;
             }
 
             x += advance;
+            index += length;
         }
     }
 
-    private static void DrawUnderlineWords(SKCanvas canvas, string text, float startX, float y, SKPaint underlinePaint, float thickness, SKPaint textPaint, float letterSpacing)
+    private static void DrawUnderlineWords(
+        SKCanvas canvas,
+        ReadOnlySpan<char> text,
+        float startX,
+        float y,
+        SKPaint underlinePaint,
+        float thickness,
+        SKPaint textPaint,
+        float letterSpacing,
+        float scale)
     {
-        if (string.IsNullOrEmpty(text))
+        if (text.IsEmpty)
         {
             return;
         }
@@ -1766,11 +1852,18 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
         var x = startX;
         var segmentStart = -1f;
         var applySpacing = MathF.Abs(letterSpacing) > 0.001f;
-        for (var i = 0; i < text.Length; i++)
+        var index = 0;
+        while (index < text.Length)
         {
-            var ch = text[i];
-            var width = MeasureChar(textPaint, ch);
-            var isWhitespace = char.IsWhiteSpace(ch);
+            var length = TextCluster.GetNextClusterLength(text, index);
+            if (length <= 0)
+            {
+                break;
+            }
+
+            var cluster = text.Slice(index, length);
+            var width = MeasureCluster(textPaint, cluster) * scale;
+            var isWhitespace = IsWhitespaceCluster(cluster);
             if (isWhitespace)
             {
                 if (segmentStart >= 0f)
@@ -1780,6 +1873,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                 }
 
                 x += width;
+                index += length;
                 continue;
             }
 
@@ -1789,10 +1883,12 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             }
 
             x += width;
-            if (applySpacing && i < text.Length - 1)
+            if (applySpacing && index + length < text.Length)
             {
-                x += letterSpacing;
+                x += letterSpacing * scale;
             }
+
+            index += length;
         }
 
         if (segmentStart >= 0f)
