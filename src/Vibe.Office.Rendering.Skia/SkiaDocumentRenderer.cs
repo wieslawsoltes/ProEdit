@@ -10,6 +10,7 @@ namespace Vibe.Office.Rendering.Skia;
 
 public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
 {
+    private static readonly string[] AsciiCharCache = BuildAsciiCharCache();
     private DocumentLayout? _cachedLayout;
     private readonly Dictionary<int, SKPicture> _pageCache = new();
     private long _lastDirtyVersion = -1;
@@ -114,7 +115,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             for (var i = 0; i < text.Length; i++)
             {
                 offsets[i] = i;
-                advances[i] = paint.MeasureText(text[i].ToString());
+                advances[i] = MeasureChar(paint, text[i]);
             }
 
             return new TextShapeInfo(text.Length, offsets, advances);
@@ -378,7 +379,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                         if (leaderChar != '\0')
                         {
                             var paint = GetPaint(run.Style);
-                            var glyphWidth = paint.MeasureText(leaderChar.ToString());
+                            var glyphWidth = MeasureChar(paint, leaderChar);
                             if (glyphWidth > 0f)
                             {
                                 var count = Math.Max(1, (int)MathF.Ceiling(run.Width / glyphWidth));
@@ -477,7 +478,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                 var x = lineX + run.X;
                 foreach (var ch in run.Text)
                 {
-                    var glyphWidth = paint.MeasureText(ch.ToString());
+                    var glyphWidth = MeasureChar(paint, ch);
                     var advance = glyphWidth;
                     if (ch == ' ' && run.Text.Length == 1 && run.Width > glyphWidth + 0.01f)
                     {
@@ -1290,6 +1291,29 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
 
     private static SKColor ToSkColor(DocColor color) => new SKColor(color.R, color.G, color.B, color.A);
 
+    private static float MeasureChar(SKPaint paint, char ch)
+    {
+        Span<char> buffer = stackalloc char[1];
+        buffer[0] = ch;
+        return paint.MeasureText(buffer);
+    }
+
+    private static string GetCharString(char ch)
+    {
+        return ch < AsciiCharCache.Length ? AsciiCharCache[ch] : ch.ToString();
+    }
+
+    private static string[] BuildAsciiCharCache()
+    {
+        var cache = new string[128];
+        for (var i = 0; i < cache.Length; i++)
+        {
+            cache[i] = ((char)i).ToString();
+        }
+
+        return cache;
+    }
+
     private static void DrawUnderlineIfNeeded(SKCanvas canvas, float baseline, float lineX, LayoutRun run, SKPaint paint)
     {
         if (string.IsNullOrEmpty(run.Text))
@@ -1435,9 +1459,9 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
     {
         for (var i = 0; i < text.Length; i++)
         {
-            var glyph = text[i].ToString();
+            var glyph = GetCharString(text[i]);
             canvas.DrawText(glyph, x, baseline, paint);
-            var advance = paint.MeasureText(glyph);
+            var advance = MeasureChar(paint, text[i]);
             if (i < text.Length - 1)
             {
                 advance += letterSpacing;
@@ -1460,7 +1484,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
         for (var i = 0; i < text.Length; i++)
         {
             var ch = text[i];
-            var width = textPaint.MeasureText(ch.ToString());
+            var width = MeasureChar(textPaint, ch);
             var isWhitespace = char.IsWhiteSpace(ch);
             if (isWhitespace)
             {

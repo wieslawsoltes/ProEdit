@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Text;
 using SkiaSharp;
 using Vibe.Office.Documents;
@@ -233,13 +234,22 @@ public sealed partial class SkiaDocumentRenderer
             }
             else
             {
-                var paragraphLines = text.Split('\n');
-                for (var p = 0; p < paragraphLines.Length; p++)
+                var lineStart = 0;
+                for (var i = 0; i <= text.Length; i++)
                 {
-                    foreach (var line in WrapShapeText(paragraphLines[p], maxWidth, paint))
+                    if (i < text.Length && text[i] != '\n')
+                    {
+                        continue;
+                    }
+
+                    var lineLength = i - lineStart;
+                    var lineText = lineLength == 0 ? string.Empty : new string(text.AsSpan(lineStart, lineLength));
+                    foreach (var line in WrapShapeText(lineText, maxWidth, paint))
                     {
                         lines.Add(new ShapeTextLine(line, alignment));
                     }
+
+                    lineStart = i + 1;
                 }
             }
 
@@ -260,29 +270,112 @@ public sealed partial class SkiaDocumentRenderer
             yield break;
         }
 
-        var words = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        var builder = new StringBuilder();
-        foreach (var word in words)
+        var pool = ArrayPool<char>.Shared;
+        var buffer = pool.Rent(Math.Max(16, text.Length));
+        var length = 0;
+
+        try
         {
-            var candidate = builder.Length == 0 ? word : $"{builder} {word}";
-            var width = paint.MeasureText(candidate);
-            if (width <= maxWidth || builder.Length == 0)
+            var index = 0;
+            while (index < text.Length)
             {
-                builder.Clear();
-                builder.Append(candidate);
+                while (index < text.Length && text[index] == ' ')
+                {
+                    index++;
+                }
+
+                if (index >= text.Length)
+                {
+                    break;
+                }
+
+                var wordStart = index;
+                while (index < text.Length && text[index] != ' ')
+                {
+                    index++;
+                }
+
+                var wordLength = index - wordStart;
+                if (length == 0)
+                {
+                    if (wordLength > buffer.Length)
+                    {
+                        buffer = GrowBuffer(buffer, wordLength, 0, pool);
+                    }
+
+                    text.CopyTo(wordStart, buffer, 0, wordLength);
+                    length = wordLength;
+                    continue;
+                }
+
+                var previousLength = length;
+                var requiredLength = previousLength + 1 + wordLength;
+                if (requiredLength > buffer.Length)
+                {
+                    buffer = GrowBuffer(buffer, requiredLength, previousLength, pool);
+                }
+
+                buffer[previousLength] = ' ';
+                text.CopyTo(wordStart, buffer, previousLength + 1, wordLength);
+                length = requiredLength;
+
+                var width = MeasureBuffer(paint, buffer, length);
+                if (width <= maxWidth)
+                {
+                    continue;
+                }
+
+                length = previousLength;
+                if (length > 0)
+                {
+                    yield return new string(buffer, 0, length);
+                }
+
+                length = 0;
+                if (wordLength > 0)
+                {
+                    if (wordLength > buffer.Length)
+                    {
+                        buffer = GrowBuffer(buffer, wordLength, 0, pool);
+                    }
+
+                    text.CopyTo(wordStart, buffer, 0, wordLength);
+                    length = wordLength;
+                }
             }
-            else
+
+            if (length > 0)
             {
-                yield return builder.ToString();
-                builder.Clear();
-                builder.Append(word);
+                yield return new string(buffer, 0, length);
             }
+        }
+        finally
+        {
+            pool.Return(buffer);
+        }
+    }
+
+    private static char[] GrowBuffer(char[] buffer, int requiredLength, int copyLength, ArrayPool<char> pool)
+    {
+        var newSize = Math.Max(requiredLength, buffer.Length * 2);
+        var next = pool.Rent(newSize);
+        if (copyLength > 0)
+        {
+            Array.Copy(buffer, 0, next, 0, copyLength);
         }
 
-        if (builder.Length > 0)
+        pool.Return(buffer);
+        return next;
+    }
+
+    private static float MeasureBuffer(SKPaint paint, char[] buffer, int length)
+    {
+        if (length <= 0)
         {
-            yield return builder.ToString();
+            return 0f;
         }
+
+        return paint.MeasureText(buffer.AsSpan(0, length));
     }
 
     private static string GetParagraphText(ParagraphBlock paragraph)
