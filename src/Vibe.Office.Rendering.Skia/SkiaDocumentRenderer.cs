@@ -622,6 +622,8 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                 }
             }
 
+            DrawBreakMarkers(pageIndex);
+
             if (footnoteMap.TryGetValue(pageIndex, out var footnoteLayout))
             {
                 var separator = footnoteLayout.SeparatorBounds;
@@ -640,6 +642,72 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
 
             DrawFloatingObjects(pageIndex, false);
             DrawFloatingSelection(pageIndex);
+        }
+
+        void DrawBreakMarkers(int pageIndex)
+        {
+            if (!options.ShowInvisibles || layout.BreakMarkers.Count == 0)
+            {
+                return;
+            }
+
+            using var breakLinePaint = new SKPaint
+            {
+                Style = SKPaintStyle.Stroke,
+                Color = ToSkColor(options.InvisiblesColor),
+                StrokeWidth = 1f,
+                IsAntialias = true,
+                PathEffect = SKPathEffect.CreateDash(new[] { 6f, 4f }, 0f)
+            };
+
+            var labelStyle = style.Clone();
+            labelStyle.Color = options.InvisiblesColor;
+            labelStyle.FontSize = MathF.Max(8f, style.FontSize * 0.85f);
+            var labelPaint = GetInvisibleTextPaint(labelStyle);
+            var metrics = labelPaint.FontMetrics;
+            var textHeight = metrics.Descent - metrics.Ascent;
+            var textPadding = MathF.Max(6f, textHeight * 0.4f);
+
+            foreach (var marker in layout.BreakMarkers)
+            {
+                if (marker.PageIndex != pageIndex)
+                {
+                    continue;
+                }
+
+                var left = marker.X;
+                var right = marker.X + marker.Width;
+                if (right <= left)
+                {
+                    continue;
+                }
+
+                var lineY = marker.Y;
+                var label = marker.Label;
+                var labelWidth = string.IsNullOrWhiteSpace(label) ? 0f : labelPaint.MeasureText(label);
+                var labelX = left + (right - left - labelWidth) / 2f;
+                var labelBaseline = lineY - 2f;
+
+                if (labelWidth > 0f)
+                {
+                    var gapLeft = MathF.Max(left, labelX - textPadding);
+                    var gapRight = MathF.Min(right, labelX + labelWidth + textPadding);
+                    if (gapLeft > left)
+                    {
+                        targetCanvas.DrawLine(left, lineY, gapLeft, lineY, breakLinePaint);
+                    }
+                    if (gapRight < right)
+                    {
+                        targetCanvas.DrawLine(gapRight, lineY, right, lineY, breakLinePaint);
+                    }
+
+                    targetCanvas.DrawText(label, labelX, labelBaseline, labelPaint);
+                }
+                else
+                {
+                    targetCanvas.DrawLine(left, lineY, right, lineY, breakLinePaint);
+                }
+            }
         }
 
         void DrawColumnSeparators(PageLayout page, int pageIndex)

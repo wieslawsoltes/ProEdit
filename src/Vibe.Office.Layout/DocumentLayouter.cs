@@ -37,6 +37,7 @@ public sealed class DocumentLayouter
         var pageSections = new List<PageSectionSettings>();
         var headerFooters = new List<HeaderFooterLayout>();
         var wrapFloatingObjects = new List<FloatingLayoutObject>();
+        var breakMarkers = new List<BreakMarker>();
         var linePageIndices = new List<int>();
         var paragraphLineRanges = new Dictionary<int, LineRange>();
         var paragraphSpacingBefore = new Dictionary<int, float>();
@@ -136,6 +137,29 @@ public sealed class DocumentLayouter
 
             ApplySectionSettings(sectionSettings, false);
             AddPage();
+        }
+
+        void AddBreakMarker(BreakMarkerKind kind, string label)
+        {
+            var padding = MathF.Max(4f, lineHeight * 0.3f);
+            var minY = contentTop + padding;
+            var maxY = contentBottom - padding;
+            var markerY = Math.Clamp(cursorY, minY, maxY);
+            var width = MathF.Max(1f, pageContentWidth);
+            var x = pageX + marginLeft;
+            breakMarkers.Add(new BreakMarker(kind, pageIndex, x, width, markerY, label));
+        }
+
+        static string FormatSectionBreakLabel(SectionBreakType breakType)
+        {
+            return breakType switch
+            {
+                SectionBreakType.Continuous => "Section Break (Continuous)",
+                SectionBreakType.EvenPage => "Section Break (Even Page)",
+                SectionBreakType.OddPage => "Section Break (Odd Page)",
+                SectionBreakType.NextColumn => "Section Break (Next Column)",
+                _ => "Section Break (Next Page)"
+            };
         }
 
         void StartNewColumnOrPage()
@@ -479,6 +503,21 @@ public sealed class DocumentLayouter
             }
 
             WarmListState(blockStartIndex);
+
+            if (previous.BreakMarkers.Count > 0)
+            {
+                foreach (var marker in previous.BreakMarkers)
+                {
+                    if (marker.PageIndex < startPageIndex)
+                    {
+                        breakMarkers.Add(marker);
+                    }
+                    else if (marker.PageIndex == startPageIndex && marker.Y + 0.5f < cursorY)
+                    {
+                        breakMarkers.Add(marker);
+                    }
+                }
+            }
 
             var tableLimit = cursorY + 0.5f;
             foreach (var table in previous.Tables)
@@ -1403,6 +1442,7 @@ public sealed class DocumentLayouter
             var block = blocks[blockIndex];
             if (block is PageBreakBlock)
             {
+                AddBreakMarker(BreakMarkerKind.Page, "Page Break");
                 StartNewPage();
                 continue;
             }
@@ -1415,6 +1455,7 @@ public sealed class DocumentLayouter
 
             if (block is SectionBreakBlock sectionBreak)
             {
+                AddBreakMarker(BreakMarkerKind.Section, FormatSectionBreakLabel(sectionBreak.BreakType));
                 var nextSectionIndex = sectionBreak.SectionIndex
                     ?? (currentSectionIndex + 1 < document.SectionCount ? currentSectionIndex + 1 : currentSectionIndex);
                 var nextSettings = sectionSettingsByIndex.TryGetValue(nextSectionIndex, out var section)
@@ -1702,6 +1743,7 @@ public sealed class DocumentLayouter
             floatingObjects,
             pageSections,
             sectionSettingsByIndex,
+            breakMarkers,
             lineIndexMap,
             paragraphLineRanges,
             paragraphSectionIndices,

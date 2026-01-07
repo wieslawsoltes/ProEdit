@@ -11,6 +11,7 @@ public sealed class DocumentLayout
     public IReadOnlyList<FloatingLayoutObject> FloatingObjects { get; }
     public IReadOnlyList<PageSectionSettings> PageSections { get; }
     public IReadOnlyDictionary<int, PageSectionSettings> SectionSettings { get; }
+    public IReadOnlyList<BreakMarker> BreakMarkers { get; }
     public LineIndex LineIndex { get; }
     public IReadOnlyDictionary<int, LineRange> ParagraphLineRanges { get; }
     public IReadOnlyDictionary<int, int> ParagraphSectionIndices { get; }
@@ -29,6 +30,7 @@ public sealed class DocumentLayout
         IReadOnlyList<FloatingLayoutObject> floatingObjects,
         IReadOnlyList<PageSectionSettings> pageSections,
         IReadOnlyDictionary<int, PageSectionSettings> sectionSettings,
+        IReadOnlyList<BreakMarker> breakMarkers,
         LineIndex lineIndex,
         IReadOnlyDictionary<int, LineRange> paragraphLineRanges,
         IReadOnlyDictionary<int, int> paragraphSectionIndices,
@@ -46,6 +48,7 @@ public sealed class DocumentLayout
         FloatingObjects = floatingObjects;
         PageSections = pageSections;
         SectionSettings = sectionSettings;
+        BreakMarkers = breakMarkers;
         LineIndex = lineIndex;
         ParagraphLineRanges = paragraphLineRanges;
         ParagraphSectionIndices = paragraphSectionIndices;
