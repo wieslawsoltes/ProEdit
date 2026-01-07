@@ -14,6 +14,7 @@ public sealed class LayoutSettings
     public float MarginBottom { get; set; } = 24f;
     public float HeaderOffset { get; set; } = 12f;
     public float FooterOffset { get; set; } = 12f;
+    public float Gutter { get; set; } = 0f;
     public float ParagraphSpacing { get; set; } = 6f;
     public float BlockSpacing { get; set; } = 12f;
     public float ListIndent { get; set; } = 24f;
@@ -42,6 +43,7 @@ public sealed class LayoutSettings
             MarginBottom = MarginBottom,
             HeaderOffset = HeaderOffset,
             FooterOffset = FooterOffset,
+            Gutter = Gutter,
             ParagraphSpacing = ParagraphSpacing,
             BlockSpacing = BlockSpacing,
             ListIndent = ListIndent,

@@ -11,6 +11,9 @@ public sealed record PageSectionSettings(
     float MarginBottom,
     float HeaderOffset,
     float FooterOffset,
+    float Gutter,
+    bool GutterAtTop,
+    bool MirrorMargins,
     int ColumnCount,
     float ColumnGap,
     bool ColumnSeparator,
@@ -18,7 +21,12 @@ public sealed record PageSectionSettings(
     IReadOnlyList<float> ColumnWidths,
     int SectionIndex)
 {
-    public static PageSectionSettings FromSettings(LayoutSettings settings, SectionProperties? properties, int sectionIndex)
+    public static PageSectionSettings FromSettings(
+        LayoutSettings settings,
+        SectionProperties? properties,
+        int sectionIndex,
+        bool mirrorMargins = false,
+        bool gutterAtTop = false)
     {
         var defaults = new PageSectionSettings(
             settings.PageWidth,
@@ -29,6 +37,9 @@ public sealed record PageSectionSettings(
             settings.MarginBottom,
             settings.HeaderOffset,
             settings.FooterOffset,
+            settings.Gutter,
+            gutterAtTop,
+            mirrorMargins,
             1,
             settings.ColumnGap,
             false,
@@ -56,6 +67,7 @@ public sealed record PageSectionSettings(
         var columnSeparator = properties.ColumnSeparator ?? ColumnSeparator;
         var columnEqualWidth = properties.ColumnEqualWidth
             ?? (columnWidths.Length == 0 && columnCount > 1);
+        var gutter = properties.Gutter ?? Gutter;
 
         return new PageSectionSettings(
             properties.PageWidth ?? PageWidth,
@@ -66,11 +78,69 @@ public sealed record PageSectionSettings(
             properties.MarginBottom ?? MarginBottom,
             properties.HeaderOffset ?? HeaderOffset,
             properties.FooterOffset ?? FooterOffset,
+            gutter,
+            GutterAtTop,
+            MirrorMargins,
             columnCount,
             columnGap,
             columnSeparator,
             columnEqualWidth,
             columnWidths,
             SectionIndex);
+    }
+
+    public PageSectionSettings ResolveForPage(int pageIndex)
+    {
+        if (!MirrorMargins && !GutterAtTop && MathF.Abs(Gutter) < 0.01f)
+        {
+            return this;
+        }
+
+        var left = MarginLeft;
+        var right = MarginRight;
+        var top = MarginTop;
+        var bottom = MarginBottom;
+        var gutter = Gutter;
+        var isEvenPage = (pageIndex + 1) % 2 == 0;
+
+        if (MirrorMargins && isEvenPage)
+        {
+            (left, right) = (right, left);
+        }
+
+        if (MathF.Abs(gutter) > 0.01f)
+        {
+            if (GutterAtTop)
+            {
+                top += gutter;
+            }
+            else
+            {
+                if (MirrorMargins && isEvenPage)
+                {
+                    right += gutter;
+                }
+                else
+                {
+                    left += gutter;
+                }
+            }
+        }
+
+        if (left == MarginLeft
+            && right == MarginRight
+            && top == MarginTop
+            && bottom == MarginBottom)
+        {
+            return this;
+        }
+
+        return this with
+        {
+            MarginLeft = left,
+            MarginRight = right,
+            MarginTop = top,
+            MarginBottom = bottom
+        };
     }
 }
