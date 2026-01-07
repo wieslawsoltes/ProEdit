@@ -369,7 +369,7 @@ public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
             return 0;
         }
 
-        if (!Rune.TryDecodeFromUtf16(text[start..], out var rune, out var consumed))
+        if (!Utf16Decoder.TryDecodeFromUtf16(text[start..], out var rune, out var consumed))
         {
             rune = new Rune(text[start]);
             consumed = 1;
@@ -381,7 +381,7 @@ public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
 
         while (index < text.Length)
         {
-            if (!Rune.TryDecodeFromUtf16(text[index..], out var nextRune, out var nextConsumed))
+            if (!Utf16Decoder.TryDecodeFromUtf16(text[index..], out var nextRune, out var nextConsumed))
             {
                 nextRune = new Rune(text[index]);
                 nextConsumed = 1;
@@ -597,7 +597,7 @@ public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
         var index = 0;
         while (index < text.Length)
         {
-            if (!System.Text.Rune.TryDecodeFromUtf16(text[index..], out var rune, out var consumed))
+            if (!Utf16Decoder.TryDecodeFromUtf16(text[index..], out var rune, out var consumed))
             {
                 rune = new System.Text.Rune(text[index]);
                 consumed = 1;

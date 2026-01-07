@@ -52,7 +52,7 @@ public sealed class SkiaDocumentFontResolver : ISkiaTypefaceFallbackResolver
             return null;
         }
 
-        if (!System.Text.Rune.TryDecodeFromUtf16(text, out var rune, out _))
+        if (!Utf16Decoder.TryDecodeFromUtf16(text, out var rune, out _))
         {
             rune = new System.Text.Rune(text[0]);
         }
