@@ -5,7 +5,7 @@ using Vibe.Office.Layout;
 
 namespace Vibe.Office.Rendering.Skia;
 
-public sealed class SkiaTextMeasurer : ITextMeasurer, ITextMeasurerAdvanced
+public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
 {
     private bool _disableShaping;
     private bool _useHarfBuzz = true;
@@ -19,33 +19,41 @@ public sealed class SkiaTextMeasurer : ITextMeasurer, ITextMeasurerAdvanced
 
     public TextMetrics MeasureText(string text, TextStyle style)
     {
+        var value = text ?? string.Empty;
+        return MeasureText(value.AsSpan(), style);
+    }
+
+    public TextMetrics MeasureText(ReadOnlySpan<char> text, TextStyle style)
+    {
         ArgumentNullException.ThrowIfNull(style);
 
         using var paint = CreatePaint(style, TypefaceResolver);
-        var value = text ?? string.Empty;
         var width = 0f;
-        if (value.Length > 0 && _useHarfBuzz && !_disableShaping)
+        if (text.Length > 0 && _useHarfBuzz && !_disableShaping)
         {
             try
             {
                 using var shaper = new SKShaper(paint.Typeface ?? SKTypeface.Default);
-                var result = shaper.Shape(value, paint);
+                using var buffer = new HarfBuzzSharp.Buffer();
+                buffer.AddUtf16(text);
+                buffer.GuessSegmentProperties();
+                var result = shaper.Shape(buffer, paint);
                 width = MathF.Abs(result.Width);
                 if (float.IsNaN(width) || float.IsInfinity(width) || width <= 0f)
                 {
                     _disableShaping = true;
-                    width = paint.MeasureText(value);
+                    width = paint.MeasureText(text);
                 }
             }
             catch
             {
                 _disableShaping = true;
-                width = paint.MeasureText(value);
+                width = paint.MeasureText(text);
             }
         }
-        else if (value.Length > 0)
+        else if (text.Length > 0)
         {
-            width = paint.MeasureText(value);
+            width = paint.MeasureText(text);
         }
 
         if (float.IsNaN(width) || float.IsInfinity(width))
@@ -62,10 +70,15 @@ public sealed class SkiaTextMeasurer : ITextMeasurer, ITextMeasurerAdvanced
 
     public TextShapeInfo ShapeText(string text, TextStyle style)
     {
+        var value = text ?? string.Empty;
+        return ShapeText(value.AsSpan(), style);
+    }
+
+    public TextShapeInfo ShapeText(ReadOnlySpan<char> text, TextStyle style)
+    {
         ArgumentNullException.ThrowIfNull(style);
 
-        var value = text ?? string.Empty;
-        if (value.Length == 0)
+        if (text.Length == 0)
         {
             return new TextShapeInfo(0, Array.Empty<int>(), Array.Empty<float>());
         }
@@ -76,8 +89,11 @@ public sealed class SkiaTextMeasurer : ITextMeasurer, ITextMeasurerAdvanced
             try
             {
                 using var shaper = new SKShaper(paint.Typeface ?? SKTypeface.Default);
-                var result = shaper.Shape(value, paint);
-                var shaped = BuildShapeInfo(value.Length, result);
+                using var buffer = new HarfBuzzSharp.Buffer();
+                buffer.AddUtf16(text);
+                buffer.GuessSegmentProperties();
+                var result = shaper.Shape(buffer, paint);
+                var shaped = BuildShapeInfo(text.Length, result);
                 if (shaped.ClusterOffsets.Length > 0)
                 {
                     return shaped;
@@ -89,15 +105,15 @@ public sealed class SkiaTextMeasurer : ITextMeasurer, ITextMeasurerAdvanced
             }
         }
 
-        var offsets = new int[value.Length];
-        var advances = new float[value.Length];
-        for (var i = 0; i < value.Length; i++)
+        var offsets = new int[text.Length];
+        var advances = new float[text.Length];
+        for (var i = 0; i < text.Length; i++)
         {
             offsets[i] = i;
-            advances[i] = paint.MeasureText(value[i].ToString());
+            advances[i] = paint.MeasureText(text.Slice(i, 1));
         }
 
-        return new TextShapeInfo(value.Length, offsets, advances);
+        return new TextShapeInfo(text.Length, offsets, advances);
     }
 
     internal static TextShapeInfo BuildShapeInfo(int textLength, SKShaper.Result result)
