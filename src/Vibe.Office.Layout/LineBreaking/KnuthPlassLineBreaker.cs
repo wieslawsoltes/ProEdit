@@ -1,4 +1,6 @@
 using System.Buffers;
+using System.Globalization;
+using System.Text;
 using Vibe.Office.Documents;
 
 namespace Vibe.Office.Layout;
@@ -11,7 +13,6 @@ internal static class KnuthPlassLineBreaker
     private const float KnuthPlassLinePenalty = 10f;
     private const float KnuthPlassFitnessDemerit = 300f;
     private const float KnuthPlassFlaggedDemerit = 100f;
-    private static readonly Lazy<Hyphenator> DefaultHyphenator = new Lazy<Hyphenator>(Hyphenator.CreateDefault);
     private static readonly MathLayoutEngine SharedMathLayoutEngine = new MathLayoutEngine();
 
     private enum LineBreakNodeKind
@@ -132,7 +133,6 @@ internal static class KnuthPlassLineBreaker
         out List<LineBreakNode> nodes)
     {
         nodes = new List<LineBreakNode>();
-        var hyphenator = DefaultHyphenator.Value;
         var wordWidthCache = new Dictionary<TextStyleKey, Dictionary<TextSliceKey, float>>();
         var spaceWidthCache = new Dictionary<TextStyleKey, float>();
         var hyphenWidthCache = new Dictionary<TextStyleKey, float>();
@@ -177,6 +177,7 @@ internal static class KnuthPlassLineBreaker
 
             var segmentText = span.Text;
             var segmentStartOffset = span.Start;
+            var hyphenator = HyphenationManager.ResolveHyphenator(span.Style.Language);
             var index = 0;
             while (index < segmentText.Length)
             {
@@ -241,7 +242,7 @@ internal static class KnuthPlassLineBreaker
         TextStyle style,
         float baselineOffset,
         ITextMeasurer measurer,
-        Hyphenator hyphenator,
+        Hyphenator? hyphenator,
         Dictionary<TextStyleKey, Dictionary<TextSliceKey, float>> wordWidthCache,
         Dictionary<TextStyleKey, float> hyphenWidthCache,
         List<LineBreakNode> nodes)
@@ -252,8 +253,19 @@ internal static class KnuthPlassLineBreaker
         }
 
         var wordSpan = source.AsSpan(start, length);
+        if (TextScript.ContainsEastAsian(wordSpan))
+        {
+            AddCjkNodes(source, start, length, wordOffset, style, baselineOffset, measurer, wordWidthCache, nodes);
+            return;
+        }
+
+        if (TryAddBreakableNodes(source, start, length, wordOffset, style, baselineOffset, measurer, wordWidthCache, nodes))
+        {
+            return;
+        }
+
         var hyphenPoints = ShouldHyphenate(wordSpan, hyphenator)
-            ? hyphenator.GetHyphenationPoints(source, start, length)
+            ? hyphenator!.GetHyphenationPoints(source, start, length)
             : Array.Empty<int>();
         if (hyphenPoints.Length == 0)
         {
@@ -287,23 +299,215 @@ internal static class KnuthPlassLineBreaker
         }
     }
 
-    private static bool ShouldHyphenate(ReadOnlySpan<char> word, Hyphenator hyphenator)
+    private static bool ShouldHyphenate(ReadOnlySpan<char> word, Hyphenator? hyphenator)
     {
+        if (hyphenator is null)
+        {
+            return false;
+        }
+
         if (word.Length < hyphenator.LeftMin + hyphenator.RightMin + 1)
         {
             return false;
         }
 
-        for (var i = 0; i < word.Length; i++)
+        var index = 0;
+        while (index < word.Length)
         {
-            var ch = word[i];
-            if (!char.IsLetter(ch) || !TextScript.IsLatinChar(ch))
+            if (!System.Text.Rune.TryDecodeFromUtf16(word[index..], out var rune, out var consumed))
+            {
+                rune = new System.Text.Rune(word[index]);
+                consumed = 1;
+            }
+
+            if (!System.Text.Rune.IsLetter(rune) || !TextScript.IsLatinChar(rune))
             {
                 return false;
             }
+
+            index += consumed;
         }
 
         return true;
+    }
+
+    private static void AddCjkNodes(
+        string source,
+        int start,
+        int length,
+        int wordOffset,
+        TextStyle style,
+        float baselineOffset,
+        ITextMeasurer measurer,
+        Dictionary<TextStyleKey, Dictionary<TextSliceKey, float>> wordWidthCache,
+        List<LineBreakNode> nodes)
+    {
+        var span = source.AsSpan(start, length);
+        var index = 0;
+        while (index < span.Length)
+        {
+            var clusterLength = GetNextClusterLength(span, index);
+            var width = MeasureTextCached(source, start + index, clusterLength, style, measurer, wordWidthCache);
+            nodes.Add(LineBreakNode.Box(width, wordOffset + index, clusterLength));
+            index += clusterLength;
+            if (index < span.Length)
+            {
+                nodes.Add(LineBreakNode.PenaltyNode(0f, 0, false, wordOffset + index, style, baselineOffset));
+            }
+        }
+    }
+
+    private static bool TryAddBreakableNodes(
+        string source,
+        int start,
+        int length,
+        int wordOffset,
+        TextStyle style,
+        float baselineOffset,
+        ITextMeasurer measurer,
+        Dictionary<TextStyleKey, Dictionary<TextSliceKey, float>> wordWidthCache,
+        List<LineBreakNode> nodes)
+    {
+        var span = source.AsSpan(start, length);
+        var hasBreak = false;
+        for (var i = 0; i < span.Length; i++)
+        {
+            var ch = span[i];
+            if (ch == '-' || ch == '/')
+            {
+                hasBreak = true;
+                break;
+            }
+        }
+
+        if (!hasBreak)
+        {
+            return false;
+        }
+
+        var segmentStart = 0;
+        for (var i = 0; i < span.Length; i++)
+        {
+            var ch = span[i];
+            if (ch != '-' && ch != '/')
+            {
+                continue;
+            }
+
+            var segmentLength = i + 1 - segmentStart;
+            if (segmentLength > 0)
+            {
+                var width = MeasureTextCached(source, start + segmentStart, segmentLength, style, measurer, wordWidthCache);
+                nodes.Add(LineBreakNode.Box(width, wordOffset + segmentStart, segmentLength));
+            }
+
+            nodes.Add(LineBreakNode.PenaltyNode(0f, 0, false, wordOffset + i + 1, style, baselineOffset));
+            segmentStart = i + 1;
+        }
+
+        if (segmentStart < length)
+        {
+            var segmentLength = length - segmentStart;
+            var width = MeasureTextCached(source, start + segmentStart, segmentLength, style, measurer, wordWidthCache);
+            nodes.Add(LineBreakNode.Box(width, wordOffset + segmentStart, segmentLength));
+        }
+
+        return true;
+    }
+
+    private static int GetNextClusterLength(ReadOnlySpan<char> text, int start)
+    {
+        if ((uint)start >= (uint)text.Length)
+        {
+            return 0;
+        }
+
+        if (!Rune.TryDecodeFromUtf16(text[start..], out var rune, out var consumed))
+        {
+            rune = new Rune(text[start]);
+            consumed = 1;
+        }
+
+        var index = start + consumed;
+        var pendingJoiner = false;
+        var lastWasRegionalIndicator = IsRegionalIndicator(rune);
+
+        while (index < text.Length)
+        {
+            if (!Rune.TryDecodeFromUtf16(text[index..], out var nextRune, out var nextConsumed))
+            {
+                nextRune = new Rune(text[index]);
+                nextConsumed = 1;
+            }
+
+            if (pendingJoiner)
+            {
+                index += nextConsumed;
+                pendingJoiner = false;
+                lastWasRegionalIndicator = IsRegionalIndicator(nextRune);
+                continue;
+            }
+
+            if (IsZeroWidthJoiner(nextRune))
+            {
+                index += nextConsumed;
+                pendingJoiner = true;
+                lastWasRegionalIndicator = false;
+                continue;
+            }
+
+            if (IsCombiningMark(nextRune) || IsVariationSelector(nextRune) || IsEmojiModifier(nextRune) || IsEmojiTag(nextRune))
+            {
+                index += nextConsumed;
+                continue;
+            }
+
+            if (IsRegionalIndicator(nextRune) && lastWasRegionalIndicator)
+            {
+                index += nextConsumed;
+                lastWasRegionalIndicator = false;
+                continue;
+            }
+
+            break;
+        }
+
+        return Math.Max(1, index - start);
+    }
+
+    private static bool IsCombiningMark(Rune rune)
+    {
+        var category = Rune.GetUnicodeCategory(rune);
+        return category == UnicodeCategory.NonSpacingMark
+               || category == UnicodeCategory.SpacingCombiningMark
+               || category == UnicodeCategory.EnclosingMark;
+    }
+
+    private static bool IsVariationSelector(Rune rune)
+    {
+        var code = rune.Value;
+        return (code >= 0xFE00 && code <= 0xFE0F)
+               || (code >= 0xE0100 && code <= 0xE01EF);
+    }
+
+    private static bool IsEmojiModifier(Rune rune)
+    {
+        var code = rune.Value;
+        return code >= 0x1F3FB && code <= 0x1F3FF;
+    }
+
+    private static bool IsZeroWidthJoiner(Rune rune) => rune.Value == 0x200D;
+
+    private static bool IsRegionalIndicator(Rune rune)
+    {
+        var code = rune.Value;
+        return code >= 0x1F1E6 && code <= 0x1F1FF;
+    }
+
+    private static bool IsEmojiTag(Rune rune)
+    {
+        var code = rune.Value;
+        return code >= 0xE0020 && code <= 0xE007F;
     }
 
     private static float MeasureTextCached(
