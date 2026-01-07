@@ -2356,6 +2356,12 @@ public sealed class DocxImporter
             style.FontSize = HalfPointsToDip(halfPoints);
         }
 
+        var fontSizeCs = properties.GetFirstChild<FontSizeComplexScript>()?.Val?.Value;
+        if (fontSizeCs is not null && float.TryParse(fontSizeCs, out var halfPointsCs))
+        {
+            style.FontSizeComplexScript = HalfPointsToDip(halfPointsCs);
+        }
+
         var color = properties.GetFirstChild<Color>()?.Val?.Value;
         if (!string.IsNullOrWhiteSpace(color) && !color.Equals("auto", StringComparison.OrdinalIgnoreCase))
         {
@@ -2394,13 +2400,38 @@ public sealed class DocxImporter
         }
 
         var fonts = properties.GetFirstChild<RunFonts>();
-        var family = fonts?.Ascii?.Value
-                     ?? fonts?.HighAnsi?.Value
-                     ?? fonts?.ComplexScript?.Value
-                     ?? fonts?.EastAsia?.Value;
-        if (!string.IsNullOrWhiteSpace(family))
+        if (fonts is not null)
         {
-            style.FontFamily = family;
+            var ascii = fonts.Ascii?.Value;
+            var highAnsi = fonts.HighAnsi?.Value;
+            var eastAsia = fonts.EastAsia?.Value;
+            var complex = fonts.ComplexScript?.Value;
+
+            if (!string.IsNullOrWhiteSpace(ascii))
+            {
+                style.FontFamilyAscii = ascii;
+            }
+
+            if (!string.IsNullOrWhiteSpace(highAnsi))
+            {
+                style.FontFamilyHighAnsi = highAnsi;
+            }
+
+            if (!string.IsNullOrWhiteSpace(eastAsia))
+            {
+                style.FontFamilyEastAsia = eastAsia;
+            }
+
+            if (!string.IsNullOrWhiteSpace(complex))
+            {
+                style.FontFamilyComplexScript = complex;
+            }
+
+            var family = ascii ?? highAnsi ?? complex ?? eastAsia;
+            if (!string.IsNullOrWhiteSpace(family))
+            {
+                style.FontFamily = family;
+            }
         }
 
         if (fonts?.AsciiTheme?.Value is ThemeFontValues asciiTheme)
@@ -2421,6 +2452,25 @@ public sealed class DocxImporter
         if (fonts?.ComplexScriptTheme?.Value is ThemeFontValues complexTheme)
         {
             style.ThemeFontComplexScript = MapThemeFont(complexTheme);
+        }
+
+        var languages = properties.GetFirstChild<Languages>();
+        if (languages is not null)
+        {
+            if (!string.IsNullOrWhiteSpace(languages.Val?.Value))
+            {
+                style.Language = languages.Val.Value;
+            }
+
+            if (!string.IsNullOrWhiteSpace(languages.EastAsia?.Value))
+            {
+                style.LanguageEastAsia = languages.EastAsia.Value;
+            }
+
+            if (!string.IsNullOrWhiteSpace(languages.Bidi?.Value))
+            {
+                style.LanguageBidi = languages.Bidi.Value;
+            }
         }
     }
 
@@ -2479,6 +2529,12 @@ public sealed class DocxImporter
             style.FontSize = HalfPointsToDip(halfPoints);
         }
 
+        var fontSizeCs = properties.GetFirstChild<FontSizeComplexScript>()?.Val?.Value;
+        if (fontSizeCs is not null && float.TryParse(fontSizeCs, out var halfPointsCs))
+        {
+            style.FontSizeComplexScript = HalfPointsToDip(halfPointsCs);
+        }
+
         var color = properties.GetFirstChild<Color>()?.Val?.Value;
         if (!string.IsNullOrWhiteSpace(color) && !color.Equals("auto", StringComparison.OrdinalIgnoreCase))
         {
@@ -2517,13 +2573,38 @@ public sealed class DocxImporter
         }
 
         var fonts = properties.GetFirstChild<RunFonts>();
-        var family = fonts?.Ascii?.Value
-                     ?? fonts?.HighAnsi?.Value
-                     ?? fonts?.ComplexScript?.Value
-                     ?? fonts?.EastAsia?.Value;
-        if (!string.IsNullOrWhiteSpace(family))
+        if (fonts is not null)
         {
-            style.FontFamily = family;
+            var ascii = fonts.Ascii?.Value;
+            var highAnsi = fonts.HighAnsi?.Value;
+            var eastAsia = fonts.EastAsia?.Value;
+            var complex = fonts.ComplexScript?.Value;
+
+            if (!string.IsNullOrWhiteSpace(ascii))
+            {
+                style.FontFamilyAscii = ascii;
+            }
+
+            if (!string.IsNullOrWhiteSpace(highAnsi))
+            {
+                style.FontFamilyHighAnsi = highAnsi;
+            }
+
+            if (!string.IsNullOrWhiteSpace(eastAsia))
+            {
+                style.FontFamilyEastAsia = eastAsia;
+            }
+
+            if (!string.IsNullOrWhiteSpace(complex))
+            {
+                style.FontFamilyComplexScript = complex;
+            }
+
+            var family = ascii ?? highAnsi ?? complex ?? eastAsia;
+            if (!string.IsNullOrWhiteSpace(family))
+            {
+                style.FontFamily = family;
+            }
         }
 
         if (fonts?.AsciiTheme?.Value is ThemeFontValues asciiTheme)
@@ -2544,6 +2625,25 @@ public sealed class DocxImporter
         if (fonts?.ComplexScriptTheme?.Value is ThemeFontValues complexTheme)
         {
             style.ThemeFontComplexScript = MapThemeFont(complexTheme);
+        }
+
+        var languages = properties.GetFirstChild<Languages>();
+        if (languages is not null)
+        {
+            if (!string.IsNullOrWhiteSpace(languages.Val?.Value))
+            {
+                style.Language = languages.Val.Value;
+            }
+
+            if (!string.IsNullOrWhiteSpace(languages.EastAsia?.Value))
+            {
+                style.LanguageEastAsia = languages.EastAsia.Value;
+            }
+
+            if (!string.IsNullOrWhiteSpace(languages.Bidi?.Value))
+            {
+                style.LanguageBidi = languages.Bidi.Value;
+            }
         }
     }
 
@@ -3841,9 +3941,34 @@ public sealed class DocxImporter
             target.FontStyle = overrides.FontStyle;
         }
 
+        if (!string.IsNullOrWhiteSpace(overrides.FontFamilyAscii))
+        {
+            target.FontFamilyAscii = overrides.FontFamilyAscii;
+        }
+
+        if (!string.IsNullOrWhiteSpace(overrides.FontFamilyHighAnsi))
+        {
+            target.FontFamilyHighAnsi = overrides.FontFamilyHighAnsi;
+        }
+
+        if (!string.IsNullOrWhiteSpace(overrides.FontFamilyEastAsia))
+        {
+            target.FontFamilyEastAsia = overrides.FontFamilyEastAsia;
+        }
+
+        if (!string.IsNullOrWhiteSpace(overrides.FontFamilyComplexScript))
+        {
+            target.FontFamilyComplexScript = overrides.FontFamilyComplexScript;
+        }
+
         if (overrides.Color.HasValue)
         {
             target.Color = overrides.Color;
+        }
+
+        if (overrides.FontSizeComplexScript.HasValue)
+        {
+            target.FontSizeComplexScript = overrides.FontSizeComplexScript;
         }
 
         if (overrides.VerticalPosition.HasValue)
@@ -3899,6 +4024,21 @@ public sealed class DocxImporter
         if (overrides.ThemeFontComplexScript.HasValue)
         {
             target.ThemeFontComplexScript = overrides.ThemeFontComplexScript;
+        }
+
+        if (!string.IsNullOrWhiteSpace(overrides.Language))
+        {
+            target.Language = overrides.Language;
+        }
+
+        if (!string.IsNullOrWhiteSpace(overrides.LanguageEastAsia))
+        {
+            target.LanguageEastAsia = overrides.LanguageEastAsia;
+        }
+
+        if (!string.IsNullOrWhiteSpace(overrides.LanguageBidi))
+        {
+            target.LanguageBidi = overrides.LanguageBidi;
         }
     }
 

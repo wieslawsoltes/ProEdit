@@ -2236,6 +2236,11 @@ public sealed class DocxExporter
             props.FontSize = new FontSize { Val = DipToHalfPoints(style.FontSize.Value) };
         }
 
+        if (style.FontSizeComplexScript.HasValue && style.FontSizeComplexScript.Value > 0)
+        {
+            props.FontSizeComplexScript = new FontSizeComplexScript { Val = DipToHalfPoints(style.FontSizeComplexScript.Value) };
+        }
+
         if (style.VerticalPosition.HasValue && style.VerticalPosition.Value != DocVerticalPosition.Normal)
         {
             props.VerticalTextAlignment = new VerticalTextAlignment
@@ -2249,7 +2254,17 @@ public sealed class DocxExporter
             props.SmallCaps = new SmallCaps { Val = style.SmallCaps.Value };
         }
 
-        var runFonts = BuildRunFonts(style.FontFamily, style.ThemeFontAscii, style.ThemeFontHighAnsi, style.ThemeFontEastAsia, style.ThemeFontComplexScript, fonts);
+        var runFonts = BuildRunFonts(
+            style.FontFamily,
+            style.FontFamilyAscii,
+            style.FontFamilyHighAnsi,
+            style.FontFamilyEastAsia,
+            style.FontFamilyComplexScript,
+            style.ThemeFontAscii,
+            style.ThemeFontHighAnsi,
+            style.ThemeFontEastAsia,
+            style.ThemeFontComplexScript,
+            fonts);
         if (runFonts is not null)
         {
             props.RunFonts = runFonts;
@@ -2263,6 +2278,18 @@ public sealed class DocxExporter
         if (style.HighlightColor.HasValue)
         {
             AppendHighlightOrShading(props, style.HighlightColor.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(style.Language)
+            || !string.IsNullOrWhiteSpace(style.LanguageEastAsia)
+            || !string.IsNullOrWhiteSpace(style.LanguageBidi))
+        {
+            props.Languages = new Languages
+            {
+                Val = string.IsNullOrWhiteSpace(style.Language) ? null : style.Language,
+                EastAsia = string.IsNullOrWhiteSpace(style.LanguageEastAsia) ? null : style.LanguageEastAsia,
+                Bidi = string.IsNullOrWhiteSpace(style.LanguageBidi) ? null : style.LanguageBidi
+            };
         }
 
         return props;
@@ -2320,6 +2347,11 @@ public sealed class DocxExporter
             props.FontSize = new FontSize { Val = DipToHalfPoints(style.FontSize) };
         }
 
+        if (style.FontSizeComplexScript.HasValue && style.FontSizeComplexScript.Value > 0)
+        {
+            props.FontSizeComplexScript = new FontSizeComplexScript { Val = DipToHalfPoints(style.FontSizeComplexScript.Value) };
+        }
+
         if (style.VerticalPosition != DocVerticalPosition.Normal)
         {
             props.VerticalTextAlignment = new VerticalTextAlignment
@@ -2333,7 +2365,17 @@ public sealed class DocxExporter
             props.SmallCaps = new SmallCaps { Val = true };
         }
 
-        var runFonts = BuildRunFonts(style.FontFamily, style.ThemeFontAscii, style.ThemeFontHighAnsi, style.ThemeFontEastAsia, style.ThemeFontComplexScript, fonts);
+        var runFonts = BuildRunFonts(
+            style.FontFamily,
+            style.FontFamilyAscii,
+            style.FontFamilyHighAnsi,
+            style.FontFamilyEastAsia,
+            style.FontFamilyComplexScript,
+            style.ThemeFontAscii,
+            style.ThemeFontHighAnsi,
+            style.ThemeFontEastAsia,
+            style.ThemeFontComplexScript,
+            fonts);
         if (runFonts is not null)
         {
             props.RunFonts = runFonts;
@@ -2347,6 +2389,18 @@ public sealed class DocxExporter
         if (style.HighlightColor.HasValue)
         {
             AppendHighlightOrShading(props, style.HighlightColor.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(style.Language)
+            || !string.IsNullOrWhiteSpace(style.LanguageEastAsia)
+            || !string.IsNullOrWhiteSpace(style.LanguageBidi))
+        {
+            props.Languages = new Languages
+            {
+                Val = string.IsNullOrWhiteSpace(style.Language) ? null : style.Language,
+                EastAsia = string.IsNullOrWhiteSpace(style.LanguageEastAsia) ? null : style.LanguageEastAsia,
+                Bidi = string.IsNullOrWhiteSpace(style.LanguageBidi) ? null : style.LanguageBidi
+            };
         }
 
         return props;
@@ -2395,6 +2449,11 @@ public sealed class DocxExporter
             props.FontSize = new FontSize { Val = DipToHalfPoints(style.FontSize.Value) };
         }
 
+        if (style.FontSizeComplexScript.HasValue && style.FontSizeComplexScript.Value > 0)
+        {
+            props.FontSizeComplexScript = new FontSizeComplexScript { Val = DipToHalfPoints(style.FontSizeComplexScript.Value) };
+        }
+
         if (style.VerticalPosition.HasValue && style.VerticalPosition.Value != DocVerticalPosition.Normal)
         {
             props.VerticalTextAlignment = new VerticalTextAlignment
@@ -2408,7 +2467,17 @@ public sealed class DocxExporter
             props.SmallCaps = new SmallCaps { Val = style.SmallCaps.Value };
         }
 
-        var runFonts = BuildRunFonts(style.FontFamily, style.ThemeFontAscii, style.ThemeFontHighAnsi, style.ThemeFontEastAsia, style.ThemeFontComplexScript, fonts);
+        var runFonts = BuildRunFonts(
+            style.FontFamily,
+            style.FontFamilyAscii,
+            style.FontFamilyHighAnsi,
+            style.FontFamilyEastAsia,
+            style.FontFamilyComplexScript,
+            style.ThemeFontAscii,
+            style.ThemeFontHighAnsi,
+            style.ThemeFontEastAsia,
+            style.ThemeFontComplexScript,
+            fonts);
         if (runFonts is not null)
         {
             props.RunFonts = runFonts;
@@ -2422,6 +2491,18 @@ public sealed class DocxExporter
         if (style.HighlightColor.HasValue)
         {
             AppendHighlightOrShading(props, style.HighlightColor.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(style.Language)
+            || !string.IsNullOrWhiteSpace(style.LanguageEastAsia)
+            || !string.IsNullOrWhiteSpace(style.LanguageBidi))
+        {
+            props.Languages = new Languages
+            {
+                Val = string.IsNullOrWhiteSpace(style.Language) ? null : style.Language,
+                EastAsia = string.IsNullOrWhiteSpace(style.LanguageEastAsia) ? null : style.LanguageEastAsia,
+                Bidi = string.IsNullOrWhiteSpace(style.LanguageBidi) ? null : style.LanguageBidi
+            };
         }
 
         return props;
@@ -2465,6 +2546,11 @@ public sealed class DocxExporter
             props.FontSize = new FontSize { Val = DipToHalfPoints(style.FontSize) };
         }
 
+        if (style.FontSizeComplexScript.HasValue && style.FontSizeComplexScript.Value > 0)
+        {
+            props.FontSizeComplexScript = new FontSizeComplexScript { Val = DipToHalfPoints(style.FontSizeComplexScript.Value) };
+        }
+
         if (style.VerticalPosition != DocVerticalPosition.Normal)
         {
             props.VerticalTextAlignment = new VerticalTextAlignment
@@ -2478,7 +2564,17 @@ public sealed class DocxExporter
             props.SmallCaps = new SmallCaps { Val = true };
         }
 
-        var runFonts = BuildRunFonts(style.FontFamily, style.ThemeFontAscii, style.ThemeFontHighAnsi, style.ThemeFontEastAsia, style.ThemeFontComplexScript, fonts);
+        var runFonts = BuildRunFonts(
+            style.FontFamily,
+            style.FontFamilyAscii,
+            style.FontFamilyHighAnsi,
+            style.FontFamilyEastAsia,
+            style.FontFamilyComplexScript,
+            style.ThemeFontAscii,
+            style.ThemeFontHighAnsi,
+            style.ThemeFontEastAsia,
+            style.ThemeFontComplexScript,
+            fonts);
         if (runFonts is not null)
         {
             props.RunFonts = runFonts;
@@ -2492,6 +2588,18 @@ public sealed class DocxExporter
         if (style.HighlightColor.HasValue)
         {
             AppendHighlightOrShading(props, style.HighlightColor.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(style.Language)
+            || !string.IsNullOrWhiteSpace(style.LanguageEastAsia)
+            || !string.IsNullOrWhiteSpace(style.LanguageBidi))
+        {
+            props.Languages = new Languages
+            {
+                Val = string.IsNullOrWhiteSpace(style.Language) ? null : style.Language,
+                EastAsia = string.IsNullOrWhiteSpace(style.LanguageEastAsia) ? null : style.LanguageEastAsia,
+                Bidi = string.IsNullOrWhiteSpace(style.LanguageBidi) ? null : style.LanguageBidi
+            };
         }
 
         return props;
@@ -2754,7 +2862,12 @@ public sealed class DocxExporter
     private static bool HasTextStyleProperties(TextStyleProperties style)
     {
         return !string.IsNullOrWhiteSpace(style.FontFamily)
+               || !string.IsNullOrWhiteSpace(style.FontFamilyAscii)
+               || !string.IsNullOrWhiteSpace(style.FontFamilyHighAnsi)
+               || !string.IsNullOrWhiteSpace(style.FontFamilyEastAsia)
+               || !string.IsNullOrWhiteSpace(style.FontFamilyComplexScript)
                || style.FontSize.HasValue
+               || style.FontSizeComplexScript.HasValue
                || style.FontWeight.HasValue
                || style.FontStyle.HasValue
                || style.Color.HasValue
@@ -2768,7 +2881,10 @@ public sealed class DocxExporter
                || style.ThemeFontAscii.HasValue
                || style.ThemeFontHighAnsi.HasValue
                || style.ThemeFontEastAsia.HasValue
-               || style.ThemeFontComplexScript.HasValue;
+               || style.ThemeFontComplexScript.HasValue
+               || !string.IsNullOrWhiteSpace(style.Language)
+               || !string.IsNullOrWhiteSpace(style.LanguageEastAsia)
+               || !string.IsNullOrWhiteSpace(style.LanguageBidi);
     }
 
     private static bool TryMapHighlightColor(Vibe.Office.Primitives.DocColor color, out HighlightColorValues highlight)
@@ -2852,49 +2968,94 @@ public sealed class DocxExporter
 
     private static RunFonts? BuildRunFonts(
         string? fontFamily,
+        string? fontFamilyAscii,
+        string? fontFamilyHighAnsi,
+        string? fontFamilyEastAsia,
+        string? fontFamilyComplexScript,
         DocThemeFont? ascii,
         DocThemeFont? highAnsi,
         DocThemeFont? eastAsia,
         DocThemeFont? complexScript,
         DocumentFonts? fonts)
     {
-        if (string.IsNullOrWhiteSpace(fontFamily) && !HasThemeFonts(ascii, highAnsi, eastAsia, complexScript))
+        if (string.IsNullOrWhiteSpace(fontFamily)
+            && string.IsNullOrWhiteSpace(fontFamilyAscii)
+            && string.IsNullOrWhiteSpace(fontFamilyHighAnsi)
+            && string.IsNullOrWhiteSpace(fontFamilyEastAsia)
+            && string.IsNullOrWhiteSpace(fontFamilyComplexScript)
+            && !HasThemeFonts(ascii, highAnsi, eastAsia, complexScript))
         {
             return null;
         }
 
         var runFonts = new RunFonts();
-        if (!string.IsNullOrWhiteSpace(fontFamily))
+        var asciiFamily = !string.IsNullOrWhiteSpace(fontFamilyAscii) ? fontFamilyAscii : fontFamily;
+        var highAnsiFamily = !string.IsNullOrWhiteSpace(fontFamilyHighAnsi) ? fontFamilyHighAnsi : fontFamily;
+        var eastAsiaFamily = fontFamilyEastAsia;
+        var complexFamily = fontFamilyComplexScript;
+
+        if (!string.IsNullOrWhiteSpace(asciiFamily))
         {
-            runFonts.Ascii = fontFamily;
-            runFonts.HighAnsi = fontFamily;
-            return runFonts;
+            runFonts.Ascii = asciiFamily;
         }
 
-        var resolved = ResolveThemeFonts(fonts, ascii, highAnsi, eastAsia, complexScript);
-        var hasResolved = false;
-        if (!string.IsNullOrWhiteSpace(resolved.Ascii))
+        if (!string.IsNullOrWhiteSpace(highAnsiFamily))
         {
-            runFonts.Ascii = resolved.Ascii;
-            runFonts.HighAnsi = resolved.HighAnsi ?? resolved.Ascii;
-            hasResolved = true;
+            runFonts.HighAnsi = highAnsiFamily;
         }
 
-        if (!string.IsNullOrWhiteSpace(resolved.EastAsia))
+        if (!string.IsNullOrWhiteSpace(eastAsiaFamily))
         {
-            runFonts.EastAsia = resolved.EastAsia;
-            hasResolved = true;
+            runFonts.EastAsia = eastAsiaFamily;
         }
 
-        if (!string.IsNullOrWhiteSpace(resolved.Complex))
+        if (!string.IsNullOrWhiteSpace(complexFamily))
         {
-            runFonts.ComplexScript = resolved.Complex;
-            hasResolved = true;
+            runFonts.ComplexScript = complexFamily;
         }
 
-        if (!hasResolved)
+        if (HasThemeFonts(ascii, highAnsi, eastAsia, complexScript))
         {
-            ApplyThemeFonts(runFonts, ascii, highAnsi, eastAsia, complexScript);
+            var resolved = ResolveThemeFonts(fonts, ascii, highAnsi, eastAsia, complexScript);
+            if (string.IsNullOrWhiteSpace(runFonts.Ascii) && !string.IsNullOrWhiteSpace(resolved.Ascii))
+            {
+                runFonts.Ascii = resolved.Ascii;
+            }
+
+            if (string.IsNullOrWhiteSpace(runFonts.HighAnsi) && !string.IsNullOrWhiteSpace(resolved.HighAnsi))
+            {
+                runFonts.HighAnsi = resolved.HighAnsi;
+            }
+
+            if (string.IsNullOrWhiteSpace(runFonts.EastAsia) && !string.IsNullOrWhiteSpace(resolved.EastAsia))
+            {
+                runFonts.EastAsia = resolved.EastAsia;
+            }
+
+            if (string.IsNullOrWhiteSpace(runFonts.ComplexScript) && !string.IsNullOrWhiteSpace(resolved.Complex))
+            {
+                runFonts.ComplexScript = resolved.Complex;
+            }
+
+            if (string.IsNullOrWhiteSpace(runFonts.Ascii) && ascii.HasValue)
+            {
+                runFonts.AsciiTheme = MapThemeFontValue(ascii.Value);
+            }
+
+            if (string.IsNullOrWhiteSpace(runFonts.HighAnsi) && highAnsi.HasValue)
+            {
+                runFonts.HighAnsiTheme = MapThemeFontValue(highAnsi.Value);
+            }
+
+            if (string.IsNullOrWhiteSpace(runFonts.EastAsia) && eastAsia.HasValue)
+            {
+                runFonts.EastAsiaTheme = MapThemeFontValue(eastAsia.Value);
+            }
+
+            if (string.IsNullOrWhiteSpace(runFonts.ComplexScript) && complexScript.HasValue)
+            {
+                runFonts.ComplexScriptTheme = MapThemeFontValue(complexScript.Value);
+            }
         }
 
         return runFonts;
