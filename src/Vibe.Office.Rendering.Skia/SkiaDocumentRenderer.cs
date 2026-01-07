@@ -196,6 +196,28 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             IsAntialias = true
         };
 
+        var layoutGuideColor = options.LayoutGuideColor;
+        var layoutGuideLightAlpha = (byte)Math.Clamp((int)(layoutGuideColor.A * 0.5f), 40, 180);
+        var layoutGuideLightColor = new DocColor(layoutGuideColor.R, layoutGuideColor.G, layoutGuideColor.B, layoutGuideLightAlpha);
+
+        using var layoutGuidePaint = new SKPaint
+        {
+            Style = SKPaintStyle.Stroke,
+            Color = ToSkColor(layoutGuideColor),
+            StrokeWidth = options.LayoutGuideThickness,
+            IsAntialias = true,
+            PathEffect = SKPathEffect.CreateDash(new[] { 5f, 3f }, 0f)
+        };
+
+        using var layoutGuideLightPaint = new SKPaint
+        {
+            Style = SKPaintStyle.Stroke,
+            Color = ToSkColor(layoutGuideLightColor),
+            StrokeWidth = MathF.Max(0.75f, options.LayoutGuideThickness * 0.75f),
+            IsAntialias = true,
+            PathEffect = SKPathEffect.CreateDash(new[] { 3f, 3f }, 0f)
+        };
+
         var selection = options.Selection?.Normalize();
         var commentHighlightsByParagraph = layout.CommentHighlightsByParagraph;
         var footnoteMap = layout.Footnotes.ToDictionary(footnote => footnote.PageIndex);
@@ -641,7 +663,80 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             }
 
             DrawFloatingObjects(pageIndex, false);
+            DrawLayoutGuides(pageIndex);
             DrawFloatingSelection(pageIndex);
+        }
+
+        void DrawLayoutGuides(int pageIndex)
+        {
+            if (!options.ShowLayout)
+            {
+                return;
+            }
+
+            if (pageIndex < 0 || pageIndex >= layout.Pages.Count || pageIndex >= layout.PageSections.Count)
+            {
+                return;
+            }
+
+            var page = layout.Pages[pageIndex];
+            var section = layout.PageSections[pageIndex];
+            var contentLeft = page.Bounds.X + section.MarginLeft;
+            var contentTop = page.Bounds.Y + section.MarginTop;
+            var contentWidth = MathF.Max(1f, page.Bounds.Width - section.MarginLeft - section.MarginRight);
+            var contentHeight = MathF.Max(1f, page.Bounds.Height - section.MarginTop - section.MarginBottom);
+            var contentRight = contentLeft + contentWidth;
+            var contentBottom = contentTop + contentHeight;
+
+            targetCanvas.DrawRect(new SKRect(contentLeft, contentTop, contentRight, contentBottom), layoutGuidePaint);
+
+            var headerY = page.Bounds.Y + section.HeaderOffset;
+            var footerY = page.Bounds.Bottom - section.FooterOffset;
+            targetCanvas.DrawLine(contentLeft, headerY, contentRight, headerY, layoutGuideLightPaint);
+            targetCanvas.DrawLine(contentLeft, footerY, contentRight, footerY, layoutGuideLightPaint);
+
+            if (section.ColumnCount > 1)
+            {
+                var columnGap = MathF.Max(0f, section.ColumnGap);
+                var columnWidths = ResolveSectionColumnWidths(section, contentWidth, columnGap);
+                if (columnWidths.Length > 1)
+                {
+                    var columnOffsets = BuildColumnOffsets(columnWidths, columnGap);
+                    for (var i = 0; i < columnWidths.Length; i++)
+                    {
+                        var columnLeft = contentLeft + columnOffsets[i];
+                        var columnRight = columnLeft + columnWidths[i];
+                        targetCanvas.DrawRect(new SKRect(columnLeft, contentTop, columnRight, contentBottom), layoutGuideLightPaint);
+                    }
+                }
+            }
+
+            foreach (var table in layout.Tables)
+            {
+                if (!IntersectsPage(page.Bounds, table.Bounds))
+                {
+                    continue;
+                }
+
+                var tableBounds = table.Bounds;
+                targetCanvas.DrawRect(new SKRect(tableBounds.X, tableBounds.Y, tableBounds.Right, tableBounds.Bottom), layoutGuidePaint);
+                foreach (var cell in table.Cells)
+                {
+                    var cellBounds = cell.Bounds;
+                    targetCanvas.DrawRect(new SKRect(cellBounds.X, cellBounds.Y, cellBounds.Right, cellBounds.Bottom), layoutGuideLightPaint);
+                }
+            }
+
+            foreach (var floating in layout.FloatingObjects)
+            {
+                if (floating.PageIndex != pageIndex)
+                {
+                    continue;
+                }
+
+                var bounds = floating.Bounds;
+                targetCanvas.DrawRect(new SKRect(bounds.X, bounds.Y, bounds.Right, bounds.Bottom), layoutGuideLightPaint);
+            }
         }
 
         void DrawBreakMarkers(int pageIndex)
