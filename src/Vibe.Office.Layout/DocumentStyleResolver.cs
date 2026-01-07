@@ -111,7 +111,11 @@ public sealed class DocumentStyleResolver
 
     private static void UpdateFontFlags(TextStyleProperties properties, ref bool hasExplicitFontFamily, ref bool hasExplicitThemeFont)
     {
-        if (!string.IsNullOrWhiteSpace(properties.FontFamily))
+        if (!string.IsNullOrWhiteSpace(properties.FontFamily)
+            || !string.IsNullOrWhiteSpace(properties.FontFamilyAscii)
+            || !string.IsNullOrWhiteSpace(properties.FontFamilyHighAnsi)
+            || !string.IsNullOrWhiteSpace(properties.FontFamilyEastAsia)
+            || !string.IsNullOrWhiteSpace(properties.FontFamilyComplexScript))
         {
             hasExplicitFontFamily = true;
         }
@@ -127,33 +131,43 @@ public sealed class DocumentStyleResolver
 
     private void ResolveThemeFont(TextStyle style, bool hasExplicitFontFamily, bool hasExplicitThemeFont)
     {
-        if (hasExplicitFontFamily || !hasExplicitThemeFont)
+        if (!hasExplicitThemeFont)
         {
             return;
         }
 
         var themeFonts = _document.Fonts.Theme;
-        if (style.ThemeFontAscii.HasValue && themeFonts.TryGet(style.ThemeFontAscii.Value, out var family))
+        if (style.ThemeFontAscii.HasValue && themeFonts.TryGet(style.ThemeFontAscii.Value, out var family)
+            && string.IsNullOrWhiteSpace(style.FontFamilyAscii))
         {
-            style.FontFamily = family;
-            return;
+            style.FontFamilyAscii = family;
         }
 
-        if (style.ThemeFontHighAnsi.HasValue && themeFonts.TryGet(style.ThemeFontHighAnsi.Value, out family))
+        if (style.ThemeFontHighAnsi.HasValue && themeFonts.TryGet(style.ThemeFontHighAnsi.Value, out family)
+            && string.IsNullOrWhiteSpace(style.FontFamilyHighAnsi))
         {
-            style.FontFamily = family;
-            return;
+            style.FontFamilyHighAnsi = family;
         }
 
-        if (style.ThemeFontEastAsia.HasValue && themeFonts.TryGet(style.ThemeFontEastAsia.Value, out family))
+        if (style.ThemeFontEastAsia.HasValue && themeFonts.TryGet(style.ThemeFontEastAsia.Value, out family)
+            && string.IsNullOrWhiteSpace(style.FontFamilyEastAsia))
         {
-            style.FontFamily = family;
-            return;
+            style.FontFamilyEastAsia = family;
         }
 
-        if (style.ThemeFontComplexScript.HasValue && themeFonts.TryGet(style.ThemeFontComplexScript.Value, out family))
+        if (style.ThemeFontComplexScript.HasValue && themeFonts.TryGet(style.ThemeFontComplexScript.Value, out family)
+            && string.IsNullOrWhiteSpace(style.FontFamilyComplexScript))
         {
-            style.FontFamily = family;
+            style.FontFamilyComplexScript = family;
+        }
+
+        if (!hasExplicitFontFamily && string.IsNullOrWhiteSpace(style.FontFamily))
+        {
+            style.FontFamily = style.FontFamilyAscii
+                               ?? style.FontFamilyHighAnsi
+                               ?? style.FontFamilyEastAsia
+                               ?? style.FontFamilyComplexScript
+                               ?? style.FontFamily;
         }
     }
 
@@ -582,9 +596,34 @@ public sealed class DocumentStyleResolver
             target.FontFamily = source.FontFamily;
         }
 
+        if (!string.IsNullOrWhiteSpace(source.FontFamilyAscii))
+        {
+            target.FontFamilyAscii = source.FontFamilyAscii;
+        }
+
+        if (!string.IsNullOrWhiteSpace(source.FontFamilyHighAnsi))
+        {
+            target.FontFamilyHighAnsi = source.FontFamilyHighAnsi;
+        }
+
+        if (!string.IsNullOrWhiteSpace(source.FontFamilyEastAsia))
+        {
+            target.FontFamilyEastAsia = source.FontFamilyEastAsia;
+        }
+
+        if (!string.IsNullOrWhiteSpace(source.FontFamilyComplexScript))
+        {
+            target.FontFamilyComplexScript = source.FontFamilyComplexScript;
+        }
+
         if (source.FontSize.HasValue)
         {
             target.FontSize = source.FontSize;
+        }
+
+        if (source.FontSizeComplexScript.HasValue)
+        {
+            target.FontSizeComplexScript = source.FontSizeComplexScript;
         }
 
         if (source.FontWeight.HasValue)
@@ -656,6 +695,21 @@ public sealed class DocumentStyleResolver
         if (source.ThemeFontComplexScript.HasValue)
         {
             target.ThemeFontComplexScript = source.ThemeFontComplexScript;
+        }
+
+        if (!string.IsNullOrWhiteSpace(source.Language))
+        {
+            target.Language = source.Language;
+        }
+
+        if (!string.IsNullOrWhiteSpace(source.LanguageEastAsia))
+        {
+            target.LanguageEastAsia = source.LanguageEastAsia;
+        }
+
+        if (!string.IsNullOrWhiteSpace(source.LanguageBidi))
+        {
+            target.LanguageBidi = source.LanguageBidi;
         }
     }
 

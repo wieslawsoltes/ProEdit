@@ -5,7 +5,12 @@ namespace Vibe.Office.Documents;
 public sealed class TextStyleProperties
 {
     public string? FontFamily { get; set; }
+    public string? FontFamilyAscii { get; set; }
+    public string? FontFamilyHighAnsi { get; set; }
+    public string? FontFamilyEastAsia { get; set; }
+    public string? FontFamilyComplexScript { get; set; }
     public float? FontSize { get; set; }
+    public float? FontSizeComplexScript { get; set; }
     public DocFontWeight? FontWeight { get; set; }
     public DocFontStyle? FontStyle { get; set; }
     public DocColor? Color { get; set; }
@@ -20,9 +25,17 @@ public sealed class TextStyleProperties
     public DocThemeFont? ThemeFontHighAnsi { get; set; }
     public DocThemeFont? ThemeFontEastAsia { get; set; }
     public DocThemeFont? ThemeFontComplexScript { get; set; }
+    public string? Language { get; set; }
+    public string? LanguageEastAsia { get; set; }
+    public string? LanguageBidi { get; set; }
 
     public bool HasValues => !string.IsNullOrWhiteSpace(FontFamily)
+                             || !string.IsNullOrWhiteSpace(FontFamilyAscii)
+                             || !string.IsNullOrWhiteSpace(FontFamilyHighAnsi)
+                             || !string.IsNullOrWhiteSpace(FontFamilyEastAsia)
+                             || !string.IsNullOrWhiteSpace(FontFamilyComplexScript)
                              || FontSize.HasValue
+                             || FontSizeComplexScript.HasValue
                              || FontWeight.HasValue
                              || FontStyle.HasValue
                              || Color.HasValue
@@ -36,14 +49,22 @@ public sealed class TextStyleProperties
                              || ThemeFontAscii.HasValue
                              || ThemeFontHighAnsi.HasValue
                              || ThemeFontEastAsia.HasValue
-                             || ThemeFontComplexScript.HasValue;
+                             || ThemeFontComplexScript.HasValue
+                             || !string.IsNullOrWhiteSpace(Language)
+                             || !string.IsNullOrWhiteSpace(LanguageEastAsia)
+                             || !string.IsNullOrWhiteSpace(LanguageBidi);
 
     public TextStyleProperties Clone()
     {
         return new TextStyleProperties
         {
             FontFamily = FontFamily,
+            FontFamilyAscii = FontFamilyAscii,
+            FontFamilyHighAnsi = FontFamilyHighAnsi,
+            FontFamilyEastAsia = FontFamilyEastAsia,
+            FontFamilyComplexScript = FontFamilyComplexScript,
             FontSize = FontSize,
+            FontSizeComplexScript = FontSizeComplexScript,
             FontWeight = FontWeight,
             FontStyle = FontStyle,
             Color = Color,
@@ -57,7 +78,10 @@ public sealed class TextStyleProperties
             ThemeFontAscii = ThemeFontAscii,
             ThemeFontHighAnsi = ThemeFontHighAnsi,
             ThemeFontEastAsia = ThemeFontEastAsia,
-            ThemeFontComplexScript = ThemeFontComplexScript
+            ThemeFontComplexScript = ThemeFontComplexScript,
+            Language = Language,
+            LanguageEastAsia = LanguageEastAsia,
+            LanguageBidi = LanguageBidi
         };
     }
 
@@ -69,7 +93,12 @@ public sealed class TextStyleProperties
         }
 
         return string.Equals(FontFamily, other.FontFamily, StringComparison.Ordinal)
+               && string.Equals(FontFamilyAscii, other.FontFamilyAscii, StringComparison.Ordinal)
+               && string.Equals(FontFamilyHighAnsi, other.FontFamilyHighAnsi, StringComparison.Ordinal)
+               && string.Equals(FontFamilyEastAsia, other.FontFamilyEastAsia, StringComparison.Ordinal)
+               && string.Equals(FontFamilyComplexScript, other.FontFamilyComplexScript, StringComparison.Ordinal)
                && FontSize.Equals(other.FontSize)
+               && FontSizeComplexScript.Equals(other.FontSizeComplexScript)
                && FontWeight == other.FontWeight
                && FontStyle == other.FontStyle
                && Color.Equals(other.Color)
@@ -83,7 +112,10 @@ public sealed class TextStyleProperties
                && ThemeFontAscii == other.ThemeFontAscii
                && ThemeFontHighAnsi == other.ThemeFontHighAnsi
                && ThemeFontEastAsia == other.ThemeFontEastAsia
-               && ThemeFontComplexScript == other.ThemeFontComplexScript;
+               && ThemeFontComplexScript == other.ThemeFontComplexScript
+               && string.Equals(Language, other.Language, StringComparison.Ordinal)
+               && string.Equals(LanguageEastAsia, other.LanguageEastAsia, StringComparison.Ordinal)
+               && string.Equals(LanguageBidi, other.LanguageBidi, StringComparison.Ordinal);
     }
 
     public void ApplyTo(TextStyle style)
@@ -93,9 +125,34 @@ public sealed class TextStyleProperties
             style.FontFamily = FontFamily;
         }
 
+        if (!string.IsNullOrWhiteSpace(FontFamilyAscii))
+        {
+            style.FontFamilyAscii = FontFamilyAscii;
+        }
+
+        if (!string.IsNullOrWhiteSpace(FontFamilyHighAnsi))
+        {
+            style.FontFamilyHighAnsi = FontFamilyHighAnsi;
+        }
+
+        if (!string.IsNullOrWhiteSpace(FontFamilyEastAsia))
+        {
+            style.FontFamilyEastAsia = FontFamilyEastAsia;
+        }
+
+        if (!string.IsNullOrWhiteSpace(FontFamilyComplexScript))
+        {
+            style.FontFamilyComplexScript = FontFamilyComplexScript;
+        }
+
         if (FontSize.HasValue)
         {
             style.FontSize = FontSize.Value;
+        }
+
+        if (FontSizeComplexScript.HasValue)
+        {
+            style.FontSizeComplexScript = FontSizeComplexScript.Value;
         }
 
         if (FontWeight.HasValue)
@@ -167,6 +224,21 @@ public sealed class TextStyleProperties
         if (ThemeFontComplexScript.HasValue)
         {
             style.ThemeFontComplexScript = ThemeFontComplexScript;
+        }
+
+        if (!string.IsNullOrWhiteSpace(Language))
+        {
+            style.Language = Language;
+        }
+
+        if (!string.IsNullOrWhiteSpace(LanguageEastAsia))
+        {
+            style.LanguageEastAsia = LanguageEastAsia;
+        }
+
+        if (!string.IsNullOrWhiteSpace(LanguageBidi))
+        {
+            style.LanguageBidi = LanguageBidi;
         }
     }
 }
