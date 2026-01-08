@@ -2869,6 +2869,8 @@ public sealed class DocxExporter
             props.EastAsianLayout = eastAsianLayout;
         }
 
+        AppendTextEffects(props, style.Effects);
+
         return props;
     }
 
@@ -2986,6 +2988,8 @@ public sealed class DocxExporter
             props.EastAsianLayout = eastAsianLayout;
         }
 
+        AppendTextEffects(props, style.Effects);
+
         return props;
     }
 
@@ -3094,6 +3098,8 @@ public sealed class DocxExporter
             props.EastAsianLayout = eastAsianLayout;
         }
 
+        AppendTextEffects(props, style.Effects);
+
         return props;
     }
 
@@ -3196,6 +3202,8 @@ public sealed class DocxExporter
         {
             props.EastAsianLayout = eastAsianLayout;
         }
+
+        AppendTextEffects(props, style.Effects);
 
         return props;
     }
@@ -3507,7 +3515,8 @@ public sealed class DocxExporter
                || !string.IsNullOrWhiteSpace(style.Language)
                || !string.IsNullOrWhiteSpace(style.LanguageEastAsia)
                || !string.IsNullOrWhiteSpace(style.LanguageBidi)
-               || (style.EastAsianLayout?.HasValues ?? false);
+               || (style.EastAsianLayout?.HasValues ?? false)
+               || (style.Effects?.HasValues ?? false);
     }
 
     private static bool TryMapHighlightColor(Vibe.Office.Primitives.DocColor color, out HighlightColorValues highlight)
@@ -3550,6 +3559,34 @@ public sealed class DocxExporter
             Color = "auto",
             Fill = ColorToHex(color)
         });
+    }
+
+    private static void AppendTextEffects(OpenXmlCompositeElement props, TextEffects? effects)
+    {
+        if (effects is null || !effects.HasValues)
+        {
+            return;
+        }
+
+        if (effects.Outline is not null)
+        {
+            props.AppendChild(new Outline { Val = effects.Outline.Enabled });
+        }
+
+        if (effects.Shadow is not null)
+        {
+            props.AppendChild(new Shadow { Val = effects.Shadow.Enabled });
+        }
+
+        if (effects.Emboss.HasValue)
+        {
+            props.AppendChild(new Emboss { Val = effects.Emboss.Value });
+        }
+
+        if (effects.Imprint.HasValue)
+        {
+            props.AppendChild(new Imprint { Val = effects.Imprint.Value });
+        }
     }
 
     private static bool HasParagraphStyleProperties(ParagraphStyleProperties properties)
@@ -4776,6 +4813,12 @@ public sealed class DocxExporter
             props.AppendChild(outline);
         }
 
+        var effects = BuildDrawingEffects(shapeInline.Properties.Effects);
+        if (effects is not null)
+        {
+            props.AppendChild(effects);
+        }
+
         return props;
     }
 
@@ -4919,6 +4962,129 @@ public sealed class DocxExporter
         return outline;
     }
 
+    private static A.EffectList? BuildDrawingEffects(DrawingEffects? effects)
+    {
+        if (effects is null || !effects.HasValues)
+        {
+            return null;
+        }
+
+        var effectList = new A.EffectList();
+
+        if (effects.Shadow is not null)
+        {
+            var shadow = effects.Shadow;
+            var outerShadow = new A.OuterShadow();
+            if (shadow.BlurRadius > 0f)
+            {
+                outerShadow.BlurRadius = DipToEmu(shadow.BlurRadius);
+            }
+
+            if (shadow.Distance > 0f)
+            {
+                outerShadow.Distance = DipToEmu(shadow.Distance);
+            }
+
+            if (MathF.Abs(shadow.Direction) > 0.01f)
+            {
+                outerShadow.Direction = (Int32Value)MathF.Round(shadow.Direction * 60000f);
+            }
+
+            outerShadow.AppendChild(BuildDrawingColor(shadow.Color));
+            effectList.AppendChild(outerShadow);
+        }
+
+        if (effects.Glow is not null)
+        {
+            var glow = effects.Glow;
+            var glowElement = new A.Glow();
+            if (glow.Radius > 0f)
+            {
+                glowElement.Radius = DipToEmu(glow.Radius);
+            }
+
+            glowElement.AppendChild(BuildDrawingColor(glow.Color));
+            effectList.AppendChild(glowElement);
+        }
+
+        if (effects.Reflection is not null)
+        {
+            var reflection = effects.Reflection;
+            var reflectionElement = new A.Reflection();
+            if (reflection.BlurRadius > 0f)
+            {
+                reflectionElement.BlurRadius = DipToEmu(reflection.BlurRadius);
+            }
+
+            if (reflection.Distance > 0f)
+            {
+                reflectionElement.Distance = DipToEmu(reflection.Distance);
+            }
+
+            if (reflection.StartOpacity > 0f)
+            {
+                reflectionElement.StartOpacity = ToDrawingPercentageValue(reflection.StartOpacity);
+            }
+
+            if (reflection.EndOpacity > 0f)
+            {
+                reflectionElement.EndAlpha = ToDrawingPercentageValue(reflection.EndOpacity);
+            }
+
+            if (reflection.ScaleX > 0f && MathF.Abs(reflection.ScaleX - 1f) > 0.001f)
+            {
+                reflectionElement.HorizontalRatio = ToDrawingPercentageValue(reflection.ScaleX);
+            }
+
+            if (reflection.ScaleY > 0f && MathF.Abs(reflection.ScaleY - 1f) > 0.001f)
+            {
+                reflectionElement.VerticalRatio = ToDrawingPercentageValue(reflection.ScaleY);
+            }
+
+            effectList.AppendChild(reflectionElement);
+        }
+
+        if (effects.SoftEdge is not null)
+        {
+            var softEdge = effects.SoftEdge;
+            var softEdgeElement = new A.SoftEdge();
+            if (softEdge.Radius > 0f)
+            {
+                softEdgeElement.Radius = DipToEmu(softEdge.Radius);
+            }
+
+            effectList.AppendChild(softEdgeElement);
+        }
+
+        return effectList.ChildElements.Count > 0 ? effectList : null;
+    }
+
+    private static A.RgbColorModelHex BuildDrawingColor(DocColor color)
+    {
+        var rgb = new A.RgbColorModelHex { Val = ColorToHex(color) };
+        if (color.A < byte.MaxValue)
+        {
+            rgb.AppendChild(new A.Alpha { Val = ToDrawingPercentageValue(color.A / 255f) });
+        }
+
+        return rgb;
+    }
+
+    private static Int32Value ToDrawingPercentageValue(float value)
+    {
+        if (value <= 0f)
+        {
+            return 0;
+        }
+
+        if (value >= 1f)
+        {
+            return 100000;
+        }
+
+        return (Int32Value)MathF.Round(value * 100000f);
+    }
+
     private static A.PresetLineDashValues? MapShapeDash(DocBorderStyle style)
     {
         return style switch
@@ -4937,6 +5103,21 @@ public sealed class DocxExporter
         var widthEmu = DipToEmu(imageInline.Width);
         var heightEmu = DipToEmu(imageInline.Height);
         var docProperties = new DW.DocProperties { Id = 1U, Name = "Picture" };
+        var shapeProperties = new PIC.ShapeProperties(
+            new A.Transform2D(
+                new A.Offset { X = 0L, Y = 0L },
+                new A.Extents { Cx = widthEmu, Cy = heightEmu }),
+            new A.PresetGeometry(new A.AdjustValueList())
+            {
+                Preset = A.ShapeTypeValues.Rectangle
+            });
+
+        var effects = BuildDrawingEffects(imageInline.Effects);
+        if (effects is not null)
+        {
+            shapeProperties.AppendChild(effects);
+        }
+
         var graphic = new A.Graphic(
             new A.GraphicData(
                 new PIC.Picture(
@@ -4946,14 +5127,7 @@ public sealed class DocxExporter
                     new PIC.BlipFill(
                         new A.Blip { Embed = relationshipId, CompressionState = A.BlipCompressionValues.Print },
                         new A.Stretch(new A.FillRectangle())),
-                    new PIC.ShapeProperties(
-                        new A.Transform2D(
-                            new A.Offset { X = 0L, Y = 0L },
-                            new A.Extents { Cx = widthEmu, Cy = heightEmu }),
-                        new A.PresetGeometry(new A.AdjustValueList())
-                        {
-                            Preset = A.ShapeTypeValues.Rectangle
-                        }))
+                    shapeProperties)
             )
             { Uri = "http://schemas.openxmlformats.org/drawingml/2006/picture" });
 

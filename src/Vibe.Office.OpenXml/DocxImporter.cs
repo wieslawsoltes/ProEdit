@@ -54,7 +54,7 @@ public sealed class DocxImporter
 
         var styleResolver = new StyleResolver(mainPart, document);
         var listResolver = new ListResolver(mainPart, document, styleResolver);
-        var imageResolver = new ImageResolver(mainPart);
+        var imageResolver = new ImageResolver(mainPart, document.ThemeColors);
         var chartResolver = new ChartResolver(mainPart, document.ThemeColors);
         var hyperlinkResolver = new HyperlinkResolver(mainPart);
         var placeholderResolver = new ContentControlPlaceholderResolver(mainPart?.GlossaryDocumentPart);
@@ -347,7 +347,7 @@ public sealed class DocxImporter
             }
 
             target.Blocks.Clear();
-            var headerBlocks = ParseHeaderFooter(headerPart.Header, listResolver, new ImageResolver(headerPart), new ChartResolver(headerPart, themeColors), new HyperlinkResolver(headerPart), styleResolver, revisions, placeholderResolver);
+            var headerBlocks = ParseHeaderFooter(headerPart.Header, listResolver, new ImageResolver(headerPart, themeColors), new ChartResolver(headerPart, themeColors), new HyperlinkResolver(headerPart), styleResolver, revisions, placeholderResolver);
             foreach (var block in headerBlocks)
             {
                 target.Blocks.Add(block);
@@ -369,7 +369,7 @@ public sealed class DocxImporter
             }
 
             target.Blocks.Clear();
-            var footerBlocks = ParseHeaderFooter(footerPart.Footer, listResolver, new ImageResolver(footerPart), new ChartResolver(footerPart, themeColors), new HyperlinkResolver(footerPart), styleResolver, revisions, placeholderResolver);
+            var footerBlocks = ParseHeaderFooter(footerPart.Footer, listResolver, new ImageResolver(footerPart, themeColors), new ChartResolver(footerPart, themeColors), new HyperlinkResolver(footerPart), styleResolver, revisions, placeholderResolver);
             foreach (var block in footerBlocks)
             {
                 target.Blocks.Add(block);
@@ -735,7 +735,7 @@ public sealed class DocxImporter
 
         if (mainPart.FootnotesPart?.Footnotes is { } footnotes)
         {
-            var imageResolver = new ImageResolver(mainPart.FootnotesPart);
+            var imageResolver = new ImageResolver(mainPart.FootnotesPart, document.ThemeColors);
             var chartResolver = new ChartResolver(mainPart.FootnotesPart, document.ThemeColors);
             var hyperlinkResolver = new HyperlinkResolver(mainPart.FootnotesPart);
             foreach (var footnote in footnotes.Elements<Footnote>())
@@ -759,7 +759,7 @@ public sealed class DocxImporter
 
         if (mainPart.EndnotesPart?.Endnotes is { } endnotes)
         {
-            var imageResolver = new ImageResolver(mainPart.EndnotesPart);
+            var imageResolver = new ImageResolver(mainPart.EndnotesPart, document.ThemeColors);
             var chartResolver = new ChartResolver(mainPart.EndnotesPart, document.ThemeColors);
             var hyperlinkResolver = new HyperlinkResolver(mainPart.EndnotesPart);
             foreach (var endnote in endnotes.Elements<Endnote>())
@@ -783,7 +783,7 @@ public sealed class DocxImporter
 
         if (mainPart.WordprocessingCommentsPart?.Comments is { } comments)
         {
-            var imageResolver = new ImageResolver(mainPart.WordprocessingCommentsPart);
+            var imageResolver = new ImageResolver(mainPart.WordprocessingCommentsPart, document.ThemeColors);
             var chartResolver = new ChartResolver(mainPart.WordprocessingCommentsPart, document.ThemeColors);
             var hyperlinkResolver = new HyperlinkResolver(mainPart.WordprocessingCommentsPart);
             foreach (var comment in comments.Elements<Comment>())
@@ -2431,6 +2431,8 @@ public sealed class DocxImporter
         private readonly OpenXmlElement? _defaultParagraphProperties;
         private readonly VibeDocument _document;
 
+        public DocumentThemeColorMap ThemeColors => _document.ThemeColors;
+
         public StyleResolver(MainDocumentPart? mainPart, VibeDocument document)
         {
             _document = document;
@@ -3609,6 +3611,13 @@ public sealed class DocxImporter
         {
             style.EastAsianLayout = ParseEastAsianLayout(eastAsianLayout);
         }
+
+        var effects = ParseTextEffects(properties);
+        if (effects is not null)
+        {
+            style.Effects ??= new TextEffects();
+            style.Effects.ApplyOverrides(effects);
+        }
     }
 
     private static void ApplyRunStyleProperties(OpenXmlElement? properties, TextStyleProperties style)
@@ -3788,6 +3797,52 @@ public sealed class DocxImporter
         {
             style.EastAsianLayout = ParseEastAsianLayout(eastAsianLayout);
         }
+
+        var effects = ParseTextEffects(properties);
+        if (effects is not null)
+        {
+            style.Effects ??= new TextEffects();
+            style.Effects.ApplyOverrides(effects);
+        }
+    }
+
+    private static TextEffects? ParseTextEffects(OpenXmlElement properties)
+    {
+        TextEffects? effects = null;
+
+        TextEffects EnsureEffects()
+        {
+            effects ??= new TextEffects();
+            return effects;
+        }
+
+        var outline = properties.GetFirstChild<DocumentFormat.OpenXml.Wordprocessing.Outline>();
+        if (outline is not null)
+        {
+            var enabled = outline.Val?.Value ?? true;
+            EnsureEffects().Outline = new TextOutlineEffect { Enabled = enabled };
+        }
+
+        var shadow = properties.GetFirstChild<DocumentFormat.OpenXml.Wordprocessing.Shadow>();
+        if (shadow is not null)
+        {
+            var enabled = shadow.Val?.Value ?? true;
+            EnsureEffects().Shadow = new TextShadowEffect { Enabled = enabled };
+        }
+
+        var emboss = properties.GetFirstChild<DocumentFormat.OpenXml.Wordprocessing.Emboss>();
+        if (emboss is not null)
+        {
+            EnsureEffects().Emboss = emboss.Val?.Value ?? true;
+        }
+
+        var imprint = properties.GetFirstChild<DocumentFormat.OpenXml.Wordprocessing.Imprint>();
+        if (imprint is not null)
+        {
+            EnsureEffects().Imprint = imprint.Val?.Value ?? true;
+        }
+
+        return effects?.HasValues == true ? effects : null;
     }
 
     private static void ApplyTableProperties(Table table, Vibe.Office.Documents.TableProperties properties)
@@ -5432,6 +5487,12 @@ public sealed class DocxImporter
         {
             target.LanguageBidi = overrides.LanguageBidi;
         }
+
+        if (overrides.Effects?.HasValues == true)
+        {
+            target.Effects ??= new TextEffects();
+            target.Effects.ApplyOverrides(overrides.Effects);
+        }
     }
 
     private static string CollectMathText(OpenXmlElement element)
@@ -6206,7 +6267,7 @@ public sealed class DocxImporter
         shapeInline.Name = docProps?.Name?.Value
             ?? shape.GetFirstChild<Wps.NonVisualDrawingProperties>()?.Name?.Value;
 
-        ApplyShapeProperties(spPr, shapeInline.Properties);
+        ApplyShapeProperties(spPr, shapeInline.Properties, styleResolver.ThemeColors);
         if (transform is not null)
         {
             if (transform.Rotation?.Value is int rotation)
@@ -6566,7 +6627,7 @@ public sealed class DocxImporter
         return FloatingVerticalAlignment.None;
     }
 
-    private static void ApplyShapeProperties(Wps.ShapeProperties? shapeProperties, ShapeProperties properties)
+    private static void ApplyShapeProperties(Wps.ShapeProperties? shapeProperties, ShapeProperties properties, DocumentThemeColorMap? themeColors)
     {
         if (shapeProperties is null)
         {
@@ -6577,6 +6638,7 @@ public sealed class DocxImporter
         properties.PresetGeometry = preset?.ToString();
         properties.FillColor = TryParseDrawingFillColor(shapeProperties);
         properties.Outline = ParseShapeOutline(shapeProperties.GetFirstChild<A.Outline>());
+        properties.Effects = ParseDrawingEffects(shapeProperties, themeColors);
     }
 
     private static void ApplyTextBodyProperties(Wps.TextBodyProperties? bodyProperties, ShapeTextBoxProperties properties)
@@ -6696,6 +6758,144 @@ public sealed class DocxImporter
         var dash = outline.GetFirstChild<A.PresetDash>()?.Val?.Value;
         border.Style = MapLineDash(dash);
         return border;
+    }
+
+    private static DrawingEffects? ParseDrawingEffects(OpenXmlElement? element, DocumentThemeColorMap? themeColors)
+    {
+        if (element is null)
+        {
+            return null;
+        }
+
+        var effectList = element.GetFirstChild<A.EffectList>()
+                         ?? element.Descendants<A.EffectList>().FirstOrDefault();
+        if (effectList is null)
+        {
+            return null;
+        }
+
+        var effects = new DrawingEffects();
+
+        var glow = effectList.GetFirstChild<A.Glow>();
+        if (glow is not null)
+        {
+            var glowEffect = new DrawingGlowEffect();
+            if (TryParseEmu(glow, "rad", out var glowRad))
+            {
+                glowEffect.Radius = EmuToDip(glowRad);
+            }
+
+            var color = TryResolveDrawingColor(glow, themeColors);
+            if (color.HasValue)
+            {
+                glowEffect.Color = color.Value;
+            }
+
+            if (glowEffect.Radius > 0f || color.HasValue)
+            {
+                effects.Glow = glowEffect;
+            }
+        }
+
+        var reflection = effectList.GetFirstChild<A.Reflection>();
+        if (reflection is not null)
+        {
+            var reflectionEffect = new DrawingReflectionEffect();
+            if (TryParseEmu(reflection, "blurRad", out var blur))
+            {
+                reflectionEffect.BlurRadius = EmuToDip(blur);
+            }
+
+            if (TryParseEmu(reflection, "dist", out var dist))
+            {
+                reflectionEffect.Distance = EmuToDip(dist);
+            }
+
+            if (TryParsePercentage(reflection, "st", out var startOpacity))
+            {
+                reflectionEffect.StartOpacity = startOpacity;
+            }
+
+            if (TryParsePercentage(reflection, "end", out var endOpacity))
+            {
+                reflectionEffect.EndOpacity = endOpacity;
+            }
+
+            if (TryParsePercentage(reflection, "sx", out var scaleX))
+            {
+                reflectionEffect.ScaleX = scaleX;
+            }
+
+            if (TryParsePercentage(reflection, "sy", out var scaleY))
+            {
+                reflectionEffect.ScaleY = scaleY;
+            }
+
+            effects.Reflection = reflectionEffect;
+        }
+
+        var softEdge = effectList.GetFirstChild<A.SoftEdge>();
+        if (softEdge is not null)
+        {
+            var softEdgeEffect = new DrawingSoftEdgeEffect();
+            if (TryParseEmu(softEdge, "rad", out var softRadius))
+            {
+                softEdgeEffect.Radius = EmuToDip(softRadius);
+            }
+
+            if (softEdgeEffect.Radius > 0f)
+            {
+                effects.SoftEdge = softEdgeEffect;
+            }
+        }
+
+        var outerShadow = effectList.GetFirstChild<A.OuterShadow>();
+        if (outerShadow is not null)
+        {
+            var shadowEffect = new DrawingShadowEffect();
+            if (TryParseEmu(outerShadow, "blurRad", out var shadowBlur))
+            {
+                shadowEffect.BlurRadius = EmuToDip(shadowBlur);
+            }
+
+            if (TryParseEmu(outerShadow, "dist", out var shadowDist))
+            {
+                shadowEffect.Distance = EmuToDip(shadowDist);
+            }
+
+            if (TryParseIntAttribute(outerShadow, "dir", out var shadowDir))
+            {
+                shadowEffect.Direction = shadowDir / 60000f;
+            }
+
+            var shadowColor = TryResolveDrawingColor(outerShadow, themeColors);
+            if (shadowColor.HasValue)
+            {
+                shadowEffect.Color = shadowColor.Value;
+            }
+
+            effects.Shadow = shadowEffect;
+        }
+
+        return effects.HasValues ? effects : null;
+    }
+
+    private static bool TryParsePercentage(OpenXmlElement element, string attributeName, out float value)
+    {
+        value = 0f;
+        var text = GetAttributeValue(element, attributeName);
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return false;
+        }
+
+        if (!int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var raw))
+        {
+            return false;
+        }
+
+        value = raw / 100000f;
+        return true;
     }
 
     private static DocBorderStyle MapLineDash(A.PresetLineDashValues? dash)
@@ -7330,11 +7530,13 @@ public sealed class DocxImporter
     private sealed class ImageResolver
     {
         private readonly OpenXmlPart? _part;
+        private readonly DocumentThemeColorMap? _themeColors;
         private const string RelationshipNamespace = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
 
-        public ImageResolver(OpenXmlPart? part)
+        public ImageResolver(OpenXmlPart? part, DocumentThemeColorMap? themeColors = null)
         {
             _part = part;
+            _themeColors = themeColors;
         }
 
         public OpenXmlPart? Part => _part;
@@ -7350,22 +7552,38 @@ public sealed class DocxImporter
             if (!string.IsNullOrWhiteSpace(svgEmbed)
                 && _part.GetPartById(svgEmbed) is ImagePart svgPart)
             {
-                return CreateImageFromPart(svgPart, drawing);
+                var image = CreateImageFromPart(svgPart, drawing);
+                image.Effects = ParseDrawingEffects(drawing, _themeColors);
+                return image;
             }
 
             var blip = drawing.Descendants<DocumentFormat.OpenXml.Drawing.Blip>().FirstOrDefault();
             var embed = blip?.Embed?.Value;
             if (string.IsNullOrWhiteSpace(embed))
             {
-                return CreateDrawingPlaceholder(drawing);
+                var placeholder = CreateDrawingPlaceholder(drawing);
+                if (placeholder is not null)
+                {
+                    placeholder.Effects = ParseDrawingEffects(drawing, _themeColors);
+                }
+
+                return placeholder;
             }
 
             if (_part.GetPartById(embed) is not ImagePart imagePart)
             {
-                return CreateDrawingPlaceholder(drawing);
+                var placeholder = CreateDrawingPlaceholder(drawing);
+                if (placeholder is not null)
+                {
+                    placeholder.Effects = ParseDrawingEffects(drawing, _themeColors);
+                }
+
+                return placeholder;
             }
 
-            return CreateImageFromPart(imagePart, drawing);
+            var inline = CreateImageFromPart(imagePart, drawing);
+            inline.Effects = ParseDrawingEffects(drawing, _themeColors);
+            return inline;
         }
 
         public ImageInline? TryCreateImageFromVml(OpenXmlElement element)
@@ -7399,7 +7617,12 @@ public sealed class DocxImporter
             stream.CopyTo(memory);
             var data = memory.ToArray();
 
-            return new ImageInline(data, width, height, imagePart.ContentType);
+            var inline = new ImageInline(data, width, height, imagePart.ContentType)
+            {
+                Effects = ParseDrawingEffects(element, _themeColors)
+            };
+
+            return inline;
         }
 
         private static float EmuToDip(long emu)
