@@ -98,12 +98,34 @@ internal static class KnuthPlassLineBreaker
         }
     }
 
+    private readonly struct TextStyleGridKey : IEquatable<TextStyleGridKey>
+    {
+        private readonly TextStyleKey _styleKey;
+        private readonly float _gridSpacing;
+
+        public TextStyleGridKey(TextStyle style, float gridSpacing)
+        {
+            _styleKey = new TextStyleKey(style);
+            _gridSpacing = gridSpacing;
+        }
+
+        public bool Equals(TextStyleGridKey other)
+        {
+            return _styleKey.Equals(other._styleKey) && _gridSpacing.Equals(other._gridSpacing);
+        }
+
+        public override bool Equals(object? obj) => obj is TextStyleGridKey other && Equals(other);
+
+        public override int GetHashCode() => HashCode.Combine(_styleKey, _gridSpacing);
+    }
+
     public static bool TryBreakParagraph(
         string text,
         IReadOnlyList<InlineSpan> spans,
         float firstLineWidth,
         float otherLineWidth,
         ITextMeasurer measurer,
+        float charGridSpacing,
         out List<ParagraphLineBreak> breaks)
     {
         breaks = new List<ParagraphLineBreak>();
@@ -112,7 +134,7 @@ internal static class KnuthPlassLineBreaker
             return false;
         }
 
-        if (!TryBuildLineBreakNodes(text, spans, measurer, out var nodes))
+        if (!TryBuildLineBreakNodes(text, spans, measurer, charGridSpacing, out var nodes))
         {
             return false;
         }
@@ -130,12 +152,13 @@ internal static class KnuthPlassLineBreaker
         string text,
         IReadOnlyList<InlineSpan> spans,
         ITextMeasurer measurer,
+        float charGridSpacing,
         out List<LineBreakNode> nodes)
     {
         nodes = new List<LineBreakNode>();
-        var wordWidthCache = new Dictionary<TextStyleKey, Dictionary<TextSliceKey, float>>();
-        var spaceWidthCache = new Dictionary<TextStyleKey, float>();
-        var hyphenWidthCache = new Dictionary<TextStyleKey, float>();
+        var wordWidthCache = new Dictionary<TextStyleGridKey, Dictionary<TextSliceKey, float>>();
+        var spaceWidthCache = new Dictionary<TextStyleGridKey, float>();
+        var hyphenWidthCache = new Dictionary<TextStyleGridKey, float>();
         var mathLayoutEngine = SharedMathLayoutEngine;
         var atParagraphStart = true;
 
@@ -197,7 +220,7 @@ internal static class KnuthPlassLineBreaker
                     }
 
                     var spaceCount = index - spaceStart;
-                    var spaceWidth = MeasureSpace(span.Style, measurer, spaceWidthCache) * spaceCount;
+                    var spaceWidth = MeasureSpace(span.Style, measurer, charGridSpacing, spaceWidthCache) * spaceCount;
                     if (spaceCount > 0)
                     {
                         var offset = segmentStartOffset + spaceStart;
@@ -225,7 +248,7 @@ internal static class KnuthPlassLineBreaker
 
                 var wordLength = index - wordStart;
                 var wordOffset = segmentStartOffset + wordStart;
-                AddWordNodes(segmentText, wordStart, wordLength, wordOffset, span.Style, span.BaselineOffset, measurer, hyphenator, wordWidthCache, hyphenWidthCache, nodes);
+                AddWordNodes(segmentText, wordStart, wordLength, wordOffset, span.Style, span.BaselineOffset, measurer, charGridSpacing, hyphenator, wordWidthCache, hyphenWidthCache, nodes);
                 atParagraphStart = false;
             }
         }
@@ -242,9 +265,10 @@ internal static class KnuthPlassLineBreaker
         TextStyle style,
         float baselineOffset,
         ITextMeasurer measurer,
+        float charGridSpacing,
         Hyphenator? hyphenator,
-        Dictionary<TextStyleKey, Dictionary<TextSliceKey, float>> wordWidthCache,
-        Dictionary<TextStyleKey, float> hyphenWidthCache,
+        Dictionary<TextStyleGridKey, Dictionary<TextSliceKey, float>> wordWidthCache,
+        Dictionary<TextStyleGridKey, float> hyphenWidthCache,
         List<LineBreakNode> nodes)
     {
         if (string.IsNullOrEmpty(source) || length <= 0)
@@ -255,11 +279,11 @@ internal static class KnuthPlassLineBreaker
         var wordSpan = source.AsSpan(start, length);
         if (TextScript.ContainsEastAsian(wordSpan))
         {
-            AddCjkNodes(source, start, length, wordOffset, style, baselineOffset, measurer, wordWidthCache, nodes);
+            AddCjkNodes(source, start, length, wordOffset, style, baselineOffset, measurer, charGridSpacing, wordWidthCache, nodes);
             return;
         }
 
-        if (TryAddBreakableNodes(source, start, length, wordOffset, style, baselineOffset, measurer, wordWidthCache, nodes))
+        if (TryAddBreakableNodes(source, start, length, wordOffset, style, baselineOffset, measurer, charGridSpacing, wordWidthCache, nodes))
         {
             return;
         }
@@ -269,7 +293,7 @@ internal static class KnuthPlassLineBreaker
             : Array.Empty<int>();
         if (hyphenPoints.Length == 0)
         {
-            var width = MeasureTextCached(source, start, length, style, measurer, wordWidthCache);
+            var width = MeasureTextCached(source, start, length, style, measurer, charGridSpacing, wordWidthCache);
             nodes.Add(LineBreakNode.Box(width, wordOffset, length));
             return;
         }
@@ -283,10 +307,10 @@ internal static class KnuthPlassLineBreaker
             }
 
             var segmentLength = point - segmentStart;
-            var segmentWidth = MeasureTextCached(source, start + segmentStart, segmentLength, style, measurer, wordWidthCache);
+            var segmentWidth = MeasureTextCached(source, start + segmentStart, segmentLength, style, measurer, charGridSpacing, wordWidthCache);
             nodes.Add(LineBreakNode.Box(segmentWidth, wordOffset + segmentStart, segmentLength));
 
-            var hyphenWidth = MeasureHyphenCached(style, measurer, hyphenWidthCache);
+            var hyphenWidth = MeasureHyphenCached(style, measurer, charGridSpacing, hyphenWidthCache);
             nodes.Add(LineBreakNode.PenaltyNode(hyphenWidth, KnuthPlassHyphenPenalty, true, wordOffset + point, style, baselineOffset));
             segmentStart = point;
         }
@@ -294,7 +318,7 @@ internal static class KnuthPlassLineBreaker
         if (segmentStart < length)
         {
             var segmentLength = length - segmentStart;
-            var segmentWidth = MeasureTextCached(source, start + segmentStart, segmentLength, style, measurer, wordWidthCache);
+            var segmentWidth = MeasureTextCached(source, start + segmentStart, segmentLength, style, measurer, charGridSpacing, wordWidthCache);
             nodes.Add(LineBreakNode.Box(segmentWidth, wordOffset + segmentStart, segmentLength));
         }
     }
@@ -339,7 +363,8 @@ internal static class KnuthPlassLineBreaker
         TextStyle style,
         float baselineOffset,
         ITextMeasurer measurer,
-        Dictionary<TextStyleKey, Dictionary<TextSliceKey, float>> wordWidthCache,
+        float charGridSpacing,
+        Dictionary<TextStyleGridKey, Dictionary<TextSliceKey, float>> wordWidthCache,
         List<LineBreakNode> nodes)
     {
         var span = source.AsSpan(start, length);
@@ -347,7 +372,7 @@ internal static class KnuthPlassLineBreaker
         while (index < span.Length)
         {
             var clusterLength = GetNextClusterLength(span, index);
-            var width = MeasureTextCached(source, start + index, clusterLength, style, measurer, wordWidthCache);
+            var width = MeasureTextCached(source, start + index, clusterLength, style, measurer, charGridSpacing, wordWidthCache);
             nodes.Add(LineBreakNode.Box(width, wordOffset + index, clusterLength));
             index += clusterLength;
             if (index < span.Length)
@@ -365,7 +390,8 @@ internal static class KnuthPlassLineBreaker
         TextStyle style,
         float baselineOffset,
         ITextMeasurer measurer,
-        Dictionary<TextStyleKey, Dictionary<TextSliceKey, float>> wordWidthCache,
+        float charGridSpacing,
+        Dictionary<TextStyleGridKey, Dictionary<TextSliceKey, float>> wordWidthCache,
         List<LineBreakNode> nodes)
     {
         var span = source.AsSpan(start, length);
@@ -397,7 +423,7 @@ internal static class KnuthPlassLineBreaker
             var segmentLength = i + 1 - segmentStart;
             if (segmentLength > 0)
             {
-                var width = MeasureTextCached(source, start + segmentStart, segmentLength, style, measurer, wordWidthCache);
+                var width = MeasureTextCached(source, start + segmentStart, segmentLength, style, measurer, charGridSpacing, wordWidthCache);
                 nodes.Add(LineBreakNode.Box(width, wordOffset + segmentStart, segmentLength));
             }
 
@@ -408,7 +434,7 @@ internal static class KnuthPlassLineBreaker
         if (segmentStart < length)
         {
             var segmentLength = length - segmentStart;
-            var width = MeasureTextCached(source, start + segmentStart, segmentLength, style, measurer, wordWidthCache);
+            var width = MeasureTextCached(source, start + segmentStart, segmentLength, style, measurer, charGridSpacing, wordWidthCache);
             nodes.Add(LineBreakNode.Box(width, wordOffset + segmentStart, segmentLength));
         }
 
@@ -426,9 +452,10 @@ internal static class KnuthPlassLineBreaker
         int length,
         TextStyle style,
         ITextMeasurer measurer,
-        Dictionary<TextStyleKey, Dictionary<TextSliceKey, float>> cache)
+        float charGridSpacing,
+        Dictionary<TextStyleGridKey, Dictionary<TextSliceKey, float>> cache)
     {
-        var key = new TextStyleKey(style);
+        var key = new TextStyleGridKey(style, charGridSpacing);
         if (!cache.TryGetValue(key, out var map))
         {
             map = new Dictionary<TextSliceKey, float>();
@@ -442,9 +469,7 @@ internal static class KnuthPlassLineBreaker
         }
 
         var span = source.AsSpan(start, length);
-        width = measurer is ITextMeasurerSpan spanMeasurer
-            ? spanMeasurer.MeasureText(span, style).Width
-            : measurer.MeasureText(span.ToString(), style).Width;
+        width = TextGridSnapping.MeasureText(span, style, measurer, charGridSpacing);
         map[slice] = width;
         return width;
     }
@@ -452,17 +477,33 @@ internal static class KnuthPlassLineBreaker
     private static float MeasureHyphenCached(
         TextStyle style,
         ITextMeasurer measurer,
-        Dictionary<TextStyleKey, float> cache)
+        float charGridSpacing,
+        Dictionary<TextStyleGridKey, float> cache)
     {
-        var key = new TextStyleKey(style);
+        var key = new TextStyleGridKey(style, charGridSpacing);
         if (cache.TryGetValue(key, out var width))
         {
             return width;
         }
 
-        width = measurer is ITextMeasurerSpan spanMeasurer
-            ? spanMeasurer.MeasureText("-".AsSpan(), style).Width
-            : measurer.MeasureText("-", style).Width;
+        width = TextGridSnapping.MeasureText("-".AsSpan(), style, measurer, charGridSpacing);
+        cache[key] = width;
+        return width;
+    }
+
+    private static float MeasureSpace(
+        TextStyle style,
+        ITextMeasurer measurer,
+        float charGridSpacing,
+        Dictionary<TextStyleGridKey, float> cache)
+    {
+        var key = new TextStyleGridKey(style, charGridSpacing);
+        if (cache.TryGetValue(key, out var width))
+        {
+            return width;
+        }
+
+        width = TextGridSnapping.MeasureText(" ".AsSpan(), style, measurer, charGridSpacing);
         cache[key] = width;
         return width;
     }
@@ -786,18 +827,4 @@ internal static class KnuthPlassLineBreaker
         return nodes.Count > 0 ? nodes[^1].TextOffset : 0;
     }
 
-    private static float MeasureSpace(TextStyle style, ITextMeasurer measurer, Dictionary<TextStyleKey, float> cache)
-    {
-        var key = new TextStyleKey(style);
-        if (cache.TryGetValue(key, out var width))
-        {
-            return width;
-        }
-
-        width = measurer is ITextMeasurerSpan spanMeasurer
-            ? spanMeasurer.MeasureText(" ".AsSpan(), style).Width
-            : measurer.MeasureText(" ", style).Width;
-        cache[key] = width;
-        return width;
-    }
 }

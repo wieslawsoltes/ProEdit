@@ -404,6 +404,8 @@ public sealed class DocumentLayouter
                     line.Shapes,
                     line.Charts,
                     line.Equations,
+                    line.Rubies,
+                    line.TextDirection,
                     true,
                     line.IsRtl));
             }
@@ -857,6 +859,11 @@ public sealed class DocumentLayouter
             var paragraphLineStart = lines.Count;
             WrapResolver? wrapResolver = wrapFloatingObjects.Count == 0 ? null : ResolveWrapBounds;
             var (text, spans) = BuildInlineSpans(paragraph, paragraphStyle, styleResolver);
+            var charGridSpacing = TextGridSnapping.GetCharacterSpacing(pageSettings.DocGrid);
+            if (DocTextDirectionHelpers.IsVertical(properties.TextDirection))
+            {
+                return LayoutVerticalParagraphLines(text, spans);
+            }
             var lineStartY = cursorY + spacingBefore;
             var paragraphLines = BuildParagraphLines(
                 text,
@@ -874,13 +881,14 @@ public sealed class DocumentLayouter
                 measurer,
                 lineHeight,
                 ascent,
+                pageSettings.DocGrid,
                 wrapResolver);
 
             if (paragraphLines.Count == 0)
             {
                 var lineX = columnX + indentLeft + listIndent + firstLineIndent + prefixWidth;
                 var lineRight = columnX + columnWidth - indentRight;
-                var (emptyLineHeight, emptyAscent) = ApplyLineSpacing(lineHeight, ascent, properties);
+                var (emptyLineHeight, emptyAscent) = ApplyLineSpacing(lineHeight, ascent, properties, pageSettings.DocGrid);
                 var emptyIsRtl = ResolveLineIsRtl(properties, TextSlice.Empty);
                 if (cursorY + spacingBefore + emptyLineHeight > contentBottom && cursorY > columnTop)
                 {
@@ -918,7 +926,15 @@ public sealed class DocumentLayouter
                 }
 
                 var alignedX = ApplyAlignment(lineX, 0f, MathF.Max(1f, lineRight - lineX), alignment);
-                AddLine(new LayoutLine(paragraphIndex, 0, 0, alignedX, cursorY, 0, TextSlice.Empty, prefix, prefixWidth, emptyLineHeight, emptyAscent, Array.Empty<LayoutRun>(), Array.Empty<LayoutImage>(), Array.Empty<LayoutShape>(), Array.Empty<LayoutChart>(), Array.Empty<LayoutEquation>(), false, emptyIsRtl));
+                (alignedX, cursorY) = ApplyDocGridSnapping(
+                    alignedX,
+                    cursorY,
+                    emptyAscent,
+                    properties.TextDirection,
+                    pageSettings.DocGrid,
+                    lineX,
+                    columnTop);
+                AddLine(new LayoutLine(paragraphIndex, 0, 0, alignedX, cursorY, 0, TextSlice.Empty, prefix, prefixWidth, emptyLineHeight, emptyAscent, Array.Empty<LayoutRun>(), Array.Empty<LayoutImage>(), Array.Empty<LayoutShape>(), Array.Empty<LayoutChart>(), Array.Empty<LayoutEquation>(), Array.Empty<LayoutRuby>(), properties.TextDirection, false, emptyIsRtl));
                 cursorY += emptyLineHeight;
                 cursorY += spacingAfter;
                 return new LineRange(paragraphLineStart, lines.Count - paragraphLineStart);
@@ -1037,10 +1053,18 @@ public sealed class DocumentLayouter
                     var isLastLine = IsLastParagraphLine(text, line.Start + line.Length);
                     if (alignment == ParagraphAlignment.Justify && !isLastLine)
                     {
-                        lineLayout = JustifyLineLayout(lineLayout, availableWidth, measurer);
+                        lineLayout = JustifyLineLayout(lineLayout, availableWidth, measurer, charGridSpacing);
                     }
 
                     var alignedX = ApplyAlignment(lineLeft, lineLayout.Width, availableWidth, alignment);
+                    (alignedX, currentY) = ApplyDocGridSnapping(
+                        alignedX,
+                        currentY,
+                        lineLayout.Ascent,
+                        properties.TextDirection,
+                        pageSettings.DocGrid,
+                        lineLeft,
+                        columnTop);
                     var isRtl = ResolveLineIsRtl(properties, line.TextSlice);
                     AddLine(new LayoutLine(
                         paragraphIndex,
@@ -1053,14 +1077,16 @@ public sealed class DocumentLayouter
                         line.IsFirstLine ? prefix : null,
                         line.IsFirstLine ? prefixWidth : 0f,
                         lineLayout.LineHeight,
-                        lineLayout.Ascent,
-                        lineLayout.Runs,
-                        lineLayout.Images,
-                        lineLayout.Shapes,
-                        lineLayout.Charts,
-                        lineLayout.Equations,
-                        false,
-                        isRtl));
+                    lineLayout.Ascent,
+                    lineLayout.Runs,
+                    lineLayout.Images,
+                    lineLayout.Shapes,
+                    lineLayout.Charts,
+                    lineLayout.Equations,
+                    lineLayout.Rubies,
+                    properties.TextDirection,
+                    false,
+                    isRtl));
                     cursorY = currentY + lineLayout.LineHeight;
                 }
 
@@ -1074,6 +1100,240 @@ public sealed class DocumentLayouter
 
             cursorY += spacingAfter;
             return new LineRange(paragraphLineStart, lines.Count - paragraphLineStart);
+
+            LineRange LayoutVerticalParagraphLines(string paragraphText, IReadOnlyList<InlineSpan> paragraphSpans)
+            {
+                var verticalLineStart = lines.Count;
+                if (string.IsNullOrEmpty(paragraphText))
+                {
+                    var (emptyLineHeight, emptyAscent) = ApplyLineSpacing(lineHeight, ascent, properties, pageSettings.DocGrid);
+                    if (cursorY + spacingBefore + emptyLineHeight > contentBottom && cursorY > columnTop)
+                    {
+                        StartNewColumnOrPage();
+                    }
+
+                    cursorY += spacingBefore;
+                    var emptyAxisOrigin = cursorY;
+                    var lineAxisStart = emptyAxisOrigin + indentLeft + listIndent + firstLineIndent + prefixWidth;
+                    var lineAxisLength = MathF.Max(1f, contentBottom - lineAxisStart - indentRight);
+                    var alignment = properties.Alignment;
+                    if (!alignment.HasValue && properties.Bidi == true)
+                    {
+                        alignment = ParagraphAlignment.Right;
+                    }
+
+                    var lineX = columnX;
+                    if (wrapResolver is not null)
+                    {
+                        var adjustedAxisStart = ApplyTopBottomWrap(lineAxisStart, emptyLineHeight);
+                        var wrap = ResolveWrapForLine(ref adjustedAxisStart, emptyLineHeight, columnX, columnX + columnWidth, wrapResolver);
+                        var axisShift = adjustedAxisStart - lineAxisStart;
+                        if (axisShift > 0f)
+                        {
+                            emptyAxisOrigin += axisShift;
+                            lineAxisStart = adjustedAxisStart;
+                            lineAxisLength = MathF.Max(1f, contentBottom - lineAxisStart - indentRight);
+                        }
+
+                        var maxX = wrap.Right - emptyLineHeight;
+                        if (maxX < wrap.Left)
+                        {
+                            maxX = wrap.Left;
+                        }
+
+                        lineX = Math.Clamp(lineX, wrap.Left, maxX);
+                    }
+
+                    var alignedY = ApplyAlignment(lineAxisStart, 0f, lineAxisLength, alignment);
+                    (lineX, alignedY) = ApplyDocGridSnapping(
+                        lineX,
+                        alignedY,
+                        emptyAscent,
+                        properties.TextDirection,
+                        pageSettings.DocGrid,
+                        lineAxisStart,
+                        columnX);
+                    var emptyIsRtl = ResolveLineIsRtl(properties, TextSlice.Empty);
+                    AddLine(new LayoutLine(
+                        paragraphIndex,
+                        0,
+                        0,
+                        lineX,
+                        alignedY,
+                        0f,
+                        TextSlice.Empty,
+                        prefix,
+                        prefixWidth,
+                        emptyLineHeight,
+                        emptyAscent,
+                        Array.Empty<LayoutRun>(),
+                        Array.Empty<LayoutImage>(),
+                        Array.Empty<LayoutShape>(),
+                        Array.Empty<LayoutChart>(),
+                        Array.Empty<LayoutEquation>(),
+                        Array.Empty<LayoutRuby>(),
+                        properties.TextDirection,
+                        false,
+                        emptyIsRtl));
+                    cursorY = alignedY + emptyLineHeight + spacingAfter;
+                    return new LineRange(verticalLineStart, lines.Count - verticalLineStart);
+                }
+
+                var availableLength = MathF.Max(1f, contentBottom - columnTop);
+                var verticalLines = BuildParagraphLines(
+                    paragraphText,
+                    paragraphSpans,
+                    indentLeft,
+                    indentRight,
+                    firstLineIndent,
+                    listIndent,
+                    prefixWidth,
+                    properties,
+                    availableLength,
+                    0f,
+                    0f,
+                    settings,
+                    measurer,
+                    lineHeight,
+                    ascent,
+                    pageSettings.DocGrid,
+                    null);
+
+                if (verticalLines.Count == 0)
+                {
+                    return new LineRange(verticalLineStart, 0);
+                }
+
+                var maxLineLength = 0f;
+                foreach (var line in verticalLines)
+                {
+                    maxLineLength = MathF.Max(maxLineLength, line.Layout.Width);
+                }
+
+                var paragraphAxisHeight = spacingBefore + maxLineLength + spacingAfter;
+                var pageContentHeight = contentBottom - columnTop;
+                if ((keepLinesTogether || keepWithNext)
+                    && paragraphAxisHeight + nextBlockMinHeight <= pageContentHeight
+                    && cursorY + paragraphAxisHeight + nextBlockMinHeight > contentBottom
+                    && cursorY > columnTop)
+                {
+                    StartNewColumnOrPage();
+                }
+
+                var spacingBeforeApplied = false;
+                var lineAxisOrigin = cursorY;
+                var currentX = columnX;
+                var maxLineAxisEnd = cursorY;
+                for (var i = 0; i < verticalLines.Count; i++)
+                {
+                    var line = verticalLines[i];
+                    var lineLayout = line.Layout;
+
+                    if (!spacingBeforeApplied)
+                    {
+                        if (cursorY + spacingBefore + lineLayout.Width > contentBottom && cursorY > columnTop)
+                        {
+                            StartNewColumnOrPage();
+                        }
+
+                        cursorY += spacingBefore;
+                        lineAxisOrigin = cursorY;
+                        maxLineAxisEnd = lineAxisOrigin;
+                        spacingBeforeApplied = true;
+                    }
+                    else if (lineAxisOrigin + lineLayout.Width > contentBottom && lineAxisOrigin > columnTop)
+                    {
+                        StartNewColumnOrPage();
+                        currentX = columnX;
+                        lineAxisOrigin = columnTop;
+                        maxLineAxisEnd = lineAxisOrigin;
+                    }
+
+                    if (currentX + lineLayout.LineHeight > columnX + columnWidth && currentX > columnX)
+                    {
+                        StartNewColumnOrPage();
+                        currentX = columnX;
+                        lineAxisOrigin = columnTop;
+                        maxLineAxisEnd = lineAxisOrigin;
+                    }
+
+                    var baseAxisStart = lineAxisOrigin + indentLeft + listIndent + (line.IsFirstLine ? firstLineIndent : 0f) + prefixWidth;
+                    var lineAxisStart = baseAxisStart;
+                    var lineAxisLength = MathF.Max(1f, contentBottom - lineAxisStart - indentRight);
+                    var lineX = currentX;
+
+                    var alignment = properties.Alignment;
+                    if (!alignment.HasValue && properties.Bidi == true)
+                    {
+                        alignment = ParagraphAlignment.Right;
+                    }
+
+                    var isLastLine = IsLastParagraphLine(paragraphText, line.Start + line.Length);
+                    if (alignment == ParagraphAlignment.Justify && !isLastLine)
+                    {
+                        lineLayout = JustifyLineLayout(lineLayout, lineAxisLength, measurer, charGridSpacing);
+                    }
+
+                    if (wrapResolver is not null)
+                    {
+                        var adjustedAxisStart = ApplyTopBottomWrap(lineAxisStart, lineLayout.Width);
+                        var wrap = ResolveWrapForLine(ref adjustedAxisStart, lineLayout.Width, columnX, columnX + columnWidth, wrapResolver);
+                        var axisShift = adjustedAxisStart - baseAxisStart;
+                        if (axisShift > 0f)
+                        {
+                            lineAxisOrigin += axisShift;
+                            lineAxisStart = adjustedAxisStart;
+                            lineAxisLength = MathF.Max(1f, contentBottom - lineAxisStart - indentRight);
+                        }
+
+                        var maxX = wrap.Right - lineLayout.LineHeight;
+                        if (maxX < wrap.Left)
+                        {
+                            maxX = wrap.Left;
+                        }
+
+                        lineX = Math.Clamp(lineX, wrap.Left, maxX);
+                    }
+
+                    var alignedY = ApplyAlignment(lineAxisStart, lineLayout.Width, lineAxisLength, alignment);
+                    (lineX, alignedY) = ApplyDocGridSnapping(
+                        lineX,
+                        alignedY,
+                        lineLayout.Ascent,
+                        properties.TextDirection,
+                        pageSettings.DocGrid,
+                        lineAxisStart,
+                        columnX);
+                    var isRtl = ResolveLineIsRtl(properties, line.TextSlice);
+                    AddLine(new LayoutLine(
+                        paragraphIndex,
+                        line.Start,
+                        line.Length,
+                        lineX,
+                        alignedY,
+                        lineLayout.Width,
+                        line.TextSlice,
+                        line.IsFirstLine ? prefix : null,
+                        line.IsFirstLine ? prefixWidth : 0f,
+                        lineLayout.LineHeight,
+                        lineLayout.Ascent,
+                        lineLayout.Runs,
+                        lineLayout.Images,
+                        lineLayout.Shapes,
+                        lineLayout.Charts,
+                        lineLayout.Equations,
+                        lineLayout.Rubies,
+                        properties.TextDirection,
+                        false,
+                        isRtl));
+
+                    maxLineAxisEnd = MathF.Max(maxLineAxisEnd, alignedY + lineLayout.Width);
+                    currentX = lineX + lineLayout.LineHeight;
+                }
+
+                cursorY = maxLineAxisEnd + spacingAfter;
+                return new LineRange(verticalLineStart, lines.Count - verticalLineStart);
+            }
         }
 
         bool RequiresParagraphReflow(IReadOnlyList<FloatingLayoutObject> floatingObjects)
@@ -1366,7 +1626,7 @@ public sealed class DocumentLayouter
                     lineIndex,
                     line.X,
                     line.Y,
-                    line.LineHeight,
+                    GetLineBlockHeight(line),
                     line.ParagraphIndex,
                     line.StartOffset));
             }
@@ -1586,7 +1846,7 @@ public sealed class DocumentLayouter
             var runs = new[] { new LayoutRun(label, textStyle, 0f, width, label.Length, false, 0f) };
             var isRtl = TextBidi.ResolveBaseIsRtl(textSlice.Span, null);
             AddLine(new LayoutLine(-1, 0, label.Length, columnX, cursorY, width, textSlice, null, 0f, lineHeight, ascent,
-                runs, Array.Empty<LayoutImage>(), Array.Empty<LayoutShape>(), Array.Empty<LayoutChart>(), Array.Empty<LayoutEquation>(), false, isRtl));
+                runs, Array.Empty<LayoutImage>(), Array.Empty<LayoutShape>(), Array.Empty<LayoutChart>(), Array.Empty<LayoutEquation>(), Array.Empty<LayoutRuby>(), null, false, isRtl));
 
             cursorY += lineHeight + spacingAfter;
         }
@@ -1621,7 +1881,7 @@ public sealed class DocumentLayouter
             var keepLinesTogether = properties.KeepLinesTogether == true;
             var widowControl = properties.WidowControl ?? true;
             var nextBlockMinHeight = keepWithNext
-                ? EstimateNextBlockMinHeight(blockIndex, blocks, document, styleResolver, settings, measurer, style, columnWidth, lineHeight, ascent)
+                ? EstimateNextBlockMinHeight(blockIndex, blocks, document, styleResolver, settings, measurer, style, columnWidth, lineHeight, ascent, pageSettings.DocGrid)
                 : 0f;
 
             var canReflow = paragraph.FloatingObjects.Count > 0;
@@ -1767,7 +2027,7 @@ public sealed class DocumentLayouter
             var tableStyle = styleResolver.ResolveTableStyle(table);
             var resolvedTableProperties = MergeTableProperties(tableStyle?.TableProperties, table.Properties);
             var tableLook = ResolveTableLook(table.Properties.Look ?? tableStyle?.TableProperties.Look);
-            var data = ComputeTableLayoutData(table, document, resolvedTableProperties, table.Properties, tableStyle, tableLook, columnWidth, settings, measurer, style, styleResolver, lineHeight, ascent, ref paragraphIndex);
+            var data = ComputeTableLayoutData(table, document, resolvedTableProperties, table.Properties, tableStyle, tableLook, columnWidth, settings, measurer, style, styleResolver, lineHeight, ascent, pageSettings.DocGrid, ref paragraphIndex);
             return new TableLayoutPlan(table, resolvedTableProperties, data, tableX);
         }
 
@@ -1917,6 +2177,7 @@ public sealed class DocumentLayouter
                     headerFooterContentWidth,
                     lineHeight,
                     ascent,
+                    section.DocGrid,
                     pageNumber,
                     totalPages);
                 var footerLayout = LayoutHeaderFooterBlocks(
@@ -1929,6 +2190,7 @@ public sealed class DocumentLayouter
                     headerFooterContentWidth,
                     lineHeight,
                     ascent,
+                    section.DocGrid,
                     pageNumber,
                     totalPages);
 
@@ -2304,13 +2566,14 @@ public sealed class DocumentLayouter
         TextStyle style,
         DocumentStyleResolver styleResolver,
         float lineHeight,
-        float ascent)
+        float ascent,
+        DocGridSettings? docGrid)
     {
         var tableStyle = styleResolver.ResolveTableStyle(table);
         var resolvedTableProperties = MergeTableProperties(tableStyle?.TableProperties, table.Properties);
         var tableLook = ResolveTableLook(table.Properties.Look ?? tableStyle?.TableProperties.Look);
         var paragraphIndex = 0;
-        var data = ComputeTableLayoutData(table, document, resolvedTableProperties, table.Properties, tableStyle, tableLook, contentWidth, settings, measurer, style, styleResolver, lineHeight, ascent, ref paragraphIndex);
+        var data = ComputeTableLayoutData(table, document, resolvedTableProperties, table.Properties, tableStyle, tableLook, contentWidth, settings, measurer, style, styleResolver, lineHeight, ascent, docGrid, ref paragraphIndex);
         return BuildTableLayout(table, resolvedTableProperties, data, tableX, tableY, 0, data.RowHeights.Length, settings);
     }
 
@@ -2374,6 +2637,7 @@ public sealed class DocumentLayouter
         DocumentStyleResolver styleResolver,
         float lineHeight,
         float ascent,
+        DocGridSettings? docGrid,
         ref int paragraphIndex)
     {
         var rows = table.Rows;
@@ -2472,9 +2736,9 @@ public sealed class DocumentLayouter
                 if (!placement.IsMergeContinuation)
                 {
                     var spanWidth = SumColumns(columnWidths, placement.ColumnIndex, placement.ColumnSpan);
-                    var cellLines = LayoutCellParagraphs(placement.Cell, document, spanWidth, placement.Padding, settings, measurer, style, styleResolver, lineHeight, ascent, ref paragraphIndex);
+                    var cellLines = LayoutCellParagraphs(placement.Cell, document, spanWidth, placement.Padding, settings, measurer, style, styleResolver, lineHeight, ascent, docGrid, ref paragraphIndex);
                     placement.Lines = cellLines;
-                    placement.ContentHeight = cellLines.Count == 0 ? 0f : cellLines.Last().Y + cellLines.Last().LineHeight;
+                    placement.ContentHeight = cellLines.Count == 0 ? 0f : cellLines.Last().Y + GetLineBlockHeight(cellLines.Last());
 
                     if (placement.RowSpan <= 1)
                     {
@@ -2626,7 +2890,7 @@ public sealed class DocumentLayouter
             var cellBoundsOrigin = new DocRect(cellXOrigin, cellYOrigin, cellWidthOrigin, cellHeightOrigin);
             var lines = placement.Lines;
             var offsetLines = new List<TableCellLine>(lines.Count);
-            var contentHeight = lines.Count == 0 ? 0f : lines.Last().Y + lines.Last().LineHeight;
+            var contentHeight = lines.Count == 0 ? 0f : lines.Last().Y + GetLineBlockHeight(lines.Last());
             var availableHeight = MathF.Max(0f, cellHeightOrigin - placement.Padding.Vertical);
             var verticalOffset = 0f;
             if (contentHeight < availableHeight)
@@ -2658,6 +2922,8 @@ public sealed class DocumentLayouter
                     line.Shapes,
                     line.Charts,
                     line.Equations,
+                    line.Rubies,
+                    line.TextDirection,
                     line.IsRtl));
             }
 
@@ -2726,18 +2992,21 @@ public sealed class DocumentLayouter
         DocumentStyleResolver styleResolver,
         float lineHeight,
         float ascent,
+        DocGridSettings? docGrid,
         ref int paragraphIndex)
     {
         var availableWidth = MathF.Max(1f, columnWidth - padding.Horizontal);
         var lines = new List<TableCellLine>();
         var y = 0f;
         var listState = new ListNumberingState(document);
+        var charGridSpacing = TextGridSnapping.GetCharacterSpacing(docGrid);
         ParagraphBlock? previousParagraph = null;
 
         foreach (var paragraph in cell.Paragraphs)
         {
             var currentParagraphIndex = paragraphIndex;
             var properties = styleResolver.ResolveParagraphProperties(paragraph);
+            var textDirection = properties.TextDirection ?? cell.Properties.TextDirection;
             var paragraphStyle = styleResolver.ResolveParagraphTextStyle(paragraph, style);
             var spacingBefore = properties.SpacingBefore ?? settings.ParagraphSpacing;
             if (properties.ContextualSpacing == true && previousParagraph is not null)
@@ -2760,14 +3029,158 @@ public sealed class DocumentLayouter
             var listIndent = listMarker?.Indent ?? 0f;
             var prefixWidth = listMarker?.PrefixWidth ?? 0f;
 
+            if (DocTextDirectionHelpers.IsVertical(textDirection))
+            {
+                var (verticalText, verticalSpans) = BuildInlineSpans(paragraph, paragraphStyle, styleResolver);
+                var (emptyLineHeight, emptyAscent) = ApplyLineSpacing(lineHeight, ascent, properties, docGrid);
+                if (string.IsNullOrEmpty(verticalText))
+                {
+                    y += spacingBefore;
+                    var emptyAxisOrigin = y;
+                    var lineAxisStart = emptyAxisOrigin + indentLeft + listIndent + firstLineIndent + prefixWidth;
+                    var lineAxisLength = 1f;
+                    var alignment = properties.Alignment;
+                    if (!alignment.HasValue && properties.Bidi == true)
+                    {
+                        alignment = ParagraphAlignment.Right;
+                    }
+
+                    var alignedY = ApplyAlignment(lineAxisStart, 0f, lineAxisLength, alignment);
+                    var lineX = 0f;
+                    (lineX, alignedY) = ApplyDocGridSnapping(
+                        lineX,
+                        alignedY,
+                        emptyAscent,
+                        textDirection,
+                        docGrid,
+                        lineAxisStart,
+                        0f);
+                    var emptyIsRtl = ResolveLineIsRtl(properties, TextSlice.Empty);
+                    lines.Add(new TableCellLine(
+                        currentParagraphIndex,
+                        0,
+                        0,
+                        lineX,
+                        alignedY,
+                        0f,
+                        TextSlice.Empty,
+                        prefix,
+                        prefixWidth,
+                        emptyLineHeight,
+                        emptyAscent,
+                        Array.Empty<LayoutRun>(),
+                        Array.Empty<LayoutImage>(),
+                        Array.Empty<LayoutShape>(),
+                        Array.Empty<LayoutChart>(),
+                        Array.Empty<LayoutEquation>(),
+                        Array.Empty<LayoutRuby>(),
+                        textDirection,
+                        emptyIsRtl));
+                    y = emptyAxisOrigin + emptyLineHeight + spacingAfter;
+                    paragraphIndex++;
+                    previousParagraph = paragraph;
+                    continue;
+                }
+
+                var availableLength = MathF.Max(1f, float.MaxValue / 4f);
+                var verticalLines = BuildParagraphLines(
+                    verticalText,
+                    verticalSpans,
+                    indentLeft,
+                    indentRight,
+                    firstLineIndent,
+                    listIndent,
+                    prefixWidth,
+                    properties,
+                    availableLength,
+                    0f,
+                    0f,
+                    settings,
+                    measurer,
+                    lineHeight,
+                    ascent,
+                    docGrid,
+                    null);
+
+                y += spacingBefore;
+                var verticalAxisOrigin = y;
+                var currentX = 0f;
+                var maxLineAxisEnd = verticalAxisOrigin;
+                foreach (var line in verticalLines)
+                {
+                    var lineLayout = line.Layout;
+                    var lineAxisStart = verticalAxisOrigin + indentLeft + listIndent + (line.IsFirstLine ? firstLineIndent : 0f) + prefixWidth;
+                    var lineAxisLength = MathF.Max(1f, lineLayout.Width);
+                    var alignment = properties.Alignment;
+                    if (!alignment.HasValue && properties.Bidi == true)
+                    {
+                        alignment = ParagraphAlignment.Right;
+                    }
+
+                    var isLastLine = IsLastParagraphLine(verticalText, line.Start + line.Length);
+                    if (alignment == ParagraphAlignment.Justify && !isLastLine)
+                    {
+                        lineLayout = JustifyLineLayout(lineLayout, lineAxisLength, measurer, charGridSpacing);
+                    }
+
+                    var alignedY = ApplyAlignment(lineAxisStart, lineLayout.Width, lineAxisLength, alignment);
+                    var lineX = currentX;
+                    (lineX, alignedY) = ApplyDocGridSnapping(
+                        lineX,
+                        alignedY,
+                        lineLayout.Ascent,
+                        textDirection,
+                        docGrid,
+                        lineAxisStart,
+                        0f);
+                    var lineSlice = new TextSlice(verticalText, line.Start, line.Length);
+                    var isRtl = ResolveLineIsRtl(properties, lineSlice);
+                    lines.Add(new TableCellLine(
+                        currentParagraphIndex,
+                        line.Start,
+                        line.Length,
+                        lineX,
+                        alignedY,
+                        lineLayout.Width,
+                        lineSlice,
+                        line.IsFirstLine ? prefix : null,
+                        line.IsFirstLine ? prefixWidth : 0f,
+                        lineLayout.LineHeight,
+                        lineLayout.Ascent,
+                        lineLayout.Runs,
+                        lineLayout.Images,
+                        lineLayout.Shapes,
+                        lineLayout.Charts,
+                        lineLayout.Equations,
+                        lineLayout.Rubies,
+                        textDirection,
+                        isRtl));
+                    maxLineAxisEnd = MathF.Max(maxLineAxisEnd, alignedY + lineLayout.Width);
+                    currentX = lineX + lineLayout.LineHeight;
+                }
+
+                y = maxLineAxisEnd + spacingAfter;
+                paragraphIndex++;
+                previousParagraph = paragraph;
+                continue;
+            }
+
             y += spacingBefore;
 
             var (text, spans) = BuildInlineSpans(paragraph, paragraphStyle, styleResolver);
             if (text.Length == 0)
             {
                 var lineX = indentLeft + listIndent + firstLineIndent + prefixWidth;
-                var (emptyLineHeight, emptyAscent) = ApplyLineSpacing(lineHeight, ascent, properties);
+                var (emptyLineHeight, emptyAscent) = ApplyLineSpacing(lineHeight, ascent, properties, docGrid);
                 var emptyIsRtl = ResolveLineIsRtl(properties, TextSlice.Empty);
+                (lineX, y) = ApplyDocGridSnapping(
+                    lineX,
+                    y,
+                    emptyAscent,
+                    textDirection,
+                    docGrid,
+                    lineX,
+                    0f);
                 lines.Add(new TableCellLine(
                     currentParagraphIndex,
                     0,
@@ -2785,6 +3198,8 @@ public sealed class DocumentLayouter
                     Array.Empty<LayoutShape>(),
                     Array.Empty<LayoutChart>(),
                     Array.Empty<LayoutEquation>(),
+                    Array.Empty<LayoutRuby>(),
+                    textDirection,
                     emptyIsRtl));
                 y += emptyLineHeight;
                 y += spacingAfter;
@@ -2796,7 +3211,7 @@ public sealed class DocumentLayouter
             var firstLineWidth = MathF.Max(1f, baseWidth - firstLineIndent);
             var otherLineWidth = MathF.Max(1f, baseWidth);
             var isFirstLine = true;
-            foreach (var line in WrapParagraph(text, spans, firstLineWidth, otherLineWidth, properties, settings, measurer))
+            foreach (var line in WrapParagraph(text, spans, firstLineWidth, otherLineWidth, properties, settings, measurer, charGridSpacing))
             {
                 var lineIndent = indentLeft + listIndent + (isFirstLine ? firstLineIndent : 0f);
                 var lineBaseX = lineIndent + prefixWidth;
@@ -2808,11 +3223,12 @@ public sealed class DocumentLayouter
                     settings.DefaultTabWidth,
                     measurer,
                     lineHeight,
-                    ascent);
-                lineLayout = ApplyLineSpacing(lineLayout, properties);
+                    ascent,
+                    charGridSpacing);
+                lineLayout = ApplyLineSpacing(lineLayout, properties, docGrid);
                 if (line.HasHyphen && line.HyphenStyle is not null)
                 {
-                    lineLayout = AppendHyphenRun(lineLayout, line.HyphenStyle, line.HyphenBaselineOffset, measurer);
+                    lineLayout = AppendHyphenRun(lineLayout, line.HyphenStyle, line.HyphenBaselineOffset, measurer, charGridSpacing);
                 }
                 var alignment = properties.Alignment;
                 if (!alignment.HasValue && properties.Bidi == true)
@@ -2823,10 +3239,18 @@ public sealed class DocumentLayouter
                 var alignWidth = availableWidth - lineIndent - indentRight - prefixWidth;
                 if (alignment == ParagraphAlignment.Justify && !isLastLine)
                 {
-                    lineLayout = JustifyLineLayout(lineLayout, alignWidth, measurer);
+                    lineLayout = JustifyLineLayout(lineLayout, alignWidth, measurer, charGridSpacing);
                 }
 
                 var alignedX = ApplyAlignment(lineBaseX, lineLayout.Width, alignWidth, alignment);
+                (alignedX, y) = ApplyDocGridSnapping(
+                    alignedX,
+                    y,
+                    lineLayout.Ascent,
+                    textDirection,
+                    docGrid,
+                    lineBaseX,
+                    0f);
                 var lineSlice = new TextSlice(text, line.Start, line.Length);
                 var isRtl = ResolveLineIsRtl(properties, lineSlice);
                 lines.Add(new TableCellLine(
@@ -2846,6 +3270,8 @@ public sealed class DocumentLayouter
                     lineLayout.Shapes,
                     lineLayout.Charts,
                     lineLayout.Equations,
+                    lineLayout.Rubies,
+                    textDirection,
                     isRtl));
                 y += lineLayout.LineHeight;
                 isFirstLine = false;
@@ -2866,7 +3292,8 @@ public sealed class DocumentLayouter
         float otherLineWidth,
         ParagraphProperties properties,
         LayoutSettings settings,
-        ITextMeasurer measurer)
+        ITextMeasurer measurer,
+        float charGridSpacing)
     {
         return ParagraphLineBreaker.BreakParagraph(
             text,
@@ -2874,7 +3301,8 @@ public sealed class DocumentLayouter
             firstLineWidth,
             otherLineWidth,
             measurer,
-            (start, length) => MeasureInlineSpans(spans, start, length, properties.TabStops, settings.DefaultTabWidth, measurer));
+            charGridSpacing,
+            (start, length) => MeasureInlineSpans(spans, start, length, properties.TabStops, settings.DefaultTabWidth, measurer, charGridSpacing));
     }
 
     private static int FindLineLength(string text, int start, float maxWidth, Func<int, int, float> measureWidth)
@@ -2923,6 +3351,7 @@ public sealed class DocumentLayouter
         ITextMeasurer measurer,
         float lineHeight,
         float ascent,
+        DocGridSettings? docGrid,
         WrapResolver? wrapResolver)
     {
         var lines = new List<ParagraphLine>();
@@ -2931,6 +3360,7 @@ public sealed class DocumentLayouter
             return lines;
         }
 
+        var charGridSpacing = TextGridSnapping.GetCharacterSpacing(docGrid);
         var lineTop = startY;
         if (wrapResolver is null)
         {
@@ -2940,7 +3370,7 @@ public sealed class DocumentLayouter
             var otherLineWidth = MathF.Max(1f, baseRight - baseLeft);
             var isFirstLineLocal = true;
 
-            foreach (var line in WrapParagraph(text, spans, firstLineWidth, otherLineWidth, properties, settings, measurer))
+            foreach (var line in WrapParagraph(text, spans, firstLineWidth, otherLineWidth, properties, settings, measurer, charGridSpacing))
             {
                 var lineLayout = BuildLineLayout(
                     spans,
@@ -2950,11 +3380,12 @@ public sealed class DocumentLayouter
                     settings.DefaultTabWidth,
                     measurer,
                     lineHeight,
-                    ascent);
-                lineLayout = ApplyLineSpacing(lineLayout, properties);
+                    ascent,
+                    charGridSpacing);
+                lineLayout = ApplyLineSpacing(lineLayout, properties, docGrid);
                 if (line.HasHyphen && line.HyphenStyle is not null)
                 {
-                    lineLayout = AppendHyphenRun(lineLayout, line.HyphenStyle, line.HyphenBaselineOffset, measurer);
+                    lineLayout = AppendHyphenRun(lineLayout, line.HyphenStyle, line.HyphenBaselineOffset, measurer, charGridSpacing);
                 }
 
                 lines.Add(new ParagraphLine(line.Start, line.Length, new TextSlice(text, line.Start, line.Length), lineLayout, isFirstLineLocal));
@@ -2983,7 +3414,7 @@ public sealed class DocumentLayouter
 
             var maxWidth = MathF.Max(1f, baseRight - baseLeft);
             var length = FindLineLength(text, start, maxWidth,
-                (offset, runLength) => MeasureInlineSpans(spans, offset, runLength, properties.TabStops, settings.DefaultTabWidth, measurer));
+                (offset, runLength) => MeasureInlineSpans(spans, offset, runLength, properties.TabStops, settings.DefaultTabWidth, measurer, charGridSpacing));
             var textSlice = new TextSlice(text, start, length);
 
             var lineLayout = BuildLineLayout(
@@ -2994,8 +3425,9 @@ public sealed class DocumentLayouter
                 settings.DefaultTabWidth,
                 measurer,
                 lineHeight,
-                ascent);
-            lineLayout = ApplyLineSpacing(lineLayout, properties);
+                ascent,
+                charGridSpacing);
+            lineLayout = ApplyLineSpacing(lineLayout, properties, docGrid);
             lines.Add(new ParagraphLine(start, length, textSlice, lineLayout, isFirstLine));
             lineTop += lineLayout.LineHeight;
             start += length;
@@ -3048,7 +3480,8 @@ public sealed class DocumentLayouter
         TextStyle defaultStyle,
         float contentWidth,
         float lineHeight,
-        float ascent)
+        float ascent,
+        DocGridSettings? docGrid)
     {
         if (blockIndex + 1 >= blocks.Count)
         {
@@ -3065,6 +3498,8 @@ public sealed class DocumentLayouter
         {
             var properties = styleResolver.ResolveParagraphProperties(nextParagraph);
             var paragraphStyle = styleResolver.ResolveParagraphTextStyle(nextParagraph, defaultStyle);
+            var isVertical = DocTextDirectionHelpers.IsVertical(properties.TextDirection);
+            var charGridSpacing = TextGridSnapping.GetCharacterSpacing(docGrid);
             var spacingBefore = properties.SpacingBefore ?? settings.ParagraphSpacing;
             var indentLeft = properties.IndentLeft ?? 0f;
             var indentRight = properties.IndentRight ?? 0f;
@@ -3075,18 +3510,18 @@ public sealed class DocumentLayouter
             var (text, spans) = BuildInlineSpans(nextParagraph, paragraphStyle, styleResolver);
             if (string.IsNullOrEmpty(text))
             {
-                var (emptyLineHeight, _) = ApplyLineSpacing(lineHeight, ascent, properties);
+                var (emptyLineHeight, _) = ApplyLineSpacing(lineHeight, ascent, properties, docGrid);
                 return spacingBefore + emptyLineHeight;
             }
 
             var baseWidth = MathF.Max(1f, contentWidth - indentLeft - indentRight - listIndent - prefixWidth);
             var firstLineWidth = MathF.Max(1f, baseWidth - firstLineIndent);
             var otherLineWidth = MathF.Max(1f, baseWidth);
-            var firstLine = WrapParagraph(text, spans, firstLineWidth, otherLineWidth, properties, settings, measurer)
+            var firstLine = WrapParagraph(text, spans, firstLineWidth, otherLineWidth, properties, settings, measurer, charGridSpacing)
                 .FirstOrDefault();
             if (firstLine.Length == 0)
             {
-                var (emptyLineHeight, _) = ApplyLineSpacing(lineHeight, ascent, properties);
+                var (emptyLineHeight, _) = ApplyLineSpacing(lineHeight, ascent, properties, docGrid);
                 return spacingBefore + emptyLineHeight;
             }
 
@@ -3098,9 +3533,11 @@ public sealed class DocumentLayouter
                 settings.DefaultTabWidth,
                 measurer,
                 lineHeight,
-                ascent);
-            lineLayout = ApplyLineSpacing(lineLayout, properties);
-            return spacingBefore + lineLayout.LineHeight;
+                ascent,
+                charGridSpacing);
+            lineLayout = ApplyLineSpacing(lineLayout, properties, docGrid);
+            var lineExtent = isVertical ? lineLayout.Width : lineLayout.LineHeight;
+            return spacingBefore + lineExtent;
         }
 
         if (nextBlock is TableBlock table)
@@ -3109,7 +3546,7 @@ public sealed class DocumentLayouter
             var resolvedTableProperties = MergeTableProperties(tableStyle?.TableProperties, table.Properties);
             var tableLook = ResolveTableLook(table.Properties.Look ?? tableStyle?.TableProperties.Look);
             var paragraphIndex = 0;
-            var data = ComputeTableLayoutData(table, document, resolvedTableProperties, table.Properties, tableStyle, tableLook, contentWidth, settings, measurer, defaultStyle, styleResolver, lineHeight, ascent, ref paragraphIndex);
+            var data = ComputeTableLayoutData(table, document, resolvedTableProperties, table.Properties, tableStyle, tableLook, contentWidth, settings, measurer, defaultStyle, styleResolver, lineHeight, ascent, docGrid, ref paragraphIndex);
             return data.RowHeights.Length > 0 ? data.RowHeights[0] : lineHeight;
         }
 
@@ -3184,11 +3621,39 @@ public sealed class DocumentLayouter
                     AppendContent(text, runStyle);
                     break;
                 }
+                case RubyInline rubyInline:
+                {
+                    var baseText = rubyInline.BaseText;
+                    if (string.IsNullOrEmpty(baseText))
+                    {
+                        break;
+                    }
+
+                    var baseStyle = styleResolver.ResolveRunStyle(rubyInline.BaseStyleId, rubyInline.BaseStyle, paragraphStyle);
+                    var rubyStyle = styleResolver.ResolveRunStyle(rubyInline.RubyStyleId, rubyInline.RubyStyle, baseStyle);
+                    var rubyScale = rubyInline.RubyScale > 0f ? rubyInline.RubyScale : 0.5f;
+                    if (rubyScale != 1f)
+                    {
+                        rubyStyle.FontSize = MathF.Max(1f, rubyStyle.FontSize * rubyScale);
+                        if (rubyStyle.FontSizeComplexScript.HasValue)
+                        {
+                            rubyStyle.FontSizeComplexScript = MathF.Max(1f, rubyStyle.FontSizeComplexScript.Value * rubyScale);
+                        }
+                    }
+
+                    var (effectiveBaseStyle, baselineOffset) = PrepareRunStyle(baseStyle);
+                    var (effectiveRubyStyle, _) = PrepareRunStyle(rubyStyle);
+                    var start = builder.Length;
+                    builder.Append(baseText);
+                    spansList.Add(new InlineSpan(start, baseText.Length, baseText, effectiveBaseStyle, null, null, null, null, rubyInline, effectiveRubyStyle, baselineOffset));
+                    MarkContent();
+                    break;
+                }
                 case ImageInline imageInline:
                 {
                     var start = builder.Length;
                     builder.Append(DocumentConstants.ObjectReplacementChar);
-                    spansList.Add(new InlineSpan(start, 1, string.Empty, paragraphStyle, imageInline, null, null, null, 0f));
+                    spansList.Add(new InlineSpan(start, 1, string.Empty, paragraphStyle, imageInline, null, null, null, null, null, 0f));
                     MarkContent();
                     break;
                 }
@@ -3196,7 +3661,7 @@ public sealed class DocumentLayouter
                 {
                     var start = builder.Length;
                     builder.Append(DocumentConstants.ObjectReplacementChar);
-                    spansList.Add(new InlineSpan(start, 1, string.Empty, paragraphStyle, null, shapeInline, null, null, 0f));
+                    spansList.Add(new InlineSpan(start, 1, string.Empty, paragraphStyle, null, shapeInline, null, null, null, null, 0f));
                     MarkContent();
                     break;
                 }
@@ -3204,7 +3669,7 @@ public sealed class DocumentLayouter
                 {
                     var start = builder.Length;
                     builder.Append(DocumentConstants.ObjectReplacementChar);
-                    spansList.Add(new InlineSpan(start, 1, string.Empty, paragraphStyle, null, null, chartInline, null, 0f));
+                    spansList.Add(new InlineSpan(start, 1, string.Empty, paragraphStyle, null, null, chartInline, null, null, null, 0f));
                     MarkContent();
                     break;
                 }
@@ -3213,7 +3678,7 @@ public sealed class DocumentLayouter
                     var start = builder.Length;
                     builder.Append(DocumentConstants.ObjectReplacementChar);
                     var equationStyle = styleResolver.ResolveRunStyle(equationInline.StyleId, equationInline.Style, paragraphStyle);
-                    spansList.Add(new InlineSpan(start, 1, string.Empty, equationStyle, null, null, null, equationInline, 0f));
+                    spansList.Add(new InlineSpan(start, 1, string.Empty, equationStyle, null, null, null, equationInline, null, null, 0f));
                     MarkContent();
                     break;
                 }
@@ -3554,7 +4019,7 @@ public sealed class DocumentLayouter
         {
             var start = builder.Length;
             builder.Append(text);
-            spans.Add(new InlineSpan(start, text.Length, text, style, null, null, null, null, baselineOffset));
+            spans.Add(new InlineSpan(start, text.Length, text, style, null, null, null, null, null, null, baselineOffset));
             return;
         }
 
@@ -3577,7 +4042,7 @@ public sealed class DocumentLayouter
 
             var segmentText = segmentBuilder.ToString();
             var segmentStyle = currentSmallCaps.Value ? smallCapsStyle : normalStyle;
-            spans.Add(new InlineSpan(segmentStart, segmentText.Length, segmentText, segmentStyle, null, null, null, null, baselineOffset));
+            spans.Add(new InlineSpan(segmentStart, segmentText.Length, segmentText, segmentStyle, null, null, null, null, null, null, baselineOffset));
             segmentBuilder.Clear();
         }
 
@@ -3646,6 +4111,9 @@ public sealed class DocumentLayouter
             {
                 case RunInline runInline:
                     AppendLength(runInline.GetText());
+                    break;
+                case RubyInline rubyInline:
+                    AppendLength(rubyInline.BaseText);
                     break;
                 case ImageInline:
                     length += 1;
@@ -3718,6 +4186,7 @@ public sealed class DocumentLayouter
         float contentWidth,
         float lineHeight,
         float ascent,
+        DocGridSettings? docGrid,
         int pageNumber,
         int totalPages)
     {
@@ -3727,6 +4196,7 @@ public sealed class DocumentLayouter
         }
 
         var lines = new List<HeaderFooterLine>();
+        var charGridSpacing = TextGridSnapping.GetCharacterSpacing(docGrid);
         var y = 0f;
         var listState = new ListNumberingState(document);
         ParagraphBlock? previousParagraph = null;
@@ -3761,15 +4231,135 @@ public sealed class DocumentLayouter
             var listIndent = listMarker?.Indent ?? 0f;
             var prefixWidth = listMarker?.PrefixWidth ?? 0f;
 
+            if (DocTextDirectionHelpers.IsVertical(properties.TextDirection))
+            {
+                var (verticalText, verticalSpans) = BuildInlineSpans(paragraph, paragraphStyle, styleResolver, pageNumber, totalPages);
+                var (emptyLineHeight, emptyAscent) = ApplyLineSpacing(lineHeight, ascent, properties, docGrid);
+                if (string.IsNullOrEmpty(verticalText))
+                {
+                    y += spacingBefore;
+                    var emptyAxisOrigin = y;
+                    var lineAxisStart = emptyAxisOrigin + indentLeft + listIndent + firstLineIndent + prefixWidth;
+                    var lineAxisLength = 1f;
+                    var alignment = properties.Alignment;
+                    if (!alignment.HasValue && properties.Bidi == true)
+                    {
+                        alignment = ParagraphAlignment.Right;
+                    }
+
+                    var alignedY = ApplyAlignment(lineAxisStart, 0f, lineAxisLength, alignment);
+                    var lineX = 0f;
+                    (lineX, alignedY) = ApplyDocGridSnapping(
+                        lineX,
+                        alignedY,
+                        emptyAscent,
+                        properties.TextDirection,
+                        docGrid,
+                        lineAxisStart,
+                        0f);
+                    var emptyIsRtl = ResolveLineIsRtl(properties, TextSlice.Empty);
+                    lines.Add(new HeaderFooterLine(lineX, alignedY, 0f, TextSlice.Empty, prefix, prefixWidth, emptyLineHeight, emptyAscent, Array.Empty<LayoutRun>(), Array.Empty<LayoutImage>(), Array.Empty<LayoutShape>(), Array.Empty<LayoutChart>(), Array.Empty<LayoutEquation>(), Array.Empty<LayoutRuby>(), properties.TextDirection, emptyIsRtl));
+                    y = emptyAxisOrigin + emptyLineHeight + spacingAfter;
+                    previousParagraph = paragraph;
+                    continue;
+                }
+
+                var availableLength = MathF.Max(1f, float.MaxValue / 4f);
+                var verticalLines = BuildParagraphLines(
+                    verticalText,
+                    verticalSpans,
+                    indentLeft,
+                    indentRight,
+                    firstLineIndent,
+                    listIndent,
+                    prefixWidth,
+                    properties,
+                    availableLength,
+                    0f,
+                    0f,
+                    settings,
+                    measurer,
+                    lineHeight,
+                    ascent,
+                    docGrid,
+                    null);
+
+                y += spacingBefore;
+                var verticalAxisOrigin = y;
+                var currentX = 0f;
+                var maxLineAxisEnd = verticalAxisOrigin;
+                foreach (var line in verticalLines)
+                {
+                    var lineLayout = line.Layout;
+                    var lineAxisStart = verticalAxisOrigin + indentLeft + listIndent + (line.IsFirstLine ? firstLineIndent : 0f) + prefixWidth;
+                    var lineAxisLength = MathF.Max(1f, lineLayout.Width);
+                    var alignment = properties.Alignment;
+                    if (!alignment.HasValue && properties.Bidi == true)
+                    {
+                        alignment = ParagraphAlignment.Right;
+                    }
+
+                    var isLastLine = IsLastParagraphLine(verticalText, line.Start + line.Length);
+                    if (alignment == ParagraphAlignment.Justify && !isLastLine)
+                    {
+                        lineLayout = JustifyLineLayout(lineLayout, lineAxisLength, measurer, charGridSpacing);
+                    }
+
+                    var alignedY = ApplyAlignment(lineAxisStart, lineLayout.Width, lineAxisLength, alignment);
+                    var lineX = currentX;
+                    (lineX, alignedY) = ApplyDocGridSnapping(
+                        lineX,
+                        alignedY,
+                        lineLayout.Ascent,
+                        properties.TextDirection,
+                        docGrid,
+                        lineAxisStart,
+                        0f);
+                    var lineSlice = new TextSlice(verticalText, line.Start, line.Length);
+                    var isRtl = ResolveLineIsRtl(properties, lineSlice);
+                    lines.Add(new HeaderFooterLine(
+                        lineX,
+                        alignedY,
+                        lineLayout.Width,
+                        lineSlice,
+                        line.IsFirstLine ? prefix : null,
+                        line.IsFirstLine ? prefixWidth : 0f,
+                        lineLayout.LineHeight,
+                        lineLayout.Ascent,
+                        lineLayout.Runs,
+                        lineLayout.Images,
+                        lineLayout.Shapes,
+                        lineLayout.Charts,
+                        lineLayout.Equations,
+                        lineLayout.Rubies,
+                        properties.TextDirection,
+                        isRtl));
+                    maxLineAxisEnd = MathF.Max(maxLineAxisEnd, alignedY + lineLayout.Width);
+                    currentX = lineX + lineLayout.LineHeight;
+                }
+
+                y = maxLineAxisEnd + spacingAfter;
+                previousParagraph = paragraph;
+                continue;
+            }
+
             y += spacingBefore;
 
             var (text, spans) = BuildInlineSpans(paragraph, paragraphStyle, styleResolver, pageNumber, totalPages);
             if (text.Length == 0)
             {
                 var lineX = indentLeft + listIndent + firstLineIndent + prefixWidth;
-                var (emptyLineHeight, emptyAscent) = ApplyLineSpacing(lineHeight, ascent, properties);
+                var (emptyLineHeight, emptyAscent) = ApplyLineSpacing(lineHeight, ascent, properties, docGrid);
                 var emptyIsRtl = ResolveLineIsRtl(properties, TextSlice.Empty);
-                lines.Add(new HeaderFooterLine(lineX, y, 0f, TextSlice.Empty, prefix, prefixWidth, emptyLineHeight, emptyAscent, Array.Empty<LayoutRun>(), Array.Empty<LayoutImage>(), Array.Empty<LayoutShape>(), Array.Empty<LayoutChart>(), Array.Empty<LayoutEquation>(), emptyIsRtl));
+                (lineX, y) = ApplyDocGridSnapping(
+                    lineX,
+                    y,
+                    emptyAscent,
+                    properties.TextDirection,
+                    docGrid,
+                    lineX,
+                    0f);
+                lines.Add(new HeaderFooterLine(lineX, y, 0f, TextSlice.Empty, prefix, prefixWidth, emptyLineHeight, emptyAscent, Array.Empty<LayoutRun>(), Array.Empty<LayoutImage>(), Array.Empty<LayoutShape>(), Array.Empty<LayoutChart>(), Array.Empty<LayoutEquation>(), Array.Empty<LayoutRuby>(), properties.TextDirection, emptyIsRtl));
                 y += emptyLineHeight;
                 y += spacingAfter;
                 continue;
@@ -3779,7 +4369,7 @@ public sealed class DocumentLayouter
             var firstLineWidth = MathF.Max(1f, baseWidth - firstLineIndent);
             var otherLineWidth = MathF.Max(1f, baseWidth);
             var isFirstLine = true;
-            foreach (var line in WrapParagraph(text, spans, firstLineWidth, otherLineWidth, properties, settings, measurer))
+            foreach (var line in WrapParagraph(text, spans, firstLineWidth, otherLineWidth, properties, settings, measurer, charGridSpacing))
             {
                 var lineIndent = indentLeft + listIndent + (isFirstLine ? firstLineIndent : 0f);
                 var lineBaseX = lineIndent + prefixWidth;
@@ -3791,11 +4381,12 @@ public sealed class DocumentLayouter
                     settings.DefaultTabWidth,
                     measurer,
                     lineHeight,
-                    ascent);
-                lineLayout = ApplyLineSpacing(lineLayout, properties);
+                    ascent,
+                    charGridSpacing);
+                lineLayout = ApplyLineSpacing(lineLayout, properties, docGrid);
                 if (line.HasHyphen && line.HyphenStyle is not null)
                 {
-                    lineLayout = AppendHyphenRun(lineLayout, line.HyphenStyle, line.HyphenBaselineOffset, measurer);
+                    lineLayout = AppendHyphenRun(lineLayout, line.HyphenStyle, line.HyphenBaselineOffset, measurer, charGridSpacing);
                 }
                 var alignment = properties.Alignment;
                 if (!alignment.HasValue && properties.Bidi == true)
@@ -3806,10 +4397,18 @@ public sealed class DocumentLayouter
                 var alignWidth = contentWidth - lineIndent - indentRight - prefixWidth;
                 if (alignment == ParagraphAlignment.Justify && !isLastLine)
                 {
-                    lineLayout = JustifyLineLayout(lineLayout, alignWidth, measurer);
+                    lineLayout = JustifyLineLayout(lineLayout, alignWidth, measurer, charGridSpacing);
                 }
 
                 var alignedX = ApplyAlignment(lineBaseX, lineLayout.Width, alignWidth, alignment);
+                (alignedX, y) = ApplyDocGridSnapping(
+                    alignedX,
+                    y,
+                    lineLayout.Ascent,
+                    properties.TextDirection,
+                    docGrid,
+                    lineBaseX,
+                    0f);
                 var lineSlice = new TextSlice(text, line.Start, line.Length);
                 var isRtl = ResolveLineIsRtl(properties, lineSlice);
                 lines.Add(new HeaderFooterLine(
@@ -3826,6 +4425,8 @@ public sealed class DocumentLayouter
                     lineLayout.Shapes,
                     lineLayout.Charts,
                     lineLayout.Equations,
+                    lineLayout.Rubies,
+                    properties.TextDirection,
                     isRtl));
                 y += lineLayout.LineHeight;
                 isFirstLine = false;
@@ -3928,6 +4529,7 @@ public sealed class DocumentLayouter
                 contentWidth,
                 lineHeight,
                 ascent,
+                section.DocGrid,
                 pageNumber,
                 totalPages);
 
@@ -3964,15 +4566,16 @@ public sealed class DocumentLayouter
         int length,
         IReadOnlyList<TabStopDefinition> tabStops,
         float defaultTabWidth,
-        ITextMeasurer measurer)
+        ITextMeasurer measurer,
+        float charGridSpacing)
     {
         if (length <= 0)
         {
             return 0f;
         }
 
-        var items = CollectLineItems(spans, start, length, measurer);
-        return MeasureLineItems(items, tabStops, defaultTabWidth, measurer);
+        var items = CollectLineItems(spans, start, length, measurer, charGridSpacing);
+        return MeasureLineItems(items, tabStops, defaultTabWidth, measurer, charGridSpacing);
     }
 
     private static LineLayout BuildLineLayout(
@@ -3983,19 +4586,22 @@ public sealed class DocumentLayouter
         float defaultTabWidth,
         ITextMeasurer measurer,
         float defaultLineHeight,
-        float defaultAscent)
+        float defaultAscent,
+        float charGridSpacing)
     {
         var runs = new List<LayoutRun>();
         var images = new List<LayoutImage>();
         var shapes = new List<LayoutShape>();
         var charts = new List<LayoutChart>();
         var equations = new List<LayoutEquation>();
-        var items = CollectLineItems(spans, start, length, measurer);
+        var rubies = new List<LayoutRuby>();
+        var items = CollectLineItems(spans, start, length, measurer, charGridSpacing);
         var x = 0f;
         var maxAscent = defaultAscent;
         var maxDescent = MathF.Max(0f, defaultLineHeight - defaultAscent);
         var maxImageHeight = 0f;
         var metricsCache = new Dictionary<TextStyleKey, TextMetrics>();
+        var offset = 0;
 
         for (var i = 0; i < items.Count; i++)
         {
@@ -4012,6 +4618,33 @@ public sealed class DocumentLayouter
 
                     runs.Add(new LayoutRun(item.Text, item.Style, x, item.Width, item.Text.Length, false, item.BaselineOffset));
                     x += item.Width;
+                    offset += item.Text.Length;
+                    break;
+                }
+                case LineItemKind.Ruby:
+                {
+                    var baseMetrics = GetMetrics(item.Style, measurer, metricsCache);
+                    var ascent = MathF.Max(0f, baseMetrics.Ascent + item.BaselineOffset);
+                    var descent = MathF.Max(0f, baseMetrics.Descent - item.BaselineOffset);
+                    maxAscent = MathF.Max(maxAscent, ascent);
+                    maxDescent = MathF.Max(maxDescent, descent);
+
+                    var baseWidth = TextGridSnapping.MeasureText(item.Text, item.Style, measurer, charGridSpacing);
+                    runs.Add(new LayoutRun(item.Text, item.Style, x, baseWidth, item.Text.Length, false, item.BaselineOffset));
+
+                    var rubyStyle = item.RubyStyle ?? item.Style;
+                    if (!string.IsNullOrEmpty(item.RubyText))
+                    {
+                        var rubyMetrics = GetMetrics(rubyStyle, measurer, metricsCache);
+                        var gap = MathF.Max(0f, item.Style.FontSize * 0.1f);
+                        var rubyBaselineOffset = -(ascent + gap + rubyMetrics.Descent);
+                        var rubyAscent = ascent + gap + rubyMetrics.Height;
+                        maxAscent = MathF.Max(maxAscent, rubyAscent);
+                        rubies.Add(new LayoutRuby(offset, item.Text.Length, item.RubyText, rubyStyle, rubyBaselineOffset));
+                    }
+
+                    x += item.Width;
+                    offset += item.Text.Length;
                     break;
                 }
                 case LineItemKind.Image:
@@ -4021,6 +4654,7 @@ public sealed class DocumentLayouter
                     images.Add(new LayoutImage(item.Image!, x, width, height, 1));
                     x += width;
                     maxImageHeight = MathF.Max(maxImageHeight, height);
+                    offset += 1;
                     break;
                 }
                 case LineItemKind.Shape:
@@ -4030,6 +4664,7 @@ public sealed class DocumentLayouter
                     shapes.Add(new LayoutShape(item.Shape!, x, width, height, 1));
                     x += width;
                     maxImageHeight = MathF.Max(maxImageHeight, height);
+                    offset += 1;
                     break;
                 }
                 case LineItemKind.Chart:
@@ -4039,6 +4674,7 @@ public sealed class DocumentLayouter
                     charts.Add(new LayoutChart(item.Chart!, x, width, height, 1));
                     x += width;
                     maxImageHeight = MathF.Max(maxImageHeight, height);
+                    offset += 1;
                     break;
                 }
                 case LineItemKind.Equation:
@@ -4050,16 +4686,18 @@ public sealed class DocumentLayouter
                     x += width;
                     maxAscent = MathF.Max(maxAscent, layout.Baseline);
                     maxDescent = MathF.Max(maxDescent, MathF.Max(0f, height - layout.Baseline));
+                    offset += 1;
                     break;
                 }
                 case LineItemKind.Tab:
                 {
                     var tabStop = ResolveNextTabStop(x, tabStops, defaultTabWidth);
                     var nextTabIndex = FindNextTabIndex(items, i + 1);
-                    var (fieldWidth, widthBeforeDecimal) = MeasureTabField(items, i + 1, nextTabIndex, measurer);
+                    var (fieldWidth, widthBeforeDecimal) = MeasureTabField(items, i + 1, nextTabIndex, measurer, charGridSpacing);
                     var tabWidth = ComputeTabWidth(tabStop, x, fieldWidth, widthBeforeDecimal);
                     runs.Add(new LayoutRun(string.Empty, item.Style, x, tabWidth, 1, true, item.BaselineOffset, tabStop.Leader));
                     x += tabWidth;
+                    offset += 1;
                     break;
                 }
             }
@@ -4070,12 +4708,12 @@ public sealed class DocumentLayouter
         var lineAscent = MathF.Max(defaultAscent, maxAscent);
         lineAscent = MathF.Max(lineAscent, maxImageHeight);
 
-        return new LineLayout(runs, images, shapes, charts, equations, x, lineHeight, lineAscent);
+        return new LineLayout(runs, images, shapes, charts, equations, rubies, x, lineHeight, lineAscent);
     }
 
-    private static LineLayout ApplyLineSpacing(LineLayout layout, ParagraphProperties properties)
+    private static LineLayout ApplyLineSpacing(LineLayout layout, ParagraphProperties properties, DocGridSettings? docGrid)
     {
-        var targetHeight = ComputeLineHeight(layout.LineHeight, properties);
+        var targetHeight = ComputeLineHeight(layout.LineHeight, properties, docGrid);
         if (MathF.Abs(targetHeight - layout.LineHeight) < 0.01f)
         {
             return layout;
@@ -4086,11 +4724,9 @@ public sealed class DocumentLayouter
         return layout with { LineHeight = targetHeight, Ascent = ascent };
     }
 
-    private static LineLayout AppendHyphenRun(LineLayout layout, TextStyle style, float baselineOffset, ITextMeasurer measurer)
+    private static LineLayout AppendHyphenRun(LineLayout layout, TextStyle style, float baselineOffset, ITextMeasurer measurer, float charGridSpacing)
     {
-        var width = measurer is ITextMeasurerSpan spanMeasurer
-            ? spanMeasurer.MeasureText("-".AsSpan(), style).Width
-            : measurer.MeasureText("-", style).Width;
+        var width = TextGridSnapping.MeasureText("-".AsSpan(), style, measurer, charGridSpacing);
         if (width <= 0f)
         {
             return layout;
@@ -4102,9 +4738,9 @@ public sealed class DocumentLayouter
         return layout with { Runs = runs, Width = layout.Width + width };
     }
 
-    private static (float LineHeight, float Ascent) ApplyLineSpacing(float lineHeight, float ascent, ParagraphProperties properties)
+    private static (float LineHeight, float Ascent) ApplyLineSpacing(float lineHeight, float ascent, ParagraphProperties properties, DocGridSettings? docGrid)
     {
-        var targetHeight = ComputeLineHeight(lineHeight, properties);
+        var targetHeight = ComputeLineHeight(lineHeight, properties, docGrid);
         if (MathF.Abs(targetHeight - lineHeight) < 0.01f)
         {
             return (lineHeight, ascent);
@@ -4114,10 +4750,15 @@ public sealed class DocumentLayouter
         return (targetHeight, ascent * scale);
     }
 
-    private static float ComputeLineHeight(float baseHeight, ParagraphProperties properties)
+    private static float ComputeLineHeight(float baseHeight, ParagraphProperties properties, DocGridSettings? docGrid)
     {
         if (!properties.LineSpacing.HasValue)
         {
+            if (docGrid?.LinePitch is > 0f && docGrid.Type != DocGridType.Default)
+            {
+                return MathF.Max(1f, docGrid.LinePitch.Value);
+            }
+
             return baseHeight;
         }
 
@@ -4140,6 +4781,93 @@ public sealed class DocumentLayouter
             : MathF.Max(1f, lineDip);
     }
 
+    private static float GetLineBlockHeight(TableCellLine line)
+    {
+        return DocTextDirectionHelpers.IsVertical(line.TextDirection) ? line.Width : line.LineHeight;
+    }
+
+    private static float GetLineBlockHeight(LayoutLine line)
+    {
+        return DocTextDirectionHelpers.IsVertical(line.TextDirection) ? line.Width : line.LineHeight;
+    }
+
+    private static (float X, float Y) ApplyDocGridSnapping(
+        float x,
+        float y,
+        float ascent,
+        DocTextDirection? textDirection,
+        DocGridSettings? docGrid,
+        float lineAxisOrigin,
+        float stackAxisOrigin)
+    {
+        if (docGrid is null || !docGrid.HasValues)
+        {
+            return (x, y);
+        }
+
+        var isVertical = DocTextDirectionHelpers.IsVertical(textDirection);
+        if (ShouldSnapLinePitch(docGrid))
+        {
+            var pitch = docGrid.LinePitch!.Value;
+            if (!isVertical)
+            {
+                y = SnapBaselineToGrid(y, ascent, stackAxisOrigin, pitch);
+            }
+            else if (textDirection.HasValue)
+            {
+                var baselineOffset = DocTextDirectionHelpers.GetVerticalBaselineOffset(ascent, textDirection.Value);
+                var baseline = x + baselineOffset;
+                var snappedBaseline = SnapToGridForward(baseline, stackAxisOrigin, pitch);
+                x = snappedBaseline - baselineOffset;
+            }
+        }
+
+        if (ShouldSnapCharacters(docGrid))
+        {
+            var charSpace = docGrid.CharacterSpace!.Value;
+            if (!isVertical)
+            {
+                x = SnapToGridForward(x, lineAxisOrigin, charSpace);
+            }
+            else
+            {
+                y = SnapToGridForward(y, lineAxisOrigin, charSpace);
+            }
+        }
+
+        return (x, y);
+    }
+
+    private static bool ShouldSnapLinePitch(DocGridSettings docGrid)
+    {
+        return docGrid.LinePitch is > 0f
+               && (!docGrid.Type.HasValue || docGrid.Type.Value != DocGridType.Default);
+    }
+
+    private static bool ShouldSnapCharacters(DocGridSettings docGrid)
+    {
+        return TextGridSnapping.GetCharacterSpacing(docGrid) > 0f;
+    }
+
+    private static float SnapBaselineToGrid(float lineTop, float ascent, float origin, float spacing)
+    {
+        var baseline = lineTop + ascent;
+        var snappedBaseline = SnapToGridForward(baseline, origin + ascent, spacing);
+        return snappedBaseline - ascent;
+    }
+
+    private static float SnapToGridForward(float value, float origin, float spacing)
+    {
+        if (spacing <= 0f)
+        {
+            return value;
+        }
+
+        var offset = value - origin;
+        var snapped = MathF.Ceiling(offset / spacing) * spacing + origin;
+        return snapped;
+    }
+
     private static float TwipsToDip(int twips)
     {
         return twips / 20f * 96f / 72f;
@@ -4148,6 +4876,7 @@ public sealed class DocumentLayouter
     private enum LineItemKind
     {
         Text,
+        Ruby,
         Tab,
         Image,
         Shape,
@@ -4161,6 +4890,8 @@ public sealed class DocumentLayouter
         public string Text { get; }
         public TextStyle Style { get; }
         public float BaselineOffset { get; }
+        public string RubyText { get; }
+        public TextStyle? RubyStyle { get; }
         public ImageInline? Image { get; }
         public ShapeInline? Shape { get; }
         public ChartInline? Chart { get; }
@@ -4174,6 +4905,8 @@ public sealed class DocumentLayouter
             string text,
             TextStyle style,
             float baselineOffset,
+            string rubyText,
+            TextStyle? rubyStyle,
             ImageInline? image,
             ShapeInline? shape,
             ChartInline? chart,
@@ -4186,6 +4919,8 @@ public sealed class DocumentLayouter
             Text = text;
             Style = style;
             BaselineOffset = baselineOffset;
+            RubyText = rubyText;
+            RubyStyle = rubyStyle;
             Image = image;
             Shape = shape;
             Chart = chart;
@@ -4197,32 +4932,37 @@ public sealed class DocumentLayouter
 
         public static LineItem TextSegment(string text, TextStyle style, float baselineOffset, float width)
         {
-            return new LineItem(LineItemKind.Text, text, style, baselineOffset, null, null, null, null, null, width, 0f);
+            return new LineItem(LineItemKind.Text, text, style, baselineOffset, string.Empty, null, null, null, null, null, null, width, 0f);
+        }
+
+        public static LineItem RubySegment(string text, TextStyle style, float baselineOffset, string rubyText, TextStyle rubyStyle, float width)
+        {
+            return new LineItem(LineItemKind.Ruby, text, style, baselineOffset, rubyText, rubyStyle, null, null, null, null, null, width, 0f);
         }
 
         public static LineItem Tab(TextStyle style, float baselineOffset)
         {
-            return new LineItem(LineItemKind.Tab, string.Empty, style, baselineOffset, null, null, null, null, null, 0f, 0f);
+            return new LineItem(LineItemKind.Tab, string.Empty, style, baselineOffset, string.Empty, null, null, null, null, null, null, 0f, 0f);
         }
 
         public static LineItem ImageSegment(ImageInline image, TextStyle style, float width, float height)
         {
-            return new LineItem(LineItemKind.Image, string.Empty, style, 0f, image, null, null, null, null, width, height);
+            return new LineItem(LineItemKind.Image, string.Empty, style, 0f, string.Empty, null, image, null, null, null, null, width, height);
         }
 
         public static LineItem ShapeSegment(ShapeInline shape, TextStyle style, float width, float height)
         {
-            return new LineItem(LineItemKind.Shape, string.Empty, style, 0f, null, shape, null, null, null, width, height);
+            return new LineItem(LineItemKind.Shape, string.Empty, style, 0f, string.Empty, null, null, shape, null, null, null, width, height);
         }
 
         public static LineItem ChartSegment(ChartInline chart, TextStyle style, float width, float height)
         {
-            return new LineItem(LineItemKind.Chart, string.Empty, style, 0f, null, null, chart, null, null, width, height);
+            return new LineItem(LineItemKind.Chart, string.Empty, style, 0f, string.Empty, null, null, null, chart, null, null, width, height);
         }
 
         public static LineItem EquationSegment(EquationInline equation, MathLayout layout, TextStyle style, float width, float height)
         {
-            return new LineItem(LineItemKind.Equation, string.Empty, style, 0f, null, null, null, equation, layout, width, height);
+            return new LineItem(LineItemKind.Equation, string.Empty, style, 0f, string.Empty, null, null, null, null, equation, layout, width, height);
         }
     }
 
@@ -4232,7 +4972,8 @@ public sealed class DocumentLayouter
         IReadOnlyList<InlineSpan> spans,
         int start,
         int length,
-        ITextMeasurer measurer)
+        ITextMeasurer measurer,
+        float charGridSpacing)
     {
         var items = new List<LineItem>();
         if (length <= 0)
@@ -4291,8 +5032,22 @@ public sealed class DocumentLayouter
                 continue;
             }
 
+            if (span.Ruby is not null && span.RubyStyle is not null && segmentStart == spanStart && segmentLength == span.Length)
+            {
+                var baseText = span.Text;
+                var baseWidth = TextGridSnapping.MeasureText(baseText, span.Style, measurer, charGridSpacing);
+                var rubyText = span.Ruby.RubyText;
+                var rubyWidth = string.IsNullOrEmpty(rubyText)
+                    ? 0f
+                    : TextGridSnapping.MeasureText(rubyText, span.RubyStyle, measurer, charGridSpacing);
+                var width = MathF.Max(baseWidth, rubyWidth);
+                var rubyStyle = span.RubyStyle ?? span.Style;
+                items.Add(LineItem.RubySegment(baseText, span.Style, span.BaselineOffset, rubyText, rubyStyle, width));
+                continue;
+            }
+
             var segmentText = span.Text.AsSpan(segmentStart - spanStart, segmentLength);
-            AppendTextItems(items, segmentText, span.Style, span.BaselineOffset, measurer);
+            AppendTextItems(items, segmentText, span.Style, span.BaselineOffset, measurer, charGridSpacing);
         }
 
         return items;
@@ -4303,7 +5058,8 @@ public sealed class DocumentLayouter
         ReadOnlySpan<char> text,
         TextStyle style,
         float baselineOffset,
-        ITextMeasurer measurer)
+        ITextMeasurer measurer,
+        float charGridSpacing)
     {
         if (text.IsEmpty)
         {
@@ -4321,7 +5077,7 @@ public sealed class DocumentLayouter
             if (i > segmentStart)
             {
                 var segmentText = new string(text.Slice(segmentStart, i - segmentStart));
-                var width = measurer.MeasureText(segmentText, style).Width;
+                var width = TextGridSnapping.MeasureText(segmentText, style, measurer, charGridSpacing);
                 items.Add(LineItem.TextSegment(segmentText, style, baselineOffset, width));
             }
 
@@ -4332,7 +5088,7 @@ public sealed class DocumentLayouter
         if (segmentStart < text.Length)
         {
             var segmentText = new string(text.Slice(segmentStart));
-            var width = measurer.MeasureText(segmentText, style).Width;
+            var width = TextGridSnapping.MeasureText(segmentText, style, measurer, charGridSpacing);
             items.Add(LineItem.TextSegment(segmentText, style, baselineOffset, width));
         }
     }
@@ -4341,7 +5097,8 @@ public sealed class DocumentLayouter
         IReadOnlyList<LineItem> items,
         IReadOnlyList<TabStopDefinition> tabStops,
         float defaultTabWidth,
-        ITextMeasurer measurer)
+        ITextMeasurer measurer,
+        float charGridSpacing)
     {
         var x = 0f;
         for (var i = 0; i < items.Count; i++)
@@ -4350,6 +5107,7 @@ public sealed class DocumentLayouter
             switch (item.Kind)
             {
                 case LineItemKind.Text:
+                case LineItemKind.Ruby:
                 case LineItemKind.Image:
                 case LineItemKind.Shape:
                 case LineItemKind.Chart:
@@ -4360,7 +5118,7 @@ public sealed class DocumentLayouter
                 {
                     var tabStop = ResolveNextTabStop(x, tabStops, defaultTabWidth);
                     var nextTabIndex = FindNextTabIndex(items, i + 1);
-                    var (fieldWidth, widthBeforeDecimal) = MeasureTabField(items, i + 1, nextTabIndex, measurer);
+                    var (fieldWidth, widthBeforeDecimal) = MeasureTabField(items, i + 1, nextTabIndex, measurer, charGridSpacing);
                     var tabWidth = ComputeTabWidth(tabStop, x, fieldWidth, widthBeforeDecimal);
                     x += tabWidth;
                     break;
@@ -4388,7 +5146,8 @@ public sealed class DocumentLayouter
         IReadOnlyList<LineItem> items,
         int startIndex,
         int endIndex,
-        ITextMeasurer measurer)
+        ITextMeasurer measurer,
+        float charGridSpacing)
     {
         var fieldWidth = 0f;
         var beforeDecimalWidth = 0f;
@@ -4397,7 +5156,7 @@ public sealed class DocumentLayouter
         for (var i = startIndex; i < endIndex; i++)
         {
             var item = items[i];
-            if (item.Kind == LineItemKind.Text)
+            if (item.Kind == LineItemKind.Text || item.Kind == LineItemKind.Ruby)
             {
                 if (!decimalFound)
                 {
@@ -4407,9 +5166,7 @@ public sealed class DocumentLayouter
                         if (decimalIndex > 0)
                         {
                             var beforeSpan = item.Text.AsSpan(0, decimalIndex);
-                            var beforeWidth = measurer is ITextMeasurerSpan spanMeasurer
-                                ? spanMeasurer.MeasureText(beforeSpan, item.Style).Width
-                                : measurer.MeasureText(new string(beforeSpan), item.Style).Width;
+                            var beforeWidth = TextGridSnapping.MeasureText(beforeSpan, item.Style, measurer, charGridSpacing);
                             beforeDecimalWidth += beforeWidth;
                         }
 
@@ -5030,9 +5787,9 @@ public sealed class DocumentLayouter
         return true;
     }
 
-    private static LineLayout JustifyLineLayout(LineLayout layout, float targetWidth, ITextMeasurer measurer)
+    private static LineLayout JustifyLineLayout(LineLayout layout, float targetWidth, ITextMeasurer measurer, float charGridSpacing)
     {
-        return LineJustifier.Justify(layout, targetWidth, measurer);
+        return LineJustifier.Justify(layout, targetWidth, measurer, charGridSpacing);
     }
 
     private sealed record ListMarkerInfo(string Prefix, float Indent, float PrefixWidth);

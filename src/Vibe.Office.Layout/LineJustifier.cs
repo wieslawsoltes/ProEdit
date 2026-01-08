@@ -7,7 +7,28 @@ internal static class LineJustifier
     private const float MaxLetterSpacingEm = 0.05f;
     private const float MaxLetterSpacingShrinkEm = 0.02f;
 
-    public static LineLayout Justify(LineLayout layout, float targetWidth, ITextMeasurer measurer)
+    private readonly struct TextStyleGridKey : IEquatable<TextStyleGridKey>
+    {
+        private readonly TextStyleKey _styleKey;
+        private readonly float _gridSpacing;
+
+        public TextStyleGridKey(TextStyle style, float gridSpacing)
+        {
+            _styleKey = new TextStyleKey(style);
+            _gridSpacing = gridSpacing;
+        }
+
+        public bool Equals(TextStyleGridKey other)
+        {
+            return _styleKey.Equals(other._styleKey) && _gridSpacing.Equals(other._gridSpacing);
+        }
+
+        public override bool Equals(object? obj) => obj is TextStyleGridKey other && Equals(other);
+
+        public override int GetHashCode() => HashCode.Combine(_styleKey, _gridSpacing);
+    }
+
+    public static LineLayout Justify(LineLayout layout, float targetWidth, ITextMeasurer measurer, float charGridSpacing)
     {
         if (layout.Width <= 0f || targetWidth <= layout.Width + 0.01f)
         {
@@ -20,11 +41,11 @@ internal static class LineJustifier
             return layout;
         }
 
-        var spaceWidthCache = new Dictionary<TextStyleKey, float>();
-        var (spaceCount, totalSpaceWidth) = MeasureSpaces(layout, measurer, spaceWidthCache);
+        var spaceWidthCache = new Dictionary<TextStyleGridKey, float>();
+        var (spaceCount, totalSpaceWidth) = MeasureSpaces(layout, measurer, charGridSpacing, spaceWidthCache);
         if (spaceCount == 0 && IsCjkLine(layout))
         {
-            return BuildCjkJustifiedLayout(layout, measurer, extra);
+            return BuildCjkJustifiedLayout(layout, measurer, extra, charGridSpacing);
         }
 
         var remaining = extra;
@@ -66,7 +87,7 @@ internal static class LineJustifier
         if (spaceCount > 0 && totalSpaceWidth > 0f && MathF.Abs(spaceContribution) > 0.001f)
         {
             var spaceScale = spaceContribution / totalSpaceWidth;
-            result = BuildSpaceJustifiedLayout(result, measurer, spaceWidthCache, spaceScale);
+            result = BuildSpaceJustifiedLayout(result, measurer, charGridSpacing, spaceWidthCache, spaceScale);
         }
 
         if (letterContribution != 0f && letterGapUnits > 0f && measurer is ITextMeasurerAdvanced advancedSpacing)
@@ -81,7 +102,8 @@ internal static class LineJustifier
     private static (int Count, float TotalWidth) MeasureSpaces(
         LineLayout layout,
         ITextMeasurer measurer,
-        Dictionary<TextStyleKey, float> cache)
+        float charGridSpacing,
+        Dictionary<TextStyleGridKey, float> cache)
     {
         var count = 0;
         var total = 0f;
@@ -108,7 +130,7 @@ internal static class LineJustifier
 
             if (runSpaceCount > 0)
             {
-                var spaceWidth = MeasureSpace(run.Style, measurer, cache);
+                var spaceWidth = MeasureSpace(run.Style, measurer, charGridSpacing, cache);
                 count += runSpaceCount;
                 total += spaceWidth * runSpaceCount;
             }
@@ -300,7 +322,8 @@ internal static class LineJustifier
     private static LineLayout BuildSpaceJustifiedLayout(
         LineLayout layout,
         ITextMeasurer measurer,
-        Dictionary<TextStyleKey, float> spaceWidthCache,
+        float charGridSpacing,
+        Dictionary<TextStyleGridKey, float> spaceWidthCache,
         float spaceScale)
     {
         if (MathF.Abs(spaceScale) < 0.001f)
@@ -343,13 +366,17 @@ internal static class LineJustifier
                         if (chIndex > segmentStart)
                         {
                             var token = text.Substring(segmentStart, chIndex - segmentStart);
-                            var width = measurer.MeasureText(token, run.Style).Width;
+                            var width = TextGridSnapping.MeasureText(token, run.Style, measurer, charGridSpacing);
                             runs.Add(new LayoutRun(token, run.Style, x, width, token.Length, false, run.BaselineOffset, run.TabLeader));
                             x += width;
                         }
 
-                        var spaceWidth = MeasureSpace(run.Style, measurer, spaceWidthCache);
+                        var spaceWidth = MeasureSpace(run.Style, measurer, charGridSpacing, spaceWidthCache);
                         var adjustedWidth = spaceWidth * (1f + spaceScale);
+                        if (charGridSpacing > 0f)
+                        {
+                            adjustedWidth = TextGridSnapping.SnapToGridForward(adjustedWidth, charGridSpacing);
+                        }
                         runs.Add(new LayoutRun(" ", run.Style, x, adjustedWidth, 1, false, run.BaselineOffset, run.TabLeader));
                         x += adjustedWidth;
                         segmentStart = chIndex + 1;
@@ -358,7 +385,7 @@ internal static class LineJustifier
                     if (segmentStart < text.Length)
                     {
                         var token = text.Substring(segmentStart);
-                        var width = measurer.MeasureText(token, run.Style).Width;
+                        var width = TextGridSnapping.MeasureText(token, run.Style, measurer, charGridSpacing);
                         runs.Add(new LayoutRun(token, run.Style, x, width, token.Length, false, run.BaselineOffset, run.TabLeader));
                         x += width;
                     }
@@ -406,7 +433,7 @@ internal static class LineJustifier
         };
     }
 
-    private static LineLayout BuildCjkJustifiedLayout(LineLayout layout, ITextMeasurer measurer, float extra)
+    private static LineLayout BuildCjkJustifiedLayout(LineLayout layout, ITextMeasurer measurer, float extra, float charGridSpacing)
     {
         var gapCount = 0;
         foreach (var run in layout.Runs)
@@ -457,10 +484,14 @@ internal static class LineJustifier
                     for (var chIndex = 0; chIndex < text.Length; chIndex++)
                     {
                         var glyph = new string(text[chIndex], 1);
-                        var width = measurer.MeasureText(glyph, run.Style).Width;
+                        var width = TextGridSnapping.MeasureText(glyph, run.Style, measurer, charGridSpacing);
                         if (chIndex < text.Length - 1)
                         {
                             width += extraPerGap;
+                        }
+                        if (charGridSpacing > 0f)
+                        {
+                            width = TextGridSnapping.SnapToGridForward(width, charGridSpacing);
                         }
 
                         runs.Add(new LayoutRun(glyph, run.Style, x, width, 1, false, run.BaselineOffset, run.TabLeader));
@@ -559,17 +590,15 @@ internal static class LineJustifier
                || (code >= 0xFF00 && code <= 0xFFEF);
     }
 
-    private static float MeasureSpace(TextStyle style, ITextMeasurer measurer, Dictionary<TextStyleKey, float> cache)
+    private static float MeasureSpace(TextStyle style, ITextMeasurer measurer, float charGridSpacing, Dictionary<TextStyleGridKey, float> cache)
     {
-        var key = new TextStyleKey(style);
+        var key = new TextStyleGridKey(style, charGridSpacing);
         if (cache.TryGetValue(key, out var width))
         {
             return width;
         }
 
-        width = measurer is ITextMeasurerSpan spanMeasurer
-            ? spanMeasurer.MeasureText(" ".AsSpan(), style).Width
-            : measurer.MeasureText(" ", style).Width;
+        width = TextGridSnapping.MeasureText(" ".AsSpan(), style, measurer, charGridSpacing);
         cache[key] = width;
         return width;
     }

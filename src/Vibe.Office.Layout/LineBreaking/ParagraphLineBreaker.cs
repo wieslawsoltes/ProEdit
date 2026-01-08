@@ -8,11 +8,12 @@ internal static class ParagraphLineBreaker
         float firstLineWidth,
         float otherLineWidth,
         ITextMeasurer measurer,
+        float charGridSpacing,
         Func<int, int, float> measureWidth)
     {
         ArgumentNullException.ThrowIfNull(measureWidth);
 
-        if (KnuthPlassLineBreaker.TryBreakParagraph(text, spans, firstLineWidth, otherLineWidth, measurer, out var breaks))
+        if (KnuthPlassLineBreaker.TryBreakParagraph(text, spans, firstLineWidth, otherLineWidth, measurer, charGridSpacing, out var breaks))
         {
             return breaks;
         }
