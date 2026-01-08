@@ -1605,6 +1605,8 @@ public sealed class DocxExporter
         {
             Drawing? drawing = floating.Content switch
             {
+                ImageInline image when image.EmbeddedObject is not null
+                    && !image.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase) => null,
                 ImageInline image => CreateImageDrawing(imageWriter, image, floating.Anchor),
                 ShapeInline shape => CreateShapeDrawing(shape, numberingContext, imageWriter, chartWriter, hyperlinkWriter, fonts, floating.Anchor),
                 ChartInline chart => CreateChartDrawing(chartWriter, chart, floating.Anchor),
@@ -1890,6 +1892,16 @@ public sealed class DocxExporter
                     break;
                 case ImageInline imageInline:
                 {
+                    if (imageInline.EmbeddedObject is not null
+                        && !imageInline.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var label = string.IsNullOrWhiteSpace(imageInline.EmbeddedObject.ProgId)
+                            ? "[Embedded Object]"
+                            : $"[Embedded Object: {imageInline.EmbeddedObject.ProgId}]";
+                        container.AppendChild(new Run(new Text(label)));
+                        break;
+                    }
+
                     var run = new Run(CreateImageDrawing(imageWriter, imageInline));
                     container.AppendChild(run);
                     break;

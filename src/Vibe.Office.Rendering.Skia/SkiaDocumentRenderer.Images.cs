@@ -39,12 +39,21 @@ public sealed partial class SkiaDocumentRenderer
             canvas.DrawRect(rect, fillPaint);
             canvas.DrawRect(rect, borderPaint);
 
-            var contentType = image.Image.ContentType ?? string.Empty;
-            var label = contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase)
-                ? "Image"
-                : contentType.Contains("ole", StringComparison.OrdinalIgnoreCase) || contentType.Contains("object", StringComparison.OrdinalIgnoreCase)
-                    ? "OLE Object"
-                    : "Object";
+            var embedded = image.Image.EmbeddedObject;
+            string label;
+            if (embedded is not null)
+            {
+                label = string.IsNullOrWhiteSpace(embedded.ProgId) ? "Embedded Object" : embedded.ProgId;
+            }
+            else
+            {
+                var contentType = image.Image.ContentType ?? string.Empty;
+                label = contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase)
+                    ? "Image"
+                    : contentType.Contains("ole", StringComparison.OrdinalIgnoreCase) || contentType.Contains("object", StringComparison.OrdinalIgnoreCase)
+                        ? "OLE Object"
+                        : "Object";
+            }
 
             textPaint.TextSize = MathF.Max(8f, MathF.Min(14f, image.Height / 4f));
             var textY = rect.MidY + textPaint.TextSize * 0.35f;

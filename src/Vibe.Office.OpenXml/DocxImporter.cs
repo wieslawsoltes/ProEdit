@@ -24,6 +24,7 @@ public sealed class DocxImporter
     private const string RelationshipNamespace = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
     private const string WordprocessingNamespace = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
     private const string Wordprocessing16DuNamespace = "http://schemas.microsoft.com/office/word/2023/wordml/word16du";
+    private const string OleObjectContentType = "application/vnd.openxmlformats-officedocument.oleObject";
 
     public VibeDocument Load(string filePath)
     {
@@ -117,6 +118,9 @@ public sealed class DocxImporter
             {
                 case Paragraph paragraph:
                     ProcessParagraph(paragraph);
+                    break;
+                case AltChunk altChunk:
+                    document.Blocks.Add(CreateAltChunkBlock(altChunk, imageResolver.Part));
                     break;
                 case Table table:
                     document.Blocks.Add(ParseTable(table, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, document.Revisions, placeholderResolver));
@@ -962,6 +966,33 @@ public sealed class DocxImporter
         return string.IsNullOrWhiteSpace(fallback) ? null : fallback;
     }
 
+    private static AltChunkBlock CreateAltChunkBlock(AltChunk altChunk, OpenXmlPart? part)
+    {
+        var block = new AltChunkBlock();
+        var relId = altChunk.Id?.Value ?? GetAttributeValue(altChunk, "id", RelationshipNamespace);
+        block.RelationshipId = relId;
+        if (part is null || string.IsNullOrWhiteSpace(relId))
+        {
+            return block;
+        }
+
+        if (part.GetPartById(relId) is AlternativeFormatImportPart altPart)
+        {
+            block.ContentType = altPart.ContentType;
+            block.TargetUri = altPart.Uri?.ToString();
+            block.Data = ReadPartData(altPart);
+            return block;
+        }
+
+        var external = part.ExternalRelationships.FirstOrDefault(item => item.Id == relId);
+        if (external is not null)
+        {
+            block.TargetUri = external.Uri?.ToString();
+        }
+
+        return block;
+    }
+
     private static void AppendBlockElement(
         OpenXmlElement element,
         List<Block> blocks,
@@ -989,6 +1020,9 @@ public sealed class DocxImporter
         {
             case Paragraph paragraph:
                 blocks.AddRange(ParseParagraphBlocks(paragraph, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, revisions, placeholderResolver, false));
+                break;
+            case AltChunk altChunk:
+                blocks.Add(CreateAltChunkBlock(altChunk, imageResolver.Part));
                 break;
             case Table table:
                 blocks.Add(ParseTable(table, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, revisions, placeholderResolver));
@@ -4590,6 +4624,14 @@ public sealed class DocxImporter
         return null;
     }
 
+    private static byte[] ReadPartData(OpenXmlPart part)
+    {
+        using var stream = part.GetStream();
+        using var memory = new MemoryStream();
+        stream.CopyTo(memory);
+        return memory.ToArray();
+    }
+
     private static RevisionInfo ResolveRevision(OpenXmlElement element, RevisionKind kind, DocumentRevisions revisions)
     {
         var info = new RevisionInfo
@@ -4663,6 +4705,32 @@ public sealed class DocxImporter
             }
         }
 
+        var embeddedInfo = TryResolveEmbeddedObjectInfo(drawing, imageResolver.Part);
+        if (embeddedInfo is not null)
+        {
+            var preview = imageResolver.TryCreateImage(drawing);
+            if (preview is not null)
+            {
+                preview.EmbeddedObject = embeddedInfo;
+                return preview;
+            }
+
+            var extent = drawing.Descendants<DW.Extent>().FirstOrDefault();
+            var width = extent?.Cx?.Value is long cx ? EmuToDip(cx) : 100f;
+            var height = extent?.Cy?.Value is long cy ? EmuToDip(cy) : 100f;
+            if (string.IsNullOrWhiteSpace(embeddedInfo.ContentType))
+            {
+                embeddedInfo.ContentType = OleObjectContentType;
+            }
+
+            var contentType = embeddedInfo.ContentType!;
+            var placeholder = new ImageInline(Array.Empty<byte>(), width, height, contentType)
+            {
+                EmbeddedObject = embeddedInfo
+            };
+            return placeholder;
+        }
+
         return imageResolver.TryCreateImage(drawing);
     }
 
@@ -4676,6 +4744,7 @@ public sealed class DocxImporter
         DocumentRevisions revisions,
         ContentControlPlaceholderResolver? placeholderResolver)
     {
+        var embeddedInfo = TryResolveEmbeddedObjectInfo(element, imageResolver.Part);
         var hasImageData = element.Descendants()
             .Any(node => node.LocalName.Equals("imagedata", StringComparison.OrdinalIgnoreCase));
         if (hasImageData)
@@ -4683,8 +4752,28 @@ public sealed class DocxImporter
             var imageInline = imageResolver.TryCreateImageFromVml(element);
             if (imageInline is not null)
             {
+                if (embeddedInfo is not null)
+                {
+                    imageInline.EmbeddedObject = embeddedInfo;
+                }
+
                 return imageInline;
             }
+        }
+
+        if (embeddedInfo is not null)
+        {
+            var (placeholderWidth, placeholderHeight) = GetVmlSize(element);
+            if (string.IsNullOrWhiteSpace(embeddedInfo.ContentType))
+            {
+                embeddedInfo.ContentType = OleObjectContentType;
+            }
+
+            var contentType = embeddedInfo.ContentType!;
+            return new ImageInline(Array.Empty<byte>(), placeholderWidth, placeholderHeight, contentType)
+            {
+                EmbeddedObject = embeddedInfo
+            };
         }
 
         var shapeElement = element.Descendants()
@@ -4731,6 +4820,69 @@ public sealed class DocxImporter
         }
 
         return shapeInline;
+    }
+
+    private static EmbeddedObjectInfo? TryResolveEmbeddedObjectInfo(OpenXmlElement element, OpenXmlPart? part)
+    {
+        var oleElement = FindEmbeddedObjectElement(element);
+        if (oleElement is null)
+        {
+            return null;
+        }
+
+        var info = new EmbeddedObjectInfo
+        {
+            RelationshipId = GetAttributeValue(oleElement, "id", RelationshipNamespace),
+            ProgId = GetAttributeValue(oleElement, "ProgID") ?? GetAttributeValue(oleElement, "ProgId"),
+            ClassId = GetAttributeValue(oleElement, "ClassID") ?? GetAttributeValue(oleElement, "ClassId"),
+            ObjectId = GetAttributeValue(oleElement, "ObjectID") ?? GetAttributeValue(oleElement, "ObjectId"),
+            UpdateMode = GetAttributeValue(oleElement, "UpdateMode")
+        };
+
+        var typeValue = GetAttributeValue(oleElement, "Type");
+        if (!string.IsNullOrWhiteSpace(typeValue))
+        {
+            info.IsLinked = typeValue.Equals("Link", StringComparison.OrdinalIgnoreCase);
+        }
+
+        var relId = info.RelationshipId;
+        if (part is null || string.IsNullOrWhiteSpace(relId))
+        {
+            return info;
+        }
+
+        if (part.GetPartById(relId) is OpenXmlPart embeddedPart)
+        {
+            info.ContentType = embeddedPart.ContentType;
+            info.TargetUri = embeddedPart.Uri?.ToString();
+            info.Data = ReadPartData(embeddedPart);
+            return info;
+        }
+
+        var external = part.ExternalRelationships.FirstOrDefault(item => item.Id == relId);
+        if (external is not null)
+        {
+            info.TargetUri = external.Uri?.ToString();
+        }
+
+        return info;
+    }
+
+    private static OpenXmlElement? FindEmbeddedObjectElement(OpenXmlElement element)
+    {
+        if (IsEmbeddedObjectElement(element))
+        {
+            return element;
+        }
+
+        return element.Descendants().FirstOrDefault(IsEmbeddedObjectElement);
+    }
+
+    private static bool IsEmbeddedObjectElement(OpenXmlElement element)
+    {
+        return element.LocalName.Equals("OLEObject", StringComparison.OrdinalIgnoreCase)
+               || element.LocalName.Equals("oleObject", StringComparison.OrdinalIgnoreCase)
+               || element.LocalName.Equals("oleObj", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool TryApplyVmlAnchor(OpenXmlElement element, FloatingAnchor target)
@@ -5745,6 +5897,8 @@ public sealed class DocxImporter
         {
             _part = part;
         }
+
+        public OpenXmlPart? Part => _part;
 
         public ImageInline? TryCreateImage(Drawing drawing)
         {

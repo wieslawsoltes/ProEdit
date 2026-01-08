@@ -7,6 +7,7 @@ public sealed class ImageInline : Inline
     public float Width { get; }
     public float Height { get; }
     public string ContentType { get; }
+    public EmbeddedObjectInfo? EmbeddedObject { get; set; }
 
     public ImageInline(byte[] data, float width, float height, string contentType)
     {

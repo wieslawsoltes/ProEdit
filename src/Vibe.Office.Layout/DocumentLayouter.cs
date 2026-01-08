@@ -1556,6 +1556,41 @@ public sealed class DocumentLayouter
             ApplySectionBreak(sectionBreak.BreakType, nextSettings);
         }
 
+        void HandleAltChunk(AltChunkBlock altChunk, int __)
+        {
+            var label = ResolveAltChunkLabel(altChunk);
+            if (string.IsNullOrWhiteSpace(label))
+            {
+                return;
+            }
+
+            var spacingBefore = settings.ParagraphSpacing;
+            var spacingAfter = settings.ParagraphSpacing;
+            var textStyle = style.Clone();
+            var width = measurer is ITextMeasurerSpan spanMeasurer
+                ? spanMeasurer.MeasureText(label.AsSpan(), textStyle).Width
+                : measurer.MeasureText(label, textStyle).Width;
+
+            if (cursorY + spacingBefore + lineHeight > contentBottom && cursorY > columnTop)
+            {
+                StartNewColumnOrPage();
+            }
+
+            cursorY += spacingBefore;
+            if (cursorY + lineHeight > contentBottom && cursorY > columnTop)
+            {
+                StartNewColumnOrPage();
+            }
+
+            var textSlice = new TextSlice(label, 0, label.Length);
+            var runs = new[] { new LayoutRun(label, textStyle, 0f, width, label.Length, false, 0f) };
+            var isRtl = TextBidi.ResolveBaseIsRtl(textSlice.Span, null);
+            AddLine(new LayoutLine(-1, 0, label.Length, columnX, cursorY, width, textSlice, null, 0f, lineHeight, ascent,
+                runs, Array.Empty<LayoutImage>(), Array.Empty<LayoutShape>(), Array.Empty<LayoutChart>(), Array.Empty<LayoutEquation>(), false, isRtl));
+
+            cursorY += lineHeight + spacingAfter;
+        }
+
         ParagraphLayoutPlan BuildParagraphPlan(ParagraphBlock paragraph, int blockIndex)
         {
             var properties = styleResolver.ResolveParagraphProperties(paragraph);
@@ -1804,6 +1839,7 @@ public sealed class DocumentLayouter
                 LayoutBlockRule.For<PageBreakBlock>(HandlePageBreak),
                 LayoutBlockRule.For<ColumnBreakBlock>(HandleColumnBreak),
                 LayoutBlockRule.For<SectionBreakBlock>(HandleSectionBreak),
+                LayoutBlockRule.For<AltChunkBlock>(HandleAltChunk),
                 LayoutBlockRule.For<ParagraphBlock>(HandleParagraph),
                 LayoutBlockRule.For<TableBlock>(HandleTable)
             };
@@ -3343,6 +3379,26 @@ public sealed class DocumentLayouter
     private static bool ResolveLineIsRtl(ParagraphProperties properties, TextSlice textSlice)
     {
         return TextBidi.ResolveBaseIsRtl(textSlice.Span, properties.Bidi);
+    }
+
+    private static string ResolveAltChunkLabel(AltChunkBlock altChunk)
+    {
+        if (!string.IsNullOrWhiteSpace(altChunk.Label))
+        {
+            return altChunk.Label;
+        }
+
+        if (!string.IsNullOrWhiteSpace(altChunk.ContentType))
+        {
+            return $"AltChunk ({altChunk.ContentType})";
+        }
+
+        if (!string.IsNullOrWhiteSpace(altChunk.TargetUri))
+        {
+            return $"AltChunk ({altChunk.TargetUri})";
+        }
+
+        return "AltChunk";
     }
 
     private static void AppendTextSpans(

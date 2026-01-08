@@ -323,6 +323,10 @@ public sealed class EditorController
         }
 
         var line = Layout.Lines[lineIndex];
+        if (line.ParagraphIndex < 0)
+        {
+            return;
+        }
 
         var offset = GetOffsetFromLine(line, x);
         MoveCaret(new TextPosition(line.ParagraphIndex, offset), extendSelection);
