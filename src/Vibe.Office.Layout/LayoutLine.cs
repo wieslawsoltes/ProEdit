@@ -1,3 +1,5 @@
+using Vibe.Office.Documents;
+
 namespace Vibe.Office.Layout;
 
 public sealed record LayoutLine(
@@ -17,6 +19,8 @@ public sealed record LayoutLine(
     IReadOnlyList<LayoutShape> Shapes,
     IReadOnlyList<LayoutChart> Charts,
     IReadOnlyList<LayoutEquation> Equations,
+    IReadOnlyList<LayoutRuby> Rubies,
+    DocTextDirection? TextDirection,
     bool IsInTable = false,
     bool IsRtl = false)
 {

@@ -11,4 +11,6 @@ internal sealed record InlineSpan(
     ShapeInline? Shape,
     ChartInline? Chart,
     EquationInline? Equation,
+    RubyInline? Ruby,
+    TextStyle? RubyStyle,
     float BaselineOffset);

@@ -19,6 +19,7 @@ public sealed record PageSectionSettings(
     bool ColumnSeparator,
     bool ColumnEqualWidth,
     IReadOnlyList<float> ColumnWidths,
+    DocGridSettings? DocGrid,
     int SectionIndex)
 {
     public static PageSectionSettings FromSettings(
@@ -45,6 +46,7 @@ public sealed record PageSectionSettings(
             false,
             true,
             Array.Empty<float>(),
+            null,
             sectionIndex);
 
         return defaults.ApplyOverrides(properties);
@@ -86,6 +88,7 @@ public sealed record PageSectionSettings(
             columnSeparator,
             columnEqualWidth,
             columnWidths,
+            properties.DocGrid?.Clone() ?? DocGrid,
             SectionIndex);
     }
 

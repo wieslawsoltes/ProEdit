@@ -1,3 +1,5 @@
+using Vibe.Office.Documents;
+
 namespace Vibe.Office.Layout;
 
 public sealed record TableCellLine(
@@ -17,6 +19,8 @@ public sealed record TableCellLine(
     IReadOnlyList<LayoutShape> Shapes,
     IReadOnlyList<LayoutChart> Charts,
     IReadOnlyList<LayoutEquation> Equations,
+    IReadOnlyList<LayoutRuby> Rubies,
+    DocTextDirection? TextDirection,
     bool IsRtl = false)
 {
     private string? _text;

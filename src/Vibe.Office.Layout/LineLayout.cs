@@ -6,6 +6,7 @@ internal sealed record LineLayout(
     IReadOnlyList<LayoutShape> Shapes,
     IReadOnlyList<LayoutChart> Charts,
     IReadOnlyList<LayoutEquation> Equations,
+    IReadOnlyList<LayoutRuby> Rubies,
     float Width,
     float LineHeight,
     float Ascent);

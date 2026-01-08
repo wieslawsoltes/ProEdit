@@ -403,6 +403,16 @@ public sealed class DocumentStyleResolver
             target.Bidi = source.Bidi;
         }
 
+        if (source.TextDirection.HasValue)
+        {
+            target.TextDirection = source.TextDirection;
+        }
+
+        if (source.EastAsianLayout?.HasValues == true)
+        {
+            target.EastAsianLayout = source.EastAsianLayout.Clone();
+        }
+
         if (source.ShadingColor.HasValue)
         {
             target.ShadingColor = source.ShadingColor;
@@ -492,6 +502,16 @@ public sealed class DocumentStyleResolver
             target.Bidi = source.Bidi;
         }
 
+        if (source.TextDirection.HasValue)
+        {
+            target.TextDirection = source.TextDirection;
+        }
+
+        if (source.EastAsianLayout?.HasValues == true)
+        {
+            target.EastAsianLayout = source.EastAsianLayout.Clone();
+        }
+
         if (source.ShadingColor.HasValue)
         {
             target.ShadingColor = source.ShadingColor;
@@ -579,6 +599,16 @@ public sealed class DocumentStyleResolver
         if (source.Bidi.HasValue)
         {
             target.Bidi = source.Bidi;
+        }
+
+        if (source.TextDirection.HasValue)
+        {
+            target.TextDirection = source.TextDirection;
+        }
+
+        if (source.EastAsianLayout?.HasValues == true)
+        {
+            target.EastAsianLayout = source.EastAsianLayout.Clone();
         }
 
         if (source.ShadingColor.HasValue)
