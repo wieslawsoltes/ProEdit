@@ -6,6 +6,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\\..\\src\\Vibe.Office.OpenXml\\Vibe.Office.OpenXml.csproj" />
+    <ProjectReference Include="..\\..\\src\\Vibe.Office.Layout\\Vibe.Office.Layout.csproj" />
+    <ProjectReference Include="..\\..\\src\\Vibe.Office.Rendering\\Vibe.Office.Rendering.csproj" />
+    <ProjectReference Include="..\\..\\src\\Vibe.Office.Rendering.Skia\\Vibe.Office.Rendering.Skia.csproj" />
   </ItemGroup>
 
   <ItemGroup>
