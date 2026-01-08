@@ -3233,6 +3233,9 @@ public sealed class DocumentLayouter
                     contentControls.Add(new ContentControlState(controlStart.Properties, paragraphStyle, placeholderText));
                     break;
                 }
+                case MetadataStartInline:
+                case MetadataEndInline:
+                    break;
                 case ContentControlEndInline:
                 {
                     if (contentControls.Count == 0)
@@ -3634,6 +3637,9 @@ public sealed class DocumentLayouter
                     break;
                 case CommentRangeEndInline commentEnd:
                     commentMarkers.Add(new CommentMarker(length, commentEnd.Id, false));
+                    break;
+                case MetadataStartInline:
+                case MetadataEndInline:
                     break;
             }
         }

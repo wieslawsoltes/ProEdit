@@ -821,6 +821,8 @@ public sealed class EditorController
             FootnoteReferenceInline footnote => footnote.Id.ToString(System.Globalization.CultureInfo.InvariantCulture).Length,
             EndnoteReferenceInline endnote => endnote.Id.ToString(System.Globalization.CultureInfo.InvariantCulture).Length,
             CommentReferenceInline comment => comment.Id.ToString(System.Globalization.CultureInfo.InvariantCulture).Length,
+            MetadataStartInline => 0,
+            MetadataEndInline => 0,
             FieldStartInline => 0,
             FieldSeparatorInline => 0,
             FieldEndInline => 0,
@@ -875,6 +877,9 @@ public sealed class EditorController
                 case PageNumberInline:
                 case TotalPagesInline:
                     builder.Append(DocumentConstants.ObjectReplacementChar);
+                    break;
+                case MetadataStartInline:
+                case MetadataEndInline:
                     break;
                 case FootnoteReferenceInline footnote:
                     builder.Append(footnote.Id.ToString(System.Globalization.CultureInfo.InvariantCulture));

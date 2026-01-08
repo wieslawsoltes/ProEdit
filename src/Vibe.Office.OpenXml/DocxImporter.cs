@@ -210,13 +210,58 @@ public sealed class DocxImporter
             return tableCell;
         }
 
-        void AppendRow(Vibe.Office.Documents.TableRow tableRow)
+        Vibe.Office.Documents.TableCell? ParseTableCellElement(OpenXmlElement cellElement)
         {
-            tableBlock.Rows.Add(tableRow);
+            if (IsMetadataWrapper(cellElement))
+            {
+                var metadata = BuildMetadataContainer(cellElement);
+                var innerCellElement = EnumerateMetadataContent(cellElement).FirstOrDefault();
+                var parsed = innerCellElement is not null ? ParseTableCellElement(innerCellElement) : null;
+                if (parsed is not null)
+                {
+                    parsed.Metadata.Insert(0, metadata);
+                }
+
+                return parsed;
+            }
+
+            if (cellElement is DocumentFormat.OpenXml.Wordprocessing.TableCell cell)
+            {
+                return ParseTableCell(cell);
+            }
+
+            if (cellElement is SdtCell sdtCell)
+            {
+                var cellControl = ParseContentControlProperties(sdtCell.SdtProperties, ContentControlKind.Cell, placeholderResolver);
+                var innerCell = sdtCell.SdtContentCell?.Elements<DocumentFormat.OpenXml.Wordprocessing.TableCell>().FirstOrDefault();
+                if (innerCell is null)
+                {
+                    return null;
+                }
+
+                var tableCell = ParseTableCell(innerCell);
+                tableCell.ContentControl = cellControl;
+                return tableCell;
+            }
+
+            return null;
         }
 
-        foreach (var rowElement in table.Elements())
+        Vibe.Office.Documents.TableRow? ParseTableRowElement(OpenXmlElement rowElement)
         {
+            if (IsMetadataWrapper(rowElement))
+            {
+                var metadata = BuildMetadataContainer(rowElement);
+                var innerRowElement = EnumerateMetadataContent(rowElement).FirstOrDefault();
+                var parsed = innerRowElement is not null ? ParseTableRowElement(innerRowElement) : null;
+                if (parsed is not null)
+                {
+                    parsed.Metadata.Insert(0, metadata);
+                }
+
+                return parsed;
+            }
+
             DocumentFormat.OpenXml.Wordprocessing.TableRow? row = null;
             ContentControlProperties? rowContentControl = null;
             if (rowElement is DocumentFormat.OpenXml.Wordprocessing.TableRow directRow)
@@ -231,30 +276,34 @@ public sealed class DocxImporter
 
             if (row is null)
             {
-                continue;
+                return null;
             }
 
             var tableRow = new Vibe.Office.Documents.TableRow { ContentControl = rowContentControl };
             ApplyTableRowProperties(row, tableRow.Properties);
             foreach (var cellElement in row.Elements())
             {
-                if (cellElement is DocumentFormat.OpenXml.Wordprocessing.TableCell cell)
+                var parsedCell = ParseTableCellElement(cellElement);
+                if (parsedCell is not null)
                 {
-                    tableRow.Cells.Add(ParseTableCell(cell));
+                    tableRow.Cells.Add(parsedCell);
                 }
-                else if (cellElement is SdtCell sdtCell)
-                {
-                    var cellControl = ParseContentControlProperties(sdtCell.SdtProperties, ContentControlKind.Cell, placeholderResolver);
-                    var innerCell = sdtCell.SdtContentCell?.Elements<DocumentFormat.OpenXml.Wordprocessing.TableCell>().FirstOrDefault();
-                    if (innerCell is null)
-                    {
-                        continue;
-                    }
+            }
 
-                    var tableCell = ParseTableCell(innerCell);
-                    tableCell.ContentControl = cellControl;
-                    tableRow.Cells.Add(tableCell);
-                }
+            return tableRow;
+        }
+
+        void AppendRow(Vibe.Office.Documents.TableRow tableRow)
+        {
+            tableBlock.Rows.Add(tableRow);
+        }
+
+        foreach (var rowElement in table.Elements())
+        {
+            var tableRow = ParseTableRowElement(rowElement);
+            if (tableRow is null)
+            {
+                continue;
             }
 
             AppendRow(tableRow);
@@ -755,6 +804,102 @@ public sealed class DocxImporter
         return result;
     }
 
+    private static bool IsMetadataWrapper(OpenXmlElement element)
+    {
+        if (element is CustomXmlElement)
+        {
+            return true;
+        }
+
+        if (!string.Equals(element.NamespaceUri, WordprocessingNamespace, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return string.Equals(element.LocalName, "customXml", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(element.LocalName, "smartTag", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsMetadataPropertyElement(OpenXmlElement element)
+    {
+        if (element is CustomXmlProperties)
+        {
+            return true;
+        }
+
+        if (!string.Equals(element.NamespaceUri, WordprocessingNamespace, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return string.Equals(element.LocalName, "customXmlPr", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(element.LocalName, "smartTagPr", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static MetadataContainer BuildMetadataContainer(OpenXmlElement element)
+    {
+        var metadataElement = new MetadataElement(element.Prefix ?? string.Empty, element.LocalName, element.NamespaceUri ?? string.Empty);
+        foreach (var attribute in element.GetAttributes())
+        {
+            metadataElement.Attributes.Add(new MetadataAttribute(
+                attribute.Prefix ?? string.Empty,
+                attribute.LocalName,
+                attribute.NamespaceUri ?? string.Empty,
+                attribute.Value ?? string.Empty));
+        }
+
+        var propertyElements = element.ChildElements
+            .Where(IsMetadataPropertyElement)
+            .Select(CreateMetadataElement)
+            .ToList();
+
+        return new MetadataContainer(metadataElement, propertyElements);
+    }
+
+    private static MetadataElement CreateMetadataElement(OpenXmlElement element)
+    {
+        var metadataElement = new MetadataElement(element.Prefix ?? string.Empty, element.LocalName, element.NamespaceUri ?? string.Empty);
+        foreach (var attribute in element.GetAttributes())
+        {
+            metadataElement.Attributes.Add(new MetadataAttribute(
+                attribute.Prefix ?? string.Empty,
+                attribute.LocalName,
+                attribute.NamespaceUri ?? string.Empty,
+                attribute.Value ?? string.Empty));
+        }
+
+        if (element.ChildElements.Count == 0)
+        {
+            var text = element.InnerText;
+            if (!string.IsNullOrWhiteSpace(text))
+            {
+                metadataElement.Text = text;
+            }
+
+            return metadataElement;
+        }
+
+        foreach (var child in element.ChildElements)
+        {
+            metadataElement.Children.Add(CreateMetadataElement(child));
+        }
+
+        return metadataElement;
+    }
+
+    private static IEnumerable<OpenXmlElement> EnumerateMetadataContent(OpenXmlElement element)
+    {
+        foreach (var child in element.ChildElements)
+        {
+            if (IsMetadataPropertyElement(child))
+            {
+                continue;
+            }
+
+            yield return child;
+        }
+    }
+
     private sealed class ContentControlPlaceholderResolver
     {
         private readonly Dictionary<string, string> _placeholders = new(StringComparer.OrdinalIgnoreCase);
@@ -828,6 +973,12 @@ public sealed class DocxImporter
         DocumentRevisions revisions,
         ContentControlPlaceholderResolver? placeholderResolver)
     {
+        if (IsMetadataWrapper(element))
+        {
+            AppendMetadataBlocks(element, blocks, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, revisions, placeholderResolver);
+            return;
+        }
+
         if (TryGetRevisionKind(element, out var revisionKind))
         {
             AppendRevisionBlocks(element, revisionKind, blocks, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, revisions, placeholderResolver);
@@ -867,6 +1018,26 @@ public sealed class DocxImporter
             AppendBlockElement(child, blocks, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, revisions, placeholderResolver);
         }
         blocks.Add(new RevisionEndBlock(kind, revision.Id));
+    }
+
+    private static void AppendMetadataBlocks(
+        OpenXmlElement element,
+        List<Block> blocks,
+        ListResolver listResolver,
+        ImageResolver imageResolver,
+        ChartResolver chartResolver,
+        HyperlinkResolver hyperlinkResolver,
+        StyleResolver styleResolver,
+        DocumentRevisions revisions,
+        ContentControlPlaceholderResolver? placeholderResolver)
+    {
+        var metadata = BuildMetadataContainer(element);
+        blocks.Add(new MetadataStartBlock(metadata));
+        foreach (var child in EnumerateMetadataContent(element))
+        {
+            AppendBlockElement(child, blocks, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, revisions, placeholderResolver);
+        }
+        blocks.Add(new MetadataEndBlock(metadata));
     }
 
     private static bool TryGetRevisionKind(OpenXmlElement element, out RevisionKind kind)
@@ -1069,6 +1240,17 @@ public sealed class DocxImporter
                 ProcessElement(child, hyperlink);
             }
             AddInline(new RevisionEndInline(kind, revision.Id), false, null);
+        }
+
+        void ProcessMetadataInline(OpenXmlElement element, HyperlinkInfo? hyperlink)
+        {
+            var metadata = BuildMetadataContainer(element);
+            AddInline(new MetadataStartInline(metadata), false, null);
+            foreach (var child in EnumerateMetadataContent(element))
+            {
+                ProcessElement(child, hyperlink);
+            }
+            AddInline(new MetadataEndInline(metadata), false, null);
         }
 
         void AddRevisionRangeStart(OpenXmlElement element, RevisionKind kind)
@@ -1421,6 +1603,9 @@ public sealed class DocxImporter
                     break;
                 case SimpleField field:
                     ProcessSimpleField(field, hyperlink);
+                    break;
+                case OpenXmlElement metadataElement when IsMetadataWrapper(metadataElement):
+                    ProcessMetadataInline(metadataElement, hyperlink);
                     break;
                 case InsertedRun insertedRun:
                     ProcessRevisionRun(insertedRun, RevisionKind.Insert, hyperlink);

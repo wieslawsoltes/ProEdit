@@ -882,21 +882,23 @@ public sealed class DocxExporter
                     tableCell.AppendChild(new Paragraph(new Run(new Text(string.Empty))));
                 }
 
-                OpenXmlCompositeElement cellElement = tableCell;
+                OpenXmlElement cellElement = tableCell;
                 if (cell.ContentControl is not null)
                 {
                     cellElement = BuildSdtCell(cell.ContentControl, tableCell);
                 }
 
+                cellElement = WrapWithMetadata(cellElement, cell.Metadata);
                 tableRow.AppendChild(cellElement);
             }
 
-            OpenXmlCompositeElement rowElement = tableRow;
+            OpenXmlElement rowElement = tableRow;
             if (row.ContentControl is not null)
             {
                 rowElement = BuildSdtRow(row.ContentControl, tableRow);
             }
 
+            rowElement = WrapWithMetadata(rowElement, row.Metadata);
             table.AppendChild(rowElement);
         }
 
@@ -1102,6 +1104,22 @@ public sealed class DocxExporter
                     continue;
                 }
                 case RevisionEndBlock:
+                    if (containerStack.Count > 0)
+                    {
+                        currentContainer = containerStack.Pop();
+                    }
+                    index++;
+                    continue;
+                case MetadataStartBlock metadataStart:
+                {
+                    var metadataElement = BuildMetadataWrapperElement(metadataStart.Metadata);
+                    currentContainer.AppendChild(metadataElement);
+                    containerStack.Push(currentContainer);
+                    currentContainer = metadataElement;
+                    index++;
+                    continue;
+                }
+                case MetadataEndBlock:
                     if (containerStack.Count > 0)
                     {
                         currentContainer = containerStack.Pop();
@@ -1718,6 +1736,39 @@ public sealed class DocxExporter
                     container.AppendChild(BuildSdtRun(controlStart.Properties, contentInlines, numberingContext, imageWriter, chartWriter, hyperlinkWriter, fonts));
                     continue;
                 }
+                case MetadataStartInline metadataStart:
+                {
+                    var metadataInlines = new List<Inline>();
+                    index++;
+                    var depth = 0;
+                    while (index < inlines.Count)
+                    {
+                        var candidate = inlines[index];
+                        if (candidate is MetadataStartInline)
+                        {
+                            depth++;
+                        }
+
+                        if (candidate is MetadataEndInline metadataEnd)
+                        {
+                            if (depth == 0 && ReferenceEquals(metadataStart.Metadata, metadataEnd.Metadata))
+                            {
+                                index++;
+                                break;
+                            }
+
+                            depth = Math.Max(0, depth - 1);
+                        }
+
+                        metadataInlines.Add(candidate);
+                        index++;
+                    }
+
+                    var wrapper = BuildMetadataWrapperElement(metadataStart.Metadata);
+                    AppendInlineSequence(wrapper, metadataInlines, numberingContext, imageWriter, chartWriter, hyperlinkWriter, fonts, revisionKind);
+                    container.AppendChild(wrapper);
+                    continue;
+                }
                 case RevisionStartInline revisionStart:
                 {
                     var revisionInlines = new List<Inline>();
@@ -1755,6 +1806,7 @@ public sealed class DocxExporter
                 case FieldSeparatorInline:
                 case FieldEndInline:
                 case ContentControlEndInline:
+                case MetadataEndInline:
                 case RevisionEndInline:
                     index++;
                     continue;
@@ -1772,6 +1824,8 @@ public sealed class DocxExporter
                     or CommentRangeEndInline
                     or ContentControlStartInline
                     or ContentControlEndInline
+                    or MetadataStartInline
+                    or MetadataEndInline
                     or RevisionStartInline
                     or RevisionEndInline
                     or RevisionRangeStartInline
@@ -2196,6 +2250,74 @@ public sealed class DocxExporter
         if (revision.Id.HasValue)
         {
             element.Id = revision.Id.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        }
+    }
+
+    private static OpenXmlUnknownElement BuildMetadataWrapperElement(MetadataContainer metadata)
+    {
+        var element = BuildMetadataElement(metadata.Element);
+        foreach (var property in metadata.PropertyElements)
+        {
+            element.AppendChild(BuildMetadataElement(property));
+        }
+
+        return element;
+    }
+
+    private static OpenXmlElement WrapWithMetadata(OpenXmlElement element, IReadOnlyList<MetadataContainer> metadata)
+    {
+        if (metadata.Count == 0)
+        {
+            return element;
+        }
+
+        var current = element;
+        for (var i = metadata.Count - 1; i >= 0; i--)
+        {
+            var wrapper = BuildMetadataWrapperElement(metadata[i]);
+            wrapper.AppendChild(current);
+            current = wrapper;
+        }
+
+        return current;
+    }
+
+    private static OpenXmlUnknownElement BuildMetadataElement(MetadataElement metadata)
+    {
+        var element = new OpenXmlUnknownElement(metadata.Prefix, metadata.LocalName, metadata.NamespaceUri);
+        ApplyMetadataAttributes(element, metadata.Attributes);
+
+        if (metadata.Children.Count == 0)
+        {
+            if (!string.IsNullOrWhiteSpace(metadata.Text))
+            {
+                var escaped = System.Security.SecurityElement.Escape(metadata.Text);
+                if (!string.IsNullOrWhiteSpace(escaped))
+                {
+                    element.InnerXml = escaped;
+                }
+            }
+
+            return element;
+        }
+
+        foreach (var child in metadata.Children)
+        {
+            element.AppendChild(BuildMetadataElement(child));
+        }
+
+        return element;
+    }
+
+    private static void ApplyMetadataAttributes(OpenXmlElement element, IReadOnlyList<MetadataAttribute> attributes)
+    {
+        foreach (var attribute in attributes)
+        {
+            element.SetAttribute(new OpenXmlAttribute(
+                attribute.Prefix,
+                attribute.LocalName,
+                attribute.NamespaceUri,
+                attribute.Value));
         }
     }
 
