@@ -1,12 +1,24 @@
 namespace Vibe.Office.Documents;
 
+public enum ContentControlKind
+{
+    Unknown,
+    Run,
+    Block,
+    Table,
+    Row,
+    Cell
+}
+
 public sealed class ContentControlProperties
 {
     public int? Id { get; set; }
+    public ContentControlKind Kind { get; set; }
     public string? Tag { get; set; }
     public string? Alias { get; set; }
     public string? Lock { get; set; }
     public string? Placeholder { get; set; }
+    public string? PlaceholderText { get; set; }
     public bool? ShowingPlaceholder { get; set; }
     public ContentControlDataBinding? DataBinding { get; set; }
 
@@ -15,10 +27,12 @@ public sealed class ContentControlProperties
         return new ContentControlProperties
         {
             Id = Id,
+            Kind = Kind,
             Tag = Tag,
             Alias = Alias,
             Lock = Lock,
             Placeholder = Placeholder,
+            PlaceholderText = PlaceholderText,
             ShowingPlaceholder = ShowingPlaceholder,
             DataBinding = DataBinding?.Clone()
         };

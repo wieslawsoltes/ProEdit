@@ -817,6 +817,7 @@ public sealed class EditorController
             ChartInline => 1,
             EquationInline => 1,
             PageNumberInline => 1,
+            TotalPagesInline => 1,
             FootnoteReferenceInline footnote => footnote.Id.ToString(System.Globalization.CultureInfo.InvariantCulture).Length,
             EndnoteReferenceInline endnote => endnote.Id.ToString(System.Globalization.CultureInfo.InvariantCulture).Length,
             CommentReferenceInline comment => comment.Id.ToString(System.Globalization.CultureInfo.InvariantCulture).Length,
@@ -872,6 +873,7 @@ public sealed class EditorController
                 case ChartInline:
                 case EquationInline:
                 case PageNumberInline:
+                case TotalPagesInline:
                     builder.Append(DocumentConstants.ObjectReplacementChar);
                     break;
                 case FootnoteReferenceInline footnote:

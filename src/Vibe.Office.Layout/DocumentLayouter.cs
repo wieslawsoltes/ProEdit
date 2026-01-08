@@ -3192,6 +3192,17 @@ public sealed class DocumentLayouter
                     AppendContent(text, pageNumberInline.Style?.Clone() ?? paragraphStyle);
                     break;
                 }
+                case TotalPagesInline totalPagesInline:
+                {
+                    var text = totalPages?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty;
+                    if (text.Length == 0)
+                    {
+                        break;
+                    }
+
+                    AppendContent(text, totalPagesInline.Style?.Clone() ?? paragraphStyle);
+                    break;
+                }
                 case FootnoteReferenceInline footnoteReference:
                 {
                     var text = footnoteReference.Id.ToString(System.Globalization.CultureInfo.InvariantCulture);
@@ -3303,6 +3314,11 @@ public sealed class DocumentLayouter
 
     private static string ResolvePlaceholderText(ContentControlProperties properties)
     {
+        if (!string.IsNullOrWhiteSpace(properties.PlaceholderText))
+        {
+            return properties.PlaceholderText;
+        }
+
         if (!string.IsNullOrWhiteSpace(properties.Placeholder))
         {
             return properties.Placeholder;
@@ -3543,7 +3559,7 @@ public sealed class DocumentLayouter
 
     private sealed record InlineScanResult(int TextLength, List<NoteReference> NoteReferences, List<CommentMarker> CommentMarkers);
 
-    private static InlineScanResult ScanParagraphInlines(ParagraphBlock paragraph, int? pageNumber = null)
+    private static InlineScanResult ScanParagraphInlines(ParagraphBlock paragraph, int? pageNumber = null, int? totalPages = null)
     {
         var noteReferences = new List<NoteReference>();
         var commentMarkers = new List<CommentMarker>();
@@ -3584,6 +3600,12 @@ public sealed class DocumentLayouter
                 case PageNumberInline:
                 {
                     var text = pageNumber?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty;
+                    AppendLength(text);
+                    break;
+                }
+                case TotalPagesInline:
+                {
+                    var text = totalPages?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty;
                     AppendLength(text);
                     break;
                 }

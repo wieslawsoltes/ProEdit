@@ -1864,6 +1864,9 @@ public sealed class DocxExporter
                 case PageNumberInline pageNumberInline:
                     container.AppendChild(CreatePageNumberField(pageNumberInline.Style, fonts));
                     break;
+                case TotalPagesInline totalPagesInline:
+                    container.AppendChild(CreateTotalPagesField(totalPagesInline.Style, fonts));
+                    break;
                 case FootnoteReferenceInline footnoteReference:
                 {
                     var run = new Run();
@@ -2506,6 +2509,21 @@ public sealed class DocxExporter
     private static SimpleField CreatePageNumberField(TextStyle? style, DocumentFonts fonts)
     {
         var field = new SimpleField { Instruction = "PAGE" };
+        var run = new Run();
+        var props = BuildRunProperties(style, null, fonts);
+        if (props is not null)
+        {
+            run.RunProperties = props;
+        }
+
+        run.AppendChild(new Text("1"));
+        field.AppendChild(run);
+        return field;
+    }
+
+    private static SimpleField CreateTotalPagesField(TextStyle? style, DocumentFonts fonts)
+    {
+        var field = new SimpleField { Instruction = "NUMPAGES" };
         var run = new Run();
         var props = BuildRunProperties(style, null, fonts);
         if (props is not null)

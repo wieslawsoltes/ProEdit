@@ -7,6 +7,7 @@ public abstract class FieldInline : Inline
 public sealed class FieldStartInline : FieldInline
 {
     public string Instruction { get; set; }
+    public FieldDefinition? Definition { get; set; }
 
     public FieldStartInline(string instruction)
     {

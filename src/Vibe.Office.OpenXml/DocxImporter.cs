@@ -54,13 +54,14 @@ public sealed class DocxImporter
         var imageResolver = new ImageResolver(mainPart);
         var chartResolver = new ChartResolver(mainPart);
         var hyperlinkResolver = new HyperlinkResolver(mainPart);
-        LoadNotesAndComments(mainPart, document, listResolver, styleResolver);
+        var placeholderResolver = new ContentControlPlaceholderResolver(mainPart?.GlossaryDocumentPart);
+        LoadNotesAndComments(mainPart, document, listResolver, styleResolver, placeholderResolver);
         var currentSectionIndex = 0;
         var currentSection = document.GetSection(currentSectionIndex);
 
         void ProcessParagraph(Paragraph paragraph)
         {
-            foreach (var block in ParseParagraphBlocks(paragraph, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, document.Revisions, true))
+            foreach (var block in ParseParagraphBlocks(paragraph, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, document.Revisions, placeholderResolver, true))
             {
                 document.Blocks.Add(block);
             }
@@ -72,7 +73,7 @@ public sealed class DocxImporter
             }
 
             ApplySectionProperties(currentSection.Properties, ParseSectionProperties(sectionProps));
-            LoadSectionHeaderFooter(mainPart, sectionProps, currentSection, document, listResolver, styleResolver);
+            LoadSectionHeaderFooter(mainPart, sectionProps, currentSection, document, listResolver, styleResolver, placeholderResolver);
 
             var breakType = ParseSectionBreakType(sectionProps);
             var nextSection = new DocumentSection(
@@ -118,10 +119,10 @@ public sealed class DocxImporter
                     ProcessParagraph(paragraph);
                     break;
                 case Table table:
-                    document.Blocks.Add(ParseTable(table, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, document.Revisions));
+                    document.Blocks.Add(ParseTable(table, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, document.Revisions, placeholderResolver));
                     break;
                 case SdtBlock sdtBlock:
-                    foreach (var block in ParseSdtBlock(sdtBlock, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, document.Revisions))
+                    foreach (var block in ParseSdtBlock(sdtBlock, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, document.Revisions, placeholderResolver))
                     {
                         document.Blocks.Add(block);
                     }
@@ -138,7 +139,7 @@ public sealed class DocxImporter
         if (bodySectionProps is not null)
         {
             ApplySectionProperties(currentSection.Properties, ParseSectionProperties(bodySectionProps));
-            LoadSectionHeaderFooter(mainPart, bodySectionProps, currentSection, document, listResolver, styleResolver);
+            LoadSectionHeaderFooter(mainPart, bodySectionProps, currentSection, document, listResolver, styleResolver, placeholderResolver);
         }
 
         if (document.Blocks.Count == 0 || document.ParagraphCount == 0)
@@ -156,9 +157,10 @@ public sealed class DocxImporter
         ChartResolver chartResolver,
         HyperlinkResolver hyperlinkResolver,
         StyleResolver styleResolver,
-        DocumentRevisions revisions)
+        DocumentRevisions revisions,
+        ContentControlPlaceholderResolver? placeholderResolver)
     {
-        var blocks = ParseParagraphBlocks(paragraph, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, revisions, false);
+        var blocks = ParseParagraphBlocks(paragraph, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, revisions, placeholderResolver, false);
         foreach (var block in blocks)
         {
             if (block is ParagraphBlock paragraphBlock)
@@ -177,7 +179,8 @@ public sealed class DocxImporter
         ChartResolver chartResolver,
         HyperlinkResolver hyperlinkResolver,
         StyleResolver styleResolver,
-        DocumentRevisions revisions)
+        DocumentRevisions revisions,
+        ContentControlPlaceholderResolver? placeholderResolver)
     {
         var tableBlock = new TableBlock();
         var tableProps = table.Elements<DocumentFormat.OpenXml.Wordprocessing.TableProperties>().FirstOrDefault();
@@ -196,7 +199,7 @@ public sealed class DocxImporter
             ApplyTableCellProperties(cell, tableCell.Properties);
             foreach (var paragraph in cell.Elements<Paragraph>())
             {
-                tableCell.Paragraphs.Add(ParseParagraph(paragraph, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, revisions));
+                tableCell.Paragraphs.Add(ParseParagraph(paragraph, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, revisions, placeholderResolver));
             }
 
             if (tableCell.Paragraphs.Count == 0)
@@ -222,7 +225,7 @@ public sealed class DocxImporter
             }
             else if (rowElement is SdtRow sdtRow)
             {
-                rowContentControl = ParseContentControlProperties(sdtRow.SdtProperties);
+                rowContentControl = ParseContentControlProperties(sdtRow.SdtProperties, ContentControlKind.Row, placeholderResolver);
                 row = sdtRow.SdtContentRow?.Elements<DocumentFormat.OpenXml.Wordprocessing.TableRow>().FirstOrDefault();
             }
 
@@ -241,7 +244,7 @@ public sealed class DocxImporter
                 }
                 else if (cellElement is SdtCell sdtCell)
                 {
-                    var cellControl = ParseContentControlProperties(sdtCell.SdtProperties);
+                    var cellControl = ParseContentControlProperties(sdtCell.SdtProperties, ContentControlKind.Cell, placeholderResolver);
                     var innerCell = sdtCell.SdtContentCell?.Elements<DocumentFormat.OpenXml.Wordprocessing.TableCell>().FirstOrDefault();
                     if (innerCell is null)
                     {
@@ -266,14 +269,21 @@ public sealed class DocxImporter
         DocumentSection section,
         VibeDocument document,
         ListResolver listResolver,
-        StyleResolver styleResolver)
+        StyleResolver styleResolver,
+        ContentControlPlaceholderResolver? placeholderResolver)
     {
         if (mainPart is null)
         {
             return;
         }
 
-        static void PopulateHeader(HeaderFooter target, HeaderPart? headerPart, ListResolver listResolver, StyleResolver styleResolver, DocumentRevisions revisions)
+        static void PopulateHeader(
+            HeaderFooter target,
+            HeaderPart? headerPart,
+            ListResolver listResolver,
+            StyleResolver styleResolver,
+            DocumentRevisions revisions,
+            ContentControlPlaceholderResolver? placeholderResolver)
         {
             if (headerPart?.Header is null)
             {
@@ -281,14 +291,20 @@ public sealed class DocxImporter
             }
 
             target.Blocks.Clear();
-            var headerBlocks = ParseHeaderFooter(headerPart.Header, listResolver, new ImageResolver(headerPart), new ChartResolver(headerPart), new HyperlinkResolver(headerPart), styleResolver, revisions);
+            var headerBlocks = ParseHeaderFooter(headerPart.Header, listResolver, new ImageResolver(headerPart), new ChartResolver(headerPart), new HyperlinkResolver(headerPart), styleResolver, revisions, placeholderResolver);
             foreach (var block in headerBlocks)
             {
                 target.Blocks.Add(block);
             }
         }
 
-        static void PopulateFooter(HeaderFooter target, FooterPart? footerPart, ListResolver listResolver, StyleResolver styleResolver, DocumentRevisions revisions)
+        static void PopulateFooter(
+            HeaderFooter target,
+            FooterPart? footerPart,
+            ListResolver listResolver,
+            StyleResolver styleResolver,
+            DocumentRevisions revisions,
+            ContentControlPlaceholderResolver? placeholderResolver)
         {
             if (footerPart?.Footer is null)
             {
@@ -296,7 +312,7 @@ public sealed class DocxImporter
             }
 
             target.Blocks.Clear();
-            var footerBlocks = ParseHeaderFooter(footerPart.Footer, listResolver, new ImageResolver(footerPart), new ChartResolver(footerPart), new HyperlinkResolver(footerPart), styleResolver, revisions);
+            var footerBlocks = ParseHeaderFooter(footerPart.Footer, listResolver, new ImageResolver(footerPart), new ChartResolver(footerPart), new HyperlinkResolver(footerPart), styleResolver, revisions, placeholderResolver);
             foreach (var block in footerBlocks)
             {
                 target.Blocks.Add(block);
@@ -343,12 +359,12 @@ public sealed class DocxImporter
             document.EvenAndOddHeaders = true;
         }
 
-        PopulateHeader(section.Header, ResolveHeaderPart(mainPart, sectionProps, HeaderFooterValues.Default, true), listResolver, styleResolver, document.Revisions);
-        PopulateFooter(section.Footer, ResolveFooterPart(mainPart, sectionProps, HeaderFooterValues.Default, true), listResolver, styleResolver, document.Revisions);
-        PopulateHeader(section.FirstHeader, ResolveHeaderPart(mainPart, sectionProps, HeaderFooterValues.First, false), listResolver, styleResolver, document.Revisions);
-        PopulateFooter(section.FirstFooter, ResolveFooterPart(mainPart, sectionProps, HeaderFooterValues.First, false), listResolver, styleResolver, document.Revisions);
-        PopulateHeader(section.EvenHeader, ResolveHeaderPart(mainPart, sectionProps, HeaderFooterValues.Even, false), listResolver, styleResolver, document.Revisions);
-        PopulateFooter(section.EvenFooter, ResolveFooterPart(mainPart, sectionProps, HeaderFooterValues.Even, false), listResolver, styleResolver, document.Revisions);
+        PopulateHeader(section.Header, ResolveHeaderPart(mainPart, sectionProps, HeaderFooterValues.Default, true), listResolver, styleResolver, document.Revisions, placeholderResolver);
+        PopulateFooter(section.Footer, ResolveFooterPart(mainPart, sectionProps, HeaderFooterValues.Default, true), listResolver, styleResolver, document.Revisions, placeholderResolver);
+        PopulateHeader(section.FirstHeader, ResolveHeaderPart(mainPart, sectionProps, HeaderFooterValues.First, false), listResolver, styleResolver, document.Revisions, placeholderResolver);
+        PopulateFooter(section.FirstFooter, ResolveFooterPart(mainPart, sectionProps, HeaderFooterValues.First, false), listResolver, styleResolver, document.Revisions, placeholderResolver);
+        PopulateHeader(section.EvenHeader, ResolveHeaderPart(mainPart, sectionProps, HeaderFooterValues.Even, false), listResolver, styleResolver, document.Revisions, placeholderResolver);
+        PopulateFooter(section.EvenFooter, ResolveFooterPart(mainPart, sectionProps, HeaderFooterValues.Even, false), listResolver, styleResolver, document.Revisions, placeholderResolver);
     }
 
     private static void LoadDocumentSettings(MainDocumentPart? mainPart, VibeDocument document)
@@ -536,7 +552,12 @@ public sealed class DocxImporter
         return true;
     }
 
-    private static void LoadNotesAndComments(MainDocumentPart? mainPart, VibeDocument document, ListResolver listResolver, StyleResolver styleResolver)
+    private static void LoadNotesAndComments(
+        MainDocumentPart? mainPart,
+        VibeDocument document,
+        ListResolver listResolver,
+        StyleResolver styleResolver,
+        ContentControlPlaceholderResolver? placeholderResolver)
     {
         if (mainPart is null)
         {
@@ -562,7 +583,7 @@ public sealed class DocxImporter
                 }
 
                 var definition = new FootnoteDefinition(id);
-                foreach (var block in ParseHeaderFooter(footnote, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, document.Revisions))
+                foreach (var block in ParseHeaderFooter(footnote, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, document.Revisions, placeholderResolver))
                 {
                     definition.Blocks.Add(block);
                 }
@@ -586,7 +607,7 @@ public sealed class DocxImporter
                 }
 
                 var definition = new EndnoteDefinition(id);
-                foreach (var block in ParseHeaderFooter(endnote, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, document.Revisions))
+                foreach (var block in ParseHeaderFooter(endnote, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, document.Revisions, placeholderResolver))
                 {
                     definition.Blocks.Add(block);
                 }
@@ -616,7 +637,7 @@ public sealed class DocxImporter
                     Date = comment.Date?.Value
                 };
 
-                foreach (var block in ParseHeaderFooter(comment, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, document.Revisions))
+                foreach (var block in ParseHeaderFooter(comment, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, document.Revisions, placeholderResolver))
                 {
                     definition.Blocks.Add(block);
                 }
@@ -633,12 +654,13 @@ public sealed class DocxImporter
         ChartResolver chartResolver,
         HyperlinkResolver hyperlinkResolver,
         StyleResolver styleResolver,
-        DocumentRevisions revisions)
+        DocumentRevisions revisions,
+        ContentControlPlaceholderResolver? placeholderResolver)
     {
         var blocks = new List<Block>();
         foreach (var element in root.Elements())
         {
-            AppendBlockElement(element, blocks, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, revisions);
+            AppendBlockElement(element, blocks, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, revisions, placeholderResolver);
         }
 
         return blocks;
@@ -651,18 +673,29 @@ public sealed class DocxImporter
         ChartResolver chartResolver,
         HyperlinkResolver hyperlinkResolver,
         StyleResolver styleResolver,
-        DocumentRevisions revisions)
+        DocumentRevisions revisions,
+        ContentControlPlaceholderResolver? placeholderResolver)
     {
         var blocks = new List<Block>();
-        var properties = ParseContentControlProperties(sdtBlock.SdtProperties);
+        var content = sdtBlock.SdtContentBlock;
+        var kind = ContentControlKind.Block;
+        if (content is not null)
+        {
+            var elements = content.Elements().ToList();
+            if (elements.Count == 1 && elements[0] is Table)
+            {
+                kind = ContentControlKind.Table;
+            }
+        }
+
+        var properties = ParseContentControlProperties(sdtBlock.SdtProperties, kind, placeholderResolver);
         blocks.Add(new ContentControlStartBlock(properties));
 
-        var content = sdtBlock.SdtContentBlock;
         if (content is not null)
         {
             foreach (var element in content.Elements())
             {
-                AppendBlockElement(element, blocks, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, revisions);
+                AppendBlockElement(element, blocks, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, revisions, placeholderResolver);
             }
         }
 
@@ -670,9 +703,13 @@ public sealed class DocxImporter
         return blocks;
     }
 
-    private static ContentControlProperties ParseContentControlProperties(SdtProperties? properties)
+    private static ContentControlProperties ParseContentControlProperties(
+        SdtProperties? properties,
+        ContentControlKind kind,
+        ContentControlPlaceholderResolver? placeholderResolver)
     {
         var result = new ContentControlProperties();
+        result.Kind = kind;
         if (properties is null)
         {
             return result;
@@ -695,6 +732,7 @@ public sealed class DocxImporter
         if (!string.IsNullOrWhiteSpace(placeholder))
         {
             result.Placeholder = placeholder;
+            result.PlaceholderText = placeholderResolver?.TryResolve(placeholder);
         }
 
         var showingPlaceholder = properties.GetFirstChild<ShowingPlaceholder>();
@@ -717,6 +755,68 @@ public sealed class DocxImporter
         return result;
     }
 
+    private sealed class ContentControlPlaceholderResolver
+    {
+        private readonly Dictionary<string, string> _placeholders = new(StringComparer.OrdinalIgnoreCase);
+
+        public ContentControlPlaceholderResolver(GlossaryDocumentPart? glossaryPart)
+        {
+            var docParts = glossaryPart?.GlossaryDocument?.DocParts;
+            if (docParts is null)
+            {
+                return;
+            }
+
+            foreach (var docPart in docParts.Elements<DocPart>())
+            {
+                var name = docPart.DocPartProperties?.DocPartName?.Val?.Value;
+                if (string.IsNullOrWhiteSpace(name))
+                {
+                    continue;
+                }
+
+                var text = ExtractDocPartText(docPart.DocPartBody);
+                if (string.IsNullOrWhiteSpace(text))
+                {
+                    continue;
+                }
+
+                _placeholders[name] = text;
+            }
+        }
+
+        public string? TryResolve(string? docPartName)
+        {
+            if (string.IsNullOrWhiteSpace(docPartName))
+            {
+                return null;
+            }
+
+            return _placeholders.TryGetValue(docPartName, out var text) ? text : null;
+        }
+    }
+
+    private static string? ExtractDocPartText(DocPartBody? body)
+    {
+        if (body is null)
+        {
+            return null;
+        }
+
+        var paragraphs = body.Elements<Paragraph>()
+            .Select(static paragraph => paragraph.InnerText?.Trim())
+            .Where(static text => !string.IsNullOrWhiteSpace(text))
+            .ToArray();
+
+        if (paragraphs.Length > 0)
+        {
+            return string.Join("\n", paragraphs);
+        }
+
+        var fallback = body.InnerText?.Trim();
+        return string.IsNullOrWhiteSpace(fallback) ? null : fallback;
+    }
+
     private static void AppendBlockElement(
         OpenXmlElement element,
         List<Block> blocks,
@@ -725,24 +825,25 @@ public sealed class DocxImporter
         ChartResolver chartResolver,
         HyperlinkResolver hyperlinkResolver,
         StyleResolver styleResolver,
-        DocumentRevisions revisions)
+        DocumentRevisions revisions,
+        ContentControlPlaceholderResolver? placeholderResolver)
     {
         if (TryGetRevisionKind(element, out var revisionKind))
         {
-            AppendRevisionBlocks(element, revisionKind, blocks, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, revisions);
+            AppendRevisionBlocks(element, revisionKind, blocks, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, revisions, placeholderResolver);
             return;
         }
 
         switch (element)
         {
             case Paragraph paragraph:
-                blocks.AddRange(ParseParagraphBlocks(paragraph, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, revisions, false));
+                blocks.AddRange(ParseParagraphBlocks(paragraph, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, revisions, placeholderResolver, false));
                 break;
             case Table table:
-                blocks.Add(ParseTable(table, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, revisions));
+                blocks.Add(ParseTable(table, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, revisions, placeholderResolver));
                 break;
             case SdtBlock sdtBlock:
-                blocks.AddRange(ParseSdtBlock(sdtBlock, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, revisions));
+                blocks.AddRange(ParseSdtBlock(sdtBlock, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, revisions, placeholderResolver));
                 break;
         }
     }
@@ -756,13 +857,14 @@ public sealed class DocxImporter
         ChartResolver chartResolver,
         HyperlinkResolver hyperlinkResolver,
         StyleResolver styleResolver,
-        DocumentRevisions revisions)
+        DocumentRevisions revisions,
+        ContentControlPlaceholderResolver? placeholderResolver)
     {
         var revision = ResolveRevision(element, kind, revisions);
         blocks.Add(new RevisionStartBlock(revision));
         foreach (var child in element.ChildElements)
         {
-            AppendBlockElement(child, blocks, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, revisions);
+            AppendBlockElement(child, blocks, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, revisions, placeholderResolver);
         }
         blocks.Add(new RevisionEndBlock(kind, revision.Id));
     }
@@ -828,6 +930,7 @@ public sealed class DocxImporter
         HyperlinkResolver hyperlinkResolver,
         StyleResolver styleResolver,
         DocumentRevisions revisions,
+        ContentControlPlaceholderResolver? placeholderResolver,
         bool splitOnPageBreaks)
     {
         var blocks = new List<Block>();
@@ -888,6 +991,16 @@ public sealed class DocxImporter
             current.FloatingObjects.Add(floating);
         }
 
+        Inline? CreateEvaluatedFieldInline(FieldKind kind, TextStyle? style)
+        {
+            return kind switch
+            {
+                FieldKind.Page => new PageNumberInline(style),
+                FieldKind.NumPages => new TotalPagesInline(style),
+                _ => null
+            };
+        }
+
         void FinalizeFieldInstruction(FieldParseState state)
         {
             if (state.InstructionFinalized)
@@ -897,7 +1010,11 @@ public sealed class DocxImporter
 
             var instruction = state.Instruction.ToString();
             state.StartInline.Instruction = instruction;
-            state.IsPageField = IsPageFieldInstruction(instruction);
+            var definition = FieldInstructionParser.Parse(instruction);
+            state.Definition = definition;
+            state.StartInline.Definition = definition;
+            state.EvaluationMode = FieldEvaluationPolicy.GetMode(definition);
+            state.Kind = definition?.Kind ?? FieldKind.Unknown;
             state.InstructionFinalized = true;
         }
 
@@ -930,10 +1047,14 @@ public sealed class DocxImporter
 
             var state = fieldStack.Pop();
             FinalizeFieldInstruction(state);
-            if (state.IsPageField && !state.AddedPageInline)
+            if (state.EvaluationMode == FieldEvaluationMode.Evaluate && !state.AddedEvaluatedInline)
             {
                 var fallbackStyle = styleResolver.ResolveRunStyle(paragraphStyleId, null, null);
-                AddInline(new PageNumberInline(fallbackStyle), true, null);
+                var inline = CreateEvaluatedFieldInline(state.Kind, fallbackStyle);
+                if (inline is not null)
+                {
+                    AddInline(inline, true, null);
+                }
             }
 
             current.Inlines.Add(new FieldEndInline());
@@ -980,12 +1101,18 @@ public sealed class DocxImporter
         void ProcessRun(Run run, HyperlinkInfo? hyperlink)
         {
             var fieldState = fieldStack.Count > 0 ? fieldStack.Peek() : null;
-            var suppressResultText = fieldState is not null && fieldState.InResult && fieldState.IsPageField;
-            if (suppressResultText && !fieldState!.AddedPageInline)
+            var suppressResultText = fieldState is not null
+                                     && fieldState.InResult
+                                     && fieldState.EvaluationMode == FieldEvaluationMode.Evaluate;
+            if (suppressResultText && !fieldState!.AddedEvaluatedInline)
             {
                 var fieldStyle = styleResolver.ResolveRunStyle(paragraphStyleId, run.RunProperties, styleResolver.GetRunStyleId(run));
-                AddInline(new PageNumberInline(fieldStyle), true, hyperlink);
-                fieldState.AddedPageInline = true;
+                var inline = CreateEvaluatedFieldInline(fieldState.Kind, fieldStyle);
+                if (inline is not null)
+                {
+                    AddInline(inline, true, hyperlink);
+                    fieldState.AddedEvaluatedInline = true;
+                }
             }
 
             var runStyleId = styleResolver.GetRunStyleId(run);
@@ -1206,7 +1333,7 @@ public sealed class DocxImporter
                             var anchor = drawing.Descendants<DW.Anchor>().FirstOrDefault();
                             if (anchor is not null)
                             {
-                                var inline = TryCreateInlineObject(drawing, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, revisions);
+                                var inline = TryCreateInlineObject(drawing, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, revisions, placeholderResolver);
                                 if (inline is not null)
                                 {
                                     AddFloatingObject(inline, anchor, hyperlink, builder.Length);
@@ -1214,7 +1341,7 @@ public sealed class DocxImporter
                             }
                             else
                             {
-                                var inline = TryCreateInlineObject(drawing, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, revisions);
+                                var inline = TryCreateInlineObject(drawing, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, revisions, placeholderResolver);
                                 if (inline is not null)
                                 {
                                     AddInline(inline, true, hyperlink);
@@ -1227,7 +1354,7 @@ public sealed class DocxImporter
                         if (!suppressResultText)
                         {
                             FlushRunBuffer(buffer, style, runStyleId, current, builder, hyperlink);
-                            var inline = TryCreateInlineObjectFromVml(element, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, revisions);
+                            var inline = TryCreateInlineObjectFromVml(element, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, revisions, placeholderResolver);
                             if (inline is not null)
                             {
                                 var floating = new FloatingObject(inline);
@@ -1259,14 +1386,20 @@ public sealed class DocxImporter
         {
             var instruction = field.Instruction?.Value ?? string.Empty;
             var startInline = new FieldStartInline(instruction);
+            var definition = FieldInstructionParser.Parse(instruction);
+            startInline.Definition = definition;
             AddInline(startInline, false, hyperlink);
             current.Inlines.Add(new FieldSeparatorInline());
 
-            if (IsPageFieldInstruction(instruction))
+            if (FieldEvaluationPolicy.GetMode(definition) == FieldEvaluationMode.Evaluate)
             {
                 var run = field.Elements<Run>().FirstOrDefault();
                 var fieldStyle = styleResolver.ResolveRunStyle(paragraphStyleId, run?.RunProperties, styleResolver.GetRunStyleId(run));
-                AddInline(new PageNumberInline(fieldStyle), true, hyperlink);
+                var inline = CreateEvaluatedFieldInline(definition?.Kind ?? FieldKind.Unknown, fieldStyle);
+                if (inline is not null)
+                {
+                    AddInline(inline, true, hyperlink);
+                }
             }
             else
             {
@@ -1313,7 +1446,7 @@ public sealed class DocxImporter
                 }
                 case SdtRun sdtRun:
                 {
-                    var properties = ParseContentControlProperties(sdtRun.SdtProperties);
+                    var properties = ParseContentControlProperties(sdtRun.SdtProperties, ContentControlKind.Run, placeholderResolver);
                     AddInline(new ContentControlStartInline(properties), false, null);
                     foreach (var child in sdtRun.SdtContentRun?.Elements() ?? Enumerable.Empty<OpenXmlElement>())
                     {
@@ -1688,25 +1821,16 @@ public sealed class DocxImporter
         buffer.Clear();
     }
 
-    private static bool IsPageFieldInstruction(string instruction)
-    {
-        if (string.IsNullOrWhiteSpace(instruction))
-        {
-            return false;
-        }
-
-        return instruction.IndexOf("PAGE", StringComparison.OrdinalIgnoreCase) >= 0
-               || instruction.IndexOf("NUMPAGES", StringComparison.OrdinalIgnoreCase) >= 0;
-    }
-
     private sealed class FieldParseState
     {
         public FieldStartInline StartInline { get; }
         public StringBuilder Instruction { get; } = new StringBuilder();
         public bool InstructionFinalized { get; set; }
         public bool InResult { get; set; }
-        public bool IsPageField { get; set; }
-        public bool AddedPageInline { get; set; }
+        public FieldDefinition? Definition { get; set; }
+        public FieldEvaluationMode EvaluationMode { get; set; }
+        public FieldKind Kind { get; set; }
+        public bool AddedEvaluatedInline { get; set; }
 
         public FieldParseState(FieldStartInline startInline)
         {
@@ -4326,7 +4450,8 @@ public sealed class DocxImporter
         ChartResolver chartResolver,
         HyperlinkResolver hyperlinkResolver,
         StyleResolver styleResolver,
-        DocumentRevisions revisions)
+        DocumentRevisions revisions,
+        ContentControlPlaceholderResolver? placeholderResolver)
     {
         var graphicData = drawing.Descendants<A.GraphicData>().FirstOrDefault();
         var uri = graphicData?.Uri?.Value ?? string.Empty;
@@ -4345,7 +4470,7 @@ public sealed class DocxImporter
                        ?? drawing.Descendants<Wps.WordprocessingShape>().FirstOrDefault();
             if (shape is not null)
             {
-                var inline = TryCreateWordprocessingShape(drawing, shape, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, revisions);
+                var inline = TryCreateWordprocessingShape(drawing, shape, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, revisions, placeholderResolver);
                 if (inline is not null)
                 {
                     return inline;
@@ -4363,7 +4488,8 @@ public sealed class DocxImporter
         ChartResolver chartResolver,
         HyperlinkResolver hyperlinkResolver,
         StyleResolver styleResolver,
-        DocumentRevisions revisions)
+        DocumentRevisions revisions,
+        ContentControlPlaceholderResolver? placeholderResolver)
     {
         var hasImageData = element.Descendants()
             .Any(node => node.LocalName.Equals("imagedata", StringComparison.OrdinalIgnoreCase));
@@ -4413,7 +4539,7 @@ public sealed class DocxImporter
         var textBoxContent = element.Descendants<TextBoxContent>().FirstOrDefault();
         if (textBoxContent is not null)
         {
-            var blocks = ParseTextBoxContent(textBoxContent, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, revisions);
+            var blocks = ParseTextBoxContent(textBoxContent, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, revisions, placeholderResolver);
             var textBox = new ShapeTextBox();
             textBox.Blocks.AddRange(blocks);
             shapeInline.TextBox = textBox;
@@ -4806,7 +4932,8 @@ public sealed class DocxImporter
         ChartResolver chartResolver,
         HyperlinkResolver hyperlinkResolver,
         StyleResolver styleResolver,
-        DocumentRevisions revisions)
+        DocumentRevisions revisions,
+        ContentControlPlaceholderResolver? placeholderResolver)
     {
         var extent = drawing.Descendants<DW.Extent>().FirstOrDefault();
         var width = extent?.Cx?.Value is long cx ? EmuToDip(cx) : 0f;
@@ -4859,7 +4986,7 @@ public sealed class DocxImporter
             ApplyTextBodyProperties(bodyPr, textBox.Properties);
             if (textBoxContent is not null)
             {
-                var blocks = ParseTextBoxContent(textBoxContent, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, revisions);
+                var blocks = ParseTextBoxContent(textBoxContent, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, revisions, placeholderResolver);
                 textBox.Blocks.AddRange(blocks);
             }
 
@@ -5165,12 +5292,13 @@ public sealed class DocxImporter
         ChartResolver chartResolver,
         HyperlinkResolver hyperlinkResolver,
         StyleResolver styleResolver,
-        DocumentRevisions revisions)
+        DocumentRevisions revisions,
+        ContentControlPlaceholderResolver? placeholderResolver)
     {
         var blocks = new List<Block>();
         foreach (var element in content.Elements())
         {
-            AppendBlockElement(element, blocks, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, revisions);
+            AppendBlockElement(element, blocks, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, revisions, placeholderResolver);
         }
 
         if (blocks.Count == 0)
