@@ -16,12 +16,52 @@ public sealed partial class SkiaDocumentRenderer
     private readonly Dictionary<Guid, SmartArtLayout> _smartArtLayoutCache = new();
     private void DrawImage(SKCanvas canvas, LayoutImage image, float lineX, float baseline, float ascent, RenderOptions options)
     {
-        if (TryDrawSmartArt(canvas, image, lineX, baseline, options))
+        var x = lineX + image.X;
+        var y = baseline - image.Height;
+        var dest = new SKRect(x, y, x + image.Width, y + image.Height);
+        var effects = image.Image.Effects;
+        if (effects?.HasValues == true)
+        {
+            DrawImageWithEffects(canvas, image, dest, options, effects);
+            return;
+        }
+
+        DrawImageContent(canvas, image, dest, options);
+    }
+
+    private void DrawImageWithEffects(SKCanvas canvas, LayoutImage image, SKRect dest, RenderOptions options, DrawingEffects effects)
+    {
+        if (effects.Shadow is not null)
+        {
+            DrawImageShadow(canvas, image, dest, options, effects.Shadow);
+        }
+
+        if (effects.Glow is not null)
+        {
+            DrawImageGlow(canvas, image, dest, options, effects.Glow);
+        }
+
+        if (effects.SoftEdge is not null)
+        {
+            DrawImageSoftEdge(canvas, image, dest, options, effects.SoftEdge);
+        }
+
+        DrawImageContent(canvas, image, dest, options);
+
+        if (effects.Reflection is not null)
+        {
+            DrawImageReflection(canvas, image, dest, options, effects.Reflection);
+        }
+    }
+
+    private void DrawImageContent(SKCanvas canvas, LayoutImage image, SKRect dest, RenderOptions options)
+    {
+        if (TryDrawSmartArt(canvas, image, dest, options))
         {
             return;
         }
 
-        if (TryDrawSvg(canvas, image, lineX, baseline, options))
+        if (TryDrawSvg(canvas, image, dest, options))
         {
             return;
         }
@@ -29,48 +69,145 @@ public sealed partial class SkiaDocumentRenderer
         var bitmap = GetBitmap(image.Image);
         if (bitmap is null)
         {
-            var placeholderX = lineX + image.X;
-            var placeholderY = baseline - image.Height;
-            var rect = new SKRect(placeholderX, placeholderY, placeholderX + image.Width, placeholderY + image.Height);
-            using var fillPaint = new SKPaint
-            {
-                Style = SKPaintStyle.Fill,
-                Color = ToSkColor(options.PlaceholderFillColor),
-                IsAntialias = true
-            };
-            using var borderPaint = new SKPaint
-            {
-                Style = SKPaintStyle.Stroke,
-                Color = ToSkColor(options.PlaceholderStrokeColor),
-                StrokeWidth = 1f,
-                IsAntialias = true
-            };
-            using var textPaint = new SKPaint
-            {
-                Style = SKPaintStyle.Fill,
-                Color = ToSkColor(options.PlaceholderTextColor),
-                IsAntialias = true,
-                TextAlign = SKTextAlign.Center
-            };
-
-            canvas.DrawRect(rect, fillPaint);
-            canvas.DrawRect(rect, borderPaint);
-
-            var label = GetPlaceholderLabel(image.Image);
-
-            textPaint.TextSize = MathF.Max(8f, MathF.Min(14f, image.Height / 4f));
-            var textY = rect.MidY + textPaint.TextSize * 0.35f;
-            canvas.DrawText(label, rect.MidX, textY, textPaint);
+            DrawImagePlaceholder(canvas, image, dest, options);
             return;
         }
 
-        var x = lineX + image.X;
-        var y = baseline - image.Height;
-        var dest = new SKRect(x, y, x + image.Width, y + image.Height);
         canvas.DrawBitmap(bitmap, dest);
     }
 
-    private bool TryDrawSmartArt(SKCanvas canvas, LayoutImage image, float lineX, float baseline, RenderOptions options)
+    private void DrawImagePlaceholder(SKCanvas canvas, LayoutImage image, SKRect rect, RenderOptions options)
+    {
+        using var fillPaint = new SKPaint
+        {
+            Style = SKPaintStyle.Fill,
+            Color = ToSkColor(options.PlaceholderFillColor),
+            IsAntialias = true
+        };
+        using var borderPaint = new SKPaint
+        {
+            Style = SKPaintStyle.Stroke,
+            Color = ToSkColor(options.PlaceholderStrokeColor),
+            StrokeWidth = 1f,
+            IsAntialias = true
+        };
+        using var textPaint = new SKPaint
+        {
+            Style = SKPaintStyle.Fill,
+            Color = ToSkColor(options.PlaceholderTextColor),
+            IsAntialias = true,
+            TextAlign = SKTextAlign.Center
+        };
+
+        canvas.DrawRect(rect, fillPaint);
+        canvas.DrawRect(rect, borderPaint);
+
+        var label = GetPlaceholderLabel(image.Image);
+
+        textPaint.TextSize = MathF.Max(8f, MathF.Min(14f, image.Height / 4f));
+        var textY = rect.MidY + textPaint.TextSize * 0.35f;
+        canvas.DrawText(label, rect.MidX, textY, textPaint);
+    }
+
+    private void DrawImageShadow(SKCanvas canvas, LayoutImage image, SKRect dest, RenderOptions options, DrawingShadowEffect shadow)
+    {
+        var blurRadius = MathF.Max(0f, shadow.BlurRadius);
+        var distance = MathF.Max(0f, shadow.Distance);
+        if (blurRadius <= 0f && distance <= 0f)
+        {
+            return;
+        }
+
+        var angle = shadow.Direction * (MathF.PI / 180f);
+        var dx = distance * MathF.Cos(angle);
+        var dy = distance * MathF.Sin(angle);
+        var bounds = ExpandRect(
+            dest,
+            MathF.Max(0f, -dx) + blurRadius * 2f,
+            MathF.Max(0f, -dy) + blurRadius * 2f,
+            MathF.Max(0f, dx) + blurRadius * 2f,
+            MathF.Max(0f, dy) + blurRadius * 2f);
+
+        using var paint = new SKPaint
+        {
+            ImageFilter = SKImageFilter.CreateDropShadowOnly(dx, dy, blurRadius, blurRadius, ToSkColor(shadow.Color))
+        };
+        DrawImageEffectLayer(canvas, bounds, paint, image, dest, options);
+    }
+
+    private void DrawImageGlow(SKCanvas canvas, LayoutImage image, SKRect dest, RenderOptions options, DrawingGlowEffect glow)
+    {
+        var blurRadius = MathF.Max(0f, glow.Radius);
+        if (blurRadius <= 0f)
+        {
+            return;
+        }
+
+        var bounds = ExpandRect(dest, blurRadius * 2f, blurRadius * 2f, blurRadius * 2f, blurRadius * 2f);
+        using var paint = new SKPaint
+        {
+            ImageFilter = SKImageFilter.CreateDropShadowOnly(0f, 0f, blurRadius, blurRadius, ToSkColor(glow.Color))
+        };
+        DrawImageEffectLayer(canvas, bounds, paint, image, dest, options);
+    }
+
+    private void DrawImageSoftEdge(SKCanvas canvas, LayoutImage image, SKRect dest, RenderOptions options, DrawingSoftEdgeEffect softEdge)
+    {
+        var blurRadius = MathF.Max(0f, softEdge.Radius);
+        if (blurRadius <= 0f)
+        {
+            return;
+        }
+
+        var bounds = ExpandRect(dest, blurRadius * 2f, blurRadius * 2f, blurRadius * 2f, blurRadius * 2f);
+        using var paint = new SKPaint
+        {
+            ImageFilter = SKImageFilter.CreateBlur(blurRadius, blurRadius)
+        };
+        DrawImageEffectLayer(canvas, bounds, paint, image, dest, options);
+    }
+
+    private void DrawImageReflection(SKCanvas canvas, LayoutImage image, SKRect dest, RenderOptions options, DrawingReflectionEffect reflection)
+    {
+        var scaleX = reflection.ScaleX > 0f ? reflection.ScaleX : 1f;
+        var scaleY = reflection.ScaleY > 0f ? reflection.ScaleY : 1f;
+        var reflectionHeight = dest.Height * scaleY;
+        if (reflectionHeight <= 0f)
+        {
+            return;
+        }
+
+        var reflectionTop = dest.Bottom + reflection.Distance;
+        var reflectionRect = new SKRect(dest.Left, reflectionTop, dest.Left + dest.Width * scaleX, reflectionTop + reflectionHeight);
+        using var layerPaint = new SKPaint();
+        if (reflection.BlurRadius > 0f)
+        {
+            layerPaint.ImageFilter = SKImageFilter.CreateBlur(reflection.BlurRadius, reflection.BlurRadius);
+        }
+
+        canvas.SaveLayer(reflectionRect, layerPaint);
+
+        canvas.Save();
+        canvas.Scale(scaleX, -scaleY);
+        var tx = dest.Left - dest.Left * scaleX;
+        var ty = dest.Bottom + reflection.Distance + dest.Bottom * scaleY;
+        canvas.Translate(tx, ty);
+        DrawImageContent(canvas, image, dest, options);
+        canvas.Restore();
+
+        using var maskPaint = CreateReflectionMaskPaint(reflectionRect, reflection.StartOpacity, reflection.EndOpacity);
+        canvas.DrawRect(reflectionRect, maskPaint);
+        canvas.Restore();
+    }
+
+    private void DrawImageEffectLayer(SKCanvas canvas, SKRect bounds, SKPaint paint, LayoutImage image, SKRect dest, RenderOptions options)
+    {
+        canvas.SaveLayer(bounds, paint);
+        DrawImageContent(canvas, image, dest, options);
+        canvas.Restore();
+    }
+
+    private bool TryDrawSmartArt(SKCanvas canvas, LayoutImage image, SKRect dest, RenderOptions options)
     {
         var diagram = image.Image.Diagram;
         if (diagram?.DataPart is null || diagram.DataPart.Length == 0)
@@ -92,8 +229,8 @@ public sealed partial class SkiaDocumentRenderer
             return false;
         }
 
-        var originX = lineX + image.X;
-        var originY = baseline - image.Height;
+        var originX = dest.Left;
+        var originY = dest.Top;
         using var connectorPaint = new SKPaint
         {
             Style = SKPaintStyle.Stroke,
@@ -268,7 +405,7 @@ public sealed partial class SkiaDocumentRenderer
         return "Object";
     }
 
-    private bool TryDrawSvg(SKCanvas canvas, LayoutImage image, float lineX, float baseline, RenderOptions options)
+    private bool TryDrawSvg(SKCanvas canvas, LayoutImage image, SKRect dest, RenderOptions options)
     {
         if (!IsSvgImage(image.Image))
         {
@@ -279,7 +416,7 @@ public sealed partial class SkiaDocumentRenderer
         if (renderMode != SvgRenderMode.Rasterize)
         {
             var info = GetSvgPictureInfo(image.Image);
-            if (info is not null && TryDrawSvgPicture(canvas, info, image, lineX, baseline))
+            if (info is not null && TryDrawSvgPicture(canvas, info, dest))
             {
                 return true;
             }
@@ -290,37 +427,32 @@ public sealed partial class SkiaDocumentRenderer
             }
         }
 
-        var raster = GetSvgRaster(image.Image, image.Width, image.Height, options);
+        var raster = GetSvgRaster(image.Image, dest.Width, dest.Height, options);
         if (raster is null)
         {
             return false;
         }
 
-        var x = lineX + image.X;
-        var y = baseline - image.Height;
-        var dest = new SKRect(x, y, x + image.Width, y + image.Height);
         canvas.DrawBitmap(raster, dest);
         return true;
     }
 
-    private bool TryDrawSvgPicture(SKCanvas canvas, SvgPictureInfo info, LayoutImage image, float lineX, float baseline)
+    private bool TryDrawSvgPicture(SKCanvas canvas, SvgPictureInfo info, SKRect dest)
     {
         if (info.Bounds.Width <= 0f || info.Bounds.Height <= 0f)
         {
             return false;
         }
 
-        var x = lineX + image.X;
-        var y = baseline - image.Height;
-        var scaleX = image.Width / info.Bounds.Width;
-        var scaleY = image.Height / info.Bounds.Height;
+        var scaleX = dest.Width / info.Bounds.Width;
+        var scaleY = dest.Height / info.Bounds.Height;
         if (!float.IsFinite(scaleX) || !float.IsFinite(scaleY))
         {
             return false;
         }
 
         canvas.Save();
-        canvas.Translate(x - info.Bounds.Left * scaleX, y - info.Bounds.Top * scaleY);
+        canvas.Translate(dest.Left - info.Bounds.Left * scaleX, dest.Top - info.Bounds.Top * scaleY);
         canvas.Scale(scaleX, scaleY);
         canvas.DrawPicture(info.Picture);
         canvas.Restore();

@@ -3,6 +3,7 @@ using System.Text;
 using SkiaSharp;
 using Vibe.Office.Documents;
 using Vibe.Office.Layout;
+using Vibe.Office.Primitives;
 using Vibe.Office.Rendering;
 
 namespace Vibe.Office.Rendering.Skia;
@@ -29,43 +30,38 @@ public sealed partial class SkiaDocumentRenderer
         var hasFill = fillColor.HasValue && fillColor.Value.A > 0;
         var hasOutline = outline is not null && outline.IsVisible;
         var rect = new SKRect(0f, 0f, width, height);
+        var effects = properties.Effects;
 
         canvas.Save();
         canvas.Translate(originX, originY);
         ApplyShapeTransform(canvas, properties, width, height);
 
-        var path = CreateShapePath(kind, rect);
+        using var path = CreateShapePath(kind, rect);
         if (!hasFill && !hasOutline)
         {
             DrawShapePlaceholder(canvas, rect, options, "Shape");
         }
         else
         {
-            if (hasFill && !isLine)
+            if (effects?.HasValues == true)
             {
-                using var fillPaint = new SKPaint
+                if (effects.Shadow is not null)
                 {
-                    Style = SKPaintStyle.Fill,
-                    Color = ToSkColor(fillColor!.Value),
-                    IsAntialias = true
-                };
-                canvas.DrawPath(path, fillPaint);
+                    DrawShapeShadow(canvas, path, kind, fillColor, outline, effects.Shadow);
+                }
+
+                if (effects.Glow is not null)
+                {
+                    DrawShapeGlow(canvas, path, kind, fillColor, outline, effects.Glow);
+                }
+
+                if (effects.SoftEdge is not null)
+                {
+                    DrawShapeSoftEdge(canvas, path, kind, fillColor, outline, effects.SoftEdge);
+                }
             }
 
-            if (hasOutline)
-            {
-                var thickness = MathF.Max(0.5f, GetBorderThickness(outline!));
-                using var strokePaint = new SKPaint
-                {
-                    Style = SKPaintStyle.Stroke,
-                    Color = ToSkColor(outline!.Color),
-                    StrokeWidth = thickness,
-                    IsAntialias = true,
-                    StrokeCap = outline.Style == DocBorderStyle.Dotted ? SKStrokeCap.Round : SKStrokeCap.Butt,
-                    PathEffect = CreateBorderEffect(outline.Style, thickness)
-                };
-                canvas.DrawPath(path, strokePaint);
-            }
+            DrawShapeGeometry(canvas, path, kind, fillColor, outline);
         }
 
         if (shape.TextBox is { Blocks.Count: > 0 })
@@ -73,6 +69,224 @@ public sealed partial class SkiaDocumentRenderer
             DrawShapeText(canvas, shape.TextBox, rect, options, defaultStyle, TypefaceResolver);
         }
 
+        if (effects?.Reflection is not null && (hasFill || hasOutline))
+        {
+            DrawShapeReflection(canvas, path, rect, kind, fillColor, outline, effects.Reflection);
+        }
+
+        canvas.Restore();
+    }
+
+    private static void DrawShapeGeometry(
+        SKCanvas canvas,
+        SKPath path,
+        ShapeKind kind,
+        DocColor? fillColor,
+        BorderLine? outline)
+    {
+        var hasFill = fillColor.HasValue && fillColor.Value.A > 0;
+        var hasOutline = outline is not null && outline.IsVisible;
+        if (hasFill && kind != ShapeKind.Line)
+        {
+            using var fillPaint = new SKPaint
+            {
+                Style = SKPaintStyle.Fill,
+                Color = ToSkColor(fillColor!.Value),
+                IsAntialias = true
+            };
+            canvas.DrawPath(path, fillPaint);
+        }
+
+        if (hasOutline)
+        {
+            var thickness = MathF.Max(0.5f, GetBorderThickness(outline!));
+            using var strokePaint = new SKPaint
+            {
+                Style = SKPaintStyle.Stroke,
+                Color = ToSkColor(outline!.Color),
+                StrokeWidth = thickness,
+                IsAntialias = true,
+                StrokeCap = outline.Style == DocBorderStyle.Dotted ? SKStrokeCap.Round : SKStrokeCap.Butt,
+                PathEffect = CreateBorderEffect(outline.Style, thickness)
+            };
+            canvas.DrawPath(path, strokePaint);
+        }
+    }
+
+    private static void DrawShapeShadow(
+        SKCanvas canvas,
+        SKPath path,
+        ShapeKind kind,
+        DocColor? fillColor,
+        BorderLine? outline,
+        DrawingShadowEffect shadow)
+    {
+        var blurRadius = MathF.Max(0f, shadow.BlurRadius);
+        var distance = MathF.Max(0f, shadow.Distance);
+        if (blurRadius <= 0f && distance <= 0f)
+        {
+            return;
+        }
+
+        var angle = shadow.Direction * (MathF.PI / 180f);
+        var dx = distance * MathF.Cos(angle);
+        var dy = distance * MathF.Sin(angle);
+        var shadowColor = ToSkColor(shadow.Color);
+
+        if (fillColor.HasValue && fillColor.Value.A > 0 && kind != ShapeKind.Line)
+        {
+            using var fillPaint = new SKPaint
+            {
+                Style = SKPaintStyle.Fill,
+                Color = ToSkColor(fillColor.Value),
+                IsAntialias = true,
+                ImageFilter = SKImageFilter.CreateDropShadowOnly(dx, dy, blurRadius, blurRadius, shadowColor)
+            };
+            canvas.DrawPath(path, fillPaint);
+        }
+
+        if (outline is not null && outline.IsVisible)
+        {
+            var thickness = MathF.Max(0.5f, GetBorderThickness(outline));
+            using var strokePaint = new SKPaint
+            {
+                Style = SKPaintStyle.Stroke,
+                Color = ToSkColor(outline.Color),
+                StrokeWidth = thickness,
+                IsAntialias = true,
+                StrokeCap = outline.Style == DocBorderStyle.Dotted ? SKStrokeCap.Round : SKStrokeCap.Butt,
+                PathEffect = CreateBorderEffect(outline.Style, thickness),
+                ImageFilter = SKImageFilter.CreateDropShadowOnly(dx, dy, blurRadius, blurRadius, shadowColor)
+            };
+            canvas.DrawPath(path, strokePaint);
+        }
+    }
+
+    private static void DrawShapeGlow(
+        SKCanvas canvas,
+        SKPath path,
+        ShapeKind kind,
+        DocColor? fillColor,
+        BorderLine? outline,
+        DrawingGlowEffect glow)
+    {
+        var blurRadius = MathF.Max(0f, glow.Radius);
+        if (blurRadius <= 0f)
+        {
+            return;
+        }
+
+        var glowColor = ToSkColor(glow.Color);
+
+        if (fillColor.HasValue && fillColor.Value.A > 0 && kind != ShapeKind.Line)
+        {
+            using var fillPaint = new SKPaint
+            {
+                Style = SKPaintStyle.Fill,
+                Color = ToSkColor(fillColor.Value),
+                IsAntialias = true,
+                ImageFilter = SKImageFilter.CreateDropShadowOnly(0f, 0f, blurRadius, blurRadius, glowColor)
+            };
+            canvas.DrawPath(path, fillPaint);
+        }
+
+        if (outline is not null && outline.IsVisible)
+        {
+            var thickness = MathF.Max(0.5f, GetBorderThickness(outline));
+            using var strokePaint = new SKPaint
+            {
+                Style = SKPaintStyle.Stroke,
+                Color = ToSkColor(outline.Color),
+                StrokeWidth = thickness,
+                IsAntialias = true,
+                StrokeCap = outline.Style == DocBorderStyle.Dotted ? SKStrokeCap.Round : SKStrokeCap.Butt,
+                PathEffect = CreateBorderEffect(outline.Style, thickness),
+                ImageFilter = SKImageFilter.CreateDropShadowOnly(0f, 0f, blurRadius, blurRadius, glowColor)
+            };
+            canvas.DrawPath(path, strokePaint);
+        }
+    }
+
+    private static void DrawShapeSoftEdge(
+        SKCanvas canvas,
+        SKPath path,
+        ShapeKind kind,
+        DocColor? fillColor,
+        BorderLine? outline,
+        DrawingSoftEdgeEffect softEdge)
+    {
+        var blurRadius = MathF.Max(0f, softEdge.Radius);
+        if (blurRadius <= 0f)
+        {
+            return;
+        }
+
+        if (fillColor.HasValue && fillColor.Value.A > 0 && kind != ShapeKind.Line)
+        {
+            using var fillPaint = new SKPaint
+            {
+                Style = SKPaintStyle.Fill,
+                Color = ToSkColor(fillColor.Value),
+                IsAntialias = true,
+                ImageFilter = SKImageFilter.CreateBlur(blurRadius, blurRadius)
+            };
+            canvas.DrawPath(path, fillPaint);
+        }
+
+        if (outline is not null && outline.IsVisible)
+        {
+            var thickness = MathF.Max(0.5f, GetBorderThickness(outline));
+            using var strokePaint = new SKPaint
+            {
+                Style = SKPaintStyle.Stroke,
+                Color = ToSkColor(outline.Color),
+                StrokeWidth = thickness,
+                IsAntialias = true,
+                StrokeCap = outline.Style == DocBorderStyle.Dotted ? SKStrokeCap.Round : SKStrokeCap.Butt,
+                PathEffect = CreateBorderEffect(outline.Style, thickness),
+                ImageFilter = SKImageFilter.CreateBlur(blurRadius, blurRadius)
+            };
+            canvas.DrawPath(path, strokePaint);
+        }
+    }
+
+    private static void DrawShapeReflection(
+        SKCanvas canvas,
+        SKPath path,
+        SKRect rect,
+        ShapeKind kind,
+        DocColor? fillColor,
+        BorderLine? outline,
+        DrawingReflectionEffect reflection)
+    {
+        var scaleX = reflection.ScaleX > 0f ? reflection.ScaleX : 1f;
+        var scaleY = reflection.ScaleY > 0f ? reflection.ScaleY : 1f;
+        var reflectionHeight = rect.Height * scaleY;
+        if (reflectionHeight <= 0f)
+        {
+            return;
+        }
+
+        var reflectionTop = rect.Bottom + reflection.Distance;
+        var reflectionRect = new SKRect(rect.Left, reflectionTop, rect.Left + rect.Width * scaleX, reflectionTop + reflectionHeight);
+        using var layerPaint = new SKPaint();
+        if (reflection.BlurRadius > 0f)
+        {
+            layerPaint.ImageFilter = SKImageFilter.CreateBlur(reflection.BlurRadius, reflection.BlurRadius);
+        }
+
+        canvas.SaveLayer(reflectionRect, layerPaint);
+
+        canvas.Save();
+        canvas.Scale(scaleX, -scaleY);
+        var tx = rect.Left - rect.Left * scaleX;
+        var ty = rect.Bottom + reflection.Distance + rect.Bottom * scaleY;
+        canvas.Translate(tx, ty);
+        DrawShapeGeometry(canvas, path, kind, fillColor, outline);
+        canvas.Restore();
+
+        using var maskPaint = CreateReflectionMaskPaint(reflectionRect, reflection.StartOpacity, reflection.EndOpacity);
+        canvas.DrawRect(reflectionRect, maskPaint);
         canvas.Restore();
     }
 

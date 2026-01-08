@@ -2087,13 +2087,37 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
         SKShaper? shaper,
         float letterSpacing,
         float gridSpacing,
-        TextStyle style)
+        TextStyle style,
+        SKPaint? measurePaint = null)
     {
         if (string.IsNullOrEmpty(text))
         {
             return;
         }
 
+        measurePaint ??= paint;
+
+        if (style.Effects?.HasValues == true)
+        {
+            DrawTextWithEffects(canvas, text, x, baseline, paint, measurePaint, shaper, letterSpacing, gridSpacing, style);
+            return;
+        }
+
+        DrawTextWithSpacingCore(canvas, text, x, baseline, paint, measurePaint, shaper, letterSpacing, gridSpacing, style);
+    }
+
+    private static void DrawTextWithSpacingCore(
+        SKCanvas canvas,
+        string text,
+        float x,
+        float baseline,
+        SKPaint paint,
+        SKPaint measurePaint,
+        SKShaper? shaper,
+        float letterSpacing,
+        float gridSpacing,
+        TextStyle style)
+    {
         if (gridSpacing <= 0f)
         {
             if (MathF.Abs(letterSpacing) <= 0.001f)
@@ -2109,13 +2133,174 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             }
             else
             {
-                DrawTextWithLetterSpacing(canvas, text, x, baseline, paint, shaper, letterSpacing, style);
+                DrawTextWithLetterSpacing(canvas, text, x, baseline, paint, measurePaint, shaper, letterSpacing, style);
             }
 
             return;
         }
 
-        DrawTextWithGridSpacing(canvas, text, x, baseline, paint, shaper, letterSpacing, gridSpacing, style);
+        DrawTextWithGridSpacing(canvas, text, x, baseline, paint, measurePaint, shaper, letterSpacing, gridSpacing, style);
+    }
+
+    private static void DrawTextWithEffects(
+        SKCanvas canvas,
+        string text,
+        float x,
+        float baseline,
+        SKPaint paint,
+        SKPaint measurePaint,
+        SKShaper? shaper,
+        float letterSpacing,
+        float gridSpacing,
+        TextStyle style)
+    {
+        var effects = style.Effects;
+        if (effects is null || !effects.HasValues)
+        {
+            DrawTextWithSpacingCore(canvas, text, x, baseline, paint, measurePaint, shaper, letterSpacing, gridSpacing, style);
+            return;
+        }
+
+        if (effects.Shadow is { Enabled: true } shadow)
+        {
+            ResolveTextShadow(shadow, paint.TextSize, out var blurRadius, out var distance, out var direction);
+            var angle = direction * (MathF.PI / 180f);
+            var dx = distance * MathF.Cos(angle);
+            var dy = distance * MathF.Sin(angle);
+            using var shadowPaint = paint.Clone();
+            shadowPaint.Color = ToSkColor(shadow.Color);
+            shadowPaint.Style = SKPaintStyle.Fill;
+            shadowPaint.MaskFilter = blurRadius > 0f ? SKMaskFilter.CreateBlur(SKBlurStyle.Normal, blurRadius) : null;
+            DrawTextWithSpacingCore(canvas, text, x + dx, baseline + dy, shadowPaint, measurePaint, shaper, letterSpacing, gridSpacing, style);
+        }
+
+        var emboss = effects.Emboss == true;
+        var imprint = effects.Imprint == true;
+        if (emboss || imprint)
+        {
+            var offset = MathF.Max(0.6f, paint.TextSize * 0.06f);
+            var blur = MathF.Max(0.5f, paint.TextSize * 0.04f);
+            var baseColor = paint.Color;
+            var lightColor = BlendColor(baseColor, SKColors.White, 0.6f);
+            var darkColor = BlendColor(baseColor, SKColors.Black, 0.6f);
+            if (imprint)
+            {
+                (lightColor, darkColor) = (darkColor, lightColor);
+            }
+
+            var highlightOffset = imprint ? offset : -offset;
+            var shadowOffset = imprint ? -offset : offset;
+
+            using var highlightPaint = paint.Clone();
+            highlightPaint.Color = lightColor;
+            highlightPaint.Style = SKPaintStyle.Fill;
+            highlightPaint.MaskFilter = blur > 0f ? SKMaskFilter.CreateBlur(SKBlurStyle.Normal, blur) : null;
+            using var shadowPaint = paint.Clone();
+            shadowPaint.Color = darkColor;
+            shadowPaint.Style = SKPaintStyle.Fill;
+            shadowPaint.MaskFilter = blur > 0f ? SKMaskFilter.CreateBlur(SKBlurStyle.Normal, blur) : null;
+            DrawTextWithSpacingCore(canvas, text, x + highlightOffset, baseline + highlightOffset, highlightPaint, measurePaint, shaper, letterSpacing, gridSpacing, style);
+            DrawTextWithSpacingCore(canvas, text, x + shadowOffset, baseline + shadowOffset, shadowPaint, measurePaint, shaper, letterSpacing, gridSpacing, style);
+        }
+
+        if (effects.Outline is not null && effects.Outline.Enabled)
+        {
+            var thickness = effects.Outline.Thickness ?? MathF.Max(0.6f, paint.TextSize * 0.06f);
+            using var outlinePaint = paint.Clone();
+            outlinePaint.Style = SKPaintStyle.Stroke;
+            outlinePaint.StrokeWidth = MathF.Max(0.5f, thickness);
+            outlinePaint.StrokeJoin = SKStrokeJoin.Round;
+            outlinePaint.Color = effects.Outline.Color.HasValue ? ToSkColor(effects.Outline.Color.Value) : paint.Color;
+            DrawTextWithSpacingCore(canvas, text, x, baseline, outlinePaint, measurePaint, shaper, letterSpacing, gridSpacing, style);
+        }
+
+        DrawTextWithSpacingCore(canvas, text, x, baseline, paint, measurePaint, shaper, letterSpacing, gridSpacing, style);
+    }
+
+    private static void ResolveTextShadow(TextShadowEffect shadow, float textSize, out float blurRadius, out float distance, out float direction)
+    {
+        blurRadius = shadow.BlurRadius;
+        distance = shadow.Distance;
+        direction = shadow.Direction;
+
+        if (blurRadius <= 0f && distance <= 0f)
+        {
+            blurRadius = MathF.Max(1f, textSize * 0.08f);
+            distance = MathF.Max(1f, textSize * 0.06f);
+            if (MathF.Abs(direction) <= 0.01f)
+            {
+                direction = 45f;
+            }
+        }
+        else
+        {
+            if (blurRadius <= 0f)
+            {
+                blurRadius = MathF.Max(0.6f, textSize * 0.05f);
+            }
+
+            if (distance < 0f)
+            {
+                distance = 0f;
+            }
+        }
+    }
+
+    private static SKColor BlendColor(SKColor baseColor, SKColor blend, float amount)
+    {
+        if (amount <= 0f)
+        {
+            return baseColor;
+        }
+
+        if (amount >= 1f)
+        {
+            return new SKColor(blend.Red, blend.Green, blend.Blue, baseColor.Alpha);
+        }
+
+        var r = (byte)MathF.Round(baseColor.Red + (blend.Red - baseColor.Red) * amount);
+        var g = (byte)MathF.Round(baseColor.Green + (blend.Green - baseColor.Green) * amount);
+        var b = (byte)MathF.Round(baseColor.Blue + (blend.Blue - baseColor.Blue) * amount);
+        return new SKColor(r, g, b, baseColor.Alpha);
+    }
+
+    private static float Clamp01(float value)
+    {
+        if (value <= 0f)
+        {
+            return 0f;
+        }
+
+        if (value >= 1f)
+        {
+            return 1f;
+        }
+
+        return value;
+    }
+
+    private static SKRect ExpandRect(SKRect rect, float left, float top, float right, float bottom)
+    {
+        return new SKRect(rect.Left - left, rect.Top - top, rect.Right + right, rect.Bottom + bottom);
+    }
+
+    private static SKPaint CreateReflectionMaskPaint(SKRect rect, float startOpacity, float endOpacity)
+    {
+        var startAlpha = (byte)MathF.Round(Clamp01(startOpacity) * 255f);
+        var endAlpha = (byte)MathF.Round(Clamp01(endOpacity) * 255f);
+        var shader = SKShader.CreateLinearGradient(
+            new SKPoint(0f, rect.Top),
+            new SKPoint(0f, rect.Bottom),
+            new[] { new SKColor(255, 255, 255, startAlpha), new SKColor(255, 255, 255, endAlpha) },
+            null,
+            SKShaderTileMode.Clamp);
+
+        return new SKPaint
+        {
+            Shader = shader,
+            BlendMode = SKBlendMode.DstIn,
+            IsAntialias = true
+        };
     }
 
     private static void DrawTextWithGridSpacing(
@@ -2124,6 +2309,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
         float x,
         float baseline,
         SKPaint paint,
+        SKPaint measurePaint,
         SKShaper? shaper,
         float letterSpacing,
         float gridSpacing,
@@ -2136,27 +2322,27 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
 
         if (shaper is null)
         {
-            DrawTextWithGridSpacingFallback(canvas, text, x, baseline, paint, letterSpacing, gridSpacing);
+            DrawTextWithGridSpacingFallback(canvas, text, x, baseline, paint, measurePaint, letterSpacing, gridSpacing);
             return;
         }
 
         try
         {
             using var buffer = SkiaTextMeasurer.CreateBuffer(text.AsSpan(), style);
-            var result = shaper.Shape(buffer, paint);
+            var result = shaper.Shape(buffer, measurePaint);
             var clusters = result.Clusters;
             var points = result.Points;
             var codepoints = result.Codepoints;
             if (clusters is null || points is null || codepoints is null)
             {
-                DrawTextWithGridSpacingFallback(canvas, text, x, baseline, paint, letterSpacing, gridSpacing);
+                DrawTextWithGridSpacingFallback(canvas, text, x, baseline, paint, measurePaint, letterSpacing, gridSpacing);
                 return;
             }
 
             var shapeInfo = SkiaTextMeasurer.BuildShapeInfo(text.Length, result);
             if (shapeInfo.ClusterOffsets.Length == 0)
             {
-                DrawTextWithGridSpacingFallback(canvas, text, x, baseline, paint, letterSpacing, gridSpacing);
+                DrawTextWithGridSpacingFallback(canvas, text, x, baseline, paint, measurePaint, letterSpacing, gridSpacing);
                 return;
             }
 
@@ -2194,7 +2380,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             var glyphCount = Math.Min(codepoints.Length, Math.Min(points.Length, clusters.Length));
             if (glyphCount == 0)
             {
-                DrawTextWithGridSpacingFallback(canvas, text, x, baseline, paint, letterSpacing, gridSpacing);
+                DrawTextWithGridSpacingFallback(canvas, text, x, baseline, paint, measurePaint, letterSpacing, gridSpacing);
                 return;
             }
 
@@ -2216,7 +2402,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                 var codepoint = codepoints[i];
                 if (codepoint > ushort.MaxValue)
                 {
-                    DrawTextWithGridSpacingFallback(canvas, text, x, baseline, paint, letterSpacing, gridSpacing);
+                    DrawTextWithGridSpacingFallback(canvas, text, x, baseline, paint, measurePaint, letterSpacing, gridSpacing);
                     return;
                 }
 
@@ -2229,7 +2415,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             using var blob = blobBuilder.Build();
             if (blob is null)
             {
-                DrawTextWithGridSpacingFallback(canvas, text, x, baseline, paint, letterSpacing, gridSpacing);
+                DrawTextWithGridSpacingFallback(canvas, text, x, baseline, paint, measurePaint, letterSpacing, gridSpacing);
                 return;
             }
 
@@ -2237,7 +2423,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
         }
         catch
         {
-            DrawTextWithGridSpacingFallback(canvas, text, x, baseline, paint, letterSpacing, gridSpacing);
+            DrawTextWithGridSpacingFallback(canvas, text, x, baseline, paint, measurePaint, letterSpacing, gridSpacing);
         }
     }
 
@@ -2247,6 +2433,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
         float x,
         float baseline,
         SKPaint paint,
+        SKPaint measurePaint,
         float letterSpacing,
         float gridSpacing)
     {
@@ -2271,7 +2458,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             var glyph = GetClusterString(cluster);
             canvas.DrawText(glyph, x + offset, baseline, paint);
 
-            var advance = MeasureCluster(paint, cluster);
+            var advance = MeasureCluster(measurePaint, cluster);
             if (applySpacing && index + length < span.Length)
             {
                 advance += letterSpacing;
@@ -2282,7 +2469,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
         }
     }
 
-    private static void DrawTextWithLetterSpacing(SKCanvas canvas, string text, float x, float baseline, SKPaint paint, SKShaper? shaper, float letterSpacing, TextStyle style)
+    private static void DrawTextWithLetterSpacing(SKCanvas canvas, string text, float x, float baseline, SKPaint paint, SKPaint measurePaint, SKShaper? shaper, float letterSpacing, TextStyle style)
     {
         if (string.IsNullOrEmpty(text))
         {
@@ -2291,27 +2478,27 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
 
         if (shaper is null)
         {
-            DrawTextWithLetterSpacingFallback(canvas, text, x, baseline, paint, letterSpacing);
+            DrawTextWithLetterSpacingFallback(canvas, text, x, baseline, paint, measurePaint, letterSpacing);
             return;
         }
 
         try
         {
             using var buffer = SkiaTextMeasurer.CreateBuffer(text.AsSpan(), style);
-            var result = shaper.Shape(buffer, paint);
+            var result = shaper.Shape(buffer, measurePaint);
             var clusters = result.Clusters;
             var points = result.Points;
             var codepoints = result.Codepoints;
             if (clusters is null || points is null || codepoints is null)
             {
-                DrawTextWithLetterSpacingFallback(canvas, text, x, baseline, paint, letterSpacing);
+                DrawTextWithLetterSpacingFallback(canvas, text, x, baseline, paint, measurePaint, letterSpacing);
                 return;
             }
 
             var shapeInfo = SkiaTextMeasurer.BuildShapeInfo(text.Length, result);
             if (shapeInfo.ClusterOffsets.Length == 0)
             {
-                DrawTextWithLetterSpacingFallback(canvas, text, x, baseline, paint, letterSpacing);
+                DrawTextWithLetterSpacingFallback(canvas, text, x, baseline, paint, measurePaint, letterSpacing);
                 return;
             }
 
@@ -2329,7 +2516,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             var glyphCount = Math.Min(codepoints.Length, Math.Min(points.Length, clusters.Length));
             if (glyphCount == 0)
             {
-                DrawTextWithLetterSpacingFallback(canvas, text, x, baseline, paint, letterSpacing);
+                DrawTextWithLetterSpacingFallback(canvas, text, x, baseline, paint, measurePaint, letterSpacing);
                 return;
             }
 
@@ -2351,7 +2538,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                 var codepoint = codepoints[i];
                 if (codepoint > ushort.MaxValue)
                 {
-                    DrawTextWithLetterSpacingFallback(canvas, text, x, baseline, paint, letterSpacing);
+                    DrawTextWithLetterSpacingFallback(canvas, text, x, baseline, paint, measurePaint, letterSpacing);
                     return;
                 }
 
@@ -2364,7 +2551,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             using var blob = blobBuilder.Build();
             if (blob is null)
             {
-                DrawTextWithLetterSpacingFallback(canvas, text, x, baseline, paint, letterSpacing);
+                DrawTextWithLetterSpacingFallback(canvas, text, x, baseline, paint, measurePaint, letterSpacing);
                 return;
             }
 
@@ -2372,11 +2559,11 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
         }
         catch
         {
-            DrawTextWithLetterSpacingFallback(canvas, text, x, baseline, paint, letterSpacing);
+            DrawTextWithLetterSpacingFallback(canvas, text, x, baseline, paint, measurePaint, letterSpacing);
         }
     }
 
-    private static void DrawTextWithLetterSpacingFallback(SKCanvas canvas, string text, float x, float baseline, SKPaint paint, float letterSpacing)
+    private static void DrawTextWithLetterSpacingFallback(SKCanvas canvas, string text, float x, float baseline, SKPaint paint, SKPaint measurePaint, float letterSpacing)
     {
         if (string.IsNullOrEmpty(text))
         {
@@ -2397,7 +2584,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             var glyph = GetClusterString(cluster);
             canvas.DrawText(glyph, x, baseline, paint);
 
-            var advance = MeasureCluster(paint, cluster);
+            var advance = MeasureCluster(measurePaint, cluster);
             if (index + length < span.Length)
             {
                 advance += letterSpacing;
