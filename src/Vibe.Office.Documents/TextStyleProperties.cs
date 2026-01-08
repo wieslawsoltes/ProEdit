@@ -29,6 +29,7 @@ public sealed class TextStyleProperties
     public string? LanguageEastAsia { get; set; }
     public string? LanguageBidi { get; set; }
     public EastAsianLayoutProperties? EastAsianLayout { get; set; }
+    public TextEffects? Effects { get; set; }
 
     public bool HasValues => !string.IsNullOrWhiteSpace(FontFamily)
                              || !string.IsNullOrWhiteSpace(FontFamilyAscii)
@@ -54,7 +55,8 @@ public sealed class TextStyleProperties
                              || !string.IsNullOrWhiteSpace(Language)
                              || !string.IsNullOrWhiteSpace(LanguageEastAsia)
                              || !string.IsNullOrWhiteSpace(LanguageBidi)
-                             || (EastAsianLayout?.HasValues ?? false);
+                             || (EastAsianLayout?.HasValues ?? false)
+                             || (Effects?.HasValues ?? false);
 
     public TextStyleProperties Clone()
     {
@@ -84,7 +86,8 @@ public sealed class TextStyleProperties
             Language = Language,
             LanguageEastAsia = LanguageEastAsia,
             LanguageBidi = LanguageBidi,
-            EastAsianLayout = EastAsianLayout?.Clone()
+            EastAsianLayout = EastAsianLayout?.Clone(),
+            Effects = Effects?.Clone()
         };
     }
 
@@ -119,7 +122,8 @@ public sealed class TextStyleProperties
                && string.Equals(Language, other.Language, StringComparison.Ordinal)
                && string.Equals(LanguageEastAsia, other.LanguageEastAsia, StringComparison.Ordinal)
                && string.Equals(LanguageBidi, other.LanguageBidi, StringComparison.Ordinal)
-               && Equals(EastAsianLayout, other.EastAsianLayout);
+               && Equals(EastAsianLayout, other.EastAsianLayout)
+               && Equals(Effects, other.Effects);
     }
 
     public void ApplyTo(TextStyle style)
@@ -248,6 +252,12 @@ public sealed class TextStyleProperties
         if (EastAsianLayout?.HasValues == true)
         {
             style.EastAsianLayout = EastAsianLayout.Clone();
+        }
+
+        if (Effects?.HasValues == true)
+        {
+            style.Effects ??= new TextEffects();
+            style.Effects.ApplyOverrides(Effects);
         }
     }
 }

@@ -9,6 +9,7 @@ public sealed class ImageInline : Inline
     public string ContentType { get; }
     public EmbeddedObjectInfo? EmbeddedObject { get; set; }
     public DiagramInfo? Diagram { get; set; }
+    public DrawingEffects? Effects { get; set; }
 
     public ImageInline(byte[] data, float width, float height, string contentType)
     {

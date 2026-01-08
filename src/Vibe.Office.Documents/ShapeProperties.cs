@@ -10,6 +10,7 @@ public sealed class ShapeProperties
     public float Rotation { get; set; }
     public bool FlipHorizontal { get; set; }
     public bool FlipVertical { get; set; }
+    public DrawingEffects? Effects { get; set; }
 
     public ShapeProperties Clone()
     {
@@ -20,7 +21,8 @@ public sealed class ShapeProperties
             Outline = Outline?.Clone(),
             Rotation = Rotation,
             FlipHorizontal = FlipHorizontal,
-            FlipVertical = FlipVertical
+            FlipVertical = FlipVertical,
+            Effects = Effects?.Clone()
         };
     }
 }
