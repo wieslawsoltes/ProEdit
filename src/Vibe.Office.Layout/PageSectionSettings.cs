@@ -1,4 +1,5 @@
 using Vibe.Office.Documents;
+using Vibe.Office.Primitives;
 
 namespace Vibe.Office.Layout;
 
@@ -20,6 +21,10 @@ public sealed record PageSectionSettings(
     bool ColumnEqualWidth,
     IReadOnlyList<float> ColumnWidths,
     DocGridSettings? DocGrid,
+    DocColor? PageBackgroundColor,
+    PageBorders? PageBorders,
+    LineNumberingSettings? LineNumbering,
+    PageNumberingSettings? PageNumbering,
     int SectionIndex)
 {
     public static PageSectionSettings FromSettings(
@@ -46,6 +51,10 @@ public sealed record PageSectionSettings(
             false,
             true,
             Array.Empty<float>(),
+            null,
+            null,
+            null,
+            null,
             null,
             sectionIndex);
 
@@ -89,6 +98,10 @@ public sealed record PageSectionSettings(
             columnEqualWidth,
             columnWidths,
             properties.DocGrid?.Clone() ?? DocGrid,
+            properties.PageBackgroundColor ?? PageBackgroundColor,
+            properties.PageBorders?.Clone() ?? PageBorders?.Clone(),
+            properties.LineNumbering?.Clone() ?? LineNumbering?.Clone(),
+            properties.PageNumbering?.Clone() ?? PageNumbering?.Clone(),
             SectionIndex);
     }
 

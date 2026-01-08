@@ -29,6 +29,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
         var styleResolver = new DocumentStyleResolver(document);
         var paintCache = new Dictionary<TextStyleKey, SKPaint>();
         var highlightPaintCache = new Dictionary<DocColor, SKPaint>();
+        var fillPaintCache = new Dictionary<DocColor, SKPaint>();
         var borderPaintCache = new Dictionary<BorderPaintKey, SKPaint>();
         var invisibleTextPaintCache = new Dictionary<TextStyleKey, SKPaint>();
         var shaperCache = new Dictionary<TextStyleKey, SKShaper>();
@@ -144,6 +145,115 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
         }
 
         var runMetricsCache = new Dictionary<RunMetricsKey, RunMetrics>();
+
+        int?[] BuildLineNumbers()
+        {
+            if (layout.Lines.Count == 0)
+            {
+                return Array.Empty<int?>();
+            }
+
+            var result = new int?[layout.Lines.Count];
+            var paragraphCount = document.ParagraphCount;
+            var suppress = new bool[paragraphCount];
+            for (var i = 0; i < paragraphCount; i++)
+            {
+                var paragraph = document.GetParagraph(i);
+                var properties = styleResolver.ResolveParagraphProperties(paragraph);
+                suppress[i] = properties.SuppressLineNumbers == true || properties.Frame?.HasValues == true;
+            }
+
+            var currentNumber = 1;
+            var currentStart = 1;
+            var currentSectionIndex = -1;
+            var currentPageIndex = -1;
+            var numberingEnabled = false;
+            LineNumberingSettings? currentSettings = null;
+
+            for (var i = 0; i < layout.Lines.Count; i++)
+            {
+                var line = layout.Lines[i];
+                if (line.ParagraphIndex < 0)
+                {
+                    continue;
+                }
+
+                if (!layout.ParagraphSectionIndices.TryGetValue(line.ParagraphIndex, out var sectionIndex))
+                {
+                    sectionIndex = 0;
+                }
+
+                var pageIndex = layout.LineIndex.GetPageForLine(i);
+                var sectionChanged = sectionIndex != currentSectionIndex;
+                if (sectionChanged)
+                {
+                    var hadNumbering = numberingEnabled;
+                    currentSectionIndex = sectionIndex;
+                    currentSettings = layout.SectionSettings.TryGetValue(sectionIndex, out var section)
+                        ? section.LineNumbering
+                        : null;
+                    numberingEnabled = currentSettings is not null;
+                    if (numberingEnabled)
+                    {
+                        var settings = currentSettings!;
+                        if (!hadNumbering || settings.Restart == LineNumberRestart.NewSection)
+                        {
+                            currentNumber = Math.Max(1, settings.Start ?? 1);
+                            currentStart = currentNumber;
+                        }
+                        else if (settings.Start.HasValue)
+                        {
+                            currentNumber = Math.Max(1, settings.Start.Value);
+                            currentStart = currentNumber;
+                        }
+                    }
+                }
+
+                if (!numberingEnabled || currentSettings is null)
+                {
+                    continue;
+                }
+
+                if (currentSettings.Restart == LineNumberRestart.NewPage && pageIndex != currentPageIndex)
+                {
+                    currentNumber = Math.Max(1, currentSettings.Start ?? 1);
+                    currentStart = currentNumber;
+                }
+
+                currentPageIndex = pageIndex;
+
+                if (line.IsInTable)
+                {
+                    continue;
+                }
+
+                if (line.ParagraphIndex < suppress.Length && suppress[line.ParagraphIndex])
+                {
+                    continue;
+                }
+
+                var countBy = currentSettings.CountBy ?? 1;
+                if (countBy <= 0)
+                {
+                    countBy = 1;
+                }
+
+                if ((currentNumber - currentStart) % countBy == 0)
+                {
+                    result[i] = currentNumber;
+                }
+
+                currentNumber++;
+            }
+
+            return result;
+        }
+
+        var lineNumberStyle = style.Clone();
+        lineNumberStyle.FontSize = MathF.Max(8f, style.FontSize * 0.8f);
+        lineNumberStyle.Color = options.TextColor;
+        var lineNumberPaint = GetRunPaint(lineNumberStyle);
+        var lineNumbers = BuildLineNumbers();
 
         TextShapeInfo ShapeText(string text, TextStyle runStyle)
         {
@@ -301,6 +411,23 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             return paint;
         }
 
+        SKPaint GetFillPaint(DocColor color)
+        {
+            if (fillPaintCache.TryGetValue(color, out var cached))
+            {
+                return cached;
+            }
+
+            var paint = new SKPaint
+            {
+                Style = SKPaintStyle.Fill,
+                Color = ToSkColor(color),
+                IsAntialias = true
+            };
+            fillPaintCache[color] = paint;
+            return paint;
+        }
+
         SKPaint GetInvisibleTextPaint(TextStyle runStyle)
         {
             var key = new TextStyleKey(runStyle);
@@ -338,13 +465,6 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
 
         using var defaultPaint = SkiaTextMeasurer.CreatePaint(style, TypefaceResolver);
         defaultPaint.Color = ToSkColor(options.TextColor);
-
-        using var pagePaint = new SKPaint
-        {
-            Style = SKPaintStyle.Fill,
-            Color = ToSkColor(options.PageColor),
-            IsAntialias = true
-        };
 
         using var pageBorderPaint = new SKPaint
         {
@@ -929,6 +1049,31 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             }
         }
 
+        var headerFooterMap = layout.HeaderFooters.ToDictionary(item => item.PageIndex);
+
+        void DrawHeaderFooterFloatingObjects(int pageIndex, bool behindText)
+        {
+            if (!headerFooterMap.TryGetValue(pageIndex, out var headerFooter))
+            {
+                return;
+            }
+
+            if (headerFooter.FloatingObjects.Count == 0)
+            {
+                return;
+            }
+
+            foreach (var floating in headerFooter.FloatingObjects)
+            {
+                if (floating.Object.Anchor.BehindText != behindText)
+                {
+                    continue;
+                }
+
+                DrawFloatingObject(floating);
+            }
+        }
+
         void DrawFloatingSelection(int pageIndex)
         {
             if (!options.SelectedFloatingObjectId.HasValue || layout.FloatingObjects.Count == 0)
@@ -955,24 +1100,87 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             }
         }
 
-        var headerFooterMap = layout.HeaderFooters.ToDictionary(item => item.PageIndex);
-
         static bool IntersectsPage(DocRect pageBounds, DocRect elementBounds)
         {
             return elementBounds.Bottom > pageBounds.Y && elementBounds.Y < pageBounds.Bottom;
         }
 
+        static bool ShouldDrawPageBorder(PageBorders borders, bool isFirstPageOfSection)
+        {
+            return borders.Display switch
+            {
+                PageBorderDisplay.FirstPage => isFirstPageOfSection,
+                PageBorderDisplay.ExceptFirstPage => !isFirstPageOfSection,
+                _ => true
+            };
+        }
+
+        void DrawPageBorders(PageLayout page, PageSectionSettings section, PageBorders borders)
+        {
+            var offsetFromText = borders.OffsetFrom == PageBorderOffset.Text;
+            var baseBounds = offsetFromText ? page.ContentBounds : page.Bounds;
+            var leftSpace = borders.Left?.Spacing ?? 0f;
+            var rightSpace = borders.Right?.Spacing ?? 0f;
+            var topSpace = borders.Top?.Spacing ?? 0f;
+            var bottomSpace = borders.Bottom?.Spacing ?? 0f;
+            var left = offsetFromText ? baseBounds.Left - leftSpace : baseBounds.Left + leftSpace;
+            var right = offsetFromText ? baseBounds.Right + rightSpace : baseBounds.Right - rightSpace;
+            var top = offsetFromText ? baseBounds.Top - topSpace : baseBounds.Top + topSpace;
+            var bottom = offsetFromText ? baseBounds.Bottom + bottomSpace : baseBounds.Bottom - bottomSpace;
+
+            if (right <= left || bottom <= top)
+            {
+                return;
+            }
+
+            if (borders.Top is { IsVisible: true } topBorder)
+            {
+                DrawBorderSegment(targetCanvas, topBorder, left, top, right, top, GetBorderPaint);
+            }
+
+            if (borders.Bottom is { IsVisible: true } bottomBorder)
+            {
+                DrawBorderSegment(targetCanvas, bottomBorder, left, bottom, right, bottom, GetBorderPaint);
+            }
+
+            if (borders.Left is { IsVisible: true } leftBorder)
+            {
+                DrawBorderSegment(targetCanvas, leftBorder, left, top, left, bottom, GetBorderPaint);
+            }
+
+            if (borders.Right is { IsVisible: true } rightBorder)
+            {
+                DrawBorderSegment(targetCanvas, rightBorder, right, top, right, bottom, GetBorderPaint);
+            }
+        }
+
         void RenderPage(int pageIndex)
         {
             var page = layout.Pages[pageIndex];
-            var pageGridSpacing = pageIndex >= 0 && pageIndex < layout.PageSections.Count
-                ? ResolveGridSpacing(layout.PageSections[pageIndex].DocGrid)
-                : 0f;
+            var section = pageIndex >= 0 && pageIndex < layout.PageSections.Count
+                ? layout.PageSections[pageIndex]
+                : null;
+            var pageGridSpacing = section is null ? 0f : ResolveGridSpacing(section.DocGrid);
             var bounds = page.Bounds;
             var rect = new SKRect(bounds.X, bounds.Y, bounds.Right, bounds.Bottom);
-            targetCanvas.DrawRect(rect, pagePaint);
+            var pageColor = section?.PageBackgroundColor ?? options.PageColor;
+            targetCanvas.DrawRect(rect, GetFillPaint(pageColor));
 
-            if (options.PageBorderThickness > 0)
+            var pageBorders = section?.PageBorders;
+            var isFirstPageOfSection = section is null
+                || pageIndex == 0
+                || layout.PageSections[pageIndex - 1].SectionIndex != section.SectionIndex;
+            var drawDocBorder = pageBorders is not null
+                && pageBorders.HasAny
+                && ShouldDrawPageBorder(pageBorders, isFirstPageOfSection);
+            var drawUiBorder = !drawDocBorder && options.PageBorderThickness > 0f;
+            var drawBorderInFront = drawDocBorder && pageBorders!.ZOrder == PageBorderZOrder.Front;
+
+            if (drawDocBorder && !drawBorderInFront && section is not null)
+            {
+                DrawPageBorders(page, section, pageBorders!);
+            }
+            else if (drawUiBorder)
             {
                 targetCanvas.DrawRect(rect, pageBorderPaint);
             }
@@ -982,6 +1190,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                 DrawColumnSeparators(page, pageIndex);
             }
 
+            DrawHeaderFooterFloatingObjects(pageIndex, true);
             DrawFloatingObjects(pageIndex, true);
 
             if (headerFooterMap.TryGetValue(pageIndex, out var headerFooter))
@@ -1055,6 +1264,18 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                 var line = layout.Lines[lineIndex];
                 var isTableLine = line.IsInTable;
                 var lineGridSpacing = ResolveLineGridSpacing(line.ParagraphIndex, pageIndex);
+                if (!isTableLine
+                    && lineIndex < lineNumbers.Length
+                    && lineNumbers[lineIndex].HasValue
+                    && section?.LineNumbering is not null)
+                {
+                    var lineNumberDistance = section.LineNumbering.Distance ?? 12f;
+                    var numberText = lineNumbers[lineIndex]!.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    var numberWidth = lineNumberPaint.MeasureText(numberText);
+                    var numberX = page.ContentBounds.X - lineNumberDistance - numberWidth;
+                    var numberY = line.Y + line.Ascent;
+                    targetCanvas.DrawText(numberText, numberX, numberY, lineNumberPaint);
+                }
                 if (!isTableLine)
                 {
                     DrawCommentHighlights(line.ParagraphIndex, line.StartOffset, line.Length, line.X, line.Y, line.LineHeight, line.TextDirection, line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, lineGridSpacing);
@@ -1115,6 +1336,11 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             }
 
             DrawFloatingObjects(pageIndex, false);
+            DrawHeaderFooterFloatingObjects(pageIndex, false);
+            if (drawDocBorder && drawBorderInFront && section is not null)
+            {
+                DrawPageBorders(page, section, pageBorders!);
+            }
             DrawLayoutGuides(pageIndex);
             DrawFloatingSelection(pageIndex);
         }
@@ -1515,6 +1741,11 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
         }
 
         foreach (var paint in highlightPaintCache.Values)
+        {
+            paint.Dispose();
+        }
+
+        foreach (var paint in fillPaintCache.Values)
         {
             paint.Dispose();
         }

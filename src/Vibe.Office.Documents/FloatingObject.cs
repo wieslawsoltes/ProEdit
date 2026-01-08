@@ -24,6 +24,7 @@ public sealed class FloatingAnchor
     public float OffsetY { get; set; }
     public FloatingWrapStyle WrapStyle { get; set; } = FloatingWrapStyle.None;
     public FloatingWrapSide WrapSide { get; set; } = FloatingWrapSide.Both;
+    public FloatingWrapPolygon? WrapPolygon { get; set; }
     public bool BehindText { get; set; }
     public DocThickness Distance { get; set; } = DocThickness.Uniform(0f);
     public int? AnchorOffset { get; set; }

@@ -27,6 +27,10 @@ public sealed class RenderOptions
     public float LayoutGuideThickness { get; set; } = 1f;
     public bool UseHarfBuzz { get; set; } = true;
     public bool UsePictureCache { get; set; } = true;
+    public SvgRenderMode SvgRenderMode { get; set; } = SvgRenderMode.Auto;
+    public float SvgRasterizationScale { get; set; } = 1f;
+    public DocColor SvgRasterBackgroundColor { get; set; } = DocColor.Transparent;
+    public ISvgRasterizer? SvgRasterizer { get; set; }
 
     public TextRange? Selection { get; set; }
     public TextPosition Caret { get; set; }

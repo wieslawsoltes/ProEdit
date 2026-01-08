@@ -762,7 +762,7 @@ internal static class DocxFeatureCatalog
         new DocxFeatureDefinition(
             "smartart_diagrams",
             "SmartArt / diagrams",
-            DocxFeatureSupport.NotSupported,
+            DocxFeatureSupport.Partial,
             new[] { "<dgm:" },
             static part => part.StartsWith("word/diagrams/", StringComparison.OrdinalIgnoreCase)),
         new DocxFeatureDefinition(
@@ -781,7 +781,7 @@ internal static class DocxFeatureCatalog
         new DocxFeatureDefinition(
             "vml_shapes",
             "VML shapes",
-            DocxFeatureSupport.NotSupported,
+            DocxFeatureSupport.Partial,
             new[] { "<v:shape", "<v:group", "<v:rect" },
             static part => part.StartsWith("word/vmlDrawing", StringComparison.OrdinalIgnoreCase)
                            || part.EndsWith(".vml", StringComparison.OrdinalIgnoreCase)),

@@ -20,6 +20,9 @@ public sealed class ParagraphStyleProperties
     public DocTextDirection? TextDirection { get; set; }
     public EastAsianLayoutProperties? EastAsianLayout { get; set; }
     public Vibe.Office.Primitives.DocColor? ShadingColor { get; set; }
+    public bool? SuppressLineNumbers { get; set; }
+    public DropCapSettings? DropCap { get; set; }
+    public ParagraphFrameProperties? Frame { get; set; }
     public ParagraphBorders Borders { get; } = new ParagraphBorders();
 
     public bool HasValues => Alignment.HasValue
@@ -40,5 +43,8 @@ public sealed class ParagraphStyleProperties
                              || TextDirection.HasValue
                              || (EastAsianLayout?.HasValues ?? false)
                              || ShadingColor.HasValue
+                             || SuppressLineNumbers.HasValue
+                             || (DropCap?.HasValues ?? false)
+                             || (Frame?.HasValues ?? false)
                              || Borders.HasAny;
 }

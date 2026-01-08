@@ -13,6 +13,7 @@ using Wps = DocumentFormat.OpenXml.Office2010.Word.DrawingShape;
 using OpenXmlTableBorders = DocumentFormat.OpenXml.Wordprocessing.TableBorders;
 using OpenXmlTableCellBorders = DocumentFormat.OpenXml.Wordprocessing.TableCellBorders;
 using OpenXmlParagraphBorders = DocumentFormat.OpenXml.Wordprocessing.ParagraphBorders;
+using OpenXmlPageBorders = DocumentFormat.OpenXml.Wordprocessing.PageBorders;
 using Vibe.Office.Documents;
 using Vibe.Office.Primitives;
 using VibeDocument = Vibe.Office.Documents.Document;
@@ -42,6 +43,7 @@ public sealed class DocxImporter
         document.Sections.Clear();
         LoadFonts(mainPart, document);
         LoadDocumentSettings(mainPart, document);
+        LoadDocumentBackground(mainPart, document);
         document.Sections.Add(new DocumentSection(document.SectionProperties, document.Header, document.Footer, document.FirstHeader, document.FirstFooter, document.EvenHeader, document.EvenFooter));
 
         if (body is null)
@@ -53,7 +55,7 @@ public sealed class DocxImporter
         var styleResolver = new StyleResolver(mainPart, document);
         var listResolver = new ListResolver(mainPart, document, styleResolver);
         var imageResolver = new ImageResolver(mainPart);
-        var chartResolver = new ChartResolver(mainPart);
+        var chartResolver = new ChartResolver(mainPart, document.ThemeColors);
         var hyperlinkResolver = new HyperlinkResolver(mainPart);
         var placeholderResolver = new ContentControlPlaceholderResolver(mainPart?.GlossaryDocumentPart);
         LoadNotesAndComments(mainPart, document, listResolver, styleResolver, placeholderResolver);
@@ -336,7 +338,8 @@ public sealed class DocxImporter
             ListResolver listResolver,
             StyleResolver styleResolver,
             DocumentRevisions revisions,
-            ContentControlPlaceholderResolver? placeholderResolver)
+            ContentControlPlaceholderResolver? placeholderResolver,
+            DocumentThemeColorMap themeColors)
         {
             if (headerPart?.Header is null)
             {
@@ -344,7 +347,7 @@ public sealed class DocxImporter
             }
 
             target.Blocks.Clear();
-            var headerBlocks = ParseHeaderFooter(headerPart.Header, listResolver, new ImageResolver(headerPart), new ChartResolver(headerPart), new HyperlinkResolver(headerPart), styleResolver, revisions, placeholderResolver);
+            var headerBlocks = ParseHeaderFooter(headerPart.Header, listResolver, new ImageResolver(headerPart), new ChartResolver(headerPart, themeColors), new HyperlinkResolver(headerPart), styleResolver, revisions, placeholderResolver);
             foreach (var block in headerBlocks)
             {
                 target.Blocks.Add(block);
@@ -357,7 +360,8 @@ public sealed class DocxImporter
             ListResolver listResolver,
             StyleResolver styleResolver,
             DocumentRevisions revisions,
-            ContentControlPlaceholderResolver? placeholderResolver)
+            ContentControlPlaceholderResolver? placeholderResolver,
+            DocumentThemeColorMap themeColors)
         {
             if (footerPart?.Footer is null)
             {
@@ -365,7 +369,7 @@ public sealed class DocxImporter
             }
 
             target.Blocks.Clear();
-            var footerBlocks = ParseHeaderFooter(footerPart.Footer, listResolver, new ImageResolver(footerPart), new ChartResolver(footerPart), new HyperlinkResolver(footerPart), styleResolver, revisions, placeholderResolver);
+            var footerBlocks = ParseHeaderFooter(footerPart.Footer, listResolver, new ImageResolver(footerPart), new ChartResolver(footerPart, themeColors), new HyperlinkResolver(footerPart), styleResolver, revisions, placeholderResolver);
             foreach (var block in footerBlocks)
             {
                 target.Blocks.Add(block);
@@ -412,12 +416,12 @@ public sealed class DocxImporter
             document.EvenAndOddHeaders = true;
         }
 
-        PopulateHeader(section.Header, ResolveHeaderPart(mainPart, sectionProps, HeaderFooterValues.Default, true), listResolver, styleResolver, document.Revisions, placeholderResolver);
-        PopulateFooter(section.Footer, ResolveFooterPart(mainPart, sectionProps, HeaderFooterValues.Default, true), listResolver, styleResolver, document.Revisions, placeholderResolver);
-        PopulateHeader(section.FirstHeader, ResolveHeaderPart(mainPart, sectionProps, HeaderFooterValues.First, false), listResolver, styleResolver, document.Revisions, placeholderResolver);
-        PopulateFooter(section.FirstFooter, ResolveFooterPart(mainPart, sectionProps, HeaderFooterValues.First, false), listResolver, styleResolver, document.Revisions, placeholderResolver);
-        PopulateHeader(section.EvenHeader, ResolveHeaderPart(mainPart, sectionProps, HeaderFooterValues.Even, false), listResolver, styleResolver, document.Revisions, placeholderResolver);
-        PopulateFooter(section.EvenFooter, ResolveFooterPart(mainPart, sectionProps, HeaderFooterValues.Even, false), listResolver, styleResolver, document.Revisions, placeholderResolver);
+        PopulateHeader(section.Header, ResolveHeaderPart(mainPart, sectionProps, HeaderFooterValues.Default, true), listResolver, styleResolver, document.Revisions, placeholderResolver, document.ThemeColors);
+        PopulateFooter(section.Footer, ResolveFooterPart(mainPart, sectionProps, HeaderFooterValues.Default, true), listResolver, styleResolver, document.Revisions, placeholderResolver, document.ThemeColors);
+        PopulateHeader(section.FirstHeader, ResolveHeaderPart(mainPart, sectionProps, HeaderFooterValues.First, false), listResolver, styleResolver, document.Revisions, placeholderResolver, document.ThemeColors);
+        PopulateFooter(section.FirstFooter, ResolveFooterPart(mainPart, sectionProps, HeaderFooterValues.First, false), listResolver, styleResolver, document.Revisions, placeholderResolver, document.ThemeColors);
+        PopulateHeader(section.EvenHeader, ResolveHeaderPart(mainPart, sectionProps, HeaderFooterValues.Even, false), listResolver, styleResolver, document.Revisions, placeholderResolver, document.ThemeColors);
+        PopulateFooter(section.EvenFooter, ResolveFooterPart(mainPart, sectionProps, HeaderFooterValues.Even, false), listResolver, styleResolver, document.Revisions, placeholderResolver, document.ThemeColors);
     }
 
     private static void LoadDocumentSettings(MainDocumentPart? mainPart, VibeDocument document)
@@ -446,6 +450,21 @@ public sealed class DocxImporter
         }
     }
 
+    private static void LoadDocumentBackground(MainDocumentPart? mainPart, VibeDocument document)
+    {
+        var background = mainPart?.Document?.GetFirstChild<DocumentBackground>();
+        if (background is null)
+        {
+            return;
+        }
+
+        var color = background.Color?.Value;
+        if (!string.IsNullOrWhiteSpace(color) && TryParseHexColor(color, out var parsed))
+        {
+            document.SectionProperties.PageBackgroundColor = parsed;
+        }
+    }
+
     private static void LoadFonts(MainDocumentPart? mainPart, VibeDocument document)
     {
         if (mainPart is null)
@@ -454,6 +473,7 @@ public sealed class DocxImporter
         }
 
         LoadThemeFonts(mainPart.ThemePart?.Theme, document.Fonts);
+        LoadThemeColors(mainPart.ThemePart?.Theme, document.ThemeColors);
         LoadFontTable(mainPart.FontTablePart, document.Fonts);
     }
 
@@ -466,6 +486,98 @@ public sealed class DocxImporter
 
         ApplyThemeFontCollection(fontScheme.MajorFont, true, fonts.Theme);
         ApplyThemeFontCollection(fontScheme.MinorFont, false, fonts.Theme);
+    }
+
+    private static void LoadThemeColors(A.Theme? theme, DocumentThemeColorMap colors)
+    {
+        var scheme = theme?.ThemeElements?.ColorScheme;
+        if (scheme is null)
+        {
+            return;
+        }
+
+        foreach (var child in scheme.ChildElements)
+        {
+            if (child is null)
+            {
+                continue;
+            }
+
+            if (!TryParseThemeColor(child, out var color))
+            {
+                continue;
+            }
+
+            var name = child.LocalName;
+            if (name.Equals("dk1", StringComparison.OrdinalIgnoreCase))
+            {
+                colors.Set(DocThemeColor.Dark1, color);
+            }
+            else if (name.Equals("lt1", StringComparison.OrdinalIgnoreCase))
+            {
+                colors.Set(DocThemeColor.Light1, color);
+            }
+            else if (name.Equals("dk2", StringComparison.OrdinalIgnoreCase))
+            {
+                colors.Set(DocThemeColor.Dark2, color);
+            }
+            else if (name.Equals("lt2", StringComparison.OrdinalIgnoreCase))
+            {
+                colors.Set(DocThemeColor.Light2, color);
+            }
+            else if (name.Equals("accent1", StringComparison.OrdinalIgnoreCase))
+            {
+                colors.Set(DocThemeColor.Accent1, color);
+            }
+            else if (name.Equals("accent2", StringComparison.OrdinalIgnoreCase))
+            {
+                colors.Set(DocThemeColor.Accent2, color);
+            }
+            else if (name.Equals("accent3", StringComparison.OrdinalIgnoreCase))
+            {
+                colors.Set(DocThemeColor.Accent3, color);
+            }
+            else if (name.Equals("accent4", StringComparison.OrdinalIgnoreCase))
+            {
+                colors.Set(DocThemeColor.Accent4, color);
+            }
+            else if (name.Equals("accent5", StringComparison.OrdinalIgnoreCase))
+            {
+                colors.Set(DocThemeColor.Accent5, color);
+            }
+            else if (name.Equals("accent6", StringComparison.OrdinalIgnoreCase))
+            {
+                colors.Set(DocThemeColor.Accent6, color);
+            }
+            else if (name.Equals("hlink", StringComparison.OrdinalIgnoreCase))
+            {
+                colors.Set(DocThemeColor.Hyperlink, color);
+            }
+            else if (name.Equals("folHlink", StringComparison.OrdinalIgnoreCase))
+            {
+                colors.Set(DocThemeColor.FollowedHyperlink, color);
+            }
+        }
+    }
+
+    private static bool TryParseThemeColor(OpenXmlElement element, out DocColor color)
+    {
+        color = DocColor.Black;
+
+        var rgb = element.GetFirstChild<A.RgbColorModelHex>()?.Val?.Value;
+        if (!string.IsNullOrWhiteSpace(rgb) && TryParseHexColor(rgb, out color))
+        {
+            return true;
+        }
+
+        var systemColor = element.GetFirstChild<A.SystemColor>();
+        var lastColor = systemColor?.LastColor?.Value;
+        if (!string.IsNullOrWhiteSpace(lastColor) && TryParseHexColor(lastColor, out color))
+        {
+            return true;
+        }
+
+        return false;
     }
 
     private static void ApplyThemeFontCollection(OpenXmlElement? collection, bool isMajor, DocumentThemeFontMap themeFonts)
@@ -624,7 +736,7 @@ public sealed class DocxImporter
         if (mainPart.FootnotesPart?.Footnotes is { } footnotes)
         {
             var imageResolver = new ImageResolver(mainPart.FootnotesPart);
-            var chartResolver = new ChartResolver(mainPart.FootnotesPart);
+            var chartResolver = new ChartResolver(mainPart.FootnotesPart, document.ThemeColors);
             var hyperlinkResolver = new HyperlinkResolver(mainPart.FootnotesPart);
             foreach (var footnote in footnotes.Elements<Footnote>())
             {
@@ -648,7 +760,7 @@ public sealed class DocxImporter
         if (mainPart.EndnotesPart?.Endnotes is { } endnotes)
         {
             var imageResolver = new ImageResolver(mainPart.EndnotesPart);
-            var chartResolver = new ChartResolver(mainPart.EndnotesPart);
+            var chartResolver = new ChartResolver(mainPart.EndnotesPart, document.ThemeColors);
             var hyperlinkResolver = new HyperlinkResolver(mainPart.EndnotesPart);
             foreach (var endnote in endnotes.Elements<Endnote>())
             {
@@ -672,7 +784,7 @@ public sealed class DocxImporter
         if (mainPart.WordprocessingCommentsPart?.Comments is { } comments)
         {
             var imageResolver = new ImageResolver(mainPart.WordprocessingCommentsPart);
-            var chartResolver = new ChartResolver(mainPart.WordprocessingCommentsPart);
+            var chartResolver = new ChartResolver(mainPart.WordprocessingCommentsPart, document.ThemeColors);
             var hyperlinkResolver = new HyperlinkResolver(mainPart.WordprocessingCommentsPart);
             foreach (var comment in comments.Elements<Comment>())
             {
@@ -2061,6 +2173,83 @@ public sealed class DocxImporter
             }
         }
 
+        var pageBorders = sectionProps.GetFirstChild<OpenXmlPageBorders>();
+        if (pageBorders is not null)
+        {
+            var borders = new Vibe.Office.Documents.PageBorders
+            {
+                Top = ParseBorderLine(pageBorders.TopBorder),
+                Bottom = ParseBorderLine(pageBorders.BottomBorder),
+                Left = ParseBorderLine(pageBorders.LeftBorder),
+                Right = ParseBorderLine(pageBorders.RightBorder)
+            };
+
+            if (pageBorders.Display?.Value is PageBorderDisplayValues display)
+            {
+                borders.Display = MapPageBorderDisplay(display);
+            }
+
+            if (pageBorders.OffsetFrom?.Value is PageBorderOffsetValues offset)
+            {
+                borders.OffsetFrom = MapPageBorderOffset(offset);
+            }
+
+            if (pageBorders.ZOrder?.Value is PageBorderZOrderValues zOrder)
+            {
+                borders.ZOrder = MapPageBorderZOrder(zOrder);
+            }
+
+            if (borders.HasAny)
+            {
+                properties.PageBorders = borders;
+            }
+        }
+
+        var lineNumbering = sectionProps.GetFirstChild<LineNumberType>();
+        if (lineNumbering is not null)
+        {
+            var settings = new LineNumberingSettings();
+            if (lineNumbering.Start?.Value is short start)
+            {
+                settings.Start = start;
+            }
+
+            if (lineNumbering.CountBy?.Value is short countBy)
+            {
+                settings.CountBy = countBy;
+            }
+
+            var distance = TryParseTwips(lineNumbering.Distance);
+            if (distance.HasValue)
+            {
+                settings.Distance = TwipsToDip(distance.Value);
+            }
+
+            if (lineNumbering.Restart?.Value is LineNumberRestartValues restart)
+            {
+                settings.Restart = MapLineNumberRestart(restart);
+            }
+
+            properties.LineNumbering = settings;
+        }
+
+        var pageNumbering = sectionProps.GetFirstChild<PageNumberType>();
+        if (pageNumbering is not null)
+        {
+            var settings = new PageNumberingSettings();
+            if (pageNumbering.Start?.Value is int start)
+            {
+                settings.Start = start;
+            }
+
+            if (pageNumbering.Format?.Value is NumberFormatValues format)
+            {
+                settings.Format = MapPageNumberFormat(format);
+            }
+
+            properties.PageNumbering = settings;
+        }
+
         return properties;
     }
 
@@ -2178,6 +2367,26 @@ public sealed class DocxImporter
         if (source.DocGrid?.HasValues == true)
         {
             target.DocGrid = source.DocGrid.Clone();
+        }
+
+        if (source.PageBackgroundColor.HasValue)
+        {
+            target.PageBackgroundColor = source.PageBackgroundColor.Value;
+        }
+
+        if (source.PageBorders?.HasAny == true)
+        {
+            target.PageBorders = source.PageBorders.Clone();
+        }
+
+        if (source.LineNumbering is not null)
+        {
+            target.LineNumbering = source.LineNumbering.Clone();
+        }
+
+        if (source.PageNumbering is not null)
+        {
+            target.PageNumbering = source.PageNumbering.Clone();
         }
     }
 
@@ -2830,6 +3039,110 @@ public sealed class DocxImporter
             properties.ShadingColor = shadingColor;
         }
 
+        var suppressLineNumbers = props.GetFirstChild<SuppressLineNumbers>();
+        if (suppressLineNumbers is not null)
+        {
+            properties.SuppressLineNumbers = suppressLineNumbers.Val?.Value != false;
+        }
+
+        var frame = props.GetFirstChild<FrameProperties>();
+        if (frame is not null)
+        {
+            if (frame.DropCap?.Value is DropCapLocationValues dropCapLocation)
+            {
+                var dropCap = new DropCapSettings
+                {
+                    Kind = dropCapLocation == DropCapLocationValues.Margin
+                        ? DropCapKind.Margin
+                        : DropCapKind.Drop
+                };
+                if (frame.Lines?.Value is int lines && lines > 0)
+                {
+                    dropCap.Lines = lines;
+                }
+
+                var dropCapDistance = TryParseTwips(frame.HorizontalSpace);
+                if (dropCapDistance.HasValue)
+                {
+                    dropCap.Distance = TwipsToDip(dropCapDistance.Value);
+                }
+
+                properties.DropCap = dropCap;
+            }
+
+            var frameProperties = new ParagraphFrameProperties();
+            var width = TryParseTwips(frame.Width);
+            if (width.HasValue)
+            {
+                frameProperties.Width = TwipsToDip(width.Value);
+            }
+
+            var height = TryParseTwips(frame.Height);
+            if (height.HasValue)
+            {
+                frameProperties.Height = TwipsToDip(height.Value);
+            }
+
+            var x = TryParseTwips(frame.X);
+            if (x.HasValue)
+            {
+                frameProperties.X = TwipsToDip(x.Value);
+            }
+
+            var y = TryParseTwips(frame.Y);
+            if (y.HasValue)
+            {
+                frameProperties.Y = TwipsToDip(y.Value);
+            }
+
+            var hSpace = TryParseTwips(frame.HorizontalSpace);
+            if (hSpace.HasValue)
+            {
+                frameProperties.HorizontalSpace = TwipsToDip(hSpace.Value);
+            }
+
+            var vSpace = TryParseTwips(frame.VerticalSpace);
+            if (vSpace.HasValue)
+            {
+                frameProperties.VerticalSpace = TwipsToDip(vSpace.Value);
+            }
+
+            if (frame.HorizontalPosition?.Value is HorizontalAnchorValues hAnchor)
+            {
+                frameProperties.HorizontalReference = MapFrameHorizontalReference(hAnchor);
+            }
+
+            if (frame.VerticalPosition?.Value is VerticalAnchorValues vAnchor)
+            {
+                frameProperties.VerticalReference = MapFrameVerticalReference(vAnchor);
+            }
+
+            if (frame.XAlign?.Value is HorizontalAlignmentValues xAlign)
+            {
+                frameProperties.HorizontalAlignment = MapFrameHorizontalAlignment(xAlign);
+            }
+
+            if (frame.YAlign?.Value is VerticalAlignmentValues yAlign)
+            {
+                frameProperties.VerticalAlignment = MapFrameVerticalAlignment(yAlign);
+            }
+
+            if (frame.Wrap?.Value is TextWrappingValues wrap)
+            {
+                frameProperties.WrapStyle = MapFrameWrapStyle(wrap);
+            }
+
+            if (frame.AnchorLock?.Value is bool lockValue)
+            {
+                frameProperties.AnchorLock = lockValue;
+            }
+
+            if (frameProperties.HasValues)
+            {
+                properties.Frame = frameProperties;
+            }
+        }
+
         var borders = props.GetFirstChild<OpenXmlParagraphBorders>();
         if (borders is not null)
         {
@@ -2984,6 +3297,110 @@ public sealed class DocxImporter
         if (shading?.Fill?.Value is string fill && TryParseHexColor(fill, out var shadingColor))
         {
             properties.ShadingColor = shadingColor;
+        }
+
+        var suppressLineNumbers = props.GetFirstChild<SuppressLineNumbers>();
+        if (suppressLineNumbers is not null)
+        {
+            properties.SuppressLineNumbers = suppressLineNumbers.Val?.Value != false;
+        }
+
+        var frame = props.GetFirstChild<FrameProperties>();
+        if (frame is not null)
+        {
+            if (frame.DropCap?.Value is DropCapLocationValues dropCapLocation)
+            {
+                var dropCap = new DropCapSettings
+                {
+                    Kind = dropCapLocation == DropCapLocationValues.Margin
+                        ? DropCapKind.Margin
+                        : DropCapKind.Drop
+                };
+                if (frame.Lines?.Value is int lines && lines > 0)
+                {
+                    dropCap.Lines = lines;
+                }
+
+                var dropCapDistance = TryParseTwips(frame.HorizontalSpace);
+                if (dropCapDistance.HasValue)
+                {
+                    dropCap.Distance = TwipsToDip(dropCapDistance.Value);
+                }
+
+                properties.DropCap = dropCap;
+            }
+
+            var frameProperties = new ParagraphFrameProperties();
+            var width = TryParseTwips(frame.Width);
+            if (width.HasValue)
+            {
+                frameProperties.Width = TwipsToDip(width.Value);
+            }
+
+            var height = TryParseTwips(frame.Height);
+            if (height.HasValue)
+            {
+                frameProperties.Height = TwipsToDip(height.Value);
+            }
+
+            var x = TryParseTwips(frame.X);
+            if (x.HasValue)
+            {
+                frameProperties.X = TwipsToDip(x.Value);
+            }
+
+            var y = TryParseTwips(frame.Y);
+            if (y.HasValue)
+            {
+                frameProperties.Y = TwipsToDip(y.Value);
+            }
+
+            var hSpace = TryParseTwips(frame.HorizontalSpace);
+            if (hSpace.HasValue)
+            {
+                frameProperties.HorizontalSpace = TwipsToDip(hSpace.Value);
+            }
+
+            var vSpace = TryParseTwips(frame.VerticalSpace);
+            if (vSpace.HasValue)
+            {
+                frameProperties.VerticalSpace = TwipsToDip(vSpace.Value);
+            }
+
+            if (frame.HorizontalPosition?.Value is HorizontalAnchorValues hAnchor)
+            {
+                frameProperties.HorizontalReference = MapFrameHorizontalReference(hAnchor);
+            }
+
+            if (frame.VerticalPosition?.Value is VerticalAnchorValues vAnchor)
+            {
+                frameProperties.VerticalReference = MapFrameVerticalReference(vAnchor);
+            }
+
+            if (frame.XAlign?.Value is HorizontalAlignmentValues xAlign)
+            {
+                frameProperties.HorizontalAlignment = MapFrameHorizontalAlignment(xAlign);
+            }
+
+            if (frame.YAlign?.Value is VerticalAlignmentValues yAlign)
+            {
+                frameProperties.VerticalAlignment = MapFrameVerticalAlignment(yAlign);
+            }
+
+            if (frame.Wrap?.Value is TextWrappingValues wrap)
+            {
+                frameProperties.WrapStyle = MapFrameWrapStyle(wrap);
+            }
+
+            if (frame.AnchorLock?.Value is bool lockValue)
+            {
+                frameProperties.AnchorLock = lockValue;
+            }
+
+            if (frameProperties.HasValues)
+            {
+                properties.Frame = frameProperties;
+            }
         }
 
         var borders = props.GetFirstChild<OpenXmlParagraphBorders>();
@@ -4261,6 +4678,185 @@ public sealed class DocxImporter
         return DocGridType.Default;
     }
 
+    private static PageBorderDisplay MapPageBorderDisplay(PageBorderDisplayValues value)
+    {
+        if (value == PageBorderDisplayValues.FirstPage)
+        {
+            return PageBorderDisplay.FirstPage;
+        }
+
+        if (value == PageBorderDisplayValues.NotFirstPage)
+        {
+            return PageBorderDisplay.ExceptFirstPage;
+        }
+
+        return PageBorderDisplay.AllPages;
+    }
+
+    private static PageBorderOffset MapPageBorderOffset(PageBorderOffsetValues value)
+    {
+        return value == PageBorderOffsetValues.Text
+            ? PageBorderOffset.Text
+            : PageBorderOffset.Page;
+    }
+
+    private static PageBorderZOrder MapPageBorderZOrder(PageBorderZOrderValues value)
+    {
+        return value == PageBorderZOrderValues.Front
+            ? PageBorderZOrder.Front
+            : PageBorderZOrder.Back;
+    }
+
+    private static LineNumberRestart MapLineNumberRestart(LineNumberRestartValues value)
+    {
+        if (value == LineNumberRestartValues.NewPage)
+        {
+            return LineNumberRestart.NewPage;
+        }
+
+        if (value == LineNumberRestartValues.NewSection)
+        {
+            return LineNumberRestart.NewSection;
+        }
+
+        return LineNumberRestart.Continuous;
+    }
+
+    private static PageNumberFormat MapPageNumberFormat(NumberFormatValues value)
+    {
+        if (value == NumberFormatValues.UpperRoman)
+        {
+            return PageNumberFormat.UpperRoman;
+        }
+
+        if (value == NumberFormatValues.LowerRoman)
+        {
+            return PageNumberFormat.LowerRoman;
+        }
+
+        if (value == NumberFormatValues.UpperLetter)
+        {
+            return PageNumberFormat.UpperLetter;
+        }
+
+        if (value == NumberFormatValues.LowerLetter)
+        {
+            return PageNumberFormat.LowerLetter;
+        }
+
+        return PageNumberFormat.Decimal;
+    }
+
+    private static FloatingHorizontalReference MapFrameHorizontalReference(HorizontalAnchorValues value)
+    {
+        if (value == HorizontalAnchorValues.Page)
+        {
+            return FloatingHorizontalReference.Page;
+        }
+
+        if (value == HorizontalAnchorValues.Margin)
+        {
+            return FloatingHorizontalReference.Margin;
+        }
+
+        if (value == HorizontalAnchorValues.Text)
+        {
+            return FloatingHorizontalReference.Column;
+        }
+
+        return FloatingHorizontalReference.Margin;
+    }
+
+    private static FloatingVerticalReference MapFrameVerticalReference(VerticalAnchorValues value)
+    {
+        if (value == VerticalAnchorValues.Page)
+        {
+            return FloatingVerticalReference.Page;
+        }
+
+        if (value == VerticalAnchorValues.Margin)
+        {
+            return FloatingVerticalReference.Margin;
+        }
+
+        return FloatingVerticalReference.Paragraph;
+    }
+
+    private static FloatingHorizontalAlignment MapFrameHorizontalAlignment(HorizontalAlignmentValues value)
+    {
+        if (value == HorizontalAlignmentValues.Center)
+        {
+            return FloatingHorizontalAlignment.Center;
+        }
+
+        if (value == HorizontalAlignmentValues.Right)
+        {
+            return FloatingHorizontalAlignment.Right;
+        }
+
+        if (value == HorizontalAlignmentValues.Outside)
+        {
+            return FloatingHorizontalAlignment.Outside;
+        }
+
+        if (value == HorizontalAlignmentValues.Inside)
+        {
+            return FloatingHorizontalAlignment.Inside;
+        }
+
+        return FloatingHorizontalAlignment.Left;
+    }
+
+    private static FloatingVerticalAlignment MapFrameVerticalAlignment(VerticalAlignmentValues value)
+    {
+        if (value == VerticalAlignmentValues.Center)
+        {
+            return FloatingVerticalAlignment.Center;
+        }
+
+        if (value == VerticalAlignmentValues.Bottom)
+        {
+            return FloatingVerticalAlignment.Bottom;
+        }
+
+        if (value == VerticalAlignmentValues.Outside)
+        {
+            return FloatingVerticalAlignment.Outside;
+        }
+
+        if (value == VerticalAlignmentValues.Inside)
+        {
+            return FloatingVerticalAlignment.Inside;
+        }
+
+        return FloatingVerticalAlignment.Top;
+    }
+
+    private static FloatingWrapStyle MapFrameWrapStyle(TextWrappingValues value)
+    {
+        if (value == TextWrappingValues.Around || value == TextWrappingValues.Auto)
+        {
+            return FloatingWrapStyle.Square;
+        }
+
+        if (value == TextWrappingValues.Tight)
+        {
+            return FloatingWrapStyle.Tight;
+        }
+
+        if (value == TextWrappingValues.Through)
+        {
+            return FloatingWrapStyle.Through;
+        }
+
+        if (value == TextWrappingValues.NotBeside)
+        {
+            return FloatingWrapStyle.TopBottom;
+        }
+
+        return FloatingWrapStyle.None;
+    }
+
     private static EastAsianLayoutProperties? ParseEastAsianLayout(EastAsianLayout layout)
     {
         var properties = new EastAsianLayoutProperties
@@ -4931,6 +5527,7 @@ public sealed class DocxImporter
     {
         var graphicData = drawing.Descendants<A.GraphicData>().FirstOrDefault();
         var uri = graphicData?.Uri?.Value ?? string.Empty;
+        var diagramInfo = TryResolveDiagramInfo(drawing, graphicData, uri, imageResolver.Part);
         if (uri.Contains("drawingml/chart", StringComparison.OrdinalIgnoreCase) || uri.Contains("drawingml/2006/chart", StringComparison.OrdinalIgnoreCase) || uri.Contains("chart", StringComparison.OrdinalIgnoreCase))
         {
             var chartInline = chartResolver.TryCreateChart(drawing);
@@ -4980,7 +5577,13 @@ public sealed class DocxImporter
             return placeholder;
         }
 
-        return imageResolver.TryCreateImage(drawing);
+        var imageInline = imageResolver.TryCreateImage(drawing);
+        if (imageInline is not null && diagramInfo is not null)
+        {
+            imageInline.Diagram = diagramInfo;
+        }
+
+        return imageInline;
     }
 
     private static Inline? TryCreateInlineObjectFromVml(
@@ -5025,8 +5628,7 @@ public sealed class DocxImporter
             };
         }
 
-        var shapeElement = element.Descendants()
-            .FirstOrDefault(node => node.LocalName.Equals("shape", StringComparison.OrdinalIgnoreCase));
+        var shapeElement = FindVmlShapeElement(element);
         if (shapeElement is null)
         {
             return null;
@@ -5038,33 +5640,25 @@ public sealed class DocxImporter
             Name = GetAttributeValue(shapeElement, "id")
         };
 
-        shapeInline.Properties.PresetGeometry = "rect";
+        var shapeTypeElement = ResolveVmlShapeType(shapeElement, element);
+        shapeInline.Properties.PresetGeometry = ResolveVmlPresetGeometry(shapeElement, shapeTypeElement);
 
-        var fillColor = GetAttributeValue(shapeElement, "fillcolor") ?? string.Empty;
-        if (!string.IsNullOrWhiteSpace(fillColor) && TryParseVmlColor(fillColor, out var fill))
-        {
-            shapeInline.Properties.FillColor = fill;
-        }
+        var styleValue = GetAttributeValue(shapeElement, "style") ?? string.Empty;
+        var shapeStyle = ParseVmlStyle(styleValue);
+        ApplyVmlTransform(shapeInline.Properties, shapeElement, shapeStyle);
 
-        var strokeColor = GetAttributeValue(shapeElement, "strokecolor") ?? string.Empty;
-        var strokeWeight = GetAttributeValue(shapeElement, "strokeweight") ?? string.Empty;
-        if (!string.IsNullOrWhiteSpace(strokeColor) && TryParseVmlColor(strokeColor, out var stroke))
-        {
-            var border = new BorderLine { Color = stroke };
-            if (!string.IsNullOrWhiteSpace(strokeWeight) && TryParseVmlLength(strokeWeight, out var weight))
-            {
-                border.Thickness = weight;
-            }
-
-            shapeInline.Properties.Outline = border;
-        }
+        ApplyVmlFill(shapeInline.Properties, shapeElement, shapeTypeElement);
+        ApplyVmlStroke(shapeInline.Properties, shapeElement, shapeTypeElement);
 
         var textBoxContent = element.Descendants<TextBoxContent>().FirstOrDefault();
+        var textBoxElement = element.Descendants()
+            .FirstOrDefault(node => node.LocalName.Equals("textbox", StringComparison.OrdinalIgnoreCase));
         if (textBoxContent is not null)
         {
             var blocks = ParseTextBoxContent(textBoxContent, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, revisions, placeholderResolver);
             var textBox = new ShapeTextBox();
             textBox.Blocks.AddRange(blocks);
+            ApplyVmlTextBoxProperties(textBox.Properties, textBoxElement, shapeStyle);
             shapeInline.TextBox = textBox;
         }
 
@@ -5112,6 +5706,60 @@ public sealed class DocxImporter
         if (external is not null)
         {
             info.TargetUri = external.Uri?.ToString();
+        }
+
+        return info;
+    }
+
+    private static DiagramInfo? TryResolveDiagramInfo(Drawing drawing, A.GraphicData? graphicData, string uri, OpenXmlPart? part)
+    {
+        if (string.IsNullOrWhiteSpace(uri) || !uri.Contains("diagram", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        var relIds = graphicData?.Descendants().FirstOrDefault(element => element.LocalName.Equals("relIds", StringComparison.OrdinalIgnoreCase))
+                     ?? drawing.Descendants().FirstOrDefault(element =>
+                         element.LocalName.Equals("relIds", StringComparison.OrdinalIgnoreCase)
+                         && element.NamespaceUri?.Contains("diagram", StringComparison.OrdinalIgnoreCase) == true);
+
+        if (relIds is null)
+        {
+            return new DiagramInfo();
+        }
+
+        var info = new DiagramInfo
+        {
+            DataRelationshipId = GetAttributeValue(relIds, "dm", RelationshipNamespace),
+            LayoutRelationshipId = GetAttributeValue(relIds, "lo", RelationshipNamespace),
+            QuickStyleRelationshipId = GetAttributeValue(relIds, "qs", RelationshipNamespace),
+            ColorStyleRelationshipId = GetAttributeValue(relIds, "cs", RelationshipNamespace)
+        };
+        if (part is not null)
+        {
+            if (!string.IsNullOrWhiteSpace(info.DataRelationshipId)
+                && part.GetPartById(info.DataRelationshipId) is OpenXmlPart dataPart)
+            {
+                info.DataPart = ReadPartData(dataPart);
+            }
+
+            if (!string.IsNullOrWhiteSpace(info.LayoutRelationshipId)
+                && part.GetPartById(info.LayoutRelationshipId) is OpenXmlPart layoutPart)
+            {
+                info.LayoutPart = ReadPartData(layoutPart);
+            }
+
+            if (!string.IsNullOrWhiteSpace(info.QuickStyleRelationshipId)
+                && part.GetPartById(info.QuickStyleRelationshipId) is OpenXmlPart stylePart)
+            {
+                info.QuickStylePart = ReadPartData(stylePart);
+            }
+
+            if (!string.IsNullOrWhiteSpace(info.ColorStyleRelationshipId)
+                && part.GetPartById(info.ColorStyleRelationshipId) is OpenXmlPart colorPart)
+            {
+                info.ColorStylePart = ReadPartData(colorPart);
+            }
         }
 
         return info;
@@ -5195,6 +5843,12 @@ public sealed class DocxImporter
             || TryGetVmlStyleLength(style, "top", out offsetY))
         {
             target.OffsetY = offsetY;
+        }
+
+        if (style.TryGetValue("z-index", out var zIndexValue)
+            && int.TryParse(zIndexValue, NumberStyles.Integer, CultureInfo.InvariantCulture, out var zIndex))
+        {
+            target.BehindText = zIndex < 0;
         }
 
         var hasDistance = false;
@@ -5589,17 +6243,18 @@ public sealed class DocxImporter
     {
         target.BehindText = anchor.BehindDoc?.Value ?? false;
 
+        var distance = target.Distance;
         var left = anchor.DistanceFromLeft?.Value;
         var top = anchor.DistanceFromTop?.Value;
         var right = anchor.DistanceFromRight?.Value;
         var bottom = anchor.DistanceFromBottom?.Value;
         if (left.HasValue || top.HasValue || right.HasValue || bottom.HasValue)
         {
-            target.Distance = new DocThickness(
-                left.HasValue ? EmuToDip(left.Value) : 0f,
-                top.HasValue ? EmuToDip(top.Value) : 0f,
-                right.HasValue ? EmuToDip(right.Value) : 0f,
-                bottom.HasValue ? EmuToDip(bottom.Value) : 0f);
+            distance = new DocThickness(
+                left.HasValue ? EmuToDip(left.Value) : distance.Left,
+                top.HasValue ? EmuToDip(top.Value) : distance.Top,
+                right.HasValue ? EmuToDip(right.Value) : distance.Right,
+                bottom.HasValue ? EmuToDip(bottom.Value) : distance.Bottom);
         }
 
         if (anchor.SimplePos?.Value == true && anchor.SimplePosition is { } simplePosition)
@@ -5649,27 +6304,119 @@ public sealed class DocxImporter
         {
             target.WrapStyle = FloatingWrapStyle.Square;
             target.WrapSide = MapWrapSide(wrapSquare.WrapText?.Value);
+            distance = ApplyWrapDistance(
+                distance,
+                EmuToDipOptional(wrapSquare.DistanceFromLeft),
+                EmuToDipOptional(wrapSquare.DistanceFromTop),
+                EmuToDipOptional(wrapSquare.DistanceFromRight),
+                EmuToDipOptional(wrapSquare.DistanceFromBottom));
+            target.WrapPolygon = null;
         }
         else if (wrapTight is not null)
         {
             target.WrapStyle = FloatingWrapStyle.Tight;
             target.WrapSide = MapWrapSide(wrapTight.WrapText?.Value);
+            distance = ApplyWrapDistance(
+                distance,
+                EmuToDipOptional(wrapTight.DistanceFromLeft),
+                null,
+                EmuToDipOptional(wrapTight.DistanceFromRight),
+                null);
+            target.WrapPolygon = TryCreateWrapPolygon(wrapTight.WrapPolygon);
         }
         else if (anchor.GetFirstChild<DW.WrapTopBottom>() is not null)
         {
             target.WrapStyle = FloatingWrapStyle.TopBottom;
             target.WrapSide = FloatingWrapSide.Both;
+            target.WrapPolygon = null;
         }
         else if (wrapThrough is not null)
         {
             target.WrapStyle = FloatingWrapStyle.Through;
             target.WrapSide = MapWrapSide(wrapThrough.WrapText?.Value);
+            distance = ApplyWrapDistance(
+                distance,
+                EmuToDipOptional(wrapThrough.DistanceFromLeft),
+                null,
+                EmuToDipOptional(wrapThrough.DistanceFromRight),
+                null);
+            target.WrapPolygon = TryCreateWrapPolygon(wrapThrough.WrapPolygon);
         }
         else
         {
             target.WrapStyle = FloatingWrapStyle.None;
             target.WrapSide = FloatingWrapSide.Both;
+            target.WrapPolygon = null;
         }
+
+        target.Distance = distance;
+    }
+
+    private static DocThickness ApplyWrapDistance(
+        DocThickness current,
+        float? left,
+        float? top,
+        float? right,
+        float? bottom)
+    {
+        if (!left.HasValue && !top.HasValue && !right.HasValue && !bottom.HasValue)
+        {
+            return current;
+        }
+
+        return new DocThickness(
+            left ?? current.Left,
+            top ?? current.Top,
+            right ?? current.Right,
+            bottom ?? current.Bottom);
+    }
+
+    private static float? EmuToDipOptional(UInt32Value? value)
+    {
+        return value is null ? null : EmuToDip((long)value.Value);
+    }
+
+    private static FloatingWrapPolygon? TryCreateWrapPolygon(DW.WrapPolygon? polygon)
+    {
+        if (polygon?.StartPoint is not DW.StartPoint startPoint)
+        {
+            return null;
+        }
+
+        if (!TryReadWrapPoint(startPoint, out var start))
+        {
+            return null;
+        }
+
+        var points = new List<DocPoint> { start };
+        foreach (var lineTo in polygon.Elements<DW.LineTo>())
+        {
+            if (TryReadWrapPoint(lineTo, out var point))
+            {
+                points.Add(point);
+            }
+        }
+
+        if (points.Count < 3)
+        {
+            return null;
+        }
+
+        return new FloatingWrapPolygon(points.ToArray());
+    }
+
+    private static bool TryReadWrapPoint(DW.Point2DType point, out DocPoint result)
+    {
+        var x = point.X?.Value;
+        var y = point.Y?.Value;
+        if (!x.HasValue || !y.HasValue)
+        {
+            result = default;
+            return false;
+        }
+
+        result = new DocPoint(EmuToDip(x.Value), EmuToDip(y.Value));
+        return true;
     }
 
     private static FloatingWrapSide MapWrapSide(DW.WrapTextValues? value)
@@ -5993,14 +6740,13 @@ public sealed class DocxImporter
 
     private static (float Width, float Height) GetVmlSize(OpenXmlElement element)
     {
-        var shape = element.Descendants()
-            .FirstOrDefault(node => node.LocalName.Equals("shape", StringComparison.OrdinalIgnoreCase));
+        var shape = FindVmlShapeElement(element);
         if (shape is null)
         {
             return (100f, 100f);
         }
 
-            var styleValue = GetAttributeValue(shape, "style") ?? string.Empty;
+        var styleValue = GetAttributeValue(shape, "style") ?? string.Empty;
         if (string.IsNullOrWhiteSpace(styleValue))
         {
             return (100f, 100f);
@@ -6047,6 +6793,443 @@ public sealed class DocxImporter
         }
 
         return (width, height);
+    }
+
+    private static OpenXmlElement? FindVmlShapeElement(OpenXmlElement element)
+    {
+        return element.Descendants().FirstOrDefault(IsVmlShapeElement);
+    }
+
+    private static bool IsVmlShapeElement(OpenXmlElement element)
+    {
+        return element.LocalName.Equals("shape", StringComparison.OrdinalIgnoreCase)
+               || element.LocalName.Equals("rect", StringComparison.OrdinalIgnoreCase)
+               || element.LocalName.Equals("roundrect", StringComparison.OrdinalIgnoreCase)
+               || element.LocalName.Equals("oval", StringComparison.OrdinalIgnoreCase)
+               || element.LocalName.Equals("line", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static OpenXmlElement? ResolveVmlShapeType(OpenXmlElement shapeElement, OpenXmlElement scopeElement)
+    {
+        var typeValue = GetAttributeValue(shapeElement, "type") ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(typeValue))
+        {
+            return null;
+        }
+
+        var typeId = typeValue.Trim();
+        if (typeId.StartsWith("#", StringComparison.Ordinal))
+        {
+            typeId = typeId[1..];
+        }
+
+        if (string.IsNullOrWhiteSpace(typeId))
+        {
+            return null;
+        }
+
+        return scopeElement.Descendants().FirstOrDefault(node =>
+            node.LocalName.Equals("shapetype", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(GetAttributeValue(node, "id"), typeId, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static string ResolveVmlPresetGeometry(OpenXmlElement shapeElement, OpenXmlElement? shapeTypeElement)
+    {
+        if (shapeElement.LocalName.Equals("line", StringComparison.OrdinalIgnoreCase))
+        {
+            return "line";
+        }
+
+        if (shapeElement.LocalName.Equals("oval", StringComparison.OrdinalIgnoreCase))
+        {
+            return "ellipse";
+        }
+
+        if (shapeElement.LocalName.Equals("roundrect", StringComparison.OrdinalIgnoreCase))
+        {
+            return "roundrect";
+        }
+
+        if (shapeElement.LocalName.Equals("rect", StringComparison.OrdinalIgnoreCase))
+        {
+            return "rect";
+        }
+
+        if (shapeTypeElement is not null)
+        {
+            if (TryParseVmlBool(GetAttributeValue(shapeTypeElement, "oned"), out var isOneD) && isOneD)
+            {
+                return "line";
+            }
+
+            if (shapeTypeElement.LocalName.Equals("line", StringComparison.OrdinalIgnoreCase))
+            {
+                return "line";
+            }
+
+            if (shapeTypeElement.LocalName.Equals("oval", StringComparison.OrdinalIgnoreCase))
+            {
+                return "ellipse";
+            }
+
+            if (shapeTypeElement.LocalName.Equals("roundrect", StringComparison.OrdinalIgnoreCase))
+            {
+                return "roundrect";
+            }
+
+            if (shapeTypeElement.LocalName.Equals("rect", StringComparison.OrdinalIgnoreCase))
+            {
+                return "rect";
+            }
+
+            if (TryGetVmlShapeTypeId(shapeTypeElement, out var spt))
+            {
+                var mapped = MapVmlShapeType(spt);
+                if (!string.IsNullOrWhiteSpace(mapped))
+                {
+                    return mapped;
+                }
+            }
+        }
+
+        if (TryGetVmlShapeTypeId(shapeElement, out var shapeSpt))
+        {
+            var mapped = MapVmlShapeType(shapeSpt);
+            if (!string.IsNullOrWhiteSpace(mapped))
+            {
+                return mapped;
+            }
+        }
+
+        if (TryParseVmlBool(GetAttributeValue(shapeElement, "oned"), out var isLine) && isLine)
+        {
+            return "line";
+        }
+
+        return "rect";
+    }
+
+    private static bool TryGetVmlShapeTypeId(OpenXmlElement element, out int spt)
+    {
+        spt = 0;
+        var value = GetAttributeValue(element, "spt");
+        return !string.IsNullOrWhiteSpace(value)
+               && int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out spt);
+    }
+
+    private static string? MapVmlShapeType(int spt)
+    {
+        return spt switch
+        {
+            1 => "rect",
+            2 => "roundrect",
+            3 => "ellipse",
+            4 => "diamond",
+            5 => "parallelogram",
+            6 => "trapezoid",
+            7 => "hexagon",
+            8 => "octagon",
+            13 => "triangle",
+            32 or 33 or 34 or 35 or 36 or 37 or 38 or 39 => "line",
+            202 => "rect",
+            _ => null
+        };
+    }
+
+    private static void ApplyVmlTransform(
+        ShapeProperties properties,
+        OpenXmlElement shapeElement,
+        IReadOnlyDictionary<string, string> style)
+    {
+        if (TryParseVmlFloat(GetAttributeValue(shapeElement, "rotation"), out var rotation)
+            || TryParseVmlFloat(GetStyleValue(style, "rotation"), out rotation)
+            || TryParseVmlFloat(GetStyleValue(style, "mso-rotate"), out rotation))
+        {
+            properties.Rotation = rotation;
+        }
+
+        var flipValue = GetAttributeValue(shapeElement, "flip") ?? GetStyleValue(style, "flip") ?? string.Empty;
+        if (!string.IsNullOrWhiteSpace(flipValue))
+        {
+            var normalized = flipValue.ToLowerInvariant();
+            properties.FlipHorizontal = normalized.Contains("x", StringComparison.Ordinal);
+            properties.FlipVertical = normalized.Contains("y", StringComparison.Ordinal);
+        }
+
+        if (TryParseVmlBool(GetStyleValue(style, "flipx"), out var flipX) && flipX)
+        {
+            properties.FlipHorizontal = true;
+        }
+
+        if (TryParseVmlBool(GetStyleValue(style, "flipy"), out var flipY) && flipY)
+        {
+            properties.FlipVertical = true;
+        }
+    }
+
+    private static void ApplyVmlFill(
+        ShapeProperties properties,
+        OpenXmlElement shapeElement,
+        OpenXmlElement? shapeTypeElement)
+    {
+        if (TryParseVmlBool(GetAttributeValue(shapeElement, "filled"), out var filled) && !filled)
+        {
+            properties.FillColor = null;
+            return;
+        }
+
+        if (shapeTypeElement is not null
+            && TryParseVmlBool(GetAttributeValue(shapeTypeElement, "filled"), out var typeFilled)
+            && !typeFilled)
+        {
+            properties.FillColor = null;
+            return;
+        }
+
+        var fillElement = shapeElement.Descendants().FirstOrDefault(node =>
+            node.LocalName.Equals("fill", StringComparison.OrdinalIgnoreCase));
+        var fillColorValue = GetAttributeValue(shapeElement, "fillcolor")
+                            ?? (fillElement is not null ? GetAttributeValue(fillElement, "color") : null)
+                            ?? string.Empty;
+        if (!string.IsNullOrWhiteSpace(fillColorValue) && TryParseVmlColor(fillColorValue, out var fill))
+        {
+            if (fillElement is not null
+                && TryParseVmlOpacity(GetAttributeValue(fillElement, "opacity"), out var opacity))
+            {
+                fill = ApplyOpacity(fill, opacity);
+            }
+
+            properties.FillColor = fill;
+        }
+    }
+
+    private static void ApplyVmlStroke(
+        ShapeProperties properties,
+        OpenXmlElement shapeElement,
+        OpenXmlElement? shapeTypeElement)
+    {
+        if (TryParseVmlBool(GetAttributeValue(shapeElement, "stroked"), out var stroked) && !stroked)
+        {
+            properties.Outline = null;
+            return;
+        }
+
+        if (shapeTypeElement is not null
+            && TryParseVmlBool(GetAttributeValue(shapeTypeElement, "stroked"), out var typeStroked)
+            && !typeStroked)
+        {
+            properties.Outline = null;
+            return;
+        }
+
+        var strokeElement = shapeElement.Descendants().FirstOrDefault(node =>
+            node.LocalName.Equals("stroke", StringComparison.OrdinalIgnoreCase));
+        var strokeColorValue = GetAttributeValue(shapeElement, "strokecolor")
+                              ?? (strokeElement is not null ? GetAttributeValue(strokeElement, "color") : null)
+                              ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(strokeColorValue) || !TryParseVmlColor(strokeColorValue, out var stroke))
+        {
+            return;
+        }
+
+        var border = new BorderLine { Color = stroke };
+        var strokeWeight = GetAttributeValue(shapeElement, "strokeweight")
+                          ?? (strokeElement is not null ? GetAttributeValue(strokeElement, "weight") : null)
+                          ?? string.Empty;
+        if (!string.IsNullOrWhiteSpace(strokeWeight) && TryParseVmlLength(strokeWeight, out var weight))
+        {
+            border.Thickness = weight;
+        }
+
+        if (strokeElement is not null
+            && TryParseVmlOpacity(GetAttributeValue(strokeElement, "opacity"), out var opacity))
+        {
+            border.Color = ApplyOpacity(border.Color, opacity);
+        }
+
+        var dash = strokeElement is not null ? GetAttributeValue(strokeElement, "dashstyle") ?? string.Empty : string.Empty;
+        if (!string.IsNullOrWhiteSpace(dash))
+        {
+            border.Style = MapVmlDashStyle(dash);
+        }
+
+        properties.Outline = border;
+    }
+
+    private static void ApplyVmlTextBoxProperties(
+        ShapeTextBoxProperties properties,
+        OpenXmlElement? textBoxElement,
+        IReadOnlyDictionary<string, string> shapeStyle)
+    {
+        var insetValue = textBoxElement is not null ? GetAttributeValue(textBoxElement, "inset") ?? string.Empty : string.Empty;
+        if (!string.IsNullOrWhiteSpace(insetValue) && TryParseVmlInsets(insetValue, out var padding))
+        {
+            properties.Padding = padding;
+        }
+
+        var anchorValue = GetStyleValue(shapeStyle, "v-text-anchor")
+                         ?? (textBoxElement is not null ? GetAttributeValue(textBoxElement, "v-text-anchor") : null)
+                         ?? string.Empty;
+        if (!string.IsNullOrWhiteSpace(anchorValue))
+        {
+            properties.VerticalAlignment = MapVmlTextAnchor(anchorValue);
+        }
+    }
+
+    private static ShapeTextVerticalAlignment MapVmlTextAnchor(string value)
+    {
+        return value.Trim().ToLowerInvariant() switch
+        {
+            "center" or "middle" => ShapeTextVerticalAlignment.Center,
+            "bottom" => ShapeTextVerticalAlignment.Bottom,
+            _ => ShapeTextVerticalAlignment.Top
+        };
+    }
+
+    private static bool TryParseVmlInsets(string value, out DocThickness padding)
+    {
+        padding = DocThickness.Uniform(0f);
+        var parts = value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (parts.Length == 0)
+        {
+            return false;
+        }
+
+        Span<float> lengths = stackalloc float[4];
+        for (var i = 0; i < lengths.Length; i++)
+        {
+            lengths[i] = float.NaN;
+        }
+
+        var count = Math.Min(parts.Length, 4);
+        for (var i = 0; i < count; i++)
+        {
+            if (TryParseVmlLength(parts[i], out var dip))
+            {
+                lengths[i] = dip;
+            }
+        }
+
+        if (count == 1)
+        {
+            if (!float.IsNaN(lengths[0]))
+            {
+                padding = DocThickness.Uniform(lengths[0]);
+                return true;
+            }
+
+            return false;
+        }
+
+        if (count == 2)
+        {
+            if (!float.IsNaN(lengths[0]) && !float.IsNaN(lengths[1]))
+            {
+                padding = new DocThickness(lengths[0], lengths[1], lengths[0], lengths[1]);
+                return true;
+            }
+
+            return false;
+        }
+
+        var left = !float.IsNaN(lengths[0]) ? lengths[0] : 0f;
+        var top = !float.IsNaN(lengths[1]) ? lengths[1] : left;
+        var right = !float.IsNaN(lengths[2]) ? lengths[2] : left;
+        var bottom = !float.IsNaN(lengths[3]) ? lengths[3] : top;
+        padding = new DocThickness(left, top, right, bottom);
+        return true;
+    }
+
+    private static bool TryParseVmlBool(string? value, out bool result)
+    {
+        result = false;
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        var trimmed = value.Trim();
+        if (trimmed.Equals("t", StringComparison.OrdinalIgnoreCase)
+            || trimmed.Equals("true", StringComparison.OrdinalIgnoreCase)
+            || trimmed.Equals("1", StringComparison.OrdinalIgnoreCase))
+        {
+            result = true;
+            return true;
+        }
+
+        if (trimmed.Equals("f", StringComparison.OrdinalIgnoreCase)
+            || trimmed.Equals("false", StringComparison.OrdinalIgnoreCase)
+            || trimmed.Equals("0", StringComparison.OrdinalIgnoreCase))
+        {
+            result = false;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryParseVmlOpacity(string? value, out float opacity)
+    {
+        opacity = 0f;
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        var trimmed = value.Trim();
+        if (trimmed.EndsWith("%", StringComparison.Ordinal))
+        {
+            var percentValue = trimmed[..^1];
+            if (float.TryParse(percentValue, NumberStyles.Float, CultureInfo.InvariantCulture, out var percent))
+            {
+                opacity = Math.Clamp(percent / 100f, 0f, 1f);
+                return true;
+            }
+        }
+
+        if (float.TryParse(trimmed, NumberStyles.Float, CultureInfo.InvariantCulture, out var numeric))
+        {
+            opacity = numeric > 1f ? numeric / 100f : numeric;
+            opacity = Math.Clamp(opacity, 0f, 1f);
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryParseVmlFloat(string? value, out float result)
+    {
+        result = 0f;
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        return float.TryParse(value.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out result);
+    }
+
+    private static string? GetStyleValue(IReadOnlyDictionary<string, string> style, string key)
+    {
+        return style.TryGetValue(key, out var value) ? value : null;
+    }
+
+    private static DocColor ApplyOpacity(DocColor color, float opacity)
+    {
+        var alpha = (byte)Math.Clamp((int)Math.Round(color.A * opacity), 0, 255);
+        return new DocColor(color.R, color.G, color.B, alpha);
+    }
+
+    private static DocBorderStyle MapVmlDashStyle(string value)
+    {
+        var normalized = value.Trim().ToLowerInvariant();
+        return normalized switch
+        {
+            "dash" or "longdash" or "longdashdot" or "longdashdotdot" => DocBorderStyle.Dashed,
+            "dot" or "shortdot" => DocBorderStyle.Dotted,
+            "dashdot" => DocBorderStyle.DotDash,
+            "dashdotdot" => DocBorderStyle.DotDotDash,
+            _ => DocBorderStyle.Single
+        };
     }
 
     private static bool TryParseVmlLength(string value, out float dip)
@@ -6129,6 +7312,13 @@ public sealed class DocxImporter
         }
 
         var trimmed = value.Trim();
+        if (trimmed.Equals("none", StringComparison.OrdinalIgnoreCase)
+            || trimmed.Equals("transparent", StringComparison.OrdinalIgnoreCase)
+            || trimmed.Equals("auto", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
         if (trimmed.StartsWith("#", StringComparison.Ordinal))
         {
             trimmed = trimmed[1..];
@@ -6156,6 +7346,13 @@ public sealed class DocxImporter
                 return null;
             }
 
+            var svgEmbed = TryGetSvgEmbedId(drawing);
+            if (!string.IsNullOrWhiteSpace(svgEmbed)
+                && _part.GetPartById(svgEmbed) is ImagePart svgPart)
+            {
+                return CreateImageFromPart(svgPart, drawing);
+            }
+
             var blip = drawing.Descendants<DocumentFormat.OpenXml.Drawing.Blip>().FirstOrDefault();
             var embed = blip?.Embed?.Value;
             if (string.IsNullOrWhiteSpace(embed))
@@ -6168,16 +7365,7 @@ public sealed class DocxImporter
                 return CreateDrawingPlaceholder(drawing);
             }
 
-            using var stream = imagePart.GetStream();
-            using var memory = new MemoryStream();
-            stream.CopyTo(memory);
-            var data = memory.ToArray();
-
-            var extent = drawing.Descendants<DocumentFormat.OpenXml.Drawing.Wordprocessing.Extent>().FirstOrDefault();
-            var width = extent?.Cx?.Value is long cx ? EmuToDip(cx) : 100f;
-            var height = extent?.Cy?.Value is long cy ? EmuToDip(cy) : 100f;
-
-            return new ImageInline(data, width, height, imagePart.ContentType);
+            return CreateImageFromPart(imagePart, drawing);
         }
 
         public ImageInline? TryCreateImageFromVml(OpenXmlElement element)
@@ -6233,6 +7421,38 @@ public sealed class DocxImporter
             return new ImageInline(Array.Empty<byte>(), width, height, contentType);
         }
 
+        private static string? TryGetSvgEmbedId(Drawing drawing)
+        {
+            var svgBlip = drawing.Descendants()
+                .FirstOrDefault(element => element.LocalName.Equals("svgBlip", StringComparison.OrdinalIgnoreCase));
+            if (svgBlip is null)
+            {
+                return null;
+            }
+
+            var embed = svgBlip.GetAttribute("embed", RelationshipNamespace).Value;
+            if (string.IsNullOrWhiteSpace(embed))
+            {
+                embed = svgBlip.GetAttribute("link", RelationshipNamespace).Value;
+            }
+
+            return string.IsNullOrWhiteSpace(embed) ? null : embed;
+        }
+
+        private static ImageInline CreateImageFromPart(ImagePart imagePart, Drawing drawing)
+        {
+            using var stream = imagePart.GetStream();
+            using var memory = new MemoryStream();
+            stream.CopyTo(memory);
+            var data = memory.ToArray();
+
+            var extent = drawing.Descendants<DocumentFormat.OpenXml.Drawing.Wordprocessing.Extent>().FirstOrDefault();
+            var width = extent?.Cx?.Value is long cx ? EmuToDip(cx) : 100f;
+            var height = extent?.Cy?.Value is long cy ? EmuToDip(cy) : 100f;
+
+            return new ImageInline(data, width, height, imagePart.ContentType);
+        }
+
         private static string? ResolveDrawingContentType(Drawing drawing)
         {
             var graphicData = drawing.Descendants<DocumentFormat.OpenXml.Drawing.GraphicData>().FirstOrDefault();
@@ -6262,8 +7482,7 @@ public sealed class DocxImporter
 
         private static (float Width, float Height) GetVmlSize(OpenXmlElement element)
         {
-            var shape = element.Descendants()
-                .FirstOrDefault(node => node.LocalName.Equals("shape", StringComparison.OrdinalIgnoreCase));
+            var shape = FindVmlShapeElement(element);
             if (shape is null)
             {
                 return (100f, 100f);
@@ -6327,10 +7546,12 @@ public sealed class DocxImporter
     private sealed class ChartResolver
     {
         private readonly OpenXmlPart? _part;
+        private readonly DocumentThemeColorMap? _themeColors;
 
-        public ChartResolver(OpenXmlPart? part)
+        public ChartResolver(OpenXmlPart? part, DocumentThemeColorMap? themeColors = null)
         {
             _part = part;
+            _themeColors = themeColors;
         }
 
         public ChartInline? TryCreateChart(Drawing drawing)
@@ -6360,7 +7581,7 @@ public sealed class DocxImporter
             var extent = drawing.Descendants<DW.Extent>().FirstOrDefault();
             var width = extent?.Cx?.Value is long cx ? EmuToDip(cx) : 100f;
             var height = extent?.Cy?.Value is long cy ? EmuToDip(cy) : 100f;
-            var model = TryParseChartModel(chartPart);
+            var model = TryParseChartModel(chartPart, _themeColors);
             var chart = new ChartInline(width, height, model, data)
             {
                 Name = drawing.Descendants<DW.DocProperties>().FirstOrDefault()?.Name?.Value
@@ -6370,7 +7591,7 @@ public sealed class DocxImporter
         }
     }
 
-    private static ChartModel? TryParseChartModel(ChartPart chartPart)
+    private static ChartModel? TryParseChartModel(ChartPart chartPart, DocumentThemeColorMap? themeColors)
     {
         var chartSpace = chartPart.ChartSpace;
         var chart = chartSpace?.GetFirstChild<C.Chart>();
@@ -6381,7 +7602,9 @@ public sealed class DocxImporter
 
         var model = new ChartModel
         {
-            Title = ExtractChartTitle(chart)
+            Title = ExtractChartTitle(chart),
+            ChartAreaStyle = ParseChartStyle(chartSpace?.GetFirstChild<C.ShapeProperties>(), themeColors),
+            PlotAreaStyle = ParseChartStyle(chart.PlotArea?.GetFirstChild<C.ShapeProperties>(), themeColors)
         };
 
         var plotArea = chart.PlotArea;
@@ -6393,35 +7616,70 @@ public sealed class DocxImporter
         if (plotArea.GetFirstChild<C.BarChart>() is { } barChart)
         {
             model.Type = ChartType.Bar;
-            AddSeries(barChart, model);
+            model.BarDirection = ParseBarDirection(barChart.GetFirstChild<C.BarDirection>()?.Val?.Value);
+            model.Stacking = ParseBarGrouping(barChart.GetFirstChild<C.BarGrouping>()?.Val?.Value);
+            AddCategorySeries(barChart, model, themeColors);
+            ApplyDefaultSeriesColors(model, themeColors);
             return model;
         }
 
         if (plotArea.GetFirstChild<C.LineChart>() is { } lineChart)
         {
             model.Type = ChartType.Line;
-            AddSeries(lineChart, model);
+            model.Stacking = ParseGrouping(lineChart.GetFirstChild<C.Grouping>()?.Val?.Value);
+            AddCategorySeries(lineChart, model, themeColors);
+            ApplyDefaultSeriesColors(model, themeColors);
             return model;
         }
 
         if (plotArea.GetFirstChild<C.PieChart>() is { } pieChart)
         {
             model.Type = ChartType.Pie;
-            AddSeries(pieChart, model);
+            AddCategorySeries(pieChart, model, themeColors);
+            ApplyDefaultSeriesColors(model, themeColors, forcePointPalette: true);
+            return model;
+        }
+
+        if (plotArea.GetFirstChild<C.DoughnutChart>() is { } doughnutChart)
+        {
+            model.Type = ChartType.Doughnut;
+            model.DoughnutHoleSize = ParseHoleSize(doughnutChart.GetFirstChild<C.HoleSize>()?.Val?.Value);
+            AddCategorySeries(doughnutChart, model, themeColors);
+            ApplyDefaultSeriesColors(model, themeColors, forcePointPalette: true);
             return model;
         }
 
         if (plotArea.GetFirstChild<C.ScatterChart>() is { } scatterChart)
         {
             model.Type = ChartType.Scatter;
-            AddSeries(scatterChart, model);
+            AddScatterSeries(scatterChart, model, themeColors);
+            ApplyDefaultSeriesColors(model, themeColors);
+            return model;
+        }
+
+        if (plotArea.GetFirstChild<C.BubbleChart>() is { } bubbleChart)
+        {
+            model.Type = ChartType.Bubble;
+            AddBubbleSeries(bubbleChart, model, themeColors);
+            ApplyDefaultSeriesColors(model, themeColors);
+            return model;
+        }
+
+        if (plotArea.GetFirstChild<C.RadarChart>() is { } radarChart)
+        {
+            model.Type = ChartType.Radar;
+            model.RadarStyle = ParseRadarStyle(radarChart.GetFirstChild<C.RadarStyle>()?.Val?.Value);
+            AddCategorySeries(radarChart, model, themeColors);
+            ApplyDefaultSeriesColors(model, themeColors);
             return model;
         }
 
         if (plotArea.GetFirstChild<C.AreaChart>() is { } areaChart)
         {
             model.Type = ChartType.Area;
-            AddSeries(areaChart, model);
+            model.Stacking = ParseGrouping(areaChart.GetFirstChild<C.Grouping>()?.Val?.Value);
+            AddCategorySeries(areaChart, model, themeColors);
+            ApplyDefaultSeriesColors(model, themeColors);
             return model;
         }
 
@@ -6441,13 +7699,14 @@ public sealed class DocxImporter
         return string.IsNullOrWhiteSpace(text) ? null : text;
     }
 
-    private static void AddSeries(OpenXmlElement chartElement, ChartModel model)
+    private static void AddCategorySeries(OpenXmlElement chartElement, ChartModel model, DocumentThemeColorMap? themeColors)
     {
         foreach (var seriesElement in chartElement.Elements().Where(element => element.LocalName == "ser"))
         {
             var series = new ChartSeries
             {
-                Name = ExtractSeriesName(seriesElement)
+                Name = ExtractSeriesName(seriesElement),
+                Style = ParseChartStyle(seriesElement.GetFirstChild<C.ShapeProperties>(), themeColors)
             };
 
             var categories = ExtractCategories(seriesElement);
@@ -6462,6 +7721,74 @@ public sealed class DocxImporter
                 };
                 series.Points.Add(point);
             }
+
+            ApplyPointStyles(seriesElement, series, themeColors);
+
+            if (series.Points.Count > 0)
+            {
+                model.Series.Add(series);
+            }
+        }
+    }
+
+    private static void AddScatterSeries(OpenXmlElement chartElement, ChartModel model, DocumentThemeColorMap? themeColors)
+    {
+        foreach (var seriesElement in chartElement.Elements().Where(element => element.LocalName == "ser"))
+        {
+            var series = new ChartSeries
+            {
+                Name = ExtractSeriesName(seriesElement),
+                Style = ParseChartStyle(seriesElement.GetFirstChild<C.ShapeProperties>(), themeColors)
+            };
+
+            var xValues = ExtractXValues(seriesElement);
+            var yValues = ExtractYValues(seriesElement);
+            var pointCount = Math.Max(xValues.Count, yValues.Count);
+            for (var i = 0; i < pointCount; i++)
+            {
+                var point = new ChartPoint
+                {
+                    XValue = i < xValues.Count ? xValues[i] : (double?)null,
+                    Value = i < yValues.Count ? yValues[i] : 0d
+                };
+                series.Points.Add(point);
+            }
+
+            ApplyPointStyles(seriesElement, series, themeColors);
+
+            if (series.Points.Count > 0)
+            {
+                model.Series.Add(series);
+            }
+        }
+    }
+
+    private static void AddBubbleSeries(OpenXmlElement chartElement, ChartModel model, DocumentThemeColorMap? themeColors)
+    {
+        foreach (var seriesElement in chartElement.Elements().Where(element => element.LocalName == "ser"))
+        {
+            var series = new ChartSeries
+            {
+                Name = ExtractSeriesName(seriesElement),
+                Style = ParseChartStyle(seriesElement.GetFirstChild<C.ShapeProperties>(), themeColors)
+            };
+
+            var xValues = ExtractXValues(seriesElement);
+            var yValues = ExtractYValues(seriesElement);
+            var sizes = ExtractBubbleSizes(seriesElement);
+            var pointCount = Math.Max(xValues.Count, Math.Max(yValues.Count, sizes.Count));
+            for (var i = 0; i < pointCount; i++)
+            {
+                var point = new ChartPoint
+                {
+                    XValue = i < xValues.Count ? xValues[i] : (double?)null,
+                    Value = i < yValues.Count ? yValues[i] : 0d,
+                    Size = i < sizes.Count ? sizes[i] : (double?)null
+                };
+                series.Points.Add(point);
+            }
+
+            ApplyPointStyles(seriesElement, series, themeColors);
 
             if (series.Points.Count > 0)
             {
@@ -6507,6 +7834,543 @@ public sealed class DocxImporter
         OpenXmlElement? valuesElement = seriesElement.Descendants<C.Values>().FirstOrDefault();
         valuesElement ??= seriesElement.Descendants<C.YValues>().FirstOrDefault();
         return ReadNumberCache(valuesElement);
+    }
+
+    private static List<double> ExtractXValues(OpenXmlElement seriesElement)
+    {
+        var valuesElement = seriesElement.Descendants<C.XValues>().FirstOrDefault();
+        return ReadNumberCache(valuesElement);
+    }
+
+    private static List<double> ExtractYValues(OpenXmlElement seriesElement)
+    {
+        var valuesElement = seriesElement.Descendants<C.YValues>().FirstOrDefault();
+        return ReadNumberCache(valuesElement);
+    }
+
+    private static List<double> ExtractBubbleSizes(OpenXmlElement seriesElement)
+    {
+        var valuesElement = seriesElement.Descendants<C.BubbleSize>().FirstOrDefault();
+        return ReadNumberCache(valuesElement);
+    }
+
+    private static void ApplyPointStyles(OpenXmlElement seriesElement, ChartSeries series, DocumentThemeColorMap? themeColors)
+    {
+        foreach (var dataPoint in seriesElement.Descendants<C.DataPoint>())
+        {
+            var indexValue = dataPoint.Index?.Val?.Value;
+            if (!indexValue.HasValue)
+            {
+                continue;
+            }
+
+            var index = (int)indexValue.Value;
+            if (index < 0 || index >= series.Points.Count)
+            {
+                continue;
+            }
+
+            var style = ParseChartStyle(dataPoint.GetFirstChild<C.ShapeProperties>(), themeColors);
+            if (style is not null)
+            {
+                series.Points[index].Style = style;
+            }
+        }
+    }
+
+    private static ChartStyle? ParseChartStyle(OpenXmlElement? shapeProperties, DocumentThemeColorMap? themeColors)
+    {
+        if (shapeProperties is null)
+        {
+            return null;
+        }
+
+        var fill = ParseChartFillStyle(shapeProperties, themeColors);
+        var line = ParseChartLineStyle(shapeProperties, themeColors);
+        var effects = ParseChartEffects(shapeProperties, themeColors);
+        if (fill is null && line is null && effects is null)
+        {
+            return null;
+        }
+
+        return new ChartStyle
+        {
+            Fill = fill,
+            Line = line,
+            Effects = effects
+        };
+    }
+
+    private static ChartFillStyle? ParseChartFillStyle(OpenXmlElement shapeProperties, DocumentThemeColorMap? themeColors)
+    {
+        if (shapeProperties.GetFirstChild<A.NoFill>() is not null)
+        {
+            return new ChartFillStyle { IsNone = true };
+        }
+
+        var solidFill = shapeProperties.GetFirstChild<A.SolidFill>();
+        if (solidFill is not null)
+        {
+            var color = TryResolveDrawingColor(solidFill, themeColors);
+            if (color.HasValue)
+            {
+                return new ChartFillStyle { Color = color.Value };
+            }
+        }
+
+        var gradientFill = shapeProperties.GetFirstChild<A.GradientFill>();
+        if (gradientFill is not null)
+        {
+            var stop = gradientFill.Descendants<A.GradientStop>().FirstOrDefault();
+            var color = TryResolveDrawingColor(stop, themeColors);
+            if (color.HasValue)
+            {
+                return new ChartFillStyle { Color = color.Value };
+            }
+        }
+
+        return null;
+    }
+
+    private static ChartLineStyle? ParseChartLineStyle(OpenXmlElement shapeProperties, DocumentThemeColorMap? themeColors)
+    {
+        var outline = shapeProperties.GetFirstChild<A.Outline>();
+        if (outline is null)
+        {
+            return null;
+        }
+
+        if (outline.GetFirstChild<A.NoFill>() is not null)
+        {
+            return new ChartLineStyle { IsNone = true };
+        }
+
+        var line = new ChartLineStyle();
+        if (outline.Width?.Value is int width)
+        {
+            line.Width = EmuToDip(width);
+        }
+
+        var color = TryResolveDrawingColor(outline.GetFirstChild<A.SolidFill>(), themeColors);
+        if (color.HasValue)
+        {
+            line.Color = color.Value;
+        }
+
+        var dash = outline.GetFirstChild<A.PresetDash>()?.Val?.Value;
+        line.Style = MapLineDash(dash);
+        return line;
+    }
+
+    private static ChartEffectStyle? ParseChartEffects(OpenXmlElement shapeProperties, DocumentThemeColorMap? themeColors)
+    {
+        var effectList = shapeProperties.ChildElements.FirstOrDefault(child => child.LocalName.Equals("effectLst", StringComparison.OrdinalIgnoreCase));
+        if (effectList is null)
+        {
+            return null;
+        }
+
+        var outerShadow = effectList.ChildElements.FirstOrDefault(child => child.LocalName.Equals("outerShdw", StringComparison.OrdinalIgnoreCase));
+        if (outerShadow is null)
+        {
+            return null;
+        }
+
+        var shadow = new ChartShadowEffect();
+        if (TryParseEmu(outerShadow, "blurRad", out var blur))
+        {
+            shadow.BlurRadius = EmuToDip(blur);
+        }
+
+        if (TryParseEmu(outerShadow, "dist", out var distance))
+        {
+            shadow.Distance = EmuToDip(distance);
+        }
+
+        if (TryParseIntAttribute(outerShadow, "dir", out var direction))
+        {
+            shadow.Direction = direction / 60000f;
+        }
+
+        var shadowColor = TryResolveDrawingColor(outerShadow, themeColors);
+        if (shadowColor.HasValue)
+        {
+            shadow.Color = shadowColor.Value;
+        }
+
+        return new ChartEffectStyle { Shadow = shadow };
+    }
+
+    private static bool TryParseEmu(OpenXmlElement element, string attributeName, out long value)
+    {
+        value = 0;
+        var text = GetAttributeValue(element, attributeName);
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return false;
+        }
+
+        return long.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out value);
+    }
+
+    private static bool TryParseIntAttribute(OpenXmlElement element, string attributeName, out int value)
+    {
+        value = 0;
+        var text = GetAttributeValue(element, attributeName);
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return false;
+        }
+
+        return int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out value);
+    }
+
+    private static DocColor? TryResolveDrawingColor(OpenXmlElement? element, DocumentThemeColorMap? themeColors)
+    {
+        if (element is null)
+        {
+            return null;
+        }
+
+        var rgbElement = element.GetFirstChild<A.RgbColorModelHex>();
+        if (element is A.RgbColorModelHex directRgb)
+        {
+            rgbElement = directRgb;
+        }
+
+        var rgb = rgbElement?.Val?.Value;
+        if (!string.IsNullOrWhiteSpace(rgb) && TryParseHexColor(rgb, out var color))
+        {
+            return ApplyColorTransforms(color, rgbElement!);
+        }
+
+        var schemeColor = element.GetFirstChild<A.SchemeColor>();
+        if (schemeColor is not null && schemeColor.Val?.Value is A.SchemeColorValues schemeValue)
+        {
+            var baseColor = ResolveSchemeColor(schemeValue, themeColors);
+            return baseColor.HasValue ? ApplyColorTransforms(baseColor.Value, schemeColor) : null;
+        }
+
+        var systemColor = element.GetFirstChild<A.SystemColor>();
+        var lastColor = systemColor?.LastColor?.Value;
+        if (!string.IsNullOrWhiteSpace(lastColor) && TryParseHexColor(lastColor, out var sysColor))
+        {
+            return ApplyColorTransforms(sysColor, systemColor!);
+        }
+
+        return null;
+    }
+
+    private static DocColor ApplyColorTransforms(DocColor baseColor, OpenXmlElement colorElement)
+    {
+        var r = (float)baseColor.R;
+        var g = (float)baseColor.G;
+        var b = (float)baseColor.B;
+        var a = (float)baseColor.A;
+
+        foreach (var child in colorElement.ChildElements)
+        {
+            var name = child.LocalName;
+            var valueText = GetAttributeValue(child, "val");
+            if (string.IsNullOrWhiteSpace(valueText) || !int.TryParse(valueText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var raw))
+            {
+                continue;
+            }
+
+            var factor = raw / 100000f;
+            if (name.Equals("tint", StringComparison.OrdinalIgnoreCase))
+            {
+                r += (255f - r) * factor;
+                g += (255f - g) * factor;
+                b += (255f - b) * factor;
+            }
+            else if (name.Equals("shade", StringComparison.OrdinalIgnoreCase))
+            {
+                r *= factor;
+                g *= factor;
+                b *= factor;
+            }
+            else if (name.Equals("lumMod", StringComparison.OrdinalIgnoreCase))
+            {
+                r *= factor;
+                g *= factor;
+                b *= factor;
+            }
+            else if (name.Equals("lumOff", StringComparison.OrdinalIgnoreCase))
+            {
+                r += 255f * factor;
+                g += 255f * factor;
+                b += 255f * factor;
+            }
+            else if (name.Equals("alpha", StringComparison.OrdinalIgnoreCase)
+                     || name.Equals("alphaMod", StringComparison.OrdinalIgnoreCase))
+            {
+                a *= factor;
+            }
+            else if (name.Equals("alphaOff", StringComparison.OrdinalIgnoreCase))
+            {
+                a += 255f * factor;
+            }
+        }
+
+        return new DocColor(ClampToByte(r), ClampToByte(g), ClampToByte(b), ClampToByte(a));
+    }
+
+    private static byte ClampToByte(float value)
+    {
+        if (value <= 0f)
+        {
+            return 0;
+        }
+
+        if (value >= 255f)
+        {
+            return 255;
+        }
+
+        return (byte)MathF.Round(value);
+    }
+
+    private static DocColor? ResolveSchemeColor(A.SchemeColorValues value, DocumentThemeColorMap? themeColors)
+    {
+        var themeColor = MapSchemeColor(value);
+        if (themeColor is null)
+        {
+            return null;
+        }
+
+        if (themeColors is null)
+        {
+            return DocumentThemeColorMap.GetDefault(themeColor.Value);
+        }
+
+        return themeColors.GetOrDefault(themeColor.Value);
+    }
+
+    private static DocThemeColor? MapSchemeColor(A.SchemeColorValues value)
+    {
+        if (value == A.SchemeColorValues.Dark1)
+        {
+            return DocThemeColor.Dark1;
+        }
+
+        if (value == A.SchemeColorValues.Light1)
+        {
+            return DocThemeColor.Light1;
+        }
+
+        if (value == A.SchemeColorValues.Dark2)
+        {
+            return DocThemeColor.Dark2;
+        }
+
+        if (value == A.SchemeColorValues.Light2)
+        {
+            return DocThemeColor.Light2;
+        }
+
+        if (value == A.SchemeColorValues.Accent1)
+        {
+            return DocThemeColor.Accent1;
+        }
+
+        if (value == A.SchemeColorValues.Accent2)
+        {
+            return DocThemeColor.Accent2;
+        }
+
+        if (value == A.SchemeColorValues.Accent3)
+        {
+            return DocThemeColor.Accent3;
+        }
+
+        if (value == A.SchemeColorValues.Accent4)
+        {
+            return DocThemeColor.Accent4;
+        }
+
+        if (value == A.SchemeColorValues.Accent5)
+        {
+            return DocThemeColor.Accent5;
+        }
+
+        if (value == A.SchemeColorValues.Accent6)
+        {
+            return DocThemeColor.Accent6;
+        }
+
+        if (value == A.SchemeColorValues.Hyperlink)
+        {
+            return DocThemeColor.Hyperlink;
+        }
+
+        if (value == A.SchemeColorValues.FollowedHyperlink)
+        {
+            return DocThemeColor.FollowedHyperlink;
+        }
+
+        var name = value.ToString();
+        if (name.Equals("Text1", StringComparison.OrdinalIgnoreCase))
+        {
+            return DocThemeColor.Dark1;
+        }
+
+        if (name.Equals("Background1", StringComparison.OrdinalIgnoreCase))
+        {
+            return DocThemeColor.Light1;
+        }
+
+        if (name.Equals("Text2", StringComparison.OrdinalIgnoreCase))
+        {
+            return DocThemeColor.Dark2;
+        }
+
+        if (name.Equals("Background2", StringComparison.OrdinalIgnoreCase))
+        {
+            return DocThemeColor.Light2;
+        }
+
+        return null;
+    }
+
+    private static ChartBarDirection ParseBarDirection(C.BarDirectionValues? direction)
+    {
+        return direction == C.BarDirectionValues.Bar ? ChartBarDirection.Bar : ChartBarDirection.Column;
+    }
+
+    private static ChartStacking ParseBarGrouping(C.BarGroupingValues? grouping)
+    {
+        if (grouping == C.BarGroupingValues.Stacked)
+        {
+            return ChartStacking.Stacked;
+        }
+
+        if (grouping == C.BarGroupingValues.PercentStacked)
+        {
+            return ChartStacking.Percent;
+        }
+
+        return ChartStacking.None;
+    }
+
+    private static ChartStacking ParseGrouping(C.GroupingValues? grouping)
+    {
+        if (grouping == C.GroupingValues.Stacked)
+        {
+            return ChartStacking.Stacked;
+        }
+
+        if (grouping == C.GroupingValues.PercentStacked)
+        {
+            return ChartStacking.Percent;
+        }
+
+        return ChartStacking.None;
+    }
+
+    private static ChartRadarStyle ParseRadarStyle(C.RadarStyleValues? value)
+    {
+        if (value == C.RadarStyleValues.Filled)
+        {
+            return ChartRadarStyle.Filled;
+        }
+
+        if (value == C.RadarStyleValues.Marker)
+        {
+            return ChartRadarStyle.Marker;
+        }
+
+        return ChartRadarStyle.Standard;
+    }
+
+    private static float ParseHoleSize(byte? holeSize)
+    {
+        if (!holeSize.HasValue)
+        {
+            return 0.5f;
+        }
+
+        var clamped = Math.Clamp(holeSize.Value, (byte)10, (byte)90);
+        return clamped / 100f;
+    }
+
+    private static void ApplyDefaultSeriesColors(ChartModel model, DocumentThemeColorMap? themeColors, bool forcePointPalette = false)
+    {
+        if (model.Series.Count == 0)
+        {
+            return;
+        }
+
+        var palette = GetChartPalette(themeColors);
+        for (var i = 0; i < model.Series.Count; i++)
+        {
+            var series = model.Series[i];
+            if (forcePointPalette)
+            {
+                ApplyPointPalette(series, palette);
+            }
+            else
+            {
+                var color = palette[i % palette.Length];
+                ApplySeriesPalette(model.Type, series, color);
+            }
+        }
+    }
+
+    private static DocColor[] GetChartPalette(DocumentThemeColorMap? themeColors)
+    {
+        return new[]
+        {
+            ResolveThemeColor(themeColors, DocThemeColor.Accent1),
+            ResolveThemeColor(themeColors, DocThemeColor.Accent2),
+            ResolveThemeColor(themeColors, DocThemeColor.Accent3),
+            ResolveThemeColor(themeColors, DocThemeColor.Accent4),
+            ResolveThemeColor(themeColors, DocThemeColor.Accent5),
+            ResolveThemeColor(themeColors, DocThemeColor.Accent6)
+        };
+    }
+
+    private static DocColor ResolveThemeColor(DocumentThemeColorMap? themeColors, DocThemeColor color)
+    {
+        return themeColors?.GetOrDefault(color) ?? DocumentThemeColorMap.GetDefault(color);
+    }
+
+    private static void ApplySeriesPalette(ChartType type, ChartSeries series, DocColor color)
+    {
+        series.Style ??= new ChartStyle();
+
+        if (type == ChartType.Line || type == ChartType.Scatter || type == ChartType.Radar)
+        {
+            series.Style.Line ??= new ChartLineStyle();
+            if (!series.Style.Line.IsNone && !series.Style.Line.Color.HasValue)
+            {
+                series.Style.Line.Color = color;
+            }
+        }
+
+        if (type != ChartType.Line)
+        {
+            series.Style.Fill ??= new ChartFillStyle();
+            if (!series.Style.Fill.IsNone && !series.Style.Fill.Color.HasValue)
+            {
+                series.Style.Fill.Color = color;
+            }
+        }
+    }
+
+    private static void ApplyPointPalette(ChartSeries series, DocColor[] palette)
+    {
+        for (var i = 0; i < series.Points.Count; i++)
+        {
+            var point = series.Points[i];
+            var color = palette[i % palette.Length];
+            point.Style ??= new ChartStyle();
+            point.Style.Fill ??= new ChartFillStyle();
+            if (!point.Style.Fill.IsNone && !point.Style.Fill.Color.HasValue)
+            {
+                point.Style.Fill.Color = color;
+            }
+        }
     }
 
     private static List<string> ReadStringCache(OpenXmlElement? element)

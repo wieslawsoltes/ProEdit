@@ -1,3 +1,5 @@
+using Vibe.Office.Primitives;
+
 namespace Vibe.Office.Documents;
 
 public sealed class SectionProperties
@@ -19,6 +21,10 @@ public sealed class SectionProperties
     public bool? ColumnSeparator { get; set; }
     public List<float> ColumnWidths { get; } = new List<float>();
     public DocGridSettings? DocGrid { get; set; }
+    public DocColor? PageBackgroundColor { get; set; }
+    public PageBorders? PageBorders { get; set; }
+    public LineNumberingSettings? LineNumbering { get; set; }
+    public PageNumberingSettings? PageNumbering { get; set; }
 
     public bool HasValues =>
         PageWidth.HasValue
@@ -37,7 +43,11 @@ public sealed class SectionProperties
         || ColumnEqualWidth.HasValue
         || ColumnSeparator.HasValue
         || ColumnWidths.Count > 0
-        || (DocGrid?.HasValues ?? false);
+        || (DocGrid?.HasValues ?? false)
+        || PageBackgroundColor.HasValue
+        || (PageBorders?.HasAny ?? false)
+        || (LineNumbering?.HasValues ?? false)
+        || (PageNumbering?.HasValues ?? false);
 
     public SectionProperties Clone()
     {
@@ -58,12 +68,34 @@ public sealed class SectionProperties
             ColumnGap = ColumnGap,
             ColumnEqualWidth = ColumnEqualWidth,
             ColumnSeparator = ColumnSeparator,
-            DocGrid = DocGrid?.Clone()
+            DocGrid = DocGrid?.Clone(),
+            LineNumbering = LineNumbering?.Clone(),
+            PageNumbering = PageNumbering?.Clone()
         };
 
         if (ColumnWidths.Count > 0)
         {
             clone.ColumnWidths.AddRange(ColumnWidths);
+        }
+
+        if (PageBackgroundColor.HasValue)
+        {
+            clone.PageBackgroundColor = PageBackgroundColor.Value;
+        }
+
+        if (PageBorders is not null)
+        {
+            clone.PageBorders = PageBorders.Clone();
+        }
+
+        if (LineNumbering is not null)
+        {
+            clone.LineNumbering = LineNumbering.Clone();
+        }
+
+        if (PageNumbering is not null)
+        {
+            clone.PageNumbering = PageNumbering.Clone();
         }
 
         return clone;

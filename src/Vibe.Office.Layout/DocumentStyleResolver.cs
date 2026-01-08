@@ -418,6 +418,21 @@ public sealed class DocumentStyleResolver
             target.ShadingColor = source.ShadingColor;
         }
 
+        if (source.SuppressLineNumbers.HasValue)
+        {
+            target.SuppressLineNumbers = source.SuppressLineNumbers;
+        }
+
+        if (source.DropCap?.HasValues == true)
+        {
+            target.DropCap = source.DropCap.Clone();
+        }
+
+        if (source.Frame?.HasValues == true)
+        {
+            target.Frame = source.Frame.Clone();
+        }
+
         ApplyParagraphBorders(target.Borders, source.Borders);
     }
 
@@ -517,6 +532,21 @@ public sealed class DocumentStyleResolver
             target.ShadingColor = source.ShadingColor;
         }
 
+        if (source.SuppressLineNumbers.HasValue)
+        {
+            target.SuppressLineNumbers = source.SuppressLineNumbers;
+        }
+
+        if (source.DropCap?.HasValues == true)
+        {
+            target.DropCap = source.DropCap.Clone();
+        }
+
+        if (source.Frame?.HasValues == true)
+        {
+            target.Frame = source.Frame.Clone();
+        }
+
         ApplyParagraphBorders(target.Borders, source.Borders);
     }
 
@@ -614,6 +644,21 @@ public sealed class DocumentStyleResolver
         if (source.ShadingColor.HasValue)
         {
             target.ShadingColor = source.ShadingColor;
+        }
+
+        if (source.SuppressLineNumbers.HasValue)
+        {
+            target.SuppressLineNumbers = source.SuppressLineNumbers;
+        }
+
+        if (source.DropCap?.HasValues == true)
+        {
+            target.DropCap = source.DropCap.Clone();
+        }
+
+        if (source.Frame?.HasValues == true)
+        {
+            target.Frame = source.Frame.Clone();
         }
 
         ApplyParagraphBorders(target.Borders, source.Borders);

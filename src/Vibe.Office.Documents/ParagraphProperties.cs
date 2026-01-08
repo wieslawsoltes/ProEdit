@@ -30,5 +30,8 @@ public sealed class ParagraphProperties
     public DocTextDirection? TextDirection { get; set; }
     public EastAsianLayoutProperties? EastAsianLayout { get; set; }
     public DocColor? ShadingColor { get; set; }
+    public bool? SuppressLineNumbers { get; set; }
+    public DropCapSettings? DropCap { get; set; }
+    public ParagraphFrameProperties? Frame { get; set; }
     public ParagraphBorders Borders { get; } = new ParagraphBorders();
 }

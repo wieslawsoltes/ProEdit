@@ -7,6 +7,7 @@ using DocumentFormat.OpenXml.Wordprocessing;
 using OpenXmlTableBorders = DocumentFormat.OpenXml.Wordprocessing.TableBorders;
 using OpenXmlTableCellBorders = DocumentFormat.OpenXml.Wordprocessing.TableCellBorders;
 using OpenXmlParagraphBorders = DocumentFormat.OpenXml.Wordprocessing.ParagraphBorders;
+using OpenXmlPageBorders = DocumentFormat.OpenXml.Wordprocessing.PageBorders;
 using A = DocumentFormat.OpenXml.Drawing;
 using C = DocumentFormat.OpenXml.Drawing.Charts;
 using DW = DocumentFormat.OpenXml.Drawing.Wordprocessing;
@@ -53,6 +54,7 @@ public sealed class DocxExporter
         var includeEvenHeaders = document.EvenAndOddHeaders
             || document.Sections.Any(section => section.EvenHeader.Blocks.Count > 0 || section.EvenFooter.Blocks.Count > 0);
         EnsureDocumentSettings(mainPart, document, includeEvenHeaders);
+        ApplyDocumentBackground(mainPart.Document, document);
 
         SectionPartInfo EnsureSectionParts(int sectionIndex)
         {
@@ -399,6 +401,33 @@ public sealed class DocxExporter
         }
 
         settingsPart.Settings = settings;
+    }
+
+    private static void ApplyDocumentBackground(DocumentFormat.OpenXml.Wordprocessing.Document documentXml, VibeDocument document)
+    {
+        var color = document.SectionProperties.PageBackgroundColor;
+        if (!color.HasValue)
+        {
+            return;
+        }
+
+        var background = documentXml.GetFirstChild<DocumentBackground>();
+        if (background is null)
+        {
+            background = new DocumentBackground { Color = ColorToHex(color.Value) };
+            if (documentXml.Body is not null)
+            {
+                documentXml.InsertBefore(background, documentXml.Body);
+            }
+            else
+            {
+                documentXml.AppendChild(background);
+            }
+
+            return;
+        }
+
+        background.Color = ColorToHex(color.Value);
     }
 
     private static AbstractNum CreateAbstractNumbering(int abstractId, NumberFormatValues format, string levelText)
@@ -1563,6 +1592,17 @@ public sealed class DocxExporter
                 Color = "auto",
                 Fill = ColorToHex(properties.ShadingColor.Value)
             };
+        }
+
+        if (properties.SuppressLineNumbers == true)
+        {
+            paragraphProperties.SuppressLineNumbers = new SuppressLineNumbers();
+        }
+
+        var frameProperties = BuildFrameProperties(properties.Frame, properties.DropCap);
+        if (frameProperties is not null)
+        {
+            paragraphProperties.FrameProperties = frameProperties;
         }
 
         var borders = BuildParagraphBorders(properties.Borders);
@@ -3283,6 +3323,17 @@ public sealed class DocxExporter
             };
         }
 
+        if (properties.SuppressLineNumbers == true)
+        {
+            paragraphProperties.SuppressLineNumbers = new SuppressLineNumbers();
+        }
+
+        var frameProperties = BuildFrameProperties(properties.Frame, properties.DropCap);
+        if (frameProperties is not null)
+        {
+            paragraphProperties.FrameProperties = frameProperties;
+        }
+
         var borders = BuildParagraphBorders(properties.Borders);
         if (borders is not null)
         {
@@ -3410,6 +3461,17 @@ public sealed class DocxExporter
             };
         }
 
+        if (properties.SuppressLineNumbers == true)
+        {
+            paragraphProperties.SuppressLineNumbers = new SuppressLineNumbers();
+        }
+
+        var frameProperties = BuildFrameProperties(properties.Frame, properties.DropCap);
+        if (frameProperties is not null)
+        {
+            paragraphProperties.FrameProperties = frameProperties;
+        }
+
         var borders = BuildParagraphBorders(properties.Borders);
         if (borders is not null)
         {
@@ -3509,6 +3571,9 @@ public sealed class DocxExporter
                || properties.Bidi.HasValue
                || properties.TextDirection.HasValue
                || properties.ShadingColor.HasValue
+               || properties.SuppressLineNumbers.HasValue
+               || (properties.DropCap?.HasValues ?? false)
+               || (properties.Frame?.HasValues ?? false)
                || properties.Borders.HasAny;
     }
 
@@ -3829,6 +3894,108 @@ public sealed class DocxExporter
         };
     }
 
+    private static LineNumberRestartValues MapLineNumberRestart(LineNumberRestart restart)
+    {
+        return restart switch
+        {
+            LineNumberRestart.NewPage => LineNumberRestartValues.NewPage,
+            LineNumberRestart.NewSection => LineNumberRestartValues.NewSection,
+            _ => LineNumberRestartValues.Continuous
+        };
+    }
+
+    private static NumberFormatValues MapPageNumberFormat(PageNumberFormat format)
+    {
+        return format switch
+        {
+            PageNumberFormat.UpperRoman => NumberFormatValues.UpperRoman,
+            PageNumberFormat.LowerRoman => NumberFormatValues.LowerRoman,
+            PageNumberFormat.UpperLetter => NumberFormatValues.UpperLetter,
+            PageNumberFormat.LowerLetter => NumberFormatValues.LowerLetter,
+            _ => NumberFormatValues.Decimal
+        };
+    }
+
+    private static HorizontalAnchorValues MapFrameHorizontalReference(FloatingHorizontalReference reference)
+    {
+        return reference switch
+        {
+            FloatingHorizontalReference.Page => HorizontalAnchorValues.Page,
+            FloatingHorizontalReference.Margin => HorizontalAnchorValues.Margin,
+            _ => HorizontalAnchorValues.Text
+        };
+    }
+
+    private static VerticalAnchorValues MapFrameVerticalReference(FloatingVerticalReference reference)
+    {
+        return reference switch
+        {
+            FloatingVerticalReference.Page => VerticalAnchorValues.Page,
+            FloatingVerticalReference.Margin => VerticalAnchorValues.Margin,
+            _ => VerticalAnchorValues.Text
+        };
+    }
+
+    private static HorizontalAlignmentValues MapFrameHorizontalAlignment(FloatingHorizontalAlignment alignment)
+    {
+        return alignment switch
+        {
+            FloatingHorizontalAlignment.Center => HorizontalAlignmentValues.Center,
+            FloatingHorizontalAlignment.Right => HorizontalAlignmentValues.Right,
+            FloatingHorizontalAlignment.Outside => HorizontalAlignmentValues.Outside,
+            FloatingHorizontalAlignment.Inside => HorizontalAlignmentValues.Inside,
+            _ => HorizontalAlignmentValues.Left
+        };
+    }
+
+    private static VerticalAlignmentValues MapFrameVerticalAlignment(FloatingVerticalAlignment alignment)
+    {
+        return alignment switch
+        {
+            FloatingVerticalAlignment.Center => VerticalAlignmentValues.Center,
+            FloatingVerticalAlignment.Bottom => VerticalAlignmentValues.Bottom,
+            FloatingVerticalAlignment.Outside => VerticalAlignmentValues.Outside,
+            FloatingVerticalAlignment.Inside => VerticalAlignmentValues.Inside,
+            _ => VerticalAlignmentValues.Top
+        };
+    }
+
+    private static TextWrappingValues MapFrameWrapStyle(FloatingWrapStyle wrapStyle)
+    {
+        return wrapStyle switch
+        {
+            FloatingWrapStyle.Square => TextWrappingValues.Around,
+            FloatingWrapStyle.Tight => TextWrappingValues.Tight,
+            FloatingWrapStyle.Through => TextWrappingValues.Through,
+            FloatingWrapStyle.TopBottom => TextWrappingValues.NotBeside,
+            _ => TextWrappingValues.None
+        };
+    }
+
+    private static PageBorderDisplayValues MapPageBorderDisplay(PageBorderDisplay display)
+    {
+        return display switch
+        {
+            PageBorderDisplay.FirstPage => PageBorderDisplayValues.FirstPage,
+            PageBorderDisplay.ExceptFirstPage => PageBorderDisplayValues.NotFirstPage,
+            _ => PageBorderDisplayValues.AllPages
+        };
+    }
+
+    private static PageBorderOffsetValues MapPageBorderOffset(PageBorderOffset offset)
+    {
+        return offset == PageBorderOffset.Text
+            ? PageBorderOffsetValues.Text
+            : PageBorderOffsetValues.Page;
+    }
+
+    private static PageBorderZOrderValues MapPageBorderZOrder(PageBorderZOrder zOrder)
+    {
+        return zOrder == PageBorderZOrder.Front
+            ? PageBorderZOrderValues.Front
+            : PageBorderZOrderValues.Back;
+    }
+
     private static EastAsianLayout? BuildEastAsianLayout(EastAsianLayoutProperties? properties)
     {
         if (properties is null || !properties.HasValues)
@@ -4035,6 +4202,53 @@ public sealed class DocxExporter
             if (properties.DocGrid.CharacterSpace.HasValue)
             {
                 docGrid.CharacterSpace = DipToTwipsInt32(properties.DocGrid.CharacterSpace.Value);
+            }
+        }
+
+        if (properties.PageBorders?.HasAny == true)
+        {
+            var pageBorders = target.GetFirstChild<OpenXmlPageBorders>() ?? target.AppendChild(new OpenXmlPageBorders());
+            pageBorders.TopBorder = BuildBorder<TopBorder>(properties.PageBorders.Top);
+            pageBorders.BottomBorder = BuildBorder<BottomBorder>(properties.PageBorders.Bottom);
+            pageBorders.LeftBorder = BuildBorder<LeftBorder>(properties.PageBorders.Left);
+            pageBorders.RightBorder = BuildBorder<RightBorder>(properties.PageBorders.Right);
+            pageBorders.Display = MapPageBorderDisplay(properties.PageBorders.Display);
+            pageBorders.OffsetFrom = MapPageBorderOffset(properties.PageBorders.OffsetFrom);
+            pageBorders.ZOrder = MapPageBorderZOrder(properties.PageBorders.ZOrder);
+        }
+
+        if (properties.LineNumbering is not null)
+        {
+            var lineNumbers = target.GetFirstChild<LineNumberType>() ?? target.AppendChild(new LineNumberType());
+            if (properties.LineNumbering.Start.HasValue)
+            {
+                lineNumbers.Start = (short)properties.LineNumbering.Start.Value;
+            }
+
+            if (properties.LineNumbering.CountBy.HasValue)
+            {
+                lineNumbers.CountBy = (short)properties.LineNumbering.CountBy.Value;
+            }
+
+            if (properties.LineNumbering.Distance.HasValue)
+            {
+                lineNumbers.Distance = DipToTwips(properties.LineNumbering.Distance.Value);
+            }
+
+            lineNumbers.Restart = MapLineNumberRestart(properties.LineNumbering.Restart);
+        }
+
+        if (properties.PageNumbering is not null)
+        {
+            var pageNumbers = target.GetFirstChild<PageNumberType>() ?? target.AppendChild(new PageNumberType());
+            if (properties.PageNumbering.Start.HasValue)
+            {
+                pageNumbers.Start = properties.PageNumbering.Start.Value;
+            }
+
+            if (properties.PageNumbering.Format.HasValue)
+            {
+                pageNumbers.Format = MapPageNumberFormat(properties.PageNumbering.Format.Value);
             }
         }
     }
@@ -4290,6 +4504,97 @@ public sealed class DocxExporter
             LeftBorder = BuildBorder<LeftBorder>(borders.Left),
             RightBorder = BuildBorder<RightBorder>(borders.Right)
         };
+    }
+
+    private static FrameProperties? BuildFrameProperties(ParagraphFrameProperties? frame, DropCapSettings? dropCap)
+    {
+        if ((frame?.HasValues ?? false) == false && (dropCap?.HasValues ?? false) == false)
+        {
+            return null;
+        }
+
+        var properties = new FrameProperties();
+
+        if (frame?.Width.HasValue == true)
+        {
+            properties.Width = DipToTwips(frame.Width.Value);
+        }
+
+        if (frame?.Height.HasValue == true)
+        {
+            properties.Height = DipToTwipsUInt32(frame.Height.Value);
+        }
+
+        if (frame?.X.HasValue == true)
+        {
+            properties.X = DipToTwips(frame.X.Value);
+        }
+
+        if (frame?.Y.HasValue == true)
+        {
+            properties.Y = DipToTwips(frame.Y.Value);
+        }
+
+        var hSpace = frame?.HorizontalSpace;
+        var vSpace = frame?.VerticalSpace;
+        if (hSpace.HasValue)
+        {
+            properties.HorizontalSpace = DipToTwips(hSpace.Value);
+        }
+
+        if (vSpace.HasValue)
+        {
+            properties.VerticalSpace = DipToTwips(vSpace.Value);
+        }
+
+        if (frame?.HorizontalReference.HasValue == true)
+        {
+            properties.HorizontalPosition = MapFrameHorizontalReference(frame.HorizontalReference.Value);
+        }
+
+        if (frame?.VerticalReference.HasValue == true)
+        {
+            properties.VerticalPosition = MapFrameVerticalReference(frame.VerticalReference.Value);
+        }
+
+        if (frame?.HorizontalAlignment.HasValue == true)
+        {
+            properties.XAlign = MapFrameHorizontalAlignment(frame.HorizontalAlignment.Value);
+        }
+
+        if (frame?.VerticalAlignment.HasValue == true)
+        {
+            properties.YAlign = MapFrameVerticalAlignment(frame.VerticalAlignment.Value);
+        }
+
+        if (frame?.WrapStyle.HasValue == true)
+        {
+            properties.Wrap = MapFrameWrapStyle(frame.WrapStyle.Value);
+        }
+
+        if (frame?.AnchorLock.HasValue == true)
+        {
+            properties.AnchorLock = frame.AnchorLock.Value;
+        }
+
+        if (dropCap is not null)
+        {
+            properties.DropCap = dropCap.Kind == DropCapKind.Margin
+                ? DropCapLocationValues.Margin
+                : DropCapLocationValues.Drop;
+
+            if (dropCap.Lines > 0)
+            {
+                properties.Lines = dropCap.Lines;
+            }
+
+            if (dropCap.Distance.HasValue && !hSpace.HasValue)
+            {
+                properties.HorizontalSpace = DipToTwips(dropCap.Distance.Value);
+            }
+        }
+
+        return properties;
     }
 
     private static OpenXmlTableBorders? BuildTableBorders(Vibe.Office.Documents.TableBorders borders)
@@ -4764,14 +5069,81 @@ public sealed class DocxExporter
 
     private static OpenXmlElement BuildWrapElement(FloatingAnchor anchor)
     {
-        return anchor.WrapStyle switch
+        switch (anchor.WrapStyle)
         {
-            FloatingWrapStyle.Square => new DW.WrapSquare { WrapText = MapWrapSide(anchor.WrapSide) },
-            FloatingWrapStyle.Tight => new DW.WrapTight { WrapText = MapWrapSide(anchor.WrapSide) },
-            FloatingWrapStyle.TopBottom => new DW.WrapTopBottom(),
-            FloatingWrapStyle.Through => new DW.WrapThrough { WrapText = MapWrapSide(anchor.WrapSide) },
-            _ => new DW.WrapNone()
+            case FloatingWrapStyle.Square:
+            {
+                return new DW.WrapSquare
+                {
+                    WrapText = MapWrapSide(anchor.WrapSide),
+                    DistanceFromLeft = DipToEmuUInt32(anchor.Distance.Left),
+                    DistanceFromRight = DipToEmuUInt32(anchor.Distance.Right),
+                    DistanceFromTop = DipToEmuUInt32(anchor.Distance.Top),
+                    DistanceFromBottom = DipToEmuUInt32(anchor.Distance.Bottom)
+                };
+            }
+            case FloatingWrapStyle.Tight:
+            {
+                var wrap = new DW.WrapTight
+                {
+                    WrapText = MapWrapSide(anchor.WrapSide),
+                    DistanceFromLeft = DipToEmuUInt32(anchor.Distance.Left),
+                    DistanceFromRight = DipToEmuUInt32(anchor.Distance.Right)
+                };
+                wrap.WrapPolygon = BuildWrapPolygon(anchor.WrapPolygon);
+                return wrap;
+            }
+            case FloatingWrapStyle.TopBottom:
+                return new DW.WrapTopBottom();
+            case FloatingWrapStyle.Through:
+            {
+                var wrap = new DW.WrapThrough
+                {
+                    WrapText = MapWrapSide(anchor.WrapSide),
+                    DistanceFromLeft = DipToEmuUInt32(anchor.Distance.Left),
+                    DistanceFromRight = DipToEmuUInt32(anchor.Distance.Right)
+                };
+                wrap.WrapPolygon = BuildWrapPolygon(anchor.WrapPolygon);
+                return wrap;
+            }
+            default:
+                return new DW.WrapNone();
+        }
+    }
+
+    private static DW.WrapPolygon? BuildWrapPolygon(FloatingWrapPolygon? polygon)
+    {
+        if (polygon is null)
+        {
+            return null;
+        }
+
+        var points = polygon.Points;
+        if (points.Length < 3)
+        {
+            return null;
+        }
+
+        var wrapPolygon = new DW.WrapPolygon
+        {
+            StartPoint = new DW.StartPoint
+            {
+                X = DipToEmu(points[0].X),
+                Y = DipToEmu(points[0].Y)
+            }
         };
+
+        for (var i = 1; i < points.Length; i++)
+        {
+            var point = points[i];
+            wrapPolygon.AppendChild(new DW.LineTo
+            {
+                X = DipToEmu(point.X),
+                Y = DipToEmu(point.Y)
+            });
+        }
+
+        return wrapPolygon;
     }
 
     private static DW.WrapTextValues MapWrapSide(FloatingWrapSide side)
@@ -4953,12 +5325,30 @@ public sealed class DocxExporter
             case ChartType.Line:
             {
                 var lineChart = new C.LineChart();
+                var grouping = MapChartGrouping(chart.Model.Stacking);
+                if (grouping.HasValue)
+                {
+                    lineChart.AppendChild(new C.Grouping { Val = grouping.Value });
+                }
                 for (var seriesIndex = 0; seriesIndex < chart.Model.Series.Count; seriesIndex++)
                 {
                     lineChart.AppendChild(BuildLineSeries(chart.Model.Series[seriesIndex], seriesIndex));
                 }
 
                 plotArea.AppendChild(lineChart);
+                break;
+            }
+            case ChartType.Doughnut:
+            {
+                var doughnutChart = new C.DoughnutChart();
+                var holeSize = (byte)Math.Clamp((int)MathF.Round(chart.Model.DoughnutHoleSize * 100f), 10, 90);
+                doughnutChart.AppendChild(new C.HoleSize { Val = holeSize });
+                for (var seriesIndex = 0; seriesIndex < chart.Model.Series.Count; seriesIndex++)
+                {
+                    doughnutChart.AppendChild(BuildPieSeries(chart.Model.Series[seriesIndex], seriesIndex));
+                }
+
+                plotArea.AppendChild(doughnutChart);
                 break;
             }
             case ChartType.Pie:
@@ -4983,9 +5373,25 @@ public sealed class DocxExporter
                 plotArea.AppendChild(scatterChart);
                 break;
             }
+            case ChartType.Bubble:
+            {
+                var bubbleChart = new C.BubbleChart();
+                for (var seriesIndex = 0; seriesIndex < chart.Model.Series.Count; seriesIndex++)
+                {
+                    bubbleChart.AppendChild(BuildBubbleSeries(chart.Model.Series[seriesIndex], seriesIndex));
+                }
+
+                plotArea.AppendChild(bubbleChart);
+                break;
+            }
             case ChartType.Area:
             {
                 var areaChart = new C.AreaChart();
+                var grouping = MapChartGrouping(chart.Model.Stacking);
+                if (grouping.HasValue)
+                {
+                    areaChart.AppendChild(new C.Grouping { Val = grouping.Value });
+                }
                 for (var seriesIndex = 0; seriesIndex < chart.Model.Series.Count; seriesIndex++)
                 {
                     areaChart.AppendChild(BuildAreaSeries(chart.Model.Series[seriesIndex], seriesIndex));
@@ -4994,12 +5400,28 @@ public sealed class DocxExporter
                 plotArea.AppendChild(areaChart);
                 break;
             }
+            case ChartType.Radar:
+            {
+                var radarChart = new C.RadarChart();
+                radarChart.AppendChild(new C.RadarStyle { Val = MapRadarStyle(chart.Model.RadarStyle) });
+                for (var seriesIndex = 0; seriesIndex < chart.Model.Series.Count; seriesIndex++)
+                {
+                    radarChart.AppendChild(BuildRadarSeries(chart.Model.Series[seriesIndex], seriesIndex));
+                }
+
+                plotArea.AppendChild(radarChart);
+                break;
+            }
             case ChartType.Bar:
             default:
             {
+                var direction = chart.Model.BarDirection == ChartBarDirection.Bar
+                    ? C.BarDirectionValues.Bar
+                    : C.BarDirectionValues.Column;
+                var grouping = MapBarGrouping(chart.Model.Stacking);
                 var barChart = new C.BarChart(
-                    new C.BarDirection { Val = C.BarDirectionValues.Column },
-                    new C.BarGrouping { Val = C.BarGroupingValues.Clustered });
+                    new C.BarDirection { Val = direction },
+                    new C.BarGrouping { Val = grouping });
 
                 for (var seriesIndex = 0; seriesIndex < chart.Model.Series.Count; seriesIndex++)
                 {
@@ -5063,6 +5485,19 @@ public sealed class DocxExporter
         return scatterSeries;
     }
 
+    private static C.BubbleChartSeries BuildBubbleSeries(ChartSeries series, int seriesIndex)
+    {
+        var bubbleSeries = new C.BubbleChartSeries(
+            new C.Index { Val = (uint)seriesIndex },
+            new C.Order { Val = (uint)seriesIndex },
+            new C.SeriesText(new C.NumericValue { Text = ResolveSeriesName(series, seriesIndex) }));
+
+        bubbleSeries.AppendChild(BuildXValues(series));
+        bubbleSeries.AppendChild(BuildYValues(series));
+        bubbleSeries.AppendChild(BuildBubbleSize(series));
+        return bubbleSeries;
+    }
+
     private static C.AreaChartSeries BuildAreaSeries(ChartSeries series, int seriesIndex)
     {
         var areaSeries = new C.AreaChartSeries(
@@ -5073,6 +5508,18 @@ public sealed class DocxExporter
         areaSeries.AppendChild(BuildCategoryAxisData(series));
         areaSeries.AppendChild(BuildValues(series));
         return areaSeries;
+    }
+
+    private static C.RadarChartSeries BuildRadarSeries(ChartSeries series, int seriesIndex)
+    {
+        var radarSeries = new C.RadarChartSeries(
+            new C.Index { Val = (uint)seriesIndex },
+            new C.Order { Val = (uint)seriesIndex },
+            new C.SeriesText(new C.NumericValue { Text = ResolveSeriesName(series, seriesIndex) }));
+
+        radarSeries.AppendChild(BuildCategoryAxisData(series));
+        radarSeries.AppendChild(BuildValues(series));
+        return radarSeries;
     }
 
     private static string ResolveSeriesName(ChartSeries series, int seriesIndex)
@@ -5127,9 +5574,10 @@ public sealed class DocxExporter
         numberLiteral.AppendChild(new C.PointCount { Val = (uint)series.Points.Count });
         for (var i = 0; i < series.Points.Count; i++)
         {
-            var category = series.Points[i].Category;
-            var numeric = (double)i;
-            if (!string.IsNullOrWhiteSpace(category)
+            var point = series.Points[i];
+            var numeric = point.XValue ?? (double)i;
+            var category = point.Category;
+            if (!point.XValue.HasValue && !string.IsNullOrWhiteSpace(category)
                 && double.TryParse(category, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var parsed))
             {
                 numeric = parsed;
@@ -5166,6 +5614,31 @@ public sealed class DocxExporter
         return values;
     }
 
+    private static C.BubbleSize BuildBubbleSize(ChartSeries series)
+    {
+        var values = new C.BubbleSize();
+        var numberLiteral = new C.NumberLiteral();
+        numberLiteral.AppendChild(new C.PointCount { Val = (uint)series.Points.Count });
+        for (var i = 0; i < series.Points.Count; i++)
+        {
+            var size = series.Points[i].Size ?? 1d;
+            if (size <= 0)
+            {
+                size = 1d;
+            }
+
+            var valueText = size.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            numberLiteral.AppendChild(new C.NumericPoint
+            {
+                Index = (uint)i,
+                NumericValue = new C.NumericValue(valueText)
+            });
+        }
+
+        values.AppendChild(numberLiteral);
+        return values;
+    }
+
     private static C.Title BuildChartTitle(string titleText)
     {
         var richText = new C.RichText(
@@ -5180,5 +5653,35 @@ public sealed class DocxExporter
             new C.ChartText(richText),
             new C.Layout(),
             new C.Overlay { Val = false });
+    }
+
+    private static C.BarGroupingValues MapBarGrouping(ChartStacking stacking)
+    {
+        return stacking switch
+        {
+            ChartStacking.Stacked => C.BarGroupingValues.Stacked,
+            ChartStacking.Percent => C.BarGroupingValues.PercentStacked,
+            _ => C.BarGroupingValues.Clustered
+        };
+    }
+
+    private static C.GroupingValues? MapChartGrouping(ChartStacking stacking)
+    {
+        return stacking switch
+        {
+            ChartStacking.Stacked => C.GroupingValues.Stacked,
+            ChartStacking.Percent => C.GroupingValues.PercentStacked,
+            _ => null
+        };
+    }
+
+    private static C.RadarStyleValues MapRadarStyle(ChartRadarStyle style)
+    {
+        return style switch
+        {
+            ChartRadarStyle.Marker => C.RadarStyleValues.Marker,
+            ChartRadarStyle.Filled => C.RadarStyleValues.Filled,
+            _ => C.RadarStyleValues.Standard
+        };
     }
 }

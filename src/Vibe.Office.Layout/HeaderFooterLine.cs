@@ -3,6 +3,9 @@ using Vibe.Office.Documents;
 namespace Vibe.Office.Layout;
 
 public sealed record HeaderFooterLine(
+    int ParagraphIndex,
+    int StartOffset,
+    int Length,
     float X,
     float Y,
     float Width,
