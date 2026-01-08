@@ -6,6 +6,7 @@ using Avalonia.Media;
 using Avalonia.Rendering.SceneGraph;
 using Avalonia.Skia;
 using Vibe.Office.Documents;
+using Vibe.Office.Editing;
 using Vibe.Office.Primitives;
 using Vibe.Office.Rendering;
 using Vibe.Office.Rendering.Skia;
@@ -16,7 +17,9 @@ namespace Vibe.Word.App;
 
 public sealed class DocumentView : Control, ILogicalScrollable
 {
+    private readonly EditorKernel _kernel = new EditorKernel(new LegacyEditorSessionFactory());
     private EditorController _editor;
+    private AvaloniaEditorInputAdapter _inputAdapter = null!;
     private readonly SkiaTextMeasurer _textMeasurer = new SkiaTextMeasurer();
     private readonly SkiaDocumentRenderer _renderer = new SkiaDocumentRenderer();
     private SkiaDocumentFontResolver? _fontResolver;
@@ -45,6 +48,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
     public DocumentView()
     {
         Focusable = true;
+        _kernel.AddModule(new BasicEditingModule());
         _editor = CreateEditor(CreateSampleDocument());
         ApplyEditorState();
     }
@@ -141,21 +145,10 @@ public sealed class DocumentView : Control, ILogicalScrollable
             return;
         }
 
-        if (string.IsNullOrEmpty(e.Text))
+        if (_inputAdapter.HandleTextInput(e))
         {
-            return;
+            e.Handled = true;
         }
-
-        if (e.Text == "\r" || e.Text == "\n")
-        {
-            _editor.InsertParagraphBreak();
-        }
-        else
-        {
-            _editor.InsertText(e.Text);
-        }
-
-        e.Handled = true;
     }
 
     protected override void OnKeyDown(KeyEventArgs e)
@@ -166,37 +159,9 @@ public sealed class DocumentView : Control, ILogicalScrollable
             return;
         }
 
-        var extend = e.KeyModifiers.HasFlag(KeyModifiers.Shift);
-        switch (e.Key)
+        if (_inputAdapter.HandleKeyDown(e))
         {
-            case Key.Back:
-                _editor.Backspace();
-                e.Handled = true;
-                break;
-            case Key.Delete:
-                _editor.DeleteForward();
-                e.Handled = true;
-                break;
-            case Key.Enter:
-                _editor.InsertParagraphBreak();
-                e.Handled = true;
-                break;
-            case Key.Left:
-                _editor.MoveLeft(extend);
-                e.Handled = true;
-                break;
-            case Key.Right:
-                _editor.MoveRight(extend);
-                e.Handled = true;
-                break;
-            case Key.Up:
-                _editor.MoveUp(extend);
-                e.Handled = true;
-                break;
-            case Key.Down:
-                _editor.MoveDown(extend);
-                e.Handled = true;
-                break;
+            e.Handled = true;
         }
     }
 
@@ -209,14 +174,12 @@ public sealed class DocumentView : Control, ILogicalScrollable
         }
         Focus();
 
-        var point = e.GetPosition(this);
-        var docPoint = new Point(point.X + _scrollOffset.X, point.Y + _scrollOffset.Y);
-        var extend = e.KeyModifiers.HasFlag(KeyModifiers.Shift);
-        _editor.SetCaretFromPoint((float)docPoint.X, (float)docPoint.Y, extend);
-
-        _isSelecting = true;
-        e.Pointer.Capture(this);
-        e.Handled = true;
+        if (_inputAdapter.HandlePointerPressed(e, _scrollOffset, this))
+        {
+            _isSelecting = true;
+            e.Pointer.Capture(this);
+            e.Handled = true;
+        }
     }
 
     protected override void OnPointerMoved(PointerEventArgs e)
@@ -237,10 +200,10 @@ public sealed class DocumentView : Control, ILogicalScrollable
             return;
         }
 
-        var point = current.Position;
-        var docPoint = new Point(point.X + _scrollOffset.X, point.Y + _scrollOffset.Y);
-        _editor.SetCaretFromPoint((float)docPoint.X, (float)docPoint.Y, true);
-        e.Handled = true;
+        if (_inputAdapter.HandlePointerMoved(e, _scrollOffset, this))
+        {
+            e.Handled = true;
+        }
     }
 
     protected override void OnPointerReleased(PointerReleasedEventArgs e)
@@ -254,6 +217,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
         if (_isSelecting)
         {
             _isSelecting = false;
+            _inputAdapter.HandlePointerReleased(e, _scrollOffset, this);
             e.Pointer.Capture(null);
             e.Handled = true;
         }
@@ -292,6 +256,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
         }).ConfigureAwait(true);
 
         _editor = editor;
+        ConfigureInputPipeline(editor);
         ApplyEditorState();
     }
 
@@ -347,7 +312,15 @@ public sealed class DocumentView : Control, ILogicalScrollable
     private EditorController CreateEditor(Document document)
     {
         ConfigureMeasurer(document);
-        return new EditorController(_textMeasurer, document);
+        var editor = new EditorController(_textMeasurer, document);
+        ConfigureInputPipeline(editor);
+        return editor;
+    }
+
+    private void ConfigureInputPipeline(EditorController editor)
+    {
+        var commandRouter = new EditorCommandInputRouter(_kernel.Commands, editor);
+        _inputAdapter = new AvaloniaEditorInputAdapter(commandRouter);
     }
 
     private void ConfigureMeasurer(Document document)

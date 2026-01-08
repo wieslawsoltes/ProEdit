@@ -22,6 +22,7 @@
   <ItemGroup>
     <ProjectReference Include="..\\Vibe.Office.Rendering\\Vibe.Office.Rendering.csproj" />
     <ProjectReference Include="..\\Vibe.Office.Rendering.Skia\\Vibe.Office.Rendering.Skia.csproj" />
+    <ProjectReference Include="..\\Vibe.Office.Editing\\Vibe.Office.Editing.csproj" />
     <ProjectReference Include="..\\Vibe.Word.Editor\\Vibe.Word.Editor.csproj" />
     <ProjectReference Include="..\\Vibe.Office.OpenXml\\Vibe.Office.OpenXml.csproj" />
   </ItemGroup>
