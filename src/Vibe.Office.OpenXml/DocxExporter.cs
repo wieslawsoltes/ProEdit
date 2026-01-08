@@ -1550,6 +1550,11 @@ public sealed class DocxExporter
             paragraphProperties.BiDi = new BiDi { Val = properties.Bidi.Value };
         }
 
+        if (properties.TextDirection.HasValue)
+        {
+            paragraphProperties.TextDirection = new TextDirection { Val = MapTextDirection(properties.TextDirection.Value) };
+        }
+
         if (properties.ShadingColor.HasValue)
         {
             paragraphProperties.Shading = new Shading
@@ -1927,6 +1932,11 @@ public sealed class DocxExporter
                     }
                     break;
                 }
+                case RubyInline rubyInline:
+                {
+                    container.AppendChild(BuildRubyElement(rubyInline, fonts));
+                    break;
+                }
                 case PageNumberInline pageNumberInline:
                     container.AppendChild(CreatePageNumberField(pageNumberInline.Style, fonts));
                     break;
@@ -1974,6 +1984,41 @@ public sealed class DocxExporter
                 }
             }
         }
+    }
+
+    private static Ruby BuildRubyElement(RubyInline rubyInline, DocumentFonts fonts)
+    {
+        var ruby = new Ruby();
+        var rubyScale = rubyInline.RubyScale > 0f ? rubyInline.RubyScale : 0.5f;
+
+        var baseSize = rubyInline.BaseStyle?.FontSize;
+        if ((!baseSize.HasValue || baseSize.Value <= 0f)
+            && rubyInline.RubyStyle?.FontSize is float rubyStyleSize
+            && rubyStyleSize > 0f)
+        {
+            baseSize = rubyScale > 0f ? rubyStyleSize / rubyScale : rubyStyleSize;
+        }
+
+        if (baseSize.HasValue && baseSize.Value > 0f)
+        {
+            var rubySize = baseSize.Value * rubyScale;
+            var rubyProps = new RubyProperties
+            {
+                PhoneticGuideBaseTextSize = new PhoneticGuideBaseTextSize { Val = DipToHalfPoints(baseSize.Value) },
+                PhoneticGuideTextFontSize = new PhoneticGuideTextFontSize { Val = DipToHalfPoints(rubySize) }
+            };
+            ruby.RubyProperties = rubyProps;
+        }
+
+        var rubyContent = new RubyContent();
+        AppendTextRuns(rubyContent, rubyInline.RubyText ?? string.Empty, rubyInline.RubyStyle, rubyInline.RubyStyleId, fonts);
+        ruby.RubyContent = rubyContent;
+
+        var rubyBase = new RubyBase();
+        AppendTextRuns(rubyBase, rubyInline.BaseText ?? string.Empty, rubyInline.BaseStyle, rubyInline.BaseStyleId, fonts);
+        ruby.RubyBase = rubyBase;
+
+        return ruby;
     }
 
     private static void AppendSimpleField(
@@ -2778,6 +2823,12 @@ public sealed class DocxExporter
             };
         }
 
+        var eastAsianLayout = BuildEastAsianLayout(style.EastAsianLayout);
+        if (eastAsianLayout is not null)
+        {
+            props.EastAsianLayout = eastAsianLayout;
+        }
+
         return props;
     }
 
@@ -2889,6 +2940,12 @@ public sealed class DocxExporter
             };
         }
 
+        var eastAsianLayout = BuildEastAsianLayout(style.EastAsianLayout);
+        if (eastAsianLayout is not null)
+        {
+            props.EastAsianLayout = eastAsianLayout;
+        }
+
         return props;
     }
 
@@ -2991,6 +3048,12 @@ public sealed class DocxExporter
             };
         }
 
+        var eastAsianLayout = BuildEastAsianLayout(style.EastAsianLayout);
+        if (eastAsianLayout is not null)
+        {
+            props.EastAsianLayout = eastAsianLayout;
+        }
+
         return props;
     }
 
@@ -3086,6 +3149,12 @@ public sealed class DocxExporter
                 EastAsia = string.IsNullOrWhiteSpace(style.LanguageEastAsia) ? null : style.LanguageEastAsia,
                 Bidi = string.IsNullOrWhiteSpace(style.LanguageBidi) ? null : style.LanguageBidi
             };
+        }
+
+        var eastAsianLayout = BuildEastAsianLayout(style.EastAsianLayout);
+        if (eastAsianLayout is not null)
+        {
+            props.EastAsianLayout = eastAsianLayout;
         }
 
         return props;
@@ -3197,6 +3266,11 @@ public sealed class DocxExporter
         if (properties.Bidi.HasValue)
         {
             paragraphProperties.BiDi = new BiDi { Val = properties.Bidi.Value };
+        }
+
+        if (properties.TextDirection.HasValue)
+        {
+            paragraphProperties.TextDirection = new TextDirection { Val = MapTextDirection(properties.TextDirection.Value) };
         }
 
         if (properties.ShadingColor.HasValue)
@@ -3370,7 +3444,8 @@ public sealed class DocxExporter
                || style.ThemeFontComplexScript.HasValue
                || !string.IsNullOrWhiteSpace(style.Language)
                || !string.IsNullOrWhiteSpace(style.LanguageEastAsia)
-               || !string.IsNullOrWhiteSpace(style.LanguageBidi);
+               || !string.IsNullOrWhiteSpace(style.LanguageBidi)
+               || (style.EastAsianLayout?.HasValues ?? false);
     }
 
     private static bool TryMapHighlightColor(Vibe.Office.Primitives.DocColor color, out HighlightColorValues highlight)
@@ -3432,6 +3507,7 @@ public sealed class DocxExporter
                || properties.PageBreakBefore.HasValue
                || properties.ContextualSpacing.HasValue
                || properties.Bidi.HasValue
+               || properties.TextDirection.HasValue
                || properties.ShadingColor.HasValue
                || properties.Borders.HasAny;
     }
@@ -3729,6 +3805,67 @@ public sealed class DocxExporter
         };
     }
 
+    private static TextDirectionValues MapTextDirection(DocTextDirection direction)
+    {
+        return direction switch
+        {
+            DocTextDirection.TopToBottomRightToLeft => TextDirectionValues.TopToBottomRightToLeft,
+            DocTextDirection.BottomToTopLeftToRight => TextDirectionValues.BottomToTopLeftToRight,
+            DocTextDirection.LeftToRightTopToBottomRotated => TextDirectionValues.LefttoRightTopToBottomRotated,
+            DocTextDirection.TopToBottomRightToLeftRotated => TextDirectionValues.TopToBottomRightToLeftRotated,
+            DocTextDirection.TopToBottomLeftToRightRotated => TextDirectionValues.TopToBottomLeftToRightRotated,
+            _ => TextDirectionValues.LefToRightTopToBottom
+        };
+    }
+
+    private static DocGridValues MapDocGridType(DocGridType type)
+    {
+        return type switch
+        {
+            DocGridType.Lines => DocGridValues.Lines,
+            DocGridType.LinesAndChars => DocGridValues.LinesAndChars,
+            DocGridType.SnapToChars => DocGridValues.SnapToChars,
+            _ => DocGridValues.Default
+        };
+    }
+
+    private static EastAsianLayout? BuildEastAsianLayout(EastAsianLayoutProperties? properties)
+    {
+        if (properties is null || !properties.HasValues)
+        {
+            return null;
+        }
+
+        var layout = new EastAsianLayout();
+        if (properties.Id.HasValue)
+        {
+            layout.Id = properties.Id.Value;
+        }
+
+        if (properties.Combine.HasValue)
+        {
+            layout.Combine = properties.Combine.Value;
+        }
+
+        if (!string.IsNullOrWhiteSpace(properties.CombineBrackets)
+            && Enum.TryParse(properties.CombineBrackets, true, out CombineBracketValues combineBrackets))
+        {
+            layout.CombineBrackets = combineBrackets;
+        }
+
+        if (properties.Vertical.HasValue)
+        {
+            layout.Vertical = properties.Vertical.Value;
+        }
+
+        if (properties.VerticalCompress.HasValue)
+        {
+            layout.VerticalCompress = properties.VerticalCompress.Value;
+        }
+
+        return layout;
+    }
+
     private static StringValue DipToTwips(float value)
     {
         var twips = value / (96f / 72f) * 20f;
@@ -3881,6 +4018,25 @@ public sealed class DocxExporter
                 }
             }
         }
+
+        if (properties.DocGrid?.HasValues == true)
+        {
+            var docGrid = target.GetFirstChild<DocGrid>() ?? target.AppendChild(new DocGrid());
+            if (properties.DocGrid.Type.HasValue)
+            {
+                docGrid.Type = MapDocGridType(properties.DocGrid.Type.Value);
+            }
+
+            if (properties.DocGrid.LinePitch.HasValue)
+            {
+                docGrid.LinePitch = DipToTwipsInt32(properties.DocGrid.LinePitch.Value);
+            }
+
+            if (properties.DocGrid.CharacterSpace.HasValue)
+            {
+                docGrid.CharacterSpace = DipToTwipsInt32(properties.DocGrid.CharacterSpace.Value);
+            }
+        }
     }
 
     private static DocumentFormat.OpenXml.Wordprocessing.TableProperties? BuildTableProperties(Vibe.Office.Documents.TableProperties properties, string? styleId)
@@ -3952,6 +4108,11 @@ public sealed class DocxExporter
                     _ => TableVerticalAlignmentValues.Top
                 }
             };
+        }
+
+        if (properties.TextDirection.HasValue)
+        {
+            cellProps.TextDirection = new TextDirection { Val = MapTextDirection(properties.TextDirection.Value) };
         }
 
         if (properties.ShadingColor.HasValue)
@@ -4071,6 +4232,7 @@ public sealed class DocxExporter
         return HasPaddingValues(properties.Padding)
                || properties.ShadingColor.HasValue
                || properties.VerticalAlignment.HasValue
+               || properties.TextDirection.HasValue
                || HasTableCellBorders(properties.Borders);
     }
 

@@ -1628,12 +1628,135 @@ public sealed class DocxImporter
             current.Inlines.Add(new FieldEndInline());
         }
 
+        void ProcessRuby(Ruby ruby, HyperlinkInfo? hyperlink)
+        {
+            if (ruby is null)
+            {
+                return;
+            }
+
+            var baseText = ExtractRubyText(ruby.RubyBase, out var baseStyle, out var baseStyleId);
+            var rubyText = ExtractRubyText(ruby.RubyContent, out var rubyStyle, out var rubyStyleId);
+            if (string.IsNullOrEmpty(baseText) && string.IsNullOrEmpty(rubyText))
+            {
+                return;
+            }
+
+            var rubyScale = ResolveRubyScale(ruby.RubyProperties, baseStyle, rubyStyle);
+            var inline = new RubyInline(baseText, rubyText)
+            {
+                BaseStyle = baseStyle,
+                BaseStyleId = baseStyleId,
+                RubyStyle = rubyStyle,
+                RubyStyleId = rubyStyleId,
+                RubyScale = rubyScale
+            };
+
+            AddInline(inline, false, hyperlink);
+            builder.Append(baseText);
+        }
+
+        string ExtractRubyText(OpenXmlCompositeElement? container, out TextStyleProperties? style, out string? styleId)
+        {
+            style = null;
+            styleId = null;
+            if (container is null)
+            {
+                return string.Empty;
+            }
+
+            var textBuilder = new StringBuilder();
+            foreach (var run in container.Elements<Run>())
+            {
+                if (style is null)
+                {
+                    style = ExtractRunStyleProperties(run.RunProperties);
+                    styleId = styleResolver.GetRunStyleId(run);
+                }
+
+                AppendRubyRunText(run, textBuilder);
+            }
+
+            if (textBuilder.Length > 0)
+            {
+                return textBuilder.ToString();
+            }
+
+            var fallback = container.InnerText;
+            return string.IsNullOrEmpty(fallback) ? string.Empty : fallback;
+        }
+
+        void AppendRubyRunText(Run run, StringBuilder buffer)
+        {
+            foreach (var node in run.Elements())
+            {
+                switch (node)
+                {
+                    case Text text:
+                        buffer.Append(text.Text);
+                        break;
+                    case DeletedText deletedText:
+                        buffer.Append(deletedText.Text);
+                        break;
+                    case TabChar:
+                        buffer.Append('\t');
+                        break;
+                    case Break:
+                    case CarriageReturn:
+                        buffer.Append('\n');
+                        break;
+                }
+            }
+        }
+
+        float ResolveRubyScale(RubyProperties? properties, TextStyleProperties? baseStyle, TextStyleProperties? rubyStyle)
+        {
+            if (properties is null)
+            {
+                return ResolveFallbackRubyScale(baseStyle, rubyStyle);
+            }
+
+            var baseSize = ParseHalfPoints(properties.PhoneticGuideBaseTextSize?.Val);
+            var rubySize = ParseHalfPoints(properties.PhoneticGuideTextFontSize?.Val);
+            if (!baseSize.HasValue || baseSize.Value <= 0f || !rubySize.HasValue || rubySize.Value <= 0f)
+            {
+                return ResolveFallbackRubyScale(baseStyle, rubyStyle);
+            }
+
+            return rubySize.Value / baseSize.Value;
+        }
+
+        float ResolveFallbackRubyScale(TextStyleProperties? baseStyle, TextStyleProperties? rubyStyle)
+        {
+            if (baseStyle?.FontSize is float baseSize && baseSize > 0f
+                && rubyStyle?.FontSize is float rubySize && rubySize > 0f)
+            {
+                return rubySize / baseSize;
+            }
+
+            return 0.5f;
+        }
+
+        float? ParseHalfPoints(StringValue? value)
+        {
+            var raw = value?.Value;
+            if (string.IsNullOrWhiteSpace(raw) || !float.TryParse(raw, out var halfPoints))
+            {
+                return null;
+            }
+
+            return HalfPointsToDip(halfPoints);
+        }
+
         void ProcessElement(OpenXmlElement element, HyperlinkInfo? hyperlink)
         {
             switch (element)
             {
                 case Run run:
                     ProcessRun(run, hyperlink);
+                    break;
+                case Ruby ruby:
+                    ProcessRuby(ruby, hyperlink);
                     break;
                 case SimpleField field:
                     ProcessSimpleField(field, hyperlink);
@@ -1911,6 +2034,33 @@ public sealed class DocxImporter
             }
         }
 
+        var docGrid = sectionProps.GetFirstChild<DocGrid>();
+        if (docGrid is not null)
+        {
+            var gridSettings = new DocGridSettings();
+            if (docGrid.Type?.Value is DocGridValues gridType)
+            {
+                gridSettings.Type = MapDocGridType(gridType);
+            }
+
+            var linePitchTwips = TryParseTwips(docGrid.LinePitch);
+            if (linePitchTwips.HasValue)
+            {
+                gridSettings.LinePitch = TwipsToDip(linePitchTwips.Value);
+            }
+
+            var charSpaceTwips = TryParseTwips(docGrid.CharacterSpace);
+            if (charSpaceTwips.HasValue)
+            {
+                gridSettings.CharacterSpace = TwipsToDip(charSpaceTwips.Value);
+            }
+
+            if (gridSettings.HasValues)
+            {
+                properties.DocGrid = gridSettings;
+            }
+        }
+
         return properties;
     }
 
@@ -2023,6 +2173,11 @@ public sealed class DocxImporter
         {
             target.ColumnWidths.Clear();
             target.ColumnWidths.AddRange(source.ColumnWidths);
+        }
+
+        if (source.DocGrid?.HasValues == true)
+        {
+            target.DocGrid = source.DocGrid.Clone();
         }
     }
 
@@ -2663,6 +2818,12 @@ public sealed class DocxImporter
             properties.Bidi = bidi.Val?.Value != false;
         }
 
+        var textDirection = props.GetFirstChild<TextDirection>()?.Val?.Value;
+        if (textDirection is not null)
+        {
+            properties.TextDirection = MapTextDirection(textDirection.Value);
+        }
+
         var shading = props.GetFirstChild<Shading>();
         if (shading?.Fill?.Value is string fill && TryParseHexColor(fill, out var shadingColor))
         {
@@ -2811,6 +2972,12 @@ public sealed class DocxImporter
         if (bidi is not null)
         {
             properties.Bidi = bidi.Val?.Value != false;
+        }
+
+        var textDirection = props.GetFirstChild<TextDirection>()?.Val?.Value;
+        if (textDirection is not null)
+        {
+            properties.TextDirection = MapTextDirection(textDirection.Value);
         }
 
         var shading = props.GetFirstChild<Shading>();
@@ -3019,6 +3186,12 @@ public sealed class DocxImporter
                 style.LanguageBidi = languages.Bidi.Value;
             }
         }
+
+        var eastAsianLayout = properties.GetFirstChild<EastAsianLayout>();
+        if (eastAsianLayout is not null)
+        {
+            style.EastAsianLayout = ParseEastAsianLayout(eastAsianLayout);
+        }
     }
 
     private static void ApplyRunStyleProperties(OpenXmlElement? properties, TextStyleProperties style)
@@ -3192,6 +3365,12 @@ public sealed class DocxImporter
                 style.LanguageBidi = languages.Bidi.Value;
             }
         }
+
+        var eastAsianLayout = properties.GetFirstChild<EastAsianLayout>();
+        if (eastAsianLayout is not null)
+        {
+            style.EastAsianLayout = ParseEastAsianLayout(eastAsianLayout);
+        }
     }
 
     private static void ApplyTableProperties(Table table, Vibe.Office.Documents.TableProperties properties)
@@ -3352,6 +3531,12 @@ public sealed class DocxImporter
             {
                 properties.VerticalAlignment = Vibe.Office.Documents.TableCellVerticalAlignment.Top;
             }
+        }
+
+        var textDirection = props.GetFirstChild<TextDirection>()?.Val?.Value;
+        if (textDirection is not null)
+        {
+            properties.TextDirection = MapTextDirection(textDirection.Value);
         }
 
         var shading = props.GetFirstChild<Shading>();
@@ -4024,6 +4209,70 @@ public sealed class DocxImporter
         }
 
         return DocVerticalPosition.Normal;
+    }
+
+    private static DocTextDirection MapTextDirection(TextDirectionValues value)
+    {
+        if (value == TextDirectionValues.TopToBottomRightToLeft || value == TextDirectionValues.TopToBottomRightToLeft2010)
+        {
+            return DocTextDirection.TopToBottomRightToLeft;
+        }
+
+        if (value == TextDirectionValues.BottomToTopLeftToRight || value == TextDirectionValues.BottomToTopLeftToRight2010)
+        {
+            return DocTextDirection.BottomToTopLeftToRight;
+        }
+
+        if (value == TextDirectionValues.LefttoRightTopToBottomRotated || value == TextDirectionValues.LeftToRightTopToBottomRotated2010)
+        {
+            return DocTextDirection.LeftToRightTopToBottomRotated;
+        }
+
+        if (value == TextDirectionValues.TopToBottomRightToLeftRotated || value == TextDirectionValues.TopToBottomRightToLeftRotated2010)
+        {
+            return DocTextDirection.TopToBottomRightToLeftRotated;
+        }
+
+        if (value == TextDirectionValues.TopToBottomLeftToRightRotated || value == TextDirectionValues.TopToBottomLeftToRightRotated2010)
+        {
+            return DocTextDirection.TopToBottomLeftToRightRotated;
+        }
+
+        return DocTextDirection.LeftToRightTopToBottom;
+    }
+
+    private static DocGridType MapDocGridType(DocGridValues value)
+    {
+        if (value == DocGridValues.Lines)
+        {
+            return DocGridType.Lines;
+        }
+
+        if (value == DocGridValues.LinesAndChars)
+        {
+            return DocGridType.LinesAndChars;
+        }
+
+        if (value == DocGridValues.SnapToChars)
+        {
+            return DocGridType.SnapToChars;
+        }
+
+        return DocGridType.Default;
+    }
+
+    private static EastAsianLayoutProperties? ParseEastAsianLayout(EastAsianLayout layout)
+    {
+        var properties = new EastAsianLayoutProperties
+        {
+            Id = layout.Id?.Value,
+            Combine = layout.Combine?.Value,
+            CombineBrackets = layout.CombineBrackets?.Value.ToString(),
+            Vertical = layout.Vertical?.Value,
+            VerticalCompress = layout.VerticalCompress?.Value
+        };
+
+        return properties.HasValues ? properties : null;
     }
 
     private static float HalfPointsToDip(float halfPoints)

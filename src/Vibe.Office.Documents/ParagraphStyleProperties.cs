@@ -17,6 +17,8 @@ public sealed class ParagraphStyleProperties
     public bool? PageBreakBefore { get; set; }
     public bool? ContextualSpacing { get; set; }
     public bool? Bidi { get; set; }
+    public DocTextDirection? TextDirection { get; set; }
+    public EastAsianLayoutProperties? EastAsianLayout { get; set; }
     public Vibe.Office.Primitives.DocColor? ShadingColor { get; set; }
     public ParagraphBorders Borders { get; } = new ParagraphBorders();
 
@@ -35,6 +37,8 @@ public sealed class ParagraphStyleProperties
                              || PageBreakBefore.HasValue
                              || ContextualSpacing.HasValue
                              || Bidi.HasValue
+                             || TextDirection.HasValue
+                             || (EastAsianLayout?.HasValues ?? false)
                              || ShadingColor.HasValue
                              || Borders.HasAny;
 }

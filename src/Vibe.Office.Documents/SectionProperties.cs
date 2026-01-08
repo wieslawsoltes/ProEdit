@@ -18,6 +18,7 @@ public sealed class SectionProperties
     public bool? ColumnEqualWidth { get; set; }
     public bool? ColumnSeparator { get; set; }
     public List<float> ColumnWidths { get; } = new List<float>();
+    public DocGridSettings? DocGrid { get; set; }
 
     public bool HasValues =>
         PageWidth.HasValue
@@ -35,7 +36,8 @@ public sealed class SectionProperties
         || ColumnGap.HasValue
         || ColumnEqualWidth.HasValue
         || ColumnSeparator.HasValue
-        || ColumnWidths.Count > 0;
+        || ColumnWidths.Count > 0
+        || (DocGrid?.HasValues ?? false);
 
     public SectionProperties Clone()
     {
@@ -55,7 +57,8 @@ public sealed class SectionProperties
             ColumnCount = ColumnCount,
             ColumnGap = ColumnGap,
             ColumnEqualWidth = ColumnEqualWidth,
-            ColumnSeparator = ColumnSeparator
+            ColumnSeparator = ColumnSeparator,
+            DocGrid = DocGrid?.Clone()
         };
 
         if (ColumnWidths.Count > 0)

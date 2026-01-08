@@ -27,6 +27,8 @@ public sealed class ParagraphProperties
     public bool? PageBreakBefore { get; set; }
     public bool? ContextualSpacing { get; set; }
     public bool? Bidi { get; set; }
+    public DocTextDirection? TextDirection { get; set; }
+    public EastAsianLayoutProperties? EastAsianLayout { get; set; }
     public DocColor? ShadingColor { get; set; }
     public ParagraphBorders Borders { get; } = new ParagraphBorders();
 }

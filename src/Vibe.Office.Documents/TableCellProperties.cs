@@ -8,6 +8,7 @@ public sealed class TableCellProperties
     public DocColor? ShadingColor { get; set; }
     public TableCellBorders Borders { get; } = new TableCellBorders();
     public TableCellVerticalAlignment? VerticalAlignment { get; set; }
+    public DocTextDirection? TextDirection { get; set; }
 
     public TableCellProperties Clone()
     {
@@ -16,6 +17,7 @@ public sealed class TableCellProperties
             Padding = Padding,
             ShadingColor = ShadingColor,
             VerticalAlignment = VerticalAlignment,
+            TextDirection = TextDirection,
             Borders =
             {
                 Top = Borders.Top?.Clone(),

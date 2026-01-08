@@ -40,6 +40,7 @@ public sealed class TextStyle
     public string? Language { get; set; }
     public string? LanguageEastAsia { get; set; }
     public string? LanguageBidi { get; set; }
+    public EastAsianLayoutProperties? EastAsianLayout { get; set; }
 
     public TextStyle Clone()
     {
@@ -68,7 +69,8 @@ public sealed class TextStyle
             ThemeFontComplexScript = ThemeFontComplexScript,
             Language = Language,
             LanguageEastAsia = LanguageEastAsia,
-            LanguageBidi = LanguageBidi
+            LanguageBidi = LanguageBidi,
+            EastAsianLayout = EastAsianLayout?.Clone()
         };
     }
 }

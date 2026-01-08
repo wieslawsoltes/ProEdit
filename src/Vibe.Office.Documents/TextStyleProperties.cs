@@ -28,6 +28,7 @@ public sealed class TextStyleProperties
     public string? Language { get; set; }
     public string? LanguageEastAsia { get; set; }
     public string? LanguageBidi { get; set; }
+    public EastAsianLayoutProperties? EastAsianLayout { get; set; }
 
     public bool HasValues => !string.IsNullOrWhiteSpace(FontFamily)
                              || !string.IsNullOrWhiteSpace(FontFamilyAscii)
@@ -52,7 +53,8 @@ public sealed class TextStyleProperties
                              || ThemeFontComplexScript.HasValue
                              || !string.IsNullOrWhiteSpace(Language)
                              || !string.IsNullOrWhiteSpace(LanguageEastAsia)
-                             || !string.IsNullOrWhiteSpace(LanguageBidi);
+                             || !string.IsNullOrWhiteSpace(LanguageBidi)
+                             || (EastAsianLayout?.HasValues ?? false);
 
     public TextStyleProperties Clone()
     {
@@ -81,7 +83,8 @@ public sealed class TextStyleProperties
             ThemeFontComplexScript = ThemeFontComplexScript,
             Language = Language,
             LanguageEastAsia = LanguageEastAsia,
-            LanguageBidi = LanguageBidi
+            LanguageBidi = LanguageBidi,
+            EastAsianLayout = EastAsianLayout?.Clone()
         };
     }
 
@@ -115,7 +118,8 @@ public sealed class TextStyleProperties
                && ThemeFontComplexScript == other.ThemeFontComplexScript
                && string.Equals(Language, other.Language, StringComparison.Ordinal)
                && string.Equals(LanguageEastAsia, other.LanguageEastAsia, StringComparison.Ordinal)
-               && string.Equals(LanguageBidi, other.LanguageBidi, StringComparison.Ordinal);
+               && string.Equals(LanguageBidi, other.LanguageBidi, StringComparison.Ordinal)
+               && Equals(EastAsianLayout, other.EastAsianLayout);
     }
 
     public void ApplyTo(TextStyle style)
@@ -239,6 +243,11 @@ public sealed class TextStyleProperties
         if (!string.IsNullOrWhiteSpace(LanguageBidi))
         {
             style.LanguageBidi = LanguageBidi;
+        }
+
+        if (EastAsianLayout?.HasValues == true)
+        {
+            style.EastAsianLayout = EastAsianLayout.Clone();
         }
     }
 }
