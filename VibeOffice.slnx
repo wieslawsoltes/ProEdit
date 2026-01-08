@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/Vibe.Office.Editing/Vibe.Office.Editing.csproj" />
     <Project Path="src/Vibe.Office.Documents/Vibe.Office.Documents.csproj" />
     <Project Path="src/Vibe.Office.Layout/Vibe.Office.Layout.csproj" />
     <Project Path="src/Vibe.Office.OpenXml/Vibe.Office.OpenXml.csproj" />
