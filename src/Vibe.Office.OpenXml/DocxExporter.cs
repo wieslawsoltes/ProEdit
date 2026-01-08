@@ -132,27 +132,43 @@ public sealed class DocxExporter
         }
 
         var currentSectionIndex = 0;
+        var containerStack = new Stack<OpenXmlCompositeElement>();
+        OpenXmlCompositeElement currentContainer = body;
         foreach (var block in document.Blocks)
         {
             switch (block)
             {
                 case ParagraphBlock paragraph:
-                    body.AppendChild(CreateParagraph(paragraph, numberingContext, imageWriter, chartWriter, hyperlinkWriter, document.Fonts));
+                    currentContainer.AppendChild(CreateParagraph(paragraph, numberingContext, imageWriter, chartWriter, hyperlinkWriter, document.Fonts));
                     break;
                 case TableBlock table:
-                    body.AppendChild(CreateTable(table, numberingContext, imageWriter, chartWriter, hyperlinkWriter, document.Fonts));
+                    currentContainer.AppendChild(CreateTable(table, numberingContext, imageWriter, chartWriter, hyperlinkWriter, document.Fonts));
                     break;
                 case PageBreakBlock:
-                    body.AppendChild(CreatePageBreakParagraph());
+                    currentContainer.AppendChild(CreatePageBreakParagraph());
                     break;
                 case ColumnBreakBlock:
-                    body.AppendChild(CreateColumnBreakParagraph());
+                    currentContainer.AppendChild(CreateColumnBreakParagraph());
+                    break;
+                case RevisionStartBlock revisionStart:
+                {
+                    var revisionElement = BuildBlockRevisionElement(revisionStart.Revision);
+                    currentContainer.AppendChild(revisionElement);
+                    containerStack.Push(currentContainer);
+                    currentContainer = revisionElement;
+                    break;
+                }
+                case RevisionEndBlock:
+                    if (containerStack.Count > 0)
+                    {
+                        currentContainer = containerStack.Pop();
+                    }
                     break;
                 case SectionBreakBlock sectionBreak:
                 {
                     var section = document.GetSection(currentSectionIndex);
                     var parts = EnsureSectionParts(currentSectionIndex);
-                    body.AppendChild(CreateSectionBreakParagraph(sectionBreak, section, parts));
+                    currentContainer.AppendChild(CreateSectionBreakParagraph(sectionBreak, section, parts));
                     var nextIndex = sectionBreak.SectionIndex ?? Math.Min(currentSectionIndex + 1, document.SectionCount - 1);
                     currentSectionIndex = Math.Max(0, nextIndex);
                     break;
@@ -1069,11 +1085,29 @@ public sealed class DocxExporter
         DocumentFonts fonts)
     {
         var index = 0;
+        var containerStack = new Stack<OpenXmlCompositeElement>();
+        var currentContainer = container;
         while (index < blocks.Count)
         {
             var block = blocks[index];
             switch (block)
             {
+                case RevisionStartBlock revisionStart:
+                {
+                    var revisionElement = BuildBlockRevisionElement(revisionStart.Revision);
+                    currentContainer.AppendChild(revisionElement);
+                    containerStack.Push(currentContainer);
+                    currentContainer = revisionElement;
+                    index++;
+                    continue;
+                }
+                case RevisionEndBlock:
+                    if (containerStack.Count > 0)
+                    {
+                        currentContainer = containerStack.Pop();
+                    }
+                    index++;
+                    continue;
                 case ContentControlStartBlock startBlock:
                 {
                     var contentBlocks = new List<Block>();
@@ -1091,26 +1125,26 @@ public sealed class DocxExporter
                         index++;
                     }
 
-                    container.AppendChild(BuildSdtBlock(startBlock.Properties, contentBlocks, numberingContext, imageWriter, chartWriter, hyperlinkWriter, fonts));
+                    currentContainer.AppendChild(BuildSdtBlock(startBlock.Properties, contentBlocks, numberingContext, imageWriter, chartWriter, hyperlinkWriter, fonts));
                     continue;
                 }
                 case ContentControlEndBlock:
                     index++;
                     continue;
                 case ParagraphBlock paragraph:
-                    container.AppendChild(CreateParagraph(paragraph, numberingContext, imageWriter, chartWriter, hyperlinkWriter, fonts));
+                    currentContainer.AppendChild(CreateParagraph(paragraph, numberingContext, imageWriter, chartWriter, hyperlinkWriter, fonts));
                     index++;
                     break;
                 case TableBlock table:
-                    container.AppendChild(CreateTable(table, numberingContext, imageWriter, chartWriter, hyperlinkWriter, fonts));
+                    currentContainer.AppendChild(CreateTable(table, numberingContext, imageWriter, chartWriter, hyperlinkWriter, fonts));
                     index++;
                     break;
                 case PageBreakBlock:
-                    container.AppendChild(CreatePageBreakParagraph());
+                    currentContainer.AppendChild(CreatePageBreakParagraph());
                     index++;
                     break;
                 case ColumnBreakBlock:
-                    container.AppendChild(CreateColumnBreakParagraph());
+                    currentContainer.AppendChild(CreateColumnBreakParagraph());
                     index++;
                     break;
                 default:
@@ -1203,7 +1237,7 @@ public sealed class DocxExporter
         }
 
         if (!string.IsNullOrWhiteSpace(properties.Lock)
-            && Enum.TryParse<LockingValues>(properties.Lock, true, out var lockValue))
+            && TryParseLockingValue(properties.Lock, out var lockValue))
         {
             props.AppendChild(new DocumentFormat.OpenXml.Wordprocessing.Lock { Val = lockValue });
         }
@@ -1244,6 +1278,40 @@ public sealed class DocxExporter
         }
 
         return props;
+    }
+
+    private static readonly Dictionary<string, LockingValues> LockingValueMap = BuildLockingValueMap();
+
+    private static Dictionary<string, LockingValues> BuildLockingValueMap()
+    {
+        var map = new Dictionary<string, LockingValues>(StringComparer.OrdinalIgnoreCase);
+        AddLockValue(map, LockingValues.SdtLocked, nameof(LockingValues.SdtLocked));
+        AddLockValue(map, LockingValues.ContentLocked, nameof(LockingValues.ContentLocked));
+        AddLockValue(map, LockingValues.Unlocked, nameof(LockingValues.Unlocked));
+        AddLockValue(map, LockingValues.SdtContentLocked, nameof(LockingValues.SdtContentLocked));
+        return map;
+    }
+
+    private static void AddLockValue(Dictionary<string, LockingValues> map, LockingValues value, string name)
+    {
+        var key = ((IEnumValue)value).Value;
+        if (!string.IsNullOrWhiteSpace(key))
+        {
+            map[key] = value;
+        }
+
+        map[name] = value;
+    }
+
+    private static bool TryParseLockingValue(string value, out LockingValues result)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            result = default;
+            return false;
+        }
+
+        return LockingValueMap.TryGetValue(value.Trim(), out result);
     }
 
     private static void PopulateFootnotes(FootnotesPart footnotesPart, VibeDocument document, NumberingContext numberingContext, DocumentFonts fonts)
@@ -1554,6 +1622,19 @@ public sealed class DocxExporter
         HyperlinkWriter hyperlinkWriter,
         DocumentFonts fonts)
     {
+        AppendInlineSequence(container, inlines, numberingContext, imageWriter, chartWriter, hyperlinkWriter, fonts, null);
+    }
+
+    private static void AppendInlineSequence(
+        OpenXmlCompositeElement container,
+        IReadOnlyList<Inline> inlines,
+        NumberingContext numberingContext,
+        ImageWriter imageWriter,
+        ChartWriter chartWriter,
+        HyperlinkWriter hyperlinkWriter,
+        DocumentFonts fonts,
+        RevisionKind? revisionKind)
+    {
         var index = 0;
         while (index < inlines.Count)
         {
@@ -1581,6 +1662,14 @@ public sealed class DocxExporter
                     continue;
                 case CommentRangeEndInline commentEnd:
                     container.AppendChild(new CommentRangeEnd { Id = commentEnd.Id.ToString(System.Globalization.CultureInfo.InvariantCulture) });
+                    index++;
+                    continue;
+                case RevisionRangeStartInline rangeStart:
+                    container.AppendChild(BuildMoveRangeStart(rangeStart.Revision));
+                    index++;
+                    continue;
+                case RevisionRangeEndInline rangeEnd:
+                    container.AppendChild(BuildMoveRangeEnd(rangeEnd.Kind, rangeEnd.Id));
                     index++;
                     continue;
                 case FieldStartInline fieldStart:
@@ -1629,9 +1718,44 @@ public sealed class DocxExporter
                     container.AppendChild(BuildSdtRun(controlStart.Properties, contentInlines, numberingContext, imageWriter, chartWriter, hyperlinkWriter, fonts));
                     continue;
                 }
+                case RevisionStartInline revisionStart:
+                {
+                    var revisionInlines = new List<Inline>();
+                    index++;
+                    var depth = 0;
+                    while (index < inlines.Count)
+                    {
+                        if (inlines[index] is RevisionStartInline nestedStart
+                            && RevisionMatches(revisionStart.Revision, nestedStart.Revision))
+                        {
+                            depth++;
+                        }
+
+                        if (inlines[index] is RevisionEndInline revisionEnd
+                            && RevisionMatches(revisionStart.Revision, revisionEnd))
+                        {
+                            if (depth == 0)
+                            {
+                                index++;
+                                break;
+                            }
+
+                            depth--;
+                        }
+
+                        revisionInlines.Add(inlines[index]);
+                        index++;
+                    }
+
+                    var revisionElement = BuildRunRevisionElement(revisionStart.Revision);
+                    AppendInlineSequence(revisionElement, revisionInlines, numberingContext, imageWriter, chartWriter, hyperlinkWriter, fonts, revisionStart.Revision.Kind);
+                    container.AppendChild(revisionElement);
+                    continue;
+                }
                 case FieldSeparatorInline:
                 case FieldEndInline:
                 case ContentControlEndInline:
+                case RevisionEndInline:
                     index++;
                     continue;
             }
@@ -1648,6 +1772,10 @@ public sealed class DocxExporter
                     or CommentRangeEndInline
                     or ContentControlStartInline
                     or ContentControlEndInline
+                    or RevisionStartInline
+                    or RevisionEndInline
+                    or RevisionRangeStartInline
+                    or RevisionRangeEndInline
                     or FieldStartInline
                     or FieldSeparatorInline
                     or FieldEndInline)
@@ -1667,12 +1795,12 @@ public sealed class DocxExporter
             if (link is not null && !link.IsEmpty)
             {
                 var hyperlink = BuildHyperlinkElement(link, hyperlinkWriter);
-                AppendInlineRuns(hyperlink, group, numberingContext, imageWriter, chartWriter, hyperlinkWriter, fonts);
+                AppendInlineRuns(hyperlink, group, numberingContext, imageWriter, chartWriter, hyperlinkWriter, fonts, revisionKind);
                 container.AppendChild(hyperlink);
             }
             else
             {
-                AppendInlineRuns(container, group, numberingContext, imageWriter, chartWriter, hyperlinkWriter, fonts);
+                AppendInlineRuns(container, group, numberingContext, imageWriter, chartWriter, hyperlinkWriter, fonts, revisionKind);
             }
         }
     }
@@ -1686,12 +1814,25 @@ public sealed class DocxExporter
         HyperlinkWriter hyperlinkWriter,
         DocumentFonts fonts)
     {
+        AppendInlineRuns(container, inlines, numberingContext, imageWriter, chartWriter, hyperlinkWriter, fonts, null);
+    }
+
+    private static void AppendInlineRuns(
+        OpenXmlCompositeElement container,
+        IReadOnlyList<Inline> inlines,
+        NumberingContext numberingContext,
+        ImageWriter imageWriter,
+        ChartWriter chartWriter,
+        HyperlinkWriter hyperlinkWriter,
+        DocumentFonts fonts,
+        RevisionKind? revisionKind)
+    {
         foreach (var inline in inlines)
         {
             switch (inline)
             {
                 case RunInline runInline:
-                    AppendTextRuns(container, runInline.GetText(), runInline.Style, runInline.StyleId, fonts);
+                    AppendTextRuns(container, runInline.GetText(), runInline.Style, runInline.StyleId, fonts, revisionKind);
                     break;
                 case ImageInline imageInline:
                 {
@@ -1809,6 +1950,17 @@ public sealed class DocxExporter
 
     private static void AppendTextRuns(OpenXmlCompositeElement container, string text, TextStyleProperties? style, string? styleId, DocumentFonts fonts)
     {
+        AppendTextRuns(container, text, style, styleId, fonts, null);
+    }
+
+    private static void AppendTextRuns(
+        OpenXmlCompositeElement container,
+        string text,
+        TextStyleProperties? style,
+        string? styleId,
+        DocumentFonts fonts,
+        RevisionKind? revisionKind)
+    {
         var run = new Run();
         var props = BuildRunProperties(style, styleId, fonts);
         if (props is not null)
@@ -1816,6 +1968,7 @@ public sealed class DocxExporter
             run.RunProperties = props;
         }
 
+        var useDeletedText = ShouldUseDeletedText(revisionKind);
         var span = text.AsSpan();
         var lineStart = 0;
         for (var i = 0; i <= span.Length; i++)
@@ -1837,10 +1990,17 @@ public sealed class DocxExporter
                 var segmentLength = j - segmentStart;
                 if (segmentLength > 0)
                 {
-                    run.AppendChild(new Text(new string(lineSpan.Slice(segmentStart, segmentLength)))
+                    var segmentText = new string(lineSpan.Slice(segmentStart, segmentLength));
+                    OpenXmlElement textElement = useDeletedText ? new DeletedText(segmentText) : new Text(segmentText);
+                    if (textElement is Text textNode)
                     {
-                        Space = SpaceProcessingModeValues.Preserve
-                    });
+                        textNode.Space = SpaceProcessingModeValues.Preserve;
+                    }
+                    else if (textElement is DeletedText deletedNode)
+                    {
+                        deletedNode.Space = SpaceProcessingModeValues.Preserve;
+                    }
+                    run.AppendChild(textElement);
                 }
 
                 if (j < lineSpan.Length)
@@ -1860,6 +2020,180 @@ public sealed class DocxExporter
         }
 
         container.AppendChild(run);
+    }
+
+    private static bool ShouldUseDeletedText(RevisionKind? revisionKind)
+    {
+        return revisionKind is RevisionKind.Delete or RevisionKind.MoveFrom;
+    }
+
+    private static bool RevisionMatches(RevisionInfo start, RevisionInfo candidate)
+    {
+        if (start.Kind != candidate.Kind)
+        {
+            return false;
+        }
+
+        if (start.Id.HasValue && candidate.Id.HasValue)
+        {
+            return start.Id.Value == candidate.Id.Value;
+        }
+
+        return true;
+    }
+
+    private static bool RevisionMatches(RevisionInfo start, RevisionEndInline end)
+    {
+        if (start.Kind != end.Kind)
+        {
+            return false;
+        }
+
+        if (start.Id.HasValue && end.Id.HasValue)
+        {
+            return start.Id.Value == end.Id.Value;
+        }
+
+        return true;
+    }
+
+    private static RunTrackChangeType BuildRunRevisionElement(RevisionInfo revision)
+    {
+        RunTrackChangeType element = revision.Kind switch
+        {
+            RevisionKind.Insert => new InsertedRun(),
+            RevisionKind.Delete => new DeletedRun(),
+            RevisionKind.MoveFrom => new MoveFromRun(),
+            RevisionKind.MoveTo => new MoveToRun(),
+            _ => new InsertedRun()
+        };
+
+        ApplyRevisionMetadata(element, revision);
+        return element;
+    }
+
+    private static OpenXmlCompositeElement BuildBlockRevisionElement(RevisionInfo revision)
+    {
+        var localName = revision.Kind switch
+        {
+            RevisionKind.Insert => "ins",
+            RevisionKind.Delete => "del",
+            RevisionKind.MoveFrom => "moveFrom",
+            RevisionKind.MoveTo => "moveTo",
+            _ => "ins"
+        };
+
+        var element = new OpenXmlUnknownElement("w", localName, WordprocessingNamespace);
+        ApplyRevisionAttributes(element, revision, revision.Kind is RevisionKind.MoveFrom or RevisionKind.MoveTo);
+        return element;
+    }
+
+    private static OpenXmlElement BuildMoveRangeStart(RevisionInfo revision)
+    {
+        MoveBookmarkType element = revision.Kind == RevisionKind.MoveTo
+            ? new MoveToRangeStart()
+            : new MoveFromRangeStart();
+
+        ApplyRevisionMetadata(element, revision);
+        return element;
+    }
+
+    private static OpenXmlElement BuildMoveRangeEnd(RevisionKind kind, int? id)
+    {
+        MarkupRangeType element = kind == RevisionKind.MoveTo
+            ? new MoveToRangeEnd()
+            : new MoveFromRangeEnd();
+
+        if (id.HasValue)
+        {
+            element.Id = id.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        }
+
+        return element;
+    }
+
+    private static void ApplyRevisionMetadata(TrackChangeType element, RevisionInfo revision)
+    {
+        if (!string.IsNullOrWhiteSpace(revision.Author))
+        {
+            element.Author = revision.Author;
+        }
+
+        if (revision.Date.HasValue)
+        {
+            element.Date = revision.Date.Value.UtcDateTime;
+        }
+
+        if (revision.Id.HasValue)
+        {
+            element.Id = revision.Id.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        }
+    }
+
+    private static void ApplyRevisionAttributes(OpenXmlElement element, RevisionInfo revision, bool includeName)
+    {
+        if (!string.IsNullOrWhiteSpace(revision.Author))
+        {
+            element.SetAttribute(new OpenXmlAttribute("w", "author", WordprocessingNamespace, revision.Author));
+        }
+
+        if (revision.Date.HasValue)
+        {
+            var dateValue = System.Xml.XmlConvert.ToString(revision.Date.Value.UtcDateTime, System.Xml.XmlDateTimeSerializationMode.Utc);
+            element.SetAttribute(new OpenXmlAttribute("w", "date", WordprocessingNamespace, dateValue));
+        }
+
+        if (revision.Id.HasValue)
+        {
+            var idValue = revision.Id.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            element.SetAttribute(new OpenXmlAttribute("w", "id", WordprocessingNamespace, idValue));
+        }
+
+        if (includeName && !string.IsNullOrWhiteSpace(revision.Name))
+        {
+            element.SetAttribute(new OpenXmlAttribute("w", "name", WordprocessingNamespace, revision.Name));
+        }
+    }
+
+    private static void ApplyRevisionMetadata(RunTrackChangeType element, RevisionInfo revision)
+    {
+        if (!string.IsNullOrWhiteSpace(revision.Author))
+        {
+            element.Author = revision.Author;
+        }
+
+        if (revision.Date.HasValue)
+        {
+            element.Date = revision.Date.Value.UtcDateTime;
+        }
+
+        if (revision.Id.HasValue)
+        {
+            element.Id = revision.Id.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        }
+    }
+
+    private static void ApplyRevisionMetadata(MoveBookmarkType element, RevisionInfo revision)
+    {
+        if (!string.IsNullOrWhiteSpace(revision.Author))
+        {
+            element.Author = revision.Author;
+        }
+
+        if (revision.Date.HasValue)
+        {
+            element.Date = revision.Date.Value.UtcDateTime;
+        }
+
+        if (!string.IsNullOrWhiteSpace(revision.Name))
+        {
+            element.Name = revision.Name;
+        }
+
+        if (revision.Id.HasValue)
+        {
+            element.Id = revision.Id.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        }
     }
 
     private static M.OfficeMath? BuildOfficeMath(EquationInline equation)
@@ -3037,25 +3371,7 @@ public sealed class DocxExporter
                 runFonts.ComplexScript = resolved.Complex;
             }
 
-            if (string.IsNullOrWhiteSpace(runFonts.Ascii) && ascii.HasValue)
-            {
-                runFonts.AsciiTheme = MapThemeFontValue(ascii.Value);
-            }
-
-            if (string.IsNullOrWhiteSpace(runFonts.HighAnsi) && highAnsi.HasValue)
-            {
-                runFonts.HighAnsiTheme = MapThemeFontValue(highAnsi.Value);
-            }
-
-            if (string.IsNullOrWhiteSpace(runFonts.EastAsia) && eastAsia.HasValue)
-            {
-                runFonts.EastAsiaTheme = MapThemeFontValue(eastAsia.Value);
-            }
-
-            if (string.IsNullOrWhiteSpace(runFonts.ComplexScript) && complexScript.HasValue)
-            {
-                runFonts.ComplexScriptTheme = MapThemeFontValue(complexScript.Value);
-            }
+            ApplyThemeFonts(runFonts, ascii, highAnsi, eastAsia, complexScript);
         }
 
         return runFonts;
