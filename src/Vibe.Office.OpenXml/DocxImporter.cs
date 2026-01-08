@@ -22,6 +22,8 @@ namespace Vibe.Office.OpenXml;
 public sealed class DocxImporter
 {
     private const string RelationshipNamespace = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+    private const string WordprocessingNamespace = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+    private const string Wordprocessing16DuNamespace = "http://schemas.microsoft.com/office/word/2023/wordml/word16du";
 
     public VibeDocument Load(string filePath)
     {
@@ -55,50 +57,81 @@ public sealed class DocxImporter
         LoadNotesAndComments(mainPart, document, listResolver, styleResolver);
         var currentSectionIndex = 0;
         var currentSection = document.GetSection(currentSectionIndex);
-        foreach (var element in body.Elements())
+
+        void ProcessParagraph(Paragraph paragraph)
         {
+            foreach (var block in ParseParagraphBlocks(paragraph, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, document.Revisions, true))
+            {
+                document.Blocks.Add(block);
+            }
+
+            var sectionProps = paragraph.ParagraphProperties?.SectionProperties;
+            if (sectionProps is null)
+            {
+                return;
+            }
+
+            ApplySectionProperties(currentSection.Properties, ParseSectionProperties(sectionProps));
+            LoadSectionHeaderFooter(mainPart, sectionProps, currentSection, document, listResolver, styleResolver);
+
+            var breakType = ParseSectionBreakType(sectionProps);
+            var nextSection = new DocumentSection(
+                document.SectionProperties.Clone(),
+                new HeaderFooter(),
+                new HeaderFooter(),
+                new HeaderFooter(),
+                new HeaderFooter(),
+                new HeaderFooter(),
+                new HeaderFooter());
+            document.Sections.Add(nextSection);
+            currentSectionIndex = document.Sections.Count - 1;
+            document.Blocks.Add(new SectionBreakBlock
+            {
+                BreakType = breakType,
+                SectionIndex = currentSectionIndex
+            });
+            currentSection = nextSection;
+        }
+
+        void ProcessRevisionBlocks(OpenXmlElement element, RevisionKind kind)
+        {
+            var revision = ResolveRevision(element, kind, document.Revisions);
+            document.Blocks.Add(new RevisionStartBlock(revision));
+            foreach (var child in element.ChildElements)
+            {
+                ProcessBlockElement(child);
+            }
+            document.Blocks.Add(new RevisionEndBlock(kind, revision.Id));
+        }
+
+        void ProcessBlockElement(OpenXmlElement element)
+        {
+            if (TryGetRevisionKind(element, out var revisionKind))
+            {
+                ProcessRevisionBlocks(element, revisionKind);
+                return;
+            }
+
             switch (element)
             {
                 case Paragraph paragraph:
-                    foreach (var block in ParseParagraphBlocks(paragraph, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, true))
-                    {
-                        document.Blocks.Add(block);
-                    }
-                    var sectionProps = paragraph.ParagraphProperties?.SectionProperties;
-                    if (sectionProps is not null)
-                    {
-                        ApplySectionProperties(currentSection.Properties, ParseSectionProperties(sectionProps));
-                        LoadSectionHeaderFooter(mainPart, sectionProps, currentSection, document, listResolver, styleResolver);
-
-                        var breakType = ParseSectionBreakType(sectionProps);
-                        var nextSection = new DocumentSection(
-                            document.SectionProperties.Clone(),
-                            new HeaderFooter(),
-                            new HeaderFooter(),
-                            new HeaderFooter(),
-                            new HeaderFooter(),
-                            new HeaderFooter(),
-                            new HeaderFooter());
-                        document.Sections.Add(nextSection);
-                        currentSectionIndex = document.Sections.Count - 1;
-                        document.Blocks.Add(new SectionBreakBlock
-                        {
-                            BreakType = breakType,
-                            SectionIndex = currentSectionIndex
-                        });
-                        currentSection = nextSection;
-                    }
+                    ProcessParagraph(paragraph);
                     break;
                 case Table table:
-                    document.Blocks.Add(ParseTable(table, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver));
+                    document.Blocks.Add(ParseTable(table, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, document.Revisions));
                     break;
                 case SdtBlock sdtBlock:
-                    foreach (var block in ParseSdtBlock(sdtBlock, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver))
+                    foreach (var block in ParseSdtBlock(sdtBlock, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, document.Revisions))
                     {
                         document.Blocks.Add(block);
                     }
                     break;
             }
+        }
+
+        foreach (var element in body.Elements())
+        {
+            ProcessBlockElement(element);
         }
 
         var bodySectionProps = body.Elements<DocumentFormat.OpenXml.Wordprocessing.SectionProperties>().LastOrDefault();
@@ -116,9 +149,16 @@ public sealed class DocxImporter
         return document;
     }
 
-    private static ParagraphBlock ParseParagraph(Paragraph paragraph, ListResolver listResolver, ImageResolver imageResolver, ChartResolver chartResolver, HyperlinkResolver hyperlinkResolver, StyleResolver styleResolver)
+    private static ParagraphBlock ParseParagraph(
+        Paragraph paragraph,
+        ListResolver listResolver,
+        ImageResolver imageResolver,
+        ChartResolver chartResolver,
+        HyperlinkResolver hyperlinkResolver,
+        StyleResolver styleResolver,
+        DocumentRevisions revisions)
     {
-        var blocks = ParseParagraphBlocks(paragraph, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, false);
+        var blocks = ParseParagraphBlocks(paragraph, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, revisions, false);
         foreach (var block in blocks)
         {
             if (block is ParagraphBlock paragraphBlock)
@@ -130,7 +170,14 @@ public sealed class DocxImporter
         return new ParagraphBlock();
     }
 
-    private static TableBlock ParseTable(Table table, ListResolver listResolver, ImageResolver imageResolver, ChartResolver chartResolver, HyperlinkResolver hyperlinkResolver, StyleResolver styleResolver)
+    private static TableBlock ParseTable(
+        Table table,
+        ListResolver listResolver,
+        ImageResolver imageResolver,
+        ChartResolver chartResolver,
+        HyperlinkResolver hyperlinkResolver,
+        StyleResolver styleResolver,
+        DocumentRevisions revisions)
     {
         var tableBlock = new TableBlock();
         var tableProps = table.Elements<DocumentFormat.OpenXml.Wordprocessing.TableProperties>().FirstOrDefault();
@@ -149,7 +196,7 @@ public sealed class DocxImporter
             ApplyTableCellProperties(cell, tableCell.Properties);
             foreach (var paragraph in cell.Elements<Paragraph>())
             {
-                tableCell.Paragraphs.Add(ParseParagraph(paragraph, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver));
+                tableCell.Paragraphs.Add(ParseParagraph(paragraph, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, revisions));
             }
 
             if (tableCell.Paragraphs.Count == 0)
@@ -226,7 +273,7 @@ public sealed class DocxImporter
             return;
         }
 
-        static void PopulateHeader(HeaderFooter target, HeaderPart? headerPart, ListResolver listResolver, StyleResolver styleResolver)
+        static void PopulateHeader(HeaderFooter target, HeaderPart? headerPart, ListResolver listResolver, StyleResolver styleResolver, DocumentRevisions revisions)
         {
             if (headerPart?.Header is null)
             {
@@ -234,14 +281,14 @@ public sealed class DocxImporter
             }
 
             target.Blocks.Clear();
-            var headerBlocks = ParseHeaderFooter(headerPart.Header, listResolver, new ImageResolver(headerPart), new ChartResolver(headerPart), new HyperlinkResolver(headerPart), styleResolver);
+            var headerBlocks = ParseHeaderFooter(headerPart.Header, listResolver, new ImageResolver(headerPart), new ChartResolver(headerPart), new HyperlinkResolver(headerPart), styleResolver, revisions);
             foreach (var block in headerBlocks)
             {
                 target.Blocks.Add(block);
             }
         }
 
-        static void PopulateFooter(HeaderFooter target, FooterPart? footerPart, ListResolver listResolver, StyleResolver styleResolver)
+        static void PopulateFooter(HeaderFooter target, FooterPart? footerPart, ListResolver listResolver, StyleResolver styleResolver, DocumentRevisions revisions)
         {
             if (footerPart?.Footer is null)
             {
@@ -249,7 +296,7 @@ public sealed class DocxImporter
             }
 
             target.Blocks.Clear();
-            var footerBlocks = ParseHeaderFooter(footerPart.Footer, listResolver, new ImageResolver(footerPart), new ChartResolver(footerPart), new HyperlinkResolver(footerPart), styleResolver);
+            var footerBlocks = ParseHeaderFooter(footerPart.Footer, listResolver, new ImageResolver(footerPart), new ChartResolver(footerPart), new HyperlinkResolver(footerPart), styleResolver, revisions);
             foreach (var block in footerBlocks)
             {
                 target.Blocks.Add(block);
@@ -296,12 +343,12 @@ public sealed class DocxImporter
             document.EvenAndOddHeaders = true;
         }
 
-        PopulateHeader(section.Header, ResolveHeaderPart(mainPart, sectionProps, HeaderFooterValues.Default, true), listResolver, styleResolver);
-        PopulateFooter(section.Footer, ResolveFooterPart(mainPart, sectionProps, HeaderFooterValues.Default, true), listResolver, styleResolver);
-        PopulateHeader(section.FirstHeader, ResolveHeaderPart(mainPart, sectionProps, HeaderFooterValues.First, false), listResolver, styleResolver);
-        PopulateFooter(section.FirstFooter, ResolveFooterPart(mainPart, sectionProps, HeaderFooterValues.First, false), listResolver, styleResolver);
-        PopulateHeader(section.EvenHeader, ResolveHeaderPart(mainPart, sectionProps, HeaderFooterValues.Even, false), listResolver, styleResolver);
-        PopulateFooter(section.EvenFooter, ResolveFooterPart(mainPart, sectionProps, HeaderFooterValues.Even, false), listResolver, styleResolver);
+        PopulateHeader(section.Header, ResolveHeaderPart(mainPart, sectionProps, HeaderFooterValues.Default, true), listResolver, styleResolver, document.Revisions);
+        PopulateFooter(section.Footer, ResolveFooterPart(mainPart, sectionProps, HeaderFooterValues.Default, true), listResolver, styleResolver, document.Revisions);
+        PopulateHeader(section.FirstHeader, ResolveHeaderPart(mainPart, sectionProps, HeaderFooterValues.First, false), listResolver, styleResolver, document.Revisions);
+        PopulateFooter(section.FirstFooter, ResolveFooterPart(mainPart, sectionProps, HeaderFooterValues.First, false), listResolver, styleResolver, document.Revisions);
+        PopulateHeader(section.EvenHeader, ResolveHeaderPart(mainPart, sectionProps, HeaderFooterValues.Even, false), listResolver, styleResolver, document.Revisions);
+        PopulateFooter(section.EvenFooter, ResolveFooterPart(mainPart, sectionProps, HeaderFooterValues.Even, false), listResolver, styleResolver, document.Revisions);
     }
 
     private static void LoadDocumentSettings(MainDocumentPart? mainPart, VibeDocument document)
@@ -515,7 +562,7 @@ public sealed class DocxImporter
                 }
 
                 var definition = new FootnoteDefinition(id);
-                foreach (var block in ParseHeaderFooter(footnote, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver))
+                foreach (var block in ParseHeaderFooter(footnote, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, document.Revisions))
                 {
                     definition.Blocks.Add(block);
                 }
@@ -539,7 +586,7 @@ public sealed class DocxImporter
                 }
 
                 var definition = new EndnoteDefinition(id);
-                foreach (var block in ParseHeaderFooter(endnote, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver))
+                foreach (var block in ParseHeaderFooter(endnote, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, document.Revisions))
                 {
                     definition.Blocks.Add(block);
                 }
@@ -569,7 +616,7 @@ public sealed class DocxImporter
                     Date = comment.Date?.Value
                 };
 
-                foreach (var block in ParseHeaderFooter(comment, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver))
+                foreach (var block in ParseHeaderFooter(comment, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, document.Revisions))
                 {
                     definition.Blocks.Add(block);
                 }
@@ -579,23 +626,19 @@ public sealed class DocxImporter
         }
     }
 
-    private static List<Block> ParseHeaderFooter(OpenXmlCompositeElement root, ListResolver listResolver, ImageResolver imageResolver, ChartResolver chartResolver, HyperlinkResolver hyperlinkResolver, StyleResolver styleResolver)
+    private static List<Block> ParseHeaderFooter(
+        OpenXmlCompositeElement root,
+        ListResolver listResolver,
+        ImageResolver imageResolver,
+        ChartResolver chartResolver,
+        HyperlinkResolver hyperlinkResolver,
+        StyleResolver styleResolver,
+        DocumentRevisions revisions)
     {
         var blocks = new List<Block>();
         foreach (var element in root.Elements())
         {
-            switch (element)
-            {
-                case Paragraph paragraph:
-                    blocks.AddRange(ParseParagraphBlocks(paragraph, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, false));
-                    break;
-                case Table table:
-                    blocks.Add(ParseTable(table, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver));
-                    break;
-                case SdtBlock sdtBlock:
-                    blocks.AddRange(ParseSdtBlock(sdtBlock, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver));
-                    break;
-            }
+            AppendBlockElement(element, blocks, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, revisions);
         }
 
         return blocks;
@@ -607,7 +650,8 @@ public sealed class DocxImporter
         ImageResolver imageResolver,
         ChartResolver chartResolver,
         HyperlinkResolver hyperlinkResolver,
-        StyleResolver styleResolver)
+        StyleResolver styleResolver,
+        DocumentRevisions revisions)
     {
         var blocks = new List<Block>();
         var properties = ParseContentControlProperties(sdtBlock.SdtProperties);
@@ -618,18 +662,7 @@ public sealed class DocxImporter
         {
             foreach (var element in content.Elements())
             {
-                switch (element)
-                {
-                    case Paragraph paragraph:
-                        blocks.AddRange(ParseParagraphBlocks(paragraph, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, false));
-                        break;
-                    case Table table:
-                        blocks.Add(ParseTable(table, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver));
-                        break;
-                    case SdtBlock nestedBlock:
-                        blocks.AddRange(ParseSdtBlock(nestedBlock, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver));
-                        break;
-                }
+                AppendBlockElement(element, blocks, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, revisions);
             }
         }
 
@@ -655,7 +688,7 @@ public sealed class DocxImporter
         var lockValue = properties.GetFirstChild<DocumentFormat.OpenXml.Wordprocessing.Lock>()?.Val?.Value;
         if (lockValue is not null)
         {
-            result.Lock = lockValue.ToString();
+            result.Lock = ((IEnumValue)lockValue.Value).Value;
         }
 
         var placeholder = properties.GetFirstChild<SdtPlaceholder>()?.DocPartReference?.Val?.Value;
@@ -684,6 +717,109 @@ public sealed class DocxImporter
         return result;
     }
 
+    private static void AppendBlockElement(
+        OpenXmlElement element,
+        List<Block> blocks,
+        ListResolver listResolver,
+        ImageResolver imageResolver,
+        ChartResolver chartResolver,
+        HyperlinkResolver hyperlinkResolver,
+        StyleResolver styleResolver,
+        DocumentRevisions revisions)
+    {
+        if (TryGetRevisionKind(element, out var revisionKind))
+        {
+            AppendRevisionBlocks(element, revisionKind, blocks, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, revisions);
+            return;
+        }
+
+        switch (element)
+        {
+            case Paragraph paragraph:
+                blocks.AddRange(ParseParagraphBlocks(paragraph, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, revisions, false));
+                break;
+            case Table table:
+                blocks.Add(ParseTable(table, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, revisions));
+                break;
+            case SdtBlock sdtBlock:
+                blocks.AddRange(ParseSdtBlock(sdtBlock, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, revisions));
+                break;
+        }
+    }
+
+    private static void AppendRevisionBlocks(
+        OpenXmlElement element,
+        RevisionKind kind,
+        List<Block> blocks,
+        ListResolver listResolver,
+        ImageResolver imageResolver,
+        ChartResolver chartResolver,
+        HyperlinkResolver hyperlinkResolver,
+        StyleResolver styleResolver,
+        DocumentRevisions revisions)
+    {
+        var revision = ResolveRevision(element, kind, revisions);
+        blocks.Add(new RevisionStartBlock(revision));
+        foreach (var child in element.ChildElements)
+        {
+            AppendBlockElement(child, blocks, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, revisions);
+        }
+        blocks.Add(new RevisionEndBlock(kind, revision.Id));
+    }
+
+    private static bool TryGetRevisionKind(OpenXmlElement element, out RevisionKind kind)
+    {
+        switch (element)
+        {
+            case Inserted:
+                kind = RevisionKind.Insert;
+                return true;
+            case Deleted:
+                kind = RevisionKind.Delete;
+                return true;
+            case MoveFrom:
+                kind = RevisionKind.MoveFrom;
+                return true;
+            case MoveTo:
+                kind = RevisionKind.MoveTo;
+                return true;
+        }
+
+        if (!string.Equals(element.NamespaceUri, WordprocessingNamespace, StringComparison.OrdinalIgnoreCase))
+        {
+            kind = default;
+            return false;
+        }
+
+        var localName = element.LocalName;
+        if (string.Equals(localName, "ins", StringComparison.OrdinalIgnoreCase))
+        {
+            kind = RevisionKind.Insert;
+            return true;
+        }
+
+        if (string.Equals(localName, "del", StringComparison.OrdinalIgnoreCase))
+        {
+            kind = RevisionKind.Delete;
+            return true;
+        }
+
+        if (string.Equals(localName, "moveFrom", StringComparison.OrdinalIgnoreCase))
+        {
+            kind = RevisionKind.MoveFrom;
+            return true;
+        }
+
+        if (string.Equals(localName, "moveTo", StringComparison.OrdinalIgnoreCase))
+        {
+            kind = RevisionKind.MoveTo;
+            return true;
+        }
+
+        kind = default;
+        return false;
+    }
+
     private static List<Block> ParseParagraphBlocks(
         Paragraph paragraph,
         ListResolver listResolver,
@@ -691,6 +827,7 @@ public sealed class DocxImporter
         ChartResolver chartResolver,
         HyperlinkResolver hyperlinkResolver,
         StyleResolver styleResolver,
+        DocumentRevisions revisions,
         bool splitOnPageBreaks)
     {
         var blocks = new List<Block>();
@@ -802,6 +939,29 @@ public sealed class DocxImporter
             current.Inlines.Add(new FieldEndInline());
         }
 
+        void ProcessRevisionRun(OpenXmlCompositeElement element, RevisionKind kind, HyperlinkInfo? hyperlink)
+        {
+            var revision = ResolveRevision(element, kind, revisions);
+            AddInline(new RevisionStartInline(revision), false, null);
+            foreach (var child in element.Elements())
+            {
+                ProcessElement(child, hyperlink);
+            }
+            AddInline(new RevisionEndInline(kind, revision.Id), false, null);
+        }
+
+        void AddRevisionRangeStart(OpenXmlElement element, RevisionKind kind)
+        {
+            var revision = ResolveRevision(element, kind, revisions);
+            AddInline(new RevisionRangeStartInline(revision), false, null);
+        }
+
+        void AddRevisionRangeEnd(OpenXmlElement element, RevisionKind kind)
+        {
+            var revision = ResolveRevision(element, kind, revisions);
+            AddInline(new RevisionRangeEndInline(kind, revision.Id), false, null);
+        }
+
         bool IsStandaloneBreak(Run run, OpenXmlElement breakNode)
         {
             foreach (var child in run.ChildElements)
@@ -861,6 +1021,16 @@ public sealed class DocxImporter
                         }
 
                         break;
+                    case DeletedFieldCode deletedFieldCode:
+                        if (fieldStack.Count > 0 && !fieldStack.Peek().InResult)
+                        {
+                            fieldStack.Peek().Instruction.Append(deletedFieldCode.Text);
+                        }
+                        else if (!suppressResultText)
+                        {
+                            buffer.Append(deletedFieldCode.Text);
+                        }
+                        break;
                     case Text text:
                         if (fieldStack.Count > 0 && !fieldStack.Peek().InResult)
                         {
@@ -869,6 +1039,16 @@ public sealed class DocxImporter
                         else if (!suppressResultText)
                         {
                             buffer.Append(text.Text);
+                        }
+                        break;
+                    case DeletedText deletedText:
+                        if (fieldStack.Count > 0 && !fieldStack.Peek().InResult)
+                        {
+                            fieldStack.Peek().Instruction.Append(deletedText.Text);
+                        }
+                        else if (!suppressResultText)
+                        {
+                            buffer.Append(deletedText.Text);
                         }
                         break;
                     case OpenXmlElement element when element.LocalName == "sym":
@@ -1026,7 +1206,7 @@ public sealed class DocxImporter
                             var anchor = drawing.Descendants<DW.Anchor>().FirstOrDefault();
                             if (anchor is not null)
                             {
-                                var inline = TryCreateInlineObject(drawing, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver);
+                                var inline = TryCreateInlineObject(drawing, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, revisions);
                                 if (inline is not null)
                                 {
                                     AddFloatingObject(inline, anchor, hyperlink, builder.Length);
@@ -1034,7 +1214,7 @@ public sealed class DocxImporter
                             }
                             else
                             {
-                                var inline = TryCreateInlineObject(drawing, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver);
+                                var inline = TryCreateInlineObject(drawing, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, revisions);
                                 if (inline is not null)
                                 {
                                     AddInline(inline, true, hyperlink);
@@ -1047,7 +1227,7 @@ public sealed class DocxImporter
                         if (!suppressResultText)
                         {
                             FlushRunBuffer(buffer, style, runStyleId, current, builder, hyperlink);
-                            var inline = TryCreateInlineObjectFromVml(element, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver);
+                            var inline = TryCreateInlineObjectFromVml(element, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, revisions);
                             if (inline is not null)
                             {
                                 var floating = new FloatingObject(inline);
@@ -1109,6 +1289,18 @@ public sealed class DocxImporter
                 case SimpleField field:
                     ProcessSimpleField(field, hyperlink);
                     break;
+                case InsertedRun insertedRun:
+                    ProcessRevisionRun(insertedRun, RevisionKind.Insert, hyperlink);
+                    break;
+                case DeletedRun deletedRun:
+                    ProcessRevisionRun(deletedRun, RevisionKind.Delete, hyperlink);
+                    break;
+                case MoveFromRun moveFromRun:
+                    ProcessRevisionRun(moveFromRun, RevisionKind.MoveFrom, hyperlink);
+                    break;
+                case MoveToRun moveToRun:
+                    ProcessRevisionRun(moveToRun, RevisionKind.MoveTo, hyperlink);
+                    break;
                 case Hyperlink link:
                 {
                     var linkInfo = hyperlinkResolver.Resolve(link);
@@ -1166,6 +1358,18 @@ public sealed class DocxImporter
                     AddInline(new BookmarkEndInline(id), false, hyperlink);
                     break;
                 }
+                case MoveFromRangeStart moveFromRangeStart:
+                    AddRevisionRangeStart(moveFromRangeStart, RevisionKind.MoveFrom);
+                    break;
+                case MoveFromRangeEnd moveFromRangeEnd:
+                    AddRevisionRangeEnd(moveFromRangeEnd, RevisionKind.MoveFrom);
+                    break;
+                case MoveToRangeStart moveToRangeStart:
+                    AddRevisionRangeStart(moveToRangeStart, RevisionKind.MoveTo);
+                    break;
+                case MoveToRangeEnd moveToRangeEnd:
+                    AddRevisionRangeEnd(moveToRangeEnd, RevisionKind.MoveTo);
+                    break;
                 case CommentRangeStart commentRangeStart:
                 {
                     var idText = commentRangeStart.Id?.Value;
@@ -4077,13 +4281,52 @@ public sealed class DocxImporter
         return null;
     }
 
+    private static RevisionInfo ResolveRevision(OpenXmlElement element, RevisionKind kind, DocumentRevisions revisions)
+    {
+        var info = new RevisionInfo
+        {
+            Kind = kind,
+            Author = GetAttributeValue(element, "author", WordprocessingNamespace),
+            Name = GetAttributeValue(element, "name", WordprocessingNamespace)
+        };
+
+        var idText = GetAttributeValue(element, "id", WordprocessingNamespace);
+        if (idText is not null && int.TryParse(idText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id))
+        {
+            info.Id = id;
+        }
+
+        var dateText = GetAttributeValue(element, "date", WordprocessingNamespace)
+                       ?? GetAttributeValue(element, "dateUtc", Wordprocessing16DuNamespace);
+        info.Date = ParseRevisionDate(dateText);
+
+        return revisions.AddOrUpdate(info);
+    }
+
+    private static DateTimeOffset? ParseRevisionDate(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        if (DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture,
+                DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var parsed))
+        {
+            return parsed;
+        }
+
+        return null;
+    }
+
     private static Inline? TryCreateInlineObject(
         Drawing drawing,
         ListResolver listResolver,
         ImageResolver imageResolver,
         ChartResolver chartResolver,
         HyperlinkResolver hyperlinkResolver,
-        StyleResolver styleResolver)
+        StyleResolver styleResolver,
+        DocumentRevisions revisions)
     {
         var graphicData = drawing.Descendants<A.GraphicData>().FirstOrDefault();
         var uri = graphicData?.Uri?.Value ?? string.Empty;
@@ -4102,7 +4345,7 @@ public sealed class DocxImporter
                        ?? drawing.Descendants<Wps.WordprocessingShape>().FirstOrDefault();
             if (shape is not null)
             {
-                var inline = TryCreateWordprocessingShape(drawing, shape, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver);
+                var inline = TryCreateWordprocessingShape(drawing, shape, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, revisions);
                 if (inline is not null)
                 {
                     return inline;
@@ -4119,7 +4362,8 @@ public sealed class DocxImporter
         ImageResolver imageResolver,
         ChartResolver chartResolver,
         HyperlinkResolver hyperlinkResolver,
-        StyleResolver styleResolver)
+        StyleResolver styleResolver,
+        DocumentRevisions revisions)
     {
         var hasImageData = element.Descendants()
             .Any(node => node.LocalName.Equals("imagedata", StringComparison.OrdinalIgnoreCase));
@@ -4169,7 +4413,7 @@ public sealed class DocxImporter
         var textBoxContent = element.Descendants<TextBoxContent>().FirstOrDefault();
         if (textBoxContent is not null)
         {
-            var blocks = ParseTextBoxContent(textBoxContent, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver);
+            var blocks = ParseTextBoxContent(textBoxContent, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, revisions);
             var textBox = new ShapeTextBox();
             textBox.Blocks.AddRange(blocks);
             shapeInline.TextBox = textBox;
@@ -4561,7 +4805,8 @@ public sealed class DocxImporter
         ImageResolver imageResolver,
         ChartResolver chartResolver,
         HyperlinkResolver hyperlinkResolver,
-        StyleResolver styleResolver)
+        StyleResolver styleResolver,
+        DocumentRevisions revisions)
     {
         var extent = drawing.Descendants<DW.Extent>().FirstOrDefault();
         var width = extent?.Cx?.Value is long cx ? EmuToDip(cx) : 0f;
@@ -4614,7 +4859,7 @@ public sealed class DocxImporter
             ApplyTextBodyProperties(bodyPr, textBox.Properties);
             if (textBoxContent is not null)
             {
-                var blocks = ParseTextBoxContent(textBoxContent, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver);
+                var blocks = ParseTextBoxContent(textBoxContent, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, revisions);
                 textBox.Blocks.AddRange(blocks);
             }
 
@@ -4919,23 +5164,13 @@ public sealed class DocxImporter
         ImageResolver imageResolver,
         ChartResolver chartResolver,
         HyperlinkResolver hyperlinkResolver,
-        StyleResolver styleResolver)
+        StyleResolver styleResolver,
+        DocumentRevisions revisions)
     {
         var blocks = new List<Block>();
         foreach (var element in content.Elements())
         {
-            switch (element)
-            {
-                case Paragraph paragraph:
-                    blocks.AddRange(ParseParagraphBlocks(paragraph, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, false));
-                    break;
-                case Table table:
-                    blocks.Add(ParseTable(table, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver));
-                    break;
-                case SdtBlock sdtBlock:
-                    blocks.AddRange(ParseSdtBlock(sdtBlock, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver));
-                    break;
-            }
+            AppendBlockElement(element, blocks, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, revisions);
         }
 
         if (blocks.Count == 0)
