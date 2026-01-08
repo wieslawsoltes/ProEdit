@@ -271,8 +271,8 @@ public sealed class EditorController
         }
 
         var targetLine = Layout.Lines[currentIndex - 1];
-        var caretX = GetCaretX(currentLine);
-        var offset = GetOffsetFromLine(targetLine, caretX);
+        var caretPoint = GetCaretPoint(currentLine);
+        var offset = GetOffsetFromLine(targetLine, caretPoint.X, caretPoint.Y);
         MoveCaret(new TextPosition(targetLine.ParagraphIndex, offset), extendSelection);
     }
 
@@ -293,8 +293,8 @@ public sealed class EditorController
         }
 
         var targetLine = Layout.Lines[currentIndex + 1];
-        var caretX = GetCaretX(currentLine);
-        var offset = GetOffsetFromLine(targetLine, caretX);
+        var caretPoint = GetCaretPoint(currentLine);
+        var offset = GetOffsetFromLine(targetLine, caretPoint.X, caretPoint.Y);
         MoveCaret(new TextPosition(targetLine.ParagraphIndex, offset), extendSelection);
     }
 
@@ -316,19 +316,17 @@ public sealed class EditorController
             return;
         }
 
-        var lineIndex = Layout.LineIndex.FindLineAtY(y);
+        var lineIndex = FindLineIndexFromPoint(x, y, out var line);
         if (lineIndex < 0 || lineIndex >= Layout.Lines.Count)
         {
             return;
         }
-
-        var line = Layout.Lines[lineIndex];
         if (line.ParagraphIndex < 0)
         {
             return;
         }
 
-        var offset = GetOffsetFromLine(line, x);
+        var offset = GetOffsetFromLine(line, x, y);
         MoveCaret(new TextPosition(line.ParagraphIndex, offset), extendSelection);
     }
 
@@ -413,13 +411,13 @@ public sealed class EditorController
                     continue;
                 }
 
-                var line = FindTableLineAtPoint(cell.Lines, y);
+                var line = FindTableLineAtPoint(cell.Lines, x, y);
                 if (line is null)
                 {
                     return false;
                 }
 
-                var offset = GetOffsetFromLine(line, x);
+                var offset = GetOffsetFromLine(line, x, y);
                 MoveCaret(new TextPosition(line.ParagraphIndex, offset), extendSelection);
                 return true;
             }
@@ -428,7 +426,7 @@ public sealed class EditorController
         return false;
     }
 
-    private static TableCellLine? FindTableLineAtPoint(IReadOnlyList<TableCellLine> lines, float y)
+    private static TableCellLine? FindTableLineAtPoint(IReadOnlyList<TableCellLine> lines, float x, float y)
     {
         if (lines.Count == 0)
         {
@@ -437,6 +435,16 @@ public sealed class EditorController
 
         foreach (var line in lines)
         {
+            if (DocTextDirectionHelpers.IsVertical(line.TextDirection))
+            {
+                if (IsPointWithinLine(line.X, line.Y, line.TextDirection, line.Width, line.LineHeight, x, y))
+                {
+                    return line;
+                }
+
+                continue;
+            }
+
             if (y >= line.Y && y <= line.Y + line.LineHeight)
             {
                 return line;
@@ -446,10 +454,10 @@ public sealed class EditorController
         return y < lines[0].Y ? lines[0] : lines[^1];
     }
 
-    private int GetOffsetFromLine(TableCellLine line, float x)
+    private int GetOffsetFromLine(TableCellLine line, float x, float y)
     {
-        var relativeX = x - line.X;
-        if (relativeX <= 0)
+        var localX = GetLineLocalX(line.X, line.Y, line.TextDirection, x, y);
+        if (localX <= 0)
         {
             return line.StartOffset;
         }
@@ -466,7 +474,7 @@ public sealed class EditorController
         }
 
         var totalWidth = segments[^1].X + segments[^1].Width;
-        if (relativeX >= totalWidth)
+        if (localX >= totalWidth)
         {
             return line.StartOffset + line.Length;
         }
@@ -474,18 +482,18 @@ public sealed class EditorController
         foreach (var segment in segments)
         {
             var segmentEndX = segment.X + segment.Width;
-            if (relativeX > segmentEndX)
+            if (localX > segmentEndX)
             {
                 continue;
             }
 
-            var localX = relativeX - segment.X;
+            var segmentLocalX = localX - segment.X;
             if (segment.IsRtl)
             {
-                localX = segment.Width - localX;
+                segmentLocalX = segment.Width - segmentLocalX;
             }
 
-            var offsetInSegment = GetOffsetForSegmentX(segment, localX);
+            var offsetInSegment = GetOffsetForSegmentX(segment, segmentLocalX);
             return line.StartOffset + segment.StartOffset + offsetInSegment;
         }
 
@@ -1294,11 +1302,11 @@ public sealed class EditorController
         return FindLineIndexForPosition(Layout, Caret, out line);
     }
 
-    private float GetCaretX(LayoutLine line)
+    private (float X, float Y) GetCaretPoint(LayoutLine line)
     {
         var offsetInLine = Math.Clamp(Caret.Offset - line.StartOffset, 0, line.Length);
-        var width = MeasureLineOffset(line, offsetInLine);
-        return line.X + width;
+        var localX = MeasureLineOffset(line, offsetInLine);
+        return GetLineWorldPoint(line.X, line.Y, line.TextDirection, localX, 0f);
     }
 
     private static int FindLineIndexForPosition(DocumentLayout layout, TextPosition position, out LayoutLine line)
@@ -1341,10 +1349,97 @@ public sealed class EditorController
         return lastIndexInParagraph;
     }
 
-    private int GetOffsetFromLine(LayoutLine line, float x)
+    private int FindLineIndexFromPoint(float x, float y, out LayoutLine line)
     {
-        var relativeX = x - line.X;
-        if (relativeX <= 0)
+        for (var i = 0; i < Layout.Lines.Count; i++)
+        {
+            var candidate = Layout.Lines[i];
+            if (!DocTextDirectionHelpers.IsVertical(candidate.TextDirection))
+            {
+                continue;
+            }
+
+            if (IsPointWithinLine(candidate.X, candidate.Y, candidate.TextDirection, candidate.Width, candidate.LineHeight, x, y))
+            {
+                line = candidate;
+                return i;
+            }
+        }
+
+        var index = Layout.LineIndex.FindLineAtY(y);
+        if (index >= 0 && index < Layout.Lines.Count)
+        {
+            line = Layout.Lines[index];
+            return index;
+        }
+
+        line = default!;
+        return -1;
+    }
+
+    private static float GetLineLocalX(float originX, float originY, DocTextDirection? direction, float x, float y)
+    {
+        var (localX, _) = GetLineLocalPoint(originX, originY, direction, x, y);
+        return localX;
+    }
+
+    private static (float X, float Y) GetLineLocalPoint(float originX, float originY, DocTextDirection? direction, float x, float y)
+    {
+        var dx = x - originX;
+        var dy = y - originY;
+        if (!DocTextDirectionHelpers.IsVertical(direction))
+        {
+            return (dx, dy);
+        }
+
+        var radians = DegreesToRadians(DocTextDirectionHelpers.GetRotationDegrees(direction!.Value));
+        var cos = MathF.Cos(-radians);
+        var sin = MathF.Sin(-radians);
+        return (dx * cos - dy * sin, dx * sin + dy * cos);
+    }
+
+    private static (float X, float Y) GetLineWorldPoint(float originX, float originY, DocTextDirection? direction, float localX, float localY)
+    {
+        if (!DocTextDirectionHelpers.IsVertical(direction))
+        {
+            return (originX + localX, originY + localY);
+        }
+
+        var radians = DegreesToRadians(DocTextDirectionHelpers.GetRotationDegrees(direction!.Value));
+        var cos = MathF.Cos(radians);
+        var sin = MathF.Sin(radians);
+        var worldX = originX + localX * cos - localY * sin;
+        var worldY = originY + localX * sin + localY * cos;
+        return (worldX, worldY);
+    }
+
+    private static bool IsPointWithinLine(
+        float originX,
+        float originY,
+        DocTextDirection? direction,
+        float lineWidth,
+        float lineHeight,
+        float x,
+        float y)
+    {
+        var (localX, localY) = GetLineLocalPoint(originX, originY, direction, x, y);
+        return localX >= 0f && localX <= lineWidth && localY >= 0f && localY <= lineHeight;
+    }
+
+    private static float DegreesToRadians(float degrees)
+    {
+        return degrees * (MathF.PI / 180f);
+    }
+
+    private int GetOffsetFromLine(LayoutLine line, float x, float y)
+    {
+        var localX = GetLineLocalX(line.X, line.Y, line.TextDirection, x, y);
+        return GetOffsetFromLineLocal(line, localX);
+    }
+
+    private int GetOffsetFromLineLocal(LayoutLine line, float localX)
+    {
+        if (localX <= 0)
         {
             return line.StartOffset;
         }
@@ -1361,7 +1456,7 @@ public sealed class EditorController
         }
 
         var totalWidth = segments[^1].X + segments[^1].Width;
-        if (relativeX >= totalWidth)
+        if (localX >= totalWidth)
         {
             return line.StartOffset + line.Length;
         }
@@ -1369,18 +1464,18 @@ public sealed class EditorController
         foreach (var segment in segments)
         {
             var segmentEndX = segment.X + segment.Width;
-            if (relativeX > segmentEndX)
+            if (localX > segmentEndX)
             {
                 continue;
             }
 
-            var localX = relativeX - segment.X;
+            var segmentLocalX = localX - segment.X;
             if (segment.IsRtl)
             {
-                localX = segment.Width - localX;
+                segmentLocalX = segment.Width - segmentLocalX;
             }
 
-            var offsetInSegment = GetOffsetForSegmentX(segment, localX);
+            var offsetInSegment = GetOffsetForSegmentX(segment, segmentLocalX);
             return line.StartOffset + segment.StartOffset + offsetInSegment;
         }
 
