@@ -11,6 +11,7 @@ using Vibe.Office.Primitives;
 using Vibe.Office.Rendering;
 using Vibe.Office.Rendering.Skia;
 using Vibe.Word.Editor;
+using Vibe.Word.Editor.Editing;
 using RenderOptions = Vibe.Office.Rendering.RenderOptions;
 
 namespace Vibe.Word.App;
@@ -68,6 +69,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
     public EquationInline? SelectedEquation => _selectedEquation;
 
     public event EventHandler<EquationInline?>? SelectedEquationChanged;
+    public event EventHandler? EditorStateChanged;
 
     public bool ShowInvisibles
     {
@@ -282,6 +284,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
         }).ConfigureAwait(true);
 
         _editor = editor;
+        EditorHomeServiceRegistry.Register(_kernel.Services, _kernel.Commands, _editor, CreateClipboardService(_editor));
         ConfigureInputPipeline(editor);
         ApplyEditorState();
     }
@@ -340,7 +343,16 @@ public sealed class DocumentView : Control, ILogicalScrollable
         ConfigureMeasurer(document);
         var editor = new EditorController(_textMeasurer, document);
         ConfigureInputPipeline(editor);
+        EditorHomeServiceRegistry.Register(_kernel.Services, _kernel.Commands, editor, CreateClipboardService(editor));
         return editor;
+    }
+
+    private IClipboardService CreateClipboardService(IEditorSession session)
+    {
+        return new AvaloniaClipboardService(
+            () => TopLevel.GetTopLevel(this)?.Clipboard,
+            () => !session.Selection.IsEmpty,
+            () => !session.Selection.IsEmpty);
     }
 
     private void ConfigureInputPipeline(EditorController editor)
@@ -373,6 +385,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
         UpdateScrollMetrics();
         UpdateSelectedEquation();
         InvalidateVisual();
+        EditorStateChanged?.Invoke(this, EventArgs.Empty);
     }
 
     private void OnEditorChanged(object? sender, EventArgs e)
@@ -381,7 +394,14 @@ public sealed class DocumentView : Control, ILogicalScrollable
         UpdateDirtyPages(_editor.DirtyPages);
         UpdateSelectedEquation();
         InvalidateVisual();
+        EditorStateChanged?.Invoke(this, EventArgs.Empty);
     }
+
+    public bool TryGetService<T>(out T service) where T : class => _kernel.Services.TryGet(out service);
+
+    public bool TryGetService(Type serviceType, out object? service) => _kernel.Services.TryGet(serviceType, out service);
+
+    public void RegisterService<T>(T service) where T : class => _kernel.Services.Register(service);
 
     private void InvalidateAllPages()
     {
