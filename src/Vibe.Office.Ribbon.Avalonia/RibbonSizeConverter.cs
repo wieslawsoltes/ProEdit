@@ -48,15 +48,15 @@ public sealed class RibbonSizeConverter : IValueConverter
             },
             "MinWidth" => size switch
             {
-                RibbonControlSize.Large => 84d,
-                RibbonControlSize.Medium => 72d,
-                _ => 56d
+                RibbonControlSize.Large => 88d,
+                RibbonControlSize.Medium => 76d,
+                _ => 64d
             },
             "MinHeight" => size switch
             {
                 RibbonControlSize.Large => 80d,
                 RibbonControlSize.Medium => 52d,
-                _ => 24d
+                _ => 26d
             },
             "ArrowWidth" => 22d,
             "FontSize" => size switch

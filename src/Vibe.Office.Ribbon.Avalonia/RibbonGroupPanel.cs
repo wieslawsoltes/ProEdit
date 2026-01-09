@@ -215,7 +215,7 @@ public sealed class RibbonGroupPanel : Panel
         var size = GetItemSize(control);
         if (control.DataContext is IRibbonControl ribbonControl)
         {
-            size = ribbonControl.Size;
+            size = ribbonControl.LayoutSize;
         }
 
         return size;
