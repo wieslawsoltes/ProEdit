@@ -7,4 +7,20 @@
     <Application.Styles>
         <FluentTheme />
     </Application.Styles>
+
+    <Application.Resources>
+        <ResourceDictionary>
+            <Color x:Key="RibbonSurfaceColor">#EEF1F5</Color>
+            <SolidColorBrush x:Key="RibbonSurfaceBrush" Color="{StaticResource RibbonSurfaceColor}" />
+            <x:String x:Key="RibbonIcon.Open">📂</x:String>
+            <x:String x:Key="RibbonIcon.Save">💾</x:String>
+            <x:String x:Key="RibbonIcon.SaveAs">💾➕</x:String>
+            <x:String x:Key="RibbonIcon.Layout">📐</x:String>
+            <x:String x:Key="RibbonIcon.Invisibles">👁️</x:String>
+            <x:String x:Key="RibbonIcon.Text">🔤</x:String>
+            <x:String x:Key="RibbonIcon.Cache">🗄️</x:String>
+            <x:String x:Key="RibbonIcon.Equation">🧮</x:String>
+            <x:String x:Key="RibbonIcon.Dropdown">🔽</x:String>
+        </ResourceDictionary>
+    </Application.Resources>
 </Application>

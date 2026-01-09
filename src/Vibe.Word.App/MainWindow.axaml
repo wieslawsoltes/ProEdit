@@ -3,26 +3,20 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:Vibe.Word.App"
+        xmlns:ribbon="clr-namespace:Vibe.Office.Ribbon.Avalonia;assembly=Vibe.Office.Ribbon.Avalonia"
         mc:Ignorable="d" d:DesignWidth="1024" d:DesignHeight="768"
         x:Class="Vibe.Word.App.MainWindow"
+        Background="{DynamicResource RibbonSurfaceBrush}"
         Title="Vibe Word">
-    <Grid>
+    <Grid Background="{DynamicResource RibbonSurfaceBrush}">
         <DockPanel>
-            <Border DockPanel.Dock="Top" Background="#F5F5F5" Padding="8">
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <Button x:Name="OpenButton" Content="Open" />
-                    <Button x:Name="SaveButton" Content="Save" />
-                    <CheckBox x:Name="ShowInvisiblesCheckBox" Content="Show Invisibles" />
-                    <CheckBox x:Name="ShowLayoutCheckBox" Content="Show Layout" />
-                    <CheckBox x:Name="UseHarfBuzzCheckBox" Content="Use HarfBuzz" />
-                    <CheckBox x:Name="UsePictureCacheCheckBox" Content="Use Page Cache" />
-                </StackPanel>
-            </Border>
+            <ribbon:RibbonControl x:Name="Ribbon" DockPanel.Dock="Top" />
             <Grid ColumnDefinitions="*,Auto">
                 <ScrollViewer Grid.Column="0"
                               HorizontalScrollBarVisibility="Auto"
                               VerticalScrollBarVisibility="Auto">
-                    <local:DocumentView x:Name="EditorView" />
+                    <local:DocumentView x:Name="EditorView"
+                                        SurfaceColor="{DynamicResource RibbonSurfaceColor}" />
                 </ScrollViewer>
                 <Border x:Name="EquationEditorPanel"
                         Grid.Column="1"

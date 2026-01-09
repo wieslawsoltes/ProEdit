@@ -17,6 +17,9 @@ namespace Vibe.Word.App;
 
 public sealed class DocumentView : Control, ILogicalScrollable
 {
+    public static readonly StyledProperty<Color> SurfaceColorProperty =
+        AvaloniaProperty.Register<DocumentView, Color>(nameof(SurfaceColor), new Color(255, 238, 241, 245));
+
     private readonly EditorKernel _kernel = new EditorKernel(new LegacyEditorSessionFactory());
     private EditorController _editor;
     private AvaloniaEditorInputAdapter _inputAdapter = null!;
@@ -25,7 +28,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
     private SkiaDocumentFontResolver? _fontResolver;
     private readonly RenderOptions _renderOptions = new RenderOptions
     {
-        BackgroundColor = new DocColor(242, 242, 242),
+        BackgroundColor = new DocColor(238, 241, 245),
         PageColor = DocColor.White,
         PageBorderColor = new DocColor(220, 220, 220),
         PageBorderThickness = 1f,
@@ -51,6 +54,13 @@ public sealed class DocumentView : Control, ILogicalScrollable
         _kernel.AddModule(new BasicEditingModule());
         _editor = CreateEditor(CreateSampleDocument());
         ApplyEditorState();
+        UpdateSurfaceColor(SurfaceColor);
+    }
+
+    public Color SurfaceColor
+    {
+        get => GetValue(SurfaceColorProperty);
+        set => SetValue(SurfaceColorProperty, value);
     }
 
     public Document Document => _editor.Document;
@@ -120,6 +130,22 @@ public sealed class DocumentView : Control, ILogicalScrollable
             _renderOptions.UsePictureCache = value;
             InvalidateVisual();
         }
+    }
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+
+        if (change.Property == SurfaceColorProperty)
+        {
+            UpdateSurfaceColor(change.GetNewValue<Color>());
+        }
+    }
+
+    private void UpdateSurfaceColor(Color color)
+    {
+        _renderOptions.BackgroundColor = new DocColor(color.R, color.G, color.B);
+        InvalidateVisual();
     }
 
     protected override void OnSizeChanged(SizeChangedEventArgs e)
