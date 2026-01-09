@@ -247,6 +247,21 @@ public sealed class EditorController : IEditorMutableSession
         _selectionService.SetCaretFromPoint(x, y, extendSelection);
     }
 
+    public void SetSelection(TextRange selection)
+    {
+        var normalized = selection.Normalize();
+        _selectionService.SetCaret(normalized.Start, false);
+        if (!normalized.IsEmpty)
+        {
+            _selectionService.SetCaret(normalized.End, true);
+        }
+    }
+
+    public bool TrySelectFirstFloatingObject()
+    {
+        return _selectionService.TrySelectFirstFloatingObject();
+    }
+
     public EquationInline? GetEquationAtCaret()
     {
         return _selectionService.GetEquationAtCaret();

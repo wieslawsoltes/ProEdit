@@ -1,0 +1,44 @@
+using Vibe.Office.Editing;
+
+namespace Vibe.Word.Editor.Editing;
+
+public sealed class EditorClipboardServiceAdapter : IClipboardService
+{
+    private static readonly IReadOnlyList<string> DefaultFormats = new[] { "text/plain" };
+    private readonly IEditorSession _session;
+    private readonly Func<bool>? _canPasteEvaluator;
+    private readonly IReadOnlyList<string> _formats;
+    private string? _textBuffer;
+
+    public EditorClipboardServiceAdapter(
+        IEditorSession session,
+        Func<bool>? canPasteEvaluator = null,
+        IReadOnlyList<string>? supportedFormats = null)
+    {
+        _session = session ?? throw new ArgumentNullException(nameof(session));
+        _canPasteEvaluator = canPasteEvaluator;
+        _formats = supportedFormats ?? DefaultFormats;
+    }
+
+    public bool CanCopy => !_session.Selection.IsEmpty;
+    public bool CanCut => CanCopy;
+    public bool CanPaste => _canPasteEvaluator?.Invoke() ?? !string.IsNullOrEmpty(_textBuffer);
+    public IReadOnlyList<string> SupportedFormats => _formats;
+
+    public bool TryGetText(out string text)
+    {
+        if (string.IsNullOrEmpty(_textBuffer))
+        {
+            text = string.Empty;
+            return false;
+        }
+
+        text = _textBuffer;
+        return true;
+    }
+
+    public void SetText(string text)
+    {
+        _textBuffer = string.IsNullOrEmpty(text) ? null : text;
+    }
+}
