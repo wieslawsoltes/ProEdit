@@ -6,4 +6,8 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Vibe.Office.Primitives\Vibe.Office.Primitives.csproj" />
+  </ItemGroup>
+
 </Project>

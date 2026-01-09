@@ -2,6 +2,8 @@ namespace Vibe.Office.Ribbon;
 
 public abstract class RibbonControlBase : RibbonStateNode, IRibbonControl
 {
+    private RibbonControlSize _layoutSize;
+
     protected RibbonControlBase(
         string id,
         string label,
@@ -19,6 +21,7 @@ public abstract class RibbonControlBase : RibbonStateNode, IRibbonControl
         KeyTip = keyTip;
         IconKey = iconKey;
         Size = size;
+        _layoutSize = size;
     }
 
     public string Id { get; }
@@ -26,4 +29,14 @@ public abstract class RibbonControlBase : RibbonStateNode, IRibbonControl
     public string? KeyTip { get; }
     public string? IconKey { get; }
     public RibbonControlSize Size { get; }
+    public RibbonControlSize LayoutSize
+    {
+        get => _layoutSize;
+        private set => SetField(ref _layoutSize, value, nameof(LayoutSize));
+    }
+
+    internal void SetLayoutSize(RibbonControlSize size)
+    {
+        LayoutSize = size;
+    }
 }

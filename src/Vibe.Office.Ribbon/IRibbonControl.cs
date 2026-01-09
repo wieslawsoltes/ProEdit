@@ -7,6 +7,7 @@ public interface IRibbonControl
     string? KeyTip { get; }
     string? IconKey { get; }
     RibbonControlSize Size { get; }
+    RibbonControlSize LayoutSize { get; }
     bool IsEnabled { get; }
     bool IsVisible { get; }
 }

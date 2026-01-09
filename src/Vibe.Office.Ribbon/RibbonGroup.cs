@@ -2,6 +2,8 @@ namespace Vibe.Office.Ribbon;
 
 public sealed class RibbonGroup : RibbonStateNode
 {
+    private RibbonGroupSizeMode _sizeMode;
+
     public RibbonGroup(
         string id,
         string header,
@@ -16,13 +18,54 @@ public sealed class RibbonGroup : RibbonStateNode
         Id = id ?? throw new ArgumentNullException(nameof(id));
         Header = header ?? throw new ArgumentNullException(nameof(header));
         Controls = controls ?? throw new ArgumentNullException(nameof(controls));
-        SizeMode = sizeMode;
+        PreferredSizeMode = sizeMode;
+        _sizeMode = sizeMode;
+        UpdateControlLayoutSizes();
     }
 
     public string Id { get; }
     public string Header { get; }
     public IReadOnlyList<IRibbonControl> Controls { get; }
-    public RibbonGroupSizeMode SizeMode { get; }
+    public RibbonGroupSizeMode PreferredSizeMode { get; }
+    public RibbonGroupSizeMode SizeMode
+    {
+        get => _sizeMode;
+        private set => SetField(ref _sizeMode, value, nameof(SizeMode));
+    }
+
+    public void ResetLayoutMode()
+    {
+        SetLayoutMode(PreferredSizeMode);
+    }
+
+    public bool TryStepLayoutMode(bool shrink)
+    {
+        var current = SizeMode;
+        var next = shrink ? StepDown(current) : StepUp(current);
+        if (next == current)
+        {
+            return false;
+        }
+
+        if (!shrink && GetModeRank(next) > GetModeRank(PreferredSizeMode))
+        {
+            return false;
+        }
+
+        SetLayoutMode(next);
+        return true;
+    }
+
+    private void SetLayoutMode(RibbonGroupSizeMode mode)
+    {
+        if (SizeMode == mode)
+        {
+            return;
+        }
+
+        SizeMode = mode;
+        UpdateControlLayoutSizes();
+    }
 
     public override void RefreshState()
     {
@@ -34,5 +77,63 @@ public sealed class RibbonGroup : RibbonStateNode
                 stateful.RefreshState();
             }
         }
+    }
+
+    private void UpdateControlLayoutSizes()
+    {
+        foreach (var control in Controls)
+        {
+            if (control is RibbonControlBase baseControl)
+            {
+                baseControl.SetLayoutSize(ResolveLayoutSize(baseControl.Size, SizeMode));
+            }
+        }
+    }
+
+    private static RibbonControlSize ResolveLayoutSize(RibbonControlSize size, RibbonGroupSizeMode mode)
+    {
+        return mode switch
+        {
+            RibbonGroupSizeMode.Large => size,
+            RibbonGroupSizeMode.Medium => size switch
+            {
+                RibbonControlSize.Large => RibbonControlSize.Medium,
+                RibbonControlSize.Medium => RibbonControlSize.Small,
+                _ => RibbonControlSize.Small
+            },
+            RibbonGroupSizeMode.Small => RibbonControlSize.Small,
+            _ => size
+        };
+    }
+
+    private static RibbonGroupSizeMode StepDown(RibbonGroupSizeMode mode)
+    {
+        return mode switch
+        {
+            RibbonGroupSizeMode.Large => RibbonGroupSizeMode.Medium,
+            RibbonGroupSizeMode.Medium => RibbonGroupSizeMode.Small,
+            _ => RibbonGroupSizeMode.Small
+        };
+    }
+
+    private static RibbonGroupSizeMode StepUp(RibbonGroupSizeMode mode)
+    {
+        return mode switch
+        {
+            RibbonGroupSizeMode.Small => RibbonGroupSizeMode.Medium,
+            RibbonGroupSizeMode.Medium => RibbonGroupSizeMode.Large,
+            _ => RibbonGroupSizeMode.Large
+        };
+    }
+
+    private static int GetModeRank(RibbonGroupSizeMode mode)
+    {
+        return mode switch
+        {
+            RibbonGroupSizeMode.Small => 0,
+            RibbonGroupSizeMode.Medium => 1,
+            RibbonGroupSizeMode.Large => 2,
+            _ => 1
+        };
     }
 }
