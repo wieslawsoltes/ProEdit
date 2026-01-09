@@ -49,6 +49,20 @@ public static class DocumentEditHelpers
         };
     }
 
+    public static void EnsureParagraphInlines(ParagraphBlock paragraph)
+    {
+        if (paragraph.Inlines.Count > 0)
+        {
+            return;
+        }
+
+        var text = paragraph.Text ?? string.Empty;
+        if (text.Length > 0)
+        {
+            paragraph.Inlines.Add(new RunInline(text));
+        }
+    }
+
     public static EquationInline? FindEquationInline(ParagraphBlock paragraph, int offset)
     {
         if (paragraph.Inlines.Count == 0)

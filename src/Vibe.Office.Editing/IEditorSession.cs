@@ -36,4 +36,6 @@ public interface IEditorMutableSession : IEditorSession
     void MoveDown(bool extendSelection);
 
     void SetCaretFromPoint(float x, float y, bool extendSelection);
+    void SetSelection(TextRange selection);
+    bool TrySelectFirstFloatingObject();
 }

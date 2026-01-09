@@ -148,6 +148,42 @@ public sealed class EditorSelectionService
         SetCaret(new TextPosition(line.ParagraphIndex, offset), extendSelection);
     }
 
+    public bool TrySelectFloatingObject(Guid id)
+    {
+        var layout = _layoutService.Layout;
+        if (layout.FloatingObjects.Count == 0)
+        {
+            return false;
+        }
+
+        for (var i = layout.FloatingObjects.Count - 1; i >= 0; i--)
+        {
+            var floating = layout.FloatingObjects[i];
+            if (floating.Object.Id != id)
+            {
+                continue;
+            }
+
+            SetFloatingSelection(floating.Object.Id, floating.PageIndex);
+            return true;
+        }
+
+        return false;
+    }
+
+    public bool TrySelectFirstFloatingObject()
+    {
+        var layout = _layoutService.Layout;
+        if (layout.FloatingObjects.Count == 0)
+        {
+            return false;
+        }
+
+        var floating = layout.FloatingObjects[^1];
+        SetFloatingSelection(floating.Object.Id, floating.PageIndex);
+        return true;
+    }
+
     public void SetCaret(TextPosition position, bool extendSelection)
     {
         MoveCaret(position, extendSelection);
@@ -328,6 +364,11 @@ public sealed class EditorSelectionService
         var previousSelection = Selection;
         var previousFloating = SelectedFloatingObjectId;
         var clamped = ClampPosition(position);
+        if (previousFloating.HasValue)
+        {
+            SelectedFloatingObjectId = null;
+        }
+
         Caret = clamped;
         if (!extendSelection)
         {

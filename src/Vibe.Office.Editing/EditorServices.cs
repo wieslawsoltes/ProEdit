@@ -22,6 +22,19 @@ public sealed class EditorServices
         return false;
     }
 
+    public bool TryGet(Type serviceType, out object? service)
+    {
+        ArgumentNullException.ThrowIfNull(serviceType);
+        if (_services.TryGetValue(serviceType, out var value))
+        {
+            service = value;
+            return true;
+        }
+
+        service = null;
+        return false;
+    }
+
     public TService GetRequired<TService>() where TService : class
     {
         if (TryGet<TService>(out var service))
