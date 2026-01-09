@@ -5,6 +5,8 @@
     <Project Path="src/Vibe.Office.Layout/Vibe.Office.Layout.csproj" />
     <Project Path="src/Vibe.Office.OpenXml/Vibe.Office.OpenXml.csproj" />
     <Project Path="src/Vibe.Office.Primitives/Vibe.Office.Primitives.csproj" />
+    <Project Path="src/Vibe.Office.Ribbon.Avalonia/Vibe.Office.Ribbon.Avalonia.csproj" />
+    <Project Path="src/Vibe.Office.Ribbon/Vibe.Office.Ribbon.csproj" />
     <Project Path="src/Vibe.Office.Rendering.Skia/Vibe.Office.Rendering.Skia.csproj" />
     <Project Path="src/Vibe.Office.Rendering/Vibe.Office.Rendering.csproj" />
     <Project Path="src/Vibe.Word.App/Vibe.Word.App.csproj" />

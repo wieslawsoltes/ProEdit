@@ -1,0 +1,511 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ribbon="clr-namespace:Vibe.Office.Ribbon;assembly=Vibe.Office.Ribbon"
+             xmlns:local="clr-namespace:Vibe.Office.Ribbon.Avalonia;assembly=Vibe.Office.Ribbon.Avalonia"
+             x:Class="Vibe.Office.Ribbon.Avalonia.RibbonControl"
+             FontFamily="Segoe UI, SF Pro Text, Helvetica, Arial"
+             FontSize="12"
+             Focusable="True">
+  <UserControl.Resources>
+    <Color x:Key="RibbonTabStripColor">#EEF1F5</Color>
+    <Color x:Key="RibbonContentColor">#FFFFFF</Color>
+    <Color x:Key="RibbonBorderColor">#D3D7DE</Color>
+    <Color x:Key="RibbonAccentColor">#0078D4</Color>
+    <Color x:Key="RibbonGroupColor">#FFFFFF</Color>
+    <Color x:Key="RibbonGroupBorderColor">#DADFE6</Color>
+
+    <SolidColorBrush x:Key="RibbonTabStripBrush" Color="{StaticResource RibbonTabStripColor}" />
+    <SolidColorBrush x:Key="RibbonContentBrush" Color="{StaticResource RibbonContentColor}" />
+    <SolidColorBrush x:Key="RibbonBorderBrush" Color="{StaticResource RibbonBorderColor}" />
+    <SolidColorBrush x:Key="RibbonAccentBrush" Color="{StaticResource RibbonAccentColor}" />
+    <SolidColorBrush x:Key="RibbonGroupBrush" Color="{StaticResource RibbonGroupColor}" />
+    <SolidColorBrush x:Key="RibbonGroupBorderBrush" Color="{StaticResource RibbonGroupBorderColor}" />
+    <SolidColorBrush x:Key="RibbonTabForegroundBrush" Color="#3A3A3A" />
+    <SolidColorBrush x:Key="RibbonTabForegroundSelectedBrush" Color="{StaticResource RibbonAccentColor}" />
+    <SolidColorBrush x:Key="RibbonTabForegroundDisabledBrush" Color="#9B9B9B" />
+
+    <SolidColorBrush x:Key="RibbonButtonBackgroundBrush" Color="Transparent" />
+    <SolidColorBrush x:Key="RibbonButtonBorderBrush" Color="Transparent" />
+    <SolidColorBrush x:Key="RibbonButtonForegroundBrush" Color="#2B2B2B" />
+    <SolidColorBrush x:Key="RibbonButtonBackgroundPointerOverBrush" Color="#EAF2FF" />
+    <SolidColorBrush x:Key="RibbonButtonBorderPointerOverBrush" Color="#A8C6F0" />
+    <SolidColorBrush x:Key="RibbonButtonBackgroundPressedBrush" Color="#DCEBFF" />
+    <SolidColorBrush x:Key="RibbonButtonBorderPressedBrush" Color="#8CB4E6" />
+    <SolidColorBrush x:Key="RibbonButtonBackgroundCheckedBrush" Color="#DCEBFF" />
+    <SolidColorBrush x:Key="RibbonButtonBorderCheckedBrush" Color="#8CB4E6" />
+    <SolidColorBrush x:Key="RibbonButtonBackgroundDisabledBrush" Color="Transparent" />
+    <SolidColorBrush x:Key="RibbonButtonBorderDisabledBrush" Color="#D5DAE2" />
+    <SolidColorBrush x:Key="RibbonButtonForegroundDisabledBrush" Color="#9A9A9A" />
+
+    <local:RibbonSizeConverter x:Key="RibbonSizeConverter" />
+    <local:RibbonIconConverter x:Key="RibbonIconConverter" />
+
+    <DataTemplate x:Key="RibbonButtonContentTemplate">
+      <Grid RowDefinitions="Auto,Auto"
+            ColumnDefinitions="Auto,*"
+            RowSpacing="{Binding Size, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=RowSpacing}"
+            ColumnSpacing="{Binding Size, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=ColumnSpacing}"
+            HorizontalAlignment="{Binding Size, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=HorizontalAlignment}"
+            VerticalAlignment="Center">
+        <TextBlock Text="{Binding IconKey, Converter={StaticResource RibbonIconConverter}}"
+                   FontFamily="Segoe UI Emoji, Apple Color Emoji, Noto Color Emoji"
+                   FontSize="{Binding Size, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=IconFontSize}"
+                   IsVisible="{Binding IconKey, Converter={StaticResource RibbonIconConverter}, ConverterParameter=HasValue}"
+                   HorizontalAlignment="{Binding Size, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=HorizontalAlignment}"
+                   VerticalAlignment="Center"
+                   Grid.Row="{Binding Size, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=IconRow}"
+                   Grid.Column="{Binding Size, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=IconColumn}"
+                   Grid.ColumnSpan="{Binding Size, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=IconColumnSpan}" />
+        <TextBlock Text="{Binding Label}"
+                   TextWrapping="{Binding Size, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=TextWrapping}"
+                   TextTrimming="{Binding Size, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=TextTrimming}"
+                   TextAlignment="{Binding Size, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=TextAlignment}"
+                   HorizontalAlignment="{Binding Size, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=HorizontalAlignment}"
+                   VerticalAlignment="Center"
+                   Grid.Row="{Binding Size, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=TextRow}"
+                   Grid.Column="{Binding Size, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=TextColumn}"
+                   Grid.ColumnSpan="{Binding Size, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=TextColumnSpan}" />
+      </Grid>
+    </DataTemplate>
+
+    <ControlTheme x:Key="RibbonTabControlTheme" TargetType="TabControl">
+      <Setter Property="Background" Value="{DynamicResource RibbonSurfaceBrush}" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Background="{TemplateBinding Background}"
+                  BorderThickness="0"
+                  ClipToBounds="True">
+            <DockPanel>
+              <Border DockPanel.Dock="Top"
+                      Background="{DynamicResource RibbonTabStripBrush}"
+                      BorderThickness="0"
+                      Padding="8,3">
+                <ItemsPresenter Name="PART_ItemsPresenter"
+                                ItemsPanel="{TemplateBinding ItemsPanel}" />
+              </Border>
+              <Border Background="{DynamicResource RibbonContentBrush}"
+                      BorderBrush="{DynamicResource RibbonBorderBrush}"
+                      BorderThickness="1"
+                      Padding="8,3,8,5"
+                      MinHeight="100"
+                      CornerRadius="0,0,6,6"
+                      ClipToBounds="True">
+                <ContentPresenter Name="PART_SelectedContentHost"
+                                  Content="{TemplateBinding SelectedContent}"
+                                  ContentTemplate="{TemplateBinding SelectedContentTemplate}"
+                                  HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                  VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+              </Border>
+            </DockPanel>
+          </Border>
+        </ControlTemplate>
+      </Setter>
+    </ControlTheme>
+
+    <ControlTheme x:Key="RibbonTabItemTheme" TargetType="TabItem">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontWeight" Value="Normal" />
+      <Setter Property="Foreground" Value="{DynamicResource RibbonTabForegroundBrush}" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Padding" Value="12,4" />
+      <Setter Property="Margin" Value="0,0,8,0" />
+      <Setter Property="MinHeight" Value="28" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Name="PART_TabRoot"
+                  Background="{TemplateBinding Background}"
+                  CornerRadius="0"
+                  Padding="{TemplateBinding Padding}">
+            <Grid>
+              <ContentPresenter Name="PART_TabHeader"
+                                Content="{TemplateBinding Header}"
+                                ContentTemplate="{TemplateBinding HeaderTemplate}"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center" />
+              <Border Name="PART_TabUnderline"
+                      Background="{DynamicResource RibbonAccentBrush}"
+                      Height="2"
+                      VerticalAlignment="Bottom"
+                      IsVisible="False" />
+            </Grid>
+          </Border>
+        </ControlTemplate>
+      </Setter>
+
+      <Style Selector="^:pointerover /template/ Border#PART_TabRoot">
+        <Setter Property="Background" Value="#E6EBF3" />
+      </Style>
+      <Style Selector="^:selected /template/ Border#PART_TabRoot">
+        <Setter Property="Background" Value="Transparent" />
+      </Style>
+      <Style Selector="^:selected">
+        <Setter Property="Foreground" Value="{DynamicResource RibbonTabForegroundSelectedBrush}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+      </Style>
+      <Style Selector="^:selected /template/ Border#PART_TabUnderline">
+        <Setter Property="IsVisible" Value="True" />
+      </Style>
+      <Style Selector="^:disabled">
+        <Setter Property="Foreground" Value="{DynamicResource RibbonTabForegroundDisabledBrush}" />
+      </Style>
+    </ControlTheme>
+
+    <ControlTheme x:Key="RibbonButtonTheme" TargetType="Button">
+      <Setter Property="Background" Value="{DynamicResource RibbonButtonBackgroundBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource RibbonButtonForegroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource RibbonButtonBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="3" />
+      <Setter Property="Padding" Value="6,2" />
+      <Setter Property="MinHeight" Value="24" />
+      <Setter Property="HorizontalAlignment" Value="Left" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Name="PART_ButtonRoot"
+                  Background="{TemplateBinding Background}"
+                  BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}"
+                  CornerRadius="{TemplateBinding CornerRadius}">
+            <ContentPresenter Name="PART_ButtonContent"
+                              Content="{TemplateBinding Content}"
+                              ContentTemplate="{TemplateBinding ContentTemplate}"
+                              Padding="{TemplateBinding Padding}"
+                              HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                              VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+          </Border>
+        </ControlTemplate>
+      </Setter>
+
+      <Style Selector="^:pointerover /template/ Border#PART_ButtonRoot">
+        <Setter Property="Background" Value="{DynamicResource RibbonButtonBackgroundPointerOverBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource RibbonButtonBorderPointerOverBrush}" />
+      </Style>
+      <Style Selector="^:pressed /template/ Border#PART_ButtonRoot">
+        <Setter Property="Background" Value="{DynamicResource RibbonButtonBackgroundPressedBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource RibbonButtonBorderPressedBrush}" />
+      </Style>
+      <Style Selector="^:disabled /template/ Border#PART_ButtonRoot">
+        <Setter Property="Background" Value="{DynamicResource RibbonButtonBackgroundDisabledBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource RibbonButtonBorderDisabledBrush}" />
+      </Style>
+      <Style Selector="^:disabled /template/ ContentPresenter#PART_ButtonContent">
+        <Setter Property="Foreground" Value="{DynamicResource RibbonButtonForegroundDisabledBrush}" />
+      </Style>
+    </ControlTheme>
+
+    <ControlTheme x:Key="RibbonToggleButtonTheme" TargetType="ToggleButton">
+      <Setter Property="Background" Value="{DynamicResource RibbonButtonBackgroundBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource RibbonButtonForegroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource RibbonButtonBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="3" />
+      <Setter Property="Padding" Value="6,2" />
+      <Setter Property="MinHeight" Value="24" />
+      <Setter Property="HorizontalAlignment" Value="Left" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Name="PART_ToggleRoot"
+                  Background="{TemplateBinding Background}"
+                  BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}"
+                  CornerRadius="{TemplateBinding CornerRadius}">
+            <ContentPresenter Name="PART_ToggleContent"
+                              Content="{TemplateBinding Content}"
+                              ContentTemplate="{TemplateBinding ContentTemplate}"
+                              Padding="{TemplateBinding Padding}"
+                              HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                              VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+          </Border>
+        </ControlTemplate>
+      </Setter>
+
+      <Style Selector="^:pointerover /template/ Border#PART_ToggleRoot">
+        <Setter Property="Background" Value="{DynamicResource RibbonButtonBackgroundPointerOverBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource RibbonButtonBorderPointerOverBrush}" />
+      </Style>
+      <Style Selector="^:pressed /template/ Border#PART_ToggleRoot">
+        <Setter Property="Background" Value="{DynamicResource RibbonButtonBackgroundPressedBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource RibbonButtonBorderPressedBrush}" />
+      </Style>
+      <Style Selector="^:checked /template/ Border#PART_ToggleRoot">
+        <Setter Property="Background" Value="{DynamicResource RibbonButtonBackgroundCheckedBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource RibbonButtonBorderCheckedBrush}" />
+      </Style>
+      <Style Selector="^:disabled /template/ Border#PART_ToggleRoot">
+        <Setter Property="Background" Value="{DynamicResource RibbonButtonBackgroundDisabledBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource RibbonButtonBorderDisabledBrush}" />
+      </Style>
+      <Style Selector="^:disabled /template/ ContentPresenter#PART_ToggleContent">
+        <Setter Property="Foreground" Value="{DynamicResource RibbonButtonForegroundDisabledBrush}" />
+      </Style>
+    </ControlTheme>
+  </UserControl.Resources>
+
+  <UserControl.Styles>
+    <Style Selector="Border.ribbon-qat">
+      <Setter Property="Background" Value="{DynamicResource RibbonTabStripBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource RibbonBorderBrush}" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="8,2" />
+      <Setter Property="MinHeight" Value="24" />
+    </Style>
+
+    <Style Selector="Border.ribbon-qat Button">
+      <Setter Property="Theme" Value="{StaticResource RibbonButtonTheme}" />
+      <Setter Property="MinWidth" Value="0" />
+      <Setter Property="MinHeight" Value="22" />
+      <Setter Property="Padding" Value="6,2" />
+      <Setter Property="FontSize" Value="11" />
+    </Style>
+    <Style Selector="Border.ribbon-qat ToggleButton">
+      <Setter Property="Theme" Value="{StaticResource RibbonToggleButtonTheme}" />
+      <Setter Property="MinWidth" Value="0" />
+      <Setter Property="MinHeight" Value="22" />
+      <Setter Property="Padding" Value="6,2" />
+      <Setter Property="FontSize" Value="11" />
+    </Style>
+
+    <Style Selector="Border.ribbon-group">
+      <Setter Property="Background" Value="{DynamicResource RibbonContentBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource RibbonGroupBorderBrush}" />
+      <Setter Property="BorderThickness" Value="0,0,1,0" />
+      <Setter Property="CornerRadius" Value="0" />
+      <Setter Property="Padding" Value="4,2,8,2" />
+      <Setter Property="Margin" Value="0,2,0,2" />
+      <Setter Property="MinWidth" Value="104" />
+      <Setter Property="MinHeight" Value="92" />
+    </Style>
+    <Style Selector="Border.ribbon-group[Tag=Medium]">
+      <Setter Property="MinWidth" Value="96" />
+    </Style>
+    <Style Selector="Border.ribbon-group[Tag=Small]">
+      <Setter Property="MinWidth" Value="84" />
+      <Setter Property="Padding" Value="4,2,8,2" />
+    </Style>
+    <Style Selector="Border.ribbon-group-header">
+      <Setter Property="Background" Value="{DynamicResource RibbonContentBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource RibbonGroupBorderBrush}" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="0,2,0,2" />
+      <Setter Property="MinHeight" Value="18" />
+    </Style>
+    <Style Selector="TextBlock.ribbon-group-header">
+      <Setter Property="FontSize" Value="10" />
+      <Setter Property="FontWeight" Value="Normal" />
+      <Setter Property="Foreground" Value="#585858" />
+      <Setter Property="HorizontalAlignment" Value="Center" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Margin" Value="0" />
+    </Style>
+    <Style Selector="TextBlock.ribbon-context-header">
+      <Setter Property="FontSize" Value="10" />
+      <Setter Property="Foreground" Value="{DynamicResource RibbonAccentBrush}" />
+      <Setter Property="HorizontalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Border.ribbon-keytip">
+      <Setter Property="Background" Value="#FFF4CE" />
+      <Setter Property="BorderBrush" Value="#D3A400" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="3" />
+      <Setter Property="Padding" Value="4,2" />
+      <Setter Property="BoxShadow" Value="0 2 8 0 #26000000" />
+    </Style>
+    <Style Selector="TextBlock.ribbon-keytip-text">
+      <Setter Property="FontSize" Value="10" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="#1B1B1B" />
+    </Style>
+
+    <Style Selector="Button.ribbon-button">
+      <Setter Property="Theme" Value="{StaticResource RibbonButtonTheme}" />
+      <Setter Property="Margin" Value="0" />
+    </Style>
+    <Style Selector="ToggleButton.ribbon-button">
+      <Setter Property="Theme" Value="{StaticResource RibbonToggleButtonTheme}" />
+      <Setter Property="Margin" Value="0" />
+    </Style>
+    <Style Selector="Button.ribbon-split-primary /template/ Border#PART_ButtonRoot">
+      <Setter Property="CornerRadius" Value="3,0,0,3" />
+    </Style>
+    <Style Selector="Button.ribbon-split-arrow">
+      <Setter Property="MinWidth" Value="18" />
+      <Setter Property="Width" Value="18" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="BorderBrush" Value="{DynamicResource RibbonGroupBorderBrush}" />
+      <Setter Property="FontFamily" Value="Segoe UI Emoji, Apple Color Emoji, Noto Color Emoji" />
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.ribbon-split-arrow /template/ Border#PART_ButtonRoot">
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="CornerRadius" Value="0,3,3,0" />
+    </Style>
+
+    <Style Selector="TabControl > TabItem">
+      <Setter Property="IsVisible" Value="{Binding IsVisible}" />
+      <Setter Property="IsEnabled" Value="{Binding IsEnabled}" />
+    </Style>
+  </UserControl.Styles>
+
+  <UserControl.DataTemplates>
+    <DataTemplate DataType="ribbon:RibbonButton">
+      <Button Classes="ribbon-button"
+              local:RibbonGroupPanel.ItemSize="{Binding Size}"
+              Content="{Binding}"
+              ContentTemplate="{StaticResource RibbonButtonContentTemplate}"
+              IsEnabled="{Binding IsEnabled}"
+              IsVisible="{Binding IsVisible}"
+              Padding="{Binding Size, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=Padding}"
+              MinWidth="{Binding Size, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=MinWidth}"
+              MinHeight="{Binding Size, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=MinHeight}"
+              FontSize="{Binding Size, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=FontSize}"
+              HorizontalContentAlignment="{Binding Size, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=HorizontalAlignment}"
+              VerticalContentAlignment="{Binding Size, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=ContentVerticalAlignment}"
+              Click="OnRibbonButtonClick"
+              ContextRequested="OnRibbonControlContextRequested" />
+    </DataTemplate>
+    <DataTemplate DataType="ribbon:RibbonToggleButton">
+      <ToggleButton Classes="ribbon-button"
+                    local:RibbonGroupPanel.ItemSize="{Binding Size}"
+                    Content="{Binding}"
+                    ContentTemplate="{StaticResource RibbonButtonContentTemplate}"
+                    IsChecked="{Binding IsChecked}"
+                    IsEnabled="{Binding IsEnabled}"
+                    IsVisible="{Binding IsVisible}"
+                    Padding="{Binding Size, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=Padding}"
+                    MinWidth="{Binding Size, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=MinWidth}"
+                    MinHeight="{Binding Size, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=MinHeight}"
+                    FontSize="{Binding Size, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=FontSize}"
+                    HorizontalContentAlignment="{Binding Size, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=HorizontalAlignment}"
+                    VerticalContentAlignment="{Binding Size, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=ContentVerticalAlignment}"
+                    Click="OnRibbonToggleClick"
+                    ContextRequested="OnRibbonControlContextRequested" />
+    </DataTemplate>
+    <DataTemplate DataType="ribbon:RibbonSplitButton">
+      <StackPanel Orientation="Horizontal"
+                  Spacing="0"
+                  local:RibbonGroupPanel.ItemSize="{Binding Size}"
+                  MinWidth="{Binding Size, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=MinWidth}"
+                  MinHeight="{Binding Size, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=MinHeight}"
+                  HorizontalAlignment="Left">
+        <Button Classes="ribbon-button ribbon-split-primary"
+                Content="{Binding}"
+                ContentTemplate="{StaticResource RibbonButtonContentTemplate}"
+                IsEnabled="{Binding IsEnabled}"
+                IsVisible="{Binding IsVisible}"
+                Padding="{Binding Size, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=Padding}"
+                MinWidth="{Binding Size, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=MinWidth}"
+                MinHeight="{Binding Size, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=MinHeight}"
+                FontSize="{Binding Size, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=FontSize}"
+                HorizontalContentAlignment="{Binding Size, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=HorizontalAlignment}"
+                VerticalContentAlignment="{Binding Size, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=ContentVerticalAlignment}"
+                Click="OnRibbonSplitPrimaryClick"
+                ContextRequested="OnRibbonControlContextRequested" />
+        <Button Classes="ribbon-button ribbon-split-arrow"
+                Content="{DynamicResource RibbonIcon.Dropdown}"
+                IsEnabled="{Binding IsEnabled}"
+                IsVisible="{Binding IsVisible}"
+                MinHeight="{Binding Size, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=MinHeight}"
+                Width="{Binding Size, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=ArrowWidth}"
+                Click="OnRibbonSplitMenuClick"
+                ContextRequested="OnRibbonControlContextRequested" />
+      </StackPanel>
+    </DataTemplate>
+  </UserControl.DataTemplates>
+
+  <Border Background="{DynamicResource RibbonSurfaceBrush}"
+          Padding="6,0">
+    <Grid>
+      <DockPanel>
+      <Border Classes="ribbon-qat" DockPanel.Dock="Top">
+        <ItemsControl ItemsSource="{Binding QuickAccess}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel Orientation="Horizontal" Spacing="4" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <ContentPresenter Content="{Binding Control}" />
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </Border>
+
+        <TabControl ItemsSource="{Binding Tabs}"
+                    SelectedItem="{Binding SelectedTab}"
+                    Theme="{StaticResource RibbonTabControlTheme}"
+                    ItemContainerTheme="{StaticResource RibbonTabItemTheme}">
+          <TabControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel Orientation="Horizontal"
+                          Spacing="6" />
+            </ItemsPanelTemplate>
+          </TabControl.ItemsPanel>
+          <TabControl.ItemTemplate>
+            <DataTemplate>
+              <StackPanel>
+                <TextBlock Classes="ribbon-context-header"
+                           Text="{Binding ContextualHeader}"
+                           IsVisible="{Binding HasContextualSet}" />
+                <TextBlock Text="{Binding Header}" />
+              </StackPanel>
+            </DataTemplate>
+          </TabControl.ItemTemplate>
+          <TabControl.ContentTemplate>
+            <DataTemplate>
+          <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                        VerticalScrollBarVisibility="Disabled">
+            <ItemsControl ItemsSource="{Binding Groups}">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <WrapPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                    <Border Classes="ribbon-group"
+                            Tag="{Binding SizeMode}"
+                            IsVisible="{Binding IsVisible}"
+                            IsEnabled="{Binding IsEnabled}">
+                      <Grid RowDefinitions="*,Auto">
+                        <ItemsControl ItemsSource="{Binding Controls}"
+                                      Grid.Row="0"
+                                      HorizontalAlignment="Stretch"
+                                      VerticalAlignment="Stretch">
+                          <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                              <local:RibbonGroupPanel RowSpacing="2"
+                                                      ColumnSpacing="6"
+                                                      RowHeight="26"
+                                                      ColumnWidth="0"
+                                                      ColumnMinWidth="72"
+                                                      ColumnMaxWidth="160"
+                                                      MinColumnHeight="82" />
+                            </ItemsPanelTemplate>
+                          </ItemsControl.ItemsPanel>
+                        </ItemsControl>
+                        <Border Classes="ribbon-group-header"
+                                Grid.Row="1">
+                          <TextBlock Classes="ribbon-group-header"
+                                     Text="{Binding Header}" />
+                        </Border>
+                      </Grid>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </ScrollViewer>
+            </DataTemplate>
+          </TabControl.ContentTemplate>
+        </TabControl>
+      </DockPanel>
+
+      <Canvas x:Name="KeyTipOverlay"
+              IsVisible="False"
+              IsHitTestVisible="False" />
+    </Grid>
+  </Border>
+</UserControl>
