@@ -251,7 +251,8 @@ public sealed class DocumentView : Control, ILogicalScrollable
         }
         Focus();
 
-        if (_inputAdapter.HandlePointerPressed(e, _scrollOffset, _zoomFactor, this))
+        var effectiveOffset = GetEffectiveScrollOffset();
+        if (_inputAdapter.HandlePointerPressed(e, effectiveOffset, _zoomFactor, this))
         {
             _isSelecting = true;
             e.Pointer.Capture(this);
@@ -277,7 +278,8 @@ public sealed class DocumentView : Control, ILogicalScrollable
             return;
         }
 
-        if (_inputAdapter.HandlePointerMoved(e, _scrollOffset, _zoomFactor, this))
+        var effectiveOffset = GetEffectiveScrollOffset();
+        if (_inputAdapter.HandlePointerMoved(e, effectiveOffset, _zoomFactor, this))
         {
             e.Handled = true;
         }
@@ -294,7 +296,8 @@ public sealed class DocumentView : Control, ILogicalScrollable
         if (_isSelecting)
         {
             _isSelecting = false;
-            _inputAdapter.HandlePointerReleased(e, _scrollOffset, _zoomFactor, this);
+            var effectiveOffset = GetEffectiveScrollOffset();
+            _inputAdapter.HandlePointerReleased(e, effectiveOffset, _zoomFactor, this);
             e.Pointer.Capture(null);
             e.Handled = true;
         }
@@ -303,7 +306,8 @@ public sealed class DocumentView : Control, ILogicalScrollable
     public override void Render(DrawingContext context)
     {
         base.Render(context);
-        context.Custom(new SkiaDrawOperation(Bounds, _editor, _renderer, _renderOptions, _scrollOffset));
+        var effectiveOffset = GetEffectiveScrollOffset();
+        context.Custom(new SkiaDrawOperation(Bounds, _editor, _renderer, _renderOptions, effectiveOffset));
     }
 
     public void LoadDocument(Document document)
@@ -669,10 +673,10 @@ public sealed class DocumentView : Control, ILogicalScrollable
         _viewport = Bounds.Size;
         var extentHeight = Math.Max(_viewport.Height, _editor.Layout.ContentHeight * _zoomFactor);
         var extentWidth = _viewport.Width;
-        if (_editor.Layout.Pages.Count > 0)
+        if (TryGetContentHorizontalBounds(out var minX, out var maxX))
         {
-            var maxRight = _editor.Layout.Pages.Max(page => page.Bounds.Right);
-            extentWidth = Math.Max(_viewport.Width, (maxRight + _editor.Layout.Settings.PageGap) * _zoomFactor);
+            var contentWidth = Math.Max(0f, (maxX - minX) * _zoomFactor);
+            extentWidth = Math.Max(_viewport.Width, contentWidth);
         }
 
         _extent = new Size(extentWidth, extentHeight);
@@ -687,6 +691,75 @@ public sealed class DocumentView : Control, ILogicalScrollable
         var clampedX = Math.Clamp(offset.X, 0, maxX);
         var clampedY = Math.Clamp(offset.Y, 0, maxY);
         return new Vector(clampedX, clampedY);
+    }
+
+    private Vector GetEffectiveScrollOffset()
+    {
+        var alignmentOffset = GetHorizontalAlignmentOffset();
+        if (MathF.Abs(alignmentOffset) < 0.5f)
+        {
+            return _scrollOffset;
+        }
+
+        return new Vector(_scrollOffset.X + alignmentOffset, _scrollOffset.Y);
+    }
+
+    private float GetHorizontalAlignmentOffset()
+    {
+        if (_viewport.Width <= 0 || _editor.Layout.Pages.Count == 0)
+        {
+            return 0f;
+        }
+
+        if (!TryGetContentHorizontalBounds(out var minX, out var maxX))
+        {
+            return 0f;
+        }
+
+        var contentWidth = (maxX - minX) * _zoomFactor;
+        if (contentWidth <= 0f)
+        {
+            return 0f;
+        }
+
+        var viewportWidth = (float)_viewport.Width;
+        var contentLeft = minX * _zoomFactor;
+        if (contentWidth >= viewportWidth - 0.5f)
+        {
+            return contentLeft;
+        }
+
+        var centeredLeft = (viewportWidth - contentWidth) / 2f;
+        return contentLeft - centeredLeft;
+    }
+
+    private bool TryGetContentHorizontalBounds(out float minX, out float maxX)
+    {
+        var pages = _editor.Layout.Pages;
+        if (pages.Count == 0)
+        {
+            minX = 0f;
+            maxX = 0f;
+            return false;
+        }
+
+        minX = pages[0].Bounds.Left;
+        maxX = pages[0].Bounds.Right;
+        for (var i = 1; i < pages.Count; i++)
+        {
+            var bounds = pages[i].Bounds;
+            if (bounds.Left < minX)
+            {
+                minX = bounds.Left;
+            }
+
+            if (bounds.Right > maxX)
+            {
+                maxX = bounds.Right;
+            }
+        }
+
+        return true;
     }
 
     public void ZoomIn()
@@ -728,9 +801,10 @@ public sealed class DocumentView : Control, ILogicalScrollable
         }
 
         var previousZoom = _zoomFactor;
+        var previousOffset = GetEffectiveScrollOffset();
         var centerDoc = preserveCenter && _viewport.Width > 0 && _viewport.Height > 0
-            ? new Point((_scrollOffset.X + _viewport.Width / 2f) / previousZoom,
-                (_scrollOffset.Y + _viewport.Height / 2f) / previousZoom)
+            ? new Point((previousOffset.X + _viewport.Width / 2f) / previousZoom,
+                (previousOffset.Y + _viewport.Height / 2f) / previousZoom)
             : new Point(0, 0);
 
         _zoomFactor = clamped;
@@ -740,8 +814,21 @@ public sealed class DocumentView : Control, ILogicalScrollable
 
         if (preserveCenter)
         {
-            var targetOffset = new Vector(centerDoc.X * _zoomFactor - _viewport.Width / 2f,
+            var targetEffectiveOffset = new Vector(centerDoc.X * _zoomFactor - _viewport.Width / 2f,
                 centerDoc.Y * _zoomFactor - _viewport.Height / 2f);
+
+            if (TryGetContentHorizontalBounds(out var minX, out var maxX))
+            {
+                var contentWidth = (maxX - minX) * _zoomFactor;
+                var viewportWidth = (float)_viewport.Width;
+                if (contentWidth >= viewportWidth - 0.5f)
+                {
+                    targetEffectiveOffset = new Vector(minX * _zoomFactor, targetEffectiveOffset.Y);
+                }
+            }
+
+            var alignmentOffset = GetHorizontalAlignmentOffset();
+            var targetOffset = new Vector(targetEffectiveOffset.X - alignmentOffset, targetEffectiveOffset.Y);
             UpdateScrollMetrics(targetOffset);
         }
         else
