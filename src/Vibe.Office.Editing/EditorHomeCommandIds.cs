@@ -39,6 +39,7 @@ public static class EditorHomeCommandIds
         public const string TextEffectClear = "font.effect.clear";
         public const string HighlightSet = "font.highlight.set";
         public const string ColorSet = "font.color.set";
+        public const string DialogApply = "font.dialog.apply";
     }
 
     public static class Paragraph
@@ -58,6 +59,7 @@ public static class EditorHomeCommandIds
         public const string LineSpacingOptions = "para.spacing.options";
         public const string ShadingSet = "para.shading.set";
         public const string BorderSet = "para.border.set";
+        public const string DialogApply = "para.dialog.apply";
     }
 
     public static class Styles
@@ -71,6 +73,9 @@ public static class EditorHomeCommandIds
     {
         public const string Find = "edit.find";
         public const string Replace = "edit.replace";
+        public const string ReplaceAll = "edit.replace.all";
+        public const string Undo = "edit.undo";
+        public const string Redo = "edit.redo";
         public const string SelectAll = "edit.select.all";
         public const string SelectObjects = "edit.select.objects";
         public const string SelectSimilarFormatting = "edit.select.similar";

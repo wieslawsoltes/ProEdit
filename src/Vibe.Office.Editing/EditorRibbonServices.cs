@@ -56,6 +56,8 @@ public readonly record struct EditorFormattingSnapshot(
     EditorValue<bool> Strikethrough,
     EditorValue<DocColor> FontColor,
     EditorValue<DocColor> HighlightColor,
+    EditorValue<DocColor> UnderlineColor,
+    EditorValue<bool> SmallCaps,
     EditorValue<DocVerticalPosition> VerticalPosition,
     EditorValue<bool> TextOutline,
     EditorValue<bool> TextShadow,
@@ -77,7 +79,16 @@ public readonly record struct EditorParagraphSnapshot(
     EditorValue<int> LineSpacing,
     EditorValue<DocLineSpacingRule> LineSpacingRule,
     EditorValue<ListKind> ListKind,
-    EditorValue<int> ListLevel);
+    EditorValue<int> ListLevel,
+    EditorValue<DocColor> ShadingColor,
+    EditorValue<bool> KeepWithNext,
+    EditorValue<bool> KeepLinesTogether,
+    EditorValue<bool> WidowControl,
+    EditorValue<bool> PageBreakBefore,
+    EditorValue<bool> SuppressLineNumbers,
+    EditorValue<bool> ContextualSpacing,
+    EditorValue<bool> Bidi,
+    EditorValue<DocTextDirection> TextDirection);
 
 public interface IParagraphService
 {
@@ -146,6 +157,16 @@ public interface IFindReplaceService
     int ReplaceAll(EditorReplaceQuery query);
 }
 
+public interface ISelectionTextService
+{
+    bool TryGetSelectionText(out string text, int maxLength = 0);
+}
+
+public interface IEditorViewOptionsService
+{
+    bool ShowInvisibles { get; set; }
+}
+
 public interface IStylePaneService
 {
     void OpenStylesPane();
@@ -154,6 +175,6 @@ public interface IStylePaneService
 
 public interface IEditorCommandRouter
 {
-    bool CanExecute(string commandId, object? payload = null);
-    ValueTask<bool> ExecuteAsync(string commandId, object? payload = null);
+    bool CanExecute(string commandId, object? payload = null, RibbonContextSnapshot? context = null);
+    ValueTask<bool> ExecuteAsync(string commandId, object? payload = null, RibbonContextSnapshot? context = null);
 }

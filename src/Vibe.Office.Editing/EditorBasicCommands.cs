@@ -1,8 +1,9 @@
 namespace Vibe.Office.Editing;
 
-public sealed class InsertTextCommand : IEditorCommand
+public sealed class InsertTextCommand : IEditorUndoableCommand
 {
     public string Text { get; }
+    public bool IsUndoable => true;
 
     public InsertTextCommand(string text)
     {
@@ -15,24 +16,30 @@ public sealed class InsertTextCommand : IEditorCommand
     }
 }
 
-public sealed class InsertParagraphBreakCommand : IEditorCommand
+public sealed class InsertParagraphBreakCommand : IEditorUndoableCommand
 {
+    public bool IsUndoable => true;
+
     public void Execute(IEditorMutableSession session)
     {
         session.InsertParagraphBreak();
     }
 }
 
-public sealed class BackspaceCommand : IEditorCommand
+public sealed class BackspaceCommand : IEditorUndoableCommand
 {
+    public bool IsUndoable => true;
+
     public void Execute(IEditorMutableSession session)
     {
         session.Backspace();
     }
 }
 
-public sealed class DeleteForwardCommand : IEditorCommand
+public sealed class DeleteForwardCommand : IEditorUndoableCommand
 {
+    public bool IsUndoable => true;
+
     public void Execute(IEditorMutableSession session)
     {
         session.DeleteForward();

@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text;
 using Vibe.Office.Documents;
 
 namespace Vibe.Office.Editing;
@@ -47,6 +49,60 @@ public static class DocumentEditHelpers
             ContentControlEndInline => 0,
             _ => 1
         };
+    }
+
+    public static string GetParagraphText(ParagraphBlock paragraph)
+    {
+        if (paragraph.Inlines.Count == 0)
+        {
+            return paragraph.Text ?? string.Empty;
+        }
+
+        var builder = new StringBuilder();
+        foreach (var inline in paragraph.Inlines)
+        {
+            switch (inline)
+            {
+                case RunInline run:
+                    builder.Append(run.Text.GetText());
+                    break;
+                case ImageInline:
+                case ShapeInline:
+                case ChartInline:
+                case EquationInline:
+                case PageNumberInline:
+                case TotalPagesInline:
+                    builder.Append(DocumentConstants.ObjectReplacementChar);
+                    break;
+                case MetadataStartInline:
+                case MetadataEndInline:
+                    break;
+                case FootnoteReferenceInline footnote:
+                    builder.Append(footnote.Id.ToString(CultureInfo.InvariantCulture));
+                    break;
+                case EndnoteReferenceInline endnote:
+                    builder.Append(endnote.Id.ToString(CultureInfo.InvariantCulture));
+                    break;
+                case CommentReferenceInline comment:
+                    builder.Append(comment.Id.ToString(CultureInfo.InvariantCulture));
+                    break;
+                case FieldStartInline:
+                case FieldSeparatorInline:
+                case FieldEndInline:
+                case BookmarkStartInline:
+                case BookmarkEndInline:
+                case CommentRangeStartInline:
+                case CommentRangeEndInline:
+                case ContentControlStartInline:
+                case ContentControlEndInline:
+                    break;
+                default:
+                    builder.Append(DocumentConstants.ObjectReplacementChar);
+                    break;
+            }
+        }
+
+        return builder.ToString();
     }
 
     public static void EnsureParagraphInlines(ParagraphBlock paragraph)

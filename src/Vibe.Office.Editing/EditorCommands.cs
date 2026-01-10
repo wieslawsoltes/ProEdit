@@ -5,6 +5,17 @@ public interface IEditorCommand
     void Execute(IEditorMutableSession session);
 }
 
+public interface IEditorUndoableCommand : IEditorCommand
+{
+    bool IsUndoable { get; }
+}
+
+public interface IEditorCommandHistory
+{
+    bool ShouldRecord(IEditorCommand command);
+    void ExecuteWithHistory(IEditorMutableSession session, IEditorCommand command, Action execute);
+}
+
 public interface IEditorCommandHandler
 {
     void Handle(IEditorMutableSession session, IEditorCommand command);
@@ -28,6 +39,7 @@ public abstract class EditorCommandHandler<TCommand> : IEditorCommandHandler<TCo
 public sealed class EditorCommandDispatcher
 {
     private readonly Dictionary<Type, object> _handlers = new();
+    public IEditorCommandHistory? History { get; set; }
 
     public void Register<TCommand>(IEditorCommandHandler<TCommand> handler) where TCommand : IEditorCommand
     {
@@ -39,6 +51,18 @@ public sealed class EditorCommandDispatcher
         ArgumentNullException.ThrowIfNull(command);
         ArgumentNullException.ThrowIfNull(session);
 
+        var history = History;
+        if (history is not null && history.ShouldRecord(command))
+        {
+            history.ExecuteWithHistory(session, command, () => ExecuteCommand(command, session));
+            return;
+        }
+
+        ExecuteCommand(command, session);
+    }
+
+    private void ExecuteCommand(IEditorCommand command, IEditorMutableSession session)
+    {
         if (_handlers.TryGetValue(command.GetType(), out var handler))
         {
             ((IEditorCommandHandler)handler).Handle(session, command);

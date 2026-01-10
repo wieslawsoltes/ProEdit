@@ -26,6 +26,9 @@ public interface IEditorMutableSession : IEditorSession
     void InsertText(ReadOnlySpan<char> text);
     void InsertEquation(MathElement root, TextStyleProperties? style = null, string? styleId = null);
     void InsertParagraphBreak();
+    void InsertInline(Inline inline);
+    void InsertInlines(IReadOnlyList<Inline> inlines);
+    void InsertBlock(Block block);
 
     void Backspace();
     void DeleteForward();

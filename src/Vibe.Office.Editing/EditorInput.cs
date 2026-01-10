@@ -24,7 +24,9 @@ public enum EditorKey
     End,
     PageUp,
     PageDown,
-    Tab
+    Tab,
+    Z,
+    Y
 }
 
 public enum EditorKeyEventKind

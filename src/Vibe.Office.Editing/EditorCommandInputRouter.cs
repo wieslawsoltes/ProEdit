@@ -4,11 +4,16 @@ public sealed class EditorCommandInputRouter : IEditorInputRouter
 {
     private readonly EditorCommandDispatcher _dispatcher;
     private readonly IEditorMutableSession _session;
+    private readonly IUndoRedoService? _undoRedo;
 
-    public EditorCommandInputRouter(EditorCommandDispatcher dispatcher, IEditorMutableSession session)
+    public EditorCommandInputRouter(
+        EditorCommandDispatcher dispatcher,
+        IEditorMutableSession session,
+        IUndoRedoService? undoRedo = null)
     {
         _dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
         _session = session ?? throw new ArgumentNullException(nameof(session));
+        _undoRedo = undoRedo;
     }
 
     public bool HandleTextInput(ReadOnlySpan<char> text, EditorModifiers modifiers)
@@ -33,6 +38,11 @@ public sealed class EditorCommandInputRouter : IEditorInputRouter
         if (kind != EditorKeyEventKind.Down)
         {
             return false;
+        }
+
+        if (TryHandleUndoRedo(key, modifiers))
+        {
+            return true;
         }
 
         var extend = (modifiers & EditorModifiers.Shift) != 0;
@@ -62,6 +72,42 @@ public sealed class EditorCommandInputRouter : IEditorInputRouter
             default:
                 return false;
         }
+    }
+
+    private bool TryHandleUndoRedo(EditorKey key, EditorModifiers modifiers)
+    {
+        if (_undoRedo is null)
+        {
+            return false;
+        }
+
+        var modifier = (modifiers & (EditorModifiers.Control | EditorModifiers.Meta)) != 0;
+        if (!modifier)
+        {
+            return false;
+        }
+
+        if (key == EditorKey.Z)
+        {
+            if ((modifiers & EditorModifiers.Shift) != 0)
+            {
+                _undoRedo.RedoAsync().GetAwaiter().GetResult();
+            }
+            else
+            {
+                _undoRedo.UndoAsync().GetAwaiter().GetResult();
+            }
+
+            return true;
+        }
+
+        if (key == EditorKey.Y)
+        {
+            _undoRedo.RedoAsync().GetAwaiter().GetResult();
+            return true;
+        }
+
+        return false;
     }
 
     public bool HandlePointer(in EditorPointerEvent pointerEvent)
