@@ -1,0 +1,55 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Vibe.Word.App.FindReplaceDialog"
+        Width="360"
+        Height="240"
+        WindowStartupLocation="CenterOwner"
+        Title="Find and Replace">
+  <Grid RowDefinitions="Auto,Auto,Auto,Auto"
+        ColumnDefinitions="Auto,*"
+        RowSpacing="8"
+        ColumnSpacing="8"
+        Margin="12">
+    <TextBlock Text="Find what:"
+               VerticalAlignment="Center" />
+    <TextBox x:Name="FindTextBox"
+             Grid.Column="1"
+             MinWidth="200" />
+    <TextBlock x:Name="ReplaceLabel"
+               Grid.Row="1"
+               Text="Replace with:"
+               VerticalAlignment="Center" />
+    <TextBox x:Name="ReplaceTextBox"
+             Grid.Row="1"
+             Grid.Column="1"
+             MinWidth="200" />
+    <StackPanel Grid.Row="2"
+                Grid.ColumnSpan="2"
+                Orientation="Horizontal"
+                Spacing="12">
+      <CheckBox x:Name="MatchCaseCheck"
+                Content="Match case" />
+      <CheckBox x:Name="WholeWordCheck"
+                Content="Whole word" />
+      <CheckBox x:Name="WrapCheck"
+                Content="Wrap"
+                IsChecked="True" />
+    </StackPanel>
+    <StackPanel Grid.Row="3"
+                Grid.ColumnSpan="2"
+                Orientation="Horizontal"
+                HorizontalAlignment="Right"
+                Spacing="8">
+      <Button Content="Find Next"
+              Click="OnFindNextClick" />
+      <Button x:Name="ReplaceButton"
+              Content="Replace"
+              Click="OnReplaceClick" />
+      <Button x:Name="ReplaceAllButton"
+              Content="Replace All"
+              Click="OnReplaceAllClick" />
+      <Button Content="Close"
+              Click="OnCloseClick" />
+    </StackPanel>
+  </Grid>
+</Window>

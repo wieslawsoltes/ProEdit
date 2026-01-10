@@ -168,6 +168,8 @@ public sealed class AvaloniaEditorInputAdapter : IEditorInputRouter
             Key.PageUp => EditorKey.PageUp,
             Key.PageDown => EditorKey.PageDown,
             Key.Tab => EditorKey.Tab,
+            Key.Z => EditorKey.Z,
+            Key.Y => EditorKey.Y,
             _ => EditorKey.Unknown
         };
     }

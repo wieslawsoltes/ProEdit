@@ -1,0 +1,178 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Vibe.Word.App.FontDialog"
+        Width="520"
+        Height="420"
+        WindowStartupLocation="CenterOwner"
+        Title="Font">
+  <Grid RowDefinitions="*,Auto"
+        Margin="12">
+    <TabControl x:Name="Tabs">
+      <TabItem Header="Font">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <StackPanel Spacing="12">
+            <Grid ColumnDefinitions="Auto,*,Auto,*"
+                  RowDefinitions="Auto,Auto,Auto,Auto"
+                  ColumnSpacing="8"
+                  RowSpacing="8">
+              <TextBlock Text="Font:"
+                         VerticalAlignment="Center" />
+              <ComboBox x:Name="FontFamilyCombo"
+                        Grid.Column="1"
+                        Grid.ColumnSpan="3"
+                        Width="360"
+                        IsEditable="True"
+                        SelectionChanged="OnSelectionChanged" />
+
+              <TextBlock Grid.Row="1"
+                         Text="Font style:"
+                         VerticalAlignment="Center" />
+              <ComboBox x:Name="FontStyleCombo"
+                        Grid.Row="1"
+                        Grid.Column="1"
+                        Width="160"
+                        SelectionChanged="OnSelectionChanged" />
+              <TextBlock Grid.Row="1"
+                         Grid.Column="2"
+                         Text="Size:"
+                         VerticalAlignment="Center" />
+              <ComboBox x:Name="FontSizeCombo"
+                        Grid.Row="1"
+                        Grid.Column="3"
+                        Width="100"
+                        IsEditable="True"
+                        SelectionChanged="OnSelectionChanged" />
+
+              <TextBlock Grid.Row="2"
+                         Text="Underline style:"
+                         VerticalAlignment="Center" />
+              <ComboBox x:Name="UnderlineStyleCombo"
+                        Grid.Row="2"
+                        Grid.Column="1"
+                        Width="160"
+                        SelectionChanged="OnSelectionChanged" />
+              <TextBlock Grid.Row="2"
+                         Grid.Column="2"
+                         Text="Underline color:"
+                         VerticalAlignment="Center" />
+              <ComboBox x:Name="UnderlineColorCombo"
+                        Grid.Row="2"
+                        Grid.Column="3"
+                        Width="160"
+                        SelectionChanged="OnSelectionChanged" />
+
+              <TextBlock Grid.Row="3"
+                         Text="Font color:"
+                         VerticalAlignment="Center" />
+              <ComboBox x:Name="FontColorCombo"
+                        Grid.Row="3"
+                        Grid.Column="1"
+                        Grid.ColumnSpan="3"
+                        Width="360"
+                        SelectionChanged="OnSelectionChanged" />
+            </Grid>
+
+            <Border BorderBrush="#D0D0D0"
+                    BorderThickness="1"
+                    CornerRadius="4"
+                    Padding="8">
+              <StackPanel Spacing="8">
+                <TextBlock Text="Effects"
+                           FontWeight="SemiBold" />
+                <Grid ColumnDefinitions="*,*"
+                      RowDefinitions="Auto,Auto,Auto,Auto"
+                      ColumnSpacing="12"
+                      RowSpacing="6">
+                  <CheckBox x:Name="StrikethroughCheckBox"
+                            Content="Strikethrough"
+                            IsThreeState="True"
+                            Grid.Row="0"
+                            Grid.Column="0"
+                            Checked="OnToggleChanged"
+                            Unchecked="OnToggleChanged" />
+                  <CheckBox x:Name="SmallCapsCheckBox"
+                            Content="Small caps"
+                            IsThreeState="True"
+                            Grid.Row="0"
+                            Grid.Column="1"
+                            Checked="OnToggleChanged"
+                            Unchecked="OnToggleChanged" />
+                  <CheckBox x:Name="OutlineCheckBox"
+                            Content="Outline"
+                            IsThreeState="True"
+                            Grid.Row="1"
+                            Grid.Column="0"
+                            Checked="OnToggleChanged"
+                            Unchecked="OnToggleChanged" />
+                  <CheckBox x:Name="ShadowCheckBox"
+                            Content="Shadow"
+                            IsThreeState="True"
+                            Grid.Row="1"
+                            Grid.Column="1"
+                            Checked="OnToggleChanged"
+                            Unchecked="OnToggleChanged" />
+                  <CheckBox x:Name="EmbossCheckBox"
+                            Content="Emboss"
+                            IsThreeState="True"
+                            Grid.Row="2"
+                            Grid.Column="0"
+                            Checked="OnToggleChanged"
+                            Unchecked="OnToggleChanged" />
+                  <CheckBox x:Name="ImprintCheckBox"
+                            Content="Imprint"
+                            IsThreeState="True"
+                            Grid.Row="2"
+                            Grid.Column="1"
+                            Checked="OnToggleChanged"
+                            Unchecked="OnToggleChanged" />
+                  <TextBlock Grid.Row="3"
+                             Grid.Column="0"
+                             Text="Position:"
+                             VerticalAlignment="Center" />
+                  <ComboBox x:Name="PositionCombo"
+                            Grid.Row="3"
+                            Grid.Column="1"
+                            Width="160"
+                            SelectionChanged="OnSelectionChanged" />
+                </Grid>
+              </StackPanel>
+            </Border>
+
+            <Border BorderBrush="#D0D0D0"
+                    BorderThickness="1"
+                    CornerRadius="4"
+                    Padding="8">
+              <StackPanel Spacing="8">
+                <TextBlock Text="Preview"
+                           FontWeight="SemiBold" />
+                <Border Background="#FFFFFF"
+                        BorderBrush="#C8C8C8"
+                        BorderThickness="1"
+                        CornerRadius="4"
+                        Padding="12">
+                  <TextBlock x:Name="PreviewText"
+                             Text="AaBbYyZz"
+                             FontSize="24"
+                             TextAlignment="Center" />
+                </Border>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+    </TabControl>
+
+    <StackPanel Grid.Row="1"
+                Orientation="Horizontal"
+                HorizontalAlignment="Right"
+                Spacing="8"
+                Margin="0,12,0,0">
+      <Button Content="OK"
+              Width="90"
+              Click="OnOkClick" />
+      <Button Content="Cancel"
+              Width="90"
+              Click="OnCancelClick" />
+    </StackPanel>
+  </Grid>
+</Window>

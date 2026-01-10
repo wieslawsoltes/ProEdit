@@ -15,6 +15,8 @@
             <x:String x:Key="RibbonIcon.Open">📂</x:String>
             <x:String x:Key="RibbonIcon.Save">💾</x:String>
             <x:String x:Key="RibbonIcon.SaveAs">💾➕</x:String>
+            <x:String x:Key="RibbonIcon.Undo">↶</x:String>
+            <x:String x:Key="RibbonIcon.Redo">↷</x:String>
             <x:String x:Key="RibbonIcon.Layout">📐</x:String>
             <x:String x:Key="RibbonIcon.Invisibles">👁️</x:String>
             <x:String x:Key="RibbonIcon.Text">🔤</x:String>
@@ -39,6 +41,7 @@
             <x:String x:Key="RibbonIcon.Subscript">⬇️</x:String>
             <x:String x:Key="RibbonIcon.Highlight">🖍️</x:String>
             <x:String x:Key="RibbonIcon.FontColor">🎨</x:String>
+            <x:String x:Key="RibbonIcon.MoreColors">🎨</x:String>
             <x:String x:Key="RibbonIcon.Bullets">🔘</x:String>
             <x:String x:Key="RibbonIcon.Numbering">🔢</x:String>
             <x:String x:Key="RibbonIcon.Multilevel">🧮</x:String>
@@ -57,6 +60,42 @@
             <x:String x:Key="RibbonIcon.Replace">🔁</x:String>
             <x:String x:Key="RibbonIcon.Select">✅</x:String>
             <x:String x:Key="RibbonIcon.Dropdown">🔽</x:String>
+            <x:String x:Key="RibbonIcon.Launcher">↘️</x:String>
+            <x:String x:Key="RibbonIcon.CoverPage">📑</x:String>
+            <x:String x:Key="RibbonIcon.BlankPage">📄</x:String>
+            <x:String x:Key="RibbonIcon.PageBreak">⤶</x:String>
+            <x:String x:Key="RibbonIcon.Table">🗒️</x:String>
+            <x:String x:Key="RibbonIcon.Pictures">🖼️</x:String>
+            <x:String x:Key="RibbonIcon.Shapes">🔶</x:String>
+            <x:String x:Key="RibbonIcon.Icons">🔣</x:String>
+            <x:String x:Key="RibbonIcon.Info">ℹ️</x:String>
+            <x:String x:Key="RibbonIcon.Alert">⚠️</x:String>
+            <x:String x:Key="RibbonIcon.Check">✅</x:String>
+            <x:String x:Key="RibbonIcon.Star">⭐</x:String>
+            <x:String x:Key="RibbonIcon.Calendar">📅</x:String>
+            <x:String x:Key="RibbonIcon.Search">🔍</x:String>
+            <x:String x:Key="RibbonIcon.Lock">🔒</x:String>
+            <x:String x:Key="RibbonIcon.Globe">🌐</x:String>
+            <x:String x:Key="RibbonIcon.User">👤</x:String>
+            <x:String x:Key="RibbonIcon.Settings">⚙️</x:String>
+            <x:String x:Key="RibbonIcon.Models3D">🧊</x:String>
+            <x:String x:Key="RibbonIcon.SmartArt">🧩</x:String>
+            <x:String x:Key="RibbonIcon.Chart">📊</x:String>
+            <x:String x:Key="RibbonIcon.Screenshot">📸</x:String>
+            <x:String x:Key="RibbonIcon.Link">🔗</x:String>
+            <x:String x:Key="RibbonIcon.Bookmark">🔖</x:String>
+            <x:String x:Key="RibbonIcon.CrossReference">🧭</x:String>
+            <x:String x:Key="RibbonIcon.Header">🔝</x:String>
+            <x:String x:Key="RibbonIcon.Footer">🔻</x:String>
+            <x:String x:Key="RibbonIcon.PageNumber">🔢</x:String>
+            <x:String x:Key="RibbonIcon.TextBox">📝</x:String>
+            <x:String x:Key="RibbonIcon.QuickParts">📦</x:String>
+            <x:String x:Key="RibbonIcon.WordArt">🎨</x:String>
+            <x:String x:Key="RibbonIcon.DropCap">🔡</x:String>
+            <x:String x:Key="RibbonIcon.Signature">✍️</x:String>
+            <x:String x:Key="RibbonIcon.DateTime">🕒</x:String>
+            <x:String x:Key="RibbonIcon.Object">📎</x:String>
+            <x:String x:Key="RibbonIcon.Symbol">🔣</x:String>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

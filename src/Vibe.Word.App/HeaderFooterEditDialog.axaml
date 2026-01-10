@@ -1,0 +1,27 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Vibe.Word.App.HeaderFooterEditDialog"
+        Width="420"
+        Height="260"
+        WindowStartupLocation="CenterOwner"
+        Title="Edit Header/Footer">
+  <Grid RowDefinitions="*,Auto"
+        RowSpacing="10"
+        Margin="12">
+    <TextBox x:Name="HeaderFooterTextBox"
+             AcceptsReturn="True"
+             ScrollViewer.VerticalScrollBarVisibility="Auto"
+             MinHeight="120" />
+    <StackPanel Grid.Row="1"
+                Orientation="Horizontal"
+                HorizontalAlignment="Right"
+                Spacing="8">
+      <Button Content="Apply"
+              Width="80"
+              Click="OnApplyClick" />
+      <Button Content="Cancel"
+              Width="80"
+              Click="OnCancelClick" />
+    </StackPanel>
+  </Grid>
+</Window>

@@ -36,7 +36,8 @@ internal sealed class EquationRibbonExtension : IRibbonExtension
                     new RibbonCommand(_refreshLayout, _canExecute),
                     iconKey: "RibbonIcon.Equation",
                     size: RibbonControlSize.Medium)
-            });
+            },
+            keyTip: "EQ");
 
         builder.AddTab(
                 "equation-design",
@@ -79,7 +80,8 @@ internal sealed class TableRibbonExtension : IRibbonExtension
                     "Properties",
                     isEnabled: false,
                     size: RibbonControlSize.Medium)
-            });
+            },
+            keyTip: "TB");
 
         builder.AddTab(
                 "table-layout",

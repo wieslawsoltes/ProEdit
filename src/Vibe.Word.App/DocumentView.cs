@@ -284,7 +284,13 @@ public sealed class DocumentView : Control, ILogicalScrollable
         }).ConfigureAwait(true);
 
         _editor = editor;
-        EditorHomeServiceRegistry.Register(_kernel.Services, _kernel.Commands, _editor, CreateClipboardService(_editor));
+        EditorHomeServiceRegistry.Register(
+            _kernel.Services,
+            _kernel.Commands,
+            _editor,
+            CreateFontService(_editor),
+            CreateClipboardService(_editor),
+            CreateViewOptionsService());
         ConfigureInputPipeline(editor);
         ApplyEditorState();
     }
@@ -307,6 +313,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
     {
         var document = new Document();
         document.Blocks.Clear();
+        DefineSampleStyles(document);
         var richParagraph = new ParagraphBlock("Vibe Word MVP - type to edit. This is the first paragraph.");
         richParagraph.Inlines.Add(new RunInline("Vibe Word ", new TextStyleProperties { FontWeight = DocFontWeight.Bold }));
         richParagraph.Inlines.Add(new RunInline("MVP", new TextStyleProperties { FontStyle = DocFontStyle.Italic, Color = new DocColor(0, 102, 204) }));
@@ -338,13 +345,96 @@ public sealed class DocumentView : Control, ILogicalScrollable
         return document;
     }
 
+    private static void DefineSampleStyles(Document document)
+    {
+        var styles = document.Styles;
+        styles.ParagraphStyles.Clear();
+
+        void AddStyle(ParagraphStyleDefinition style)
+        {
+            styles.ParagraphStyles[style.Id] = style;
+        }
+
+        styles.DefaultParagraphStyleId = "Normal";
+
+        var normal = new ParagraphStyleDefinition("Normal")
+        {
+            Name = "Normal"
+        };
+        normal.RunProperties.FontFamily = "Aptos (Body)";
+        normal.RunProperties.FontSize = 12f;
+        normal.ParagraphProperties.LineSpacing = 276;
+        normal.ParagraphProperties.LineSpacingRule = DocLineSpacingRule.Auto;
+        normal.ParagraphProperties.SpacingAfter = 8f;
+        AddStyle(normal);
+
+        var noSpacing = new ParagraphStyleDefinition("NoSpacing")
+        {
+            Name = "No Spacing"
+        };
+        noSpacing.RunProperties.FontFamily = "Aptos (Body)";
+        noSpacing.RunProperties.FontSize = 12f;
+        noSpacing.ParagraphProperties.LineSpacing = 240;
+        noSpacing.ParagraphProperties.LineSpacingRule = DocLineSpacingRule.Auto;
+        noSpacing.ParagraphProperties.SpacingBefore = 0f;
+        noSpacing.ParagraphProperties.SpacingAfter = 0f;
+        AddStyle(noSpacing);
+
+        var heading1 = new ParagraphStyleDefinition("Heading1")
+        {
+            Name = "Heading 1"
+        };
+        heading1.RunProperties.FontFamily = "Aptos Display";
+        heading1.RunProperties.FontSize = 16f;
+        heading1.RunProperties.FontWeight = DocFontWeight.Bold;
+        heading1.RunProperties.Color = new DocColor(46, 85, 153);
+        heading1.ParagraphProperties.SpacingBefore = 12f;
+        heading1.ParagraphProperties.SpacingAfter = 4f;
+        AddStyle(heading1);
+
+        var heading2 = new ParagraphStyleDefinition("Heading2")
+        {
+            Name = "Heading 2"
+        };
+        heading2.RunProperties.FontFamily = "Aptos Display";
+        heading2.RunProperties.FontSize = 13f;
+        heading2.RunProperties.FontWeight = DocFontWeight.Bold;
+        heading2.RunProperties.Color = new DocColor(79, 129, 189);
+        heading2.ParagraphProperties.SpacingBefore = 10f;
+        heading2.ParagraphProperties.SpacingAfter = 2f;
+        AddStyle(heading2);
+
+        var title = new ParagraphStyleDefinition("Title")
+        {
+            Name = "Title"
+        };
+        title.RunProperties.FontFamily = "Aptos Display";
+        title.RunProperties.FontSize = 26f;
+        title.RunProperties.FontWeight = DocFontWeight.Bold;
+        title.RunProperties.Color = new DocColor(46, 85, 153);
+        title.ParagraphProperties.SpacingBefore = 12f;
+        title.ParagraphProperties.SpacingAfter = 8f;
+        AddStyle(title);
+    }
+
     private EditorController CreateEditor(Document document)
     {
         ConfigureMeasurer(document);
         var editor = new EditorController(_textMeasurer, document);
+        EditorHomeServiceRegistry.Register(
+            _kernel.Services,
+            _kernel.Commands,
+            editor,
+            CreateFontService(editor),
+            CreateClipboardService(editor),
+            CreateViewOptionsService());
         ConfigureInputPipeline(editor);
-        EditorHomeServiceRegistry.Register(_kernel.Services, _kernel.Commands, editor, CreateClipboardService(editor));
         return editor;
+    }
+
+    private IFontService CreateFontService(IEditorSession session)
+    {
+        return new SkiaFontServiceAdapter(session);
     }
 
     private IClipboardService CreateClipboardService(IEditorSession session)
@@ -355,9 +445,15 @@ public sealed class DocumentView : Control, ILogicalScrollable
             () => !session.Selection.IsEmpty);
     }
 
+    private IEditorViewOptionsService CreateViewOptionsService()
+    {
+        return new EditorViewOptionsService(this);
+    }
+
     private void ConfigureInputPipeline(EditorController editor)
     {
-        var commandRouter = new EditorCommandInputRouter(_kernel.Commands, editor);
+        _kernel.Services.TryGet<IUndoRedoService>(out var undoRedo);
+        var commandRouter = new EditorCommandInputRouter(_kernel.Commands, editor, undoRedo);
         _inputAdapter = new AvaloniaEditorInputAdapter(commandRouter);
     }
 
