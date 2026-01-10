@@ -5,15 +5,21 @@ public sealed class EditorCommandInputRouter : IEditorInputRouter
     private readonly EditorCommandDispatcher _dispatcher;
     private readonly IEditorMutableSession _session;
     private readonly IUndoRedoService? _undoRedo;
+    private readonly IClipboardService? _clipboard;
+    private readonly ISelectionTextService? _selectionText;
 
     public EditorCommandInputRouter(
         EditorCommandDispatcher dispatcher,
         IEditorMutableSession session,
-        IUndoRedoService? undoRedo = null)
+        IUndoRedoService? undoRedo = null,
+        IClipboardService? clipboard = null,
+        ISelectionTextService? selectionText = null)
     {
         _dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
         _session = session ?? throw new ArgumentNullException(nameof(session));
         _undoRedo = undoRedo;
+        _clipboard = clipboard;
+        _selectionText = selectionText;
     }
 
     public bool HandleTextInput(ReadOnlySpan<char> text, EditorModifiers modifiers)
@@ -45,6 +51,11 @@ public sealed class EditorCommandInputRouter : IEditorInputRouter
             return true;
         }
 
+        if (TryHandleClipboard(key, modifiers))
+        {
+            return true;
+        }
+
         var extend = (modifiers & EditorModifiers.Shift) != 0;
         switch (key)
         {
@@ -72,6 +83,134 @@ public sealed class EditorCommandInputRouter : IEditorInputRouter
             default:
                 return false;
         }
+    }
+
+    private bool TryHandleClipboard(EditorKey key, EditorModifiers modifiers)
+    {
+        if (_clipboard is null)
+        {
+            return false;
+        }
+
+        var modifier = (modifiers & (EditorModifiers.Control | EditorModifiers.Meta)) != 0;
+        if (!modifier || (modifiers & EditorModifiers.Alt) != 0)
+        {
+            return false;
+        }
+
+        switch (key)
+        {
+            case EditorKey.C:
+                return CopySelection();
+            case EditorKey.X:
+                return CutSelection();
+            case EditorKey.V:
+                return PasteClipboard();
+            default:
+                return false;
+        }
+    }
+
+    private bool CopySelection()
+    {
+        if (!_clipboard!.CanCopy)
+        {
+            return true;
+        }
+
+        if (_selectionText is null)
+        {
+            return true;
+        }
+
+        if (_selectionText.TryGetSelectionText(out var text))
+        {
+            if (!string.IsNullOrEmpty(text))
+            {
+                _clipboard.SetText(text);
+            }
+        }
+
+        return true;
+    }
+
+    private bool CutSelection()
+    {
+        if (!_clipboard!.CanCut)
+        {
+            return true;
+        }
+
+        if (!CopySelection())
+        {
+            return true;
+        }
+
+        if (!_session.Selection.IsEmpty)
+        {
+            _dispatcher.Dispatch(new BackspaceCommand(), _session);
+        }
+
+        return true;
+    }
+
+    private bool PasteClipboard()
+    {
+        if (!_clipboard!.CanPaste)
+        {
+            return true;
+        }
+
+        if (!_clipboard.TryGetText(out var text))
+        {
+            return true;
+        }
+
+        return PasteText(text.AsSpan());
+    }
+
+    private bool PasteText(ReadOnlySpan<char> text)
+    {
+        if (text.IsEmpty)
+        {
+            return true;
+        }
+
+        var lineStart = 0;
+        for (var i = 0; i < text.Length; i++)
+        {
+            var value = text[i];
+            if (value != '\r' && value != '\n')
+            {
+                continue;
+            }
+
+            var segment = text.Slice(lineStart, i - lineStart);
+            if (!segment.IsEmpty)
+            {
+                _dispatcher.Dispatch(new InsertTextCommand(segment.ToString()), _session);
+            }
+
+            _dispatcher.Dispatch(new InsertParagraphBreakCommand(), _session);
+
+            if (value == '\r' && i + 1 < text.Length && text[i + 1] == '\n')
+            {
+                i++;
+            }
+
+            lineStart = i + 1;
+        }
+
+        if (lineStart <= text.Length - 1)
+        {
+            var tail = text.Slice(lineStart);
+            if (!tail.IsEmpty)
+            {
+                _dispatcher.Dispatch(new InsertTextCommand(tail.ToString()), _session);
+            }
+        }
+
+        return true;
     }
 
     private bool TryHandleUndoRedo(EditorKey key, EditorModifiers modifiers)

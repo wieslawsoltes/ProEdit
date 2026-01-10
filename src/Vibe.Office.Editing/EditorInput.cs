@@ -26,7 +26,10 @@ public enum EditorKey
     PageDown,
     Tab,
     Z,
-    Y
+    Y,
+    C,
+    X,
+    V
 }
 
 public enum EditorKeyEventKind
