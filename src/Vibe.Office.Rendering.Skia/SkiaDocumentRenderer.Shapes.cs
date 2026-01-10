@@ -631,11 +631,22 @@ public sealed partial class SkiaDocumentRenderer
             "ellipse" or "oval" => ShapeKind.Ellipse,
             "line" => ShapeKind.Line,
             "triangle" => ShapeKind.Triangle,
+            "rttriangle" or "righttriangle" => ShapeKind.RightTriangle,
             "diamond" => ShapeKind.Diamond,
             "parallelogram" => ShapeKind.Parallelogram,
             "trapezoid" => ShapeKind.Trapezoid,
+            "pentagon" => ShapeKind.Pentagon,
             "hexagon" => ShapeKind.Hexagon,
             "octagon" => ShapeKind.Octagon,
+            "star5" or "star" => ShapeKind.Star5,
+            "star8" => ShapeKind.Star8,
+            "rightarrow" => ShapeKind.ArrowRight,
+            "leftarrow" => ShapeKind.ArrowLeft,
+            "uparrow" => ShapeKind.ArrowUp,
+            "downarrow" => ShapeKind.ArrowDown,
+            "chevron" => ShapeKind.Chevron,
+            "plus" => ShapeKind.Plus,
+            "cross" or "x" => ShapeKind.Cross,
             _ => ShapeKind.Unknown
         };
     }
@@ -669,6 +680,12 @@ public sealed partial class SkiaDocumentRenderer
                 path.LineTo(rect.Left, rect.Bottom);
                 path.Close();
                 break;
+            case ShapeKind.RightTriangle:
+                path.MoveTo(rect.Left, rect.Top);
+                path.LineTo(rect.Right, rect.Bottom);
+                path.LineTo(rect.Left, rect.Bottom);
+                path.Close();
+                break;
             case ShapeKind.Diamond:
                 path.MoveTo(rect.MidX, rect.Top);
                 path.LineTo(rect.Right, rect.MidY);
@@ -694,6 +711,11 @@ public sealed partial class SkiaDocumentRenderer
                 path.LineTo(rect.Right, rect.Bottom);
                 path.LineTo(rect.Left, rect.Bottom);
                 path.Close();
+                break;
+            }
+            case ShapeKind.Pentagon:
+            {
+                AddPolygon(path, rect, 5);
                 break;
             }
             case ShapeKind.Hexagon:
@@ -723,12 +745,208 @@ public sealed partial class SkiaDocumentRenderer
                 path.Close();
                 break;
             }
+            case ShapeKind.Star5:
+                AddStar(path, rect, 5, 0.45f);
+                break;
+            case ShapeKind.Star8:
+                AddStar(path, rect, 8, 0.45f);
+                break;
+            case ShapeKind.ArrowRight:
+                AddRightArrow(path, rect);
+                break;
+            case ShapeKind.ArrowLeft:
+                AddLeftArrow(path, rect);
+                break;
+            case ShapeKind.ArrowUp:
+                AddUpArrow(path, rect);
+                break;
+            case ShapeKind.ArrowDown:
+                AddDownArrow(path, rect);
+                break;
+            case ShapeKind.Chevron:
+                AddChevron(path, rect);
+                break;
+            case ShapeKind.Plus:
+                AddPlus(path, rect);
+                break;
+            case ShapeKind.Cross:
+                AddCross(path, rect);
+                break;
             default:
                 path.AddRect(rect);
                 break;
         }
 
         return path;
+    }
+
+    private static void AddPolygon(SKPath path, SKRect rect, int sides)
+    {
+        var cx = rect.MidX;
+        var cy = rect.MidY;
+        var radius = MathF.Min(rect.Width, rect.Height) * 0.5f;
+        for (var i = 0; i < sides; i++)
+        {
+            var angle = -MathF.PI / 2f + i * (2f * MathF.PI / sides);
+            var x = cx + radius * MathF.Cos(angle);
+            var y = cy + radius * MathF.Sin(angle);
+            if (i == 0)
+            {
+                path.MoveTo(x, y);
+            }
+            else
+            {
+                path.LineTo(x, y);
+            }
+        }
+
+        path.Close();
+    }
+
+    private static void AddStar(SKPath path, SKRect rect, int points, float innerRatio)
+    {
+        var cx = rect.MidX;
+        var cy = rect.MidY;
+        var outer = MathF.Min(rect.Width, rect.Height) * 0.5f;
+        var inner = outer * Math.Clamp(innerRatio, 0.1f, 0.9f);
+        var total = points * 2;
+        for (var i = 0; i < total; i++)
+        {
+            var radius = i % 2 == 0 ? outer : inner;
+            var angle = -MathF.PI / 2f + i * (MathF.PI / points);
+            var x = cx + radius * MathF.Cos(angle);
+            var y = cy + radius * MathF.Sin(angle);
+            if (i == 0)
+            {
+                path.MoveTo(x, y);
+            }
+            else
+            {
+                path.LineTo(x, y);
+            }
+        }
+
+        path.Close();
+    }
+
+    private static void AddRightArrow(SKPath path, SKRect rect)
+    {
+        var headWidth = rect.Width * 0.35f;
+        var shaftHeight = rect.Height * 0.4f;
+        var shaftTop = rect.MidY - shaftHeight * 0.5f;
+        var shaftBottom = rect.MidY + shaftHeight * 0.5f;
+
+        path.MoveTo(rect.Left, shaftTop);
+        path.LineTo(rect.Right - headWidth, shaftTop);
+        path.LineTo(rect.Right - headWidth, rect.Top);
+        path.LineTo(rect.Right, rect.MidY);
+        path.LineTo(rect.Right - headWidth, rect.Bottom);
+        path.LineTo(rect.Right - headWidth, shaftBottom);
+        path.LineTo(rect.Left, shaftBottom);
+        path.Close();
+    }
+
+    private static void AddLeftArrow(SKPath path, SKRect rect)
+    {
+        var headWidth = rect.Width * 0.35f;
+        var shaftHeight = rect.Height * 0.4f;
+        var shaftTop = rect.MidY - shaftHeight * 0.5f;
+        var shaftBottom = rect.MidY + shaftHeight * 0.5f;
+
+        path.MoveTo(rect.Right, shaftTop);
+        path.LineTo(rect.Left + headWidth, shaftTop);
+        path.LineTo(rect.Left + headWidth, rect.Top);
+        path.LineTo(rect.Left, rect.MidY);
+        path.LineTo(rect.Left + headWidth, rect.Bottom);
+        path.LineTo(rect.Left + headWidth, shaftBottom);
+        path.LineTo(rect.Right, shaftBottom);
+        path.Close();
+    }
+
+    private static void AddUpArrow(SKPath path, SKRect rect)
+    {
+        var headHeight = rect.Height * 0.35f;
+        var shaftWidth = rect.Width * 0.4f;
+        var shaftLeft = rect.MidX - shaftWidth * 0.5f;
+        var shaftRight = rect.MidX + shaftWidth * 0.5f;
+
+        path.MoveTo(shaftLeft, rect.Bottom);
+        path.LineTo(shaftLeft, rect.Top + headHeight);
+        path.LineTo(rect.Left, rect.Top + headHeight);
+        path.LineTo(rect.MidX, rect.Top);
+        path.LineTo(rect.Right, rect.Top + headHeight);
+        path.LineTo(shaftRight, rect.Top + headHeight);
+        path.LineTo(shaftRight, rect.Bottom);
+        path.Close();
+    }
+
+    private static void AddDownArrow(SKPath path, SKRect rect)
+    {
+        var headHeight = rect.Height * 0.35f;
+        var shaftWidth = rect.Width * 0.4f;
+        var shaftLeft = rect.MidX - shaftWidth * 0.5f;
+        var shaftRight = rect.MidX + shaftWidth * 0.5f;
+
+        path.MoveTo(shaftLeft, rect.Top);
+        path.LineTo(shaftLeft, rect.Bottom - headHeight);
+        path.LineTo(rect.Left, rect.Bottom - headHeight);
+        path.LineTo(rect.MidX, rect.Bottom);
+        path.LineTo(rect.Right, rect.Bottom - headHeight);
+        path.LineTo(shaftRight, rect.Bottom - headHeight);
+        path.LineTo(shaftRight, rect.Top);
+        path.Close();
+    }
+
+    private static void AddChevron(SKPath path, SKRect rect)
+    {
+        var inset = rect.Width * 0.25f;
+        path.MoveTo(rect.Left, rect.Top + rect.Height * 0.15f);
+        path.LineTo(rect.Left + inset, rect.Top);
+        path.LineTo(rect.Right, rect.MidY);
+        path.LineTo(rect.Left + inset, rect.Bottom);
+        path.LineTo(rect.Left, rect.Bottom - rect.Height * 0.15f);
+        path.LineTo(rect.Right - inset, rect.MidY);
+        path.Close();
+    }
+
+    private static void AddPlus(SKPath path, SKRect rect)
+    {
+        var thickness = MathF.Min(rect.Width, rect.Height) * 0.3f;
+        var half = thickness * 0.5f;
+        var cx = rect.MidX;
+        var cy = rect.MidY;
+
+        path.MoveTo(cx - half, rect.Top);
+        path.LineTo(cx + half, rect.Top);
+        path.LineTo(cx + half, cy - half);
+        path.LineTo(rect.Right, cy - half);
+        path.LineTo(rect.Right, cy + half);
+        path.LineTo(cx + half, cy + half);
+        path.LineTo(cx + half, rect.Bottom);
+        path.LineTo(cx - half, rect.Bottom);
+        path.LineTo(cx - half, cy + half);
+        path.LineTo(rect.Left, cy + half);
+        path.LineTo(rect.Left, cy - half);
+        path.LineTo(cx - half, cy - half);
+        path.Close();
+    }
+
+    private static void AddCross(SKPath path, SKRect rect)
+    {
+        var thickness = MathF.Min(rect.Width, rect.Height) * 0.25f;
+        var half = thickness * 0.5f;
+        var cx = rect.MidX;
+        var cy = rect.MidY;
+
+        path.MoveTo(cx - half, rect.Top);
+        path.LineTo(cx + half, rect.Top);
+        path.LineTo(rect.Right, cy - half);
+        path.LineTo(rect.Right, cy + half);
+        path.LineTo(cx + half, rect.Bottom);
+        path.LineTo(cx - half, rect.Bottom);
+        path.LineTo(rect.Left, cy + half);
+        path.LineTo(rect.Left, cy - half);
+        path.Close();
     }
 
     private sealed record ShapeTextLine(string Text, ParagraphAlignment? Alignment);
@@ -741,10 +959,21 @@ public sealed partial class SkiaDocumentRenderer
         Ellipse,
         Line,
         Triangle,
+        RightTriangle,
         Diamond,
         Parallelogram,
         Trapezoid,
+        Pentagon,
         Hexagon,
-        Octagon
+        Octagon,
+        Star5,
+        Star8,
+        ArrowRight,
+        ArrowLeft,
+        ArrowUp,
+        ArrowDown,
+        Chevron,
+        Plus,
+        Cross
     }
 }
