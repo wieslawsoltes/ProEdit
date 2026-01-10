@@ -7,6 +7,7 @@ using Avalonia.Rendering.SceneGraph;
 using Avalonia.Skia;
 using Vibe.Office.Documents;
 using Vibe.Office.Editing;
+using Vibe.Office.Layout;
 using Vibe.Office.Primitives;
 using Vibe.Office.Rendering;
 using Vibe.Office.Rendering.Skia;
@@ -18,6 +19,10 @@ namespace Vibe.Word.App;
 
 public sealed class DocumentView : Control, ILogicalScrollable
 {
+    private const float MinZoom = 0.1f;
+    private const float MaxZoom = 5f;
+    private const float ZoomStep = 0.1f;
+
     public static readonly StyledProperty<Color> SurfaceColorProperty =
         AvaloniaProperty.Register<DocumentView, Color>(nameof(SurfaceColor), new Color(255, 238, 241, 245));
 
@@ -46,12 +51,16 @@ public sealed class DocumentView : Control, ILogicalScrollable
     private Vector _scrollOffset;
     private Size _extent;
     private Size _viewport;
+    private float _zoomFactor = 1f;
+    private DocumentZoomMode _zoomMode = DocumentZoomMode.Custom;
     private EquationInline? _selectedEquation;
     private long _renderVersion;
 
     public DocumentView()
     {
         Focusable = true;
+        _renderOptions.ZoomFactor = _zoomFactor;
+        _renderOptions.SvgRasterizationScale = _zoomFactor;
         _kernel.AddModule(new BasicEditingModule());
         _editor = CreateEditor(CreateSampleDocument());
         ApplyEditorState();
@@ -65,11 +74,16 @@ public sealed class DocumentView : Control, ILogicalScrollable
     }
 
     public Document Document => _editor.Document;
+    public DocumentLayout Layout => _editor.Layout;
+    public TextPosition Caret => _editor.Caret;
+    public float ZoomFactor => _zoomFactor;
+    public DocumentZoomMode ZoomMode => _zoomMode;
 
     public EquationInline? SelectedEquation => _selectedEquation;
 
     public event EventHandler<EquationInline?>? SelectedEquationChanged;
     public event EventHandler? EditorStateChanged;
+    public event EventHandler? ZoomChanged;
 
     public bool ShowInvisibles
     {
@@ -161,6 +175,12 @@ public sealed class DocumentView : Control, ILogicalScrollable
         if (Bounds.Width > 0 && Bounds.Height > 0)
         {
             _editor.UpdateLayout((float)Bounds.Width, (float)Bounds.Height);
+            if (_zoomMode != DocumentZoomMode.Custom)
+            {
+                ApplyZoomMode(_zoomMode, preserveCenter: false);
+                return;
+            }
+
             UpdateScrollMetrics();
         }
     }
@@ -187,8 +207,37 @@ public sealed class DocumentView : Control, ILogicalScrollable
             return;
         }
 
+        if (HandleZoomShortcut(e))
+        {
+            e.Handled = true;
+            return;
+        }
+
         if (_inputAdapter.HandleKeyDown(e))
         {
+            e.Handled = true;
+        }
+    }
+
+    protected override void OnPointerWheelChanged(PointerWheelEventArgs e)
+    {
+        base.OnPointerWheelChanged(e);
+        if (_isLoading)
+        {
+            return;
+        }
+
+        if (HasZoomModifier(e.KeyModifiers))
+        {
+            if (e.Delta.Y > 0)
+            {
+                ZoomIn();
+            }
+            else if (e.Delta.Y < 0)
+            {
+                ZoomOut();
+            }
+
             e.Handled = true;
         }
     }
@@ -202,7 +251,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
         }
         Focus();
 
-        if (_inputAdapter.HandlePointerPressed(e, _scrollOffset, this))
+        if (_inputAdapter.HandlePointerPressed(e, _scrollOffset, _zoomFactor, this))
         {
             _isSelecting = true;
             e.Pointer.Capture(this);
@@ -228,7 +277,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
             return;
         }
 
-        if (_inputAdapter.HandlePointerMoved(e, _scrollOffset, this))
+        if (_inputAdapter.HandlePointerMoved(e, _scrollOffset, _zoomFactor, this))
         {
             e.Handled = true;
         }
@@ -245,7 +294,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
         if (_isSelecting)
         {
             _isSelecting = false;
-            _inputAdapter.HandlePointerReleased(e, _scrollOffset, this);
+            _inputAdapter.HandlePointerReleased(e, _scrollOffset, _zoomFactor, this);
             e.Pointer.Capture(null);
             e.Handled = true;
         }
@@ -551,7 +600,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
 
     public bool IsLogicalScrollEnabled => true;
 
-    public Size ScrollSize => new Size(0, _editor.Layout.LineHeight);
+    public Size ScrollSize => new Size(0, _editor.Layout.LineHeight * _zoomFactor);
     public Size PageScrollSize => new Size(0, Math.Max(0, Bounds.Height));
 
     public Size Extent => _extent;
@@ -615,19 +664,19 @@ public sealed class DocumentView : Control, ILogicalScrollable
 
     public void RaiseScrollInvalidated(EventArgs e) => ScrollInvalidated?.Invoke(this, e);
 
-    private void UpdateScrollMetrics()
+    private void UpdateScrollMetrics(Vector? targetOffset = null)
     {
         _viewport = Bounds.Size;
-        var extentHeight = Math.Max(_viewport.Height, _editor.Layout.ContentHeight);
+        var extentHeight = Math.Max(_viewport.Height, _editor.Layout.ContentHeight * _zoomFactor);
         var extentWidth = _viewport.Width;
         if (_editor.Layout.Pages.Count > 0)
         {
             var maxRight = _editor.Layout.Pages.Max(page => page.Bounds.Right);
-            extentWidth = Math.Max(_viewport.Width, maxRight + _editor.Layout.Settings.PageGap);
+            extentWidth = Math.Max(_viewport.Width, (maxRight + _editor.Layout.Settings.PageGap) * _zoomFactor);
         }
 
         _extent = new Size(extentWidth, extentHeight);
-        _scrollOffset = ClampOffset(_scrollOffset);
+        _scrollOffset = ClampOffset(targetOffset ?? _scrollOffset);
         RaiseScrollInvalidated(EventArgs.Empty);
     }
 
@@ -638,6 +687,153 @@ public sealed class DocumentView : Control, ILogicalScrollable
         var clampedX = Math.Clamp(offset.X, 0, maxX);
         var clampedY = Math.Clamp(offset.Y, 0, maxY);
         return new Vector(clampedX, clampedY);
+    }
+
+    public void ZoomIn()
+    {
+        SetZoom(_zoomFactor + ZoomStep, DocumentZoomMode.Custom);
+    }
+
+    public void ZoomOut()
+    {
+        SetZoom(_zoomFactor - ZoomStep, DocumentZoomMode.Custom);
+    }
+
+    public void ZoomToDefault()
+    {
+        SetZoom(1f, DocumentZoomMode.Custom);
+    }
+
+    public void ZoomToPercent(float percent)
+    {
+        SetZoom(percent / 100f, DocumentZoomMode.Custom);
+    }
+
+    public void ZoomToPageWidth()
+    {
+        SetZoom(ComputePageWidthZoom(), DocumentZoomMode.PageWidth, preserveCenter: false);
+    }
+
+    public void ZoomToWholePage()
+    {
+        SetZoom(ComputeWholePageZoom(), DocumentZoomMode.WholePage, preserveCenter: false);
+    }
+
+    private void SetZoom(float value, DocumentZoomMode mode, bool preserveCenter = true)
+    {
+        var clamped = Math.Clamp(value, MinZoom, MaxZoom);
+        if (MathF.Abs(_zoomFactor - clamped) < 0.001f && _zoomMode == mode)
+        {
+            return;
+        }
+
+        var previousZoom = _zoomFactor;
+        var centerDoc = preserveCenter && _viewport.Width > 0 && _viewport.Height > 0
+            ? new Point((_scrollOffset.X + _viewport.Width / 2f) / previousZoom,
+                (_scrollOffset.Y + _viewport.Height / 2f) / previousZoom)
+            : new Point(0, 0);
+
+        _zoomFactor = clamped;
+        _zoomMode = mode;
+        _renderOptions.ZoomFactor = _zoomFactor;
+        _renderOptions.SvgRasterizationScale = _zoomFactor;
+
+        if (preserveCenter)
+        {
+            var targetOffset = new Vector(centerDoc.X * _zoomFactor - _viewport.Width / 2f,
+                centerDoc.Y * _zoomFactor - _viewport.Height / 2f);
+            UpdateScrollMetrics(targetOffset);
+        }
+        else
+        {
+            UpdateScrollMetrics();
+        }
+
+        InvalidateVisual();
+        ZoomChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void ApplyZoomMode(DocumentZoomMode mode, bool preserveCenter)
+    {
+        switch (mode)
+        {
+            case DocumentZoomMode.PageWidth:
+                SetZoom(ComputePageWidthZoom(), DocumentZoomMode.PageWidth, preserveCenter);
+                break;
+            case DocumentZoomMode.WholePage:
+                SetZoom(ComputeWholePageZoom(), DocumentZoomMode.WholePage, preserveCenter);
+                break;
+            default:
+                SetZoom(_zoomFactor, DocumentZoomMode.Custom, preserveCenter);
+                break;
+        }
+    }
+
+    private float ComputePageWidthZoom()
+    {
+        if (_viewport.Width <= 0 || _editor.Layout.Pages.Count == 0)
+        {
+            return _zoomFactor;
+        }
+
+        var pageWidth = _editor.Layout.Pages.Max(page => page.Bounds.Width);
+        if (pageWidth <= 0f)
+        {
+            return _zoomFactor;
+        }
+
+        var gap = _editor.Layout.Settings.PageGap;
+        var targetWidth = pageWidth + gap;
+        var viewportWidth = (float)_viewport.Width;
+        return viewportWidth / Math.Max(1f, targetWidth);
+    }
+
+    private float ComputeWholePageZoom()
+    {
+        if (_viewport.Width <= 0 || _viewport.Height <= 0 || _editor.Layout.Pages.Count == 0)
+        {
+            return _zoomFactor;
+        }
+
+        var firstPage = _editor.Layout.Pages[0];
+        var width = Math.Max(1f, firstPage.Bounds.Width + _editor.Layout.Settings.PageGap);
+        var height = Math.Max(1f, firstPage.Bounds.Height + _editor.Layout.Settings.PageGap);
+        var viewportWidth = (float)_viewport.Width;
+        var viewportHeight = (float)_viewport.Height;
+        var zoomX = viewportWidth / width;
+        var zoomY = viewportHeight / height;
+        return Math.Min(zoomX, zoomY);
+    }
+
+    private static bool HasZoomModifier(KeyModifiers modifiers)
+    {
+        return modifiers.HasFlag(KeyModifiers.Control) || modifiers.HasFlag(KeyModifiers.Meta);
+    }
+
+    private bool HandleZoomShortcut(KeyEventArgs e)
+    {
+        if (!HasZoomModifier(e.KeyModifiers))
+        {
+            return false;
+        }
+
+        switch (e.Key)
+        {
+            case Key.Add:
+            case Key.OemPlus:
+                ZoomIn();
+                return true;
+            case Key.Subtract:
+            case Key.OemMinus:
+                ZoomOut();
+                return true;
+            case Key.D0:
+            case Key.NumPad0:
+                ZoomToDefault();
+                return true;
+            default:
+                return false;
+        }
     }
 
     private sealed class SkiaDrawOperation : ICustomDrawOperation
@@ -671,7 +867,10 @@ public sealed class DocumentView : Control, ILogicalScrollable
             var canvas = lease.SkCanvas;
             canvas.Save();
             canvas.Translate((float)_bounds.X, (float)_bounds.Y);
-            canvas.Translate(-(float)_offset.X, -(float)_offset.Y);
+            canvas.Scale(_options.ZoomFactor);
+            var offsetDocX = (float)(_offset.X / _options.ZoomFactor);
+            var offsetDocY = (float)(_offset.Y / _options.ZoomFactor);
+            canvas.Translate(-offsetDocX, -offsetDocY);
 
             _options.Caret = _editor.Caret;
             _options.Selection = _editor.Selection.IsEmpty ? null : _editor.Selection;
@@ -688,4 +887,11 @@ public sealed class DocumentView : Control, ILogicalScrollable
         {
         }
     }
+}
+
+public enum DocumentZoomMode
+{
+    Custom,
+    PageWidth,
+    WholePage
 }

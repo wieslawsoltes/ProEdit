@@ -49,19 +49,19 @@ public sealed class AvaloniaEditorInputAdapter : IEditorInputRouter
         return HandleKeyEvent(e, EditorKeyEventKind.Up);
     }
 
-    public bool HandlePointerPressed(PointerPressedEventArgs e, Vector scrollOffset, Visual relativeTo)
+    public bool HandlePointerPressed(PointerPressedEventArgs e, Vector scrollOffset, float zoomFactor, Visual relativeTo)
     {
-        return HandlePointerEvent(e, scrollOffset, relativeTo, EditorPointerKind.Down, e.ClickCount);
+        return HandlePointerEvent(e, scrollOffset, zoomFactor, relativeTo, EditorPointerKind.Down, e.ClickCount);
     }
 
-    public bool HandlePointerMoved(PointerEventArgs e, Vector scrollOffset, Visual relativeTo)
+    public bool HandlePointerMoved(PointerEventArgs e, Vector scrollOffset, float zoomFactor, Visual relativeTo)
     {
-        return HandlePointerEvent(e, scrollOffset, relativeTo, EditorPointerKind.Move, 0);
+        return HandlePointerEvent(e, scrollOffset, zoomFactor, relativeTo, EditorPointerKind.Move, 0);
     }
 
-    public bool HandlePointerReleased(PointerReleasedEventArgs e, Vector scrollOffset, Visual relativeTo)
+    public bool HandlePointerReleased(PointerReleasedEventArgs e, Vector scrollOffset, float zoomFactor, Visual relativeTo)
     {
-        return HandlePointerEvent(e, scrollOffset, relativeTo, EditorPointerKind.Up, 0);
+        return HandlePointerEvent(e, scrollOffset, zoomFactor, relativeTo, EditorPointerKind.Up, 0);
     }
 
     private bool HandleKeyEvent(KeyEventArgs e, EditorKeyEventKind kind)
@@ -77,14 +77,15 @@ public sealed class AvaloniaEditorInputAdapter : IEditorInputRouter
         return HandleKey(key, kind, modifiers);
     }
 
-    private bool HandlePointerEvent(PointerEventArgs e, Vector scrollOffset, Visual relativeTo, EditorPointerKind kind, int clickCount)
+    private bool HandlePointerEvent(PointerEventArgs e, Vector scrollOffset, float zoomFactor, Visual relativeTo, EditorPointerKind kind, int clickCount)
     {
         ArgumentNullException.ThrowIfNull(e);
         ArgumentNullException.ThrowIfNull(relativeTo);
         var point = e.GetCurrentPoint(relativeTo);
         var position = point.Position;
-        var docX = (float)(position.X + scrollOffset.X);
-        var docY = (float)(position.Y + scrollOffset.Y);
+        var scale = zoomFactor <= 0f ? 1f : zoomFactor;
+        var docX = (float)((position.X + scrollOffset.X) / scale);
+        var docY = (float)((position.Y + scrollOffset.Y) / scale);
         var button = MapButton(point.Properties);
         if (kind == EditorPointerKind.Move && button == EditorPointerButton.None)
         {

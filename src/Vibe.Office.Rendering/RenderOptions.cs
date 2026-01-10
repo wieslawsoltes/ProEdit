@@ -20,6 +20,7 @@ public sealed class RenderOptions
     public DocColor PlaceholderStrokeColor { get; set; } = new DocColor(180, 180, 180);
     public DocColor PlaceholderTextColor { get; set; } = new DocColor(120, 120, 120);
     public float CaretThickness { get; set; } = 1.5f;
+    public float ZoomFactor { get; set; } = 1f;
     public bool ShowInvisibles { get; set; }
     public DocColor InvisiblesColor { get; set; } = new DocColor(165, 165, 165);
     public bool ShowLayout { get; set; }
