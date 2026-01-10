@@ -1495,6 +1495,8 @@ public sealed class DocxExporter
         }
 
         if (properties.SpacingBefore.HasValue || properties.SpacingAfter.HasValue
+            || properties.SpacingBeforeLines.HasValue || properties.SpacingAfterLines.HasValue
+            || properties.AutoSpacingBefore.HasValue || properties.AutoSpacingAfter.HasValue
             || properties.LineSpacing.HasValue || properties.LineSpacingRule.HasValue)
         {
             var spacing = new SpacingBetweenLines
@@ -1502,6 +1504,26 @@ public sealed class DocxExporter
                 Before = properties.SpacingBefore.HasValue ? DipToTwips(properties.SpacingBefore.Value) : null,
                 After = properties.SpacingAfter.HasValue ? DipToTwips(properties.SpacingAfter.Value) : null
             };
+            if (properties.SpacingBeforeLines.HasValue)
+            {
+                spacing.BeforeLines = properties.SpacingBeforeLines.Value;
+            }
+
+            if (properties.SpacingAfterLines.HasValue)
+            {
+                spacing.AfterLines = properties.SpacingAfterLines.Value;
+            }
+
+            if (properties.AutoSpacingBefore.HasValue)
+            {
+                spacing.BeforeAutoSpacing = properties.AutoSpacingBefore.Value;
+            }
+
+            if (properties.AutoSpacingAfter.HasValue)
+            {
+                spacing.AfterAutoSpacing = properties.AutoSpacingAfter.Value;
+            }
+
             if (properties.LineSpacing.HasValue)
             {
                 spacing.Line = properties.LineSpacing.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
@@ -1517,12 +1539,26 @@ public sealed class DocxExporter
 
         if (properties.IndentLeft.HasValue || properties.IndentRight.HasValue || properties.FirstLineIndent.HasValue)
         {
-            paragraphProperties.Indentation = new Indentation
+            var indentation = new Indentation
             {
                 Left = properties.IndentLeft.HasValue ? DipToTwips(properties.IndentLeft.Value) : null,
-                Right = properties.IndentRight.HasValue ? DipToTwips(properties.IndentRight.Value) : null,
-                FirstLine = properties.FirstLineIndent.HasValue ? DipToTwips(properties.FirstLineIndent.Value) : null
+                Right = properties.IndentRight.HasValue ? DipToTwips(properties.IndentRight.Value) : null
             };
+
+            if (properties.FirstLineIndent.HasValue)
+            {
+                var firstLine = properties.FirstLineIndent.Value;
+                if (firstLine < 0f)
+                {
+                    indentation.Hanging = DipToTwips(MathF.Abs(firstLine));
+                }
+                else
+                {
+                    indentation.FirstLine = DipToTwips(firstLine);
+                }
+            }
+
+            paragraphProperties.Indentation = indentation;
         }
 
         if (properties.TabStops.Count > 0)
@@ -3232,6 +3268,8 @@ public sealed class DocxExporter
         }
 
         if (properties.SpacingBefore.HasValue || properties.SpacingAfter.HasValue
+            || properties.SpacingBeforeLines.HasValue || properties.SpacingAfterLines.HasValue
+            || properties.AutoSpacingBefore.HasValue || properties.AutoSpacingAfter.HasValue
             || properties.LineSpacing.HasValue || properties.LineSpacingRule.HasValue)
         {
             var spacing = new SpacingBetweenLines
@@ -3239,6 +3277,26 @@ public sealed class DocxExporter
                 Before = properties.SpacingBefore.HasValue ? DipToTwips(properties.SpacingBefore.Value) : null,
                 After = properties.SpacingAfter.HasValue ? DipToTwips(properties.SpacingAfter.Value) : null
             };
+            if (properties.SpacingBeforeLines.HasValue)
+            {
+                spacing.BeforeLines = properties.SpacingBeforeLines.Value;
+            }
+
+            if (properties.SpacingAfterLines.HasValue)
+            {
+                spacing.AfterLines = properties.SpacingAfterLines.Value;
+            }
+
+            if (properties.AutoSpacingBefore.HasValue)
+            {
+                spacing.BeforeAutoSpacing = properties.AutoSpacingBefore.Value;
+            }
+
+            if (properties.AutoSpacingAfter.HasValue)
+            {
+                spacing.AfterAutoSpacing = properties.AutoSpacingAfter.Value;
+            }
+
             if (properties.LineSpacing.HasValue)
             {
                 spacing.Line = properties.LineSpacing.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
@@ -3254,12 +3312,26 @@ public sealed class DocxExporter
 
         if (properties.IndentLeft.HasValue || properties.IndentRight.HasValue || properties.FirstLineIndent.HasValue)
         {
-            paragraphProperties.Indentation = new Indentation
+            var indentation = new Indentation
             {
                 Left = properties.IndentLeft.HasValue ? DipToTwips(properties.IndentLeft.Value) : null,
-                Right = properties.IndentRight.HasValue ? DipToTwips(properties.IndentRight.Value) : null,
-                FirstLine = properties.FirstLineIndent.HasValue ? DipToTwips(properties.FirstLineIndent.Value) : null
+                Right = properties.IndentRight.HasValue ? DipToTwips(properties.IndentRight.Value) : null
             };
+
+            if (properties.FirstLineIndent.HasValue)
+            {
+                var firstLine = properties.FirstLineIndent.Value;
+                if (firstLine < 0f)
+                {
+                    indentation.Hanging = DipToTwips(MathF.Abs(firstLine));
+                }
+                else
+                {
+                    indentation.FirstLine = DipToTwips(firstLine);
+                }
+            }
+
+            paragraphProperties.Indentation = indentation;
         }
 
         if (properties.TabStops.Count > 0)
@@ -3375,6 +3447,8 @@ public sealed class DocxExporter
         }
 
         if (properties.SpacingBefore.HasValue || properties.SpacingAfter.HasValue
+            || properties.SpacingBeforeLines.HasValue || properties.SpacingAfterLines.HasValue
+            || properties.AutoSpacingBefore.HasValue || properties.AutoSpacingAfter.HasValue
             || properties.LineSpacing.HasValue || properties.LineSpacingRule.HasValue)
         {
             var spacing = new SpacingBetweenLines
@@ -3382,6 +3456,26 @@ public sealed class DocxExporter
                 Before = properties.SpacingBefore.HasValue ? DipToTwips(properties.SpacingBefore.Value) : null,
                 After = properties.SpacingAfter.HasValue ? DipToTwips(properties.SpacingAfter.Value) : null
             };
+            if (properties.SpacingBeforeLines.HasValue)
+            {
+                spacing.BeforeLines = properties.SpacingBeforeLines.Value;
+            }
+
+            if (properties.SpacingAfterLines.HasValue)
+            {
+                spacing.AfterLines = properties.SpacingAfterLines.Value;
+            }
+
+            if (properties.AutoSpacingBefore.HasValue)
+            {
+                spacing.BeforeAutoSpacing = properties.AutoSpacingBefore.Value;
+            }
+
+            if (properties.AutoSpacingAfter.HasValue)
+            {
+                spacing.AfterAutoSpacing = properties.AutoSpacingAfter.Value;
+            }
+
             if (properties.LineSpacing.HasValue)
             {
                 spacing.Line = properties.LineSpacing.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
@@ -3397,12 +3491,26 @@ public sealed class DocxExporter
 
         if (properties.IndentLeft.HasValue || properties.IndentRight.HasValue || properties.FirstLineIndent.HasValue)
         {
-            paragraphProperties.Indentation = new Indentation
+            var indentation = new Indentation
             {
                 Left = properties.IndentLeft.HasValue ? DipToTwips(properties.IndentLeft.Value) : null,
-                Right = properties.IndentRight.HasValue ? DipToTwips(properties.IndentRight.Value) : null,
-                FirstLine = properties.FirstLineIndent.HasValue ? DipToTwips(properties.FirstLineIndent.Value) : null
+                Right = properties.IndentRight.HasValue ? DipToTwips(properties.IndentRight.Value) : null
             };
+
+            if (properties.FirstLineIndent.HasValue)
+            {
+                var firstLine = properties.FirstLineIndent.Value;
+                if (firstLine < 0f)
+                {
+                    indentation.Hanging = DipToTwips(MathF.Abs(firstLine));
+                }
+                else
+                {
+                    indentation.FirstLine = DipToTwips(firstLine);
+                }
+            }
+
+            paragraphProperties.Indentation = indentation;
         }
 
         if (properties.TabStops.Count > 0)
@@ -3594,6 +3702,10 @@ public sealed class DocxExporter
         return properties.Alignment.HasValue
                || properties.SpacingBefore.HasValue
                || properties.SpacingAfter.HasValue
+               || properties.SpacingBeforeLines.HasValue
+               || properties.SpacingAfterLines.HasValue
+               || properties.AutoSpacingBefore.HasValue
+               || properties.AutoSpacingAfter.HasValue
                || properties.LineSpacing.HasValue
                || properties.LineSpacingRule.HasValue
                || properties.IndentLeft.HasValue

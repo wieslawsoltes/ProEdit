@@ -2936,6 +2936,26 @@ public sealed class DocxImporter
         {
             properties.SpacingBefore = ParseTwips(spacing.Before);
             properties.SpacingAfter = ParseTwips(spacing.After);
+            if (spacing.BeforeLines?.Value is int beforeLines)
+            {
+                properties.SpacingBeforeLines = beforeLines;
+            }
+
+            if (spacing.AfterLines?.Value is int afterLines)
+            {
+                properties.SpacingAfterLines = afterLines;
+            }
+
+            if (spacing.BeforeAutoSpacing?.Value is bool beforeAuto)
+            {
+                properties.AutoSpacingBefore = beforeAuto;
+            }
+
+            if (spacing.AfterAutoSpacing?.Value is bool afterAuto)
+            {
+                properties.AutoSpacingAfter = afterAuto;
+            }
+
             var lineSpacingTwips = TryParseTwips(spacing.Line);
             if (lineSpacingTwips.HasValue)
             {
@@ -3196,6 +3216,26 @@ public sealed class DocxImporter
         {
             properties.SpacingBefore = ParseTwips(spacing.Before);
             properties.SpacingAfter = ParseTwips(spacing.After);
+            if (spacing.BeforeLines?.Value is int beforeLines)
+            {
+                properties.SpacingBeforeLines = beforeLines;
+            }
+
+            if (spacing.AfterLines?.Value is int afterLines)
+            {
+                properties.SpacingAfterLines = afterLines;
+            }
+
+            if (spacing.BeforeAutoSpacing?.Value is bool beforeAuto)
+            {
+                properties.AutoSpacingBefore = beforeAuto;
+            }
+
+            if (spacing.AfterAutoSpacing?.Value is bool afterAuto)
+            {
+                properties.AutoSpacingAfter = afterAuto;
+            }
+
             var lineSpacingTwips = TryParseTwips(spacing.Line);
             if (lineSpacingTwips.HasValue)
             {
