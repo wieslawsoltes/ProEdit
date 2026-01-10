@@ -19,6 +19,11 @@
             <x:String x:Key="RibbonIcon.Redo">↷</x:String>
             <x:String x:Key="RibbonIcon.Layout">📐</x:String>
             <x:String x:Key="RibbonIcon.Invisibles">👁️</x:String>
+            <x:String x:Key="RibbonIcon.ZoomIn">🔍➕</x:String>
+            <x:String x:Key="RibbonIcon.ZoomOut">🔍➖</x:String>
+            <x:String x:Key="RibbonIcon.Zoom100">💯</x:String>
+            <x:String x:Key="RibbonIcon.PageWidth">↔️</x:String>
+            <x:String x:Key="RibbonIcon.OnePage">📄</x:String>
             <x:String x:Key="RibbonIcon.Text">🔤</x:String>
             <x:String x:Key="RibbonIcon.Cache">🗄️</x:String>
             <x:String x:Key="RibbonIcon.Equation">🧮</x:String>

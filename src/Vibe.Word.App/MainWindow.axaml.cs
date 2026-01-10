@@ -8,6 +8,7 @@ using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Vibe.Office.Documents;
 using Vibe.Office.Editing;
+using Vibe.Office.Layout;
 using Vibe.Office.OpenXml;
 using Vibe.Office.Primitives;
 using Vibe.Office.Ribbon;
@@ -21,6 +22,11 @@ public partial class MainWindow : Window
     private readonly Border? _loadingOverlay;
     private readonly TextBlock? _loadingText;
     private readonly RibbonControl? _ribbon;
+    private readonly TextBlock? _statusPageText;
+    private readonly Slider? _zoomSlider;
+    private readonly Button? _zoomInButton;
+    private readonly Button? _zoomOutButton;
+    private readonly Button? _zoomResetButton;
     private FindReplaceDialog? _findReplaceDialog;
     private readonly RibbonQuickAccessStore _quickAccessStore = new();
     private readonly ObservableCollection<RibbonGalleryItem> _styleGalleryItems = new();
@@ -28,6 +34,7 @@ public partial class MainWindow : Window
     private string? _currentPath;
     private bool _isLoading;
     private bool _suppressQuickAccessSave;
+    private bool _suppressZoomUpdate;
     private static readonly FilePickerFileType DocxFileType = new("Word Documents")
     {
         Patterns = new[] { "*.docx" }
@@ -52,6 +59,52 @@ public partial class MainWindow : Window
         var equationPanel = this.FindControl<Border>("EquationEditorPanel");
         _loadingOverlay = this.FindControl<Border>("LoadingOverlay");
         _loadingText = this.FindControl<TextBlock>("LoadingText");
+        _statusPageText = this.FindControl<TextBlock>("StatusPageText");
+        _zoomSlider = this.FindControl<Slider>("ZoomSlider");
+        _zoomInButton = this.FindControl<Button>("ZoomInButton");
+        _zoomOutButton = this.FindControl<Button>("ZoomOutButton");
+        _zoomResetButton = this.FindControl<Button>("ZoomResetButton");
+
+        if (_zoomSlider is not null)
+        {
+            _zoomSlider.ValueChanged += (_, e) =>
+            {
+                if (_suppressZoomUpdate || _editorView is null)
+                {
+                    return;
+                }
+
+                _editorView.ZoomToPercent((float)e.NewValue);
+                UpdateZoomUi();
+            };
+        }
+
+        if (_zoomInButton is not null)
+        {
+            _zoomInButton.Click += (_, _) =>
+            {
+                _editorView?.ZoomIn();
+                UpdateZoomUi();
+            };
+        }
+
+        if (_zoomOutButton is not null)
+        {
+            _zoomOutButton.Click += (_, _) =>
+            {
+                _editorView?.ZoomOut();
+                UpdateZoomUi();
+            };
+        }
+
+        if (_zoomResetButton is not null)
+        {
+            _zoomResetButton.Click += (_, _) =>
+            {
+                _editorView?.ZoomToDefault();
+                UpdateZoomUi();
+            };
+        }
 
         if (_editorView is not null)
         {
@@ -91,7 +144,14 @@ public partial class MainWindow : Window
 
         if (_editorView is not null)
         {
-            _editorView.EditorStateChanged += (_, _) => _ribbon?.RefreshState();
+            _editorView.EditorStateChanged += (_, _) =>
+            {
+                _ribbon?.RefreshState();
+                UpdateStatusBar();
+            };
+            _editorView.ZoomChanged += (_, _) => UpdateZoomUi();
+            UpdateZoomUi();
+            UpdateStatusBar();
         }
 
         if (document is not null)
@@ -260,6 +320,17 @@ public partial class MainWindow : Window
             return new RibbonCommand(
                 () => ExecuteEditorCommandAsync(commandId, payloadFactory()),
                 () => CanExecuteEditorCommand(commandId, payloadFactory()));
+        }
+
+        RibbonCommand CreateViewCommand(Action action)
+        {
+            return new RibbonCommand(
+                () =>
+                {
+                    action();
+                    return ValueTask.CompletedTask;
+                },
+                canInteract);
         }
 
         bool CanUseFindReplace()
@@ -2764,6 +2835,59 @@ public partial class MainWindow : Window
             },
             keyTip: "VW");
 
+        var zoomInButton = new RibbonButton(
+            "zoom-in",
+            "Zoom In",
+            CreateViewCommand(() => _editorView?.ZoomIn()),
+            keyTip: "ZI",
+            iconKey: "RibbonIcon.ZoomIn",
+            size: RibbonControlSize.Medium);
+
+        var zoomOutButton = new RibbonButton(
+            "zoom-out",
+            "Zoom Out",
+            CreateViewCommand(() => _editorView?.ZoomOut()),
+            keyTip: "ZO",
+            iconKey: "RibbonIcon.ZoomOut",
+            size: RibbonControlSize.Medium);
+
+        var zoom100Button = new RibbonButton(
+            "zoom-100",
+            "100%",
+            CreateViewCommand(() => _editorView?.ZoomToDefault()),
+            keyTip: "1",
+            iconKey: "RibbonIcon.Zoom100",
+            size: RibbonControlSize.Medium);
+
+        var zoomPageWidthButton = new RibbonButton(
+            "zoom-page-width",
+            "Page Width",
+            CreateViewCommand(() => _editorView?.ZoomToPageWidth()),
+            keyTip: "PW",
+            iconKey: "RibbonIcon.PageWidth",
+            size: RibbonControlSize.Medium);
+
+        var zoomWholePageButton = new RibbonButton(
+            "zoom-whole-page",
+            "One Page",
+            CreateViewCommand(() => _editorView?.ZoomToWholePage()),
+            keyTip: "OP",
+            iconKey: "RibbonIcon.OnePage",
+            size: RibbonControlSize.Medium);
+
+        var zoomGroup = new RibbonGroup(
+            "zoom",
+            "Zoom",
+            new IRibbonControl[]
+            {
+                zoomInButton,
+                zoomOutButton,
+                zoom100Button,
+                zoomPageWidthButton,
+                zoomWholePageButton
+            },
+            keyTip: "ZM");
+
         var useHarfBuzz = new RibbonToggleButton(
             "use-harfbuzz",
             "Use HarfBuzz",
@@ -2809,7 +2933,7 @@ public partial class MainWindow : Window
                 symbolsGroup
             });
         builder.AddTab("view", "View", keyTip: "V")
-            .AddGroups(new[] { viewGroup, textGroup });
+            .AddGroups(new[] { viewGroup, zoomGroup, textGroup });
 
         builder.AddQuickAccess(undoButton);
         builder.AddQuickAccess(redoButton);
@@ -3284,5 +3408,56 @@ public partial class MainWindow : Window
         }
 
         _ribbon?.RefreshState();
+    }
+
+    private void UpdateZoomUi()
+    {
+        if (_editorView is null)
+        {
+            return;
+        }
+
+        var zoomPercent = (int)MathF.Round(_editorView.ZoomFactor * 100f);
+        _suppressZoomUpdate = true;
+        if (_zoomSlider is not null)
+        {
+            _zoomSlider.Value = Math.Clamp(zoomPercent, (int)_zoomSlider.Minimum, (int)_zoomSlider.Maximum);
+        }
+        _suppressZoomUpdate = false;
+
+        if (_zoomResetButton is not null)
+        {
+            _zoomResetButton.Content = $"{zoomPercent}%";
+        }
+    }
+
+    private void UpdateStatusBar()
+    {
+        if (_editorView is null || _statusPageText is null)
+        {
+            return;
+        }
+
+        var layout = _editorView.Layout;
+        var totalPages = Math.Max(1, layout.Pages.Count);
+        var currentPage = ResolveCurrentPage(layout, _editorView.Caret);
+        _statusPageText.Text = $"Page {currentPage} of {totalPages}";
+    }
+
+    private static int ResolveCurrentPage(DocumentLayout layout, TextPosition caret)
+    {
+        if (layout.Lines.Count == 0 || layout.Pages.Count == 0)
+        {
+            return 1;
+        }
+
+        var lineIndex = EditorSelectionService.FindLineIndexForPosition(layout, caret, out _);
+        var pageIndex = layout.LineIndex.GetPageForLine(lineIndex);
+        if (pageIndex < 0)
+        {
+            pageIndex = 0;
+        }
+
+        return pageIndex + 1;
     }
 }

@@ -11,6 +11,46 @@
     <Grid Background="{DynamicResource RibbonSurfaceBrush}">
         <DockPanel>
             <ribbon:RibbonControl x:Name="Ribbon" DockPanel.Dock="Top" />
+            <Border x:Name="StatusBar"
+                    DockPanel.Dock="Bottom"
+                    Background="{DynamicResource RibbonSurfaceBrush}"
+                    BorderBrush="#D0D4DB"
+                    BorderThickness="0,1,0,0"
+                    Padding="8,4">
+                <Grid ColumnDefinitions="Auto,*,Auto">
+                    <StackPanel Orientation="Horizontal"
+                                Spacing="12"
+                                VerticalAlignment="Center">
+                        <TextBlock x:Name="StatusPageText"
+                                   Text="Page 1 of 1"
+                                   Foreground="#404040" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="2"
+                                Orientation="Horizontal"
+                                Spacing="6"
+                                VerticalAlignment="Center">
+                        <Button x:Name="ZoomOutButton"
+                                Content="-"
+                                Width="26"
+                                Height="20" />
+                        <Slider x:Name="ZoomSlider"
+                                Width="150"
+                                Minimum="10"
+                                Maximum="500"
+                                SmallChange="10"
+                                LargeChange="50"
+                                Value="100" />
+                        <Button x:Name="ZoomInButton"
+                                Content="+"
+                                Width="26"
+                                Height="20" />
+                        <Button x:Name="ZoomResetButton"
+                                Content="100%"
+                                MinWidth="56"
+                                Height="22" />
+                    </StackPanel>
+                </Grid>
+            </Border>
             <Grid ColumnDefinitions="*,Auto">
                 <ScrollViewer Grid.Column="0"
                               HorizontalScrollBarVisibility="Auto"
