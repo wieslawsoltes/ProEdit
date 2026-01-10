@@ -339,6 +339,26 @@ public sealed class DocumentStyleResolver
             target.SpacingAfter = source.SpacingAfter;
         }
 
+        if (source.SpacingBeforeLines.HasValue)
+        {
+            target.SpacingBeforeLines = source.SpacingBeforeLines;
+        }
+
+        if (source.SpacingAfterLines.HasValue)
+        {
+            target.SpacingAfterLines = source.SpacingAfterLines;
+        }
+
+        if (source.AutoSpacingBefore.HasValue)
+        {
+            target.AutoSpacingBefore = source.AutoSpacingBefore;
+        }
+
+        if (source.AutoSpacingAfter.HasValue)
+        {
+            target.AutoSpacingAfter = source.AutoSpacingAfter;
+        }
+
         if (source.LineSpacing.HasValue)
         {
             target.LineSpacing = source.LineSpacing;
@@ -453,6 +473,26 @@ public sealed class DocumentStyleResolver
             target.SpacingAfter = source.SpacingAfter;
         }
 
+        if (source.SpacingBeforeLines.HasValue)
+        {
+            target.SpacingBeforeLines = source.SpacingBeforeLines;
+        }
+
+        if (source.SpacingAfterLines.HasValue)
+        {
+            target.SpacingAfterLines = source.SpacingAfterLines;
+        }
+
+        if (source.AutoSpacingBefore.HasValue)
+        {
+            target.AutoSpacingBefore = source.AutoSpacingBefore;
+        }
+
+        if (source.AutoSpacingAfter.HasValue)
+        {
+            target.AutoSpacingAfter = source.AutoSpacingAfter;
+        }
+
         if (source.LineSpacing.HasValue)
         {
             target.LineSpacing = source.LineSpacing;
@@ -565,6 +605,26 @@ public sealed class DocumentStyleResolver
         if (source.SpacingAfter.HasValue)
         {
             target.SpacingAfter = source.SpacingAfter;
+        }
+
+        if (source.SpacingBeforeLines.HasValue)
+        {
+            target.SpacingBeforeLines = source.SpacingBeforeLines;
+        }
+
+        if (source.SpacingAfterLines.HasValue)
+        {
+            target.SpacingAfterLines = source.SpacingAfterLines;
+        }
+
+        if (source.AutoSpacingBefore.HasValue)
+        {
+            target.AutoSpacingBefore = source.AutoSpacingBefore;
+        }
+
+        if (source.AutoSpacingAfter.HasValue)
+        {
+            target.AutoSpacingAfter = source.AutoSpacingAfter;
         }
 
         if (source.LineSpacing.HasValue)

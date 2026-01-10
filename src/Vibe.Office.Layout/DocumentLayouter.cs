@@ -573,7 +573,20 @@ public sealed class DocumentLayouter
             else
             {
                 var paragraphProperties = styleResolver.ResolveParagraphProperties(startParagraph);
-                var spacingBefore = paragraphProperties.SpacingBefore ?? settings.ParagraphSpacing;
+                var lineHeightAdjusted = ResolveParagraphLineHeight(lineHeight, paragraphProperties, pageSettings.DocGrid);
+                var spacingBefore = ResolveParagraphSpacing(
+                    paragraphProperties.SpacingBefore,
+                    paragraphProperties.SpacingBeforeLines,
+                    paragraphProperties.AutoSpacingBefore,
+                    settings.ParagraphSpacing,
+                    lineHeightAdjusted);
+                if (paragraphProperties.ContextualSpacing == true
+                    && blockStartIndex > 0
+                    && blocks[blockStartIndex - 1] is ParagraphBlock previousBlockParagraph
+                    && IsSameParagraphStyle(document, previousBlockParagraph, startParagraph))
+                {
+                    spacingBefore = 0f;
+                }
                 var resumeY = previous.Lines[startLineIndex].Y - spacingBefore;
                 cursorY = MathF.Max(columnTop, resumeY);
             }
@@ -1922,19 +1935,34 @@ public sealed class DocumentLayouter
         {
             var properties = styleResolver.ResolveParagraphProperties(paragraph);
             var paragraphStyle = styleResolver.ResolveParagraphTextStyle(paragraph, style);
-            var spacingBefore = properties.SpacingBefore ?? settings.ParagraphSpacing;
-            if (properties.ContextualSpacing == true && blockIndex > 0 && blocks[blockIndex - 1] is ParagraphBlock previousParagraph)
+            var lineHeightAdjusted = ResolveParagraphLineHeight(lineHeight, properties, pageSettings.DocGrid);
+            var spacingBefore = ResolveParagraphSpacing(
+                properties.SpacingBefore,
+                properties.SpacingBeforeLines,
+                properties.AutoSpacingBefore,
+                settings.ParagraphSpacing,
+                lineHeightAdjusted);
+            var spacingAfter = ResolveParagraphSpacing(
+                properties.SpacingAfter,
+                properties.SpacingAfterLines,
+                properties.AutoSpacingAfter,
+                settings.ParagraphSpacing,
+                lineHeightAdjusted);
+            if (properties.ContextualSpacing == true)
             {
-                var previousStyleId = previousParagraph.StyleId ?? document.Styles.DefaultParagraphStyleId;
-                var currentStyleId = paragraph.StyleId ?? document.Styles.DefaultParagraphStyleId;
-                if (!string.IsNullOrWhiteSpace(currentStyleId)
-                    && string.Equals(previousStyleId, currentStyleId, StringComparison.OrdinalIgnoreCase))
+                if (blockIndex > 0 && blocks[blockIndex - 1] is ParagraphBlock previousParagraph
+                    && IsSameParagraphStyle(document, previousParagraph, paragraph))
                 {
                     spacingBefore = 0f;
                 }
+
+                if (blockIndex + 1 < blocks.Count && blocks[blockIndex + 1] is ParagraphBlock nextParagraph
+                    && IsSameParagraphStyle(document, paragraph, nextParagraph))
+                {
+                    spacingAfter = 0f;
+                }
             }
             paragraphSpacingBefore[paragraphIndex] = spacingBefore;
-            var spacingAfter = properties.SpacingAfter ?? settings.ParagraphSpacing;
             var indentLeft = properties.IndentLeft ?? 0f;
             var indentRight = properties.IndentRight ?? 0f;
             var firstLineIndent = properties.FirstLineIndent ?? 0f;
@@ -3389,6 +3417,60 @@ public sealed class DocumentLayouter
         return count;
     }
 
+    private static float ResolveParagraphLineHeight(float defaultLineHeight, ParagraphProperties properties, DocGridSettings? docGrid)
+    {
+        return ComputeLineHeight(defaultLineHeight, properties, docGrid);
+    }
+
+    private static float ResolveParagraphSpacing(
+        float? spacingDip,
+        int? spacingLines,
+        bool? autoSpacing,
+        float fallbackSpacing,
+        float lineHeight)
+    {
+        if (spacingDip.HasValue)
+        {
+            return MathF.Max(0f, spacingDip.Value);
+        }
+
+        if (spacingLines.HasValue)
+        {
+            var lineMultiplier = spacingLines.Value / 100f;
+            return MathF.Max(0f, lineHeight * lineMultiplier);
+        }
+
+        if (autoSpacing == true)
+        {
+            return 0f;
+        }
+
+        return MathF.Max(0f, fallbackSpacing);
+    }
+
+    private static string? ResolveParagraphStyleId(Document document, ParagraphBlock paragraph)
+    {
+        return paragraph.StyleId ?? document.Styles.DefaultParagraphStyleId;
+    }
+
+    private static bool IsSameParagraphStyle(Document document, ParagraphBlock current, ParagraphBlock other)
+    {
+        var currentId = ResolveParagraphStyleId(document, current);
+        var otherId = ResolveParagraphStyleId(document, other);
+
+        if (string.IsNullOrWhiteSpace(currentId) && string.IsNullOrWhiteSpace(otherId))
+        {
+            return true;
+        }
+
+        if (string.IsNullOrWhiteSpace(currentId) || string.IsNullOrWhiteSpace(otherId))
+        {
+            return false;
+        }
+
+        return string.Equals(currentId, otherId, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static List<TableCellLine> LayoutCellParagraphs(
         TableCell cell,
         Document document,
@@ -3408,26 +3490,41 @@ public sealed class DocumentLayouter
         var y = 0f;
         var listState = new ListNumberingState(document);
         var charGridSpacing = TextGridSnapping.GetCharacterSpacing(docGrid);
-        ParagraphBlock? previousParagraph = null;
 
-        foreach (var paragraph in cell.Paragraphs)
+        for (var paragraphOffset = 0; paragraphOffset < cell.Paragraphs.Count; paragraphOffset++)
         {
+            var paragraph = cell.Paragraphs[paragraphOffset];
+            var previousParagraph = paragraphOffset > 0 ? cell.Paragraphs[paragraphOffset - 1] : null;
+            var nextParagraph = paragraphOffset + 1 < cell.Paragraphs.Count ? cell.Paragraphs[paragraphOffset + 1] : null;
             var currentParagraphIndex = paragraphIndex;
             var properties = styleResolver.ResolveParagraphProperties(paragraph);
             var textDirection = properties.TextDirection ?? cell.Properties.TextDirection;
             var paragraphStyle = styleResolver.ResolveParagraphTextStyle(paragraph, style);
-            var spacingBefore = properties.SpacingBefore ?? settings.ParagraphSpacing;
-            if (properties.ContextualSpacing == true && previousParagraph is not null)
+            var lineHeightAdjusted = ResolveParagraphLineHeight(lineHeight, properties, docGrid);
+            var spacingBefore = ResolveParagraphSpacing(
+                properties.SpacingBefore,
+                properties.SpacingBeforeLines,
+                properties.AutoSpacingBefore,
+                settings.ParagraphSpacing,
+                lineHeightAdjusted);
+            var spacingAfter = ResolveParagraphSpacing(
+                properties.SpacingAfter,
+                properties.SpacingAfterLines,
+                properties.AutoSpacingAfter,
+                settings.ParagraphSpacing,
+                lineHeightAdjusted);
+            if (properties.ContextualSpacing == true)
             {
-                var previousStyleId = previousParagraph.StyleId ?? document.Styles.DefaultParagraphStyleId;
-                var currentStyleId = paragraph.StyleId ?? document.Styles.DefaultParagraphStyleId;
-                if (!string.IsNullOrWhiteSpace(currentStyleId)
-                    && string.Equals(previousStyleId, currentStyleId, StringComparison.OrdinalIgnoreCase))
+                if (previousParagraph is not null && IsSameParagraphStyle(document, previousParagraph, paragraph))
                 {
                     spacingBefore = 0f;
                 }
+
+                if (nextParagraph is not null && IsSameParagraphStyle(document, paragraph, nextParagraph))
+                {
+                    spacingAfter = 0f;
+                }
             }
-            var spacingAfter = properties.SpacingAfter ?? settings.ParagraphSpacing;
             var indentLeft = properties.IndentLeft ?? 0f;
             var indentRight = properties.IndentRight ?? 0f;
             var firstLineIndent = properties.FirstLineIndent ?? 0f;
@@ -3486,7 +3583,6 @@ public sealed class DocumentLayouter
                         emptyIsRtl));
                     y = emptyAxisOrigin + emptyLineHeight + spacingAfter;
                     paragraphIndex++;
-                    previousParagraph = paragraph;
                     continue;
                 }
 
@@ -3569,7 +3665,6 @@ public sealed class DocumentLayouter
 
                 y = maxLineAxisEnd + spacingAfter;
                 paragraphIndex++;
-                previousParagraph = paragraph;
                 continue;
             }
 
@@ -3687,7 +3782,6 @@ public sealed class DocumentLayouter
 
             y += spacingAfter;
             paragraphIndex++;
-            previousParagraph = paragraph;
         }
 
         return lines;
@@ -4094,7 +4188,18 @@ public sealed class DocumentLayouter
             var paragraphStyle = styleResolver.ResolveParagraphTextStyle(nextParagraph, defaultStyle);
             var isVertical = DocTextDirectionHelpers.IsVertical(properties.TextDirection);
             var charGridSpacing = TextGridSnapping.GetCharacterSpacing(docGrid);
-            var spacingBefore = properties.SpacingBefore ?? settings.ParagraphSpacing;
+            var lineHeightAdjusted = ResolveParagraphLineHeight(lineHeight, properties, docGrid);
+            var spacingBefore = ResolveParagraphSpacing(
+                properties.SpacingBefore,
+                properties.SpacingBeforeLines,
+                properties.AutoSpacingBefore,
+                settings.ParagraphSpacing,
+                lineHeightAdjusted);
+            if (properties.ContextualSpacing == true && blocks[blockIndex] is ParagraphBlock currentParagraph
+                && IsSameParagraphStyle(document, currentParagraph, nextParagraph))
+            {
+                spacingBefore = 0f;
+            }
             var indentLeft = properties.IndentLeft ?? 0f;
             var indentRight = properties.IndentRight ?? 0f;
             var firstLineIndent = properties.FirstLineIndent ?? 0f;
@@ -4917,31 +5022,51 @@ public sealed class DocumentLayouter
         var charGridSpacing = TextGridSnapping.GetCharacterSpacing(docGrid);
         var y = 0f;
         var listState = new ListNumberingState(document);
-        ParagraphBlock? previousParagraph = null;
         var paragraphIndex = 0;
 
-        foreach (var block in blocks)
+        for (var blockIndex = 0; blockIndex < blocks.Count; blockIndex++)
         {
+            var block = blocks[blockIndex];
             if (block is not ParagraphBlock paragraph)
             {
                 continue;
             }
 
+            var previousParagraph = blockIndex > 0 && blocks[blockIndex - 1] is ParagraphBlock previous
+                ? previous
+                : null;
+            var nextParagraph = blockIndex + 1 < blocks.Count && blocks[blockIndex + 1] is ParagraphBlock next
+                ? next
+                : null;
+
             var paragraphLineStart = lines.Count;
             var properties = styleResolver.ResolveParagraphProperties(paragraph);
             var paragraphStyle = styleResolver.ResolveParagraphTextStyle(paragraph, style);
-            var spacingBefore = properties.SpacingBefore ?? settings.ParagraphSpacing;
-            if (properties.ContextualSpacing == true && previousParagraph is not null)
+            var lineHeightAdjusted = ResolveParagraphLineHeight(lineHeight, properties, docGrid);
+            var spacingBefore = ResolveParagraphSpacing(
+                properties.SpacingBefore,
+                properties.SpacingBeforeLines,
+                properties.AutoSpacingBefore,
+                settings.ParagraphSpacing,
+                lineHeightAdjusted);
+            var spacingAfter = ResolveParagraphSpacing(
+                properties.SpacingAfter,
+                properties.SpacingAfterLines,
+                properties.AutoSpacingAfter,
+                settings.ParagraphSpacing,
+                lineHeightAdjusted);
+            if (properties.ContextualSpacing == true)
             {
-                var previousStyleId = previousParagraph.StyleId ?? document.Styles.DefaultParagraphStyleId;
-                var currentStyleId = paragraph.StyleId ?? document.Styles.DefaultParagraphStyleId;
-                if (!string.IsNullOrWhiteSpace(currentStyleId)
-                    && string.Equals(previousStyleId, currentStyleId, StringComparison.OrdinalIgnoreCase))
+                if (previousParagraph is not null && IsSameParagraphStyle(document, previousParagraph, paragraph))
                 {
                     spacingBefore = 0f;
                 }
+
+                if (nextParagraph is not null && IsSameParagraphStyle(document, paragraph, nextParagraph))
+                {
+                    spacingAfter = 0f;
+                }
             }
-            var spacingAfter = properties.SpacingAfter ?? settings.ParagraphSpacing;
             var indentLeft = properties.IndentLeft ?? 0f;
             var indentRight = properties.IndentRight ?? 0f;
             var firstLineIndent = properties.FirstLineIndent ?? 0f;
@@ -5001,7 +5126,6 @@ public sealed class DocumentLayouter
                     y = emptyAxisOrigin + emptyLineHeight + spacingAfter;
                     paragraphLineRanges[paragraphIndex] = new LineRange(paragraphLineStart, lines.Count - paragraphLineStart);
                     paragraphIndex++;
-                    previousParagraph = paragraph;
                     continue;
                 }
 
@@ -5085,7 +5209,6 @@ public sealed class DocumentLayouter
                 y = maxLineAxisEnd + spacingAfter;
                 paragraphLineRanges[paragraphIndex] = new LineRange(paragraphLineStart, lines.Count - paragraphLineStart);
                 paragraphIndex++;
-                previousParagraph = paragraph;
                 continue;
             }
 
@@ -5205,7 +5328,6 @@ public sealed class DocumentLayouter
             y += spacingAfter;
             paragraphLineRanges[paragraphIndex] = new LineRange(paragraphLineStart, lines.Count - paragraphLineStart);
             paragraphIndex++;
-            previousParagraph = paragraph;
         }
 
         return new HeaderFooterLayoutResult(lines, y, paragraphLineRanges);
