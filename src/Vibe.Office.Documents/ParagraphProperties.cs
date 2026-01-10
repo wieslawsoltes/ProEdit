@@ -15,6 +15,10 @@ public sealed class ParagraphProperties
     public ParagraphAlignment? Alignment { get; set; }
     public float? SpacingBefore { get; set; }
     public float? SpacingAfter { get; set; }
+    public int? SpacingBeforeLines { get; set; }
+    public int? SpacingAfterLines { get; set; }
+    public bool? AutoSpacingBefore { get; set; }
+    public bool? AutoSpacingAfter { get; set; }
     public int? LineSpacing { get; set; }
     public DocLineSpacingRule? LineSpacingRule { get; set; }
     public float? IndentLeft { get; set; }

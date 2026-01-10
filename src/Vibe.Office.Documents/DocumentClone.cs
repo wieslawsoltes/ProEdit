@@ -874,6 +874,10 @@ public static class DocumentClone
         target.Alignment = source.Alignment;
         target.SpacingBefore = source.SpacingBefore;
         target.SpacingAfter = source.SpacingAfter;
+        target.SpacingBeforeLines = source.SpacingBeforeLines;
+        target.SpacingAfterLines = source.SpacingAfterLines;
+        target.AutoSpacingBefore = source.AutoSpacingBefore;
+        target.AutoSpacingAfter = source.AutoSpacingAfter;
         target.LineSpacing = source.LineSpacing;
         target.LineSpacingRule = source.LineSpacingRule;
         target.IndentLeft = source.IndentLeft;
@@ -907,6 +911,10 @@ public static class DocumentClone
         target.Alignment = source.Alignment;
         target.SpacingBefore = source.SpacingBefore;
         target.SpacingAfter = source.SpacingAfter;
+        target.SpacingBeforeLines = source.SpacingBeforeLines;
+        target.SpacingAfterLines = source.SpacingAfterLines;
+        target.AutoSpacingBefore = source.AutoSpacingBefore;
+        target.AutoSpacingAfter = source.AutoSpacingAfter;
         target.LineSpacing = source.LineSpacing;
         target.LineSpacingRule = source.LineSpacingRule;
         target.IndentLeft = source.IndentLeft;
