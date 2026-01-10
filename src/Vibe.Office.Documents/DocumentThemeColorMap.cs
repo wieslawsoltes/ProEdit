@@ -23,6 +23,7 @@ public sealed class DocumentThemeColorMap
     private readonly Dictionary<DocThemeColor, DocColor> _colors = new();
 
     public bool HasValues => _colors.Count > 0;
+    public IReadOnlyDictionary<DocThemeColor, DocColor> Overrides => _colors;
 
     public void Set(DocThemeColor color, DocColor? value)
     {
@@ -32,6 +33,11 @@ public sealed class DocumentThemeColorMap
         }
 
         _colors[color] = value.Value;
+    }
+
+    public void Clear()
+    {
+        _colors.Clear();
     }
 
     public bool TryGet(DocThemeColor color, out DocColor value)

@@ -78,6 +78,12 @@ public sealed class DocumentRevisions
         return fallback;
     }
 
+    public void Clear()
+    {
+        _byKey.Clear();
+        Timeline.Clear();
+    }
+
     private readonly record struct RevisionKey(int Id, RevisionKind Kind);
 }
 

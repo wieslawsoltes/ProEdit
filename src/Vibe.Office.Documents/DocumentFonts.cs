@@ -11,6 +11,7 @@ public sealed class DocumentThemeFontMap
     private readonly Dictionary<DocThemeFont, string> _fonts = new();
 
     public bool HasValues => _fonts.Count > 0;
+    public IReadOnlyDictionary<DocThemeFont, string> Entries => _fonts;
 
     public void Set(DocThemeFont font, string? family)
     {
@@ -20,6 +21,11 @@ public sealed class DocumentThemeFontMap
         }
 
         _fonts[font] = family;
+    }
+
+    public void Clear()
+    {
+        _fonts.Clear();
     }
 
     public bool TryGet(DocThemeFont font, out string family)
