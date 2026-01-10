@@ -170,6 +170,9 @@ public sealed class AvaloniaEditorInputAdapter : IEditorInputRouter
             Key.Tab => EditorKey.Tab,
             Key.Z => EditorKey.Z,
             Key.Y => EditorKey.Y,
+            Key.C => EditorKey.C,
+            Key.X => EditorKey.X,
+            Key.V => EditorKey.V,
             _ => EditorKey.Unknown
         };
     }

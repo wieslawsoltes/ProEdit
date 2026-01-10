@@ -453,7 +453,9 @@ public sealed class DocumentView : Control, ILogicalScrollable
     private void ConfigureInputPipeline(EditorController editor)
     {
         _kernel.Services.TryGet<IUndoRedoService>(out var undoRedo);
-        var commandRouter = new EditorCommandInputRouter(_kernel.Commands, editor, undoRedo);
+        _kernel.Services.TryGet<IClipboardService>(out var clipboard);
+        _kernel.Services.TryGet<ISelectionTextService>(out var selectionText);
+        var commandRouter = new EditorCommandInputRouter(_kernel.Commands, editor, undoRedo, clipboard, selectionText);
         _inputAdapter = new AvaloniaEditorInputAdapter(commandRouter);
     }
 
