@@ -13,6 +13,7 @@ public sealed class RibbonGallery : RibbonControlBase
         RibbonGalleryItem? selectedItem = null,
         Func<RibbonGalleryItem?>? selectedItemEvaluator = null,
         Func<RibbonGalleryItem?, ValueTask>? selectionHandler = null,
+        bool showDropDown = false,
         string? keyTip = null,
         string? iconKey = null,
         bool isEnabled = true,
@@ -35,9 +36,11 @@ public sealed class RibbonGallery : RibbonControlBase
         _selectedItemEvaluator = selectedItemEvaluator;
         _selectionHandler = selectionHandler;
         _selectedItem = _selectedItemEvaluator?.Invoke() ?? selectedItem;
+        ShowDropDown = showDropDown;
     }
 
     public IReadOnlyList<RibbonGalleryItem> Items { get; }
+    public bool ShowDropDown { get; }
 
     public RibbonGalleryItem? SelectedItem
     {

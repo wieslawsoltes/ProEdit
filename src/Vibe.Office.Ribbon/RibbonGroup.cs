@@ -3,6 +3,7 @@ namespace Vibe.Office.Ribbon;
 public sealed class RibbonGroup : RibbonStateNode
 {
     private RibbonGroupSizeMode _sizeMode;
+    private bool _isCollapsed;
 
     public RibbonGroup(
         string id,
@@ -12,20 +13,29 @@ public sealed class RibbonGroup : RibbonStateNode
         bool isEnabled = true,
         bool isVisible = true,
         Func<bool>? isEnabledEvaluator = null,
-        Func<bool>? isVisibleEvaluator = null)
+        Func<bool>? isVisibleEvaluator = null,
+        string? keyTip = null,
+        RibbonGroupLauncher? launcher = null)
         : base(isEnabled, isVisible, isEnabledEvaluator, isVisibleEvaluator)
     {
         Id = id ?? throw new ArgumentNullException(nameof(id));
         Header = header ?? throw new ArgumentNullException(nameof(header));
         Controls = controls ?? throw new ArgumentNullException(nameof(controls));
+        KeyTip = keyTip;
+        Launcher = launcher;
         PreferredSizeMode = sizeMode;
         _sizeMode = sizeMode;
+        Overflow = new RibbonGroupOverflow(this);
         UpdateControlLayoutSizes();
     }
 
     public string Id { get; }
     public string Header { get; }
+    public string? KeyTip { get; }
     public IReadOnlyList<IRibbonControl> Controls { get; }
+    public RibbonGroupOverflow Overflow { get; }
+    public RibbonGroupLauncher? Launcher { get; }
+    public bool HasLauncher => Launcher is not null;
     public RibbonGroupSizeMode PreferredSizeMode { get; }
     public RibbonGroupSizeMode SizeMode
     {
@@ -33,9 +43,27 @@ public sealed class RibbonGroup : RibbonStateNode
         private set => SetField(ref _sizeMode, value, nameof(SizeMode));
     }
 
+    public bool IsCollapsed
+    {
+        get => _isCollapsed;
+        private set => SetField(ref _isCollapsed, value, nameof(IsCollapsed));
+    }
+
     public void ResetLayoutMode()
     {
+        IsCollapsed = false;
         SetLayoutMode(PreferredSizeMode);
+    }
+
+    public bool TrySetCollapsed(bool collapsed)
+    {
+        if (IsCollapsed == collapsed)
+        {
+            return false;
+        }
+
+        IsCollapsed = collapsed;
+        return true;
     }
 
     public bool TryStepLayoutMode(bool shrink)
@@ -77,6 +105,9 @@ public sealed class RibbonGroup : RibbonStateNode
                 stateful.RefreshState();
             }
         }
+
+        Overflow.RefreshState();
+        Launcher?.RefreshState();
     }
 
     private void UpdateControlLayoutSizes()

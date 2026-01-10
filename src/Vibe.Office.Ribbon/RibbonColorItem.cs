@@ -7,7 +7,9 @@ public enum RibbonColorKind
     Rgb,
     Theme,
     Automatic,
-    None
+    None,
+    Custom,
+    Picker
 }
 
 public sealed class RibbonColorItem : RibbonStateNode

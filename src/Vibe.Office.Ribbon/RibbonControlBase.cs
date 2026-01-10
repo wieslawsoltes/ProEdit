@@ -22,6 +22,7 @@ public abstract class RibbonControlBase : RibbonStateNode, IRibbonControl
         IconKey = iconKey;
         Size = size;
         _layoutSize = size;
+        ToolTip = BuildToolTip(Label, KeyTip);
     }
 
     public string Id { get; }
@@ -29,6 +30,7 @@ public abstract class RibbonControlBase : RibbonStateNode, IRibbonControl
     public string? KeyTip { get; }
     public string? IconKey { get; }
     public RibbonControlSize Size { get; }
+    public string ToolTip { get; }
     public RibbonControlSize LayoutSize
     {
         get => _layoutSize;
@@ -38,5 +40,15 @@ public abstract class RibbonControlBase : RibbonStateNode, IRibbonControl
     internal void SetLayoutSize(RibbonControlSize size)
     {
         LayoutSize = size;
+    }
+
+    private static string BuildToolTip(string label, string? keyTip)
+    {
+        if (string.IsNullOrWhiteSpace(keyTip))
+        {
+            return label;
+        }
+
+        return $"{label} (KeyTip: {keyTip})";
     }
 }
