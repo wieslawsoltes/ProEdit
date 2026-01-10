@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Text;
 using Vibe.Office.Documents;
 using Vibe.Office.Editing;
 using Vibe.Office.Primitives;
@@ -10,6 +9,7 @@ public sealed class EditorHomeCommandMap
 {
     private const float IndentStep = 24f;
     private const float FontSizeStep = 1f;
+    private const int MaxListLevel = 8;
     private const float MinimumFontSize = 1f;
     private static readonly float[] StandardFontSizes =
     {
@@ -37,6 +37,7 @@ public sealed class EditorHomeCommandMap
     private readonly ISelectionState? _selectionState;
     private readonly IClipboardService? _clipboardService;
     private readonly IFindReplaceService? _findReplaceService;
+    private readonly IEditorViewOptionsService? _viewOptions;
 
     private enum ChangeCaseMode
     {
@@ -75,6 +76,7 @@ public sealed class EditorHomeCommandMap
         _styleService = styleService;
         _clipboardService = clipboardService;
         _findReplaceService = findReplaceService;
+        _viewOptions = services.TryGet<IEditorViewOptionsService>(out var viewOptions) ? viewOptions : null;
         _textFormatting = new EditorTextFormattingApplier(_session, textNormalizer);
         _paragraphFormatting = new EditorParagraphApplier(_session);
         _textTransform = new EditorTextTransformApplier(_session);
@@ -93,83 +95,109 @@ public sealed class EditorHomeCommandMap
 
     private void RegisterClipboardCommands()
     {
-        _router.RegisterAction(EditorHomeCommandIds.Clipboard.Copy, (_, __) => CopySelection(), _ => _clipboardService?.CanCopy ?? false);
-        _router.RegisterAction(EditorHomeCommandIds.Clipboard.Cut, (_, __) => CutSelection(), _ => _clipboardService?.CanCut ?? false);
-        _router.RegisterAction(EditorHomeCommandIds.Clipboard.Paste, (_, __) => PasteClipboard(), _ => _clipboardService?.CanPaste ?? false);
-        _router.RegisterAction(EditorHomeCommandIds.Clipboard.PasteKeepSource, (_, __) => PasteClipboard(), _ => _clipboardService?.CanPaste ?? false);
-        _router.RegisterAction(EditorHomeCommandIds.Clipboard.PasteMatchDestination, (_, __) => PasteClipboard(), _ => _clipboardService?.CanPaste ?? false);
-        _router.RegisterAction(EditorHomeCommandIds.Clipboard.PasteTextOnly, (_, __) => PasteClipboard(), _ => _clipboardService?.CanPaste ?? false);
-        _router.RegisterAction(EditorHomeCommandIds.Clipboard.FormatPainterToggle, (_, __) => ToggleFormatPainter(), _ => HasParagraphs());
+        _router.RegisterAction(EditorHomeCommandIds.Clipboard.Copy, (_, __) => CopySelection(), (context, _) => CanCopy(context), isUndoable: false);
+        _router.RegisterAction(EditorHomeCommandIds.Clipboard.Cut, (_, __) => CutSelection(), (context, _) => CanCut(context));
+        _router.RegisterAction(EditorHomeCommandIds.Clipboard.Paste, (_, __) => PasteClipboard(), (context, _) => CanPaste(context));
+        _router.RegisterAction(EditorHomeCommandIds.Clipboard.PasteKeepSource, (_, __) => PasteClipboard(), (context, _) => CanPaste(context));
+        _router.RegisterAction(EditorHomeCommandIds.Clipboard.PasteMatchDestination, (_, __) => PasteClipboard(), (context, _) => CanPaste(context));
+        _router.RegisterAction(EditorHomeCommandIds.Clipboard.PasteTextOnly, (_, __) => PasteClipboard(), (context, _) => CanPaste(context));
+        _router.RegisterAction(EditorHomeCommandIds.Clipboard.FormatPainterToggle, (_, __) => ToggleFormatPainter(), (context, _) => HasParagraphs(context), isUndoable: false);
     }
 
     private void RegisterFontCommands()
     {
-        _router.RegisterAction(EditorHomeCommandIds.Font.FamilySet, (_, payload) => SetFontFamily(payload), _ => HasParagraphs());
-        _router.RegisterAction(EditorHomeCommandIds.Font.SizeSet, (_, payload) => SetFontSize(payload), _ => HasParagraphs());
-        _router.RegisterAction(EditorHomeCommandIds.Font.SizeIncrease, (_, payload) => AdjustFontSize(payload, FontSizeStep), _ => HasParagraphs());
-        _router.RegisterAction(EditorHomeCommandIds.Font.SizeDecrease, (_, payload) => AdjustFontSize(payload, -FontSizeStep), _ => HasParagraphs());
+        _router.RegisterAction(EditorHomeCommandIds.Font.FamilySet, (_, payload) => SetFontFamily(payload), (context, _) => HasParagraphs(context));
+        _router.RegisterAction(EditorHomeCommandIds.Font.SizeSet, (_, payload) => SetFontSize(payload), (context, _) => HasParagraphs(context));
+        _router.RegisterAction(EditorHomeCommandIds.Font.SizeIncrease, (_, payload) => AdjustFontSize(payload, FontSizeStep), (context, _) => HasParagraphs(context));
+        _router.RegisterAction(EditorHomeCommandIds.Font.SizeDecrease, (_, payload) => AdjustFontSize(payload, -FontSizeStep), (context, _) => HasParagraphs(context));
 
-        _router.RegisterAction(EditorHomeCommandIds.Font.BoldToggle, (_, __) => ToggleBold(), _ => HasParagraphs());
-        _router.RegisterAction(EditorHomeCommandIds.Font.ItalicToggle, (_, __) => ToggleItalic(), _ => HasParagraphs());
-        _router.RegisterAction(EditorHomeCommandIds.Font.UnderlineToggle, (_, __) => ToggleUnderline(), _ => HasParagraphs());
-        _router.RegisterAction(EditorHomeCommandIds.Font.UnderlineStyleSet, (_, payload) => SetUnderlineStyle(payload), _ => HasParagraphs());
-        _router.RegisterAction(EditorHomeCommandIds.Font.StrikethroughToggle, (_, __) => ToggleStrikethrough(), _ => HasParagraphs());
-        _router.RegisterAction(EditorHomeCommandIds.Font.SuperscriptToggle, (_, __) => ToggleVerticalPosition(DocVerticalPosition.Superscript), _ => HasParagraphs());
-        _router.RegisterAction(EditorHomeCommandIds.Font.SubscriptToggle, (_, __) => ToggleVerticalPosition(DocVerticalPosition.Subscript), _ => HasParagraphs());
-        _router.RegisterAction(EditorHomeCommandIds.Font.TextEffectOutline, (_, __) => ApplyTextEffect(TextEffectKind.Outline), _ => HasParagraphs());
-        _router.RegisterAction(EditorHomeCommandIds.Font.TextEffectShadow, (_, __) => ApplyTextEffect(TextEffectKind.Shadow), _ => HasParagraphs());
-        _router.RegisterAction(EditorHomeCommandIds.Font.TextEffectEmboss, (_, __) => ApplyTextEffect(TextEffectKind.Emboss), _ => HasParagraphs());
-        _router.RegisterAction(EditorHomeCommandIds.Font.TextEffectImprint, (_, __) => ApplyTextEffect(TextEffectKind.Imprint), _ => HasParagraphs());
-        _router.RegisterAction(EditorHomeCommandIds.Font.TextEffectClear, (_, __) => ClearTextEffects(), _ => HasParagraphs());
+        _router.RegisterAction(EditorHomeCommandIds.Font.BoldToggle, (_, __) => ToggleBold(), (context, _) => HasParagraphs(context));
+        _router.RegisterAction(EditorHomeCommandIds.Font.ItalicToggle, (_, __) => ToggleItalic(), (context, _) => HasParagraphs(context));
+        _router.RegisterAction(EditorHomeCommandIds.Font.UnderlineToggle, (_, __) => ToggleUnderline(), (context, _) => HasParagraphs(context));
+        _router.RegisterAction(EditorHomeCommandIds.Font.UnderlineStyleSet, (_, payload) => SetUnderlineStyle(payload), (context, _) => HasParagraphs(context));
+        _router.RegisterAction(EditorHomeCommandIds.Font.StrikethroughToggle, (_, __) => ToggleStrikethrough(), (context, _) => HasParagraphs(context));
+        _router.RegisterAction(EditorHomeCommandIds.Font.SuperscriptToggle, (_, __) => ToggleVerticalPosition(DocVerticalPosition.Superscript), (context, _) => HasParagraphs(context));
+        _router.RegisterAction(EditorHomeCommandIds.Font.SubscriptToggle, (_, __) => ToggleVerticalPosition(DocVerticalPosition.Subscript), (context, _) => HasParagraphs(context));
+        _router.RegisterAction(EditorHomeCommandIds.Font.DialogApply, (_, payload) => ApplyFontDialogOptions(payload), (context, _) => HasParagraphs(context));
+        _router.RegisterAction(EditorHomeCommandIds.Font.TextEffectOutline, (_, __) => ApplyTextEffect(TextEffectKind.Outline), (context, _) => HasParagraphs(context));
+        _router.RegisterAction(EditorHomeCommandIds.Font.TextEffectShadow, (_, __) => ApplyTextEffect(TextEffectKind.Shadow), (context, _) => HasParagraphs(context));
+        _router.RegisterAction(EditorHomeCommandIds.Font.TextEffectEmboss, (_, __) => ApplyTextEffect(TextEffectKind.Emboss), (context, _) => HasParagraphs(context));
+        _router.RegisterAction(EditorHomeCommandIds.Font.TextEffectImprint, (_, __) => ApplyTextEffect(TextEffectKind.Imprint), (context, _) => HasParagraphs(context));
+        _router.RegisterAction(EditorHomeCommandIds.Font.TextEffectClear, (_, __) => ClearTextEffects(), (context, _) => HasParagraphs(context));
 
-        _router.RegisterAction(EditorHomeCommandIds.Font.HighlightSet, (_, payload) => SetHighlightColor(payload), _ => HasParagraphs());
-        _router.RegisterAction(EditorHomeCommandIds.Font.ColorSet, (_, payload) => SetFontColor(payload), _ => HasParagraphs());
-        _router.RegisterAction(EditorHomeCommandIds.Font.ClearFormatting, (_, __) => _textFormatting.ClearFormatting(), _ => HasParagraphs());
+        _router.RegisterAction(EditorHomeCommandIds.Font.HighlightSet, (_, payload) => SetHighlightColor(payload), (context, _) => HasParagraphs(context));
+        _router.RegisterAction(EditorHomeCommandIds.Font.ColorSet, (_, payload) => SetFontColor(payload), (context, _) => HasParagraphs(context));
+        _router.RegisterAction(EditorHomeCommandIds.Font.ClearFormatting, (_, __) => _textFormatting.ClearFormatting(), (context, _) => HasParagraphs(context));
 
-        _router.RegisterAction(EditorHomeCommandIds.Font.ChangeCaseSentence, (_, __) => ApplyChangeCase(ChangeCaseMode.Sentence), _ => HasParagraphs());
-        _router.RegisterAction(EditorHomeCommandIds.Font.ChangeCaseLower, (_, __) => ApplyChangeCase(ChangeCaseMode.Lower), _ => HasParagraphs());
-        _router.RegisterAction(EditorHomeCommandIds.Font.ChangeCaseUpper, (_, __) => ApplyChangeCase(ChangeCaseMode.Upper), _ => HasParagraphs());
-        _router.RegisterAction(EditorHomeCommandIds.Font.ChangeCaseCapitalize, (_, __) => ApplyChangeCase(ChangeCaseMode.Capitalize), _ => HasParagraphs());
-        _router.RegisterAction(EditorHomeCommandIds.Font.ChangeCaseToggle, (_, __) => ApplyChangeCase(ChangeCaseMode.Toggle), _ => HasParagraphs());
+        _router.RegisterAction(EditorHomeCommandIds.Font.ChangeCaseSentence, (_, __) => ApplyChangeCase(ChangeCaseMode.Sentence), (context, _) => HasParagraphs(context));
+        _router.RegisterAction(EditorHomeCommandIds.Font.ChangeCaseLower, (_, __) => ApplyChangeCase(ChangeCaseMode.Lower), (context, _) => HasParagraphs(context));
+        _router.RegisterAction(EditorHomeCommandIds.Font.ChangeCaseUpper, (_, __) => ApplyChangeCase(ChangeCaseMode.Upper), (context, _) => HasParagraphs(context));
+        _router.RegisterAction(EditorHomeCommandIds.Font.ChangeCaseCapitalize, (_, __) => ApplyChangeCase(ChangeCaseMode.Capitalize), (context, _) => HasParagraphs(context));
+        _router.RegisterAction(EditorHomeCommandIds.Font.ChangeCaseToggle, (_, __) => ApplyChangeCase(ChangeCaseMode.Toggle), (context, _) => HasParagraphs(context));
     }
 
     private void RegisterParagraphCommands()
     {
-        _router.RegisterAction(EditorHomeCommandIds.Paragraph.AlignLeft, (_, __) => SetParagraphAlignment(ParagraphAlignment.Left), _ => HasParagraphs());
-        _router.RegisterAction(EditorHomeCommandIds.Paragraph.AlignCenter, (_, __) => SetParagraphAlignment(ParagraphAlignment.Center), _ => HasParagraphs());
-        _router.RegisterAction(EditorHomeCommandIds.Paragraph.AlignRight, (_, __) => SetParagraphAlignment(ParagraphAlignment.Right), _ => HasParagraphs());
-        _router.RegisterAction(EditorHomeCommandIds.Paragraph.AlignJustify, (_, __) => SetParagraphAlignment(ParagraphAlignment.Justify), _ => HasParagraphs());
+        _router.RegisterAction(EditorHomeCommandIds.Paragraph.AlignLeft, (_, __) => SetParagraphAlignment(ParagraphAlignment.Left), (context, _) => HasParagraphs(context));
+        _router.RegisterAction(EditorHomeCommandIds.Paragraph.AlignCenter, (_, __) => SetParagraphAlignment(ParagraphAlignment.Center), (context, _) => HasParagraphs(context));
+        _router.RegisterAction(EditorHomeCommandIds.Paragraph.AlignRight, (_, __) => SetParagraphAlignment(ParagraphAlignment.Right), (context, _) => HasParagraphs(context));
+        _router.RegisterAction(EditorHomeCommandIds.Paragraph.AlignJustify, (_, __) => SetParagraphAlignment(ParagraphAlignment.Justify), (context, _) => HasParagraphs(context));
 
-        _router.RegisterAction(EditorHomeCommandIds.Paragraph.IndentIncrease, (_, __) => AdjustIndent(IndentStep), _ => HasParagraphs());
-        _router.RegisterAction(EditorHomeCommandIds.Paragraph.IndentDecrease, (_, __) => AdjustIndent(-IndentStep), _ => HasParagraphs());
+        _router.RegisterAction(EditorHomeCommandIds.Paragraph.IndentIncrease, (_, __) => AdjustIndent(IndentStep), (context, _) => HasParagraphs(context));
+        _router.RegisterAction(EditorHomeCommandIds.Paragraph.IndentDecrease, (_, __) => AdjustIndent(-IndentStep), (context, _) => HasParagraphs(context));
 
-        _router.RegisterAction(EditorHomeCommandIds.Paragraph.ListBullets, (_, __) => ToggleList(ListKind.Bullet), _ => HasParagraphs());
-        _router.RegisterAction(EditorHomeCommandIds.Paragraph.ListNumbering, (_, __) => ToggleList(ListKind.Numbered), _ => HasParagraphs());
-        _router.RegisterAction(EditorHomeCommandIds.Paragraph.ListMultilevel, (_, __) => ToggleList(ListKind.Numbered), _ => HasParagraphs());
+        _router.RegisterAction(EditorHomeCommandIds.Paragraph.ListBullets, (_, __) => ToggleList(ListKind.Bullet, multilevel: false), (context, _) => HasParagraphs(context));
+        _router.RegisterAction(EditorHomeCommandIds.Paragraph.ListNumbering, (_, __) => ToggleList(ListKind.Numbered, multilevel: false), (context, _) => HasParagraphs(context));
+        _router.RegisterAction(EditorHomeCommandIds.Paragraph.ListMultilevel, (_, __) => ToggleList(ListKind.Numbered, multilevel: true), (context, _) => HasParagraphs(context));
 
-        _router.RegisterAction(EditorHomeCommandIds.Paragraph.LineSpacingSet, (_, payload) => SetLineSpacing(payload), _ => HasParagraphs());
-        _router.RegisterAction(EditorHomeCommandIds.Paragraph.LineSpacingOptions, (_, __) => { }, _ => false);
+        _router.RegisterAction(EditorHomeCommandIds.Paragraph.LineSpacingSet, (_, payload) => SetLineSpacing(payload), (context, _) => HasParagraphs(context));
+        _router.RegisterAction(EditorHomeCommandIds.Paragraph.LineSpacingOptions, (_, payload) => SetParagraphSpacingOptions(payload), (context, _) => HasParagraphs(context));
+        _router.RegisterAction(EditorHomeCommandIds.Paragraph.DialogApply, (_, payload) => ApplyParagraphDialogOptions(payload), (context, _) => HasParagraphs(context));
 
-        _router.RegisterAction(EditorHomeCommandIds.Paragraph.Sort, (_, __) => SortParagraphs(), _ => CanSortParagraphs());
-        _router.RegisterAction(EditorHomeCommandIds.Paragraph.ShowInvisiblesToggle, (_, __) => { }, _ => false);
-        _router.RegisterAction(EditorHomeCommandIds.Paragraph.ShadingSet, (_, payload) => ToggleShading(payload), _ => HasParagraphs());
-        _router.RegisterAction(EditorHomeCommandIds.Paragraph.BorderSet, (_, payload) => ToggleBorders(payload), _ => HasParagraphs());
+        _router.RegisterAction(EditorHomeCommandIds.Paragraph.Sort, (_, __) => SortParagraphs(), (context, _) => CanSortParagraphs(context));
+        _router.RegisterAction(EditorHomeCommandIds.Paragraph.ShowInvisiblesToggle, (_, payload) => ToggleShowInvisibles(payload), (context, _) => CanToggleShowInvisibles(context), isUndoable: false);
+        _router.RegisterAction(EditorHomeCommandIds.Paragraph.ShadingSet, (_, payload) => ToggleShading(payload), (context, _) => HasParagraphs(context));
+        _router.RegisterAction(EditorHomeCommandIds.Paragraph.BorderSet, (_, payload) => ToggleBorders(payload), (context, _) => HasParagraphs(context));
     }
 
     private void RegisterStyleCommands()
     {
-        _router.RegisterAction(EditorHomeCommandIds.Styles.Apply, (_, payload) => ApplyParagraphStyle(payload), CanApplyStyle);
-        _router.RegisterAction(EditorHomeCommandIds.Styles.OpenPane, (_, __) => OpenStylesPane(), _ => CanOpenStylesPane());
-        _router.RegisterAction(EditorHomeCommandIds.Styles.Manage, (_, __) => OpenStylesManager(), _ => CanOpenStylesPane());
+        _router.RegisterAction(EditorHomeCommandIds.Styles.Apply, (_, payload) => ApplyParagraphStyle(payload), (context, payload) => CanApplyStyle(payload));
+        _router.RegisterAction(EditorHomeCommandIds.Styles.OpenPane, (_, __) => OpenStylesPane(), (context, _) => CanOpenStylesPane(context), isUndoable: false);
+        _router.RegisterAction(EditorHomeCommandIds.Styles.Manage, (_, __) => OpenStylesManager(), (context, _) => CanOpenStylesPane(context), isUndoable: false);
     }
 
     private void RegisterEditingCommands()
     {
-        _router.RegisterAction(EditorHomeCommandIds.Editing.Find, (_, payload) => ExecuteFind(payload), _ => _findReplaceService?.IsAvailable ?? false);
-        _router.RegisterAction(EditorHomeCommandIds.Editing.Replace, (_, payload) => ExecuteReplace(payload), _ => _findReplaceService?.IsAvailable ?? false);
-        _router.RegisterAction(EditorHomeCommandIds.Editing.SelectAll, (_, __) => SelectAll(), _ => HasParagraphs());
-        _router.RegisterAction(EditorHomeCommandIds.Editing.SelectObjects, (_, __) => SelectObjects(), _ => CanSelectObjects());
-        _router.RegisterAction(EditorHomeCommandIds.Editing.SelectSimilarFormatting, (_, __) => SelectSimilarFormatting(), _ => HasParagraphs());
+        var undoRedo = _services.TryGet<IUndoRedoService>(out var undoService) ? undoService : null;
+        _router.RegisterAction(
+            EditorHomeCommandIds.Editing.Undo,
+            (_, __) =>
+            {
+                if (undoRedo is not null)
+                {
+                    undoRedo.UndoAsync();
+                }
+            },
+            (context, _) => context?.CanUndo ?? undoRedo?.CanUndo ?? false,
+            isUndoable: false);
+        _router.RegisterAction(
+            EditorHomeCommandIds.Editing.Redo,
+            (_, __) =>
+            {
+                if (undoRedo is not null)
+                {
+                    undoRedo.RedoAsync();
+                }
+            },
+            (context, _) => context?.CanRedo ?? undoRedo?.CanRedo ?? false,
+            isUndoable: false);
+        _router.RegisterAction(EditorHomeCommandIds.Editing.Find, (_, payload) => ExecuteFind(payload), (context, _) => CanFind(context), isUndoable: false);
+        _router.RegisterAction(EditorHomeCommandIds.Editing.Replace, (_, payload) => ExecuteReplace(payload), (context, _) => CanFind(context));
+        _router.RegisterAction(EditorHomeCommandIds.Editing.ReplaceAll, (_, payload) => ExecuteReplaceAll(payload), (context, _) => CanFind(context));
+        _router.RegisterAction(EditorHomeCommandIds.Editing.SelectAll, (_, __) => SelectAll(), (context, _) => HasParagraphs(context), isUndoable: false);
+        _router.RegisterAction(EditorHomeCommandIds.Editing.SelectObjects, (_, __) => SelectObjects(), (context, _) => CanSelectObjects(context), isUndoable: false);
+        _router.RegisterAction(EditorHomeCommandIds.Editing.SelectSimilarFormatting, (_, __) => SelectSimilarFormatting(), (context, _) => HasParagraphs(context), isUndoable: false);
     }
 
     private bool HasParagraphs()
@@ -180,6 +208,36 @@ public sealed class EditorHomeCommandMap
         }
 
         return _session.Document.ParagraphCount > 0;
+    }
+
+    private bool HasParagraphs(RibbonContextSnapshot? context)
+    {
+        if (context.HasValue && context.Value.Selection.Kind == EditorSelectionKind.FloatingObject)
+        {
+            return false;
+        }
+
+        return _session.Document.ParagraphCount > 0;
+    }
+
+    private bool CanCopy(RibbonContextSnapshot? context)
+    {
+        return context?.CanCopy ?? _clipboardService?.CanCopy ?? false;
+    }
+
+    private bool CanCut(RibbonContextSnapshot? context)
+    {
+        return context?.CanCut ?? _clipboardService?.CanCut ?? false;
+    }
+
+    private bool CanPaste(RibbonContextSnapshot? context)
+    {
+        return context?.CanPaste ?? _clipboardService?.CanPaste ?? false;
+    }
+
+    private bool CanFind(RibbonContextSnapshot? context)
+    {
+        return context?.IsFindAvailable ?? _findReplaceService?.IsAvailable ?? false;
     }
 
     private void CopySelection()
@@ -234,7 +292,7 @@ public sealed class EditorHomeCommandMap
 
         var paragraphIndex = Math.Clamp(caret.ParagraphIndex, 0, _session.Document.ParagraphCount - 1);
         var paragraph = _session.Document.GetParagraph(paragraphIndex);
-        var text = GetParagraphText(paragraph);
+        var text = DocumentEditHelpers.GetParagraphText(paragraph);
         if (text.Length == 0)
         {
             return false;
@@ -275,60 +333,6 @@ public sealed class EditorHomeCommandMap
 
         range = new TextRange(new TextPosition(paragraphIndex, start), new TextPosition(paragraphIndex, end));
         return true;
-    }
-
-    private static string GetParagraphText(ParagraphBlock paragraph)
-    {
-        if (paragraph.Inlines.Count == 0)
-        {
-            return paragraph.Text ?? string.Empty;
-        }
-
-        var builder = new StringBuilder();
-        foreach (var inline in paragraph.Inlines)
-        {
-            switch (inline)
-            {
-                case RunInline run:
-                    builder.Append(run.Text.GetText());
-                    break;
-                case ImageInline:
-                case ShapeInline:
-                case ChartInline:
-                case EquationInline:
-                case PageNumberInline:
-                case TotalPagesInline:
-                    builder.Append(DocumentConstants.ObjectReplacementChar);
-                    break;
-                case MetadataStartInline:
-                case MetadataEndInline:
-                    break;
-                case FootnoteReferenceInline footnote:
-                    builder.Append(footnote.Id.ToString(CultureInfo.InvariantCulture));
-                    break;
-                case EndnoteReferenceInline endnote:
-                    builder.Append(endnote.Id.ToString(CultureInfo.InvariantCulture));
-                    break;
-                case CommentReferenceInline comment:
-                    builder.Append(comment.Id.ToString(CultureInfo.InvariantCulture));
-                    break;
-                case FieldStartInline:
-                case FieldSeparatorInline:
-                case FieldEndInline:
-                case BookmarkStartInline:
-                case BookmarkEndInline:
-                case CommentRangeStartInline:
-                case CommentRangeEndInline:
-                case ContentControlStartInline:
-                case ContentControlEndInline:
-                    break;
-                default:
-                    builder.Append(DocumentConstants.ObjectReplacementChar);
-                    break;
-            }
-        }
-
-        return builder.ToString();
     }
 
     private static bool IsWordChar(char value)
@@ -677,6 +681,197 @@ public sealed class EditorHomeCommandMap
         });
     }
 
+    private void ApplyFontDialogOptions(object? payload)
+    {
+        if (payload is not EditorFontDialogOptions options)
+        {
+            return;
+        }
+
+        _textFormatting.Apply(style =>
+        {
+            if (!string.IsNullOrWhiteSpace(options.FontFamily))
+            {
+                style.FontFamily = options.FontFamily;
+            }
+
+            if (options.FontSize.HasValue)
+            {
+                style.FontSize = Math.Max(MinimumFontSize, options.FontSize.Value);
+            }
+
+            if (options.FontWeight.HasValue)
+            {
+                style.FontWeight = options.FontWeight.Value;
+            }
+
+            if (options.FontStyle.HasValue)
+            {
+                style.FontStyle = options.FontStyle.Value;
+            }
+
+            if (options.UnderlineStyle.HasValue)
+            {
+                style.UnderlineStyle = options.UnderlineStyle.Value;
+                style.Underline = options.UnderlineStyle.Value != DocUnderlineStyle.None;
+            }
+
+            if (options.UnderlineColor.HasValue)
+            {
+                style.UnderlineColor = options.UnderlineColor;
+            }
+
+            if (options.FontColor.HasValue)
+            {
+                style.Color = options.FontColor.Value;
+            }
+
+            if (options.Strikethrough.HasValue)
+            {
+                style.Strikethrough = options.Strikethrough.Value;
+            }
+
+            if (options.SmallCaps.HasValue)
+            {
+                style.SmallCaps = options.SmallCaps.Value;
+            }
+
+            if (options.VerticalPosition.HasValue)
+            {
+                style.VerticalPosition = options.VerticalPosition.Value;
+            }
+
+            ApplyTextEffectsFromOptions(style, options);
+        });
+    }
+
+    private static void ApplyTextEffectsFromOptions(TextStyleProperties style, EditorFontDialogOptions options)
+    {
+        if (!options.TextOutline.HasValue
+            && !options.TextShadow.HasValue
+            && !options.TextEmboss.HasValue
+            && !options.TextImprint.HasValue)
+        {
+            return;
+        }
+
+        var effects = style.Effects?.Clone() ?? new TextEffects();
+        if (options.TextOutline.HasValue)
+        {
+            effects.Outline = options.TextOutline.Value ? new TextOutlineEffect { Enabled = true } : null;
+        }
+
+        if (options.TextShadow.HasValue)
+        {
+            effects.Shadow = options.TextShadow.Value ? new TextShadowEffect { Enabled = true } : null;
+        }
+
+        if (options.TextEmboss.HasValue)
+        {
+            effects.Emboss = options.TextEmboss.Value;
+        }
+
+        if (options.TextImprint.HasValue)
+        {
+            effects.Imprint = options.TextImprint.Value;
+        }
+
+        style.Effects = effects.HasValues ? effects : null;
+    }
+
+    private void ApplyParagraphDialogOptions(object? payload)
+    {
+        if (payload is not EditorParagraphDialogOptions options)
+        {
+            return;
+        }
+
+        _paragraphFormatting.Apply(paragraph =>
+        {
+            var properties = paragraph.Properties;
+
+            if (options.Alignment.HasValue)
+            {
+                properties.Alignment = options.Alignment.Value;
+            }
+
+            if (options.IndentLeft.HasValue)
+            {
+                properties.IndentLeft = options.IndentLeft;
+            }
+
+            if (options.IndentRight.HasValue)
+            {
+                properties.IndentRight = options.IndentRight;
+            }
+
+            if (options.FirstLineIndent.HasValue)
+            {
+                properties.FirstLineIndent = options.FirstLineIndent;
+            }
+
+            if (options.SpacingBefore.HasValue)
+            {
+                properties.SpacingBefore = options.SpacingBefore;
+            }
+
+            if (options.SpacingAfter.HasValue)
+            {
+                properties.SpacingAfter = options.SpacingAfter;
+            }
+
+            if (options.LineSpacing.HasValue)
+            {
+                properties.LineSpacing = options.LineSpacing;
+            }
+
+            if (options.LineSpacingRule.HasValue)
+            {
+                properties.LineSpacingRule = options.LineSpacingRule;
+            }
+
+            if (options.ContextualSpacing.HasValue)
+            {
+                properties.ContextualSpacing = options.ContextualSpacing.Value;
+            }
+
+            if (options.KeepWithNext.HasValue)
+            {
+                properties.KeepWithNext = options.KeepWithNext.Value;
+            }
+
+            if (options.KeepLinesTogether.HasValue)
+            {
+                properties.KeepLinesTogether = options.KeepLinesTogether.Value;
+            }
+
+            if (options.WidowControl.HasValue)
+            {
+                properties.WidowControl = options.WidowControl.Value;
+            }
+
+            if (options.PageBreakBefore.HasValue)
+            {
+                properties.PageBreakBefore = options.PageBreakBefore.Value;
+            }
+
+            if (options.SuppressLineNumbers.HasValue)
+            {
+                properties.SuppressLineNumbers = options.SuppressLineNumbers.Value;
+            }
+
+            if (options.Bidi.HasValue)
+            {
+                properties.Bidi = options.Bidi.Value;
+            }
+
+            if (options.TextDirection.HasValue)
+            {
+                properties.TextDirection = options.TextDirection.Value;
+            }
+        });
+    }
+
     private void ClearTextEffects()
     {
         _textFormatting.Apply(style => style.Effects = null);
@@ -709,6 +904,11 @@ public sealed class EditorHomeCommandMap
 
     private void AdjustIndent(float delta)
     {
+        if (TryAdjustListLevel(delta))
+        {
+            return;
+        }
+
         _paragraphFormatting.Apply(paragraph =>
         {
             var current = paragraph.Properties.IndentLeft ?? 0f;
@@ -716,7 +916,7 @@ public sealed class EditorHomeCommandMap
         });
     }
 
-    private void ToggleList(ListKind kind)
+    private void ToggleList(ListKind kind, bool multilevel)
     {
         if (_session.Document.ParagraphCount == 0)
         {
@@ -743,6 +943,14 @@ public sealed class EditorHomeCommandMap
         }
 
         var targetKind = allMatch ? ListKind.None : kind;
+        var targetListId = targetKind == ListKind.None
+            ? (int?)null
+            : ResolveListId(kind);
+        if (targetKind != ListKind.None)
+        {
+            targetListId = EnsureListDefinitionId(kind, targetListId, MaxListLevel, multilevel);
+        }
+
         _paragraphFormatting.Apply(paragraph =>
         {
             if (targetKind == ListKind.None)
@@ -752,10 +960,186 @@ public sealed class EditorHomeCommandMap
             }
 
             var existing = paragraph.ListInfo;
-            var level = existing?.Level ?? 0;
-            var listId = existing?.ListId;
-            paragraph.ListInfo = new ListInfo(targetKind, level, listId);
+            var level = existing?.Kind == targetKind ? existing.Level : 0;
+            paragraph.ListInfo = new ListInfo(targetKind, level, targetListId);
         });
+    }
+
+    private bool TryAdjustListLevel(float delta)
+    {
+        var step = delta > 0 ? 1 : delta < 0 ? -1 : 0;
+        if (step == 0 || _session.Document.ParagraphCount == 0)
+        {
+            return false;
+        }
+
+        var selection = _session.Selection.Normalize();
+        var startIndex = Math.Clamp(selection.Start.ParagraphIndex, 0, _session.Document.ParagraphCount - 1);
+        var endIndex = Math.Clamp(selection.End.ParagraphIndex, 0, _session.Document.ParagraphCount - 1);
+        if (startIndex > endIndex)
+        {
+            (startIndex, endIndex) = (endIndex, startIndex);
+        }
+
+        var allInList = true;
+        var resolvedKind = ListKind.None;
+        for (var i = startIndex; i <= endIndex; i++)
+        {
+            var info = _session.Document.GetParagraph(i).ListInfo;
+            if (info is null || info.Kind == ListKind.None)
+            {
+                allInList = false;
+                break;
+            }
+
+            if (resolvedKind == ListKind.None)
+            {
+                resolvedKind = info.Kind;
+            }
+        }
+
+        if (!allInList || resolvedKind == ListKind.None)
+        {
+            return false;
+        }
+
+        var fallbackListId = ResolveListId(resolvedKind);
+        _paragraphFormatting.Apply(paragraph =>
+        {
+            var info = paragraph.ListInfo;
+            if (info is null || info.Kind == ListKind.None)
+            {
+                return;
+            }
+
+            var newLevel = Math.Clamp(info.Level + step, 0, MaxListLevel);
+            if (newLevel == info.Level)
+            {
+                return;
+            }
+
+            var listId = info.ListId ?? fallbackListId;
+            var multilevel = IsMultiLevelList(info, listId);
+            listId = EnsureListDefinitionId(info.Kind, listId, newLevel, multilevel);
+            paragraph.ListInfo = CloneListInfo(info, newLevel, listId);
+        });
+
+        return true;
+    }
+
+    private int? ResolveListId(ListKind kind)
+    {
+        var selection = _session.Selection.Normalize();
+        var startIndex = Math.Clamp(selection.Start.ParagraphIndex, 0, _session.Document.ParagraphCount - 1);
+        var endIndex = Math.Clamp(selection.End.ParagraphIndex, 0, _session.Document.ParagraphCount - 1);
+        if (startIndex > endIndex)
+        {
+            (startIndex, endIndex) = (endIndex, startIndex);
+        }
+
+        for (var i = startIndex; i <= endIndex; i++)
+        {
+            var listInfo = _session.Document.GetParagraph(i).ListInfo;
+            if (listInfo is not null && listInfo.Kind == kind && listInfo.ListId.HasValue)
+            {
+                return listInfo.ListId.Value;
+            }
+        }
+
+        return null;
+    }
+
+    private int EnsureListDefinitionId(ListKind kind, int? listId, int maxLevel, bool multilevel)
+    {
+        var resolvedId = listId ?? AllocateListId();
+        if (!_session.Document.ListDefinitions.TryGetValue(resolvedId, out var definition))
+        {
+            definition = kind switch
+            {
+                ListKind.Bullet => ListDefinitionDefaults.CreateBulleted(resolvedId, MaxListLevel + 1),
+                ListKind.Numbered => ListDefinitionDefaults.CreateNumbered(resolvedId, multilevel, MaxListLevel + 1),
+                _ => ListDefinitionDefaults.CreateNumbered(resolvedId, multilevel, MaxListLevel + 1)
+            };
+
+            _session.Document.ListDefinitions[resolvedId] = definition;
+            return resolvedId;
+        }
+
+        if (kind == ListKind.Numbered)
+        {
+            multilevel = multilevel || IsMultiLevelDefinition(definition);
+        }
+
+        ListDefinitionDefaults.EnsureLevels(definition, kind, maxLevel, multilevel);
+        return resolvedId;
+    }
+
+    private int AllocateListId()
+    {
+        var nextId = 1;
+        if (_session.Document.ListDefinitions.Count > 0)
+        {
+            nextId = _session.Document.ListDefinitions.Keys.Max() + 1;
+        }
+
+        return nextId;
+    }
+
+    private bool IsMultiLevelList(ListInfo info, int? listId)
+    {
+        if (listId.HasValue
+            && _session.Document.ListDefinitions.TryGetValue(listId.Value, out var definition))
+        {
+            return IsMultiLevelDefinition(definition);
+        }
+
+        return IsMultiLevelText(info.LevelText);
+    }
+
+    private static bool IsMultiLevelDefinition(ListDefinition definition)
+    {
+        foreach (var level in definition.Levels.Values)
+        {
+            if (IsMultiLevelText(level.LevelText))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsMultiLevelText(string? levelText)
+    {
+        if (string.IsNullOrWhiteSpace(levelText))
+        {
+            return false;
+        }
+
+        var count = 0;
+        foreach (var ch in levelText)
+        {
+            if (ch == '%' && ++count > 1)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static ListInfo CloneListInfo(ListInfo source, int level, int? listId)
+    {
+        return new ListInfo(source.Kind, level, listId)
+        {
+            NumberFormat = source.NumberFormat,
+            LevelText = source.LevelText,
+            BulletSymbol = source.BulletSymbol,
+            StartAt = source.StartAt,
+            LeftIndent = source.LeftIndent,
+            HangingIndent = source.HangingIndent,
+            TabStop = source.TabStop
+        };
     }
 
     private void SetLineSpacing(object? payload)
@@ -772,8 +1156,34 @@ public sealed class EditorHomeCommandMap
         });
     }
 
+    private void SetParagraphSpacingOptions(object? payload)
+    {
+        if (payload is not EditorParagraphSpacingOptions options)
+        {
+            return;
+        }
+
+        _paragraphFormatting.Apply(paragraph =>
+        {
+            paragraph.Properties.SpacingBefore = options.SpacingBefore;
+            paragraph.Properties.SpacingAfter = options.SpacingAfter;
+            paragraph.Properties.LineSpacing = options.LineSpacing;
+            paragraph.Properties.LineSpacingRule = options.LineSpacingRule;
+        });
+    }
+
     private bool CanSortParagraphs()
     {
+        return TryGetSortableRange(out _, out _, out _, out _);
+    }
+
+    private bool CanSortParagraphs(RibbonContextSnapshot? context)
+    {
+        if (context.HasValue && context.Value.Selection.Kind == EditorSelectionKind.FloatingObject)
+        {
+            return false;
+        }
+
         return TryGetSortableRange(out _, out _, out _, out _);
     }
 
@@ -899,7 +1309,7 @@ public sealed class EditorHomeCommandMap
 
     private static string GetParagraphSortKey(ParagraphBlock paragraph)
     {
-        var text = GetParagraphText(paragraph);
+        var text = DocumentEditHelpers.GetParagraphText(paragraph);
         return text.Trim();
     }
 
@@ -921,6 +1331,13 @@ public sealed class EditorHomeCommandMap
 
     private void ToggleBorders(object? payload)
     {
+        if (payload is EditorParagraphBorderRequest request)
+        {
+            _paragraphFormatting.Apply(paragraph =>
+                ApplyBorderRequest(paragraph.Properties.Borders, request));
+            return;
+        }
+
         BorderLine? border = payload switch
         {
             BorderLine line => line,
@@ -944,6 +1361,39 @@ public sealed class EditorHomeCommandMap
 
             ApplyBorders(paragraph.Properties.Borders, border);
         });
+    }
+
+    private static void ApplyBorderRequest(ParagraphBorders target, EditorParagraphBorderRequest request)
+    {
+        switch (request.Kind)
+        {
+            case EditorParagraphBorderKind.None:
+                ClearBorders(target);
+                return;
+            case EditorParagraphBorderKind.All:
+            case EditorParagraphBorderKind.Outside:
+                ApplyBorders(target, DefaultBorderLine);
+                return;
+            case EditorParagraphBorderKind.Top:
+                ClearBorders(target);
+                target.Top = DefaultBorderLine.Clone();
+                return;
+            case EditorParagraphBorderKind.Bottom:
+                ClearBorders(target);
+                target.Bottom = DefaultBorderLine.Clone();
+                return;
+            case EditorParagraphBorderKind.Left:
+                ClearBorders(target);
+                target.Left = DefaultBorderLine.Clone();
+                return;
+            case EditorParagraphBorderKind.Right:
+                ClearBorders(target);
+                target.Right = DefaultBorderLine.Clone();
+                return;
+            default:
+                ApplyBorders(target, DefaultBorderLine);
+                return;
+        }
     }
 
     private static void ApplyBorders(ParagraphBorders target, BorderLine line)
@@ -1009,8 +1459,45 @@ public sealed class EditorHomeCommandMap
         return TryGetStylePaneService(out _);
     }
 
+    private bool CanOpenStylesPane(RibbonContextSnapshot? context)
+    {
+        return CanOpenStylesPane();
+    }
+
     private bool TryGetStylePaneService(out IStylePaneService service)
     {
+        return _services.TryGet(out service);
+    }
+
+    private bool CanToggleShowInvisibles()
+    {
+        return TryGetViewOptionsService(out _);
+    }
+
+    private bool CanToggleShowInvisibles(RibbonContextSnapshot? context)
+    {
+        return CanToggleShowInvisibles();
+    }
+
+    private void ToggleShowInvisibles(object? payload)
+    {
+        if (!TryGetViewOptionsService(out var service))
+        {
+            return;
+        }
+
+        var value = payload is bool isEnabled ? isEnabled : !service.ShowInvisibles;
+        service.ShowInvisibles = value;
+    }
+
+    private bool TryGetViewOptionsService(out IEditorViewOptionsService service)
+    {
+        if (_viewOptions is not null)
+        {
+            service = _viewOptions;
+            return true;
+        }
+
         return _services.TryGet(out service);
     }
 
@@ -1030,6 +1517,11 @@ public sealed class EditorHomeCommandMap
     private bool CanSelectObjects()
     {
         return _session.Layout.FloatingObjects.Count > 0;
+    }
+
+    private bool CanSelectObjects(RibbonContextSnapshot? context)
+    {
+        return CanSelectObjects();
     }
 
     private void SelectObjects()
@@ -1125,6 +1617,19 @@ public sealed class EditorHomeCommandMap
         if (payload is EditorReplaceQuery query)
         {
             _findReplaceService.TryReplaceNext(query, out _);
+        }
+    }
+
+    private void ExecuteReplaceAll(object? payload)
+    {
+        if (_findReplaceService is null)
+        {
+            return;
+        }
+
+        if (payload is EditorReplaceQuery query)
+        {
+            _findReplaceService.ReplaceAll(query);
         }
     }
 

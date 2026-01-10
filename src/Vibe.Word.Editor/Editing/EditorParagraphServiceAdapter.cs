@@ -1,6 +1,7 @@
 using Vibe.Office.Documents;
 using Vibe.Office.Editing;
 using Vibe.Office.Layout;
+using Vibe.Office.Primitives;
 
 namespace Vibe.Word.Editor.Editing;
 
@@ -27,6 +28,15 @@ public sealed class EditorParagraphServiceAdapter : IParagraphService
         var lineSpacingRule = new NullableEditorValueAccumulator<DocLineSpacingRule>();
         var listKind = new EditorValueAccumulator<ListKind>();
         var listLevel = new EditorValueAccumulator<int>();
+        var shadingColor = new NullableEditorValueAccumulator<DocColor>();
+        var keepWithNext = new NullableEditorValueAccumulator<bool>();
+        var keepLinesTogether = new NullableEditorValueAccumulator<bool>();
+        var widowControl = new NullableEditorValueAccumulator<bool>();
+        var pageBreakBefore = new NullableEditorValueAccumulator<bool>();
+        var suppressLineNumbers = new NullableEditorValueAccumulator<bool>();
+        var contextualSpacing = new NullableEditorValueAccumulator<bool>();
+        var bidi = new NullableEditorValueAccumulator<bool>();
+        var textDirection = new NullableEditorValueAccumulator<DocTextDirection>();
 
         if (_session.Document.ParagraphCount == 0)
         {
@@ -40,7 +50,16 @@ public sealed class EditorParagraphServiceAdapter : IParagraphService
                 lineSpacing.Build(),
                 lineSpacingRule.Build(),
                 listKind.Build(),
-                listLevel.Build());
+                listLevel.Build(),
+                shadingColor.Build(),
+                keepWithNext.Build(),
+                keepLinesTogether.Build(),
+                widowControl.Build(),
+                pageBreakBefore.Build(),
+                suppressLineNumbers.Build(),
+                contextualSpacing.Build(),
+                bidi.Build(),
+                textDirection.Build());
         }
 
         var selection = _session.Selection.Normalize();
@@ -64,6 +83,15 @@ public sealed class EditorParagraphServiceAdapter : IParagraphService
             spacingAfter.Add(resolved.SpacingAfter);
             lineSpacing.Add(resolved.LineSpacing);
             lineSpacingRule.Add(resolved.LineSpacingRule);
+            shadingColor.Add(resolved.ShadingColor);
+            keepWithNext.Add(resolved.KeepWithNext);
+            keepLinesTogether.Add(resolved.KeepLinesTogether);
+            widowControl.Add(resolved.WidowControl);
+            pageBreakBefore.Add(resolved.PageBreakBefore);
+            suppressLineNumbers.Add(resolved.SuppressLineNumbers);
+            contextualSpacing.Add(resolved.ContextualSpacing);
+            bidi.Add(resolved.Bidi);
+            textDirection.Add(resolved.TextDirection);
 
             var listInfo = paragraph.ListInfo;
             listKind.Add(listInfo?.Kind ?? ListKind.None);
@@ -80,6 +108,15 @@ public sealed class EditorParagraphServiceAdapter : IParagraphService
             lineSpacing.Build(),
             lineSpacingRule.Build(),
             listKind.Build(),
-            listLevel.Build());
+            listLevel.Build(),
+            shadingColor.Build(),
+            keepWithNext.Build(),
+            keepLinesTogether.Build(),
+            widowControl.Build(),
+            pageBreakBefore.Build(),
+            suppressLineNumbers.Build(),
+            contextualSpacing.Build(),
+            bidi.Build(),
+            textDirection.Build());
     }
 }

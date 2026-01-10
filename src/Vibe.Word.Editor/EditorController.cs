@@ -150,6 +150,94 @@ public sealed class EditorController : IEditorMutableSession
         Reflow(dirtyParagraphIndex);
     }
 
+    public void InsertInline(Inline inline)
+    {
+        ArgumentNullException.ThrowIfNull(inline);
+
+        var dirtyParagraphIndex = GetDirtyParagraphIndex();
+        DeleteSelectionIfAny();
+
+        var paragraph = Document.GetParagraph(Caret.ParagraphIndex);
+        var offset = Caret.Offset;
+        InsertInlineAtPosition(paragraph, offset, inline);
+        var length = DocumentEditHelpers.GetInlineLength(inline);
+        _selectionService.SetCaret(new TextPosition(Caret.ParagraphIndex, offset + length), false);
+        Reflow(dirtyParagraphIndex);
+    }
+
+    public void InsertInlines(IReadOnlyList<Inline> inlines)
+    {
+        if (inlines is null || inlines.Count == 0)
+        {
+            return;
+        }
+
+        var dirtyParagraphIndex = GetDirtyParagraphIndex();
+        DeleteSelectionIfAny();
+
+        var paragraph = Document.GetParagraph(Caret.ParagraphIndex);
+        var offset = Caret.Offset;
+        var totalLength = GetInlineRangeLength(inlines);
+        InsertInlineRangeAtPosition(paragraph, offset, inlines, totalLength);
+        _selectionService.SetCaret(new TextPosition(Caret.ParagraphIndex, offset + totalLength), false);
+        Reflow(dirtyParagraphIndex);
+    }
+
+    public void InsertBlock(Block block)
+    {
+        ArgumentNullException.ThrowIfNull(block);
+
+        var dirtyParagraphIndex = GetDirtyParagraphIndex();
+        DeleteSelectionIfAny();
+
+        var location = Document.GetParagraphLocation(Caret.ParagraphIndex);
+        if (location.IsInTable)
+        {
+            var insertIndex = Math.Clamp(location.BlockIndex + 1, 0, Document.Blocks.Count);
+            var newParagraph = new ParagraphBlock();
+            Document.Blocks.Insert(insertIndex, block);
+            Document.Blocks.Insert(insertIndex + 1, newParagraph);
+            _selectionService.SetCaret(new TextPosition(FindParagraphIndex(newParagraph), 0), false);
+            Reflow(dirtyParagraphIndex);
+            return;
+        }
+
+        var paragraph = location.Paragraph;
+        var offset = Caret.Offset;
+        var nextParagraph = new ParagraphBlock(string.Empty, paragraph.ListInfo?.Clone())
+        {
+            StyleId = paragraph.StyleId
+        };
+        CopyParagraphProperties(paragraph.Properties, nextParagraph.Properties);
+
+        if (paragraph.Inlines.Count == 0)
+        {
+            var text = paragraph.Text ?? string.Empty;
+            var before = text.Substring(0, offset);
+            var after = text.Substring(offset);
+            paragraph.Text = before;
+            nextParagraph.Text = after;
+        }
+        else
+        {
+            SplitInlinesAtOffset(paragraph, offset, out var before, out var after);
+            paragraph.Inlines.Clear();
+            paragraph.Inlines.AddRange(before);
+            NormalizeInlines(paragraph);
+
+            nextParagraph.Inlines.AddRange(after);
+            NormalizeInlines(nextParagraph);
+        }
+
+        SplitFloatingAnchors(paragraph, nextParagraph, offset);
+        var blockInsertIndex = Math.Clamp(location.BlockIndex + 1, 0, Document.Blocks.Count);
+        Document.Blocks.Insert(blockInsertIndex, block);
+        Document.Blocks.Insert(blockInsertIndex + 1, nextParagraph);
+
+        _selectionService.SetCaret(new TextPosition(FindParagraphIndex(nextParagraph), 0), false);
+        Reflow(dirtyParagraphIndex);
+    }
+
     public void Backspace()
     {
         var dirtyParagraphIndex = GetDirtyParagraphIndex();
@@ -404,6 +492,70 @@ public sealed class EditorController : IEditorMutableSession
         NormalizeInlines(paragraph);
     }
 
+    private void InsertInlineRangeAtPosition(
+        ParagraphBlock paragraph,
+        int offset,
+        IReadOnlyList<Inline> inlines,
+        int totalLength)
+    {
+        EnsureParagraphInlines(paragraph);
+        if (totalLength > 0)
+        {
+            ShiftFloatingAnchorsOnInsert(paragraph, offset, totalLength);
+        }
+
+        if (paragraph.Inlines.Count == 0)
+        {
+            paragraph.Inlines.AddRange(inlines);
+            UpdateParagraphText(paragraph);
+            return;
+        }
+
+        var position = FindInlinePosition(paragraph, offset);
+        var current = paragraph.Inlines[position.Index];
+        if (current is RunInline run)
+        {
+            var insertAt = Math.Clamp(position.OffsetInInline, 0, run.Text.Length);
+            if (insertAt <= 0)
+            {
+                paragraph.Inlines.InsertRange(position.Index, inlines);
+            }
+            else if (insertAt >= run.Text.Length)
+            {
+                paragraph.Inlines.InsertRange(position.Index + 1, inlines);
+            }
+            else
+            {
+                var beforeText = run.Text.SliceBuffer(0, insertAt);
+                var afterText = run.Text.SliceBuffer(insertAt, run.Text.Length - insertAt);
+                var beforeRun = new RunInline(beforeText, run.Style) { StyleId = run.StyleId };
+                var afterRun = new RunInline(afterText, run.Style) { StyleId = run.StyleId };
+                paragraph.Inlines.RemoveAt(position.Index);
+                paragraph.Inlines.Insert(position.Index, beforeRun);
+                paragraph.Inlines.InsertRange(position.Index + 1, inlines);
+                paragraph.Inlines.Insert(position.Index + 1 + inlines.Count, afterRun);
+            }
+        }
+        else
+        {
+            var insertIndex = position.OffsetInInline <= 0 ? position.Index : position.Index + 1;
+            paragraph.Inlines.InsertRange(insertIndex, inlines);
+        }
+
+        NormalizeInlines(paragraph);
+    }
+
+    private static int GetInlineRangeLength(IReadOnlyList<Inline> inlines)
+    {
+        var length = 0;
+        foreach (var inline in inlines)
+        {
+            length += DocumentEditHelpers.GetInlineLength(inline);
+        }
+
+        return length;
+    }
+
     private static void ShiftFloatingAnchorsOnInsert(ParagraphBlock paragraph, int offset, int length)
     {
         if (length <= 0 || paragraph.FloatingObjects.Count == 0)
@@ -523,6 +675,45 @@ public sealed class EditorController : IEditorMutableSession
         var lastIndex = inlines.Count - 1;
         var lastLength = DocumentEditHelpers.GetInlineLength(inlines[lastIndex]);
         return new InlinePosition(lastIndex, lastLength, lastLength);
+    }
+
+    private int FindParagraphIndex(ParagraphBlock paragraph)
+    {
+        var count = 0;
+        for (var i = 0; i < Document.Blocks.Count; i++)
+        {
+            switch (Document.Blocks[i])
+            {
+                case ParagraphBlock candidate:
+                    if (ReferenceEquals(candidate, paragraph))
+                    {
+                        return count;
+                    }
+
+                    count++;
+                    break;
+                case TableBlock table:
+                    foreach (var row in table.Rows)
+                    {
+                        foreach (var cell in row.Cells)
+                        {
+                            foreach (var candidate in cell.Paragraphs)
+                            {
+                                if (ReferenceEquals(candidate, paragraph))
+                                {
+                                    return count;
+                                }
+
+                                count++;
+                            }
+                        }
+                    }
+
+                    break;
+            }
+        }
+
+        return Math.Clamp(Caret.ParagraphIndex, 0, Math.Max(0, Document.ParagraphCount - 1));
     }
 
     private static void SplitInlinesAtOffset(ParagraphBlock paragraph, int offset, out List<Inline> before, out List<Inline> after)

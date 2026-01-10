@@ -8,7 +8,9 @@ public static class EditorHomeServiceRegistry
         EditorServices services,
         EditorCommandDispatcher commands,
         IEditorMutableSession session,
-        IClipboardService? clipboardService = null)
+        IFontService? fontService = null,
+        IClipboardService? clipboardService = null,
+        IEditorViewOptionsService? viewOptionsService = null)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(commands);
@@ -21,12 +23,14 @@ public static class EditorHomeServiceRegistry
         var formattingState = new EditorFormattingStateAdapter(session);
         var paragraphState = new EditorParagraphServiceAdapter(session);
         var styleService = new EditorStyleServiceAdapter(session);
-        var fontService = new EditorFontServiceAdapter(session);
+        fontService ??= new EditorFontServiceAdapter(session);
         clipboardService ??= new EditorClipboardServiceAdapter(session);
         var formatPainter = new EditorFormatPainter(session, new EditorTextFormattingApplier(session, textNormalizer), formattingState);
-        var undoRedoService = new EditorUndoRedoServiceAdapter();
-        var findReplaceService = new EditorFindReplaceServiceAdapter();
+        var undoRedoService = new EditorCommandHistory(session);
+        var findReplaceService = new EditorFindReplaceService(session);
+        var selectionTextService = new EditorSelectionTextServiceAdapter(session);
         var commandRouter = new EditorCommandRouterAdapter(commands, session);
+        commands.History = undoRedoService;
         var ribbonSnapshotProvider = new RibbonContextSnapshotBuilder(
             selectionState,
             formattingState,
@@ -48,6 +52,11 @@ public static class EditorHomeServiceRegistry
         services.Register<ITextContainerNormalizer>(textNormalizer);
         services.Register<IUndoRedoService>(undoRedoService);
         services.Register<IFindReplaceService>(findReplaceService);
+        services.Register<ISelectionTextService>(selectionTextService);
+        if (viewOptionsService is not null)
+        {
+            services.Register<IEditorViewOptionsService>(viewOptionsService);
+        }
         services.Register<IEditorCommandRouter>(commandRouter);
         services.Register<IRibbonContextSnapshotProvider>(ribbonSnapshotProvider);
 
@@ -63,6 +72,9 @@ public static class EditorHomeServiceRegistry
             formatPainter,
             textNormalizer);
         commandMap.Register();
+
+        var insertCommandMap = new EditorInsertCommandMap(commandRouter, session);
+        insertCommandMap.Register();
 
         return commandRouter;
     }

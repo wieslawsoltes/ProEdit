@@ -148,9 +148,28 @@ internal sealed class EditorFormatPainter : IFormatPainterService
             hasValue = true;
         }
 
+        if (TryGet(snapshot.UnderlineColor, out var underlineColor))
+        {
+            style.UnderlineColor = underlineColor;
+            hasValue = true;
+        }
+
+        if (TryGet(snapshot.SmallCaps, out var smallCaps))
+        {
+            style.SmallCaps = smallCaps;
+            hasValue = true;
+        }
+
         if (TryGet(snapshot.VerticalPosition, out var verticalPosition))
         {
             style.VerticalPosition = verticalPosition;
+            hasValue = true;
+        }
+
+        var effects = BuildTextEffects(snapshot);
+        if (effects is not null)
+        {
+            style.Effects = effects;
             hasValue = true;
         }
 
@@ -211,9 +230,19 @@ internal sealed class EditorFormatPainter : IFormatPainterService
             target.Color = source.Color;
         }
 
+        if (source.UnderlineColor.HasValue)
+        {
+            target.UnderlineColor = source.UnderlineColor;
+        }
+
         if (source.HighlightColor.HasValue)
         {
             target.HighlightColor = source.HighlightColor;
+        }
+
+        if (source.SmallCaps.HasValue)
+        {
+            target.SmallCaps = source.SmallCaps;
         }
 
         if (source.VerticalPosition.HasValue)
@@ -225,5 +254,39 @@ internal sealed class EditorFormatPainter : IFormatPainterService
         {
             target.Effects = source.Effects.Clone();
         }
+    }
+
+    private static TextEffects? BuildTextEffects(EditorFormattingSnapshot snapshot)
+    {
+        if (!TryGet(snapshot.TextOutline, out var outline)
+            && !TryGet(snapshot.TextShadow, out var shadow)
+            && !TryGet(snapshot.TextEmboss, out var emboss)
+            && !TryGet(snapshot.TextImprint, out var imprint))
+        {
+            return null;
+        }
+
+        var effects = new TextEffects();
+        if (TryGet(snapshot.TextOutline, out outline))
+        {
+            effects.Outline = outline ? new TextOutlineEffect { Enabled = true } : null;
+        }
+
+        if (TryGet(snapshot.TextShadow, out shadow))
+        {
+            effects.Shadow = shadow ? new TextShadowEffect { Enabled = true } : null;
+        }
+
+        if (TryGet(snapshot.TextEmboss, out emboss))
+        {
+            effects.Emboss = emboss;
+        }
+
+        if (TryGet(snapshot.TextImprint, out imprint))
+        {
+            effects.Imprint = imprint;
+        }
+
+        return effects.HasValues ? effects : null;
     }
 }

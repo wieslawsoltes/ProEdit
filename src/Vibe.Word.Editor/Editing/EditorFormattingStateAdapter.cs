@@ -30,6 +30,8 @@ public sealed class EditorFormattingStateAdapter : IFormattingState
         var strikethrough = new EditorValueAccumulator<bool>();
         var fontColor = new EditorValueAccumulator<DocColor>();
         var highlightColor = new NullableEditorValueAccumulator<DocColor>();
+        var underlineColor = new NullableEditorValueAccumulator<DocColor>();
+        var smallCaps = new EditorValueAccumulator<bool>();
         var verticalPosition = new EditorValueAccumulator<DocVerticalPosition>();
         var textOutline = new EditorValueAccumulator<bool>();
         var textShadow = new EditorValueAccumulator<bool>();
@@ -48,6 +50,8 @@ public sealed class EditorFormattingStateAdapter : IFormattingState
                 strikethrough.Build(),
                 fontColor.Build(),
                 highlightColor.Build(),
+                underlineColor.Build(),
+                smallCaps.Build(),
                 verticalPosition.Build(),
                 textOutline.Build(),
                 textShadow.Build(),
@@ -71,6 +75,8 @@ public sealed class EditorFormattingStateAdapter : IFormattingState
                 ref strikethrough,
                 ref fontColor,
                 ref highlightColor,
+                ref underlineColor,
+                ref smallCaps,
                 ref verticalPosition,
                 ref textOutline,
                 ref textShadow,
@@ -105,6 +111,8 @@ public sealed class EditorFormattingStateAdapter : IFormattingState
                     ref strikethrough,
                     ref fontColor,
                     ref highlightColor,
+                    ref underlineColor,
+                    ref smallCaps,
                     ref verticalPosition,
                     ref textOutline,
                     ref textShadow,
@@ -123,6 +131,8 @@ public sealed class EditorFormattingStateAdapter : IFormattingState
             strikethrough.Build(),
             fontColor.Build(),
             highlightColor.Build(),
+            underlineColor.Build(),
+            smallCaps.Build(),
             verticalPosition.Build(),
             textOutline.Build(),
             textShadow.Build(),
@@ -143,6 +153,8 @@ public sealed class EditorFormattingStateAdapter : IFormattingState
         ref EditorValueAccumulator<bool> strikethrough,
         ref EditorValueAccumulator<DocColor> fontColor,
         ref NullableEditorValueAccumulator<DocColor> highlightColor,
+        ref NullableEditorValueAccumulator<DocColor> underlineColor,
+        ref EditorValueAccumulator<bool> smallCaps,
         ref EditorValueAccumulator<DocVerticalPosition> verticalPosition,
         ref EditorValueAccumulator<bool> textOutline,
         ref EditorValueAccumulator<bool> textShadow,
@@ -171,6 +183,8 @@ public sealed class EditorFormattingStateAdapter : IFormattingState
                 ref strikethrough,
                 ref fontColor,
                 ref highlightColor,
+                ref underlineColor,
+                ref smallCaps,
                 ref verticalPosition,
                 ref textOutline,
                 ref textShadow,
@@ -205,6 +219,8 @@ public sealed class EditorFormattingStateAdapter : IFormattingState
                     ref strikethrough,
                     ref fontColor,
                     ref highlightColor,
+                    ref underlineColor,
+                    ref smallCaps,
                     ref verticalPosition,
                     ref textOutline,
                     ref textShadow,
@@ -227,6 +243,8 @@ public sealed class EditorFormattingStateAdapter : IFormattingState
                 ref strikethrough,
                 ref fontColor,
                 ref highlightColor,
+                ref underlineColor,
+                ref smallCaps,
                 ref verticalPosition,
                 ref textOutline,
                 ref textShadow,
@@ -280,6 +298,8 @@ public sealed class EditorFormattingStateAdapter : IFormattingState
         ref EditorValueAccumulator<bool> strikethrough,
         ref EditorValueAccumulator<DocColor> fontColor,
         ref NullableEditorValueAccumulator<DocColor> highlightColor,
+        ref NullableEditorValueAccumulator<DocColor> underlineColor,
+        ref EditorValueAccumulator<bool> smallCaps,
         ref EditorValueAccumulator<DocVerticalPosition> verticalPosition,
         ref EditorValueAccumulator<bool> textOutline,
         ref EditorValueAccumulator<bool> textShadow,
@@ -295,6 +315,8 @@ public sealed class EditorFormattingStateAdapter : IFormattingState
         strikethrough.Add(style.Strikethrough);
         fontColor.Add(style.Color);
         highlightColor.Add(style.HighlightColor);
+        underlineColor.Add(style.UnderlineColor);
+        smallCaps.Add(style.SmallCaps);
         verticalPosition.Add(style.VerticalPosition);
         var effects = style.Effects;
         textOutline.Add(effects?.Outline?.Enabled ?? false);
