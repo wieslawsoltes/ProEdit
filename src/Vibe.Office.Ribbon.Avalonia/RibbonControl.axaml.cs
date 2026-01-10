@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using Vibe.Office.Ribbon;
+using Vibe.Office.Primitives;
 
 namespace Vibe.Office.Ribbon.Avalonia;
 
@@ -23,6 +24,7 @@ public partial class RibbonControl : UserControl
     private ScrollViewer? _groupScrollViewer;
     private bool _isUpdatingGroupLayout;
     private RibbonTab? _lastLayoutTab;
+    private readonly RibbonGroupOverflowController _overflowController = new();
     private int _stateUpdateDepth;
 
     public event EventHandler? CustomizeQuickAccessRequested;
@@ -114,6 +116,14 @@ public partial class RibbonControl : UserControl
 
         var menu = BuildMenu(split.Menu);
         menu.Open(sender as Control);
+    }
+
+    private void OnCollapsedGroupPopupClosed(object? sender, EventArgs e)
+    {
+        if (sender is Popup { PlacementTarget: ToggleButton toggle })
+        {
+            toggle.IsChecked = false;
+        }
     }
 
     private void OnRibbonDropdownClick(object? sender, RoutedEventArgs e)
@@ -246,6 +256,36 @@ public partial class RibbonControl : UserControl
         RefreshState();
     }
 
+    private async void OnRibbonGalleryPopupSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (sender is not ListBox listBox || listBox.DataContext is not RibbonGallery gallery)
+        {
+            return;
+        }
+
+        if (_stateUpdateDepth > 0)
+        {
+            return;
+        }
+
+        await gallery.SelectAsync(listBox.SelectedItem as RibbonGalleryItem);
+        if (listBox.Tag is ToggleButton toggle)
+        {
+            toggle.IsChecked = false;
+        }
+
+        RefreshState();
+    }
+
+    private async void OnRibbonGroupLauncherClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button { DataContext: RibbonGroupLauncher launcher })
+        {
+            await launcher.ExecuteAsync();
+            RefreshState();
+        }
+    }
+
     private async void OnRibbonColorSplitPrimaryClick(object? sender, RoutedEventArgs e)
     {
         if (sender is Button { DataContext: RibbonColorSplitButton button })
@@ -280,6 +320,7 @@ public partial class RibbonControl : UserControl
                         IsEnabled = item.IsEnabled,
                         DataContext = item
                     };
+                    ToolTip.SetTip(menuItem, item.ToolTip);
                     var iconText = RibbonIconResolver.ResolveText(item.IconKey);
                     if (!string.IsNullOrWhiteSpace(iconText))
                     {
@@ -303,6 +344,7 @@ public partial class RibbonControl : UserControl
                         ToggleType = MenuItemToggleType.CheckBox,
                         IsChecked = toggle.IsChecked
                     };
+                    ToolTip.SetTip(toggleItem, toggle.ToolTip);
                     var toggleIcon = RibbonIconResolver.ResolveText(toggle.IconKey);
                     if (!string.IsNullOrWhiteSpace(toggleIcon))
                     {
@@ -400,6 +442,26 @@ public partial class RibbonControl : UserControl
             return;
         }
 
+        if (color.Kind == RibbonColorKind.Picker)
+        {
+            var picked = await ShowColorPickerAsync(owner);
+            if (!picked.HasValue)
+            {
+                return;
+            }
+
+            color = new RibbonColorItem(
+                $"{color.Id}-custom",
+                "Custom",
+                RibbonColorKind.Custom,
+                picked.Value);
+        }
+
+        await ApplyColorSelectionAsync(owner, color);
+    }
+
+    private async ValueTask ApplyColorSelectionAsync(object owner, RibbonColorItem color)
+    {
         switch (owner)
         {
             case RibbonColorSplitButton split:
@@ -411,6 +473,29 @@ public partial class RibbonControl : UserControl
                 RefreshState();
                 break;
         }
+    }
+
+    private async ValueTask<DocColor?> ShowColorPickerAsync(object owner)
+    {
+        var window = TopLevel.GetTopLevel(this) as Window;
+        if (window is null)
+        {
+            return null;
+        }
+
+        var initial = ResolveCurrentColor(owner);
+        var dialog = new RibbonColorPickerDialog(initial);
+        return await dialog.ShowDialog<DocColor?>(window);
+    }
+
+    private static DocColor? ResolveCurrentColor(object owner)
+    {
+        return owner switch
+        {
+            RibbonColorSplitButton split => split.SelectedColor?.Color,
+            RibbonColorButton button => button.SelectedColor?.Color,
+            _ => null
+        };
     }
 
     private async void OnRibbonMenuItemClick(object? sender, RoutedEventArgs e)
@@ -432,6 +517,11 @@ public partial class RibbonControl : UserControl
     {
         using var _ = BeginStateUpdate();
         Model?.RefreshState();
+    }
+
+    public IDisposable BeginStateUpdateScope()
+    {
+        return BeginStateUpdate();
     }
 
     private bool ShouldHandleComboBoxSelection(ComboBox comboBox)
@@ -479,6 +569,12 @@ public partial class RibbonControl : UserControl
             return;
         }
 
+        if (!_keyTipsVisible && TryHandleRovingFocus(e))
+        {
+            e.Handled = true;
+            return;
+        }
+
         if (!_keyTipsVisible)
         {
             return;
@@ -519,6 +615,244 @@ public partial class RibbonControl : UserControl
 
             e.Handled = true;
         }
+    }
+
+    private bool TryHandleRovingFocus(KeyEventArgs e)
+    {
+        if (e.KeyModifiers != KeyModifiers.None)
+        {
+            return false;
+        }
+
+        var direction = e.Key switch
+        {
+            Key.Left => RovingDirection.Left,
+            Key.Right => RovingDirection.Right,
+            Key.Up => RovingDirection.Up,
+            Key.Down => RovingDirection.Down,
+            Key.Home => RovingDirection.Home,
+            Key.End => RovingDirection.End,
+            _ => RovingDirection.None
+        };
+
+        if (direction == RovingDirection.None)
+        {
+            return false;
+        }
+
+        var focused = GetFocusedControl();
+        if (focused is null || !focused.Classes.Contains("ribbon-control"))
+        {
+            return false;
+        }
+
+        if (!IsDescendantOfRibbon(focused) || IsTextEditing(focused))
+        {
+            return false;
+        }
+
+        var targets = GetRovingFocusTargets();
+        if (targets.Count == 0)
+        {
+            return false;
+        }
+
+        var index = targets.FindIndex(target => ReferenceEquals(target.Control, focused));
+        if (index < 0)
+        {
+            return false;
+        }
+
+        var current = targets[index];
+        var next = direction switch
+        {
+            RovingDirection.Home => targets[0],
+            RovingDirection.End => targets[^1],
+            _ => FindDirectionalTarget(targets, current, direction)
+        };
+
+        if (next.Control is null || ReferenceEquals(next.Control, current.Control))
+        {
+            return false;
+        }
+
+        return next.Control.Focus();
+    }
+
+    private Control? GetFocusedControl()
+    {
+        var topLevel = TopLevel.GetTopLevel(this);
+        return topLevel?.FocusManager?.GetFocusedElement() as Control;
+    }
+
+    private bool IsDescendantOfRibbon(Control control)
+    {
+        return control.GetVisualAncestors().Contains(this);
+    }
+
+    private static bool IsTextEditing(Control control)
+    {
+        if (control is TextBox { IsReadOnly: false })
+        {
+            return true;
+        }
+
+        var combo = control.GetVisualAncestors().OfType<ComboBox>().FirstOrDefault();
+        if (combo is { IsEditable: true })
+        {
+            return true;
+        }
+
+        return combo?.IsDropDownOpen == true;
+    }
+
+    private List<FocusTarget> GetRovingFocusTargets()
+    {
+        var targets = new List<FocusTarget>();
+        foreach (var control in this.GetVisualDescendants().OfType<Control>())
+        {
+            if (!control.Classes.Contains("ribbon-control"))
+            {
+                continue;
+            }
+
+            if (control.Classes.Contains("ribbon-split-arrow") || control.Classes.Contains("ribbon-spinner-arrow"))
+            {
+                continue;
+            }
+
+            if (!control.IsVisible || !control.IsEnabled)
+            {
+                continue;
+            }
+
+            if (!TryGetControlRect(control, out var bounds))
+            {
+                continue;
+            }
+
+            targets.Add(new FocusTarget(control, bounds));
+        }
+
+        targets.Sort(static (left, right) =>
+        {
+            var top = left.Bounds.Y.CompareTo(right.Bounds.Y);
+            return top != 0 ? top : left.Bounds.X.CompareTo(right.Bounds.X);
+        });
+
+        return targets;
+    }
+
+    private bool TryGetControlRect(Control control, out Rect rect)
+    {
+        var origin = control.TranslatePoint(new Point(0, 0), this);
+        if (origin is null)
+        {
+            rect = default;
+            return false;
+        }
+
+        rect = new Rect(origin.Value, control.Bounds.Size);
+        return rect.Width > 0 && rect.Height > 0;
+    }
+
+    private static FocusTarget FindDirectionalTarget(
+        List<FocusTarget> targets,
+        FocusTarget current,
+        RovingDirection direction)
+    {
+        var center = current.Center;
+        var rowTolerance = Math.Max(6, current.Bounds.Height * 0.6);
+        var columnTolerance = Math.Max(6, current.Bounds.Width * 0.6);
+        var best = current;
+        var bestDistance = double.PositiveInfinity;
+
+        foreach (var target in targets)
+        {
+            if (ReferenceEquals(target.Control, current.Control))
+            {
+                continue;
+            }
+
+            var deltaX = target.Center.X - center.X;
+            var deltaY = target.Center.Y - center.Y;
+
+            switch (direction)
+            {
+                case RovingDirection.Left:
+                    if (deltaX >= -1 || Math.Abs(deltaY) > rowTolerance)
+                    {
+                        continue;
+                    }
+
+                    break;
+                case RovingDirection.Right:
+                    if (deltaX <= 1 || Math.Abs(deltaY) > rowTolerance)
+                    {
+                        continue;
+                    }
+
+                    break;
+                case RovingDirection.Up:
+                    if (deltaY >= -1 || Math.Abs(deltaX) > columnTolerance)
+                    {
+                        continue;
+                    }
+
+                    break;
+                case RovingDirection.Down:
+                    if (deltaY <= 1 || Math.Abs(deltaX) > columnTolerance)
+                    {
+                        continue;
+                    }
+
+                    break;
+            }
+
+            var distance = direction is RovingDirection.Left or RovingDirection.Right
+                ? Math.Abs(deltaX) + Math.Abs(deltaY) * 0.1
+                : Math.Abs(deltaY) + Math.Abs(deltaX) * 0.1;
+
+            if (distance < bestDistance)
+            {
+                bestDistance = distance;
+                best = target;
+            }
+        }
+
+        if (!ReferenceEquals(best.Control, current.Control))
+        {
+            return best;
+        }
+
+        var index = targets.FindIndex(target => ReferenceEquals(target.Control, current.Control));
+        if (index < 0)
+        {
+            return current;
+        }
+
+        return direction switch
+        {
+            RovingDirection.Left or RovingDirection.Up => index > 0 ? targets[index - 1] : current,
+            RovingDirection.Right or RovingDirection.Down => index < targets.Count - 1 ? targets[index + 1] : current,
+            _ => current
+        };
+    }
+
+    private enum RovingDirection
+    {
+        None,
+        Left,
+        Right,
+        Up,
+        Down,
+        Home,
+        End
+    }
+
+    private readonly record struct FocusTarget(Control Control, Rect Bounds)
+    {
+        public Point Center => new(Bounds.X + Bounds.Width / 2, Bounds.Y + Bounds.Height / 2);
     }
 
     protected override void OnKeyUp(KeyEventArgs e)
@@ -568,42 +902,11 @@ public partial class RibbonControl : UserControl
             }
 
             var extentWidth = _groupScrollViewer.Extent.Width;
-            if (extentWidth > viewportWidth + 1)
-            {
-                ShrinkGroups(tab.Groups);
-                return;
-            }
-
-            if (extentWidth < viewportWidth - 24)
-            {
-                ExpandGroups(tab.Groups);
-            }
+            _overflowController.UpdateLayout(tab.Groups, viewportWidth, extentWidth);
         }
         finally
         {
             _isUpdatingGroupLayout = false;
-        }
-    }
-
-    private static void ShrinkGroups(IReadOnlyList<RibbonGroup> groups)
-    {
-        for (var i = groups.Count - 1; i >= 0; i--)
-        {
-            if (groups[i].TryStepLayoutMode(shrink: true))
-            {
-                return;
-            }
-        }
-    }
-
-    private static void ExpandGroups(IReadOnlyList<RibbonGroup> groups)
-    {
-        for (var i = 0; i < groups.Count; i++)
-        {
-            if (groups[i].TryStepLayoutMode(shrink: false))
-            {
-                return;
-            }
         }
     }
 
@@ -689,6 +992,25 @@ public partial class RibbonControl : UserControl
                 continue;
             }
 
+            if (control is Border border && border.Classes.Contains("ribbon-group-header"))
+            {
+                if (border.DataContext is RibbonGroup group && !group.IsCollapsed && !string.IsNullOrWhiteSpace(group.KeyTip))
+                {
+                    var origin = border.TranslatePoint(new Point(0, 0), this);
+                    if (origin is not null)
+                    {
+                        yield return (group.KeyTip!, border, origin.Value);
+                    }
+                }
+
+                continue;
+            }
+
+            if (control.Classes.Contains("ribbon-gallery-dropdown"))
+            {
+                continue;
+            }
+
             if (control.Classes.Contains("ribbon-split-arrow"))
             {
                 continue;
@@ -716,6 +1038,18 @@ public partial class RibbonControl : UserControl
                 && control is not TextBox
                 && control is not ListBox)
             {
+                continue;
+            }
+
+            if (control.DataContext is RibbonGroupLauncher launcher && !string.IsNullOrWhiteSpace(launcher.KeyTip))
+            {
+                var launcherOrigin = control.TranslatePoint(new Point(0, 0), this);
+                if (launcherOrigin is null)
+                {
+                    continue;
+                }
+
+                yield return (launcher.KeyTip!, control, launcherOrigin.Value);
                 continue;
             }
 
@@ -752,6 +1086,14 @@ public partial class RibbonControl : UserControl
             return;
         }
 
+        if (control.DataContext is RibbonGroup)
+        {
+            if (TryFocusFirstGroupControl(control))
+            {
+                return;
+            }
+        }
+
         if (control is Button button)
         {
             button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
@@ -760,6 +1102,39 @@ public partial class RibbonControl : UserControl
         {
             toggle.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         }
+    }
+
+    private bool TryFocusFirstGroupControl(Control control)
+    {
+        var groupContainer = control.GetVisualAncestors()
+            .OfType<Control>()
+            .FirstOrDefault(ancestor => ancestor.Classes.Contains("ribbon-group"));
+        if (groupContainer is null)
+        {
+            return false;
+        }
+
+        foreach (var target in groupContainer.GetVisualDescendants().OfType<Control>())
+        {
+            if (!target.Classes.Contains("ribbon-control"))
+            {
+                continue;
+            }
+
+            if (target.Classes.Contains("ribbon-split-arrow") || target.Classes.Contains("ribbon-spinner-arrow"))
+            {
+                continue;
+            }
+
+            if (!target.IsVisible || !target.IsEnabled)
+            {
+                continue;
+            }
+
+            return target.Focus();
+        }
+
+        return false;
     }
 
     private static bool TryGetKeyTipCharacter(Key key, out char keyTipChar)
