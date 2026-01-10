@@ -30,24 +30,36 @@
                                 Spacing="6"
                                 VerticalAlignment="Center">
                         <Button x:Name="ZoomOutButton"
-                                Content="-"
-                                Width="26"
-                                Height="20" />
+                                Content="{DynamicResource RibbonIcon.ZoomOut}"
+                                Width="32"
+                                Height="22"
+                                FontSize="12"
+                                Padding="0"
+                                HorizontalContentAlignment="Center"
+                                VerticalContentAlignment="Center" />
                         <Slider x:Name="ZoomSlider"
                                 Width="150"
                                 Minimum="10"
                                 Maximum="500"
                                 SmallChange="10"
                                 LargeChange="50"
-                                Value="100" />
+                                Value="100"
+                                VerticalAlignment="Center" />
                         <Button x:Name="ZoomInButton"
-                                Content="+"
-                                Width="26"
-                                Height="20" />
+                                Content="{DynamicResource RibbonIcon.ZoomIn}"
+                                Width="32"
+                                Height="22"
+                                FontSize="12"
+                                Padding="0"
+                                HorizontalContentAlignment="Center"
+                                VerticalContentAlignment="Center" />
                         <Button x:Name="ZoomResetButton"
                                 Content="100%"
-                                MinWidth="56"
-                                Height="22" />
+                                MinWidth="64"
+                                Height="24"
+                                Padding="8,0"
+                                HorizontalContentAlignment="Center"
+                                VerticalContentAlignment="Center" />
                     </StackPanel>
                 </Grid>
             </Border>
