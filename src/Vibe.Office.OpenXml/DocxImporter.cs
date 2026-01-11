@@ -196,13 +196,13 @@ public sealed class DocxImporter
             tableBlock.StyleId = tableStyleId;
         }
 
-        ApplyTableProperties(table, tableBlock.Properties);
+        ApplyTableProperties(table, tableBlock.Properties, styleResolver.ThemeColors);
 
         Vibe.Office.Documents.TableCell ParseTableCell(DocumentFormat.OpenXml.Wordprocessing.TableCell cell)
         {
             var tableCell = new Vibe.Office.Documents.TableCell();
             ApplyTableCellStructure(cell, tableCell);
-            ApplyTableCellProperties(cell, tableCell.Properties);
+            ApplyTableCellProperties(cell, tableCell.Properties, styleResolver.ThemeColors);
             foreach (var paragraph in cell.Elements<Paragraph>())
             {
                 tableCell.Paragraphs.Add(ParseParagraph(paragraph, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, revisions, placeholderResolver));
@@ -286,7 +286,7 @@ public sealed class DocxImporter
             }
 
             var tableRow = new Vibe.Office.Documents.TableRow { ContentControl = rowContentControl };
-            ApplyTableRowProperties(row, tableRow.Properties);
+            ApplyTableRowProperties(row, tableRow.Properties, styleResolver.ThemeColors);
             foreach (var cellElement in row.Elements())
             {
                 var parsedCell = ParseTableCellElement(cellElement);
@@ -2645,8 +2645,8 @@ public sealed class DocxImporter
                         PrimaryStyle = definition.PrimaryStyle,
                         CustomStyle = definition.CustomStyle
                     };
-                    ApplyTableProperties(definition.TableProperties, tableStyle.TableProperties);
-                    ApplyTableCellProperties(definition.TableCellProperties, tableStyle.CellProperties);
+                    ApplyTableProperties(definition.TableProperties, tableStyle.TableProperties, ThemeColors);
+                    ApplyTableCellProperties(definition.TableCellProperties, tableStyle.CellProperties, ThemeColors);
                     foreach (var overrideProperties in definition.TableStyleOverrides)
                     {
                         var condition = MapTableStyleCondition(overrideProperties.Type?.Value);
@@ -2656,8 +2656,8 @@ public sealed class DocxImporter
                         }
 
                         var conditionProperties = new TableStyleConditionProperties();
-                        ApplyTableProperties(overrideProperties.TableStyleConditionalFormattingTableProperties, conditionProperties.TableProperties);
-                        ApplyTableCellProperties(overrideProperties.TableStyleConditionalFormattingTableCellProperties, conditionProperties.CellProperties);
+                        ApplyTableProperties(overrideProperties.TableStyleConditionalFormattingTableProperties, conditionProperties.TableProperties, ThemeColors);
+                        ApplyTableCellProperties(overrideProperties.TableStyleConditionalFormattingTableCellProperties, conditionProperties.CellProperties, ThemeColors);
                         tableStyle.Conditions[condition.Value] = conditionProperties;
                     }
 
@@ -4189,7 +4189,7 @@ public sealed class DocxImporter
         return effects?.HasValues == true ? effects : null;
     }
 
-    private static void ApplyTableProperties(Table table, Vibe.Office.Documents.TableProperties properties)
+    private static void ApplyTableProperties(Table table, Vibe.Office.Documents.TableProperties properties, DocumentThemeColorMap? themeColors)
     {
         var grid = table.Elements<TableGrid>().FirstOrDefault();
         if (grid is not null)
@@ -4205,10 +4205,10 @@ public sealed class DocxImporter
         }
 
         var props = table.Elements<DocumentFormat.OpenXml.Wordprocessing.TableProperties>().FirstOrDefault();
-        ApplyTableProperties(props, properties);
+        ApplyTableProperties(props, properties, themeColors);
     }
 
-    private static void ApplyTableProperties(OpenXmlElement? props, Vibe.Office.Documents.TableProperties properties)
+    private static void ApplyTableProperties(OpenXmlElement? props, Vibe.Office.Documents.TableProperties properties, DocumentThemeColorMap? themeColors)
     {
         if (props is null)
         {
@@ -4262,12 +4262,12 @@ public sealed class DocxImporter
         var borders = props.GetFirstChild<OpenXmlTableBorders>();
         if (borders is not null)
         {
-            properties.Borders.Top = ParseBorderLine(borders.TopBorder);
-            properties.Borders.Bottom = ParseBorderLine(borders.BottomBorder);
-            properties.Borders.Left = ParseBorderLine(borders.LeftBorder);
-            properties.Borders.Right = ParseBorderLine(borders.RightBorder);
-            properties.Borders.InsideHorizontal = ParseBorderLine(borders.InsideHorizontalBorder);
-            properties.Borders.InsideVertical = ParseBorderLine(borders.InsideVerticalBorder);
+            properties.Borders.Top = ParseBorderLine(borders.TopBorder, themeColors);
+            properties.Borders.Bottom = ParseBorderLine(borders.BottomBorder, themeColors);
+            properties.Borders.Left = ParseBorderLine(borders.LeftBorder, themeColors);
+            properties.Borders.Right = ParseBorderLine(borders.RightBorder, themeColors);
+            properties.Borders.InsideHorizontal = ParseBorderLine(borders.InsideHorizontalBorder, themeColors);
+            properties.Borders.InsideVertical = ParseBorderLine(borders.InsideVerticalBorder, themeColors);
         }
 
         var cellMargin = props.GetFirstChild<TableCellMarginDefault>();
@@ -4288,7 +4288,7 @@ public sealed class DocxImporter
             cellMargin?.BottomMargin?.Width);
 
         var shading = props.GetFirstChild<Shading>();
-        if (shading?.Fill?.Value is string fill && TryParseHexColor(fill, out var color))
+        if (shading is not null && TryResolveShadingColor(shading, themeColors, out var color))
         {
             properties.ShadingColor = color;
         }
@@ -4393,9 +4393,9 @@ public sealed class DocxImporter
         }
     }
 
-    private static void ApplyTableCellProperties(DocumentFormat.OpenXml.Wordprocessing.TableCell cell, Vibe.Office.Documents.TableCellProperties properties)
+    private static void ApplyTableCellProperties(DocumentFormat.OpenXml.Wordprocessing.TableCell cell, Vibe.Office.Documents.TableCellProperties properties, DocumentThemeColorMap? themeColors)
     {
-        ApplyTableCellProperties(cell.TableCellProperties, properties);
+        ApplyTableCellProperties(cell.TableCellProperties, properties, themeColors);
     }
 
     private static void ApplyTableCellStructure(DocumentFormat.OpenXml.Wordprocessing.TableCell cell, Vibe.Office.Documents.TableCell target)
@@ -4419,12 +4419,12 @@ public sealed class DocxImporter
         }
     }
 
-    private static void ApplyTableRowProperties(DocumentFormat.OpenXml.Wordprocessing.TableRow row, Vibe.Office.Documents.TableRowProperties properties)
+    private static void ApplyTableRowProperties(DocumentFormat.OpenXml.Wordprocessing.TableRow row, Vibe.Office.Documents.TableRowProperties properties, DocumentThemeColorMap? themeColors)
     {
-        ApplyTableRowProperties(row.TableRowProperties, properties);
+        ApplyTableRowProperties(row.TableRowProperties, properties, themeColors);
     }
 
-    private static void ApplyTableRowProperties(OpenXmlElement? props, Vibe.Office.Documents.TableRowProperties properties)
+    private static void ApplyTableRowProperties(OpenXmlElement? props, Vibe.Office.Documents.TableRowProperties properties, DocumentThemeColorMap? themeColors)
     {
         if (props is null)
         {
@@ -4452,9 +4452,15 @@ public sealed class DocxImporter
         {
             properties.RepeatOnEachPage = true;
         }
+
+        var shading = props.GetFirstChild<Shading>();
+        if (shading is not null && TryResolveShadingColor(shading, themeColors, out var color))
+        {
+            properties.ShadingColor = color;
+        }
     }
 
-    private static void ApplyTableCellProperties(OpenXmlElement? props, Vibe.Office.Documents.TableCellProperties properties)
+    private static void ApplyTableCellProperties(OpenXmlElement? props, Vibe.Office.Documents.TableCellProperties properties, DocumentThemeColorMap? themeColors)
     {
         if (props is null)
         {
@@ -4485,7 +4491,7 @@ public sealed class DocxImporter
         }
 
         var shading = props.GetFirstChild<Shading>();
-        if (shading?.Fill?.Value is string fill && TryParseHexColor(fill, out var color))
+        if (shading is not null && TryResolveShadingColor(shading, themeColors, out var color))
         {
             properties.ShadingColor = color;
         }
@@ -4493,10 +4499,10 @@ public sealed class DocxImporter
         var borders = props.GetFirstChild<OpenXmlTableCellBorders>();
         if (borders is not null)
         {
-            properties.Borders.Top = ParseBorderLine(borders.TopBorder);
-            properties.Borders.Bottom = ParseBorderLine(borders.BottomBorder);
-            properties.Borders.Left = ParseBorderLine(borders.LeftBorder);
-            properties.Borders.Right = ParseBorderLine(borders.RightBorder);
+            properties.Borders.Top = ParseBorderLine(borders.TopBorder, themeColors);
+            properties.Borders.Bottom = ParseBorderLine(borders.BottomBorder, themeColors);
+            properties.Borders.Left = ParseBorderLine(borders.LeftBorder, themeColors);
+            properties.Borders.Right = ParseBorderLine(borders.RightBorder, themeColors);
         }
 
         var margin = props.GetFirstChild<TableCellMargin>();
@@ -4753,7 +4759,7 @@ public sealed class DocxImporter
         return parsed / 50f;
     }
 
-    private static BorderLine? ParseBorderLine(BorderType? border)
+    private static BorderLine? ParseBorderLine(BorderType? border, DocumentThemeColorMap? themeColors = null)
     {
         if (border is null)
         {
@@ -4764,7 +4770,7 @@ public sealed class DocxImporter
         {
             Style = MapBorderStyle(border.Val?.Value),
             Thickness = BorderSizeToDip(border.Size?.Value),
-            Color = ParseBorderColor(border.Color?.Value),
+            Color = ParseBorderColor(border, themeColors),
             Spacing = BorderSpaceToDip(border.Space?.Value)
         };
     }
@@ -4838,14 +4844,27 @@ public sealed class DocxImporter
         return DocBorderStyle.Single;
     }
 
-    private static Vibe.Office.Primitives.DocColor ParseBorderColor(string? value)
+    private static DocColor ParseBorderColor(BorderType border, DocumentThemeColorMap? themeColors)
     {
-        if (string.IsNullOrWhiteSpace(value) || value.Equals("auto", StringComparison.OrdinalIgnoreCase))
+        var value = border.Color?.Value;
+        if (!string.IsNullOrWhiteSpace(value) && !value.Equals("auto", StringComparison.OrdinalIgnoreCase))
         {
-            return new Vibe.Office.Primitives.DocColor(0, 0, 0);
+            if (TryParseHexColor(value, out var parsed))
+            {
+                return parsed;
+            }
         }
 
-        return TryParseHexColor(value, out var color) ? color : new Vibe.Office.Primitives.DocColor(0, 0, 0);
+        if (border.ThemeColor?.Value is ThemeColorValues themeValue
+            && TryMapThemeColor(themeValue, out var mapped))
+        {
+            var baseColor = ResolveThemeColor(themeColors, mapped);
+            var tint = TryParseHexByte(border.ThemeTint?.Value, out var parsedTint) ? parsedTint : (byte?)null;
+            var shade = TryParseHexByte(border.ThemeShade?.Value, out var parsedShade) ? parsedShade : (byte?)null;
+            return ApplyThemeTintShade(baseColor, tint, shade);
+        }
+
+        return new DocColor(0, 0, 0);
     }
 
     private static bool TryParseHighlightColor(HighlightColorValues value, out Vibe.Office.Primitives.DocColor color)
@@ -5562,6 +5581,53 @@ public sealed class DocxImporter
         }
 
         themeColor = default;
+        return false;
+    }
+
+    private static DocColor ApplyThemeTintShade(DocColor baseColor, byte? tint, byte? shade)
+    {
+        var r = (float)baseColor.R;
+        var g = (float)baseColor.G;
+        var b = (float)baseColor.B;
+
+        if (shade.HasValue)
+        {
+            var factor = shade.Value / 255f;
+            r *= factor;
+            g *= factor;
+            b *= factor;
+        }
+
+        if (tint.HasValue)
+        {
+            var factor = tint.Value / 255f;
+            r += (255f - r) * factor;
+            g += (255f - g) * factor;
+            b += (255f - b) * factor;
+        }
+
+        return new DocColor(ClampToByte(r), ClampToByte(g), ClampToByte(b), baseColor.A);
+    }
+
+    private static bool TryResolveShadingColor(Shading shading, DocumentThemeColorMap? themeColors, out DocColor color)
+    {
+        color = DocColor.Black;
+        if (shading.Fill?.Value is string fill && TryParseHexColor(fill, out var parsed))
+        {
+            color = parsed;
+            return true;
+        }
+
+        if (shading.ThemeFill?.Value is ThemeColorValues themeFill
+            && TryMapThemeColor(themeFill, out var mapped))
+        {
+            var baseColor = ResolveThemeColor(themeColors, mapped);
+            var tint = TryParseHexByte(shading.ThemeFillTint?.Value, out var parsedTint) ? parsedTint : (byte?)null;
+            var shade = TryParseHexByte(shading.ThemeFillShade?.Value, out var parsedShade) ? parsedShade : (byte?)null;
+            color = ApplyThemeTintShade(baseColor, tint, shade);
+            return true;
+        }
+
         return false;
     }
 

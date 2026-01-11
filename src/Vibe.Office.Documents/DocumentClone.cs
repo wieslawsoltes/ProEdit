@@ -1058,6 +1058,7 @@ public static class DocumentClone
         target.HeightRule = source.HeightRule;
         target.CantSplit = source.CantSplit;
         target.RepeatOnEachPage = source.RepeatOnEachPage;
+        target.ShadingColor = source.ShadingColor;
     }
 
     private static void CopyTableCellProperties(TableCellProperties source, TableCellProperties target)

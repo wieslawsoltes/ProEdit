@@ -3217,6 +3217,7 @@ public sealed class DocumentLayouter
             {
                 var effectiveProperties = ResolveTableCellProperties(
                     placement.Cell,
+                    row.Properties,
                     directTableProperties,
                     tableStyle,
                     tableLook,
@@ -6964,6 +6965,7 @@ public sealed class DocumentLayouter
 
     private static TableCellProperties ResolveTableCellProperties(
         TableCell cell,
+        TableRowProperties rowProperties,
         TableProperties tableProperties,
         TableStyleDefinition? tableStyle,
         TableLook tableLook,
@@ -6992,6 +6994,7 @@ public sealed class DocumentLayouter
         }
 
         ApplyTablePropertiesToCell(resolved, tableProperties, rowIndex, columnIndex, rowCount, columnCount);
+        ApplyTableRowPropertiesToCell(resolved, rowProperties);
         ApplyTableCellProperties(resolved, cell.Properties);
 
         return resolved;
@@ -7267,6 +7270,14 @@ public sealed class DocumentLayouter
         }
 
         ApplyTableCellBorders(target.Borders, source.Borders);
+    }
+
+    private static void ApplyTableRowPropertiesToCell(TableCellProperties target, TableRowProperties source)
+    {
+        if (source.ShadingColor.HasValue)
+        {
+            target.ShadingColor = source.ShadingColor;
+        }
     }
 
     private static void ApplyTableCellBorders(TableCellBorders target, TableCellBorders source)

@@ -1131,6 +1131,11 @@ public sealed class DocxExporter
             rowProperties.AppendChild(height);
         }
 
+        if (properties.ShadingColor.HasValue)
+        {
+            rowProperties.AppendChild(new Shading { Fill = ColorToHex(properties.ShadingColor.Value) });
+        }
+
         return rowProperties;
     }
 
