@@ -32,7 +32,11 @@ public sealed class EditorFormattingStateAdapter : IFormattingState
         var highlightColor = new NullableEditorValueAccumulator<DocColor>();
         var underlineColor = new NullableEditorValueAccumulator<DocColor>();
         var smallCaps = new EditorValueAccumulator<bool>();
+        var caps = new EditorValueAccumulator<bool>();
         var verticalPosition = new EditorValueAccumulator<DocVerticalPosition>();
+        var letterSpacing = new EditorValueAccumulator<float>();
+        var horizontalScale = new EditorValueAccumulator<float>();
+        var baselineOffset = new EditorValueAccumulator<float>();
         var textOutline = new EditorValueAccumulator<bool>();
         var textShadow = new EditorValueAccumulator<bool>();
         var textEmboss = new EditorValueAccumulator<bool>();
@@ -52,7 +56,11 @@ public sealed class EditorFormattingStateAdapter : IFormattingState
                 highlightColor.Build(),
                 underlineColor.Build(),
                 smallCaps.Build(),
+                caps.Build(),
                 verticalPosition.Build(),
+                letterSpacing.Build(),
+                horizontalScale.Build(),
+                baselineOffset.Build(),
                 textOutline.Build(),
                 textShadow.Build(),
                 textEmboss.Build(),
@@ -77,7 +85,11 @@ public sealed class EditorFormattingStateAdapter : IFormattingState
                 ref highlightColor,
                 ref underlineColor,
                 ref smallCaps,
+                ref caps,
                 ref verticalPosition,
+                ref letterSpacing,
+                ref horizontalScale,
+                ref baselineOffset,
                 ref textOutline,
                 ref textShadow,
                 ref textEmboss,
@@ -113,7 +125,11 @@ public sealed class EditorFormattingStateAdapter : IFormattingState
                     ref highlightColor,
                     ref underlineColor,
                     ref smallCaps,
+                    ref caps,
                     ref verticalPosition,
+                    ref letterSpacing,
+                    ref horizontalScale,
+                    ref baselineOffset,
                     ref textOutline,
                     ref textShadow,
                     ref textEmboss,
@@ -133,7 +149,11 @@ public sealed class EditorFormattingStateAdapter : IFormattingState
             highlightColor.Build(),
             underlineColor.Build(),
             smallCaps.Build(),
+            caps.Build(),
             verticalPosition.Build(),
+            letterSpacing.Build(),
+            horizontalScale.Build(),
+            baselineOffset.Build(),
             textOutline.Build(),
             textShadow.Build(),
             textEmboss.Build(),
@@ -155,7 +175,11 @@ public sealed class EditorFormattingStateAdapter : IFormattingState
         ref NullableEditorValueAccumulator<DocColor> highlightColor,
         ref NullableEditorValueAccumulator<DocColor> underlineColor,
         ref EditorValueAccumulator<bool> smallCaps,
+        ref EditorValueAccumulator<bool> caps,
         ref EditorValueAccumulator<DocVerticalPosition> verticalPosition,
+        ref EditorValueAccumulator<float> letterSpacing,
+        ref EditorValueAccumulator<float> horizontalScale,
+        ref EditorValueAccumulator<float> baselineOffset,
         ref EditorValueAccumulator<bool> textOutline,
         ref EditorValueAccumulator<bool> textShadow,
         ref EditorValueAccumulator<bool> textEmboss,
@@ -185,7 +209,11 @@ public sealed class EditorFormattingStateAdapter : IFormattingState
                 ref highlightColor,
                 ref underlineColor,
                 ref smallCaps,
+                ref caps,
                 ref verticalPosition,
+                ref letterSpacing,
+                ref horizontalScale,
+                ref baselineOffset,
                 ref textOutline,
                 ref textShadow,
                 ref textEmboss,
@@ -221,7 +249,11 @@ public sealed class EditorFormattingStateAdapter : IFormattingState
                     ref highlightColor,
                     ref underlineColor,
                     ref smallCaps,
+                    ref caps,
                     ref verticalPosition,
+                    ref letterSpacing,
+                    ref horizontalScale,
+                    ref baselineOffset,
                     ref textOutline,
                     ref textShadow,
                     ref textEmboss,
@@ -245,7 +277,11 @@ public sealed class EditorFormattingStateAdapter : IFormattingState
                 ref highlightColor,
                 ref underlineColor,
                 ref smallCaps,
+                ref caps,
                 ref verticalPosition,
+                ref letterSpacing,
+                ref horizontalScale,
+                ref baselineOffset,
                 ref textOutline,
                 ref textShadow,
                 ref textEmboss,
@@ -300,7 +336,11 @@ public sealed class EditorFormattingStateAdapter : IFormattingState
         ref NullableEditorValueAccumulator<DocColor> highlightColor,
         ref NullableEditorValueAccumulator<DocColor> underlineColor,
         ref EditorValueAccumulator<bool> smallCaps,
+        ref EditorValueAccumulator<bool> caps,
         ref EditorValueAccumulator<DocVerticalPosition> verticalPosition,
+        ref EditorValueAccumulator<float> letterSpacing,
+        ref EditorValueAccumulator<float> horizontalScale,
+        ref EditorValueAccumulator<float> baselineOffset,
         ref EditorValueAccumulator<bool> textOutline,
         ref EditorValueAccumulator<bool> textShadow,
         ref EditorValueAccumulator<bool> textEmboss,
@@ -317,7 +357,11 @@ public sealed class EditorFormattingStateAdapter : IFormattingState
         highlightColor.Add(style.HighlightColor);
         underlineColor.Add(style.UnderlineColor);
         smallCaps.Add(style.SmallCaps);
+        caps.Add(style.Caps);
         verticalPosition.Add(style.VerticalPosition);
+        letterSpacing.Add(style.LetterSpacing);
+        horizontalScale.Add(style.HorizontalScale);
+        baselineOffset.Add(style.BaselineOffset);
         var effects = style.Effects;
         textOutline.Add(effects?.Outline?.Enabled ?? false);
         textShadow.Add(effects?.Shadow?.Enabled ?? false);

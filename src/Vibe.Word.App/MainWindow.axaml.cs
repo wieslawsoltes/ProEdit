@@ -876,7 +876,11 @@ public partial class MainWindow : Window
             DocColor? fontColor = null;
             bool? strikethrough = null;
             bool? smallCaps = null;
+            bool? caps = null;
             DocVerticalPosition? verticalPosition = null;
+            float? characterScalePercent = null;
+            float? characterSpacingPoints = null;
+            float? characterPositionPoints = null;
             bool? textOutline = null;
             bool? textShadow = null;
             bool? textEmboss = null;
@@ -933,9 +937,29 @@ public partial class MainWindow : Window
                     smallCaps = resolvedSmallCaps;
                 }
 
+                if (TryGetValue(snapshot.Formatting.Caps, out var resolvedCaps))
+                {
+                    caps = resolvedCaps;
+                }
+
                 if (TryGetValue(snapshot.Formatting.VerticalPosition, out var resolvedPosition))
                 {
                     verticalPosition = resolvedPosition;
+                }
+
+                if (TryGetValue(snapshot.Formatting.HorizontalScale, out var resolvedScale))
+                {
+                    characterScalePercent = resolvedScale * 100f;
+                }
+
+                if (TryGetValue(snapshot.Formatting.LetterSpacing, out var resolvedSpacing))
+                {
+                    characterSpacingPoints = DipToPoints(resolvedSpacing);
+                }
+
+                if (TryGetValue(snapshot.Formatting.BaselineOffset, out var resolvedOffset))
+                {
+                    characterPositionPoints = DipToPoints(resolvedOffset);
                 }
 
                 if (TryGetValue(snapshot.Formatting.TextOutline, out var resolvedOutline))
@@ -969,11 +993,15 @@ public partial class MainWindow : Window
                 fontColor,
                 strikethrough,
                 smallCaps,
+                caps,
                 verticalPosition,
                 textOutline,
                 textShadow,
                 textEmboss,
-                textImprint);
+                textImprint,
+                characterScalePercent,
+                characterSpacingPoints,
+                characterPositionPoints);
         }
 
         static float ResolveSpacingPoints(EditorValue<float> value)

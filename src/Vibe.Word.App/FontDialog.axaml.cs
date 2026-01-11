@@ -21,14 +21,19 @@ public readonly record struct FontDialogState(
     DocColor? FontColor,
     bool? Strikethrough,
     bool? SmallCaps,
+    bool? Caps,
     DocVerticalPosition? VerticalPosition,
     bool? TextOutline,
     bool? TextShadow,
     bool? TextEmboss,
-    bool? TextImprint);
+    bool? TextImprint,
+    float? CharacterScalePercent,
+    float? CharacterSpacingPoints,
+    float? CharacterPositionPoints);
 
 public partial class FontDialog : Window
 {
+    private const float PointsToDipScale = 96f / 72f;
     private readonly ComboBox _fontFamilyCombo;
     private readonly ComboBox _fontStyleCombo;
     private readonly ComboBox _fontSizeCombo;
@@ -37,12 +42,19 @@ public partial class FontDialog : Window
     private readonly ComboBox _fontColorCombo;
     private readonly CheckBox _strikethroughCheckBox;
     private readonly CheckBox _smallCapsCheckBox;
+    private readonly CheckBox _allCapsCheckBox;
     private readonly CheckBox _outlineCheckBox;
     private readonly CheckBox _shadowCheckBox;
     private readonly CheckBox _embossCheckBox;
     private readonly CheckBox _imprintCheckBox;
-    private readonly ComboBox _positionCombo;
+    private readonly ComboBox _verticalPositionCombo;
+    private readonly ComboBox _characterScaleCombo;
+    private readonly ComboBox _characterSpacingCombo;
+    private readonly TextBox _characterSpacingByTextBox;
+    private readonly ComboBox _characterPositionCombo;
+    private readonly TextBox _characterPositionByTextBox;
     private readonly TextBlock _previewText;
+    private readonly TextBlock? _previewTextAdvanced;
 
     private static readonly IReadOnlyList<FontStyleOption> FontStyleOptions = new[]
     {
@@ -79,11 +91,37 @@ public partial class FontDialog : Window
         new FontDialogColorItem("Purple", new DocColor(142, 124, 195))
     };
 
-    private static readonly IReadOnlyList<PositionOption> PositionOptions = new[]
+    private static readonly IReadOnlyList<VerticalPositionOption> VerticalPositionOptions = new[]
     {
-        new PositionOption("Normal", DocVerticalPosition.Normal),
-        new PositionOption("Superscript", DocVerticalPosition.Superscript),
-        new PositionOption("Subscript", DocVerticalPosition.Subscript)
+        new VerticalPositionOption("Normal", DocVerticalPosition.Normal),
+        new VerticalPositionOption("Superscript", DocVerticalPosition.Superscript),
+        new VerticalPositionOption("Subscript", DocVerticalPosition.Subscript)
+    };
+
+    private static readonly IReadOnlyList<CharacterSpacingOption> CharacterSpacingOptions = new[]
+    {
+        new CharacterSpacingOption("Normal", CharacterSpacingKind.Normal),
+        new CharacterSpacingOption("Expanded", CharacterSpacingKind.Expanded),
+        new CharacterSpacingOption("Condensed", CharacterSpacingKind.Condensed)
+    };
+
+    private static readonly IReadOnlyList<CharacterPositionOption> CharacterPositionOptions = new[]
+    {
+        new CharacterPositionOption("Normal", CharacterPositionKind.Normal),
+        new CharacterPositionOption("Raised", CharacterPositionKind.Raised),
+        new CharacterPositionOption("Lowered", CharacterPositionKind.Lowered)
+    };
+
+    private static readonly IReadOnlyList<ScaleOption> ScaleOptions = new[]
+    {
+        new ScaleOption("50%", 50f),
+        new ScaleOption("75%", 75f),
+        new ScaleOption("90%", 90f),
+        new ScaleOption("100%", 100f),
+        new ScaleOption("110%", 110f),
+        new ScaleOption("120%", 120f),
+        new ScaleOption("150%", 150f),
+        new ScaleOption("200%", 200f)
     };
 
     public FontDialog()
@@ -102,12 +140,19 @@ public partial class FontDialog : Window
         _fontColorCombo = this.FindControl<ComboBox>("FontColorCombo")!;
         _strikethroughCheckBox = this.FindControl<CheckBox>("StrikethroughCheckBox")!;
         _smallCapsCheckBox = this.FindControl<CheckBox>("SmallCapsCheckBox")!;
+        _allCapsCheckBox = this.FindControl<CheckBox>("AllCapsCheckBox")!;
         _outlineCheckBox = this.FindControl<CheckBox>("OutlineCheckBox")!;
         _shadowCheckBox = this.FindControl<CheckBox>("ShadowCheckBox")!;
         _embossCheckBox = this.FindControl<CheckBox>("EmbossCheckBox")!;
         _imprintCheckBox = this.FindControl<CheckBox>("ImprintCheckBox")!;
-        _positionCombo = this.FindControl<ComboBox>("PositionCombo")!;
+        _verticalPositionCombo = this.FindControl<ComboBox>("VerticalPositionCombo")!;
+        _characterScaleCombo = this.FindControl<ComboBox>("CharacterScaleCombo")!;
+        _characterSpacingCombo = this.FindControl<ComboBox>("CharacterSpacingCombo")!;
+        _characterSpacingByTextBox = this.FindControl<TextBox>("CharacterSpacingByTextBox")!;
+        _characterPositionCombo = this.FindControl<ComboBox>("CharacterPositionCombo")!;
+        _characterPositionByTextBox = this.FindControl<TextBox>("CharacterPositionByTextBox")!;
         _previewText = this.FindControl<TextBlock>("PreviewText")!;
+        _previewTextAdvanced = this.FindControl<TextBlock>("PreviewTextAdvanced");
 
         _fontFamilyCombo.ItemsSource = fonts;
         _fontStyleCombo.ItemsSource = FontStyleOptions;
@@ -115,12 +160,16 @@ public partial class FontDialog : Window
         _underlineStyleCombo.ItemsSource = UnderlineStyleOptions;
         _underlineColorCombo.ItemsSource = ColorOptions;
         _fontColorCombo.ItemsSource = ColorOptions;
-        _positionCombo.ItemsSource = PositionOptions;
+        _verticalPositionCombo.ItemsSource = VerticalPositionOptions;
+        _characterScaleCombo.ItemsSource = ScaleOptions;
+        _characterSpacingCombo.ItemsSource = CharacterSpacingOptions;
+        _characterPositionCombo.ItemsSource = CharacterPositionOptions;
 
         SetState(state);
 
         _fontFamilyCombo.PropertyChanged += OnComboTextChanged;
         _fontSizeCombo.PropertyChanged += OnComboTextChanged;
+        _characterScaleCombo.PropertyChanged += OnComboTextChanged;
     }
 
     private static IReadOnlyList<string> BuildStandardFontSizes()
@@ -141,11 +190,17 @@ public partial class FontDialog : Window
         SetColorSelection(_fontColorCombo, state.FontColor);
         _strikethroughCheckBox.IsChecked = state.Strikethrough;
         _smallCapsCheckBox.IsChecked = state.SmallCaps;
+        _allCapsCheckBox.IsChecked = state.Caps;
         _outlineCheckBox.IsChecked = state.TextOutline;
         _shadowCheckBox.IsChecked = state.TextShadow;
         _embossCheckBox.IsChecked = state.TextEmboss;
         _imprintCheckBox.IsChecked = state.TextImprint;
-        SetPositionSelection(state.VerticalPosition);
+        SetVerticalPositionSelection(state.VerticalPosition);
+        SetCharacterScaleSelection(state.CharacterScalePercent);
+        SetCharacterSpacingSelection(state.CharacterSpacingPoints);
+        SetCharacterPositionSelection(state.CharacterPositionPoints);
+        UpdateCharacterSpacingState();
+        UpdateCharacterPositionState();
         UpdatePreview();
     }
 
@@ -168,12 +223,29 @@ public partial class FontDialog : Window
         UpdatePreview();
     }
 
+    private void OnCharacterSpacingChanged(object? sender, Avalonia.Controls.SelectionChangedEventArgs e)
+    {
+        UpdateCharacterSpacingState();
+        UpdatePreview();
+    }
+
+    private void OnCharacterPositionChanged(object? sender, Avalonia.Controls.SelectionChangedEventArgs e)
+    {
+        UpdateCharacterPositionState();
+        UpdatePreview();
+    }
+
     private void OnComboTextChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
     {
         if (e.Property == ComboBox.TextProperty)
         {
             UpdatePreview();
         }
+    }
+
+    private void OnTextChanged(object? sender, TextChangedEventArgs e)
+    {
+        UpdatePreview();
     }
 
     private void OnToggleChanged(object? sender, RoutedEventArgs e)
@@ -200,7 +272,13 @@ public partial class FontDialog : Window
         var underlineStyle = (_underlineStyleCombo.SelectedItem as UnderlineStyleOption)?.Style;
         var underlineColor = (_underlineColorCombo.SelectedItem as FontDialogColorItem)?.Color;
         var fontColor = (_fontColorCombo.SelectedItem as FontDialogColorItem)?.Color;
-        var position = (_positionCombo.SelectedItem as PositionOption)?.Position;
+        var position = (_verticalPositionCombo.SelectedItem as VerticalPositionOption)?.Position;
+        var characterScale = TryParsePercent(_characterScaleCombo.Text, out var scalePercent)
+            ? scalePercent / 100f
+            : (float?)null;
+
+        var letterSpacing = ResolveLetterSpacing();
+        var baselineOffset = ResolveBaselineOffset();
 
         return new EditorFontDialogOptions(
             fontFamily,
@@ -212,40 +290,78 @@ public partial class FontDialog : Window
             fontColor,
             _strikethroughCheckBox.IsChecked,
             _smallCapsCheckBox.IsChecked,
+            _allCapsCheckBox.IsChecked,
             position,
             _outlineCheckBox.IsChecked,
             _shadowCheckBox.IsChecked,
             _embossCheckBox.IsChecked,
-            _imprintCheckBox.IsChecked);
+            _imprintCheckBox.IsChecked,
+            letterSpacing,
+            characterScale,
+            baselineOffset);
     }
 
     private void UpdatePreview()
     {
+        ApplyPreview(_previewText);
+        if (_previewTextAdvanced is not null)
+        {
+            ApplyPreview(_previewTextAdvanced);
+        }
+    }
+
+    private void ApplyPreview(TextBlock target)
+    {
         if (!string.IsNullOrWhiteSpace(_fontFamilyCombo.Text))
         {
-            _previewText.FontFamily = new FontFamily(_fontFamilyCombo.Text);
+            target.FontFamily = new FontFamily(_fontFamilyCombo.Text);
         }
 
         if (float.TryParse(_fontSizeCombo.Text, NumberStyles.Float, CultureInfo.CurrentCulture, out var size))
         {
-            _previewText.FontSize = Math.Max(1f, size);
+            target.FontSize = Math.Max(1f, size);
         }
 
         if (_fontStyleCombo.SelectedItem is FontStyleOption styleOption)
         {
-            _previewText.FontWeight = styleOption.Weight == DocFontWeight.Bold ? FontWeight.Bold : FontWeight.Normal;
-            _previewText.FontStyle = styleOption.Style == DocFontStyle.Italic ? FontStyle.Italic : FontStyle.Normal;
+            target.FontWeight = styleOption.Weight == DocFontWeight.Bold ? FontWeight.Bold : FontWeight.Normal;
+            target.FontStyle = styleOption.Style == DocFontStyle.Italic ? FontStyle.Italic : FontStyle.Normal;
         }
 
-        _previewText.TextDecorations = BuildTextDecorations();
+        var previewText = "AaBbYyZz";
+        if (_allCapsCheckBox.IsChecked == true || _smallCapsCheckBox.IsChecked == true)
+        {
+            previewText = previewText.ToUpper(CultureInfo.CurrentCulture);
+        }
+
+        target.Text = previewText;
+        target.TextDecorations = BuildTextDecorations();
 
         if (_fontColorCombo.SelectedItem is FontDialogColorItem colorItem && colorItem.Color.HasValue)
         {
-            _previewText.Foreground = new SolidColorBrush(ToColor(colorItem.Color.Value));
+            target.Foreground = new SolidColorBrush(ToColor(colorItem.Color.Value));
         }
         else
         {
-            _previewText.ClearValue(TextBlock.ForegroundProperty);
+            target.ClearValue(TextBlock.ForegroundProperty);
+        }
+
+        if (TryParsePercent(_characterScaleCombo.Text, out var scalePercent))
+        {
+            var scale = MathF.Max(0.1f, scalePercent / 100f);
+            if (MathF.Abs(scale - 1f) > 0.01f)
+            {
+                target.RenderTransform = new ScaleTransform(scale, 1f);
+                target.RenderTransformOrigin = new RelativePoint(0.5, 0.5, RelativeUnit.Relative);
+            }
+            else
+            {
+                target.RenderTransform = null;
+            }
+        }
+        else
+        {
+            target.RenderTransform = null;
         }
     }
 
@@ -262,7 +378,8 @@ public partial class FontDialog : Window
         var decorations = new TextDecorationCollection();
         if (underline)
         {
-            decorations.Add(new TextDecoration { Location = TextDecorationLocation.Underline });
+            var underlineStroke = TryGetUnderlineStroke();
+            decorations.Add(new TextDecoration { Location = TextDecorationLocation.Underline, Stroke = underlineStroke });
         }
 
         if (strike)
@@ -271,6 +388,16 @@ public partial class FontDialog : Window
         }
 
         return decorations;
+    }
+
+    private IBrush? TryGetUnderlineStroke()
+    {
+        if (_underlineColorCombo.SelectedItem is FontDialogColorItem colorItem && colorItem.Color.HasValue)
+        {
+            return new SolidColorBrush(ToColor(colorItem.Color.Value));
+        }
+
+        return null;
     }
 
     private static Color ToColor(DocColor color)
@@ -332,23 +459,205 @@ public partial class FontDialog : Window
         }
     }
 
-    private void SetPositionSelection(DocVerticalPosition? position)
+    private void SetVerticalPositionSelection(DocVerticalPosition? position)
     {
         if (!position.HasValue)
         {
-            _positionCombo.SelectedIndex = -1;
+            _verticalPositionCombo.SelectedIndex = -1;
             return;
         }
 
-        foreach (var item in PositionOptions)
+        foreach (var item in VerticalPositionOptions)
         {
             if (item.Position == position.Value)
             {
-                _positionCombo.SelectedItem = item;
+                _verticalPositionCombo.SelectedItem = item;
                 return;
             }
         }
     }
+
+    private void SetCharacterScaleSelection(float? percent)
+    {
+        if (!percent.HasValue)
+        {
+            _characterScaleCombo.SelectedIndex = -1;
+            _characterScaleCombo.Text = string.Empty;
+            return;
+        }
+
+        foreach (var option in ScaleOptions)
+        {
+            if (IsClose(option.Percent, percent.Value))
+            {
+                _characterScaleCombo.SelectedItem = option;
+                _characterScaleCombo.Text = option.Label;
+                return;
+            }
+        }
+
+        _characterScaleCombo.SelectedIndex = -1;
+        _characterScaleCombo.Text = FormatPercent(percent.Value);
+    }
+
+    private void SetCharacterSpacingSelection(float? spacingPoints)
+    {
+        if (!spacingPoints.HasValue)
+        {
+            _characterSpacingCombo.SelectedIndex = -1;
+            _characterSpacingByTextBox.Text = string.Empty;
+            return;
+        }
+
+        var spacing = spacingPoints.Value;
+        var kind = CharacterSpacingKind.Normal;
+        var byPoints = MathF.Abs(spacing);
+        if (MathF.Abs(spacing) < 0.01f)
+        {
+            kind = CharacterSpacingKind.Normal;
+            byPoints = 0f;
+        }
+        else
+        {
+            kind = spacing > 0f ? CharacterSpacingKind.Expanded : CharacterSpacingKind.Condensed;
+        }
+
+        SetCharacterSpacingKind(kind);
+        _characterSpacingByTextBox.Text = byPoints.ToString("0.##", CultureInfo.CurrentCulture);
+    }
+
+    private void SetCharacterPositionSelection(float? positionPoints)
+    {
+        if (!positionPoints.HasValue)
+        {
+            _characterPositionCombo.SelectedIndex = -1;
+            _characterPositionByTextBox.Text = string.Empty;
+            return;
+        }
+
+        var offset = positionPoints.Value;
+        var kind = CharacterPositionKind.Normal;
+        var byPoints = MathF.Abs(offset);
+        if (MathF.Abs(offset) < 0.01f)
+        {
+            kind = CharacterPositionKind.Normal;
+            byPoints = 0f;
+        }
+        else
+        {
+            kind = offset > 0f ? CharacterPositionKind.Raised : CharacterPositionKind.Lowered;
+        }
+
+        SetCharacterPositionKind(kind);
+        _characterPositionByTextBox.Text = byPoints.ToString("0.##", CultureInfo.CurrentCulture);
+    }
+
+    private void SetCharacterSpacingKind(CharacterSpacingKind kind)
+    {
+        foreach (var option in CharacterSpacingOptions)
+        {
+            if (option.Kind == kind)
+            {
+                _characterSpacingCombo.SelectedItem = option;
+                return;
+            }
+        }
+
+        _characterSpacingCombo.SelectedIndex = -1;
+    }
+
+    private void SetCharacterPositionKind(CharacterPositionKind kind)
+    {
+        foreach (var option in CharacterPositionOptions)
+        {
+            if (option.Kind == kind)
+            {
+                _characterPositionCombo.SelectedItem = option;
+                return;
+            }
+        }
+
+        _characterPositionCombo.SelectedIndex = -1;
+    }
+
+    private void UpdateCharacterSpacingState()
+    {
+        var kind = (_characterSpacingCombo.SelectedItem as CharacterSpacingOption)?.Kind;
+        _characterSpacingByTextBox.IsEnabled = kind is CharacterSpacingKind.Expanded or CharacterSpacingKind.Condensed;
+    }
+
+    private void UpdateCharacterPositionState()
+    {
+        var kind = (_characterPositionCombo.SelectedItem as CharacterPositionOption)?.Kind;
+        _characterPositionByTextBox.IsEnabled = kind is CharacterPositionKind.Raised or CharacterPositionKind.Lowered;
+    }
+
+    private float? ResolveLetterSpacing()
+    {
+        if (_characterSpacingCombo.SelectedItem is not CharacterSpacingOption spacingOption)
+        {
+            return null;
+        }
+
+        var byPoints = ParsePoints(_characterSpacingByTextBox.Text) ?? 0f;
+        var spacingDip = PointsToDip(Math.Max(0f, byPoints));
+        return spacingOption.Kind switch
+        {
+            CharacterSpacingKind.Normal => 0f,
+            CharacterSpacingKind.Expanded => spacingDip,
+            CharacterSpacingKind.Condensed => -spacingDip,
+            _ => null
+        };
+    }
+
+    private float? ResolveBaselineOffset()
+    {
+        if (_characterPositionCombo.SelectedItem is not CharacterPositionOption positionOption)
+        {
+            return null;
+        }
+
+        var byPoints = ParsePoints(_characterPositionByTextBox.Text) ?? 0f;
+        var offsetDip = PointsToDip(Math.Max(0f, byPoints));
+        return positionOption.Kind switch
+        {
+            CharacterPositionKind.Normal => 0f,
+            CharacterPositionKind.Raised => offsetDip,
+            CharacterPositionKind.Lowered => -offsetDip,
+            _ => null
+        };
+    }
+
+    private static bool TryParsePercent(string? text, out float percent)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            percent = 0f;
+            return false;
+        }
+
+        var trimmed = text.Trim().Replace("%", string.Empty, StringComparison.Ordinal);
+        return float.TryParse(trimmed, NumberStyles.Float, CultureInfo.CurrentCulture, out percent);
+    }
+
+    private static float? ParsePoints(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return null;
+        }
+
+        return float.TryParse(text, NumberStyles.Float, CultureInfo.CurrentCulture, out var value)
+            ? value
+            : null;
+    }
+
+    private static float PointsToDip(float points) => points * PointsToDipScale;
+
+    private static bool IsClose(float value, float target) => MathF.Abs(value - target) < 0.1f;
+
+    private static string FormatPercent(float value) =>
+        value.ToString("0.#", CultureInfo.CurrentCulture) + "%";
 
     private static void SetComboSelection(ComboBox combo, string? value)
     {
@@ -388,7 +697,36 @@ public partial class FontDialog : Window
         public override string ToString() => Label;
     }
 
-    private sealed record PositionOption(string Label, DocVerticalPosition Position)
+    private enum CharacterSpacingKind
+    {
+        Normal,
+        Expanded,
+        Condensed
+    }
+
+    private enum CharacterPositionKind
+    {
+        Normal,
+        Raised,
+        Lowered
+    }
+
+    private sealed record VerticalPositionOption(string Label, DocVerticalPosition Position)
+    {
+        public override string ToString() => Label;
+    }
+
+    private sealed record CharacterSpacingOption(string Label, CharacterSpacingKind Kind)
+    {
+        public override string ToString() => Label;
+    }
+
+    private sealed record CharacterPositionOption(string Label, CharacterPositionKind Kind)
+    {
+        public override string ToString() => Label;
+    }
+
+    private sealed record ScaleOption(string Label, float Percent)
     {
         public override string ToString() => Label;
     }

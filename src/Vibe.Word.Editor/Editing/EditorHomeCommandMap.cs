@@ -736,9 +736,29 @@ public sealed class EditorHomeCommandMap
                 style.SmallCaps = options.SmallCaps.Value;
             }
 
+            if (options.Caps.HasValue)
+            {
+                style.Caps = options.Caps.Value;
+            }
+
             if (options.VerticalPosition.HasValue)
             {
                 style.VerticalPosition = options.VerticalPosition.Value;
+            }
+
+            if (options.LetterSpacing.HasValue)
+            {
+                style.LetterSpacing = options.LetterSpacing.Value;
+            }
+
+            if (options.HorizontalScale.HasValue)
+            {
+                style.HorizontalScale = MathF.Max(0.1f, options.HorizontalScale.Value);
+            }
+
+            if (options.BaselineOffset.HasValue)
+            {
+                style.BaselineOffset = options.BaselineOffset.Value;
             }
 
             ApplyTextEffectsFromOptions(style, options);

@@ -44,11 +44,15 @@ public readonly record struct EditorFontDialogOptions(
     DocColor? FontColor,
     bool? Strikethrough,
     bool? SmallCaps,
+    bool? Caps,
     DocVerticalPosition? VerticalPosition,
     bool? TextOutline,
     bool? TextShadow,
     bool? TextEmboss,
-    bool? TextImprint);
+    bool? TextImprint,
+    float? LetterSpacing,
+    float? HorizontalScale,
+    float? BaselineOffset);
 
 public readonly record struct EditorParagraphDialogOptions(
     ParagraphAlignment? Alignment,

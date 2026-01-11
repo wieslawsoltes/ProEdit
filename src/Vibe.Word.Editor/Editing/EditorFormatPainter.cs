@@ -160,9 +160,33 @@ internal sealed class EditorFormatPainter : IFormatPainterService
             hasValue = true;
         }
 
+        if (TryGet(snapshot.Caps, out var caps))
+        {
+            style.Caps = caps;
+            hasValue = true;
+        }
+
         if (TryGet(snapshot.VerticalPosition, out var verticalPosition))
         {
             style.VerticalPosition = verticalPosition;
+            hasValue = true;
+        }
+
+        if (TryGet(snapshot.LetterSpacing, out var letterSpacing))
+        {
+            style.LetterSpacing = letterSpacing;
+            hasValue = true;
+        }
+
+        if (TryGet(snapshot.HorizontalScale, out var horizontalScale))
+        {
+            style.HorizontalScale = horizontalScale;
+            hasValue = true;
+        }
+
+        if (TryGet(snapshot.BaselineOffset, out var baselineOffset))
+        {
+            style.BaselineOffset = baselineOffset;
             hasValue = true;
         }
 
@@ -245,9 +269,29 @@ internal sealed class EditorFormatPainter : IFormatPainterService
             target.SmallCaps = source.SmallCaps;
         }
 
+        if (source.Caps.HasValue)
+        {
+            target.Caps = source.Caps;
+        }
+
         if (source.VerticalPosition.HasValue)
         {
             target.VerticalPosition = source.VerticalPosition;
+        }
+
+        if (source.LetterSpacing.HasValue)
+        {
+            target.LetterSpacing = source.LetterSpacing;
+        }
+
+        if (source.HorizontalScale.HasValue)
+        {
+            target.HorizontalScale = source.HorizontalScale;
+        }
+
+        if (source.BaselineOffset.HasValue)
+        {
+            target.BaselineOffset = source.BaselineOffset;
         }
 
         if (source.Effects is not null)
