@@ -61,10 +61,15 @@ public sealed class DocumentStyleResolver
 
     public TextStyle ResolveRunStyle(ParagraphBlock paragraph, RunInline run, TextStyle paragraphStyle)
     {
-        return ResolveRunStyle(run.StyleId, run.Style, paragraphStyle);
+        return ResolveRunStyle(run.StyleId, run.Style, paragraphStyle, run.Hyperlink is not null);
     }
 
     public TextStyle ResolveRunStyle(string? styleId, TextStyleProperties? runProperties, TextStyle paragraphStyle)
+    {
+        return ResolveRunStyle(styleId, runProperties, paragraphStyle, false);
+    }
+
+    private TextStyle ResolveRunStyle(string? styleId, TextStyleProperties? runProperties, TextStyle paragraphStyle, bool applyHyperlinkStyle)
     {
         var resolved = paragraphStyle.Clone();
         var hasExplicitFontFamily = false;
@@ -74,6 +79,10 @@ public sealed class DocumentStyleResolver
             var styleProperties = ResolveCharacterStyleProperties(styleId);
             UpdateFontFlags(styleProperties, ref hasExplicitFontFamily, ref hasExplicitThemeFont);
             styleProperties.ApplyTo(resolved);
+        }
+        else if (applyHyperlinkStyle)
+        {
+            ApplyHyperlinkStyle(resolved, ref hasExplicitFontFamily, ref hasExplicitThemeFont);
         }
 
         if (runProperties is not null)
@@ -85,6 +94,22 @@ public sealed class DocumentStyleResolver
         ResolveThemeFont(resolved, hasExplicitFontFamily, hasExplicitThemeFont);
         ResolveThemeColors(resolved);
         return resolved;
+    }
+
+    private void ApplyHyperlinkStyle(TextStyle style, ref bool hasExplicitFontFamily, ref bool hasExplicitThemeFont)
+    {
+        if (_document.Styles.CharacterStyles.ContainsKey("Hyperlink"))
+        {
+            var hyperlinkProperties = ResolveCharacterStyleProperties("Hyperlink");
+            UpdateFontFlags(hyperlinkProperties, ref hasExplicitFontFamily, ref hasExplicitThemeFont);
+            hyperlinkProperties.ApplyTo(style);
+            return;
+        }
+
+        style.Underline = true;
+        style.ThemeColor = DocThemeColor.Hyperlink;
+        style.ThemeTint = null;
+        style.ThemeShade = null;
     }
 
     public TableStyleDefinition? ResolveTableStyle(TableBlock table)
