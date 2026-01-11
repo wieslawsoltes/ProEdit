@@ -225,12 +225,12 @@ internal static class LineJustifier
                     {
                         var letterSpacing = letterSpacingEm * run.Style.FontSize;
                         var adjustedWidth = run.Width + letterSpacing * gapCount;
-                        runs.Add(run with { X = x, Width = adjustedWidth, LetterSpacing = letterSpacing });
+                        runs.Add(run with { X = x, Width = adjustedWidth, LetterSpacing = run.LetterSpacing + letterSpacing });
                         x += adjustedWidth;
                     }
                     else
                     {
-                        runs.Add(run with { X = x, LetterSpacing = 0f });
+                        runs.Add(run with { X = x, LetterSpacing = run.LetterSpacing });
                         x += run.Width;
                     }
 
@@ -367,7 +367,7 @@ internal static class LineJustifier
                         {
                             var token = text.Substring(segmentStart, chIndex - segmentStart);
                             var width = TextGridSnapping.MeasureText(token, run.Style, measurer, charGridSpacing);
-                            runs.Add(new LayoutRun(token, run.Style, x, width, token.Length, false, run.BaselineOffset, run.TabLeader));
+                            runs.Add(new LayoutRun(token, run.Style, x, width, token.Length, false, run.BaselineOffset, run.TabLeader, run.LetterSpacing));
                             x += width;
                         }
 
@@ -377,7 +377,7 @@ internal static class LineJustifier
                         {
                             adjustedWidth = TextGridSnapping.SnapToGridForward(adjustedWidth, charGridSpacing);
                         }
-                        runs.Add(new LayoutRun(" ", run.Style, x, adjustedWidth, 1, false, run.BaselineOffset, run.TabLeader));
+                        runs.Add(new LayoutRun(" ", run.Style, x, adjustedWidth, 1, false, run.BaselineOffset, run.TabLeader, run.LetterSpacing));
                         x += adjustedWidth;
                         segmentStart = chIndex + 1;
                     }
@@ -386,7 +386,7 @@ internal static class LineJustifier
                     {
                         var token = text.Substring(segmentStart);
                         var width = TextGridSnapping.MeasureText(token, run.Style, measurer, charGridSpacing);
-                        runs.Add(new LayoutRun(token, run.Style, x, width, token.Length, false, run.BaselineOffset, run.TabLeader));
+                        runs.Add(new LayoutRun(token, run.Style, x, width, token.Length, false, run.BaselineOffset, run.TabLeader, run.LetterSpacing));
                         x += width;
                     }
                     break;
@@ -494,7 +494,7 @@ internal static class LineJustifier
                             width = TextGridSnapping.SnapToGridForward(width, charGridSpacing);
                         }
 
-                        runs.Add(new LayoutRun(glyph, run.Style, x, width, 1, false, run.BaselineOffset, run.TabLeader));
+                        runs.Add(new LayoutRun(glyph, run.Style, x, width, 1, false, run.BaselineOffset, run.TabLeader, run.LetterSpacing));
                         x += width;
                     }
                     break;

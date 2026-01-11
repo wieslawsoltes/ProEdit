@@ -55,6 +55,7 @@ public sealed class DocumentStyleResolver
         }
 
         ResolveThemeFont(resolved, hasExplicitFontFamily, hasExplicitThemeFont);
+        ResolveThemeColors(resolved);
         return resolved;
     }
 
@@ -82,6 +83,7 @@ public sealed class DocumentStyleResolver
         }
 
         ResolveThemeFont(resolved, hasExplicitFontFamily, hasExplicitThemeFont);
+        ResolveThemeColors(resolved);
         return resolved;
     }
 
@@ -169,6 +171,65 @@ public sealed class DocumentStyleResolver
                                ?? style.FontFamilyComplexScript
                                ?? style.FontFamily;
         }
+    }
+
+    private void ResolveThemeColors(TextStyle style)
+    {
+        if (style.ThemeColor.HasValue)
+        {
+            style.Color = ResolveThemeColor(style.ThemeColor.Value, style.ThemeTint, style.ThemeShade);
+        }
+
+        if (style.UnderlineThemeColor.HasValue)
+        {
+            style.UnderlineColor = ResolveThemeColor(style.UnderlineThemeColor.Value, style.UnderlineThemeTint, style.UnderlineThemeShade);
+        }
+    }
+
+    private DocColor ResolveThemeColor(DocThemeColor themeColor, byte? tint, byte? shade)
+    {
+        var baseColor = _document.ThemeColors.GetOrDefault(themeColor);
+        return ApplyThemeTintShade(baseColor, tint, shade);
+    }
+
+    private static DocColor ApplyThemeTintShade(DocColor baseColor, byte? tint, byte? shade)
+    {
+        var r = (float)baseColor.R;
+        var g = (float)baseColor.G;
+        var b = (float)baseColor.B;
+
+        if (shade.HasValue)
+        {
+            var factor = shade.Value / 255f;
+            r *= factor;
+            g *= factor;
+            b *= factor;
+        }
+
+        if (tint.HasValue)
+        {
+            var factor = tint.Value / 255f;
+            r += (255f - r) * factor;
+            g += (255f - g) * factor;
+            b += (255f - b) * factor;
+        }
+
+        return new DocColor(ClampToByte(r), ClampToByte(g), ClampToByte(b), baseColor.A);
+    }
+
+    private static byte ClampToByte(float value)
+    {
+        if (value <= 0f)
+        {
+            return 0;
+        }
+
+        if (value >= 255f)
+        {
+            return 255;
+        }
+
+        return (byte)MathF.Round(value);
     }
 
     private ParagraphStyleProperties ResolveParagraphStyleProperties(string styleId)
@@ -774,11 +835,49 @@ public sealed class DocumentStyleResolver
         if (source.Color.HasValue)
         {
             target.Color = source.Color;
+            if (!source.ThemeColor.HasValue)
+            {
+                target.ThemeColor = null;
+                target.ThemeTint = null;
+                target.ThemeShade = null;
+            }
+        }
+
+        if (source.ThemeColor.HasValue)
+        {
+            target.ThemeColor = source.ThemeColor;
+            target.ThemeTint = source.ThemeTint;
+            target.ThemeShade = source.ThemeShade;
         }
 
         if (source.VerticalPosition.HasValue)
         {
             target.VerticalPosition = source.VerticalPosition;
+        }
+
+        if (source.BaselineOffset.HasValue)
+        {
+            target.BaselineOffset = source.BaselineOffset;
+        }
+
+        if (source.LetterSpacing.HasValue)
+        {
+            target.LetterSpacing = source.LetterSpacing;
+        }
+
+        if (source.HorizontalScale.HasValue)
+        {
+            target.HorizontalScale = source.HorizontalScale;
+        }
+
+        if (source.Kerning.HasValue)
+        {
+            target.Kerning = source.Kerning;
+        }
+
+        if (source.Caps.HasValue)
+        {
+            target.Caps = source.Caps;
         }
 
         if (source.SmallCaps.HasValue)
@@ -800,6 +899,19 @@ public sealed class DocumentStyleResolver
         if (source.UnderlineColor.HasValue)
         {
             target.UnderlineColor = source.UnderlineColor;
+            if (!source.UnderlineThemeColor.HasValue)
+            {
+                target.UnderlineThemeColor = null;
+                target.UnderlineThemeTint = null;
+                target.UnderlineThemeShade = null;
+            }
+        }
+
+        if (source.UnderlineThemeColor.HasValue)
+        {
+            target.UnderlineThemeColor = source.UnderlineThemeColor;
+            target.UnderlineThemeTint = source.UnderlineThemeTint;
+            target.UnderlineThemeShade = source.UnderlineThemeShade;
         }
 
         if (source.Strikethrough.HasValue)
@@ -810,6 +922,11 @@ public sealed class DocumentStyleResolver
         if (source.HighlightColor.HasValue)
         {
             target.HighlightColor = source.HighlightColor;
+        }
+
+        if (source.Hidden.HasValue)
+        {
+            target.Hidden = source.Hidden;
         }
 
         if (source.ThemeFontAscii.HasValue)
@@ -877,6 +994,46 @@ public sealed class DocumentStyleResolver
         {
             target.ColumnWidths.Clear();
             target.ColumnWidths.AddRange(source.ColumnWidths);
+        }
+
+        if (source.Width.HasValue)
+        {
+            target.Width = source.Width;
+        }
+
+        if (source.WidthUnit.HasValue)
+        {
+            target.WidthUnit = source.WidthUnit;
+        }
+
+        if (source.Indent.HasValue)
+        {
+            target.Indent = source.Indent;
+        }
+
+        if (source.IndentUnit.HasValue)
+        {
+            target.IndentUnit = source.IndentUnit;
+        }
+
+        if (source.Alignment.HasValue)
+        {
+            target.Alignment = source.Alignment;
+        }
+
+        if (source.LayoutMode.HasValue)
+        {
+            target.LayoutMode = source.LayoutMode;
+        }
+
+        if (source.CellSpacing.HasValue)
+        {
+            target.CellSpacing = source.CellSpacing;
+        }
+
+        if (source.CellSpacingUnit.HasValue)
+        {
+            target.CellSpacingUnit = source.CellSpacingUnit;
         }
 
         if (source.CellPadding.HasValue)

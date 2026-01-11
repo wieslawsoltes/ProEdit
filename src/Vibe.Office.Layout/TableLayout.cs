@@ -10,4 +10,5 @@ public sealed record TableLayout(
     IReadOnlyList<float> ColumnWidths,
     IReadOnlyList<float> RowHeights,
     IReadOnlyList<TableCellLayout> Cells,
-    TableProperties Properties);
+    TableProperties Properties,
+    float CellSpacing);

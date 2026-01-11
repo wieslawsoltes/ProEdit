@@ -20,6 +20,7 @@ public sealed record PageSectionSettings(
     bool ColumnSeparator,
     bool ColumnEqualWidth,
     IReadOnlyList<float> ColumnWidths,
+    IReadOnlyList<float> ColumnGaps,
     DocGridSettings? DocGrid,
     DocColor? PageBackgroundColor,
     PageBorders? PageBorders,
@@ -51,6 +52,7 @@ public sealed record PageSectionSettings(
             false,
             true,
             Array.Empty<float>(),
+            Array.Empty<float>(),
             null,
             null,
             null,
@@ -71,8 +73,15 @@ public sealed record PageSectionSettings(
         var columnWidths = properties.ColumnWidths.Count > 0
             ? properties.ColumnWidths.ToArray()
             : ColumnWidths.ToArray();
+        var columnGaps = properties.ColumnGaps.Count > 0
+            ? properties.ColumnGaps.ToArray()
+            : ColumnGaps.ToArray();
         var columnCount = properties.ColumnCount
-            ?? (properties.ColumnWidths.Count > 0 ? properties.ColumnWidths.Count : ColumnCount);
+            ?? (properties.ColumnWidths.Count > 0
+                ? properties.ColumnWidths.Count
+                : properties.ColumnGaps.Count > 0
+                    ? properties.ColumnGaps.Count + 1
+                    : ColumnCount);
         columnCount = Math.Max(1, columnCount);
         var columnGap = properties.ColumnGap ?? ColumnGap;
         var columnSeparator = properties.ColumnSeparator ?? ColumnSeparator;
@@ -97,6 +106,7 @@ public sealed record PageSectionSettings(
             columnSeparator,
             columnEqualWidth,
             columnWidths,
+            columnGaps,
             properties.DocGrid?.Clone() ?? DocGrid,
             properties.PageBackgroundColor ?? PageBackgroundColor,
             properties.PageBorders?.Clone() ?? PageBorders?.Clone(),

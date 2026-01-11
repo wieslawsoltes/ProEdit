@@ -16,9 +16,7 @@ internal static class TextGridSnapping
             return 0f;
         }
 
-        return !docGrid.Type.HasValue
-            || docGrid.Type == DocGridType.LinesAndChars
-            || docGrid.Type == DocGridType.SnapToChars
+        return docGrid.Type is DocGridType.LinesAndChars or DocGridType.SnapToChars
             ? docGrid.CharacterSpace.Value
             : 0f;
     }
@@ -30,9 +28,11 @@ internal static class TextGridSnapping
             return 0f;
         }
 
+        var letterSpacing = style.LetterSpacing;
         if (gridSpacing <= 0f)
         {
-            return MeasureTextFallback(text, style, measurer);
+            var width = MeasureTextFallback(text, style, measurer);
+            return ApplyLetterSpacingFallback(width, text, letterSpacing);
         }
 
         TextShapeInfo shape;
@@ -51,10 +51,12 @@ internal static class TextGridSnapping
 
         if (shape.ClusterOffsets.Length == 0)
         {
-            return SnapToGridForward(MeasureTextFallback(text, style, measurer), gridSpacing);
+            var width = MeasureTextFallback(text, style, measurer);
+            width = ApplyLetterSpacingFallback(width, text, letterSpacing);
+            return SnapToGridForward(width, gridSpacing);
         }
 
-        return QuantizeShapeWidth(shape, gridSpacing, 0f);
+        return QuantizeShapeWidth(shape, gridSpacing, letterSpacing);
     }
 
     public static float MeasureText(string text, TextStyle style, ITextMeasurer measurer, float gridSpacing)
@@ -100,5 +102,16 @@ internal static class TextGridSnapping
         return measurer is ITextMeasurerSpan spanMeasurer
             ? spanMeasurer.MeasureText(text, style).Width
             : measurer.MeasureText(text.ToString(), style).Width;
+    }
+
+    private static float ApplyLetterSpacingFallback(float width, ReadOnlySpan<char> text, float letterSpacing)
+    {
+        if (letterSpacing == 0f || text.Length <= 1)
+        {
+            return width;
+        }
+
+        var gapCount = Math.Max(0, text.Length - 1);
+        return width + letterSpacing * gapCount;
     }
 }

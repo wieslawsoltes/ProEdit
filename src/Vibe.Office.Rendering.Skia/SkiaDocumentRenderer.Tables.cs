@@ -21,24 +21,38 @@ public sealed partial class SkiaDocumentRenderer
             return;
         }
 
+        var spacing = table.CellSpacing;
+        var minCellY = table.Cells.Min(cell => cell.Bounds.Y);
+        var minCellX = table.Cells.Min(cell => cell.Bounds.X);
+        var topSpacing = minCellY - table.Bounds.Y;
+        var leftSpacing = minCellX - table.Bounds.X;
+
         var rowTops = new float[rowCount];
         var rowBottoms = new float[rowCount];
-        var y = table.Bounds.Y;
+        var y = table.Bounds.Y + topSpacing;
         for (var row = 0; row < rowCount; row++)
         {
             rowTops[row] = y;
             y += row < table.RowHeights.Count ? table.RowHeights[row] : 0f;
             rowBottoms[row] = y;
+            if (row < rowCount - 1)
+            {
+                y += spacing;
+            }
         }
 
         var colLefts = new float[colCount];
         var colRights = new float[colCount];
-        var x = table.Bounds.X;
+        var x = table.Bounds.X + leftSpacing;
         for (var col = 0; col < colCount; col++)
         {
             colLefts[col] = x;
             x += col < table.ColumnWidths.Count ? table.ColumnWidths[col] : 0f;
             colRights[col] = x;
+            if (col < colCount - 1)
+            {
+                x += spacing;
+            }
         }
 
         var minRow = table.Cells.Count == 0 ? 0 : table.Cells.Min(cell => cell.RowIndex);
@@ -66,7 +80,14 @@ public sealed partial class SkiaDocumentRenderer
 
         for (var col = 0; col <= colCount; col++)
         {
-            var lineX = col == colCount ? colRights[colCount - 1] : colLefts[col];
+            var lineX = spacing > 0f
+                ? col switch
+                {
+                    0 => table.Bounds.X,
+                    _ when col == colCount => table.Bounds.Right,
+                    _ => (colRights[col - 1] + colLefts[col]) / 2f
+                }
+                : col == colCount ? colRights[colCount - 1] : colLefts[col];
             for (var row = 0; row < rowCount; row++)
             {
                 var leftCell = col == 0 ? null : grid[row, col - 1];
@@ -94,7 +115,14 @@ public sealed partial class SkiaDocumentRenderer
 
         for (var row = 0; row <= rowCount; row++)
         {
-            var lineY = row == rowCount ? rowBottoms[rowCount - 1] : rowTops[row];
+            var lineY = spacing > 0f
+                ? row switch
+                {
+                    0 => table.Bounds.Y,
+                    _ when row == rowCount => table.Bounds.Bottom,
+                    _ => (rowBottoms[row - 1] + rowTops[row]) / 2f
+                }
+                : row == rowCount ? rowBottoms[rowCount - 1] : rowTops[row];
             for (var col = 0; col < colCount; col++)
             {
                 var upperCell = row == 0 ? null : grid[row - 1, col];

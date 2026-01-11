@@ -15,6 +15,8 @@ internal readonly struct TextStyleKey : IEquatable<TextStyleKey>
     private readonly bool _hasHighlight;
     private readonly DocColor _highlight;
     private readonly string _language;
+    private readonly float _letterSpacing;
+    private readonly float _horizontalScale;
 
     public TextStyleKey(TextStyle style)
     {
@@ -28,6 +30,8 @@ internal readonly struct TextStyleKey : IEquatable<TextStyleKey>
         _hasHighlight = style.HighlightColor.HasValue;
         _highlight = style.HighlightColor ?? default;
         _language = style.Language ?? string.Empty;
+        _letterSpacing = style.LetterSpacing;
+        _horizontalScale = style.HorizontalScale;
     }
 
     public bool Equals(TextStyleKey other)
@@ -41,7 +45,9 @@ internal readonly struct TextStyleKey : IEquatable<TextStyleKey>
             && _strikethrough == other._strikethrough
             && _hasHighlight == other._hasHighlight
             && (!_hasHighlight || _highlight.Equals(other._highlight))
-            && _language == other._language;
+            && _language == other._language
+            && _letterSpacing.Equals(other._letterSpacing)
+            && _horizontalScale.Equals(other._horizontalScale);
     }
 
     public override bool Equals(object? obj) => obj is TextStyleKey other && Equals(other);
@@ -57,6 +63,6 @@ internal readonly struct TextStyleKey : IEquatable<TextStyleKey>
             _underline,
             _strikethrough,
             _hasHighlight ? _highlight.GetHashCode() : 0);
-        return HashCode.Combine(hash, _language);
+        return HashCode.Combine(hash, _language, _letterSpacing, _horizontalScale);
     }
 }

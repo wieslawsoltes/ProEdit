@@ -58,8 +58,7 @@ public sealed class DocumentLayouter
     private readonly record struct TableLayoutPlan(
         TableBlock Table,
         TableProperties ResolvedProperties,
-        TableLayoutData Data,
-        float TableX);
+        TableLayoutData Data);
 
     private readonly record struct HeaderFooterLayoutResult(
         IReadOnlyList<HeaderFooterLine> Lines,
@@ -105,6 +104,7 @@ public sealed class DocumentLayouter
         var paragraphSpacingBefore = new Dictionary<int, float>();
         var listState = new ListNumberingState(document);
         var styleResolver = new DocumentStyleResolver(document);
+        var spacingMetricsCache = new Dictionary<TextStyleKey, TextMetrics>();
         var scanState = new ParagraphScanState();
         scanState.Scan(document);
         var paragraphSectionIndices = BuildParagraphSectionIndices(document);
@@ -127,6 +127,7 @@ public sealed class DocumentLayouter
         var columnIndex = 0;
         var columnCount = 1;
         var columnGap = 0f;
+        var columnGaps = Array.Empty<float>();
         var columnOffsets = Array.Empty<float>();
         var columnWidths = Array.Empty<float>();
         var columnX = 0f;
@@ -175,8 +176,9 @@ public sealed class DocumentLayouter
 
             columnCount = Math.Max(1, section.ColumnCount);
             columnGap = MathF.Max(0f, section.ColumnGap);
-            columnWidths = ResolveSectionColumnWidths(section, pageContentWidth, columnGap);
-            columnOffsets = BuildColumnOffsets(columnWidths, columnGap);
+            columnGaps = ResolveSectionColumnGaps(section, columnCount, columnGap);
+            columnWidths = ResolveSectionColumnWidths(section, pageContentWidth, columnGaps);
+            columnOffsets = BuildColumnOffsets(columnWidths, columnGaps);
             columnIndex = preserveColumn ? Math.Clamp(columnIndex, 0, Math.Max(0, columnCount - 1)) : 0;
             UpdateColumnMetrics();
             var top = resumeY ?? contentTop;
@@ -573,7 +575,13 @@ public sealed class DocumentLayouter
             else
             {
                 var paragraphProperties = styleResolver.ResolveParagraphProperties(startParagraph);
-                var lineHeightAdjusted = ResolveParagraphLineHeight(lineHeight, paragraphProperties, pageSettings.DocGrid);
+                var paragraphStyle = styleResolver.ResolveParagraphTextStyle(startParagraph, style);
+                var lineHeightAdjusted = ResolveParagraphLineHeight(
+                    paragraphStyle,
+                    measurer,
+                    spacingMetricsCache,
+                    paragraphProperties,
+                    pageSettings.DocGrid);
                 var spacingBefore = ResolveParagraphSpacing(
                     paragraphProperties.SpacingBefore,
                     paragraphProperties.SpacingBeforeLines,
@@ -894,6 +902,7 @@ public sealed class DocumentLayouter
             WrapResolver? wrapResolver = wrapFloatingObjects.Count == 0 ? null : ResolveWrapBounds;
             var (text, spans) = BuildInlineSpans(paragraph, paragraphStyle, styleResolver);
             var charGridSpacing = TextGridSnapping.GetCharacterSpacing(pageSettings.DocGrid);
+            var (paragraphLineHeight, paragraphAscent) = ResolveParagraphLineMetrics(paragraphStyle, measurer, spacingMetricsCache);
             var dropCapActive = false;
             DropCapInfo dropCap = default;
             if (DocTextDirectionHelpers.IsVertical(properties.TextDirection))
@@ -903,7 +912,7 @@ public sealed class DocumentLayouter
 
             if (wrapResolver is null
                 && properties.DropCap?.HasValues == true
-                && TryPrepareDropCap(text, spans, properties, lineHeight, ascent, pageSettings.DocGrid, measurer, out dropCap, out var dropCapSpans))
+                && TryPrepareDropCap(text, spans, properties, paragraphLineHeight, paragraphAscent, pageSettings.DocGrid, measurer, out dropCap, out var dropCapSpans))
             {
                 spans = dropCapSpans;
                 dropCapActive = true;
@@ -926,8 +935,8 @@ public sealed class DocumentLayouter
                     lineStartY,
                     settings,
                     measurer,
-                    lineHeight,
-                    ascent,
+                    paragraphLineHeight,
+                    paragraphAscent,
                     pageSettings.DocGrid)
                 : BuildParagraphLines(
                     text,
@@ -943,8 +952,8 @@ public sealed class DocumentLayouter
                     lineStartY,
                     settings,
                     measurer,
-                    lineHeight,
-                    ascent,
+                    paragraphLineHeight,
+                    paragraphAscent,
                     pageSettings.DocGrid,
                     wrapResolver);
 
@@ -952,7 +961,7 @@ public sealed class DocumentLayouter
             {
                 var lineX = columnX + indentLeft + listIndent + firstLineIndent + prefixWidth;
                 var lineRight = columnX + columnWidth - indentRight;
-                var (emptyLineHeight, emptyAscent) = ApplyLineSpacing(lineHeight, ascent, properties, pageSettings.DocGrid);
+                var (emptyLineHeight, emptyAscent) = ApplyLineSpacing(paragraphLineHeight, paragraphAscent, properties, pageSettings.DocGrid);
                 var emptyIsRtl = ResolveLineIsRtl(properties, TextSlice.Empty);
                 if (cursorY + spacingBefore + emptyLineHeight > contentBottom && cursorY > columnTop)
                 {
@@ -1181,7 +1190,7 @@ public sealed class DocumentLayouter
                 var verticalLineStart = lines.Count;
                 if (string.IsNullOrEmpty(paragraphText))
                 {
-                    var (emptyLineHeight, emptyAscent) = ApplyLineSpacing(lineHeight, ascent, properties, pageSettings.DocGrid);
+                    var (emptyLineHeight, emptyAscent) = ApplyLineSpacing(paragraphLineHeight, paragraphAscent, properties, pageSettings.DocGrid);
                     if (cursorY + spacingBefore + emptyLineHeight > contentBottom && cursorY > columnTop)
                     {
                         StartNewColumnOrPage();
@@ -1613,13 +1622,14 @@ public sealed class DocumentLayouter
             var sectionTop = page.Bounds.Y + pageSection.MarginTop;
             var contentWidth = MathF.Max(1f, page.Bounds.Width - pageSection.MarginLeft - pageSection.MarginRight);
             var columnGap = MathF.Max(0f, pageSection.ColumnGap);
-            var columnWidths = ResolveSectionColumnWidths(pageSection, contentWidth, columnGap);
+            var columnGaps = ResolveSectionColumnGaps(pageSection, Math.Max(1, pageSection.ColumnCount), columnGap);
+            var columnWidths = ResolveSectionColumnWidths(pageSection, contentWidth, columnGaps);
             if (columnWidths.Length <= 1)
             {
                 return;
             }
 
-            var columnOffsets = BuildColumnOffsets(columnWidths, columnGap);
+            var columnOffsets = BuildColumnOffsets(columnWidths, columnGaps);
             if (columnOffsets.Length <= 1)
             {
                 return;
@@ -1923,7 +1933,7 @@ public sealed class DocumentLayouter
             }
 
             var textSlice = new TextSlice(label, 0, label.Length);
-            var runs = new[] { new LayoutRun(label, textStyle, 0f, width, label.Length, false, 0f) };
+            var runs = new[] { new LayoutRun(label, textStyle, 0f, width, label.Length, false, 0f, LetterSpacing: textStyle.LetterSpacing) };
             var isRtl = TextBidi.ResolveBaseIsRtl(textSlice.Span, null);
             AddLine(new LayoutLine(-1, 0, label.Length, columnX, cursorY, width, textSlice, null, 0f, lineHeight, ascent,
                 runs, Array.Empty<LayoutImage>(), Array.Empty<LayoutShape>(), Array.Empty<LayoutChart>(), Array.Empty<LayoutEquation>(), Array.Empty<LayoutRuby>(), null, false, isRtl));
@@ -1935,7 +1945,12 @@ public sealed class DocumentLayouter
         {
             var properties = styleResolver.ResolveParagraphProperties(paragraph);
             var paragraphStyle = styleResolver.ResolveParagraphTextStyle(paragraph, style);
-            var lineHeightAdjusted = ResolveParagraphLineHeight(lineHeight, properties, pageSettings.DocGrid);
+            var lineHeightAdjusted = ResolveParagraphLineHeight(
+                paragraphStyle,
+                measurer,
+                spacingMetricsCache,
+                properties,
+                pageSettings.DocGrid);
             var spacingBefore = ResolveParagraphSpacing(
                 properties.SpacingBefore,
                 properties.SpacingBeforeLines,
@@ -1976,7 +1991,7 @@ public sealed class DocumentLayouter
             var keepLinesTogether = properties.KeepLinesTogether == true;
             var widowControl = properties.WidowControl ?? true;
             var nextBlockMinHeight = keepWithNext
-                ? EstimateNextBlockMinHeight(blockIndex, blocks, document, styleResolver, settings, measurer, style, columnWidth, lineHeight, ascent, pageSettings.DocGrid)
+                ? EstimateNextBlockMinHeight(blockIndex, blocks, document, styleResolver, settings, measurer, style, spacingMetricsCache, columnWidth, lineHeight, ascent, pageSettings.DocGrid)
                 : 0f;
 
             var canReflow = paragraph.FloatingObjects.Count > 0;
@@ -2124,7 +2139,8 @@ public sealed class DocumentLayouter
                 frameWidth = MathF.Max(120f, baseWidth);
             }
 
-            var (lineHeightAdjusted, _) = ApplyLineSpacing(lineHeight, ascent, plan.Properties, pageSettings.DocGrid);
+            var (paragraphLineHeight, paragraphAscent) = ResolveParagraphLineMetrics(plan.ParagraphStyle, measurer, spacingMetricsCache);
+            var (lineHeightAdjusted, lineAscentAdjusted) = ApplyLineSpacing(paragraphLineHeight, paragraphAscent, plan.Properties, pageSettings.DocGrid);
             var lineCount = 1;
             if (text.Length > 0)
             {
@@ -2135,7 +2151,7 @@ public sealed class DocumentLayouter
             var frameHeight = frame.Height ?? MathF.Max(lineHeightAdjusted, lineCount * lineHeightAdjusted);
             if (frameHeight <= 0f)
             {
-                frameHeight = MathF.Max(lineHeightAdjusted, lineHeight);
+                frameHeight = MathF.Max(lineHeightAdjusted, paragraphLineHeight);
             }
 
             var shape = BuildFrameShape(text, plan.Properties, frameWidth, frameHeight);
@@ -2143,7 +2159,7 @@ public sealed class DocumentLayouter
             ApplyFrameAnchor(frame, floating.Anchor);
 
             var anchorY = cursorY + plan.SpacingBefore;
-            if (anchorY + lineHeight > contentBottom && cursorY > columnTop)
+            if (anchorY + lineHeightAdjusted > contentBottom && cursorY > columnTop)
             {
                 StartNewColumnOrPage();
                 anchorY = cursorY + plan.SpacingBefore;
@@ -2160,8 +2176,8 @@ public sealed class DocumentLayouter
                 TextSlice.Empty,
                 null,
                 0f,
-                lineHeight,
-                ascent,
+                lineHeightAdjusted,
+                lineAscentAdjusted,
                 Array.Empty<LayoutRun>(),
                 Array.Empty<LayoutImage>(),
                 Array.Empty<LayoutShape>(),
@@ -2210,18 +2226,17 @@ public sealed class DocumentLayouter
 
         TableLayoutPlan BuildTablePlan(TableBlock table)
         {
-            var tableX = columnX;
             var tableStyle = styleResolver.ResolveTableStyle(table);
             var resolvedTableProperties = MergeTableProperties(tableStyle?.TableProperties, table.Properties);
             var tableLook = ResolveTableLook(table.Properties.Look ?? tableStyle?.TableProperties.Look);
-            var data = ComputeTableLayoutData(table, document, resolvedTableProperties, table.Properties, tableStyle, tableLook, columnWidth, settings, measurer, style, styleResolver, lineHeight, ascent, pageSettings.DocGrid, ref paragraphIndex);
-            return new TableLayoutPlan(table, resolvedTableProperties, data, tableX);
+            var data = ComputeTableLayoutData(table, document, resolvedTableProperties, table.Properties, tableStyle, tableLook, columnWidth, settings, measurer, style, styleResolver, spacingMetricsCache, lineHeight, ascent, pageSettings.DocGrid, ref paragraphIndex);
+            return new TableLayoutPlan(table, resolvedTableProperties, data);
         }
 
         void LayoutTablePlan(TableLayoutPlan plan)
         {
-            var tableX = plan.TableX;
             var data = plan.Data;
+            var tableX = ResolveTableX(columnX, columnWidth, plan.ResolvedProperties, data.TableWidth);
             var rowStart = 0;
             var totalRows = data.RowHeights.Length;
             if (totalRows == 0)
@@ -2238,11 +2253,11 @@ public sealed class DocumentLayouter
                 if (availableHeight <= 0f && cursorY > columnTop)
                 {
                     StartNewColumnOrPage();
-                    tableX = columnX;
+                    tableX = ResolveTableX(columnX, columnWidth, plan.ResolvedProperties, data.TableWidth);
                     availableHeight = contentBottom - cursorY;
                 }
 
-                var rowsToFit = CountRowsToFit(data.RowHeights, rowStart, availableHeight);
+                var rowsToFit = CountRowsToFit(data.RowHeights, rowStart, availableHeight, data.CellSpacing);
                 if (rowsToFit == 0)
                 {
                     rowsToFit = Math.Min(1, totalRows - rowStart);
@@ -2257,7 +2272,7 @@ public sealed class DocumentLayouter
                 if (rowStart < totalRows)
                 {
                     StartNewColumnOrPage();
-                    tableX = columnX;
+                    tableX = ResolveTableX(columnX, columnWidth, plan.ResolvedProperties, data.TableWidth);
                 }
             }
         }
@@ -2325,14 +2340,42 @@ public sealed class DocumentLayouter
                 return;
             }
 
+            static HeaderFooter? ResolveEffectiveHeaderFooter(HeaderFooter current, HeaderFooter? previous)
+            {
+                if (current.IsDefined || current.Blocks.Count > 0)
+                {
+                    return current;
+                }
+
+                return previous;
+            }
+
             var totalPages = Math.Max(1, pages.Count);
             var pageNumberTexts = BuildPageNumberTexts(pages, pageSections);
             var totalPagesTexts = BuildTotalPagesTexts(pages, pageSections, totalPages);
+            var currentSectionIndex = -1;
+            HeaderFooter? effectiveDefaultHeader = null;
+            HeaderFooter? effectiveDefaultFooter = null;
+            HeaderFooter? effectiveFirstHeader = null;
+            HeaderFooter? effectiveFirstFooter = null;
+            HeaderFooter? effectiveEvenHeader = null;
+            HeaderFooter? effectiveEvenFooter = null;
             for (var i = 0; i < pages.Count; i++)
             {
                 var page = pages[i];
                 var section = pageSections[i];
                 var sectionInfo = document.GetSection(section.SectionIndex);
+                if (section.SectionIndex != currentSectionIndex)
+                {
+                    currentSectionIndex = section.SectionIndex;
+                    effectiveDefaultHeader = ResolveEffectiveHeaderFooter(sectionInfo.Header, effectiveDefaultHeader);
+                    effectiveDefaultFooter = ResolveEffectiveHeaderFooter(sectionInfo.Footer, effectiveDefaultFooter);
+                    effectiveFirstHeader = ResolveEffectiveHeaderFooter(sectionInfo.FirstHeader, effectiveFirstHeader);
+                    effectiveFirstFooter = ResolveEffectiveHeaderFooter(sectionInfo.FirstFooter, effectiveFirstFooter);
+                    effectiveEvenHeader = ResolveEffectiveHeaderFooter(sectionInfo.EvenHeader, effectiveEvenHeader);
+                    effectiveEvenFooter = ResolveEffectiveHeaderFooter(sectionInfo.EvenFooter, effectiveEvenFooter);
+                }
+
                 var pageNumber = page.Index + 1;
                 var pageNumberText = i < pageNumberTexts.Length
                     ? pageNumberTexts[i]
@@ -2342,33 +2385,36 @@ public sealed class DocumentLayouter
                     : totalPages.ToString(System.Globalization.CultureInfo.InvariantCulture);
                 var isFirstPageOfSection = i == 0 || pageSections[i - 1].SectionIndex != section.SectionIndex;
                 var isEvenPage = pageNumber % 2 == 0;
-                var headerSource = sectionInfo.Header;
-                var footerSource = sectionInfo.Footer;
+                var headerSource = effectiveDefaultHeader;
+                var footerSource = effectiveDefaultFooter;
 
                 if (isFirstPageOfSection && sectionInfo.Properties.DifferentFirstPageHeaderFooter == true)
                 {
-                    headerSource = sectionInfo.FirstHeader;
-                    footerSource = sectionInfo.FirstFooter;
+                    headerSource = effectiveFirstHeader;
+                    footerSource = effectiveFirstFooter;
                 }
                 else if (document.EvenAndOddHeaders && isEvenPage)
                 {
-                    headerSource = sectionInfo.EvenHeader;
-                    footerSource = sectionInfo.EvenFooter;
+                    headerSource = effectiveEvenHeader;
+                    footerSource = effectiveEvenFooter;
                 }
 
-                if (headerSource.Blocks.Count == 0 && footerSource.Blocks.Count == 0)
+                if ((headerSource?.Blocks.Count ?? 0) == 0 && (footerSource?.Blocks.Count ?? 0) == 0)
                 {
                     continue;
                 }
 
                 var headerFooterContentWidth = MathF.Max(1f, page.Bounds.Width - section.MarginLeft - section.MarginRight);
+                IReadOnlyList<Block> headerBlocks = headerSource is null ? Array.Empty<Block>() : headerSource.Blocks;
+                IReadOnlyList<Block> footerBlocks = footerSource is null ? Array.Empty<Block>() : footerSource.Blocks;
                 var headerLayout = LayoutHeaderFooterBlocks(
-                    headerSource.Blocks,
+                    headerBlocks,
                     document,
                     settings,
                     measurer,
                     style,
                     styleResolver,
+                    spacingMetricsCache,
                     headerFooterContentWidth,
                     lineHeight,
                     ascent,
@@ -2376,12 +2422,13 @@ public sealed class DocumentLayouter
                     pageNumberText,
                     totalPagesText);
                 var footerLayout = LayoutHeaderFooterBlocks(
-                    footerSource.Blocks,
+                    footerBlocks,
                     document,
                     settings,
                     measurer,
                     style,
                     styleResolver,
+                    spacingMetricsCache,
                     headerFooterContentWidth,
                     lineHeight,
                     ascent,
@@ -2394,13 +2441,13 @@ public sealed class DocumentLayouter
                 var headerLines = OffsetHeaderFooterLines(headerLayout.Lines, page.Bounds.X + section.MarginLeft, headerTop);
                 var footerLines = OffsetHeaderFooterLines(footerLayout.Lines, page.Bounds.X + section.MarginLeft, footerTop);
                 var headerFloatingObjects = BuildHeaderFooterFloatingObjects(
-                    headerSource.Blocks,
+                    headerBlocks,
                     headerLines,
                     headerLayout.ParagraphLineRanges,
                     page,
                     section);
                 var footerFloatingObjects = BuildHeaderFooterFloatingObjects(
-                    footerSource.Blocks,
+                    footerBlocks,
                     footerLines,
                     footerLayout.ParagraphLineRanges,
                     page,
@@ -2433,6 +2480,7 @@ public sealed class DocumentLayouter
                 measurer,
                 style,
                 styleResolver,
+                spacingMetricsCache,
                 lineHeight,
                 ascent);
         }
@@ -2944,8 +2992,9 @@ public sealed class DocumentLayouter
     {
         var columnCount = Math.Max(1, section.ColumnCount);
         var columnGap = MathF.Max(0f, section.ColumnGap);
-        var columnWidths = ResolveSectionColumnWidths(section, page.ContentBounds.Width, columnGap);
-        var offsets = BuildColumnOffsets(columnWidths, columnGap);
+        var columnGaps = ResolveSectionColumnGaps(section, columnCount, columnGap);
+        var columnWidths = ResolveSectionColumnWidths(section, page.ContentBounds.Width, columnGaps);
+        var offsets = BuildColumnOffsets(columnWidths, columnGaps);
         if (offsets.Length == 0)
         {
             return page.ContentBounds.X;
@@ -2970,13 +3019,14 @@ public sealed class DocumentLayouter
     {
         var columnCount = Math.Max(1, section.ColumnCount);
         var columnGap = MathF.Max(0f, section.ColumnGap);
-        var columnWidths = ResolveSectionColumnWidths(section, page.ContentBounds.Width, columnGap);
+        var columnGaps = ResolveSectionColumnGaps(section, columnCount, columnGap);
+        var columnWidths = ResolveSectionColumnWidths(section, page.ContentBounds.Width, columnGaps);
         if (columnWidths.Length == 0)
         {
             return page.ContentBounds.Width;
         }
 
-        var offsets = BuildColumnOffsets(columnWidths, columnGap);
+        var offsets = BuildColumnOffsets(columnWidths, columnGaps);
         var relativeX = lineX - page.ContentBounds.X;
         var columnIndex = 0;
         for (var i = offsets.Length - 1; i >= 0; i--)
@@ -3001,6 +3051,7 @@ public sealed class DocumentLayouter
         ITextMeasurer measurer,
         TextStyle style,
         DocumentStyleResolver styleResolver,
+        Dictionary<TextStyleKey, TextMetrics> spacingMetricsCache,
         float lineHeight,
         float ascent,
         DocGridSettings? docGrid)
@@ -3009,7 +3060,7 @@ public sealed class DocumentLayouter
         var resolvedTableProperties = MergeTableProperties(tableStyle?.TableProperties, table.Properties);
         var tableLook = ResolveTableLook(table.Properties.Look ?? tableStyle?.TableProperties.Look);
         var paragraphIndex = 0;
-        var data = ComputeTableLayoutData(table, document, resolvedTableProperties, table.Properties, tableStyle, tableLook, contentWidth, settings, measurer, style, styleResolver, lineHeight, ascent, docGrid, ref paragraphIndex);
+        var data = ComputeTableLayoutData(table, document, resolvedTableProperties, table.Properties, tableStyle, tableLook, contentWidth, settings, measurer, style, styleResolver, spacingMetricsCache, lineHeight, ascent, docGrid, ref paragraphIndex);
         return BuildTableLayout(table, resolvedTableProperties, data, tableX, tableY, 0, data.RowHeights.Length, settings);
     }
 
@@ -3057,7 +3108,9 @@ public sealed class DocumentLayouter
         float[] RowHeights,
         List<TableCellPlacement> Cells,
         int Columns,
-        int Rows);
+        int Rows,
+        float TableWidth,
+        float CellSpacing);
 
     private static TableLayoutData ComputeTableLayoutData(
         TableBlock table,
@@ -3071,6 +3124,7 @@ public sealed class DocumentLayouter
         ITextMeasurer measurer,
         TextStyle style,
         DocumentStyleResolver styleResolver,
+        Dictionary<TextStyleKey, TextMetrics> spacingMetricsCache,
         float lineHeight,
         float ascent,
         DocGridSettings? docGrid,
@@ -3079,7 +3133,11 @@ public sealed class DocumentLayouter
         var rows = table.Rows;
         var rowCount = rows.Count;
         var columnCount = ResolveTableColumnCount(rows, resolvedTableProperties);
-        var columnWidths = ResolveColumnWidths(resolvedTableProperties, columnCount, contentWidth);
+        var tableWidth = ResolveTableWidth(resolvedTableProperties, contentWidth);
+        var spacingBaseWidth = tableWidth ?? ResolveTableSpacingBaseWidth(resolvedTableProperties, contentWidth);
+        var cellSpacing = ResolveTableCellSpacing(resolvedTableProperties, spacingBaseWidth);
+        var columnWidths = ResolveColumnWidths(resolvedTableProperties, columnCount, contentWidth, tableWidth, cellSpacing);
+        var effectiveTableWidth = MathF.Max(0f, columnWidths.Sum() + cellSpacing * (columnCount + 1));
         var rowHeights = new float[rowCount];
         var rowCanExpand = new bool[rowCount];
         var placements = new List<TableCellPlacement>();
@@ -3154,7 +3212,7 @@ public sealed class DocumentLayouter
         for (var rowIndex = 0; rowIndex < rowCount; rowIndex++)
         {
             var row = rows[rowIndex];
-            var maxHeight = lineHeight + defaultPadding.Vertical;
+            var maxHeight = 0f;
             foreach (var placement in placementsByRow[rowIndex])
             {
                 var effectiveProperties = ResolveTableCellProperties(
@@ -3171,16 +3229,20 @@ public sealed class DocumentLayouter
 
                 if (!placement.IsMergeContinuation)
                 {
-                    var spanWidth = SumColumns(columnWidths, placement.ColumnIndex, placement.ColumnSpan);
-                    var cellLines = LayoutCellParagraphs(placement.Cell, document, spanWidth, placement.Padding, settings, measurer, style, styleResolver, lineHeight, ascent, docGrid, ref paragraphIndex);
+                    var spanWidth = SumColumnsWithSpacing(columnWidths, placement.ColumnIndex, placement.ColumnSpan, cellSpacing);
+                    var cellLines = LayoutCellParagraphs(placement.Cell, document, spanWidth, placement.Padding, settings, measurer, style, styleResolver, spacingMetricsCache, lineHeight, ascent, docGrid, ref paragraphIndex);
                     placement.Lines = cellLines;
                     placement.ContentHeight = cellLines.Count == 0 ? 0f : cellLines.Last().Y + GetLineBlockHeight(cellLines.Last());
 
                     if (placement.RowSpan <= 1)
                     {
                         var cellHeight = placement.ContentHeight + placement.Padding.Vertical;
-                        var minHeight = lineHeight + placement.Padding.Vertical;
-                        maxHeight = MathF.Max(maxHeight, MathF.Max(minHeight, cellHeight));
+                        if (cellHeight <= 0f)
+                        {
+                            cellHeight = lineHeight + placement.Padding.Vertical;
+                        }
+
+                        maxHeight = MathF.Max(maxHeight, cellHeight);
                     }
                 }
             }
@@ -3201,6 +3263,11 @@ public sealed class DocumentLayouter
                 }
             }
 
+            if (maxHeight <= 0f)
+            {
+                maxHeight = lineHeight + defaultPadding.Vertical;
+            }
+
             rowHeights[rowIndex] = maxHeight;
         }
 
@@ -3211,7 +3278,11 @@ public sealed class DocumentLayouter
                 continue;
             }
 
-            var requiredHeight = MathF.Max(lineHeight + placement.Padding.Vertical, placement.ContentHeight + placement.Padding.Vertical);
+            var requiredHeight = placement.ContentHeight + placement.Padding.Vertical;
+            if (requiredHeight <= 0f)
+            {
+                requiredHeight = lineHeight + placement.Padding.Vertical;
+            }
             var startRow = placement.RowIndex;
             var endRow = Math.Min(rowCount, startRow + placement.RowSpan);
             var spanHeight = 0f;
@@ -3242,7 +3313,7 @@ public sealed class DocumentLayouter
             }
         }
 
-        return new TableLayoutData(columnWidths, rowHeights, placements, columnCount, rowCount);
+        return new TableLayoutData(columnWidths, rowHeights, placements, columnCount, rowCount, effectiveTableWidth, cellSpacing);
     }
 
     private static TableLayout BuildTableLayout(
@@ -3256,21 +3327,28 @@ public sealed class DocumentLayouter
         LayoutSettings settings)
     {
         var columnCount = data.Columns;
+        var cellSpacing = data.CellSpacing;
+        var topSpacing = rowStart == 0 ? cellSpacing : 0f;
+        var bottomSpacing = rowStart + rowCount >= data.RowHeights.Length ? cellSpacing : 0f;
         var cellLayouts = new List<TableCellLayout>();
         var columnOffsets = new float[columnCount];
-        var offset = 0f;
+        var offset = cellSpacing;
         for (var i = 0; i < columnCount; i++)
         {
             columnOffsets[i] = offset;
-            offset += data.ColumnWidths[i];
+            offset += data.ColumnWidths[i] + cellSpacing;
         }
 
         var rowOffsets = new float[rowCount];
-        var rowOffset = 0f;
+        var rowOffset = topSpacing;
         for (var i = 0; i < rowCount; i++)
         {
             rowOffsets[i] = rowOffset;
             rowOffset += data.RowHeights[rowStart + i];
+            if (i < rowCount - 1)
+            {
+                rowOffset += cellSpacing;
+            }
         }
 
         var proxyOrigins = new HashSet<(int Row, int Column)>();
@@ -3294,9 +3372,9 @@ public sealed class DocumentLayouter
                 var remainingSpan = Math.Max(1, origin.RowSpan - spanOffset);
                 var spanInChunk = Math.Min(remainingSpan, rowCount - localRowIndex);
                 var cellX = tableX + columnOffsets[origin.ColumnIndex];
-                var cellWidth = SumColumns(data.ColumnWidths, origin.ColumnIndex, origin.ColumnSpan);
+                var cellWidth = SumColumnsWithSpacing(data.ColumnWidths, origin.ColumnIndex, origin.ColumnSpan, cellSpacing);
                 var cellY = tableY + rowOffsets[localRowIndex];
-                var cellHeight = SumRows(data.RowHeights, rowStart + localRowIndex, spanInChunk);
+                var cellHeight = SumRowsWithSpacing(data.RowHeights, rowStart + localRowIndex, spanInChunk, cellSpacing);
                 var cellBounds = new DocRect(cellX, cellY, cellWidth, cellHeight);
                 cellLayouts.Add(new TableCellLayout(
                     placement.RowIndex,
@@ -3319,10 +3397,10 @@ public sealed class DocumentLayouter
             }
 
             var cellXOrigin = tableX + columnOffsets[placement.ColumnIndex];
-            var cellWidthOrigin = SumColumns(data.ColumnWidths, placement.ColumnIndex, placement.ColumnSpan);
+            var cellWidthOrigin = SumColumnsWithSpacing(data.ColumnWidths, placement.ColumnIndex, placement.ColumnSpan, cellSpacing);
             var cellYOrigin = tableY + rowOffsets[localRowIndex];
             var spanInPage = Math.Min(placement.RowSpan, rowCount - localRowIndex);
-            var cellHeightOrigin = SumRows(data.RowHeights, rowStart + localRowIndex, spanInPage);
+            var cellHeightOrigin = SumRowsWithSpacing(data.RowHeights, rowStart + localRowIndex, spanInPage, cellSpacing);
             var cellBoundsOrigin = new DocRect(cellXOrigin, cellYOrigin, cellWidthOrigin, cellHeightOrigin);
             var lines = placement.Lines;
             var offsetLines = new List<TableCellLine>(lines.Count);
@@ -3378,48 +3456,78 @@ public sealed class DocumentLayouter
         }
 
         var tableHeight = 0f;
-        for (var i = 0; i < rowCount; i++)
+        if (rowCount > 0)
         {
-            tableHeight += data.RowHeights[rowStart + i];
+            tableHeight = SumRows(data.RowHeights, rowStart, rowCount);
+            if (rowCount > 1)
+            {
+                tableHeight += cellSpacing * (rowCount - 1);
+            }
+
+            tableHeight += topSpacing + bottomSpacing;
         }
 
-        var tableBounds = new DocRect(tableX, tableY, data.ColumnWidths.Sum(), tableHeight);
+        var tableBounds = new DocRect(tableX, tableY, data.TableWidth, tableHeight);
         var rowHeightsSlice = data.RowHeights.Skip(rowStart).Take(rowCount).ToArray();
-        return new TableLayout(tableBounds, rowCount, columnCount, data.ColumnWidths, rowHeightsSlice, cellLayouts, tableProperties);
+        return new TableLayout(tableBounds, rowCount, columnCount, data.ColumnWidths, rowHeightsSlice, cellLayouts, tableProperties, cellSpacing);
     }
 
-    private static int CountRowsToFit(float[] rowHeights, int rowStart, float maxHeight)
+    private static int CountRowsToFit(float[] rowHeights, int rowStart, float maxHeight, float cellSpacing)
     {
         if (maxHeight <= 0f)
         {
             return 0;
         }
 
-        var height = 0f;
+        var height = rowStart == 0 ? cellSpacing : 0f;
         var count = 0;
         for (var i = rowStart; i < rowHeights.Length; i++)
         {
             var rowHeight = rowHeights[i];
-            if (count > 0 && height + rowHeight > maxHeight)
+            var spacing = count > 0 ? cellSpacing : 0f;
+            var candidate = height + spacing + rowHeight;
+            if (i == rowHeights.Length - 1)
+            {
+                candidate += cellSpacing;
+            }
+
+            if (count > 0 && candidate > maxHeight)
             {
                 break;
             }
 
-            if (count == 0 && rowHeight > maxHeight)
+            if (count == 0 && candidate > maxHeight)
             {
                 return 1;
             }
 
-            height += rowHeight;
+            height = candidate;
             count++;
         }
 
         return count;
     }
 
-    private static float ResolveParagraphLineHeight(float defaultLineHeight, ParagraphProperties properties, DocGridSettings? docGrid)
+    private static float ResolveParagraphLineHeight(
+        TextStyle paragraphStyle,
+        ITextMeasurer measurer,
+        Dictionary<TextStyleKey, TextMetrics> metricsCache,
+        ParagraphProperties properties,
+        DocGridSettings? docGrid)
     {
-        return ComputeLineHeight(defaultLineHeight, properties, docGrid);
+        var (baseHeight, _) = ResolveParagraphLineMetrics(paragraphStyle, measurer, metricsCache);
+        return ComputeLineHeight(baseHeight, properties, docGrid);
+    }
+
+    private static (float LineHeight, float Ascent) ResolveParagraphLineMetrics(
+        TextStyle paragraphStyle,
+        ITextMeasurer measurer,
+        Dictionary<TextStyleKey, TextMetrics> metricsCache)
+    {
+        var metrics = GetMetrics(paragraphStyle, measurer, metricsCache);
+        var lineHeight = MathF.Max(1f, metrics.Height);
+        var ascent = MathF.Max(0f, metrics.Ascent);
+        return (lineHeight, ascent);
     }
 
     private static float ResolveParagraphSpacing(
@@ -3429,9 +3537,9 @@ public sealed class DocumentLayouter
         float fallbackSpacing,
         float lineHeight)
     {
-        if (spacingDip.HasValue)
+        if (autoSpacing == true)
         {
-            return MathF.Max(0f, spacingDip.Value);
+            return 0f;
         }
 
         if (spacingLines.HasValue)
@@ -3440,9 +3548,9 @@ public sealed class DocumentLayouter
             return MathF.Max(0f, lineHeight * lineMultiplier);
         }
 
-        if (autoSpacing == true)
+        if (spacingDip.HasValue)
         {
-            return 0f;
+            return MathF.Max(0f, spacingDip.Value);
         }
 
         return MathF.Max(0f, fallbackSpacing);
@@ -3480,6 +3588,7 @@ public sealed class DocumentLayouter
         ITextMeasurer measurer,
         TextStyle style,
         DocumentStyleResolver styleResolver,
+        Dictionary<TextStyleKey, TextMetrics> spacingMetricsCache,
         float lineHeight,
         float ascent,
         DocGridSettings? docGrid,
@@ -3500,7 +3609,13 @@ public sealed class DocumentLayouter
             var properties = styleResolver.ResolveParagraphProperties(paragraph);
             var textDirection = properties.TextDirection ?? cell.Properties.TextDirection;
             var paragraphStyle = styleResolver.ResolveParagraphTextStyle(paragraph, style);
-            var lineHeightAdjusted = ResolveParagraphLineHeight(lineHeight, properties, docGrid);
+            var (paragraphLineHeight, paragraphAscent) = ResolveParagraphLineMetrics(paragraphStyle, measurer, spacingMetricsCache);
+            var lineHeightAdjusted = ResolveParagraphLineHeight(
+                paragraphStyle,
+                measurer,
+                spacingMetricsCache,
+                properties,
+                docGrid);
             var spacingBefore = ResolveParagraphSpacing(
                 properties.SpacingBefore,
                 properties.SpacingBeforeLines,
@@ -3537,7 +3652,7 @@ public sealed class DocumentLayouter
             if (DocTextDirectionHelpers.IsVertical(textDirection))
             {
                 var (verticalText, verticalSpans) = BuildInlineSpans(paragraph, paragraphStyle, styleResolver);
-                var (emptyLineHeight, emptyAscent) = ApplyLineSpacing(lineHeight, ascent, properties, docGrid);
+                var (emptyLineHeight, emptyAscent) = ApplyLineSpacing(paragraphLineHeight, paragraphAscent, properties, docGrid);
                 if (string.IsNullOrEmpty(verticalText))
                 {
                     y += spacingBefore;
@@ -3601,8 +3716,8 @@ public sealed class DocumentLayouter
                     0f,
                     settings,
                     measurer,
-                    lineHeight,
-                    ascent,
+                    paragraphLineHeight,
+                    paragraphAscent,
                     docGrid,
                     null);
 
@@ -3674,7 +3789,7 @@ public sealed class DocumentLayouter
             if (text.Length == 0)
             {
                 var lineX = indentLeft + listIndent + firstLineIndent + prefixWidth;
-                var (emptyLineHeight, emptyAscent) = ApplyLineSpacing(lineHeight, ascent, properties, docGrid);
+                var (emptyLineHeight, emptyAscent) = ApplyLineSpacing(paragraphLineHeight, paragraphAscent, properties, docGrid);
                 var emptyIsRtl = ResolveLineIsRtl(properties, TextSlice.Empty);
                 (lineX, y) = ApplyDocGridSnapping(
                     lineX,
@@ -3725,8 +3840,8 @@ public sealed class DocumentLayouter
                     properties.TabStops,
                     settings.DefaultTabWidth,
                     measurer,
-                    lineHeight,
-                    ascent,
+                    paragraphLineHeight,
+                    paragraphAscent,
                     charGridSpacing);
                 lineLayout = ApplyLineSpacing(lineLayout, properties, docGrid);
                 if (line.HasHyphen && line.HyphenStyle is not null)
@@ -4166,6 +4281,7 @@ public sealed class DocumentLayouter
         LayoutSettings settings,
         ITextMeasurer measurer,
         TextStyle defaultStyle,
+        Dictionary<TextStyleKey, TextMetrics> spacingMetricsCache,
         float contentWidth,
         float lineHeight,
         float ascent,
@@ -4188,7 +4304,13 @@ public sealed class DocumentLayouter
             var paragraphStyle = styleResolver.ResolveParagraphTextStyle(nextParagraph, defaultStyle);
             var isVertical = DocTextDirectionHelpers.IsVertical(properties.TextDirection);
             var charGridSpacing = TextGridSnapping.GetCharacterSpacing(docGrid);
-            var lineHeightAdjusted = ResolveParagraphLineHeight(lineHeight, properties, docGrid);
+            var (paragraphLineHeight, paragraphAscent) = ResolveParagraphLineMetrics(paragraphStyle, measurer, spacingMetricsCache);
+            var lineHeightAdjusted = ResolveParagraphLineHeight(
+                paragraphStyle,
+                measurer,
+                spacingMetricsCache,
+                properties,
+                docGrid);
             var spacingBefore = ResolveParagraphSpacing(
                 properties.SpacingBefore,
                 properties.SpacingBeforeLines,
@@ -4209,7 +4331,7 @@ public sealed class DocumentLayouter
             var (text, spans) = BuildInlineSpans(nextParagraph, paragraphStyle, styleResolver);
             if (string.IsNullOrEmpty(text))
             {
-                var (emptyLineHeight, _) = ApplyLineSpacing(lineHeight, ascent, properties, docGrid);
+                var (emptyLineHeight, _) = ApplyLineSpacing(paragraphLineHeight, paragraphAscent, properties, docGrid);
                 return spacingBefore + emptyLineHeight;
             }
 
@@ -4220,7 +4342,7 @@ public sealed class DocumentLayouter
                 .FirstOrDefault();
             if (firstLine.Length == 0)
             {
-                var (emptyLineHeight, _) = ApplyLineSpacing(lineHeight, ascent, properties, docGrid);
+                var (emptyLineHeight, _) = ApplyLineSpacing(paragraphLineHeight, paragraphAscent, properties, docGrid);
                 return spacingBefore + emptyLineHeight;
             }
 
@@ -4231,8 +4353,8 @@ public sealed class DocumentLayouter
                 properties.TabStops,
                 settings.DefaultTabWidth,
                 measurer,
-                lineHeight,
-                ascent,
+                paragraphLineHeight,
+                paragraphAscent,
                 charGridSpacing);
             lineLayout = ApplyLineSpacing(lineLayout, properties, docGrid);
             var lineExtent = isVertical ? lineLayout.Width : lineLayout.LineHeight;
@@ -4245,8 +4367,23 @@ public sealed class DocumentLayouter
             var resolvedTableProperties = MergeTableProperties(tableStyle?.TableProperties, table.Properties);
             var tableLook = ResolveTableLook(table.Properties.Look ?? tableStyle?.TableProperties.Look);
             var paragraphIndex = 0;
-            var data = ComputeTableLayoutData(table, document, resolvedTableProperties, table.Properties, tableStyle, tableLook, contentWidth, settings, measurer, defaultStyle, styleResolver, lineHeight, ascent, docGrid, ref paragraphIndex);
-            return data.RowHeights.Length > 0 ? data.RowHeights[0] : lineHeight;
+            var data = ComputeTableLayoutData(table, document, resolvedTableProperties, table.Properties, tableStyle, tableLook, contentWidth, settings, measurer, defaultStyle, styleResolver, spacingMetricsCache, lineHeight, ascent, docGrid, ref paragraphIndex);
+            if (data.RowHeights.Length == 0)
+            {
+                return lineHeight;
+            }
+
+            var estimated = data.RowHeights[0];
+            if (data.CellSpacing > 0f)
+            {
+                estimated += data.CellSpacing;
+                if (data.RowHeights.Length == 1)
+                {
+                    estimated += data.CellSpacing;
+                }
+            }
+
+            return estimated;
         }
 
         return 0f;
@@ -4503,6 +4640,11 @@ public sealed class DocumentLayouter
             }
         }
 
+        if (MathF.Abs(style.BaselineOffset) > 0.01f)
+        {
+            baselineOffset += style.BaselineOffset;
+        }
+
         effective.VerticalPosition = DocVerticalPosition.Normal;
         return (effective, baselineOffset);
     }
@@ -4716,9 +4858,18 @@ public sealed class DocumentLayouter
     {
         if (!style.SmallCaps)
         {
-            var start = builder.Length;
+            if (style.Caps)
+            {
+                var upperText = text.ToUpperInvariant();
+                var start = builder.Length;
+                builder.Append(upperText);
+                spans.Add(new InlineSpan(start, upperText.Length, upperText, style, null, null, null, null, null, null, baselineOffset));
+                return;
+            }
+
+            var defaultStart = builder.Length;
             builder.Append(text);
-            spans.Add(new InlineSpan(start, text.Length, text, style, null, null, null, null, null, null, baselineOffset));
+            spans.Add(new InlineSpan(defaultStart, text.Length, text, style, null, null, null, null, null, null, baselineOffset));
             return;
         }
 
@@ -5005,6 +5156,7 @@ public sealed class DocumentLayouter
         ITextMeasurer measurer,
         TextStyle style,
         DocumentStyleResolver styleResolver,
+        Dictionary<TextStyleKey, TextMetrics> spacingMetricsCache,
         float contentWidth,
         float lineHeight,
         float ascent,
@@ -5042,7 +5194,13 @@ public sealed class DocumentLayouter
             var paragraphLineStart = lines.Count;
             var properties = styleResolver.ResolveParagraphProperties(paragraph);
             var paragraphStyle = styleResolver.ResolveParagraphTextStyle(paragraph, style);
-            var lineHeightAdjusted = ResolveParagraphLineHeight(lineHeight, properties, docGrid);
+            var (paragraphLineHeight, paragraphAscent) = ResolveParagraphLineMetrics(paragraphStyle, measurer, spacingMetricsCache);
+            var lineHeightAdjusted = ResolveParagraphLineHeight(
+                paragraphStyle,
+                measurer,
+                spacingMetricsCache,
+                properties,
+                docGrid);
             var spacingBefore = ResolveParagraphSpacing(
                 properties.SpacingBefore,
                 properties.SpacingBeforeLines,
@@ -5079,7 +5237,7 @@ public sealed class DocumentLayouter
             if (DocTextDirectionHelpers.IsVertical(properties.TextDirection))
             {
                 var (verticalText, verticalSpans) = BuildInlineSpans(paragraph, paragraphStyle, styleResolver, pageNumberText, totalPagesText);
-                var (emptyLineHeight, emptyAscent) = ApplyLineSpacing(lineHeight, ascent, properties, docGrid);
+                var (emptyLineHeight, emptyAscent) = ApplyLineSpacing(paragraphLineHeight, paragraphAscent, properties, docGrid);
                 if (string.IsNullOrEmpty(verticalText))
                 {
                     y += spacingBefore;
@@ -5144,8 +5302,8 @@ public sealed class DocumentLayouter
                     0f,
                     settings,
                     measurer,
-                    lineHeight,
-                    ascent,
+                    paragraphLineHeight,
+                    paragraphAscent,
                     docGrid,
                     null);
 
@@ -5218,7 +5376,7 @@ public sealed class DocumentLayouter
             if (text.Length == 0)
             {
                 var lineX = indentLeft + listIndent + firstLineIndent + prefixWidth;
-                var (emptyLineHeight, emptyAscent) = ApplyLineSpacing(lineHeight, ascent, properties, docGrid);
+                var (emptyLineHeight, emptyAscent) = ApplyLineSpacing(paragraphLineHeight, paragraphAscent, properties, docGrid);
                 var emptyIsRtl = ResolveLineIsRtl(properties, TextSlice.Empty);
                 (lineX, y) = ApplyDocGridSnapping(
                     lineX,
@@ -5270,8 +5428,8 @@ public sealed class DocumentLayouter
                     properties.TabStops,
                     settings.DefaultTabWidth,
                     measurer,
-                    lineHeight,
-                    ascent,
+                    paragraphLineHeight,
+                    paragraphAscent,
                     charGridSpacing);
                 lineLayout = ApplyLineSpacing(lineLayout, properties, docGrid);
                 if (line.HasHyphen && line.HyphenStyle is not null)
@@ -5421,6 +5579,7 @@ public sealed class DocumentLayouter
         ITextMeasurer measurer,
         TextStyle style,
         DocumentStyleResolver styleResolver,
+        Dictionary<TextStyleKey, TextMetrics> spacingMetricsCache,
         float lineHeight,
         float ascent)
     {
@@ -5489,6 +5648,7 @@ public sealed class DocumentLayouter
                 measurer,
                 style,
                 styleResolver,
+                spacingMetricsCache,
                 contentWidth,
                 lineHeight,
                 ascent,
@@ -5759,7 +5919,7 @@ public sealed class DocumentLayouter
                     maxAscent = MathF.Max(maxAscent, ascent);
                     maxDescent = MathF.Max(maxDescent, descent);
 
-                    runs.Add(new LayoutRun(item.Text, item.Style, x, item.Width, item.Text.Length, false, item.BaselineOffset));
+                    runs.Add(new LayoutRun(item.Text, item.Style, x, item.Width, item.Text.Length, false, item.BaselineOffset, LetterSpacing: item.Style.LetterSpacing));
                     x += item.Width;
                     offset += item.Text.Length;
                     break;
@@ -5773,7 +5933,7 @@ public sealed class DocumentLayouter
                     maxDescent = MathF.Max(maxDescent, descent);
 
                     var baseWidth = TextGridSnapping.MeasureText(item.Text, item.Style, measurer, charGridSpacing);
-                    runs.Add(new LayoutRun(item.Text, item.Style, x, baseWidth, item.Text.Length, false, item.BaselineOffset));
+                    runs.Add(new LayoutRun(item.Text, item.Style, x, baseWidth, item.Text.Length, false, item.BaselineOffset, LetterSpacing: item.Style.LetterSpacing));
 
                     var rubyStyle = item.RubyStyle ?? item.Style;
                     if (!string.IsNullOrEmpty(item.RubyText))
@@ -5838,7 +5998,7 @@ public sealed class DocumentLayouter
                     var nextTabIndex = FindNextTabIndex(items, i + 1);
                     var (fieldWidth, widthBeforeDecimal) = MeasureTabField(items, i + 1, nextTabIndex, measurer, charGridSpacing);
                     var tabWidth = ComputeTabWidth(tabStop, x, fieldWidth, widthBeforeDecimal);
-                    runs.Add(new LayoutRun(string.Empty, item.Style, x, tabWidth, 1, true, item.BaselineOffset, tabStop.Leader));
+                    runs.Add(new LayoutRun(string.Empty, item.Style, x, tabWidth, 1, true, item.BaselineOffset, tabStop.Leader, item.Style.LetterSpacing));
                     x += tabWidth;
                     offset += 1;
                     break;
@@ -5877,7 +6037,7 @@ public sealed class DocumentLayouter
 
         var runs = new List<LayoutRun>(layout.Runs.Count + 1);
         runs.AddRange(layout.Runs);
-        runs.Add(new LayoutRun("-", style, layout.Width, width, 0, false, baselineOffset));
+        runs.Add(new LayoutRun("-", style, layout.Width, width, 0, false, baselineOffset, LetterSpacing: style.LetterSpacing));
         return layout with { Runs = runs, Width = layout.Width + width };
     }
 
@@ -5897,7 +6057,8 @@ public sealed class DocumentLayouter
     {
         if (!properties.LineSpacing.HasValue)
         {
-            if (docGrid?.LinePitch is > 0f && docGrid.Type != DocGridType.Default)
+            if (docGrid?.LinePitch is > 0f
+                && docGrid.Type is DocGridType.Lines or DocGridType.LinesAndChars or DocGridType.SnapToChars)
             {
                 return MathF.Max(1f, docGrid.LinePitch.Value);
             }
@@ -6391,10 +6552,16 @@ public sealed class DocumentLayouter
         return MathF.Max(0f, width);
     }
 
-    private static float[] ResolveSectionColumnWidths(PageSectionSettings section, float contentWidth, float columnGap)
+    private static float[] ResolveSectionColumnWidths(PageSectionSettings section, float contentWidth, IReadOnlyList<float> columnGaps)
     {
         var columnCount = Math.Max(1, section.ColumnCount);
-        var availableWidth = MathF.Max(1f, contentWidth - columnGap * MathF.Max(0, columnCount - 1));
+        var gapTotal = 0f;
+        for (var i = 0; i < columnGaps.Count; i++)
+        {
+            gapTotal += columnGaps[i];
+        }
+
+        var availableWidth = MathF.Max(1f, contentWidth - gapTotal);
 
         if (section.ColumnEqualWidth || section.ColumnWidths.Count == 0)
         {
@@ -6405,9 +6572,22 @@ public sealed class DocumentLayouter
         }
 
         var resolved = new float[columnCount];
-        for (var i = 0; i < columnCount; i++)
+        var explicitCount = Math.Min(section.ColumnWidths.Count, columnCount);
+        var explicitTotal = 0f;
+        for (var i = 0; i < explicitCount; i++)
         {
-            resolved[i] = i < section.ColumnWidths.Count ? section.ColumnWidths[i] : section.ColumnWidths.Last();
+            resolved[i] = section.ColumnWidths[i];
+            explicitTotal += resolved[i];
+        }
+
+        if (explicitCount < columnCount)
+        {
+            var remaining = MathF.Max(0f, availableWidth - explicitTotal);
+            var autoWidth = remaining / Math.Max(1, columnCount - explicitCount);
+            for (var i = explicitCount; i < columnCount; i++)
+            {
+                resolved[i] = autoWidth;
+            }
         }
 
         var total = resolved.Sum();
@@ -6418,26 +6598,67 @@ public sealed class DocumentLayouter
             return resolved;
         }
 
-        if (total > availableWidth && availableWidth > 0f)
+        var delta = availableWidth - total;
+        if (MathF.Abs(delta) > 0.01f)
         {
-            var scale = availableWidth / total;
-            for (var i = 0; i < resolved.Length; i++)
+            var lastIndex = resolved.Length - 1;
+            if (resolved[lastIndex] + delta > 0f)
             {
-                resolved[i] *= scale;
+                resolved[lastIndex] += delta;
+            }
+            else if (availableWidth > 0f)
+            {
+                var scale = availableWidth / total;
+                for (var i = 0; i < resolved.Length; i++)
+                {
+                    resolved[i] *= scale;
+                }
             }
         }
 
         return resolved;
     }
 
-    private static float[] BuildColumnOffsets(float[] widths, float gap)
+    private static float[] ResolveSectionColumnGaps(PageSectionSettings section, int columnCount, float defaultGap)
+    {
+        if (columnCount <= 1)
+        {
+            return Array.Empty<float>();
+        }
+
+        var gaps = new float[columnCount - 1];
+        if (section.ColumnGaps.Count == 0)
+        {
+            Array.Fill(gaps, MathF.Max(0f, defaultGap));
+            return gaps;
+        }
+
+        for (var i = 0; i < gaps.Length; i++)
+        {
+            var gap = i < section.ColumnGaps.Count ? section.ColumnGaps[i] : float.NaN;
+            if (float.IsNaN(gap))
+            {
+                gap = defaultGap;
+            }
+
+            gaps[i] = MathF.Max(0f, gap);
+        }
+
+        return gaps;
+    }
+
+    private static float[] BuildColumnOffsets(float[] widths, IReadOnlyList<float> gaps)
     {
         var offsets = new float[widths.Length];
         var current = 0f;
         for (var i = 0; i < widths.Length; i++)
         {
             offsets[i] = current;
-            current += widths[i] + gap;
+            current += widths[i];
+            if (i < widths.Length - 1)
+            {
+                current += gaps[i];
+            }
         }
 
         return offsets;
@@ -6491,12 +6712,22 @@ public sealed class DocumentLayouter
         return map;
     }
 
-    private static float[] ResolveColumnWidths(TableProperties properties, int columnCount, float contentWidth)
+    private static float[] ResolveColumnWidths(
+        TableProperties properties,
+        int columnCount,
+        float contentWidth,
+        float? tableWidth,
+        float cellSpacing)
     {
         var widths = new float[columnCount];
-        if (properties.ColumnWidths.Count == 0)
+        var hasExplicitWidths = properties.ColumnWidths.Count > 0;
+        var spacingTotal = cellSpacing * (columnCount + 1);
+
+        if (!hasExplicitWidths)
         {
-            var defaultWidth = contentWidth / Math.Max(1, columnCount);
+            var targetWidth = tableWidth ?? contentWidth;
+            var availableWidth = MathF.Max(1f, targetWidth - spacingTotal);
+            var defaultWidth = availableWidth / Math.Max(1, columnCount);
             Array.Fill(widths, defaultWidth);
             return widths;
         }
@@ -6509,21 +6740,121 @@ public sealed class DocumentLayouter
         var total = widths.Sum();
         if (total <= 0f)
         {
-            var defaultWidth = contentWidth / Math.Max(1, columnCount);
+            var targetWidth = tableWidth ?? contentWidth;
+            var availableWidth = MathF.Max(1f, targetWidth - spacingTotal);
+            var defaultWidth = availableWidth / Math.Max(1, columnCount);
             Array.Fill(widths, defaultWidth);
             return widths;
         }
 
-        if (total > contentWidth && contentWidth > 0f)
+        if (tableWidth.HasValue)
         {
-            var scale = contentWidth / total;
+            var availableWidth = MathF.Max(1f, tableWidth.Value - spacingTotal);
+            var scale = availableWidth / total;
             for (var i = 0; i < widths.Length; i++)
             {
                 widths[i] *= scale;
             }
         }
+        else if (total > contentWidth && contentWidth > 0f && properties.LayoutMode != TableLayoutMode.Fixed)
+        {
+            var availableWidth = MathF.Max(1f, contentWidth - spacingTotal);
+            if (total > availableWidth)
+            {
+                var scale = availableWidth / total;
+                for (var i = 0; i < widths.Length; i++)
+                {
+                    widths[i] *= scale;
+                }
+            }
+        }
 
         return widths;
+    }
+
+    private static float? ResolveTableWidth(TableProperties properties, float contentWidth)
+    {
+        if (!properties.Width.HasValue && !properties.WidthUnit.HasValue)
+        {
+            return null;
+        }
+
+        var unit = properties.WidthUnit ?? TableWidthUnit.Dxa;
+        if (unit == TableWidthUnit.Auto)
+        {
+            return null;
+        }
+
+        var resolved = ResolveTableMeasurement(properties.Width, unit, contentWidth);
+        return resolved is > 0f ? resolved : null;
+    }
+
+    private static float ResolveTableSpacingBaseWidth(TableProperties properties, float contentWidth)
+    {
+        if (properties.ColumnWidths.Count == 0)
+        {
+            return contentWidth;
+        }
+
+        var total = properties.ColumnWidths.Sum();
+        if (total <= 0f)
+        {
+            return contentWidth;
+        }
+
+        if (properties.LayoutMode == TableLayoutMode.Fixed)
+        {
+            return total;
+        }
+
+        return MathF.Min(total, contentWidth);
+    }
+
+    private static float ResolveTableIndent(TableProperties properties, float contentWidth)
+    {
+        var resolved = ResolveTableMeasurement(properties.Indent, properties.IndentUnit ?? TableWidthUnit.Dxa, contentWidth);
+        return resolved ?? 0f;
+    }
+
+    private static float ResolveTableCellSpacing(TableProperties properties, float referenceWidth)
+    {
+        var resolved = ResolveTableMeasurement(properties.CellSpacing, properties.CellSpacingUnit ?? TableWidthUnit.Dxa, referenceWidth);
+        return resolved is > 0f ? resolved.Value : 0f;
+    }
+
+    private static float? ResolveTableMeasurement(float? value, TableWidthUnit unit, float referenceWidth)
+    {
+        if (!value.HasValue)
+        {
+            return null;
+        }
+
+        return unit switch
+        {
+            TableWidthUnit.Dxa => value.Value,
+            TableWidthUnit.Pct => referenceWidth * (value.Value / 100f),
+            _ => null
+        };
+    }
+
+    private static float ResolveTableX(float columnX, float columnWidth, TableProperties properties, float tableWidth)
+    {
+        var alignment = properties.Alignment ?? TableAlignment.Left;
+        var indent = ResolveTableIndent(properties, columnWidth);
+        var offset = alignment switch
+        {
+            TableAlignment.Center => (columnWidth - tableWidth) / 2f,
+            TableAlignment.Right => columnWidth - tableWidth,
+            _ => 0f
+        };
+
+        if (offset < 0f)
+        {
+            offset = 0f;
+        }
+
+        var x = columnX + indent + offset;
+        return x < columnX ? columnX : x;
     }
 
     private static int ResolveTableColumnCount(IReadOnlyList<TableRow> rows, TableProperties properties)
@@ -6566,6 +6897,22 @@ public sealed class DocumentLayouter
         return total;
     }
 
+    private static float SumColumnsWithSpacing(IReadOnlyList<float> widths, int start, int span, float spacing)
+    {
+        if (widths.Count == 0 || span <= 0)
+        {
+            return 0f;
+        }
+
+        var total = SumColumns(widths, start, span);
+        if (span > 1 && spacing > 0f)
+        {
+            total += spacing * (span - 1);
+        }
+
+        return total;
+    }
+
     private static float SumRows(IReadOnlyList<float> heights, int start, int span)
     {
         if (heights.Count == 0 || span <= 0)
@@ -6578,6 +6925,22 @@ public sealed class DocumentLayouter
         for (var i = Math.Max(0, start); i < end; i++)
         {
             total += heights[i];
+        }
+
+        return total;
+    }
+
+    private static float SumRowsWithSpacing(IReadOnlyList<float> heights, int start, int span, float spacing)
+    {
+        if (heights.Count == 0 || span <= 0)
+        {
+            return 0f;
+        }
+
+        var total = SumRows(heights, start, span);
+        if (span > 1 && spacing > 0f)
+        {
+            total += spacing * (span - 1);
         }
 
         return total;
@@ -6678,6 +7041,46 @@ public sealed class DocumentLayouter
         {
             target.ColumnWidths.Clear();
             target.ColumnWidths.AddRange(source.ColumnWidths);
+        }
+
+        if (source.Width.HasValue)
+        {
+            target.Width = source.Width;
+        }
+
+        if (source.WidthUnit.HasValue)
+        {
+            target.WidthUnit = source.WidthUnit;
+        }
+
+        if (source.Indent.HasValue)
+        {
+            target.Indent = source.Indent;
+        }
+
+        if (source.IndentUnit.HasValue)
+        {
+            target.IndentUnit = source.IndentUnit;
+        }
+
+        if (source.Alignment.HasValue)
+        {
+            target.Alignment = source.Alignment;
+        }
+
+        if (source.LayoutMode.HasValue)
+        {
+            target.LayoutMode = source.LayoutMode;
+        }
+
+        if (source.CellSpacing.HasValue)
+        {
+            target.CellSpacing = source.CellSpacing;
+        }
+
+        if (source.CellSpacingUnit.HasValue)
+        {
+            target.CellSpacingUnit = source.CellSpacingUnit;
         }
 
         if (source.CellPadding.HasValue)

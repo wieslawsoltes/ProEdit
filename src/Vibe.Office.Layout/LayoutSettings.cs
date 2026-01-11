@@ -16,7 +16,7 @@ public sealed class LayoutSettings
     public float FooterOffset { get; set; } = 48f;
     public float Gutter { get; set; } = 0f;
     public float ParagraphSpacing { get; set; } = 0f;
-    public float BlockSpacing { get; set; } = 12f;
+    public float BlockSpacing { get; set; } = 0f;
     public float ListIndent { get; set; } = 24f;
     public float ListMarkerGap { get; set; } = 6f;
     public float DefaultTabWidth { get; set; } = 48f;

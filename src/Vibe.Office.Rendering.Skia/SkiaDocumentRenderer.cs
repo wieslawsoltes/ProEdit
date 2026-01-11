@@ -1376,10 +1376,11 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             if (section.ColumnCount > 1)
             {
                 var columnGap = MathF.Max(0f, section.ColumnGap);
-                var columnWidths = ResolveSectionColumnWidths(section, contentWidth, columnGap);
+                var columnGaps = ResolveSectionColumnGaps(section, Math.Max(1, section.ColumnCount), columnGap);
+                var columnWidths = ResolveSectionColumnWidths(section, contentWidth, columnGaps);
                 if (columnWidths.Length > 1)
                 {
-                    var columnOffsets = BuildColumnOffsets(columnWidths, columnGap);
+                    var columnOffsets = BuildColumnOffsets(columnWidths, columnGaps);
                     for (var i = 0; i < columnWidths.Length; i++)
                     {
                         var columnLeft = contentLeft + columnOffsets[i];
@@ -1387,7 +1388,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                         targetCanvas.DrawRect(new SKRect(columnLeft, contentTop, columnRight, contentBottom), layoutGuideLightPaint);
                         if (i < columnWidths.Length - 1)
                         {
-                            var separatorX = columnRight + columnGap * 0.5f;
+                            var separatorX = columnRight + columnGaps[i] * 0.5f;
                             targetCanvas.DrawLine(separatorX, contentTop, separatorX, contentBottom, layoutGuideLightPaint);
                         }
                     }
@@ -1553,16 +1554,18 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
 
                 var columnGap = MathF.Max(0f, pageSection.ColumnGap);
                 var contentWidth = MathF.Max(1f, page.Bounds.Width - pageSection.MarginLeft - pageSection.MarginRight);
-                var columnWidths = ResolveSectionColumnWidths(pageSection, contentWidth, columnGap);
+                var columnGaps = ResolveSectionColumnGaps(pageSection, Math.Max(1, pageSection.ColumnCount), columnGap);
+                var columnWidths = ResolveSectionColumnWidths(pageSection, contentWidth, columnGaps);
                 if (columnWidths.Length <= 1)
                 {
                     continue;
                 }
 
-                var columnOffsets = BuildColumnOffsets(columnWidths, columnGap);
+                var columnOffsets = BuildColumnOffsets(columnWidths, columnGaps);
                 for (var i = 0; i < columnWidths.Length - 1; i++)
                 {
-                    var x = contentLeft + columnOffsets[i] + columnWidths[i] + columnGap * 0.5f;
+                    var gap = columnGaps[i];
+                    var x = contentLeft + columnOffsets[i] + columnWidths[i] + gap * 0.5f;
                     targetCanvas.DrawLine(x, top, x, bottom, columnSeparatorPaint);
                 }
             }
@@ -3205,10 +3208,16 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
 
     // Rotation helpers are centralized in DocTextDirectionHelpers.
 
-    private static float[] ResolveSectionColumnWidths(PageSectionSettings section, float contentWidth, float columnGap)
+    private static float[] ResolveSectionColumnWidths(PageSectionSettings section, float contentWidth, IReadOnlyList<float> columnGaps)
     {
         var columnCount = Math.Max(1, section.ColumnCount);
-        var availableWidth = MathF.Max(1f, contentWidth - columnGap * MathF.Max(0, columnCount - 1));
+        var gapTotal = 0f;
+        for (var i = 0; i < columnGaps.Count; i++)
+        {
+            gapTotal += columnGaps[i];
+        }
+
+        var availableWidth = MathF.Max(1f, contentWidth - gapTotal);
 
         if (section.ColumnEqualWidth || section.ColumnWidths.Count == 0)
         {
@@ -3219,9 +3228,22 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
         }
 
         var resolved = new float[columnCount];
-        for (var i = 0; i < columnCount; i++)
+        var explicitCount = Math.Min(section.ColumnWidths.Count, columnCount);
+        var explicitTotal = 0f;
+        for (var i = 0; i < explicitCount; i++)
         {
-            resolved[i] = i < section.ColumnWidths.Count ? section.ColumnWidths[i] : section.ColumnWidths.Last();
+            resolved[i] = section.ColumnWidths[i];
+            explicitTotal += resolved[i];
+        }
+
+        if (explicitCount < columnCount)
+        {
+            var remaining = MathF.Max(0f, availableWidth - explicitTotal);
+            var autoWidth = remaining / Math.Max(1, columnCount - explicitCount);
+            for (var i = explicitCount; i < columnCount; i++)
+            {
+                resolved[i] = autoWidth;
+            }
         }
 
         var total = resolved.Sum();
@@ -3232,19 +3254,56 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             return resolved;
         }
 
-        if (total > availableWidth && availableWidth > 0f)
+        var delta = availableWidth - total;
+        if (MathF.Abs(delta) > 0.01f)
         {
-            var scale = availableWidth / total;
-            for (var i = 0; i < resolved.Length; i++)
+            var lastIndex = resolved.Length - 1;
+            if (resolved[lastIndex] + delta > 0f)
             {
-                resolved[i] *= scale;
+                resolved[lastIndex] += delta;
+            }
+            else if (availableWidth > 0f)
+            {
+                var scale = availableWidth / total;
+                for (var i = 0; i < resolved.Length; i++)
+                {
+                    resolved[i] *= scale;
+                }
             }
         }
 
         return resolved;
     }
 
-    private static float[] BuildColumnOffsets(float[] widths, float gap)
+    private static float[] ResolveSectionColumnGaps(PageSectionSettings section, int columnCount, float defaultGap)
+    {
+        if (columnCount <= 1)
+        {
+            return Array.Empty<float>();
+        }
+
+        var gaps = new float[columnCount - 1];
+        if (section.ColumnGaps.Count == 0)
+        {
+            Array.Fill(gaps, MathF.Max(0f, defaultGap));
+            return gaps;
+        }
+
+        for (var i = 0; i < gaps.Length; i++)
+        {
+            var gap = i < section.ColumnGaps.Count ? section.ColumnGaps[i] : float.NaN;
+            if (float.IsNaN(gap))
+            {
+                gap = defaultGap;
+            }
+
+            gaps[i] = MathF.Max(0f, gap);
+        }
+
+        return gaps;
+    }
+
+    private static float[] BuildColumnOffsets(float[] widths, IReadOnlyList<float> gaps)
     {
         if (widths.Length == 0)
         {
@@ -3259,7 +3318,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             current += widths[i];
             if (i < widths.Length - 1)
             {
-                current += gap;
+                current += gaps[i];
             }
         }
 

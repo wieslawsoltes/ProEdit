@@ -568,6 +568,7 @@ public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
         {
             Typeface = typeface,
             TextSize = style.FontSize,
+            TextScaleX = style.HorizontalScale > 0f ? style.HorizontalScale : 1f,
             IsAntialias = true,
             SubpixelText = true,
             LcdRenderText = true,
