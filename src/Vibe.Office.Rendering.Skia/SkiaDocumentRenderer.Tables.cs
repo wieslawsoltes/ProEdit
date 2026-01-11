@@ -22,6 +22,12 @@ public sealed partial class SkiaDocumentRenderer
         }
 
         var spacing = table.CellSpacing;
+        if (spacing > 0f)
+        {
+            DrawSeparatedCellBorders(canvas, table, paintProvider);
+            return;
+        }
+
         var minCellY = table.Cells.Min(cell => cell.Bounds.Y);
         var minCellX = table.Cells.Min(cell => cell.Bounds.X);
         var topSpacing = minCellY - table.Bounds.Y;
@@ -145,6 +151,39 @@ public sealed partial class SkiaDocumentRenderer
                 }
 
                 DrawBorderSegment(canvas, border, colLefts[col], lineY, colRights[col], lineY, paintProvider);
+            }
+        }
+    }
+
+    private static void DrawSeparatedCellBorders(SKCanvas canvas, TableLayout table, Func<BorderLine, float, SKPaint> paintProvider)
+    {
+        foreach (var cell in table.Cells)
+        {
+            if (cell.IsMergeContinuation)
+            {
+                continue;
+            }
+
+            var bounds = cell.Bounds;
+            var borders = cell.Properties.Borders;
+            if (borders.Top is { IsVisible: true } top)
+            {
+                DrawBorderSegment(canvas, top, bounds.X, bounds.Y, bounds.Right, bounds.Y, paintProvider);
+            }
+
+            if (borders.Bottom is { IsVisible: true } bottom)
+            {
+                DrawBorderSegment(canvas, bottom, bounds.X, bounds.Bottom, bounds.Right, bounds.Bottom, paintProvider);
+            }
+
+            if (borders.Left is { IsVisible: true } left)
+            {
+                DrawBorderSegment(canvas, left, bounds.X, bounds.Y, bounds.X, bounds.Bottom, paintProvider);
+            }
+
+            if (borders.Right is { IsVisible: true } right)
+            {
+                DrawBorderSegment(canvas, right, bounds.Right, bounds.Y, bounds.Right, bounds.Bottom, paintProvider);
             }
         }
     }

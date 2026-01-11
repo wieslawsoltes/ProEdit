@@ -1217,6 +1217,19 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                     continue;
                 }
 
+                if (table.Properties.ShadingColor is { } tableShading)
+                {
+                    var tableBounds = table.Bounds;
+                    var tableRect = new SKRect(tableBounds.X, tableBounds.Y, tableBounds.Right, tableBounds.Bottom);
+                    using var tablePaint = new SKPaint
+                    {
+                        Style = SKPaintStyle.Fill,
+                        Color = ToSkColor(tableShading),
+                        IsAntialias = true
+                    };
+                    targetCanvas.DrawRect(tableRect, tablePaint);
+                }
+
                 foreach (var cell in table.Cells)
                 {
                     var cellBounds = cell.Bounds;
