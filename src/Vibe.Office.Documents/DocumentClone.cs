@@ -80,6 +80,7 @@ public static class DocumentClone
     private static void CopyHeaderFooter(HeaderFooter source, HeaderFooter target)
     {
         CopyBlocks(source.Blocks, target.Blocks);
+        target.IsDefined = source.IsDefined;
     }
 
     private static void CopyBlocks(IReadOnlyList<Block> source, List<Block> target)
@@ -745,7 +746,18 @@ public static class DocumentClone
         var clone = new ParagraphStyleDefinition(source.Id)
         {
             Name = source.Name,
-            BasedOnId = source.BasedOnId
+            BasedOnId = source.BasedOnId,
+            NextStyleId = source.NextStyleId,
+            LinkedStyleId = source.LinkedStyleId,
+            UiPriority = source.UiPriority,
+            QuickStyle = source.QuickStyle,
+            SemiHidden = source.SemiHidden,
+            UnhideWhenUsed = source.UnhideWhenUsed,
+            AutoRedefine = source.AutoRedefine,
+            Hidden = source.Hidden,
+            Locked = source.Locked,
+            PrimaryStyle = source.PrimaryStyle,
+            CustomStyle = source.CustomStyle
         };
 
         CopyParagraphStyleProperties(source.ParagraphProperties, clone.ParagraphProperties);
@@ -758,7 +770,18 @@ public static class DocumentClone
         var clone = new CharacterStyleDefinition(source.Id)
         {
             Name = source.Name,
-            BasedOnId = source.BasedOnId
+            BasedOnId = source.BasedOnId,
+            NextStyleId = source.NextStyleId,
+            LinkedStyleId = source.LinkedStyleId,
+            UiPriority = source.UiPriority,
+            QuickStyle = source.QuickStyle,
+            SemiHidden = source.SemiHidden,
+            UnhideWhenUsed = source.UnhideWhenUsed,
+            AutoRedefine = source.AutoRedefine,
+            Hidden = source.Hidden,
+            Locked = source.Locked,
+            PrimaryStyle = source.PrimaryStyle,
+            CustomStyle = source.CustomStyle
         };
 
         CopyTextStyleProperties(source.RunProperties, clone.RunProperties);
@@ -770,7 +793,18 @@ public static class DocumentClone
         var clone = new TableStyleDefinition(source.Id)
         {
             Name = source.Name,
-            BasedOnId = source.BasedOnId
+            BasedOnId = source.BasedOnId,
+            NextStyleId = source.NextStyleId,
+            LinkedStyleId = source.LinkedStyleId,
+            UiPriority = source.UiPriority,
+            QuickStyle = source.QuickStyle,
+            SemiHidden = source.SemiHidden,
+            UnhideWhenUsed = source.UnhideWhenUsed,
+            AutoRedefine = source.AutoRedefine,
+            Hidden = source.Hidden,
+            Locked = source.Locked,
+            PrimaryStyle = source.PrimaryStyle,
+            CustomStyle = source.CustomStyle
         };
 
         CopyTableProperties(source.TableProperties, clone.TableProperties);
@@ -821,13 +855,25 @@ public static class DocumentClone
         target.FontWeight = source.FontWeight;
         target.FontStyle = source.FontStyle;
         target.Color = source.Color;
+        target.ThemeColor = source.ThemeColor;
+        target.ThemeTint = source.ThemeTint;
+        target.ThemeShade = source.ThemeShade;
         target.VerticalPosition = source.VerticalPosition;
+        target.BaselineOffset = source.BaselineOffset;
+        target.LetterSpacing = source.LetterSpacing;
+        target.HorizontalScale = source.HorizontalScale;
+        target.Kerning = source.Kerning;
+        target.Caps = source.Caps;
         target.SmallCaps = source.SmallCaps;
         target.Underline = source.Underline;
         target.UnderlineStyle = source.UnderlineStyle;
         target.UnderlineColor = source.UnderlineColor;
+        target.UnderlineThemeColor = source.UnderlineThemeColor;
+        target.UnderlineThemeTint = source.UnderlineThemeTint;
+        target.UnderlineThemeShade = source.UnderlineThemeShade;
         target.Strikethrough = source.Strikethrough;
         target.HighlightColor = source.HighlightColor;
+        target.Hidden = source.Hidden;
         target.ThemeFontAscii = source.ThemeFontAscii;
         target.ThemeFontHighAnsi = source.ThemeFontHighAnsi;
         target.ThemeFontEastAsia = source.ThemeFontEastAsia;
@@ -851,13 +897,25 @@ public static class DocumentClone
         target.FontWeight = source.FontWeight;
         target.FontStyle = source.FontStyle;
         target.Color = source.Color;
+        target.ThemeColor = source.ThemeColor;
+        target.ThemeTint = source.ThemeTint;
+        target.ThemeShade = source.ThemeShade;
         target.VerticalPosition = source.VerticalPosition;
+        target.BaselineOffset = source.BaselineOffset;
+        target.LetterSpacing = source.LetterSpacing;
+        target.HorizontalScale = source.HorizontalScale;
+        target.Kerning = source.Kerning;
+        target.Caps = source.Caps;
         target.SmallCaps = source.SmallCaps;
         target.Underline = source.Underline;
         target.UnderlineStyle = source.UnderlineStyle;
         target.UnderlineColor = source.UnderlineColor;
+        target.UnderlineThemeColor = source.UnderlineThemeColor;
+        target.UnderlineThemeTint = source.UnderlineThemeTint;
+        target.UnderlineThemeShade = source.UnderlineThemeShade;
         target.Strikethrough = source.Strikethrough;
         target.HighlightColor = source.HighlightColor;
+        target.Hidden = source.Hidden;
         target.ThemeFontAscii = source.ThemeFontAscii;
         target.ThemeFontHighAnsi = source.ThemeFontHighAnsi;
         target.ThemeFontEastAsia = source.ThemeFontEastAsia;
@@ -962,6 +1020,8 @@ public static class DocumentClone
         target.ColumnSeparator = source.ColumnSeparator;
         target.ColumnWidths.Clear();
         target.ColumnWidths.AddRange(source.ColumnWidths);
+        target.ColumnGaps.Clear();
+        target.ColumnGaps.AddRange(source.ColumnGaps);
         target.DocGrid = source.DocGrid?.Clone();
         target.PageBackgroundColor = source.PageBackgroundColor;
         target.PageBorders = source.PageBorders?.Clone();
@@ -973,6 +1033,14 @@ public static class DocumentClone
     {
         target.ColumnWidths.Clear();
         target.ColumnWidths.AddRange(source.ColumnWidths);
+        target.Width = source.Width;
+        target.WidthUnit = source.WidthUnit;
+        target.Indent = source.Indent;
+        target.IndentUnit = source.IndentUnit;
+        target.Alignment = source.Alignment;
+        target.LayoutMode = source.LayoutMode;
+        target.CellSpacing = source.CellSpacing;
+        target.CellSpacingUnit = source.CellSpacingUnit;
         target.CellPadding = source.CellPadding;
         target.ShadingColor = source.ShadingColor;
         target.Look = source.Look?.Clone();

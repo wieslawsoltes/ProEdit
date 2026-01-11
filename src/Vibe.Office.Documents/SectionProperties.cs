@@ -20,6 +20,7 @@ public sealed class SectionProperties
     public bool? ColumnEqualWidth { get; set; }
     public bool? ColumnSeparator { get; set; }
     public List<float> ColumnWidths { get; } = new List<float>();
+    public List<float> ColumnGaps { get; } = new List<float>();
     public DocGridSettings? DocGrid { get; set; }
     public DocColor? PageBackgroundColor { get; set; }
     public PageBorders? PageBorders { get; set; }
@@ -43,6 +44,7 @@ public sealed class SectionProperties
         || ColumnEqualWidth.HasValue
         || ColumnSeparator.HasValue
         || ColumnWidths.Count > 0
+        || ColumnGaps.Count > 0
         || (DocGrid?.HasValues ?? false)
         || PageBackgroundColor.HasValue
         || (PageBorders?.HasAny ?? false)
@@ -76,6 +78,11 @@ public sealed class SectionProperties
         if (ColumnWidths.Count > 0)
         {
             clone.ColumnWidths.AddRange(ColumnWidths);
+        }
+
+        if (ColumnGaps.Count > 0)
+        {
+            clone.ColumnGaps.AddRange(ColumnGaps);
         }
 
         if (PageBackgroundColor.HasValue)

@@ -26,13 +26,25 @@ public sealed class TextStyle
     public DocFontWeight FontWeight { get; set; } = DocFontWeight.Normal;
     public DocFontStyle FontStyle { get; set; } = DocFontStyle.Normal;
     public DocColor Color { get; set; } = DocColor.Black;
+    public DocThemeColor? ThemeColor { get; set; }
+    public byte? ThemeTint { get; set; }
+    public byte? ThemeShade { get; set; }
     public DocVerticalPosition VerticalPosition { get; set; } = DocVerticalPosition.Normal;
+    public float BaselineOffset { get; set; }
+    public float LetterSpacing { get; set; }
+    public float HorizontalScale { get; set; } = 1f;
+    public float? Kerning { get; set; }
+    public bool Caps { get; set; }
     public bool SmallCaps { get; set; }
     public bool Underline { get; set; }
     public DocUnderlineStyle UnderlineStyle { get; set; } = DocUnderlineStyle.None;
     public DocColor? UnderlineColor { get; set; }
+    public DocThemeColor? UnderlineThemeColor { get; set; }
+    public byte? UnderlineThemeTint { get; set; }
+    public byte? UnderlineThemeShade { get; set; }
     public bool Strikethrough { get; set; }
     public DocColor? HighlightColor { get; set; }
+    public bool Hidden { get; set; }
     public DocThemeFont? ThemeFontAscii { get; set; }
     public DocThemeFont? ThemeFontHighAnsi { get; set; }
     public DocThemeFont? ThemeFontEastAsia { get; set; }
@@ -57,13 +69,25 @@ public sealed class TextStyle
             FontWeight = FontWeight,
             FontStyle = FontStyle,
             Color = Color,
+            ThemeColor = ThemeColor,
+            ThemeTint = ThemeTint,
+            ThemeShade = ThemeShade,
             VerticalPosition = VerticalPosition,
+            BaselineOffset = BaselineOffset,
+            LetterSpacing = LetterSpacing,
+            HorizontalScale = HorizontalScale,
+            Kerning = Kerning,
+            Caps = Caps,
             SmallCaps = SmallCaps,
             Underline = Underline,
             UnderlineStyle = UnderlineStyle,
             UnderlineColor = UnderlineColor,
+            UnderlineThemeColor = UnderlineThemeColor,
+            UnderlineThemeTint = UnderlineThemeTint,
+            UnderlineThemeShade = UnderlineThemeShade,
             Strikethrough = Strikethrough,
             HighlightColor = HighlightColor,
+            Hidden = Hidden,
             ThemeFontAscii = ThemeFontAscii,
             ThemeFontHighAnsi = ThemeFontHighAnsi,
             ThemeFontEastAsia = ThemeFontEastAsia,

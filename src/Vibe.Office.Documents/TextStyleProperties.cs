@@ -14,13 +14,25 @@ public sealed class TextStyleProperties
     public DocFontWeight? FontWeight { get; set; }
     public DocFontStyle? FontStyle { get; set; }
     public DocColor? Color { get; set; }
+    public DocThemeColor? ThemeColor { get; set; }
+    public byte? ThemeTint { get; set; }
+    public byte? ThemeShade { get; set; }
     public DocVerticalPosition? VerticalPosition { get; set; }
+    public float? BaselineOffset { get; set; }
+    public float? LetterSpacing { get; set; }
+    public float? HorizontalScale { get; set; }
+    public float? Kerning { get; set; }
+    public bool? Caps { get; set; }
     public bool? SmallCaps { get; set; }
     public bool? Underline { get; set; }
     public DocUnderlineStyle? UnderlineStyle { get; set; }
     public DocColor? UnderlineColor { get; set; }
+    public DocThemeColor? UnderlineThemeColor { get; set; }
+    public byte? UnderlineThemeTint { get; set; }
+    public byte? UnderlineThemeShade { get; set; }
     public bool? Strikethrough { get; set; }
     public DocColor? HighlightColor { get; set; }
+    public bool? Hidden { get; set; }
     public DocThemeFont? ThemeFontAscii { get; set; }
     public DocThemeFont? ThemeFontHighAnsi { get; set; }
     public DocThemeFont? ThemeFontEastAsia { get; set; }
@@ -41,13 +53,25 @@ public sealed class TextStyleProperties
                              || FontWeight.HasValue
                              || FontStyle.HasValue
                              || Color.HasValue
+                             || ThemeColor.HasValue
+                             || ThemeTint.HasValue
+                             || ThemeShade.HasValue
                              || VerticalPosition.HasValue
+                             || BaselineOffset.HasValue
+                             || LetterSpacing.HasValue
+                             || HorizontalScale.HasValue
+                             || Kerning.HasValue
+                             || Caps.HasValue
                              || SmallCaps.HasValue
                              || Underline.HasValue
                              || UnderlineStyle.HasValue
                              || UnderlineColor.HasValue
+                             || UnderlineThemeColor.HasValue
+                             || UnderlineThemeTint.HasValue
+                             || UnderlineThemeShade.HasValue
                              || Strikethrough.HasValue
                              || HighlightColor.HasValue
+                             || Hidden.HasValue
                              || ThemeFontAscii.HasValue
                              || ThemeFontHighAnsi.HasValue
                              || ThemeFontEastAsia.HasValue
@@ -72,13 +96,25 @@ public sealed class TextStyleProperties
             FontWeight = FontWeight,
             FontStyle = FontStyle,
             Color = Color,
+            ThemeColor = ThemeColor,
+            ThemeTint = ThemeTint,
+            ThemeShade = ThemeShade,
             VerticalPosition = VerticalPosition,
+            BaselineOffset = BaselineOffset,
+            LetterSpacing = LetterSpacing,
+            HorizontalScale = HorizontalScale,
+            Kerning = Kerning,
+            Caps = Caps,
             SmallCaps = SmallCaps,
             Underline = Underline,
             UnderlineStyle = UnderlineStyle,
             UnderlineColor = UnderlineColor,
+            UnderlineThemeColor = UnderlineThemeColor,
+            UnderlineThemeTint = UnderlineThemeTint,
+            UnderlineThemeShade = UnderlineThemeShade,
             Strikethrough = Strikethrough,
             HighlightColor = HighlightColor,
+            Hidden = Hidden,
             ThemeFontAscii = ThemeFontAscii,
             ThemeFontHighAnsi = ThemeFontHighAnsi,
             ThemeFontEastAsia = ThemeFontEastAsia,
@@ -108,13 +144,25 @@ public sealed class TextStyleProperties
                && FontWeight == other.FontWeight
                && FontStyle == other.FontStyle
                && Color.Equals(other.Color)
+               && ThemeColor == other.ThemeColor
+               && ThemeTint == other.ThemeTint
+               && ThemeShade == other.ThemeShade
                && VerticalPosition == other.VerticalPosition
+               && BaselineOffset.Equals(other.BaselineOffset)
+               && LetterSpacing.Equals(other.LetterSpacing)
+               && HorizontalScale.Equals(other.HorizontalScale)
+               && Kerning.Equals(other.Kerning)
+               && Caps == other.Caps
                && SmallCaps == other.SmallCaps
                && Underline == other.Underline
                && UnderlineStyle == other.UnderlineStyle
                && UnderlineColor.Equals(other.UnderlineColor)
+               && UnderlineThemeColor == other.UnderlineThemeColor
+               && UnderlineThemeTint == other.UnderlineThemeTint
+               && UnderlineThemeShade == other.UnderlineThemeShade
                && Strikethrough == other.Strikethrough
                && HighlightColor.Equals(other.HighlightColor)
+               && Hidden == other.Hidden
                && ThemeFontAscii == other.ThemeFontAscii
                && ThemeFontHighAnsi == other.ThemeFontHighAnsi
                && ThemeFontEastAsia == other.ThemeFontEastAsia
@@ -176,11 +224,49 @@ public sealed class TextStyleProperties
         if (Color.HasValue)
         {
             style.Color = Color.Value;
+            if (!ThemeColor.HasValue)
+            {
+                style.ThemeColor = null;
+                style.ThemeTint = null;
+                style.ThemeShade = null;
+            }
+        }
+
+        if (ThemeColor.HasValue)
+        {
+            style.ThemeColor = ThemeColor;
+            style.ThemeTint = ThemeTint;
+            style.ThemeShade = ThemeShade;
         }
 
         if (VerticalPosition.HasValue)
         {
             style.VerticalPosition = VerticalPosition.Value;
+        }
+
+        if (BaselineOffset.HasValue)
+        {
+            style.BaselineOffset = BaselineOffset.Value;
+        }
+
+        if (LetterSpacing.HasValue)
+        {
+            style.LetterSpacing = LetterSpacing.Value;
+        }
+
+        if (HorizontalScale.HasValue && HorizontalScale.Value > 0f)
+        {
+            style.HorizontalScale = HorizontalScale.Value;
+        }
+
+        if (Kerning.HasValue)
+        {
+            style.Kerning = Kerning.Value;
+        }
+
+        if (Caps.HasValue)
+        {
+            style.Caps = Caps.Value;
         }
 
         if (SmallCaps.HasValue)
@@ -202,6 +288,19 @@ public sealed class TextStyleProperties
         if (UnderlineColor.HasValue)
         {
             style.UnderlineColor = UnderlineColor;
+            if (!UnderlineThemeColor.HasValue)
+            {
+                style.UnderlineThemeColor = null;
+                style.UnderlineThemeTint = null;
+                style.UnderlineThemeShade = null;
+            }
+        }
+
+        if (UnderlineThemeColor.HasValue)
+        {
+            style.UnderlineThemeColor = UnderlineThemeColor;
+            style.UnderlineThemeTint = UnderlineThemeTint;
+            style.UnderlineThemeShade = UnderlineThemeShade;
         }
 
         if (Strikethrough.HasValue)
@@ -212,6 +311,11 @@ public sealed class TextStyleProperties
         if (HighlightColor.HasValue)
         {
             style.HighlightColor = HighlightColor;
+        }
+
+        if (Hidden.HasValue)
+        {
+            style.Hidden = Hidden.Value;
         }
 
         if (ThemeFontAscii.HasValue)
