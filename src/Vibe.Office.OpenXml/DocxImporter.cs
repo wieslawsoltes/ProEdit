@@ -335,18 +335,20 @@ public sealed class DocxImporter
         static void PopulateHeader(
             HeaderFooter target,
             HeaderPart? headerPart,
+            bool isDefined,
             ListResolver listResolver,
             StyleResolver styleResolver,
             DocumentRevisions revisions,
             ContentControlPlaceholderResolver? placeholderResolver,
             DocumentThemeColorMap themeColors)
         {
+            target.Blocks.Clear();
+            target.IsDefined = isDefined;
             if (headerPart?.Header is null)
             {
                 return;
             }
 
-            target.Blocks.Clear();
             var headerBlocks = ParseHeaderFooter(headerPart.Header, listResolver, new ImageResolver(headerPart, themeColors), new ChartResolver(headerPart, themeColors), new HyperlinkResolver(headerPart), styleResolver, revisions, placeholderResolver);
             foreach (var block in headerBlocks)
             {
@@ -357,18 +359,20 @@ public sealed class DocxImporter
         static void PopulateFooter(
             HeaderFooter target,
             FooterPart? footerPart,
+            bool isDefined,
             ListResolver listResolver,
             StyleResolver styleResolver,
             DocumentRevisions revisions,
             ContentControlPlaceholderResolver? placeholderResolver,
             DocumentThemeColorMap themeColors)
         {
+            target.Blocks.Clear();
+            target.IsDefined = isDefined;
             if (footerPart?.Footer is null)
             {
                 return;
             }
 
-            target.Blocks.Clear();
             var footerBlocks = ParseHeaderFooter(footerPart.Footer, listResolver, new ImageResolver(footerPart, themeColors), new ChartResolver(footerPart, themeColors), new HyperlinkResolver(footerPart), styleResolver, revisions, placeholderResolver);
             foreach (var block in footerBlocks)
             {
@@ -376,52 +380,76 @@ public sealed class DocxImporter
             }
         }
 
-        static HeaderPart? ResolveHeaderPart(MainDocumentPart mainPart, DocumentFormat.OpenXml.Wordprocessing.SectionProperties sectionProps, HeaderFooterValues type, bool allowFallback)
+        static bool HasHeaderReference(DocumentFormat.OpenXml.Wordprocessing.SectionProperties sectionProps, HeaderFooterValues type)
+        {
+            return sectionProps.Elements<HeaderReference>()
+                .Any(item => (item.Type?.Value ?? HeaderFooterValues.Default) == type);
+        }
+
+        static bool HasFooterReference(DocumentFormat.OpenXml.Wordprocessing.SectionProperties sectionProps, HeaderFooterValues type)
+        {
+            return sectionProps.Elements<FooterReference>()
+                .Any(item => (item.Type?.Value ?? HeaderFooterValues.Default) == type);
+        }
+
+        static (HeaderPart? Part, bool IsDefined) ResolveHeaderPart(
+            MainDocumentPart mainPart,
+            DocumentFormat.OpenXml.Wordprocessing.SectionProperties sectionProps,
+            HeaderFooterValues type)
         {
             var headerRef = sectionProps.Elements<HeaderReference>()
                 .FirstOrDefault(item => (item.Type?.Value ?? HeaderFooterValues.Default) == type);
             if (headerRef?.Id?.Value is string headerId)
             {
-                return mainPart.GetPartById(headerId) as HeaderPart;
+                return (mainPart.GetPartById(headerId) as HeaderPart, true);
             }
 
-            if (allowFallback && mainPart.HeaderParts.Count() == 1)
-            {
-                return mainPart.HeaderParts.FirstOrDefault();
-            }
-
-            return null;
+            return (null, false);
         }
 
-        static FooterPart? ResolveFooterPart(MainDocumentPart mainPart, DocumentFormat.OpenXml.Wordprocessing.SectionProperties sectionProps, HeaderFooterValues type, bool allowFallback)
+        static (FooterPart? Part, bool IsDefined) ResolveFooterPart(
+            MainDocumentPart mainPart,
+            DocumentFormat.OpenXml.Wordprocessing.SectionProperties sectionProps,
+            HeaderFooterValues type)
         {
             var footerRef = sectionProps.Elements<FooterReference>()
                 .FirstOrDefault(item => (item.Type?.Value ?? HeaderFooterValues.Default) == type);
             if (footerRef?.Id?.Value is string footerId)
             {
-                return mainPart.GetPartById(footerId) as FooterPart;
+                return (mainPart.GetPartById(footerId) as FooterPart, true);
             }
 
-            if (allowFallback && mainPart.FooterParts.Count() == 1)
-            {
-                return mainPart.FooterParts.FirstOrDefault();
-            }
-
-            return null;
+            return (null, false);
         }
 
-        if (sectionProps.Elements<HeaderReference>().Any(item => item.Type?.Value == HeaderFooterValues.Even)
-            || sectionProps.Elements<FooterReference>().Any(item => item.Type?.Value == HeaderFooterValues.Even))
+        var hasEvenHeader = HasHeaderReference(sectionProps, HeaderFooterValues.Even);
+        var hasEvenFooter = HasFooterReference(sectionProps, HeaderFooterValues.Even);
+        if (hasEvenHeader || hasEvenFooter)
         {
             document.EvenAndOddHeaders = true;
         }
 
-        PopulateHeader(section.Header, ResolveHeaderPart(mainPart, sectionProps, HeaderFooterValues.Default, true), listResolver, styleResolver, document.Revisions, placeholderResolver, document.ThemeColors);
-        PopulateFooter(section.Footer, ResolveFooterPart(mainPart, sectionProps, HeaderFooterValues.Default, true), listResolver, styleResolver, document.Revisions, placeholderResolver, document.ThemeColors);
-        PopulateHeader(section.FirstHeader, ResolveHeaderPart(mainPart, sectionProps, HeaderFooterValues.First, false), listResolver, styleResolver, document.Revisions, placeholderResolver, document.ThemeColors);
-        PopulateFooter(section.FirstFooter, ResolveFooterPart(mainPart, sectionProps, HeaderFooterValues.First, false), listResolver, styleResolver, document.Revisions, placeholderResolver, document.ThemeColors);
-        PopulateHeader(section.EvenHeader, ResolveHeaderPart(mainPart, sectionProps, HeaderFooterValues.Even, false), listResolver, styleResolver, document.Revisions, placeholderResolver, document.ThemeColors);
-        PopulateFooter(section.EvenFooter, ResolveFooterPart(mainPart, sectionProps, HeaderFooterValues.Even, false), listResolver, styleResolver, document.Revisions, placeholderResolver, document.ThemeColors);
+        var (defaultHeaderPart, defaultHeaderDefined) = ResolveHeaderPart(mainPart, sectionProps, HeaderFooterValues.Default);
+        PopulateHeader(section.Header, defaultHeaderPart, defaultHeaderDefined, listResolver, styleResolver, document.Revisions, placeholderResolver, document.ThemeColors);
+
+        var (defaultFooterPart, defaultFooterDefined) = ResolveFooterPart(mainPart, sectionProps, HeaderFooterValues.Default);
+        PopulateFooter(section.Footer, defaultFooterPart, defaultFooterDefined, listResolver, styleResolver, document.Revisions, placeholderResolver, document.ThemeColors);
+
+        var (firstHeaderPart, firstHeaderDefined) = ResolveHeaderPart(mainPart, sectionProps, HeaderFooterValues.First);
+        firstHeaderDefined |= HasHeaderReference(sectionProps, HeaderFooterValues.First);
+        PopulateHeader(section.FirstHeader, firstHeaderPart, firstHeaderDefined, listResolver, styleResolver, document.Revisions, placeholderResolver, document.ThemeColors);
+
+        var (firstFooterPart, firstFooterDefined) = ResolveFooterPart(mainPart, sectionProps, HeaderFooterValues.First);
+        firstFooterDefined |= HasFooterReference(sectionProps, HeaderFooterValues.First);
+        PopulateFooter(section.FirstFooter, firstFooterPart, firstFooterDefined, listResolver, styleResolver, document.Revisions, placeholderResolver, document.ThemeColors);
+
+        var (evenHeaderPart, evenHeaderDefined) = ResolveHeaderPart(mainPart, sectionProps, HeaderFooterValues.Even);
+        evenHeaderDefined |= hasEvenHeader;
+        PopulateHeader(section.EvenHeader, evenHeaderPart, evenHeaderDefined, listResolver, styleResolver, document.Revisions, placeholderResolver, document.ThemeColors);
+
+        var (evenFooterPart, evenFooterDefined) = ResolveFooterPart(mainPart, sectionProps, HeaderFooterValues.Even);
+        evenFooterDefined |= hasEvenFooter;
+        PopulateFooter(section.EvenFooter, evenFooterPart, evenFooterDefined, listResolver, styleResolver, document.Revisions, placeholderResolver, document.ThemeColors);
     }
 
     private static void LoadDocumentSettings(MainDocumentPart? mainPart, VibeDocument document)
@@ -2101,9 +2129,11 @@ public sealed class DocxImporter
         var columns = sectionProps.GetFirstChild<Columns>();
         if (columns is not null)
         {
+            int? columnCount = null;
             if (columns.ColumnCount?.Value is not null)
             {
-                properties.ColumnCount = columns.ColumnCount.Value;
+                columnCount = columns.ColumnCount.Value;
+                properties.ColumnCount = columnCount.Value;
             }
 
             var columnSpaceTwips = TryParseTwips(columns.Space);
@@ -2122,7 +2152,15 @@ public sealed class DocxImporter
                 properties.ColumnSeparator = separator;
             }
 
-            foreach (var column in columns.Elements<Column>())
+            var columnElements = columns.Elements<Column>().ToList();
+            if (columnElements.Count > 0 && !columnCount.HasValue)
+            {
+                columnCount = columnElements.Count;
+                properties.ColumnCount = columnCount.Value;
+            }
+
+            List<float?>? columnSpaceOverrides = null;
+            foreach (var column in columnElements)
             {
                 var columnWidthTwips = TryParseTwips(column.Width);
                 if (columnWidthTwips.HasValue)
@@ -2130,19 +2168,40 @@ public sealed class DocxImporter
                     properties.ColumnWidths.Add(TwipsToDip(columnWidthTwips.Value));
                 }
 
-                if (!properties.ColumnGap.HasValue)
+                var columnSpace = TryParseTwips(column.Space);
+                if (columnSpaceOverrides is null)
                 {
-                    var columnSpace = TryParseTwips(column.Space);
-                    if (columnSpace.HasValue)
-                    {
-                        properties.ColumnGap = TwipsToDip(columnSpace.Value);
-                    }
+                    columnSpaceOverrides = new List<float?>(columnElements.Count);
+                }
+
+                columnSpaceOverrides.Add(columnSpace.HasValue ? TwipsToDip(columnSpace.Value) : null);
+            }
+
+            if (columnSpaceOverrides is not null && columnSpaceOverrides.Any(space => space.HasValue))
+            {
+                var resolvedCount = columnCount ?? columnSpaceOverrides.Count;
+                var gapCount = Math.Max(0, resolvedCount - 1);
+                for (var i = 0; i < gapCount; i++)
+                {
+                    var overrideValue = i < columnSpaceOverrides.Count ? columnSpaceOverrides[i] : null;
+                    properties.ColumnGaps.Add(overrideValue ?? float.NaN);
                 }
             }
 
-            if (!properties.ColumnCount.HasValue && properties.ColumnWidths.Count == 0)
+            if (!properties.ColumnCount.HasValue)
             {
-                properties.ColumnCount = 1;
+                if (properties.ColumnWidths.Count > 0)
+                {
+                    properties.ColumnCount = properties.ColumnWidths.Count;
+                }
+                else if (properties.ColumnGaps.Count > 0)
+                {
+                    properties.ColumnCount = properties.ColumnGaps.Count + 1;
+                }
+                else
+                {
+                    properties.ColumnCount = 1;
+                }
             }
         }
 
@@ -2358,10 +2417,21 @@ public sealed class DocxImporter
             target.ColumnEqualWidth = source.ColumnEqualWidth;
         }
 
+        if (source.ColumnSeparator.HasValue)
+        {
+            target.ColumnSeparator = source.ColumnSeparator;
+        }
+
         if (source.ColumnWidths.Count > 0)
         {
             target.ColumnWidths.Clear();
             target.ColumnWidths.AddRange(source.ColumnWidths);
+        }
+
+        if (source.ColumnGaps.Count > 0)
+        {
+            target.ColumnGaps.Clear();
+            target.ColumnGaps.AddRange(source.ColumnGaps);
         }
 
         if (source.DocGrid?.HasValues == true)
@@ -2451,11 +2521,23 @@ public sealed class DocxImporter
                     }
 
                     var type = style.Type?.Value ?? StyleValues.Paragraph;
+                    var quickStyle = ReadOnOffValue(style.PrimaryStyle);
                     var definition = new StyleDefinition(
                         styleId,
                         type,
                         style.BasedOn?.Val?.Value,
                         style.StyleName?.Val?.Value,
+                        style.GetFirstChild<NextParagraphStyle>()?.Val?.Value,
+                        style.GetFirstChild<StyleLink>()?.Val?.Value,
+                        style.UIPriority?.Val?.Value,
+                        quickStyle,
+                        ReadOnOffValue(style.GetFirstChild<SemiHidden>()),
+                        ReadOnOffValue(style.GetFirstChild<UnhideWhenUsed>()),
+                        ReadOnOffValue(style.GetFirstChild<AutoRedefine>()),
+                        ReadOnOffValue(style.GetFirstChild<Hidden>()),
+                        ReadOnOffValue(style.GetFirstChild<Locked>()),
+                        quickStyle,
+                        style.CustomStyle?.Value,
                         style.StyleRunProperties,
                         style.StyleParagraphProperties,
                         style.Elements<StyleTableProperties>().FirstOrDefault(),
@@ -2507,7 +2589,18 @@ public sealed class DocxImporter
                     var paragraphStyle = new ParagraphStyleDefinition(definition.Id)
                     {
                         Name = definition.Name,
-                        BasedOnId = definition.BasedOnId
+                        BasedOnId = definition.BasedOnId,
+                        NextStyleId = definition.NextStyleId,
+                        LinkedStyleId = definition.LinkedStyleId,
+                        UiPriority = definition.UiPriority,
+                        QuickStyle = definition.QuickStyle,
+                        SemiHidden = definition.SemiHidden,
+                        UnhideWhenUsed = definition.UnhideWhenUsed,
+                        AutoRedefine = definition.AutoRedefine,
+                        Hidden = definition.Hidden,
+                        Locked = definition.Locked,
+                        PrimaryStyle = definition.PrimaryStyle,
+                        CustomStyle = definition.CustomStyle
                     };
                     ApplyParagraphStyleProperties(definition.ParagraphProperties, paragraphStyle.ParagraphProperties);
                     ApplyRunStyleProperties(definition.RunProperties, paragraphStyle.RunProperties);
@@ -2518,7 +2611,18 @@ public sealed class DocxImporter
                     var characterStyle = new CharacterStyleDefinition(definition.Id)
                     {
                         Name = definition.Name,
-                        BasedOnId = definition.BasedOnId
+                        BasedOnId = definition.BasedOnId,
+                        NextStyleId = definition.NextStyleId,
+                        LinkedStyleId = definition.LinkedStyleId,
+                        UiPriority = definition.UiPriority,
+                        QuickStyle = definition.QuickStyle,
+                        SemiHidden = definition.SemiHidden,
+                        UnhideWhenUsed = definition.UnhideWhenUsed,
+                        AutoRedefine = definition.AutoRedefine,
+                        Hidden = definition.Hidden,
+                        Locked = definition.Locked,
+                        PrimaryStyle = definition.PrimaryStyle,
+                        CustomStyle = definition.CustomStyle
                     };
                     ApplyRunStyleProperties(definition.RunProperties, characterStyle.RunProperties);
                     _document.Styles.CharacterStyles[definition.Id] = characterStyle;
@@ -2528,7 +2632,18 @@ public sealed class DocxImporter
                     var tableStyle = new TableStyleDefinition(definition.Id)
                     {
                         Name = definition.Name,
-                        BasedOnId = definition.BasedOnId
+                        BasedOnId = definition.BasedOnId,
+                        NextStyleId = definition.NextStyleId,
+                        LinkedStyleId = definition.LinkedStyleId,
+                        UiPriority = definition.UiPriority,
+                        QuickStyle = definition.QuickStyle,
+                        SemiHidden = definition.SemiHidden,
+                        UnhideWhenUsed = definition.UnhideWhenUsed,
+                        AutoRedefine = definition.AutoRedefine,
+                        Hidden = definition.Hidden,
+                        Locked = definition.Locked,
+                        PrimaryStyle = definition.PrimaryStyle,
+                        CustomStyle = definition.CustomStyle
                     };
                     ApplyTableProperties(definition.TableProperties, tableStyle.TableProperties);
                     ApplyTableCellProperties(definition.TableCellProperties, tableStyle.CellProperties);
@@ -2660,6 +2775,17 @@ public sealed class DocxImporter
         StyleValues Type,
         string? BasedOnId,
         string? Name,
+        string? NextStyleId,
+        string? LinkedStyleId,
+        int? UiPriority,
+        bool? QuickStyle,
+        bool? SemiHidden,
+        bool? UnhideWhenUsed,
+        bool? AutoRedefine,
+        bool? Hidden,
+        bool? Locked,
+        bool? PrimaryStyle,
+        bool? CustomStyle,
         OpenXmlElement? RunProperties,
         OpenXmlElement? ParagraphProperties,
         StyleTableProperties? TableProperties,
@@ -3498,6 +3624,7 @@ public sealed class DocxImporter
         var underline = properties.GetFirstChild<Underline>();
         if (underline is not null)
         {
+            var hasUnderlineTheme = false;
             var underlineStyle = MapUnderlineStyle(underline.Val?.Value);
             style.UnderlineStyle = underlineStyle;
             style.Underline = underlineStyle != DocUnderlineStyle.None;
@@ -3506,6 +3633,31 @@ public sealed class DocxImporter
                 && TryParseHexColor(underlineColor, out var parsedUnderline))
             {
                 style.UnderlineColor = parsedUnderline;
+            }
+
+            if (underline.ThemeColor?.Value is ThemeColorValues underlineTheme && TryMapThemeColor(underlineTheme, out var mappedUnderline))
+            {
+                style.UnderlineThemeColor = mappedUnderline;
+                hasUnderlineTheme = true;
+            }
+
+            if (TryParseHexByte(underline.ThemeTint?.Value, out var underlineTint))
+            {
+                style.UnderlineThemeTint = underlineTint;
+                hasUnderlineTheme = true;
+            }
+
+            if (TryParseHexByte(underline.ThemeShade?.Value, out var underlineShade))
+            {
+                style.UnderlineThemeShade = underlineShade;
+                hasUnderlineTheme = true;
+            }
+
+            if (style.UnderlineColor.HasValue && !hasUnderlineTheme)
+            {
+                style.UnderlineThemeColor = null;
+                style.UnderlineThemeTint = null;
+                style.UnderlineThemeShade = null;
             }
         }
 
@@ -3535,12 +3687,39 @@ public sealed class DocxImporter
             style.FontSizeComplexScript = HalfPointsToDip(halfPointsCs);
         }
 
-        var color = properties.GetFirstChild<Color>()?.Val?.Value;
+        var colorElement = properties.GetFirstChild<Color>();
+        var hasThemeColor = false;
+        if (colorElement?.ThemeColor?.Value is ThemeColorValues themeColor && TryMapThemeColor(themeColor, out var mappedColor))
+        {
+            style.ThemeColor = mappedColor;
+            hasThemeColor = true;
+        }
+
+        if (TryParseHexByte(colorElement?.ThemeTint?.Value, out var themeTint))
+        {
+            style.ThemeTint = themeTint;
+            hasThemeColor = true;
+        }
+
+        if (TryParseHexByte(colorElement?.ThemeShade?.Value, out var themeShade))
+        {
+            style.ThemeShade = themeShade;
+            hasThemeColor = true;
+        }
+
+        var color = colorElement?.Val?.Value;
         if (!string.IsNullOrWhiteSpace(color) && !color.Equals("auto", StringComparison.OrdinalIgnoreCase))
         {
             if (TryParseHexColor(color, out var parsed))
             {
                 style.Color = parsed;
+            }
+
+            if (!hasThemeColor)
+            {
+                style.ThemeColor = null;
+                style.ThemeTint = null;
+                style.ThemeShade = null;
             }
         }
 
@@ -3550,10 +3729,46 @@ public sealed class DocxImporter
             style.VerticalPosition = MapVerticalPosition(verticalAlign.Value);
         }
 
+        var position = properties.GetFirstChild<Position>();
+        if (TryParseHalfPoints(position?.Val?.Value, out var positionValue))
+        {
+            style.BaselineOffset = positionValue;
+        }
+
+        var kern = properties.GetFirstChild<Kern>();
+        if (kern?.Val?.Value is uint kernValue)
+        {
+            style.Kerning = HalfPointsToDip(kernValue);
+        }
+
+        var scale = properties.GetFirstChild<CharacterScale>();
+        if (scale?.Val?.Value is long scaleValue && scaleValue > 0)
+        {
+            style.HorizontalScale = scaleValue / 100f;
+        }
+
+        var spacing = properties.GetFirstChild<Spacing>();
+        if (spacing?.Val?.Value is int spacingValue)
+        {
+            style.LetterSpacing = TwipsToDip(spacingValue);
+        }
+
         var smallCaps = properties.GetFirstChild<SmallCaps>();
         if (smallCaps is not null)
         {
             style.SmallCaps = smallCaps.Val?.Value != false;
+        }
+
+        var caps = properties.GetFirstChild<Caps>();
+        if (caps is not null)
+        {
+            style.Caps = caps.Val?.Value != false;
+        }
+
+        var vanish = properties.GetFirstChild<Vanish>();
+        if (vanish is not null)
+        {
+            style.Hidden = vanish.Val?.Value != false;
         }
 
         var highlight = properties.GetFirstChild<Highlight>()?.Val?.Value;
@@ -3684,6 +3899,7 @@ public sealed class DocxImporter
         var underline = properties.GetFirstChild<Underline>();
         if (underline is not null)
         {
+            var hasUnderlineTheme = false;
             var underlineStyle = MapUnderlineStyle(underline.Val?.Value);
             style.UnderlineStyle = underlineStyle;
             style.Underline = underlineStyle != DocUnderlineStyle.None;
@@ -3692,6 +3908,31 @@ public sealed class DocxImporter
                 && TryParseHexColor(underlineColor, out var parsedUnderline))
             {
                 style.UnderlineColor = parsedUnderline;
+            }
+
+            if (underline.ThemeColor?.Value is ThemeColorValues underlineTheme && TryMapThemeColor(underlineTheme, out var mappedUnderline))
+            {
+                style.UnderlineThemeColor = mappedUnderline;
+                hasUnderlineTheme = true;
+            }
+
+            if (TryParseHexByte(underline.ThemeTint?.Value, out var underlineTint))
+            {
+                style.UnderlineThemeTint = underlineTint;
+                hasUnderlineTheme = true;
+            }
+
+            if (TryParseHexByte(underline.ThemeShade?.Value, out var underlineShade))
+            {
+                style.UnderlineThemeShade = underlineShade;
+                hasUnderlineTheme = true;
+            }
+
+            if (style.UnderlineColor.HasValue && !hasUnderlineTheme)
+            {
+                style.UnderlineThemeColor = null;
+                style.UnderlineThemeTint = null;
+                style.UnderlineThemeShade = null;
             }
         }
 
@@ -3721,12 +3962,39 @@ public sealed class DocxImporter
             style.FontSizeComplexScript = HalfPointsToDip(halfPointsCs);
         }
 
-        var color = properties.GetFirstChild<Color>()?.Val?.Value;
+        var colorElement = properties.GetFirstChild<Color>();
+        var hasThemeColor = false;
+        if (colorElement?.ThemeColor?.Value is ThemeColorValues themeColor && TryMapThemeColor(themeColor, out var mappedColor))
+        {
+            style.ThemeColor = mappedColor;
+            hasThemeColor = true;
+        }
+
+        if (TryParseHexByte(colorElement?.ThemeTint?.Value, out var themeTint))
+        {
+            style.ThemeTint = themeTint;
+            hasThemeColor = true;
+        }
+
+        if (TryParseHexByte(colorElement?.ThemeShade?.Value, out var themeShade))
+        {
+            style.ThemeShade = themeShade;
+            hasThemeColor = true;
+        }
+
+        var color = colorElement?.Val?.Value;
         if (!string.IsNullOrWhiteSpace(color) && !color.Equals("auto", StringComparison.OrdinalIgnoreCase))
         {
             if (TryParseHexColor(color, out var parsed))
             {
                 style.Color = parsed;
+            }
+
+            if (!hasThemeColor)
+            {
+                style.ThemeColor = null;
+                style.ThemeTint = null;
+                style.ThemeShade = null;
             }
         }
 
@@ -3736,10 +4004,46 @@ public sealed class DocxImporter
             style.VerticalPosition = MapVerticalPosition(verticalAlign.Value);
         }
 
+        var position = properties.GetFirstChild<Position>();
+        if (TryParseHalfPoints(position?.Val?.Value, out var positionValue))
+        {
+            style.BaselineOffset = positionValue;
+        }
+
+        var kern = properties.GetFirstChild<Kern>();
+        if (kern?.Val?.Value is uint kernValue)
+        {
+            style.Kerning = HalfPointsToDip(kernValue);
+        }
+
+        var scale = properties.GetFirstChild<CharacterScale>();
+        if (scale?.Val?.Value is long scaleValue && scaleValue > 0)
+        {
+            style.HorizontalScale = scaleValue / 100f;
+        }
+
+        var spacing = properties.GetFirstChild<Spacing>();
+        if (spacing?.Val?.Value is int spacingValue)
+        {
+            style.LetterSpacing = TwipsToDip(spacingValue);
+        }
+
         var smallCaps = properties.GetFirstChild<SmallCaps>();
         if (smallCaps is not null)
         {
             style.SmallCaps = smallCaps.Val?.Value != false;
+        }
+
+        var caps = properties.GetFirstChild<Caps>();
+        if (caps is not null)
+        {
+            style.Caps = caps.Val?.Value != false;
+        }
+
+        var vanish = properties.GetFirstChild<Vanish>();
+        if (vanish is not null)
+        {
+            style.Hidden = vanish.Val?.Value != false;
         }
 
         var highlight = properties.GetFirstChild<Highlight>()?.Val?.Value;
@@ -3911,6 +4215,50 @@ public sealed class DocxImporter
             return;
         }
 
+        var tableWidth = props.GetFirstChild<TableWidth>();
+        if (tableWidth is not null)
+        {
+            ApplyTableWidth(tableWidth, properties);
+        }
+
+        var tableIndent = props.GetFirstChild<TableIndentation>();
+        if (tableIndent is not null)
+        {
+            ApplyTableIndentation(tableIndent, properties);
+        }
+
+        var tableJustification = props.GetFirstChild<TableJustification>();
+        var tableAlignment = tableJustification?.Val?.Value;
+        if (tableAlignment is not null)
+        {
+            if (tableAlignment == TableRowAlignmentValues.Center)
+            {
+                properties.Alignment = Vibe.Office.Documents.TableAlignment.Center;
+            }
+            else if (tableAlignment == TableRowAlignmentValues.Right)
+            {
+                properties.Alignment = Vibe.Office.Documents.TableAlignment.Right;
+            }
+            else if (tableAlignment == TableRowAlignmentValues.Left)
+            {
+                properties.Alignment = Vibe.Office.Documents.TableAlignment.Left;
+            }
+        }
+
+        var tableLayout = props.GetFirstChild<TableLayout>();
+        if (tableLayout?.Type?.Value is TableLayoutValues layoutType)
+        {
+            properties.LayoutMode = layoutType == TableLayoutValues.Fixed
+                ? Vibe.Office.Documents.TableLayoutMode.Fixed
+                : Vibe.Office.Documents.TableLayoutMode.Auto;
+        }
+
+        var cellSpacing = props.GetFirstChild<TableCellSpacing>();
+        if (cellSpacing is not null)
+        {
+            ApplyTableCellSpacing(cellSpacing, properties);
+        }
+
         var borders = props.GetFirstChild<OpenXmlTableBorders>();
         if (borders is not null)
         {
@@ -3957,6 +4305,91 @@ public sealed class DocxImporter
                 BandedRows = !(look.NoHorizontalBand?.Value ?? false),
                 BandedColumns = !(look.NoVerticalBand?.Value ?? false)
             };
+        }
+    }
+
+    private static void ApplyTableWidth(TableWidth tableWidth, Vibe.Office.Documents.TableProperties properties)
+    {
+        var widthType = tableWidth.Type?.Value;
+        if (widthType == TableWidthUnitValues.Auto)
+        {
+            properties.Width = null;
+            properties.WidthUnit = Vibe.Office.Documents.TableWidthUnit.Auto;
+            return;
+        }
+
+        if (widthType == TableWidthUnitValues.Dxa)
+        {
+            var twips = TryParseTwips(tableWidth.Width);
+            if (twips.HasValue)
+            {
+                properties.Width = TwipsToDip(twips.Value);
+                properties.WidthUnit = Vibe.Office.Documents.TableWidthUnit.Dxa;
+            }
+
+            return;
+        }
+
+        if (widthType == TableWidthUnitValues.Pct)
+        {
+            var percent = TryParseTablePercentage(tableWidth.Width);
+            if (percent.HasValue)
+            {
+                properties.Width = percent.Value;
+                properties.WidthUnit = Vibe.Office.Documents.TableWidthUnit.Pct;
+            }
+        }
+    }
+
+    private static void ApplyTableIndentation(TableIndentation indentation, Vibe.Office.Documents.TableProperties properties)
+    {
+        var indentType = indentation.Type?.Value;
+        if (indentType == TableWidthUnitValues.Dxa)
+        {
+            var twips = TryParseTwips(indentation.Width);
+            if (twips.HasValue)
+            {
+                properties.Indent = TwipsToDip(twips.Value);
+                properties.IndentUnit = Vibe.Office.Documents.TableWidthUnit.Dxa;
+            }
+
+            return;
+        }
+
+        if (indentType == TableWidthUnitValues.Pct)
+        {
+            var percent = TryParseTablePercentage(indentation.Width);
+            if (percent.HasValue)
+            {
+                properties.Indent = percent.Value;
+                properties.IndentUnit = Vibe.Office.Documents.TableWidthUnit.Pct;
+            }
+        }
+    }
+
+    private static void ApplyTableCellSpacing(TableCellSpacing spacing, Vibe.Office.Documents.TableProperties properties)
+    {
+        var spacingType = spacing.Type?.Value;
+        if (spacingType == TableWidthUnitValues.Dxa)
+        {
+            var twips = TryParseTwips(spacing.Width);
+            if (twips.HasValue)
+            {
+                properties.CellSpacing = TwipsToDip(twips.Value);
+                properties.CellSpacingUnit = Vibe.Office.Documents.TableWidthUnit.Dxa;
+            }
+
+            return;
+        }
+
+        if (spacingType == TableWidthUnitValues.Pct)
+        {
+            var percent = TryParseTablePercentage(spacing.Width);
+            if (percent.HasValue)
+            {
+                properties.CellSpacing = percent.Value;
+                properties.CellSpacingUnit = Vibe.Office.Documents.TableWidthUnit.Pct;
+            }
         }
     }
 
@@ -4296,6 +4729,28 @@ public sealed class DocxImporter
         }
 
         return null;
+    }
+
+    private static float? TryParseTablePercentage(object? value)
+    {
+        string? raw = value switch
+        {
+            OpenXmlSimpleType simple => simple.InnerText,
+            string stringValue => stringValue,
+            _ => null
+        };
+
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return null;
+        }
+
+        if (!float.TryParse(raw, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var parsed))
+        {
+            return null;
+        }
+
+        return parsed / 50f;
     }
 
     private static BorderLine? ParseBorderLine(BorderType? border)
@@ -4972,6 +5427,35 @@ public sealed class DocxImporter
         return points * 96f / 72f;
     }
 
+    private static bool? ReadOnOffValue(OpenXmlElement? element)
+    {
+        if (element is null)
+        {
+            return null;
+        }
+
+        return element switch
+        {
+            PrimaryStyle primary => ReadOnOffOnly(primary.Val),
+            SemiHidden semiHidden => ReadOnOffOnly(semiHidden.Val),
+            UnhideWhenUsed unhide => ReadOnOffOnly(unhide.Val),
+            AutoRedefine autoRedefine => ReadOnOffOnly(autoRedefine.Val),
+            Locked locked => ReadOnOffOnly(locked.Val),
+            Hidden hidden => hidden.Val?.Value ?? true,
+            _ => true
+        };
+    }
+
+    private static bool ReadOnOffOnly(EnumValue<OnOffOnlyValues>? value)
+    {
+        if (value is null)
+        {
+            return true;
+        }
+
+        return value.Value != OnOffOnlyValues.Off;
+    }
+
     private static bool TryParseHexColor(string value, out Vibe.Office.Primitives.DocColor color)
     {
         color = Vibe.Office.Primitives.DocColor.Black;
@@ -4989,6 +5473,112 @@ public sealed class DocxImporter
         var g = (byte)((packed >> 8) & 0xFF);
         var b = (byte)(packed & 0xFF);
         color = new Vibe.Office.Primitives.DocColor(r, g, b);
+        return true;
+    }
+
+    private static bool TryParseHexByte(string? value, out byte result)
+    {
+        result = 0;
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        return byte.TryParse(value, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out result);
+    }
+
+    private static bool TryMapThemeColor(ThemeColorValues value, out DocThemeColor themeColor)
+    {
+        if (value == ThemeColorValues.Dark1 || value == ThemeColorValues.Text1)
+        {
+            themeColor = DocThemeColor.Dark1;
+            return true;
+        }
+
+        if (value == ThemeColorValues.Light1 || value == ThemeColorValues.Background1)
+        {
+            themeColor = DocThemeColor.Light1;
+            return true;
+        }
+
+        if (value == ThemeColorValues.Dark2 || value == ThemeColorValues.Text2)
+        {
+            themeColor = DocThemeColor.Dark2;
+            return true;
+        }
+
+        if (value == ThemeColorValues.Light2 || value == ThemeColorValues.Background2)
+        {
+            themeColor = DocThemeColor.Light2;
+            return true;
+        }
+
+        if (value == ThemeColorValues.Accent1)
+        {
+            themeColor = DocThemeColor.Accent1;
+            return true;
+        }
+
+        if (value == ThemeColorValues.Accent2)
+        {
+            themeColor = DocThemeColor.Accent2;
+            return true;
+        }
+
+        if (value == ThemeColorValues.Accent3)
+        {
+            themeColor = DocThemeColor.Accent3;
+            return true;
+        }
+
+        if (value == ThemeColorValues.Accent4)
+        {
+            themeColor = DocThemeColor.Accent4;
+            return true;
+        }
+
+        if (value == ThemeColorValues.Accent5)
+        {
+            themeColor = DocThemeColor.Accent5;
+            return true;
+        }
+
+        if (value == ThemeColorValues.Accent6)
+        {
+            themeColor = DocThemeColor.Accent6;
+            return true;
+        }
+
+        if (value == ThemeColorValues.Hyperlink)
+        {
+            themeColor = DocThemeColor.Hyperlink;
+            return true;
+        }
+
+        if (value == ThemeColorValues.FollowedHyperlink)
+        {
+            themeColor = DocThemeColor.FollowedHyperlink;
+            return true;
+        }
+
+        themeColor = default;
+        return false;
+    }
+
+    private static bool TryParseHalfPoints(string? value, out float dipValue)
+    {
+        dipValue = 0f;
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        if (!float.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var halfPoints))
+        {
+            return false;
+        }
+
+        dipValue = HalfPointsToDip(halfPoints);
         return true;
     }
 

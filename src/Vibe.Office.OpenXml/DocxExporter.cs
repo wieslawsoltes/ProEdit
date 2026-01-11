@@ -52,7 +52,11 @@ public sealed class DocxExporter
         var hyperlinkWriter = new HyperlinkWriter(mainPart);
         var sectionParts = new Dictionary<int, SectionPartInfo>();
         var includeEvenHeaders = document.EvenAndOddHeaders
-            || document.Sections.Any(section => section.EvenHeader.Blocks.Count > 0 || section.EvenFooter.Blocks.Count > 0);
+            || document.Sections.Any(section =>
+                section.EvenHeader.IsDefined
+                || section.EvenFooter.IsDefined
+                || section.EvenHeader.Blocks.Count > 0
+                || section.EvenFooter.Blocks.Count > 0);
         EnsureDocumentSettings(mainPart, document, includeEvenHeaders);
         ApplyDocumentBackground(mainPart.Document, document);
 
@@ -64,12 +68,14 @@ public sealed class DocxExporter
             }
 
             var section = document.GetSection(sectionIndex);
+            var hasFirstHeader = section.FirstHeader.IsDefined || section.FirstHeader.Blocks.Count > 0;
+            var hasFirstFooter = section.FirstFooter.IsDefined || section.FirstFooter.Blocks.Count > 0;
             var useFirstHeaderFooter = section.Properties.DifferentFirstPageHeaderFooter == true
-                || section.FirstHeader.Blocks.Count > 0
-                || section.FirstFooter.Blocks.Count > 0;
+                || hasFirstHeader
+                || hasFirstFooter;
 
             string? headerId = null;
-            if (section.Header.Blocks.Count > 0)
+            if (section.Header.IsDefined || section.Header.Blocks.Count > 0)
             {
                 var headerPart = mainPart.AddNewPart<HeaderPart>();
                 var headerWriter = new ImageWriter(headerPart);
@@ -80,7 +86,7 @@ public sealed class DocxExporter
             }
 
             string? footerId = null;
-            if (section.Footer.Blocks.Count > 0)
+            if (section.Footer.IsDefined || section.Footer.Blocks.Count > 0)
             {
                 var footerPart = mainPart.AddNewPart<FooterPart>();
                 var footerWriter = new ImageWriter(footerPart);
@@ -94,38 +100,50 @@ public sealed class DocxExporter
             string? firstFooterId = null;
             if (useFirstHeaderFooter)
             {
-                var firstHeaderPart = mainPart.AddNewPart<HeaderPart>();
-                var firstHeaderWriter = new ImageWriter(firstHeaderPart);
-                var firstHeaderChartWriter = new ChartWriter(firstHeaderPart);
-                var firstHeaderLinkWriter = new HyperlinkWriter(firstHeaderPart);
-                firstHeaderPart.Header = CreateHeader(section.FirstHeader, numberingContext, firstHeaderWriter, firstHeaderChartWriter, firstHeaderLinkWriter, document.Fonts);
-                firstHeaderId = mainPart.GetIdOfPart(firstHeaderPart);
+                if (hasFirstHeader)
+                {
+                    var firstHeaderPart = mainPart.AddNewPart<HeaderPart>();
+                    var firstHeaderWriter = new ImageWriter(firstHeaderPart);
+                    var firstHeaderChartWriter = new ChartWriter(firstHeaderPart);
+                    var firstHeaderLinkWriter = new HyperlinkWriter(firstHeaderPart);
+                    firstHeaderPart.Header = CreateHeader(section.FirstHeader, numberingContext, firstHeaderWriter, firstHeaderChartWriter, firstHeaderLinkWriter, document.Fonts);
+                    firstHeaderId = mainPart.GetIdOfPart(firstHeaderPart);
+                }
 
-                var firstFooterPart = mainPart.AddNewPart<FooterPart>();
-                var firstFooterWriter = new ImageWriter(firstFooterPart);
-                var firstFooterChartWriter = new ChartWriter(firstFooterPart);
-                var firstFooterLinkWriter = new HyperlinkWriter(firstFooterPart);
-                firstFooterPart.Footer = CreateFooter(section.FirstFooter, numberingContext, firstFooterWriter, firstFooterChartWriter, firstFooterLinkWriter, document.Fonts);
-                firstFooterId = mainPart.GetIdOfPart(firstFooterPart);
+                if (hasFirstFooter)
+                {
+                    var firstFooterPart = mainPart.AddNewPart<FooterPart>();
+                    var firstFooterWriter = new ImageWriter(firstFooterPart);
+                    var firstFooterChartWriter = new ChartWriter(firstFooterPart);
+                    var firstFooterLinkWriter = new HyperlinkWriter(firstFooterPart);
+                    firstFooterPart.Footer = CreateFooter(section.FirstFooter, numberingContext, firstFooterWriter, firstFooterChartWriter, firstFooterLinkWriter, document.Fonts);
+                    firstFooterId = mainPart.GetIdOfPart(firstFooterPart);
+                }
             }
 
             string? evenHeaderId = null;
             string? evenFooterId = null;
             if (includeEvenHeaders)
             {
-                var evenHeaderPart = mainPart.AddNewPart<HeaderPart>();
-                var evenHeaderWriter = new ImageWriter(evenHeaderPart);
-                var evenHeaderChartWriter = new ChartWriter(evenHeaderPart);
-                var evenHeaderLinkWriter = new HyperlinkWriter(evenHeaderPart);
-                evenHeaderPart.Header = CreateHeader(section.EvenHeader, numberingContext, evenHeaderWriter, evenHeaderChartWriter, evenHeaderLinkWriter, document.Fonts);
-                evenHeaderId = mainPart.GetIdOfPart(evenHeaderPart);
+                if (section.EvenHeader.IsDefined || section.EvenHeader.Blocks.Count > 0)
+                {
+                    var evenHeaderPart = mainPart.AddNewPart<HeaderPart>();
+                    var evenHeaderWriter = new ImageWriter(evenHeaderPart);
+                    var evenHeaderChartWriter = new ChartWriter(evenHeaderPart);
+                    var evenHeaderLinkWriter = new HyperlinkWriter(evenHeaderPart);
+                    evenHeaderPart.Header = CreateHeader(section.EvenHeader, numberingContext, evenHeaderWriter, evenHeaderChartWriter, evenHeaderLinkWriter, document.Fonts);
+                    evenHeaderId = mainPart.GetIdOfPart(evenHeaderPart);
+                }
 
-                var evenFooterPart = mainPart.AddNewPart<FooterPart>();
-                var evenFooterWriter = new ImageWriter(evenFooterPart);
-                var evenFooterChartWriter = new ChartWriter(evenFooterPart);
-                var evenFooterLinkWriter = new HyperlinkWriter(evenFooterPart);
-                evenFooterPart.Footer = CreateFooter(section.EvenFooter, numberingContext, evenFooterWriter, evenFooterChartWriter, evenFooterLinkWriter, document.Fonts);
-                evenFooterId = mainPart.GetIdOfPart(evenFooterPart);
+                if (section.EvenFooter.IsDefined || section.EvenFooter.Blocks.Count > 0)
+                {
+                    var evenFooterPart = mainPart.AddNewPart<FooterPart>();
+                    var evenFooterWriter = new ImageWriter(evenFooterPart);
+                    var evenFooterChartWriter = new ChartWriter(evenFooterPart);
+                    var evenFooterLinkWriter = new HyperlinkWriter(evenFooterPart);
+                    evenFooterPart.Footer = CreateFooter(section.EvenFooter, numberingContext, evenFooterWriter, evenFooterChartWriter, evenFooterLinkWriter, document.Fonts);
+                    evenFooterId = mainPart.GetIdOfPart(evenFooterPart);
+                }
             }
 
             var info = new SectionPartInfo(headerId, footerId, firstHeaderId, firstFooterId, evenHeaderId, evenFooterId);
@@ -584,6 +602,20 @@ public sealed class DocxExporter
             element.Default = true;
         }
 
+        ApplyStyleMetadata(
+            element,
+            style.NextStyleId,
+            style.LinkedStyleId,
+            style.UiPriority,
+            style.QuickStyle,
+            style.SemiHidden,
+            style.UnhideWhenUsed,
+            style.AutoRedefine,
+            style.Hidden,
+            style.Locked,
+            style.PrimaryStyle,
+            style.CustomStyle);
+
         var paragraphProperties = BuildStyleParagraphProperties(style.ParagraphProperties);
         if (paragraphProperties is not null)
         {
@@ -619,6 +651,20 @@ public sealed class DocxExporter
             element.Default = true;
         }
 
+        ApplyStyleMetadata(
+            element,
+            style.NextStyleId,
+            style.LinkedStyleId,
+            style.UiPriority,
+            style.QuickStyle,
+            style.SemiHidden,
+            style.UnhideWhenUsed,
+            style.AutoRedefine,
+            style.Hidden,
+            style.Locked,
+            style.PrimaryStyle,
+            style.CustomStyle);
+
         var runProperties = BuildStyleRunProperties(style.RunProperties, fonts);
         if (runProperties is not null)
         {
@@ -648,6 +694,20 @@ public sealed class DocxExporter
             element.Default = true;
         }
 
+        ApplyStyleMetadata(
+            element,
+            style.NextStyleId,
+            style.LinkedStyleId,
+            style.UiPriority,
+            style.QuickStyle,
+            style.SemiHidden,
+            style.UnhideWhenUsed,
+            style.AutoRedefine,
+            style.Hidden,
+            style.Locked,
+            style.PrimaryStyle,
+            style.CustomStyle);
+
         var tableProperties = BuildStyleTableProperties(style.TableProperties);
         if (tableProperties is not null)
         {
@@ -672,6 +732,72 @@ public sealed class DocxExporter
         return element;
     }
 
+    private static void ApplyStyleMetadata(
+        Style element,
+        string? nextStyleId,
+        string? linkedStyleId,
+        int? uiPriority,
+        bool? quickStyle,
+        bool? semiHidden,
+        bool? unhideWhenUsed,
+        bool? autoRedefine,
+        bool? hidden,
+        bool? locked,
+        bool? primaryStyle,
+        bool? customStyle)
+    {
+        if (!string.IsNullOrWhiteSpace(nextStyleId))
+        {
+            element.AppendChild(new NextParagraphStyle { Val = nextStyleId });
+        }
+
+        if (!string.IsNullOrWhiteSpace(linkedStyleId))
+        {
+            element.AppendChild(new StyleLink { Val = linkedStyleId });
+        }
+
+        if (uiPriority.HasValue)
+        {
+            element.AppendChild(new UIPriority { Val = uiPriority.Value });
+        }
+
+        var qFormat = quickStyle ?? primaryStyle;
+        if (qFormat.HasValue)
+        {
+            element.AppendChild(new PrimaryStyle { Val = qFormat.Value ? OnOffOnlyValues.On : OnOffOnlyValues.Off });
+        }
+
+        if (semiHidden.HasValue)
+        {
+            element.AppendChild(new SemiHidden { Val = semiHidden.Value ? OnOffOnlyValues.On : OnOffOnlyValues.Off });
+        }
+
+        if (unhideWhenUsed.HasValue)
+        {
+            element.AppendChild(new UnhideWhenUsed { Val = unhideWhenUsed.Value ? OnOffOnlyValues.On : OnOffOnlyValues.Off });
+        }
+
+        if (autoRedefine.HasValue)
+        {
+            element.AppendChild(new AutoRedefine { Val = autoRedefine.Value ? OnOffOnlyValues.On : OnOffOnlyValues.Off });
+        }
+
+        if (hidden.HasValue)
+        {
+            element.AppendChild(new Hidden { Val = hidden.Value });
+        }
+
+        if (locked.HasValue)
+        {
+            element.AppendChild(new Locked { Val = locked.Value ? OnOffOnlyValues.On : OnOffOnlyValues.Off });
+        }
+
+        if (customStyle.HasValue)
+        {
+            element.CustomStyle = customStyle.Value;
+        }
+    }
+
     private static StyleTableProperties? BuildStyleTableProperties(Vibe.Office.Documents.TableProperties properties)
     {
         if (!HasTableProperties(properties))
@@ -680,6 +806,24 @@ public sealed class DocxExporter
         }
 
         var props = new StyleTableProperties();
+        var tableJustification = BuildTableJustification(properties.Alignment);
+        if (tableJustification is not null)
+        {
+            props.TableJustification = tableJustification;
+        }
+
+        var tableIndentation = BuildTableIndentation(properties.Indent, properties.IndentUnit);
+        if (tableIndentation is not null)
+        {
+            props.TableIndentation = tableIndentation;
+        }
+
+        var tableCellSpacing = BuildTableCellSpacing(properties.CellSpacing, properties.CellSpacingUnit);
+        if (tableCellSpacing is not null)
+        {
+            props.TableCellSpacing = tableCellSpacing;
+        }
+
         var borders = BuildTableBorders(properties.Borders);
         if (borders is not null)
         {
@@ -766,6 +910,24 @@ public sealed class DocxExporter
         }
 
         var props = new TableStyleConditionalFormattingTableProperties();
+        var tableJustification = BuildTableJustification(properties.Alignment);
+        if (tableJustification is not null)
+        {
+            props.TableJustification = tableJustification;
+        }
+
+        var tableIndentation = BuildTableIndentation(properties.Indent, properties.IndentUnit);
+        if (tableIndentation is not null)
+        {
+            props.TableIndentation = tableIndentation;
+        }
+
+        var tableCellSpacing = BuildTableCellSpacing(properties.CellSpacing, properties.CellSpacingUnit);
+        if (tableCellSpacing is not null)
+        {
+            props.TableCellSpacing = tableCellSpacing;
+        }
+
         var borders = BuildTableBorders(properties.Borders);
         if (borders is not null)
         {
@@ -2830,6 +2992,7 @@ public sealed class DocxExporter
                 underline.Color = ColorToHex(style.UnderlineColor.Value);
             }
 
+            ApplyThemeColor(underline, style.UnderlineThemeColor, style.UnderlineThemeTint, style.UnderlineThemeShade);
             props.Underline = underline;
         }
 
@@ -2856,9 +3019,40 @@ public sealed class DocxExporter
             };
         }
 
+        if (style.BaselineOffset.HasValue && MathF.Abs(style.BaselineOffset.Value) > 0.01f)
+        {
+            props.Position = new Position { Val = DipToHalfPoints(style.BaselineOffset.Value) };
+        }
+
+        if (style.Kerning.HasValue && MathF.Abs(style.Kerning.Value) > 0.01f)
+        {
+            props.Kern = new Kern { Val = DipToHalfPointsUInt32(style.Kerning.Value) };
+        }
+
+        if (style.HorizontalScale.HasValue && style.HorizontalScale.Value > 0f
+            && MathF.Abs(style.HorizontalScale.Value - 1f) > 0.001f)
+        {
+            props.CharacterScale = new CharacterScale { Val = (int)Math.Round(style.HorizontalScale.Value * 100f) };
+        }
+
+        if (style.LetterSpacing.HasValue && MathF.Abs(style.LetterSpacing.Value) > 0.01f)
+        {
+            props.Spacing = new Spacing { Val = DipToTwipsInt32(style.LetterSpacing.Value) };
+        }
+
         if (style.SmallCaps.HasValue)
         {
             props.SmallCaps = new SmallCaps { Val = style.SmallCaps.Value };
+        }
+
+        if (style.Caps.HasValue)
+        {
+            props.Caps = new Caps { Val = style.Caps.Value };
+        }
+
+        if (style.Hidden.HasValue)
+        {
+            props.Vanish = new Vanish { Val = style.Hidden.Value };
         }
 
         var runFonts = BuildRunFonts(
@@ -2877,9 +3071,10 @@ public sealed class DocxExporter
             props.RunFonts = runFonts;
         }
 
-        if (style.Color.HasValue && !style.Color.Value.Equals(Vibe.Office.Primitives.DocColor.Black))
+        var color = BuildRunColor(style.Color, style.ThemeColor, style.ThemeTint, style.ThemeShade, skipDefaultBlack: true);
+        if (color is not null)
         {
-            props.Color = new Color { Val = ColorToHex(style.Color.Value) };
+            props.Color = color;
         }
 
         if (style.HighlightColor.HasValue)
@@ -2949,6 +3144,7 @@ public sealed class DocxExporter
                 underline.Color = ColorToHex(style.UnderlineColor.Value);
             }
 
+            ApplyThemeColor(underline, style.UnderlineThemeColor, style.UnderlineThemeTint, style.UnderlineThemeShade);
             props.Underline = underline;
         }
 
@@ -2975,9 +3171,39 @@ public sealed class DocxExporter
             };
         }
 
+        if (MathF.Abs(style.BaselineOffset) > 0.01f)
+        {
+            props.Position = new Position { Val = DipToHalfPoints(style.BaselineOffset) };
+        }
+
+        if (style.Kerning.HasValue && MathF.Abs(style.Kerning.Value) > 0.01f)
+        {
+            props.Kern = new Kern { Val = DipToHalfPointsUInt32(style.Kerning.Value) };
+        }
+
+        if (style.HorizontalScale > 0f && MathF.Abs(style.HorizontalScale - 1f) > 0.001f)
+        {
+            props.CharacterScale = new CharacterScale { Val = (int)Math.Round(style.HorizontalScale * 100f) };
+        }
+
+        if (MathF.Abs(style.LetterSpacing) > 0.01f)
+        {
+            props.Spacing = new Spacing { Val = DipToTwipsInt32(style.LetterSpacing) };
+        }
+
         if (style.SmallCaps)
         {
             props.SmallCaps = new SmallCaps { Val = true };
+        }
+
+        if (style.Caps)
+        {
+            props.Caps = new Caps { Val = true };
+        }
+
+        if (style.Hidden)
+        {
+            props.Vanish = new Vanish { Val = true };
         }
 
         var runFonts = BuildRunFonts(
@@ -2996,9 +3222,10 @@ public sealed class DocxExporter
             props.RunFonts = runFonts;
         }
 
-        if (!style.Color.Equals(Vibe.Office.Primitives.DocColor.Black))
+        var color = BuildRunColor(style.Color, style.ThemeColor, style.ThemeTint, style.ThemeShade, skipDefaultBlack: true);
+        if (color is not null)
         {
-            props.Color = new Color { Val = ColorToHex(style.Color) };
+            props.Color = color;
         }
 
         if (style.HighlightColor.HasValue)
@@ -3059,6 +3286,7 @@ public sealed class DocxExporter
                 underline.Color = ColorToHex(style.UnderlineColor.Value);
             }
 
+            ApplyThemeColor(underline, style.UnderlineThemeColor, style.UnderlineThemeTint, style.UnderlineThemeShade);
             props.Underline = underline;
         }
 
@@ -3085,9 +3313,40 @@ public sealed class DocxExporter
             };
         }
 
+        if (style.BaselineOffset.HasValue && MathF.Abs(style.BaselineOffset.Value) > 0.01f)
+        {
+            props.Position = new Position { Val = DipToHalfPoints(style.BaselineOffset.Value) };
+        }
+
+        if (style.Kerning.HasValue && MathF.Abs(style.Kerning.Value) > 0.01f)
+        {
+            props.Kern = new Kern { Val = DipToHalfPointsUInt32(style.Kerning.Value) };
+        }
+
+        if (style.HorizontalScale.HasValue && style.HorizontalScale.Value > 0f
+            && MathF.Abs(style.HorizontalScale.Value - 1f) > 0.001f)
+        {
+            props.CharacterScale = new CharacterScale { Val = (int)Math.Round(style.HorizontalScale.Value * 100f) };
+        }
+
+        if (style.LetterSpacing.HasValue && MathF.Abs(style.LetterSpacing.Value) > 0.01f)
+        {
+            props.Spacing = new Spacing { Val = DipToTwipsInt32(style.LetterSpacing.Value) };
+        }
+
         if (style.SmallCaps.HasValue)
         {
             props.SmallCaps = new SmallCaps { Val = style.SmallCaps.Value };
+        }
+
+        if (style.Caps.HasValue)
+        {
+            props.Caps = new Caps { Val = style.Caps.Value };
+        }
+
+        if (style.Hidden.HasValue)
+        {
+            props.Vanish = new Vanish { Val = style.Hidden.Value };
         }
 
         var runFonts = BuildRunFonts(
@@ -3106,9 +3365,10 @@ public sealed class DocxExporter
             props.RunFonts = runFonts;
         }
 
-        if (style.Color.HasValue && !style.Color.Value.Equals(Vibe.Office.Primitives.DocColor.Black))
+        var color = BuildRunColor(style.Color, style.ThemeColor, style.ThemeTint, style.ThemeShade, skipDefaultBlack: true);
+        if (color is not null)
         {
-            props.Color = new Color { Val = ColorToHex(style.Color.Value) };
+            props.Color = color;
         }
 
         if (style.HighlightColor.HasValue)
@@ -3164,6 +3424,7 @@ public sealed class DocxExporter
                 underline.Color = ColorToHex(style.UnderlineColor.Value);
             }
 
+            ApplyThemeColor(underline, style.UnderlineThemeColor, style.UnderlineThemeTint, style.UnderlineThemeShade);
             props.Underline = underline;
         }
 
@@ -3190,9 +3451,39 @@ public sealed class DocxExporter
             };
         }
 
+        if (MathF.Abs(style.BaselineOffset) > 0.01f)
+        {
+            props.Position = new Position { Val = DipToHalfPoints(style.BaselineOffset) };
+        }
+
+        if (style.Kerning.HasValue && MathF.Abs(style.Kerning.Value) > 0.01f)
+        {
+            props.Kern = new Kern { Val = DipToHalfPointsUInt32(style.Kerning.Value) };
+        }
+
+        if (style.HorizontalScale > 0f && MathF.Abs(style.HorizontalScale - 1f) > 0.001f)
+        {
+            props.CharacterScale = new CharacterScale { Val = (int)Math.Round(style.HorizontalScale * 100f) };
+        }
+
+        if (MathF.Abs(style.LetterSpacing) > 0.01f)
+        {
+            props.Spacing = new Spacing { Val = DipToTwipsInt32(style.LetterSpacing) };
+        }
+
         if (style.SmallCaps)
         {
             props.SmallCaps = new SmallCaps { Val = true };
+        }
+
+        if (style.Caps)
+        {
+            props.Caps = new Caps { Val = true };
+        }
+
+        if (style.Hidden)
+        {
+            props.Vanish = new Vanish { Val = true };
         }
 
         var runFonts = BuildRunFonts(
@@ -3211,9 +3502,10 @@ public sealed class DocxExporter
             props.RunFonts = runFonts;
         }
 
-        if (!style.Color.Equals(Vibe.Office.Primitives.DocColor.Black))
+        var color = BuildRunColor(style.Color, style.ThemeColor, style.ThemeTint, style.ThemeShade, skipDefaultBlack: true);
+        if (color is not null)
         {
-            props.Color = new Color { Val = ColorToHex(style.Color) };
+            props.Color = color;
         }
 
         if (style.HighlightColor.HasValue)
@@ -4224,9 +4516,111 @@ public sealed class DocxExporter
         return ((int)Math.Round(halfPoints)).ToString();
     }
 
+    private static UInt32Value DipToHalfPointsUInt32(float value)
+    {
+        var points = value / (96f / 72f);
+        var halfPoints = points * 2f;
+        var rounded = Math.Max(0d, Math.Round(halfPoints));
+        return (uint)rounded;
+    }
+
     private static string ColorToHex(Vibe.Office.Primitives.DocColor color)
     {
         return $"{color.R:X2}{color.G:X2}{color.B:X2}";
+    }
+
+    private static string ByteToHex(byte value)
+    {
+        return value.ToString("X2", System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    private static ThemeColorValues MapThemeColorValue(DocThemeColor color)
+    {
+        return color switch
+        {
+            DocThemeColor.Dark1 => ThemeColorValues.Dark1,
+            DocThemeColor.Light1 => ThemeColorValues.Light1,
+            DocThemeColor.Dark2 => ThemeColorValues.Dark2,
+            DocThemeColor.Light2 => ThemeColorValues.Light2,
+            DocThemeColor.Accent1 => ThemeColorValues.Accent1,
+            DocThemeColor.Accent2 => ThemeColorValues.Accent2,
+            DocThemeColor.Accent3 => ThemeColorValues.Accent3,
+            DocThemeColor.Accent4 => ThemeColorValues.Accent4,
+            DocThemeColor.Accent5 => ThemeColorValues.Accent5,
+            DocThemeColor.Accent6 => ThemeColorValues.Accent6,
+            DocThemeColor.Hyperlink => ThemeColorValues.Hyperlink,
+            DocThemeColor.FollowedHyperlink => ThemeColorValues.FollowedHyperlink,
+            _ => ThemeColorValues.Dark1
+        };
+    }
+
+    private static void ApplyThemeColor(Color element, DocThemeColor? themeColor, byte? tint, byte? shade)
+    {
+        if (!themeColor.HasValue)
+        {
+            return;
+        }
+
+        element.ThemeColor = MapThemeColorValue(themeColor.Value);
+        if (tint.HasValue)
+        {
+            element.ThemeTint = ByteToHex(tint.Value);
+        }
+
+        if (shade.HasValue)
+        {
+            element.ThemeShade = ByteToHex(shade.Value);
+        }
+    }
+
+    private static void ApplyThemeColor(Underline element, DocThemeColor? themeColor, byte? tint, byte? shade)
+    {
+        if (!themeColor.HasValue)
+        {
+            return;
+        }
+
+        element.ThemeColor = MapThemeColorValue(themeColor.Value);
+        if (tint.HasValue)
+        {
+            element.ThemeTint = ByteToHex(tint.Value);
+        }
+
+        if (shade.HasValue)
+        {
+            element.ThemeShade = ByteToHex(shade.Value);
+        }
+
+        if (string.IsNullOrWhiteSpace(element.Color?.Value))
+        {
+            element.Color = "auto";
+        }
+    }
+
+    private static Color? BuildRunColor(
+        DocColor? color,
+        DocThemeColor? themeColor,
+        byte? tint,
+        byte? shade,
+        bool skipDefaultBlack)
+    {
+        Color? element = null;
+        if (color.HasValue && (!skipDefaultBlack || !color.Value.Equals(Vibe.Office.Primitives.DocColor.Black)))
+        {
+            element = new Color { Val = ColorToHex(color.Value) };
+        }
+
+        if (themeColor.HasValue)
+        {
+            element ??= new Color();
+            ApplyThemeColor(element, themeColor, tint, shade);
+            if (string.IsNullOrWhiteSpace(element.Val?.Value))
+            {
+                element.Val = color.HasValue ? ColorToHex(color.Value) : "auto";
+            }
+        }
+
+        return element;
     }
 
     private static void ApplySectionProperties(DocumentFormat.OpenXml.Wordprocessing.SectionProperties target, Vibe.Office.Documents.SectionProperties properties)
@@ -4301,12 +4695,19 @@ public sealed class DocxExporter
             || properties.ColumnGap.HasValue
             || properties.ColumnEqualWidth.HasValue
             || properties.ColumnSeparator.HasValue
-            || properties.ColumnWidths.Count > 0)
+            || properties.ColumnWidths.Count > 0
+            || properties.ColumnGaps.Count > 0)
         {
             var columns = target.GetFirstChild<Columns>() ?? target.AppendChild(new Columns());
-            if (properties.ColumnCount.HasValue)
+            var resolvedColumnCount = properties.ColumnCount
+                ?? (properties.ColumnWidths.Count > 0
+                    ? properties.ColumnWidths.Count
+                    : properties.ColumnGaps.Count > 0
+                        ? properties.ColumnGaps.Count + 1
+                        : 1);
+            if (properties.ColumnCount.HasValue || resolvedColumnCount > 1)
             {
-                var count = (short)Math.Clamp(properties.ColumnCount.Value, short.MinValue, short.MaxValue);
+                var count = (short)Math.Clamp(resolvedColumnCount, short.MinValue, short.MaxValue);
                 columns.ColumnCount = new Int16Value(count);
             }
 
@@ -4325,12 +4726,25 @@ public sealed class DocxExporter
                 columns.Separator = properties.ColumnSeparator.Value;
             }
 
-            if (properties.ColumnWidths.Count > 0)
+            if (properties.ColumnWidths.Count > 0 || properties.ColumnGaps.Count > 0)
             {
                 columns.RemoveAllChildren<Column>();
-                foreach (var width in properties.ColumnWidths)
+                var columnElementCount = Math.Max(properties.ColumnWidths.Count, properties.ColumnGaps.Count > 0 ? properties.ColumnGaps.Count + 1 : 0);
+                columnElementCount = Math.Max(columnElementCount, resolvedColumnCount);
+                for (var i = 0; i < columnElementCount; i++)
                 {
-                    columns.AppendChild(new Column { Width = DipToTwips(width) });
+                    var column = new Column();
+                    if (i < properties.ColumnWidths.Count)
+                    {
+                        column.Width = DipToTwips(properties.ColumnWidths[i]);
+                    }
+
+                    if (i < properties.ColumnGaps.Count && !float.IsNaN(properties.ColumnGaps[i]))
+                    {
+                        column.Space = DipToTwips(properties.ColumnGaps[i]);
+                    }
+
+                    columns.AppendChild(column);
                 }
             }
         }
@@ -4411,6 +4825,36 @@ public sealed class DocxExporter
             props.TableStyle = new TableStyle { Val = styleId };
         }
 
+        var tableWidth = BuildTableWidth(properties.Width, properties.WidthUnit);
+        if (tableWidth is not null)
+        {
+            props.TableWidth = tableWidth;
+        }
+
+        var tableJustification = BuildTableJustification(properties.Alignment);
+        if (tableJustification is not null)
+        {
+            props.TableJustification = tableJustification;
+        }
+
+        var tableIndentation = BuildTableIndentation(properties.Indent, properties.IndentUnit);
+        if (tableIndentation is not null)
+        {
+            props.TableIndentation = tableIndentation;
+        }
+
+        var tableLayout = BuildTableLayout(properties.LayoutMode);
+        if (tableLayout is not null)
+        {
+            props.TableLayout = tableLayout;
+        }
+
+        var tableCellSpacing = BuildTableCellSpacing(properties.CellSpacing, properties.CellSpacingUnit);
+        if (tableCellSpacing is not null)
+        {
+            props.TableCellSpacing = tableCellSpacing;
+        }
+
         var borders = BuildTableBorders(properties.Borders);
         if (borders is not null)
         {
@@ -4442,6 +4886,102 @@ public sealed class DocxExporter
         }
 
         return props.ChildElements.Count > 0 ? props : null;
+    }
+
+    private static TableWidth? BuildTableWidth(float? width, TableWidthUnit? unit)
+    {
+        if (!unit.HasValue && !width.HasValue)
+        {
+            return null;
+        }
+
+        var resolvedUnit = unit ?? TableWidthUnit.Dxa;
+        return resolvedUnit switch
+        {
+            TableWidthUnit.Auto => new TableWidth { Width = "0", Type = TableWidthUnitValues.Auto },
+            TableWidthUnit.Dxa => width.HasValue
+                ? new TableWidth { Width = DipToTwips(width.Value), Type = TableWidthUnitValues.Dxa }
+                : null,
+            TableWidthUnit.Pct => width.HasValue
+                ? new TableWidth { Width = PercentToTableWidth(width.Value), Type = TableWidthUnitValues.Pct }
+                : null,
+            _ => null
+        };
+    }
+
+    private static TableIndentation? BuildTableIndentation(float? indent, TableWidthUnit? unit)
+    {
+        if (!indent.HasValue)
+        {
+            return null;
+        }
+
+        var resolvedUnit = unit ?? TableWidthUnit.Dxa;
+        return resolvedUnit switch
+        {
+            TableWidthUnit.Dxa => new TableIndentation { Width = DipToTwipsValue(indent.Value), Type = TableWidthUnitValues.Dxa },
+            TableWidthUnit.Pct => new TableIndentation { Width = PercentToTableWidthValue(indent.Value), Type = TableWidthUnitValues.Pct },
+            _ => null
+        };
+    }
+
+    private static TableCellSpacing? BuildTableCellSpacing(float? spacing, TableWidthUnit? unit)
+    {
+        if (!spacing.HasValue)
+        {
+            return null;
+        }
+
+        var resolvedUnit = unit ?? TableWidthUnit.Dxa;
+        return resolvedUnit switch
+        {
+            TableWidthUnit.Dxa => new TableCellSpacing { Width = DipToTwips(spacing.Value), Type = TableWidthUnitValues.Dxa },
+            TableWidthUnit.Pct => new TableCellSpacing { Width = PercentToTableWidth(spacing.Value), Type = TableWidthUnitValues.Pct },
+            _ => null
+        };
+    }
+
+    private static TableJustification? BuildTableJustification(TableAlignment? alignment)
+    {
+        if (!alignment.HasValue)
+        {
+            return null;
+        }
+
+        return new TableJustification
+        {
+            Val = alignment.Value switch
+            {
+                TableAlignment.Center => TableRowAlignmentValues.Center,
+                TableAlignment.Right => TableRowAlignmentValues.Right,
+                _ => TableRowAlignmentValues.Left
+            }
+        };
+    }
+
+    private static TableLayout? BuildTableLayout(TableLayoutMode? mode)
+    {
+        if (!mode.HasValue)
+        {
+            return null;
+        }
+
+        return new TableLayout
+        {
+            Type = mode == TableLayoutMode.Fixed ? TableLayoutValues.Fixed : TableLayoutValues.Autofit
+        };
+    }
+
+    private static StringValue PercentToTableWidth(float percent)
+    {
+        var clamped = Math.Clamp(percent, 0f, 100f);
+        return ((int)Math.Round(clamped * 50f)).ToString();
+    }
+
+    private static Int32Value PercentToTableWidthValue(float percent)
+    {
+        var clamped = Math.Clamp(percent, 0f, 100f);
+        return (int)Math.Round(clamped * 50f);
     }
 
     private static void ApplyTableCellProperties(DocumentFormat.OpenXml.Wordprocessing.TableCell cell, Vibe.Office.Documents.TableCellProperties properties)
@@ -4585,7 +5125,15 @@ public sealed class DocxExporter
 
     private static bool HasTableProperties(Vibe.Office.Documents.TableProperties properties)
     {
-        return HasPaddingValues(properties.CellPadding)
+        return properties.Width.HasValue
+               || properties.WidthUnit.HasValue
+               || properties.Indent.HasValue
+               || properties.IndentUnit.HasValue
+               || properties.Alignment.HasValue
+               || properties.LayoutMode.HasValue
+               || properties.CellSpacing.HasValue
+               || properties.CellSpacingUnit.HasValue
+               || HasPaddingValues(properties.CellPadding)
                || properties.ShadingColor.HasValue
                || HasTableBorders(properties.Borders);
     }
