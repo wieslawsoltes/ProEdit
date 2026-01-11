@@ -1,7 +1,9 @@
 using System;
 using System.Globalization;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Media;
 using Vibe.Office.Documents;
 using Vibe.Office.Editing;
 
@@ -57,6 +59,10 @@ public partial class ParagraphDialog : Window
     private readonly CheckBox _keepLinesTogetherCheckBox;
     private readonly CheckBox _pageBreakBeforeCheckBox;
     private readonly CheckBox _suppressLineNumbersCheckBox;
+    private readonly Border _previewBorder;
+    private readonly Border _previewSpacingBefore;
+    private readonly Border _previewSpacingAfter;
+    private readonly TextBlock _previewText;
 
     public ParagraphDialog()
         : this(new ParagraphDialogState(
@@ -100,6 +106,10 @@ public partial class ParagraphDialog : Window
         _keepLinesTogetherCheckBox = this.FindControl<CheckBox>("KeepLinesTogetherCheckBox")!;
         _pageBreakBeforeCheckBox = this.FindControl<CheckBox>("PageBreakBeforeCheckBox")!;
         _suppressLineNumbersCheckBox = this.FindControl<CheckBox>("SuppressLineNumbersCheckBox")!;
+        _previewBorder = this.FindControl<Border>("PreviewBorder")!;
+        _previewSpacingBefore = this.FindControl<Border>("PreviewSpacingBefore")!;
+        _previewSpacingAfter = this.FindControl<Border>("PreviewSpacingAfter")!;
+        _previewText = this.FindControl<TextBlock>("PreviewText")!;
         SetState(state);
     }
 
@@ -124,16 +134,34 @@ public partial class ParagraphDialog : Window
         _suppressLineNumbersCheckBox.IsChecked = state.SuppressLineNumbers;
         UpdateLineSpacingState();
         UpdateSpecialIndentState();
+        UpdatePreview();
     }
 
     private void OnLineSpacingChanged(object? sender, Avalonia.Controls.SelectionChangedEventArgs e)
     {
         UpdateLineSpacingState();
+        UpdatePreview();
     }
 
     private void OnSpecialIndentChanged(object? sender, Avalonia.Controls.SelectionChangedEventArgs e)
     {
         UpdateSpecialIndentState();
+        UpdatePreview();
+    }
+
+    private void OnPreviewSelectionChanged(object? sender, Avalonia.Controls.SelectionChangedEventArgs e)
+    {
+        UpdatePreview();
+    }
+
+    private void OnPreviewTextChanged(object? sender, TextChangedEventArgs e)
+    {
+        UpdatePreview();
+    }
+
+    private void OnPreviewToggleChanged(object? sender, RoutedEventArgs e)
+    {
+        UpdatePreview();
     }
 
     private void OnOkClick(object? sender, RoutedEventArgs e)
@@ -369,6 +397,47 @@ public partial class ParagraphDialog : Window
             : null;
     }
 
+    private void UpdatePreview()
+    {
+        var alignment = GetSelectedAlignment() ?? ParagraphAlignment.Left;
+        _previewText.TextAlignment = alignment switch
+        {
+            ParagraphAlignment.Center => TextAlignment.Center,
+            ParagraphAlignment.Right => TextAlignment.Right,
+            ParagraphAlignment.Justify => TextAlignment.Justify,
+            _ => TextAlignment.Left
+        };
+
+        _previewText.FlowDirection = _rightToLeftCheckBox.IsChecked == true
+            ? FlowDirection.RightToLeft
+            : FlowDirection.LeftToRight;
+
+        var indentLeftPoints = ParsePointsOrZero(_indentLeftTextBox.Text);
+        var indentRightPoints = ParsePointsOrZero(_indentRightTextBox.Text);
+        _previewBorder.Padding = new Thickness(
+            PointsToDip(MathF.Max(0f, indentLeftPoints)),
+            _previewBorder.Padding.Top,
+            PointsToDip(MathF.Max(0f, indentRightPoints)),
+            _previewBorder.Padding.Bottom);
+
+        var spacingBeforePoints = ParsePointsOrZero(_spacingBeforeTextBox.Text);
+        var spacingAfterPoints = ParsePointsOrZero(_spacingAfterTextBox.Text);
+        _previewSpacingBefore.Height = Math.Max(0f, PointsToDip(spacingBeforePoints));
+        _previewSpacingAfter.Height = Math.Max(0f, PointsToDip(spacingAfterPoints));
+
+        var lineSpacingKind = GetSelectedLineSpacingKind();
+        var lineSpacingAt = ParsePoints(_lineSpacingAtTextBox.Text);
+        var lineHeight = ResolvePreviewLineHeight(lineSpacingKind, lineSpacingAt);
+        if (lineHeight.HasValue)
+        {
+            _previewText.LineHeight = lineHeight.Value;
+        }
+        else
+        {
+            _previewText.ClearValue(TextBlock.LineHeightProperty);
+        }
+    }
+
     private void UpdateLineSpacingState()
     {
         var kind = GetSelectedLineSpacingKind();
@@ -381,5 +450,40 @@ public partial class ParagraphDialog : Window
     {
         var kind = GetSelectedSpecialIndent();
         _specialIndentByTextBox.IsEnabled = kind is ParagraphSpecialIndentKind.FirstLine or ParagraphSpecialIndentKind.Hanging;
+    }
+
+    private double? ResolvePreviewLineHeight(LineSpacingOptionKind? kind, float? atValue)
+    {
+        if (!kind.HasValue)
+        {
+            return null;
+        }
+
+        var fontSize = _previewText.FontSize;
+        return kind.Value switch
+        {
+            LineSpacingOptionKind.Single => fontSize,
+            LineSpacingOptionKind.One15 => fontSize * 1.15,
+            LineSpacingOptionKind.One5 => fontSize * 1.5,
+            LineSpacingOptionKind.Double => fontSize * 2,
+            LineSpacingOptionKind.AtLeast => PointsToDip(MathF.Max(0f, atValue ?? 0f)),
+            LineSpacingOptionKind.Exactly => PointsToDip(MathF.Max(0f, atValue ?? 0f)),
+            LineSpacingOptionKind.Multiple => fontSize * (atValue ?? DefaultMultiple),
+            _ => null
+        };
+    }
+
+    private static float ParsePointsOrZero(string? text)
+    {
+        return TryParseNullable(text, out var value) && value.HasValue
+            ? value.Value
+            : 0f;
+    }
+
+    private static float? ParsePoints(string? text)
+    {
+        return TryParseNullable(text, out var value)
+            ? value
+            : null;
     }
 }

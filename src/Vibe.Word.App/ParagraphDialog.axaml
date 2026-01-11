@@ -3,8 +3,8 @@
         xmlns:local="clr-namespace:Vibe.Word.App"
         xmlns:doc="clr-namespace:Vibe.Office.Documents;assembly=Vibe.Office.Documents"
         x:Class="Vibe.Word.App.ParagraphDialog"
-        Width="520"
-        Height="420"
+        Width="600"
+        Height="520"
         WindowStartupLocation="CenterOwner"
         Title="Paragraph">
   <Grid RowDefinitions="*,Auto"
@@ -13,45 +13,56 @@
       <TabItem Header="Indents and Spacing">
         <ScrollViewer VerticalScrollBarVisibility="Auto">
           <StackPanel Spacing="12">
-            <Grid ColumnDefinitions="Auto,*"
-                  RowDefinitions="Auto,Auto"
-                  ColumnSpacing="8"
-                  RowSpacing="8">
-              <TextBlock Text="Alignment:"
-                         VerticalAlignment="Center" />
-              <ComboBox x:Name="AlignmentCombo"
-                        Grid.Column="1"
-                        Width="200">
-                <ComboBoxItem Content="Left"
-                              Tag="{x:Static doc:ParagraphAlignment.Left}" />
-                <ComboBoxItem Content="Center"
-                              Tag="{x:Static doc:ParagraphAlignment.Center}" />
-                <ComboBoxItem Content="Right"
-                              Tag="{x:Static doc:ParagraphAlignment.Right}" />
-                <ComboBoxItem Content="Justify"
-                              Tag="{x:Static doc:ParagraphAlignment.Justify}" />
-              </ComboBox>
-              <TextBlock Grid.Row="1"
-                         Text="Text direction:"
-                         VerticalAlignment="Center" />
-              <ComboBox x:Name="TextDirectionCombo"
-                        Grid.Row="1"
-                        Grid.Column="1"
-                        Width="260">
-                <ComboBoxItem Content="Left to right, top to bottom"
-                              Tag="{x:Static doc:DocTextDirection.LeftToRightTopToBottom}" />
-                <ComboBoxItem Content="Top to bottom, right to left"
-                              Tag="{x:Static doc:DocTextDirection.TopToBottomRightToLeft}" />
-                <ComboBoxItem Content="Bottom to top, left to right"
-                              Tag="{x:Static doc:DocTextDirection.BottomToTopLeftToRight}" />
-                <ComboBoxItem Content="Left to right, top to bottom (rotated)"
-                              Tag="{x:Static doc:DocTextDirection.LeftToRightTopToBottomRotated}" />
-                <ComboBoxItem Content="Top to bottom, right to left (rotated)"
-                              Tag="{x:Static doc:DocTextDirection.TopToBottomRightToLeftRotated}" />
-                <ComboBoxItem Content="Top to bottom, left to right (rotated)"
-                              Tag="{x:Static doc:DocTextDirection.TopToBottomLeftToRightRotated}" />
-              </ComboBox>
-            </Grid>
+            <Border BorderBrush="#D0D0D0"
+                    BorderThickness="1"
+                    CornerRadius="4"
+                    Padding="8">
+              <StackPanel Spacing="8">
+                <TextBlock Text="General"
+                           FontWeight="SemiBold" />
+                <Grid ColumnDefinitions="Auto,*"
+                      RowDefinitions="Auto,Auto"
+                      ColumnSpacing="8"
+                      RowSpacing="6">
+                  <TextBlock Text="Alignment:"
+                             VerticalAlignment="Center" />
+                  <ComboBox x:Name="AlignmentCombo"
+                            Grid.Column="1"
+                            Width="200"
+                            SelectionChanged="OnPreviewSelectionChanged">
+                    <ComboBoxItem Content="Left"
+                                  Tag="{x:Static doc:ParagraphAlignment.Left}" />
+                    <ComboBoxItem Content="Center"
+                                  Tag="{x:Static doc:ParagraphAlignment.Center}" />
+                    <ComboBoxItem Content="Right"
+                                  Tag="{x:Static doc:ParagraphAlignment.Right}" />
+                    <ComboBoxItem Content="Justify"
+                                  Tag="{x:Static doc:ParagraphAlignment.Justify}" />
+                  </ComboBox>
+                  <TextBlock Grid.Row="1"
+                             Text="Text direction:"
+                             VerticalAlignment="Center" />
+                  <ComboBox x:Name="TextDirectionCombo"
+                            Grid.Row="1"
+                            Grid.Column="1"
+                            Width="260"
+                            SelectionChanged="OnPreviewSelectionChanged">
+                    <ComboBoxItem Content="Left to right, top to bottom"
+                                  Tag="{x:Static doc:DocTextDirection.LeftToRightTopToBottom}" />
+                    <ComboBoxItem Content="Top to bottom, right to left"
+                                  Tag="{x:Static doc:DocTextDirection.TopToBottomRightToLeft}" />
+                    <ComboBoxItem Content="Bottom to top, left to right"
+                                  Tag="{x:Static doc:DocTextDirection.BottomToTopLeftToRight}" />
+                    <ComboBoxItem Content="Left to right, top to bottom (rotated)"
+                                  Tag="{x:Static doc:DocTextDirection.LeftToRightTopToBottomRotated}" />
+                    <ComboBoxItem Content="Top to bottom, right to left (rotated)"
+                                  Tag="{x:Static doc:DocTextDirection.TopToBottomRightToLeftRotated}" />
+                    <ComboBoxItem Content="Top to bottom, left to right (rotated)"
+                                  Tag="{x:Static doc:DocTextDirection.TopToBottomLeftToRightRotated}" />
+                  </ComboBox>
+                </Grid>
+              </StackPanel>
+            </Border>
 
             <Border BorderBrush="#D0D0D0"
                     BorderThickness="1"
@@ -63,20 +74,34 @@
                 <Grid ColumnDefinitions="Auto,*"
                       RowDefinitions="Auto,Auto,Auto"
                       ColumnSpacing="8"
-                      RowSpacing="8">
+                      RowSpacing="6">
                   <TextBlock Text="Left:"
                              VerticalAlignment="Center" />
-                  <TextBox x:Name="IndentLeftTextBox"
-                           Grid.Column="1"
-                           Width="120" />
+                  <StackPanel Grid.Column="1"
+                              Orientation="Horizontal"
+                              Spacing="6">
+                    <TextBox x:Name="IndentLeftTextBox"
+                             Width="80"
+                             HorizontalContentAlignment="Right"
+                             TextChanged="OnPreviewTextChanged" />
+                    <TextBlock Text="pt"
+                               VerticalAlignment="Center" />
+                  </StackPanel>
 
                   <TextBlock Grid.Row="1"
                              Text="Right:"
                              VerticalAlignment="Center" />
-                  <TextBox x:Name="IndentRightTextBox"
-                           Grid.Row="1"
-                           Grid.Column="1"
-                           Width="120" />
+                  <StackPanel Grid.Row="1"
+                              Grid.Column="1"
+                              Orientation="Horizontal"
+                              Spacing="6">
+                    <TextBox x:Name="IndentRightTextBox"
+                             Width="80"
+                             HorizontalContentAlignment="Right"
+                             TextChanged="OnPreviewTextChanged" />
+                    <TextBlock Text="pt"
+                               VerticalAlignment="Center" />
+                  </StackPanel>
 
                   <TextBlock Grid.Row="2"
                              Text="Special:"
@@ -84,7 +109,7 @@
                   <StackPanel Grid.Row="2"
                               Grid.Column="1"
                               Orientation="Horizontal"
-                              Spacing="8">
+                              Spacing="6">
                     <ComboBox x:Name="SpecialIndentCombo"
                               Width="140"
                               SelectionChanged="OnSpecialIndentChanged">
@@ -98,7 +123,11 @@
                     <TextBlock Text="By:"
                                VerticalAlignment="Center" />
                     <TextBox x:Name="SpecialIndentByTextBox"
-                             Width="80" />
+                             Width="70"
+                             HorizontalContentAlignment="Right"
+                             TextChanged="OnPreviewTextChanged" />
+                    <TextBlock Text="pt"
+                               VerticalAlignment="Center" />
                   </StackPanel>
                 </Grid>
               </StackPanel>
@@ -114,20 +143,34 @@
                 <Grid ColumnDefinitions="Auto,*"
                       RowDefinitions="Auto,Auto,Auto"
                       ColumnSpacing="8"
-                      RowSpacing="8">
+                      RowSpacing="6">
                   <TextBlock Text="Before:"
                              VerticalAlignment="Center" />
-                  <TextBox x:Name="SpacingBeforeTextBox"
-                           Grid.Column="1"
-                           Width="120" />
+                  <StackPanel Grid.Column="1"
+                              Orientation="Horizontal"
+                              Spacing="6">
+                    <TextBox x:Name="SpacingBeforeTextBox"
+                             Width="80"
+                             HorizontalContentAlignment="Right"
+                             TextChanged="OnPreviewTextChanged" />
+                    <TextBlock Text="pt"
+                               VerticalAlignment="Center" />
+                  </StackPanel>
 
                   <TextBlock Grid.Row="1"
                              Text="After:"
                              VerticalAlignment="Center" />
-                  <TextBox x:Name="SpacingAfterTextBox"
-                           Grid.Row="1"
-                           Grid.Column="1"
-                           Width="120" />
+                  <StackPanel Grid.Row="1"
+                              Grid.Column="1"
+                              Orientation="Horizontal"
+                              Spacing="6">
+                    <TextBox x:Name="SpacingAfterTextBox"
+                             Width="80"
+                             HorizontalContentAlignment="Right"
+                             TextChanged="OnPreviewTextChanged" />
+                    <TextBlock Text="pt"
+                               VerticalAlignment="Center" />
+                  </StackPanel>
 
                   <TextBlock Grid.Row="2"
                              Text="Line spacing:"
@@ -135,7 +178,7 @@
                   <StackPanel Grid.Row="2"
                               Grid.Column="1"
                               Orientation="Horizontal"
-                              Spacing="8">
+                              Spacing="6">
                     <ComboBox x:Name="LineSpacingCombo"
                               Width="140"
                               SelectionChanged="OnLineSpacingChanged">
@@ -157,7 +200,11 @@
                     <TextBlock Text="At:"
                                VerticalAlignment="Center" />
                     <TextBox x:Name="LineSpacingAtTextBox"
-                             Width="80" />
+                             Width="70"
+                             HorizontalContentAlignment="Right"
+                             TextChanged="OnPreviewTextChanged" />
+                    <TextBlock Text="pt"
+                               VerticalAlignment="Center" />
                   </StackPanel>
                 </Grid>
               </StackPanel>
@@ -167,35 +214,71 @@
                         Spacing="6">
               <CheckBox x:Name="ContextualSpacingCheckBox"
                         Content="Don't add space between paragraphs of the same style"
-                        IsThreeState="True" />
+                        IsThreeState="True"
+                        Checked="OnPreviewToggleChanged"
+                        Unchecked="OnPreviewToggleChanged" />
               <CheckBox x:Name="RightToLeftCheckBox"
                         Content="Right-to-left"
-                        IsThreeState="True" />
+                        IsThreeState="True"
+                        Checked="OnPreviewToggleChanged"
+                        Unchecked="OnPreviewToggleChanged" />
             </StackPanel>
+
+            <Border BorderBrush="#D0D0D0"
+                    BorderThickness="1"
+                    CornerRadius="4"
+                    Padding="8">
+              <StackPanel Spacing="8">
+                <TextBlock Text="Preview"
+                           FontWeight="SemiBold" />
+                <Border x:Name="PreviewBorder"
+                        Background="#FFFFFF"
+                        BorderBrush="#C8C8C8"
+                        BorderThickness="1"
+                        CornerRadius="4"
+                        Padding="8">
+                  <StackPanel Spacing="0">
+                    <Border x:Name="PreviewSpacingBefore"
+                            Height="0" />
+                    <TextBlock x:Name="PreviewText"
+                               Text="Sample paragraph text."
+                               FontSize="12"
+                               TextWrapping="Wrap" />
+                    <Border x:Name="PreviewSpacingAfter"
+                            Height="0" />
+                  </StackPanel>
+                </Border>
+              </StackPanel>
+            </Border>
           </StackPanel>
         </ScrollViewer>
       </TabItem>
 
       <TabItem Header="Line and Page Breaks">
         <ScrollViewer VerticalScrollBarVisibility="Auto">
-          <StackPanel Spacing="6"
-                      Margin="8">
-            <CheckBox x:Name="WidowControlCheckBox"
-                      Content="Widow/Orphan control"
-                      IsThreeState="True" />
-            <CheckBox x:Name="KeepWithNextCheckBox"
-                      Content="Keep with next"
-                      IsThreeState="True" />
-            <CheckBox x:Name="KeepLinesTogetherCheckBox"
-                      Content="Keep lines together"
-                      IsThreeState="True" />
-            <CheckBox x:Name="PageBreakBeforeCheckBox"
-                      Content="Page break before"
-                      IsThreeState="True" />
-            <CheckBox x:Name="SuppressLineNumbersCheckBox"
-                      Content="Suppress line numbers"
-                      IsThreeState="True" />
-          </StackPanel>
+          <Border BorderBrush="#D0D0D0"
+                  BorderThickness="1"
+                  CornerRadius="4"
+                  Padding="8"
+                  Margin="0,8,0,0">
+            <StackPanel Spacing="6">
+              <CheckBox x:Name="WidowControlCheckBox"
+                        Content="Widow/Orphan control"
+                        IsThreeState="True" />
+              <CheckBox x:Name="KeepWithNextCheckBox"
+                        Content="Keep with next"
+                        IsThreeState="True" />
+              <CheckBox x:Name="KeepLinesTogetherCheckBox"
+                        Content="Keep lines together"
+                        IsThreeState="True" />
+              <CheckBox x:Name="PageBreakBeforeCheckBox"
+                        Content="Page break before"
+                        IsThreeState="True" />
+              <CheckBox x:Name="SuppressLineNumbersCheckBox"
+                        Content="Suppress line numbers"
+                        IsThreeState="True" />
+            </StackPanel>
+          </Border>
         </ScrollViewer>
       </TabItem>
     </TabControl>
