@@ -1224,6 +1224,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
     {
         ConfigureMeasurer(document);
         var editor = new EditorController(_textMeasurer, document);
+        _editor = editor;
         EditorHomeServiceRegistry.Register(
             _kernel.Services,
             _kernel.Commands,
