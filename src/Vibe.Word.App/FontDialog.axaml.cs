@@ -184,7 +184,9 @@ public partial class FontDialog : Window
     {
         SetComboSelection(_fontFamilyCombo, state.FontFamily);
         SetFontStyleSelection(state.FontWeight, state.FontStyle);
-        SetComboSelection(_fontSizeCombo, state.FontSize?.ToString("0.#", CultureInfo.CurrentCulture));
+        SetComboSelection(
+            _fontSizeCombo,
+            state.FontSize.HasValue ? DipToPoints(state.FontSize.Value).ToString("0.#", CultureInfo.CurrentCulture) : null);
         SetUnderlineStyleSelection(state.UnderlineStyle);
         SetColorSelection(_underlineColorCombo, state.UnderlineColor);
         SetColorSelection(_fontColorCombo, state.FontColor);
@@ -265,7 +267,7 @@ public partial class FontDialog : Window
         if (!string.IsNullOrWhiteSpace(_fontSizeCombo.Text)
             && float.TryParse(_fontSizeCombo.Text, NumberStyles.Float, CultureInfo.CurrentCulture, out var size))
         {
-            fontSize = size;
+            fontSize = PointsToDip(Math.Max(1f, size));
         }
 
         var styleOption = _fontStyleCombo.SelectedItem as FontStyleOption;
@@ -319,7 +321,7 @@ public partial class FontDialog : Window
 
         if (float.TryParse(_fontSizeCombo.Text, NumberStyles.Float, CultureInfo.CurrentCulture, out var size))
         {
-            target.FontSize = Math.Max(1f, size);
+            target.FontSize = Math.Max(1f, PointsToDip(size));
         }
 
         if (_fontStyleCombo.SelectedItem is FontStyleOption styleOption)
@@ -653,6 +655,7 @@ public partial class FontDialog : Window
     }
 
     private static float PointsToDip(float points) => points * PointsToDipScale;
+    private static float DipToPoints(float dips) => dips / PointsToDipScale;
 
     private static bool IsClose(float value, float target) => MathF.Abs(value - target) < 0.1f;
 

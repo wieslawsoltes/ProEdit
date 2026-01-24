@@ -63,15 +63,54 @@
                     </StackPanel>
                 </Grid>
             </Border>
-            <Grid ColumnDefinitions="*,Auto">
-                <ScrollViewer Grid.Column="0"
-                              HorizontalScrollBarVisibility="Auto"
-                              VerticalScrollBarVisibility="Auto">
-                    <local:DocumentView x:Name="EditorView"
-                                        SurfaceColor="{DynamicResource RibbonSurfaceColor}" />
-                </ScrollViewer>
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <Border x:Name="NavigationPane"
+                        Grid.Column="0"
+                        Width="220"
+                        Background="#F7F7F7"
+                        BorderBrush="#DDDDDD"
+                        BorderThickness="0,0,1,0"
+                        IsVisible="False">
+                    <ListBox x:Name="NavigationPaneList"
+                             Margin="8">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}"
+                                           Foreground="#404040"
+                                           TextWrapping="Wrap" />
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Border>
+                <Grid Grid.Column="1"
+                      ColumnDefinitions="Auto,*"
+                      RowDefinitions="Auto,*">
+                    <local:RulerCornerControl x:Name="RulerCorner"
+                                              Grid.Row="0"
+                                              Grid.Column="0"
+                                              Width="26"
+                                              Height="26"
+                                              SurfaceColor="{DynamicResource RibbonSurfaceColor}" />
+                    <local:HorizontalRuler x:Name="HorizontalRuler"
+                                           Grid.Row="0"
+                                           Grid.Column="1"
+                                           Height="26"
+                                           SurfaceColor="{DynamicResource RibbonSurfaceColor}" />
+                    <local:VerticalRuler x:Name="VerticalRuler"
+                                         Grid.Row="1"
+                                         Grid.Column="0"
+                                         Width="26"
+                                         SurfaceColor="{DynamicResource RibbonSurfaceColor}" />
+                    <ScrollViewer Grid.Row="1"
+                                  Grid.Column="1"
+                                  HorizontalScrollBarVisibility="Auto"
+                                  VerticalScrollBarVisibility="Auto">
+                        <local:DocumentView x:Name="EditorView"
+                                            SurfaceColor="{DynamicResource RibbonSurfaceColor}" />
+                    </ScrollViewer>
+                </Grid>
                 <Border x:Name="EquationEditorPanel"
-                        Grid.Column="1"
+                        Grid.Column="2"
                         Width="320"
                         Background="#FBFBFB"
                         BorderBrush="#DDDDDD"

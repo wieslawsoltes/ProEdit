@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -22,6 +24,9 @@ public sealed class DocumentView : Control, ILogicalScrollable
     private const float MinZoom = 0.1f;
     private const float MaxZoom = 5f;
     private const float ZoomStep = 0.1f;
+    private const float InkMinDistance = 0.6f;
+    private const float InkHitPadding = 6f;
+    private const string InkStrokeProgId = "InkStroke";
 
     public static readonly StyledProperty<Color> SurfaceColorProperty =
         AvaloniaProperty.Register<DocumentView, Color>(nameof(SurfaceColor), new Color(255, 238, 241, 245));
@@ -55,6 +60,9 @@ public sealed class DocumentView : Control, ILogicalScrollable
     private DocumentZoomMode _zoomMode = DocumentZoomMode.Custom;
     private EquationInline? _selectedEquation;
     private long _renderVersion;
+    private InkStrokeBuilder? _activeInk;
+    private bool _isDrawing;
+    private EditorDrawTool _activeDrawTool;
 
     public DocumentView()
     {
@@ -62,7 +70,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
         _renderOptions.ZoomFactor = _zoomFactor;
         _renderOptions.SvgRasterizationScale = _zoomFactor;
         _kernel.AddModule(new BasicEditingModule());
-        _editor = CreateEditor(CreateSampleDocument());
+        _editor = CreateEditor(DocumentTemplates.CreateDefaultDocument());
         ApplyEditorState();
         UpdateSurfaceColor(SurfaceColor);
     }
@@ -78,6 +86,8 @@ public sealed class DocumentView : Control, ILogicalScrollable
     public TextPosition Caret => _editor.Caret;
     public float ZoomFactor => _zoomFactor;
     public DocumentZoomMode ZoomMode => _zoomMode;
+    public Vector ScrollOffset => _scrollOffset;
+    public Vector EffectiveScrollOffset => GetEffectiveScrollOffset();
 
     public EquationInline? SelectedEquation => _selectedEquation;
 
@@ -100,6 +110,21 @@ public sealed class DocumentView : Control, ILogicalScrollable
         }
     }
 
+    public bool ShowGridlines
+    {
+        get => _renderOptions.ShowGridlines;
+        set
+        {
+            if (_renderOptions.ShowGridlines == value)
+            {
+                return;
+            }
+
+            _renderOptions.ShowGridlines = value;
+            InvalidateAllPages();
+        }
+    }
+
     public bool ShowLayout
     {
         get => _renderOptions.ShowLayout;
@@ -112,6 +137,21 @@ public sealed class DocumentView : Control, ILogicalScrollable
 
             _renderOptions.ShowLayout = value;
             InvalidateAllPages();
+        }
+    }
+
+    public PageFlowDirection PageFlow
+    {
+        get => _editor.LayoutSettings.PageFlow;
+        set
+        {
+            if (_editor.LayoutSettings.PageFlow == value)
+            {
+                return;
+            }
+
+            _editor.LayoutSettings.PageFlow = value;
+            _editor.RefreshLayout();
         }
     }
 
@@ -251,6 +291,11 @@ public sealed class DocumentView : Control, ILogicalScrollable
         }
         Focus();
 
+        if (TryHandleInkPointerPressed(e))
+        {
+            return;
+        }
+
         var effectiveOffset = GetEffectiveScrollOffset();
         if (_inputAdapter.HandlePointerPressed(e, effectiveOffset, _zoomFactor, this))
         {
@@ -265,6 +310,11 @@ public sealed class DocumentView : Control, ILogicalScrollable
         base.OnPointerMoved(e);
         if (_isLoading)
         {
+            return;
+        }
+        if (_isDrawing)
+        {
+            HandleInkPointerMoved(e);
             return;
         }
         if (!_isSelecting)
@@ -293,6 +343,12 @@ public sealed class DocumentView : Control, ILogicalScrollable
             return;
         }
 
+        if (_isDrawing)
+        {
+            HandleInkPointerReleased(e);
+            return;
+        }
+
         if (_isSelecting)
         {
             _isSelecting = false;
@@ -308,6 +364,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
         base.Render(context);
         var effectiveOffset = GetEffectiveScrollOffset();
         context.Custom(new SkiaDrawOperation(Bounds, _editor, _renderer, _renderOptions, effectiveOffset));
+        DrawInkPreview(context, effectiveOffset);
     }
 
     public void LoadDocument(Document document)
@@ -353,122 +410,443 @@ public sealed class DocumentView : Control, ILogicalScrollable
         _editor.RefreshLayout();
     }
 
+    public void GoToParagraph(int paragraphIndex)
+    {
+        if (_editor.Document.ParagraphCount == 0)
+        {
+            return;
+        }
+
+        var index = Math.Clamp(paragraphIndex, 0, _editor.Document.ParagraphCount - 1);
+        _editor.SetSelection(new TextRange(new TextPosition(index, 0), new TextPosition(index, 0)));
+    }
+
     public void SetLoading(bool isLoading)
     {
         _isLoading = isLoading;
         if (isLoading)
         {
             _isSelecting = false;
+            _isDrawing = false;
+            _activeInk = null;
         }
     }
 
-    private static Document CreateSampleDocument()
+    private bool TryHandleInkPointerPressed(PointerPressedEventArgs e)
     {
-        var document = new Document();
-        document.Blocks.Clear();
-        DefineSampleStyles(document);
-        var richParagraph = new ParagraphBlock("Vibe Word MVP - type to edit. This is the first paragraph.");
-        richParagraph.Inlines.Add(new RunInline("Vibe Word ", new TextStyleProperties { FontWeight = DocFontWeight.Bold }));
-        richParagraph.Inlines.Add(new RunInline("MVP", new TextStyleProperties { FontStyle = DocFontStyle.Italic, Color = new DocColor(0, 102, 204) }));
-        richParagraph.Inlines.Add(new RunInline(" - type to edit. This is the first paragraph."));
-        document.Blocks.Add(richParagraph);
-        document.Blocks.Add(new ParagraphBlock("This editor uses Avalonia UI for the view and SkiaSharp for layout and rendering."));
-        document.Blocks.Add(new ParagraphBlock("Arrow keys move the caret. Shift + arrows extend selection. Backspace and delete are supported."));
-        document.Blocks.Add(new ParagraphBlock("Bullet item one", new ListInfo(ListKind.Bullet)));
-        document.Blocks.Add(new ParagraphBlock("Bullet item two", new ListInfo(ListKind.Bullet)));
-        document.Blocks.Add(new ParagraphBlock("Numbered item one", new ListInfo(ListKind.Numbered)));
-
-        var table = new TableBlock
+        if (!TryGetInkTool(out var toolInfo))
         {
-            Rows =
+            return false;
+        }
+
+        var point = e.GetCurrentPoint(this);
+        if (!point.Properties.IsLeftButtonPressed)
+        {
+            return false;
+        }
+
+        _activeDrawTool = toolInfo.Tool;
+        _isDrawing = true;
+        _isSelecting = false;
+
+        var docPoint = GetDocumentPoint(point.Position);
+        if (_activeDrawTool == EditorDrawTool.Eraser)
+        {
+            e.Pointer.Capture(this);
+            EraseInkAtPoint(docPoint);
+            e.Handled = true;
+            return true;
+        }
+
+        _activeInk = new InkStrokeBuilder(toolInfo.Tool, toolInfo.Color, toolInfo.Thickness, toolInfo.BehindText);
+        _activeInk.AddPoint(docPoint);
+        e.Pointer.Capture(this);
+        InvalidateVisual();
+        e.Handled = true;
+        return true;
+    }
+
+    private void HandleInkPointerMoved(PointerEventArgs e)
+    {
+        var point = e.GetCurrentPoint(this);
+        if (!point.Properties.IsLeftButtonPressed)
+        {
+            return;
+        }
+
+        var docPoint = GetDocumentPoint(point.Position);
+        if (_activeDrawTool == EditorDrawTool.Eraser)
+        {
+            EraseInkAtPoint(docPoint);
+            e.Handled = true;
+            return;
+        }
+
+        if (_activeInk is null)
+        {
+            return;
+        }
+
+        _activeInk.AddPoint(docPoint);
+        InvalidateVisual();
+        e.Handled = true;
+    }
+
+    private void HandleInkPointerReleased(PointerReleasedEventArgs e)
+    {
+        var point = e.GetCurrentPoint(this);
+        var docPoint = GetDocumentPoint(point.Position);
+        if (_activeDrawTool == EditorDrawTool.Eraser)
+        {
+            EraseInkAtPoint(docPoint);
+        }
+        else if (_activeInk is not null)
+        {
+            _activeInk.AddPoint(docPoint);
+            CommitInkStroke(_activeInk);
+        }
+
+        _activeInk = null;
+        _isDrawing = false;
+        e.Pointer.Capture(null);
+        InvalidateVisual();
+        e.Handled = true;
+    }
+
+    private void CommitInkStroke(InkStrokeBuilder stroke)
+    {
+        if (stroke.Points.Count < 2)
+        {
+            return;
+        }
+
+        var bounds = ComputeStrokeBounds(stroke.Points, stroke.Thickness);
+        if (bounds.Width <= 0f || bounds.Height <= 0f)
+        {
+            return;
+        }
+
+        ResolveInkAnchor(bounds, out var paragraph, out var page);
+        var svgData = BuildInkSvgData(stroke.Points, bounds, stroke.Color, stroke.Thickness);
+        var image = new ImageInline(svgData, bounds.Width, bounds.Height, "image/svg+xml")
+        {
+            EmbeddedObject = new EmbeddedObjectInfo
             {
-                new TableRow(new[]
-                {
-                    new TableCell(new[] { new ParagraphBlock("Table cell A1") }),
-                    new TableCell(new[] { new ParagraphBlock("Table cell B1") })
-                }),
-                new TableRow(new[]
-                {
-                    new TableCell(new[] { new ParagraphBlock("Table cell A2") }),
-                    new TableCell(new[] { new ParagraphBlock("Table cell B2") })
-                })
+                ProgId = InkStrokeProgId,
+                ContentType = "image/svg+xml"
             }
         };
-        document.Blocks.Add(table);
-        return document;
+
+        var floating = new FloatingObject(image);
+        floating.Anchor.HorizontalReference = FloatingHorizontalReference.Page;
+        floating.Anchor.VerticalReference = FloatingVerticalReference.Page;
+        floating.Anchor.WrapStyle = FloatingWrapStyle.None;
+        floating.Anchor.BehindText = stroke.BehindText;
+
+        var pageOriginX = page?.Bounds.Left ?? 0f;
+        var pageOriginY = page?.Bounds.Top ?? 0f;
+        floating.Anchor.OffsetX = bounds.Left - pageOriginX;
+        floating.Anchor.OffsetY = bounds.Top - pageOriginY;
+        paragraph.FloatingObjects.Add(floating);
+        _editor.RefreshLayout();
     }
 
-    private static void DefineSampleStyles(Document document)
+    private void ResolveInkAnchor(DocRect bounds, out ParagraphBlock paragraph, out PageLayout? page)
     {
-        var styles = document.Styles;
-        styles.ParagraphStyles.Clear();
+        paragraph = _editor.Document.GetParagraph(0);
+        page = _editor.Layout.Pages.Count > 0 ? _editor.Layout.Pages[0] : null;
 
-        void AddStyle(ParagraphStyleDefinition style)
+        var point = new DocPoint(bounds.Left, bounds.Top);
+        var layout = _editor.Layout;
+        if (layout.Lines.Count > 0)
         {
-            styles.ParagraphStyles[style.Id] = style;
+            var lineIndex = layout.LineIndex.FindLineAtY(point.Y);
+            if (lineIndex >= 0 && lineIndex < layout.Lines.Count)
+            {
+                var line = layout.Lines[lineIndex];
+                var paragraphIndex = Math.Clamp(line.ParagraphIndex, 0, Math.Max(0, _editor.Document.ParagraphCount - 1));
+                paragraph = _editor.Document.GetParagraph(paragraphIndex);
+                var pageIndex = layout.LineIndex.GetPageForLine(lineIndex);
+                if (pageIndex >= 0 && pageIndex < layout.Pages.Count)
+                {
+                    page = layout.Pages[pageIndex];
+                }
+            }
+        }
+        else if (_editor.Document.ParagraphCount == 0)
+        {
+            paragraph = new ParagraphBlock();
+            _editor.Document.Blocks.Add(paragraph);
+        }
+    }
+
+    private void EraseInkAtPoint(DocPoint point)
+    {
+        var layout = _editor.Layout;
+        if (layout.FloatingObjects.Count == 0)
+        {
+            return;
         }
 
-        styles.DefaultParagraphStyleId = "Normal";
-
-        var normal = new ParagraphStyleDefinition("Normal")
+        for (var i = layout.FloatingObjects.Count - 1; i >= 0; i--)
         {
-            Name = "Normal"
-        };
-        normal.RunProperties.FontFamily = "Aptos (Body)";
-        normal.RunProperties.FontSize = 12f;
-        normal.ParagraphProperties.LineSpacing = 276;
-        normal.ParagraphProperties.LineSpacingRule = DocLineSpacingRule.Auto;
-        normal.ParagraphProperties.SpacingAfter = 8f;
-        AddStyle(normal);
+            var floating = layout.FloatingObjects[i];
+            if (!IsInkFloatingObject(floating.Object))
+            {
+                continue;
+            }
 
-        var noSpacing = new ParagraphStyleDefinition("NoSpacing")
-        {
-            Name = "No Spacing"
-        };
-        noSpacing.RunProperties.FontFamily = "Aptos (Body)";
-        noSpacing.RunProperties.FontSize = 12f;
-        noSpacing.ParagraphProperties.LineSpacing = 240;
-        noSpacing.ParagraphProperties.LineSpacingRule = DocLineSpacingRule.Auto;
-        noSpacing.ParagraphProperties.SpacingBefore = 0f;
-        noSpacing.ParagraphProperties.SpacingAfter = 0f;
-        AddStyle(noSpacing);
+            var bounds = floating.Bounds;
+            if (point.X < bounds.Left - InkHitPadding
+                || point.X > bounds.Right + InkHitPadding
+                || point.Y < bounds.Top - InkHitPadding
+                || point.Y > bounds.Bottom + InkHitPadding)
+            {
+                continue;
+            }
 
-        var heading1 = new ParagraphStyleDefinition("Heading1")
-        {
-            Name = "Heading 1"
-        };
-        heading1.RunProperties.FontFamily = "Aptos Display";
-        heading1.RunProperties.FontSize = 16f;
-        heading1.RunProperties.FontWeight = DocFontWeight.Bold;
-        heading1.RunProperties.Color = new DocColor(46, 85, 153);
-        heading1.ParagraphProperties.SpacingBefore = 12f;
-        heading1.ParagraphProperties.SpacingAfter = 4f;
-        AddStyle(heading1);
+            var paragraphIndex = Math.Clamp(floating.ParagraphIndex, 0, Math.Max(0, _editor.Document.ParagraphCount - 1));
+            var paragraph = _editor.Document.GetParagraph(paragraphIndex);
+            var index = paragraph.FloatingObjects.IndexOf(floating.Object);
+            if (index >= 0)
+            {
+                paragraph.FloatingObjects.RemoveAt(index);
+                _editor.RefreshLayout();
+            }
 
-        var heading2 = new ParagraphStyleDefinition("Heading2")
-        {
-            Name = "Heading 2"
-        };
-        heading2.RunProperties.FontFamily = "Aptos Display";
-        heading2.RunProperties.FontSize = 13f;
-        heading2.RunProperties.FontWeight = DocFontWeight.Bold;
-        heading2.RunProperties.Color = new DocColor(79, 129, 189);
-        heading2.ParagraphProperties.SpacingBefore = 10f;
-        heading2.ParagraphProperties.SpacingAfter = 2f;
-        AddStyle(heading2);
-
-        var title = new ParagraphStyleDefinition("Title")
-        {
-            Name = "Title"
-        };
-        title.RunProperties.FontFamily = "Aptos Display";
-        title.RunProperties.FontSize = 26f;
-        title.RunProperties.FontWeight = DocFontWeight.Bold;
-        title.RunProperties.Color = new DocColor(46, 85, 153);
-        title.ParagraphProperties.SpacingBefore = 12f;
-        title.ParagraphProperties.SpacingAfter = 8f;
-        AddStyle(title);
+            return;
+        }
     }
+
+    private bool TryGetInkTool(out InkToolInfo info)
+    {
+        info = default;
+        if (!TryGetService<IDrawToolService>(out var drawTool))
+        {
+            return false;
+        }
+
+        return drawTool.ActiveTool switch
+        {
+            EditorDrawTool.Pen => TryBuildInkTool(drawTool.PenColor, drawTool.PenThickness, false, drawTool.ActiveTool, out info),
+            EditorDrawTool.Pencil => TryBuildInkTool(drawTool.PencilColor, drawTool.PencilThickness, false, drawTool.ActiveTool, out info),
+            EditorDrawTool.Highlighter => TryBuildInkTool(drawTool.HighlighterColor, drawTool.HighlighterThickness, true, drawTool.ActiveTool, out info),
+            EditorDrawTool.Eraser => TryBuildInkTool(DocColor.Transparent, InkHitPadding, false, drawTool.ActiveTool, out info),
+            _ => false
+        };
+    }
+
+    private static bool TryBuildInkTool(DocColor color, float thickness, bool behindText, EditorDrawTool tool, out InkToolInfo info)
+    {
+        if (thickness <= 0f)
+        {
+            info = default;
+            return false;
+        }
+
+        info = new InkToolInfo(tool, color, thickness, behindText);
+        return true;
+    }
+
+    private static bool IsInkFloatingObject(FloatingObject floating)
+    {
+        return floating.Content is ImageInline image
+            && image.EmbeddedObject?.ProgId != null
+            && string.Equals(image.EmbeddedObject.ProgId, InkStrokeProgId, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void DrawInkPreview(DrawingContext context, Vector effectiveOffset)
+    {
+        if (_activeInk is null || _activeInk.Points.Count < 2)
+        {
+            return;
+        }
+
+        var points = _activeInk.Points;
+        var geometry = new StreamGeometry();
+        using (var geometryContext = geometry.Open())
+        {
+            var start = DocToView(points[0], effectiveOffset);
+            geometryContext.BeginFigure(start, false);
+            for (var i = 1; i < points.Count; i++)
+            {
+                geometryContext.LineTo(DocToView(points[i], effectiveOffset));
+            }
+        }
+
+        var color = ToAvaloniaColor(_activeInk.Color);
+        var pen = new Pen(
+            new SolidColorBrush(color),
+            _activeInk.Thickness * _zoomFactor,
+            lineCap: PenLineCap.Round,
+            lineJoin: PenLineJoin.Round);
+        context.DrawGeometry(null, pen, geometry);
+    }
+
+    private Point DocToView(DocPoint point, Vector effectiveOffset)
+    {
+        return new Point(point.X * _zoomFactor - effectiveOffset.X, point.Y * _zoomFactor - effectiveOffset.Y);
+    }
+
+    private DocPoint GetDocumentPoint(Point point)
+    {
+        var offset = GetEffectiveScrollOffset();
+        var docX = (float)((point.X + offset.X) / _zoomFactor);
+        var docY = (float)((point.Y + offset.Y) / _zoomFactor);
+        return new DocPoint(docX, docY);
+    }
+
+    private static DocRect ComputeStrokeBounds(IReadOnlyList<DocPoint> points, float thickness)
+    {
+        if (points.Count == 0)
+        {
+            return new DocRect(0f, 0f, 0f, 0f);
+        }
+
+        var minX = points[0].X;
+        var minY = points[0].Y;
+        var maxX = points[0].X;
+        var maxY = points[0].Y;
+
+        for (var i = 1; i < points.Count; i++)
+        {
+            var point = points[i];
+            minX = MathF.Min(minX, point.X);
+            minY = MathF.Min(minY, point.Y);
+            maxX = MathF.Max(maxX, point.X);
+            maxY = MathF.Max(maxY, point.Y);
+        }
+
+        var half = MathF.Max(0.5f, thickness / 2f);
+        minX -= half;
+        minY -= half;
+        maxX += half;
+        maxY += half;
+
+        var width = MathF.Max(1f, maxX - minX);
+        var height = MathF.Max(1f, maxY - minY);
+        return new DocRect(minX, minY, width, height);
+    }
+
+    private static byte[] BuildInkSvgData(
+        IReadOnlyList<DocPoint> points,
+        DocRect bounds,
+        DocColor color,
+        float thickness)
+    {
+        var builder = new StringBuilder(256 + points.Count * 12);
+        builder.Append("<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"");
+        AppendFloat(builder, bounds.Width);
+        builder.Append("\" height=\"");
+        AppendFloat(builder, bounds.Height);
+        builder.Append("\" viewBox=\"0 0 ");
+        AppendFloat(builder, bounds.Width);
+        builder.Append(' ');
+        AppendFloat(builder, bounds.Height);
+        builder.Append("\">");
+        builder.Append("<path d=\"");
+
+        if (points.Count > 0)
+        {
+            AppendPathPoint(builder, 'M', points[0], bounds);
+            for (var i = 1; i < points.Count; i++)
+            {
+                AppendPathPoint(builder, 'L', points[i], bounds);
+            }
+        }
+
+        builder.Append("\" fill=\"none\" stroke=\"");
+        AppendSvgColor(builder, color);
+        builder.Append("\" stroke-width=\"");
+        AppendFloat(builder, thickness);
+        builder.Append("\" stroke-linecap=\"round\" stroke-linejoin=\"round\"");
+        if (color.A < 255)
+        {
+            builder.Append(" stroke-opacity=\"");
+            AppendFloat(builder, color.A / 255f);
+            builder.Append('"');
+        }
+
+        builder.Append(" /></svg>");
+        return Encoding.UTF8.GetBytes(builder.ToString());
+    }
+
+    private static void AppendPathPoint(StringBuilder builder, char command, DocPoint point, DocRect bounds)
+    {
+        builder.Append(command);
+        builder.Append(' ');
+        AppendFloat(builder, point.X - bounds.Left);
+        builder.Append(' ');
+        AppendFloat(builder, point.Y - bounds.Top);
+        builder.Append(' ');
+    }
+
+    private static void AppendSvgColor(StringBuilder builder, DocColor color)
+    {
+        builder.Append("rgb(");
+        builder.Append(color.R);
+        builder.Append(',');
+        builder.Append(color.G);
+        builder.Append(',');
+        builder.Append(color.B);
+        builder.Append(')');
+    }
+
+    private static void AppendFloat(StringBuilder builder, float value)
+    {
+        Span<char> buffer = stackalloc char[32];
+        if (value.TryFormat(buffer, out var written, "0.###", CultureInfo.InvariantCulture))
+        {
+            builder.Append(buffer.Slice(0, written));
+            return;
+        }
+
+        builder.Append(value.ToString(CultureInfo.InvariantCulture));
+    }
+
+    private static Color ToAvaloniaColor(DocColor color)
+    {
+        return new Color(color.A, color.R, color.G, color.B);
+    }
+
+    private readonly record struct InkToolInfo(EditorDrawTool Tool, DocColor Color, float Thickness, bool BehindText);
+
+    private sealed class InkStrokeBuilder
+    {
+        public EditorDrawTool Tool { get; }
+        public DocColor Color { get; }
+        public float Thickness { get; }
+        public bool BehindText { get; }
+        public List<DocPoint> Points { get; } = new List<DocPoint>(64);
+
+        public InkStrokeBuilder(EditorDrawTool tool, DocColor color, float thickness, bool behindText)
+        {
+            Tool = tool;
+            Color = color;
+            Thickness = thickness;
+            BehindText = behindText;
+        }
+
+        public void AddPoint(DocPoint point)
+        {
+            if (Points.Count == 0)
+            {
+                Points.Add(point);
+                return;
+            }
+
+            var last = Points[^1];
+            var dx = point.X - last.X;
+            var dy = point.Y - last.Y;
+            if (dx * dx + dy * dy < InkMinDistance * InkMinDistance)
+            {
+                return;
+            }
+
+            Points.Add(point);
+        }
+    }
+
 
     private EditorController CreateEditor(Document document)
     {

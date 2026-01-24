@@ -12,6 +12,7 @@
         <ResourceDictionary>
             <Color x:Key="RibbonSurfaceColor">#EEF1F5</Color>
             <SolidColorBrush x:Key="RibbonSurfaceBrush" Color="{StaticResource RibbonSurfaceColor}" />
+            <x:String x:Key="RibbonIcon.New">📄➕</x:String>
             <x:String x:Key="RibbonIcon.Open">📂</x:String>
             <x:String x:Key="RibbonIcon.Save">💾</x:String>
             <x:String x:Key="RibbonIcon.SaveAs">💾➕</x:String>
@@ -101,6 +102,31 @@
             <x:String x:Key="RibbonIcon.DateTime">🕒</x:String>
             <x:String x:Key="RibbonIcon.Object">📎</x:String>
             <x:String x:Key="RibbonIcon.Symbol">🔣</x:String>
+            <x:String x:Key="RibbonIcon.Theme">🎨</x:String>
+            <x:String x:Key="RibbonIcon.Watermark">💧</x:String>
+            <x:String x:Key="RibbonIcon.PageColor">🖍️</x:String>
+            <x:String x:Key="RibbonIcon.PageBorders">🧱</x:String>
+            <x:String x:Key="RibbonIcon.Envelope">✉️</x:String>
+            <x:String x:Key="RibbonIcon.Label">🏷️</x:String>
+            <x:String x:Key="RibbonIcon.MailMerge">📬</x:String>
+            <x:String x:Key="RibbonIcon.Print">🖨️</x:String>
+            <x:String x:Key="RibbonIcon.Comment">💬</x:String>
+            <x:String x:Key="RibbonIcon.TrackChanges">🕵️</x:String>
+            <x:String x:Key="RibbonIcon.Reject">❌</x:String>
+            <x:String x:Key="RibbonIcon.Thesaurus">📚</x:String>
+            <x:String x:Key="RibbonIcon.WordCount">🔢</x:String>
+            <x:String x:Key="RibbonIcon.Pen">🖊️</x:String>
+            <x:String x:Key="RibbonIcon.Pencil">✏️</x:String>
+            <x:String x:Key="RibbonIcon.Eraser">🧽</x:String>
+            <x:String x:Key="RibbonIcon.Lasso">🪢</x:String>
+            <x:String x:Key="RibbonIcon.ReadMode">📖</x:String>
+            <x:String x:Key="RibbonIcon.Outline">🗂️</x:String>
+            <x:String x:Key="RibbonIcon.Draft">📝</x:String>
+            <x:String x:Key="RibbonIcon.Ruler">📏</x:String>
+            <x:String x:Key="RibbonIcon.Gridlines">#️⃣</x:String>
+            <x:String x:Key="RibbonIcon.NavigationPane">🧭</x:String>
+            <x:String x:Key="RibbonIcon.MultiplePages">📄📄</x:String>
+            <x:String x:Key="RibbonIcon.Window">🪟</x:String>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

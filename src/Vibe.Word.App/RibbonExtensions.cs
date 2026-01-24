@@ -57,10 +57,33 @@ internal sealed class TableRibbonExtension : IRibbonExtension
             return;
         }
 
+        if (!context.TryGetService<IEditorCommandRouter>(out var commandRouter))
+        {
+            return;
+        }
+
         bool IsActive()
         {
             var snapshot = snapshotProvider.GetSnapshot();
             return snapshot.Selection.IsInTable;
+        }
+
+        bool CanExecute(string commandId)
+        {
+            var snapshot = snapshotProvider.GetSnapshot();
+            return commandRouter.CanExecute(commandId, null, snapshot);
+        }
+
+        ValueTask ExecuteAsync(string commandId)
+        {
+            var snapshot = snapshotProvider.GetSnapshot();
+            _ = commandRouter.ExecuteAsync(commandId, null, snapshot);
+            return ValueTask.CompletedTask;
+        }
+
+        RibbonCommand CreateCommand(string commandId)
+        {
+            return new RibbonCommand(() => ExecuteAsync(commandId), () => CanExecute(commandId));
         }
 
         var contextualSet = new RibbonContextualTabSet(
@@ -70,24 +93,185 @@ internal sealed class TableRibbonExtension : IRibbonExtension
             accentKey: "Table");
         builder.AddContextualSet(contextualSet);
 
-        var tableGroup = new RibbonGroup(
-            "table",
-            "Table",
+        var insertRowAbove = new RibbonButton(
+            "table-row-above",
+            "Insert Above",
+            CreateCommand(EditorTableCommandIds.Rows.InsertAbove),
+            iconKey: "RibbonIcon.Table",
+            size: RibbonControlSize.Small);
+
+        var insertRowBelow = new RibbonButton(
+            "table-row-below",
+            "Insert Below",
+            CreateCommand(EditorTableCommandIds.Rows.InsertBelow),
+            iconKey: "RibbonIcon.Table",
+            size: RibbonControlSize.Small);
+
+        var insertColumnLeft = new RibbonButton(
+            "table-col-left",
+            "Insert Left",
+            CreateCommand(EditorTableCommandIds.Columns.InsertLeft),
+            iconKey: "RibbonIcon.Table",
+            size: RibbonControlSize.Small);
+
+        var insertColumnRight = new RibbonButton(
+            "table-col-right",
+            "Insert Right",
+            CreateCommand(EditorTableCommandIds.Columns.InsertRight),
+            iconKey: "RibbonIcon.Table",
+            size: RibbonControlSize.Small);
+
+        var deleteMenu = new RibbonMenu(new IRibbonMenuEntry[]
+        {
+            new RibbonMenuItem(
+                "table-delete-row",
+                "Delete Row",
+                CreateCommand(EditorTableCommandIds.Rows.Delete),
+                iconKey: "RibbonIcon.Cut"),
+            new RibbonMenuItem(
+                "table-delete-column",
+                "Delete Column",
+                CreateCommand(EditorTableCommandIds.Columns.Delete),
+                iconKey: "RibbonIcon.Cut"),
+            new RibbonMenuItem(
+                "table-delete-table",
+                "Delete Table",
+                CreateCommand(EditorTableCommandIds.Delete.Table),
+                iconKey: "RibbonIcon.Cut")
+        });
+
+        var deleteButton = new RibbonDropdownButton(
+            "table-delete",
+            "Delete",
+            deleteMenu,
+            iconKey: "RibbonIcon.Cut",
+            size: RibbonControlSize.Small);
+
+        var rowsColumnsGroup = new RibbonGroup(
+            "table-rows-columns",
+            "Rows & Columns",
             new IRibbonControl[]
             {
-                new RibbonButton(
-                    "table-properties",
-                    "Properties",
-                    isEnabled: false,
-                    size: RibbonControlSize.Medium)
+                insertRowAbove,
+                insertRowBelow,
+                insertColumnLeft,
+                insertColumnRight,
+                deleteButton
             },
-            keyTip: "TB");
+            keyTip: "RC");
+
+        var mergeCells = new RibbonButton(
+            "table-merge",
+            "Merge Cells",
+            CreateCommand(EditorTableCommandIds.Merge.Cells),
+            iconKey: "RibbonIcon.Borders",
+            size: RibbonControlSize.Small);
+
+        var splitCells = new RibbonButton(
+            "table-split",
+            "Split Cells",
+            CreateCommand(EditorTableCommandIds.Merge.Split),
+            iconKey: "RibbonIcon.Borders",
+            size: RibbonControlSize.Small);
+
+        var mergeGroup = new RibbonGroup(
+            "table-merge-group",
+            "Merge",
+            new IRibbonControl[]
+            {
+                mergeCells,
+                splitCells
+            },
+            keyTip: "MG");
+
+        var autoFitMenu = new RibbonMenu(new IRibbonMenuEntry[]
+        {
+            new RibbonMenuItem(
+                "table-autofit-contents",
+                "AutoFit Contents",
+                CreateCommand(EditorTableCommandIds.Layout.AutoFitContents),
+                iconKey: "RibbonIcon.Layout"),
+            new RibbonMenuItem(
+                "table-autofit-window",
+                "AutoFit Window",
+                CreateCommand(EditorTableCommandIds.Layout.AutoFitWindow),
+                iconKey: "RibbonIcon.Layout"),
+            new RibbonMenuItem(
+                "table-fixed-columns",
+                "Fixed Column Width",
+                CreateCommand(EditorTableCommandIds.Layout.FixedColumnWidth),
+                iconKey: "RibbonIcon.Layout")
+        });
+
+        var autoFitButton = new RibbonDropdownButton(
+            "table-autofit",
+            "AutoFit",
+            autoFitMenu,
+            iconKey: "RibbonIcon.Layout",
+            size: RibbonControlSize.Small);
+
+        var distributeColumns = new RibbonButton(
+            "table-distribute-columns",
+            "Distribute Columns",
+            CreateCommand(EditorTableCommandIds.Layout.DistributeColumns),
+            iconKey: "RibbonIcon.Layout",
+            size: RibbonControlSize.Small);
+
+        var distributeRows = new RibbonButton(
+            "table-distribute-rows",
+            "Distribute Rows",
+            CreateCommand(EditorTableCommandIds.Layout.DistributeRows),
+            iconKey: "RibbonIcon.Layout",
+            size: RibbonControlSize.Small);
+
+        var layoutGroup = new RibbonGroup(
+            "table-layout-group",
+            "Layout",
+            new IRibbonControl[]
+            {
+                autoFitButton,
+                distributeColumns,
+                distributeRows
+            },
+            keyTip: "LY");
+
+        var alignTop = new RibbonButton(
+            "table-align-top",
+            "Align Top",
+            CreateCommand(EditorTableCommandIds.Alignment.AlignTop),
+            iconKey: "RibbonIcon.AlignLeft",
+            size: RibbonControlSize.Small);
+
+        var alignMiddle = new RibbonButton(
+            "table-align-middle",
+            "Align Middle",
+            CreateCommand(EditorTableCommandIds.Alignment.AlignMiddle),
+            iconKey: "RibbonIcon.AlignCenter",
+            size: RibbonControlSize.Small);
+
+        var alignBottom = new RibbonButton(
+            "table-align-bottom",
+            "Align Bottom",
+            CreateCommand(EditorTableCommandIds.Alignment.AlignBottom),
+            iconKey: "RibbonIcon.AlignRight",
+            size: RibbonControlSize.Small);
+
+        var alignmentGroup = new RibbonGroup(
+            "table-alignment",
+            "Alignment",
+            new IRibbonControl[]
+            {
+                alignTop,
+                alignMiddle,
+                alignBottom
+            },
+            keyTip: "AL");
 
         builder.AddTab(
                 "table-layout",
                 "Layout",
                 keyTip: "T",
                 contextualSet: contextualSet)
-            .AddGroup(tableGroup);
+            .AddGroups(new[] { rowsColumnsGroup, mergeGroup, layoutGroup, alignmentGroup });
     }
 }
