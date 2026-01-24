@@ -26,6 +26,10 @@ public sealed class RenderOptions
     public bool ShowLayout { get; set; }
     public DocColor LayoutGuideColor { get; set; } = new DocColor(170, 170, 170, 170);
     public float LayoutGuideThickness { get; set; } = 1f;
+    public bool ShowGridlines { get; set; }
+    public DocColor GridlineColor { get; set; } = new DocColor(230, 230, 230);
+    public float GridlineThickness { get; set; } = 1f;
+    public float GridlineSpacing { get; set; } = 12f;
     public bool UseHarfBuzz { get; set; } = true;
     public bool UsePictureCache { get; set; } = true;
     public SvgRenderMode SvgRenderMode { get; set; } = SvgRenderMode.Auto;

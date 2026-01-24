@@ -280,10 +280,11 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             var paint = GetRunPaint(runStyle);
             var textSpan = text.AsSpan();
             var needsFallback = fallbackResolver is not null && !paint.ContainsGlyphs(text);
+            var applyKerning = SkiaTextMeasurer.ShouldApplyKerning(runStyle);
             if (!needsFallback)
             {
-                var shaper = GetRunShaper(runStyle);
-                if (shaper is not null)
+                var shaper = applyKerning ? GetRunShaper(runStyle) : null;
+                if (applyKerning && shaper is not null)
                 {
                     try
                     {
@@ -313,7 +314,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             {
                 var segmentSpan = textSpan.Slice(segment.Start, segment.Length);
                 var segmentPaint = GetTypefacePaint(runStyle, segment.Typeface);
-                if (canShapeText)
+                if (canShapeText && applyKerning)
                 {
                     var shaper = GetTypefaceShaper(segment.Typeface);
                     if (shaper is not null)
@@ -542,6 +543,14 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             PathEffect = SKPathEffect.CreateDash(new[] { 3f, 3f }, 0f)
         };
 
+        using var gridlinePaint = new SKPaint
+        {
+            Style = SKPaintStyle.Stroke,
+            Color = ToSkColor(options.GridlineColor),
+            StrokeWidth = MathF.Max(0.5f, options.GridlineThickness),
+            IsAntialias = true
+        };
+
         var selection = options.Selection?.Normalize();
         var commentHighlightsByParagraph = layout.CommentHighlightsByParagraph;
         var footnoteMap = layout.Footnotes.ToDictionary(footnote => footnote.PageIndex);
@@ -579,7 +588,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                 }
 
                 var run = segment.Run;
-                if (run.Style.HighlightColor is null || string.IsNullOrEmpty(run.Text))
+                if (run.Style.Hidden || run.Style.HighlightColor is null || string.IsNullOrEmpty(run.Text))
                 {
                     continue;
                 }
@@ -708,7 +717,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                 var lineWidth = segments.Count > 0 ? segments[^1].X + segments[^1].Width : 0f;
                 var prefixX = baseRtl ? originX + lineWidth : originX - prefixWidth;
                 var prefixBaseline = originY + lineAscent;
-                var prefixShaper = GetRunShaper(style);
+                var prefixShaper = SkiaTextMeasurer.ShouldApplyKerning(style) ? GetRunShaper(style) : null;
                 if (prefixShaper is null)
                 {
                     targetCanvas.DrawText(prefix, prefixX, prefixBaseline, defaultPaint);
@@ -723,6 +732,11 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                 if (segment.IsTab && segment.Run is not null)
                 {
                     var run = segment.Run;
+                    if (run.Style.Hidden)
+                    {
+                        continue;
+                    }
+
                     if (run.TabLeader != TabLeader.None && segment.Width > 0f)
                     {
                         var leaderChar = run.TabLeader switch
@@ -757,7 +771,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                 if (segment.IsText && segment.Run is not null)
                 {
                     var run = segment.Run;
-                    if (string.IsNullOrEmpty(run.Text))
+                    if (run.Style.Hidden || string.IsNullOrEmpty(run.Text))
                     {
                         continue;
                     }
@@ -769,6 +783,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                     var segmentX = originX + segment.X;
                     var drawX = segment.IsRtl ? segmentX + segment.Width : segmentX;
                     var baseTypeface = runPaint.Typeface ?? SKTypeface.Default;
+                    var applyKerning = SkiaTextMeasurer.ShouldApplyKerning(run.Style);
                     var fallbackSegments = fallbackResolver is not null && !runPaint.ContainsGlyphs(segmentText)
                         ? SkiaTextMeasurer.BuildTypefaceSegments(segmentSpan, run.Style, runPaint, fallbackResolver)
                         : null;
@@ -777,7 +792,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                         || fallbackSegments.Count == 0
                         || (fallbackSegments.Count == 1 && ReferenceEquals(fallbackSegments[0].Typeface, baseTypeface)))
                     {
-                        var shaper = GetRunShaper(run.Style);
+                        var shaper = applyKerning ? GetRunShaper(run.Style) : null;
                         DrawTextWithSpacing(targetCanvas, segmentText, drawX, runBaseline, runPaint, shaper, run.LetterSpacing, gridSpacing, run.Style);
                     }
                     else
@@ -790,7 +805,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                         {
                             var fallbackText = segmentSpan.Slice(fallbackSegment.Start, fallbackSegment.Length).ToString();
                             var fallbackPaint = GetTypefacePaint(run.Style, fallbackSegment.Typeface);
-                            var fallbackShaper = GetTypefaceShaper(fallbackSegment.Typeface);
+                            var fallbackShaper = applyKerning ? GetTypefaceShaper(fallbackSegment.Typeface) : null;
                             var localX = segmentMetrics.GetWidth(fallbackSegment.Start) * scale;
                             var fallbackX = segment.IsRtl ? drawX - localX : drawX + localX;
 
@@ -809,7 +824,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                 }
                 else if (segment.Shape is not null)
                 {
-                    DrawShape(targetCanvas, segment.Shape with { X = segment.X }, originX, baseline, lineAscent, options, style);
+                    DrawShape(targetCanvas, segment.Shape with { X = segment.X }, originX, baseline, lineAscent, options, style, document, layout.Settings);
                 }
                 else if (segment.Chart is not null)
                 {
@@ -817,7 +832,13 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                 }
                 else if (segment.Equation is not null)
                 {
-                    DrawEquation(targetCanvas, segment.Equation with { X = segment.X }, originX, baseline, GetRunPaint, GetRunShaper);
+                    DrawEquation(
+                        targetCanvas,
+                        segment.Equation with { X = segment.X },
+                        originX,
+                        baseline,
+                        GetRunPaint,
+                        runStyle => SkiaTextMeasurer.ShouldApplyKerning(runStyle) ? GetRunShaper(runStyle) : null);
                 }
             }
 
@@ -826,6 +847,11 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                 foreach (var ruby in rubies)
                 {
                     if (ruby.Length <= 0 || string.IsNullOrEmpty(ruby.RubyText))
+                    {
+                        continue;
+                    }
+
+                    if (ruby.RubyStyle.Hidden)
                     {
                         continue;
                     }
@@ -841,7 +867,8 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                     var rubyBaseline = baseline + ruby.BaselineOffset;
 
                     var rubyPaint = GetRunPaint(ruby.RubyStyle);
-                    var rubyShaper = GetRunShaper(ruby.RubyStyle);
+                    var applyKerning = SkiaTextMeasurer.ShouldApplyKerning(ruby.RubyStyle);
+                    var rubyShaper = applyKerning ? GetRunShaper(ruby.RubyStyle) : null;
                     var rubySpan = ruby.RubyText.AsSpan();
                     var baseTypeface = rubyPaint.Typeface ?? SKTypeface.Default;
                     var fallbackSegments = fallbackResolver is not null && !rubyPaint.ContainsGlyphs(ruby.RubyText)
@@ -860,7 +887,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                         {
                             var fallbackText = rubySpan.Slice(fallbackSegment.Start, fallbackSegment.Length).ToString();
                             var fallbackPaint = GetTypefacePaint(ruby.RubyStyle, fallbackSegment.Typeface);
-                            var fallbackShaper = GetTypefaceShaper(fallbackSegment.Typeface);
+                            var fallbackShaper = applyKerning ? GetTypefaceShaper(fallbackSegment.Typeface) : null;
                             var localX = rubyMetrics.GetWidth(fallbackSegment.Start);
                             var fallbackX = rubyX + localX;
 
@@ -958,6 +985,11 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                     continue;
                 }
 
+                if (segment.Run?.Style.Hidden == true)
+                {
+                    continue;
+                }
+
                 var startX = originX + segment.X;
                 var endX = startX + segment.Width;
                 if (segment.IsRtl)
@@ -1014,7 +1046,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                 case ShapeInline shape:
                 {
                     var layoutShape = new LayoutShape(shape, 0f, bounds.Width, bounds.Height, 1);
-                    DrawShape(targetCanvas, layoutShape, bounds.X, bounds.Y + bounds.Height, 0f, options, style);
+                    DrawShape(targetCanvas, layoutShape, bounds.X, bounds.Y + bounds.Height, 0f, options, style, document, layout.Settings);
                     break;
                 }
                 case ChartInline chart:
@@ -1184,6 +1216,8 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             {
                 targetCanvas.DrawRect(rect, pageBorderPaint);
             }
+
+            DrawGridlines(page, section);
 
             if (options.ColumnSeparatorThickness > 0f)
             {
@@ -1436,6 +1470,39 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             }
         }
 
+        void DrawGridlines(PageLayout page, PageSectionSettings? section)
+        {
+            if (!options.ShowGridlines || section is null)
+            {
+                return;
+            }
+
+            var spacing = MathF.Max(2f, options.GridlineSpacing);
+            if (spacing <= 0f)
+            {
+                return;
+            }
+
+            var left = page.Bounds.X + section.MarginLeft;
+            var right = page.Bounds.Right - section.MarginRight;
+            var top = page.Bounds.Y + section.MarginTop;
+            var bottom = page.Bounds.Bottom - section.MarginBottom;
+            if (right <= left || bottom <= top)
+            {
+                return;
+            }
+
+            for (var x = left; x <= right; x += spacing)
+            {
+                targetCanvas.DrawLine(x, top, x, bottom, gridlinePaint);
+            }
+
+            for (var y = top; y <= bottom; y += spacing)
+            {
+                targetCanvas.DrawLine(left, y, right, y, gridlinePaint);
+            }
+        }
+
         void DrawBreakMarkers(int pageIndex)
         {
             if (!options.ShowInvisibles || layout.BreakMarkers.Count == 0)
@@ -1646,18 +1713,30 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
 
                 var paragraph = document.GetParagraph(paragraphIndex);
                 var properties = styleResolver.ResolveParagraphProperties(paragraph);
+                var borders = properties.Borders;
+                var leftSpace = borders.Left is { IsVisible: true } leftBorder ? MathF.Max(0f, leftBorder.Spacing ?? 0f) : 0f;
+                var rightSpace = borders.Right is { IsVisible: true } rightBorder ? MathF.Max(0f, rightBorder.Spacing ?? 0f) : 0f;
+                var topSpace = borders.Top is { IsVisible: true } topBorder ? MathF.Max(0f, topBorder.Spacing ?? 0f) : 0f;
+                var bottomSpace = borders.Bottom is { IsVisible: true } bottomBorder ? MathF.Max(0f, bottomBorder.Spacing ?? 0f) : 0f;
+                var borderLeft = left - leftSpace;
+                var borderRight = right + rightSpace;
+                var borderTop = top - topSpace;
+                var borderBottom = bottom + bottomSpace;
+
                 if (properties.ShadingColor is { } shading)
                 {
-                    using var shadingPaint = new SKPaint
+                    if (borderRight > borderLeft && borderBottom > borderTop)
                     {
-                        Style = SKPaintStyle.Fill,
-                        Color = ToSkColor(shading),
-                        IsAntialias = true
-                    };
-                    targetCanvas.DrawRect(new SKRect(left, top, right, bottom), shadingPaint);
+                        using var shadingPaint = new SKPaint
+                        {
+                            Style = SKPaintStyle.Fill,
+                            Color = ToSkColor(shading),
+                            IsAntialias = true
+                        };
+                        targetCanvas.DrawRect(new SKRect(borderLeft, borderTop, borderRight, borderBottom), shadingPaint);
+                    }
                 }
 
-                var borders = properties.Borders;
                 if (borders.HasAny)
                 {
                     var drawTop = range.Start >= lineStart && range.Start < lineEnd;
@@ -1665,22 +1744,22 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
 
                     if (drawTop && borders.Top is not null && borders.Top.IsVisible)
                     {
-                        DrawBorderSegment(targetCanvas, borders.Top, left, top, right, top, GetBorderPaint);
+                        DrawBorderSegment(targetCanvas, borders.Top, borderLeft, borderTop, borderRight, borderTop, GetBorderPaint);
                     }
 
                     if (drawBottom && borders.Bottom is not null && borders.Bottom.IsVisible)
                     {
-                        DrawBorderSegment(targetCanvas, borders.Bottom, left, bottom, right, bottom, GetBorderPaint);
+                        DrawBorderSegment(targetCanvas, borders.Bottom, borderLeft, borderBottom, borderRight, borderBottom, GetBorderPaint);
                     }
 
                     if (borders.Left is not null && borders.Left.IsVisible)
                     {
-                        DrawBorderSegment(targetCanvas, borders.Left, left, top, left, bottom, GetBorderPaint);
+                        DrawBorderSegment(targetCanvas, borders.Left, borderLeft, borderTop, borderLeft, borderBottom, GetBorderPaint);
                     }
 
                     if (borders.Right is not null && borders.Right.IsVisible)
                     {
-                        DrawBorderSegment(targetCanvas, borders.Right, right, top, right, bottom, GetBorderPaint);
+                        DrawBorderSegment(targetCanvas, borders.Right, borderRight, borderTop, borderRight, borderBottom, GetBorderPaint);
                     }
                 }
             }
@@ -3413,6 +3492,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
         private readonly string _language;
         private readonly string _languageEastAsia;
         private readonly string _languageBidi;
+        private readonly float _horizontalScale;
 
         public TextStyleKey(TextStyle style)
         {
@@ -3428,6 +3508,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             _language = style.Language ?? string.Empty;
             _languageEastAsia = style.LanguageEastAsia ?? string.Empty;
             _languageBidi = style.LanguageBidi ?? string.Empty;
+            _horizontalScale = style.HorizontalScale;
         }
 
         public bool Equals(TextStyleKey other)
@@ -3443,7 +3524,8 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                 && (!_hasHighlight || _highlight.Equals(other._highlight))
                 && _language == other._language
                 && _languageEastAsia == other._languageEastAsia
-                && _languageBidi == other._languageBidi;
+                && _languageBidi == other._languageBidi
+                && _horizontalScale.Equals(other._horizontalScale);
         }
 
         public override bool Equals(object? obj) => obj is TextStyleKey other && Equals(other);
@@ -3460,7 +3542,8 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                 _hasHighlight ? _highlight.GetHashCode() : 0);
             hash = HashCode.Combine(hash, _language);
             hash = HashCode.Combine(hash, _languageEastAsia);
-            return HashCode.Combine(hash, _languageBidi);
+            hash = HashCode.Combine(hash, _languageBidi);
+            return HashCode.Combine(hash, _horizontalScale);
         }
     }
 
@@ -3470,6 +3553,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
         private readonly TextStyleKey _styleKey;
         private readonly float _letterSpacing;
         private readonly float _gridSpacing;
+        private readonly float _kerning;
 
         public RunMetricsKey(string text, TextStyle style, float letterSpacing, float gridSpacing)
         {
@@ -3477,6 +3561,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             _styleKey = new TextStyleKey(style);
             _letterSpacing = letterSpacing;
             _gridSpacing = gridSpacing;
+            _kerning = style.Kerning ?? 0f;
         }
 
         public bool Equals(RunMetricsKey other)
@@ -3484,11 +3569,12 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             return _text == other._text
                 && _styleKey.Equals(other._styleKey)
                 && _letterSpacing.Equals(other._letterSpacing)
-                && _gridSpacing.Equals(other._gridSpacing);
+                && _gridSpacing.Equals(other._gridSpacing)
+                && _kerning.Equals(other._kerning);
         }
 
         public override bool Equals(object? obj) => obj is RunMetricsKey other && Equals(other);
-        public override int GetHashCode() => HashCode.Combine(_text, _styleKey, _letterSpacing, _gridSpacing);
+        public override int GetHashCode() => HashCode.Combine(_text, _styleKey, _letterSpacing, _gridSpacing, _kerning);
     }
 
     private sealed class RunMetrics

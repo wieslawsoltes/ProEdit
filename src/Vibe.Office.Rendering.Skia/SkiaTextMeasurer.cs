@@ -46,14 +46,15 @@ public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
         var fallbackResolver = TypefaceResolver as ISkiaTypefaceFallbackResolver;
         var baseTypeface = paint.Typeface ?? SKTypeface.Default;
         var width = 0f;
-        if (text.Length > 0 && CanShape(baseTypeface))
+        if (text.Length > 0)
         {
+            var applyKerning = ShouldApplyKerning(style);
             var needsFallback = fallbackResolver is not null && !paint.ContainsGlyphs(text);
             if (needsFallback)
             {
-                width = MeasureTextWithFallback(text, style, paint, fallbackResolver!, useShaper: _useHarfBuzz);
+                width = MeasureTextWithFallback(text, style, paint, fallbackResolver!, useShaper: _useHarfBuzz && applyKerning, applyKerning);
             }
-            else
+            else if (applyKerning && CanShape(baseTypeface))
             {
                 try
                 {
@@ -77,13 +78,12 @@ public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
                     width = paint.MeasureText(text);
                 }
             }
-        }
-        else if (text.Length > 0)
-        {
-            var needsFallback = fallbackResolver is not null && !paint.ContainsGlyphs(text);
-            width = needsFallback
-                ? MeasureTextWithFallback(text, style, paint, fallbackResolver!, useShaper: _useHarfBuzz)
-                : paint.MeasureText(text);
+            else
+            {
+                width = applyKerning
+                    ? paint.MeasureText(text)
+                    : MeasureTextWithoutKerning(text, paint);
+            }
         }
 
         if (float.IsNaN(width) || float.IsInfinity(width))
@@ -117,25 +117,35 @@ public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
         var fallbackResolver = TypefaceResolver as ISkiaTypefaceFallbackResolver;
         var baseTypeface = paint.Typeface ?? SKTypeface.Default;
         var needsFallback = fallbackResolver is not null && !paint.ContainsGlyphs(text);
+        var applyKerning = ShouldApplyKerning(style);
         if (!needsFallback && CanShape(baseTypeface))
         {
-            if (TryShapeTextSegment(text, style, paint, out var shaped))
+            if (applyKerning && TryShapeTextSegment(text, style, paint, out var shaped))
             {
                 return shaped;
             }
 
-            MarkShaperFailed(baseTypeface);
+            if (applyKerning)
+            {
+                MarkShaperFailed(baseTypeface);
+            }
         }
 
         if (needsFallback)
         {
-            return ShapeTextWithFallback(text, style, paint, fallbackResolver!, _useHarfBuzz);
+            return ShapeTextWithFallback(text, style, paint, fallbackResolver!, _useHarfBuzz && applyKerning);
         }
 
         return BuildSimpleShapeInfo(text, paint);
     }
 
-    private float MeasureTextWithFallback(ReadOnlySpan<char> text, TextStyle style, SKPaint basePaint, ISkiaTypefaceFallbackResolver fallbackResolver, bool useShaper)
+    private float MeasureTextWithFallback(
+        ReadOnlySpan<char> text,
+        TextStyle style,
+        SKPaint basePaint,
+        ISkiaTypefaceFallbackResolver fallbackResolver,
+        bool useShaper,
+        bool applyKerning)
     {
         var segments = BuildTypefaceSegments(text, style, basePaint, fallbackResolver);
         if (segments.Count == 0)
@@ -179,7 +189,9 @@ public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
                     }
                 }
 
-                width += paint.MeasureText(segmentSpan);
+                width += applyKerning
+                    ? paint.MeasureText(segmentSpan)
+                    : MeasureTextWithoutKerning(segmentSpan, paint);
             }
         }
         finally
@@ -196,6 +208,30 @@ public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
                     shaper.Dispose();
                 }
             }
+        }
+
+        return width;
+    }
+
+    private static float MeasureTextWithoutKerning(ReadOnlySpan<char> text, SKPaint paint)
+    {
+        if (text.IsEmpty)
+        {
+            return 0f;
+        }
+
+        var width = 0f;
+        var index = 0;
+        while (index < text.Length)
+        {
+            var length = TextCluster.GetNextClusterLength(text, index);
+            if (length <= 0)
+            {
+                break;
+            }
+
+            width += paint.MeasureText(text.Slice(index, length));
+            index += length;
         }
 
         return width;
@@ -539,6 +575,22 @@ public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
             ? HarfBuzzSharp.Direction.RightToLeft
             : HarfBuzzSharp.Direction.LeftToRight;
         return buffer;
+    }
+
+    internal static bool ShouldApplyKerning(TextStyle style)
+    {
+        if (!style.Kerning.HasValue)
+        {
+            return true;
+        }
+
+        var threshold = style.Kerning.Value;
+        if (threshold <= 0f)
+        {
+            return true;
+        }
+
+        return style.FontSize >= threshold;
     }
 
     private bool CanShape(SKTypeface? typeface)
