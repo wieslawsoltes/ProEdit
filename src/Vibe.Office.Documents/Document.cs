@@ -24,6 +24,9 @@ public sealed class Document
     public Dictionary<int, FootnoteDefinition> Footnotes { get; } = new();
     public Dictionary<int, EndnoteDefinition> Endnotes { get; } = new();
     public Dictionary<int, CommentDefinition> Comments { get; } = new();
+    public bool TrackChangesEnabled { get; set; }
+    public string? CitationStyle { get; set; }
+    public MailMergeData? MailMergeData { get; set; }
 
     public Document()
     {

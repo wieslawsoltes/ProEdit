@@ -23,6 +23,9 @@ public static class DocumentClone
         target.MirrorMargins = source.MirrorMargins;
         target.GutterAtTop = source.GutterAtTop;
         target.EvenAndOddHeaders = source.EvenAndOddHeaders;
+        target.TrackChangesEnabled = source.TrackChangesEnabled;
+        target.CitationStyle = source.CitationStyle;
+        target.MailMergeData = source.MailMergeData?.Clone();
 
         CopyTextStyle(source.DefaultTextStyle, target.DefaultTextStyle);
         CopyParagraphStyleProperties(source.DefaultParagraphStyleProperties, target.DefaultParagraphStyleProperties);
@@ -215,9 +218,10 @@ public static class DocumentClone
         };
     }
 
-    private static Inline CloneInline(Inline inline)
+    public static Inline CloneInline(Inline inline)
     {
-        return inline switch
+        ArgumentNullException.ThrowIfNull(inline);
+        Inline clone = inline switch
         {
             RunInline run => CloneRunInline(run),
             EquationInline equation => CloneEquationInline(equation),
@@ -250,6 +254,8 @@ public static class DocumentClone
             RevisionRangeEndInline revisionRangeEnd => new RevisionRangeEndInline(revisionRangeEnd.Kind, revisionRangeEnd.Id),
             _ => throw new NotSupportedException($"Unsupported inline type: {inline.GetType().Name}")
         };
+        clone.Hyperlink = CloneHyperlink(inline.Hyperlink);
+        return clone;
     }
 
     private static RunInline CloneRunInline(RunInline source)
@@ -281,6 +287,16 @@ public static class DocumentClone
             RubyStyleId = source.RubyStyleId,
             RubyScale = source.RubyScale
         };
+    }
+
+    private static HyperlinkInfo? CloneHyperlink(HyperlinkInfo? source)
+    {
+        if (source is null)
+        {
+            return null;
+        }
+
+        return new HyperlinkInfo(source.Uri, source.Anchor, source.Tooltip);
     }
 
     private static ImageInline CloneImageInline(ImageInline source)
