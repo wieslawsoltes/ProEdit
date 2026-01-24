@@ -38,6 +38,7 @@ public sealed class EditorTableCommandMap
         _router.RegisterAction(EditorTableCommandIds.Layout.DistributeColumns, (_, __) => DistributeColumns(), CanEditTable);
         _router.RegisterAction(EditorTableCommandIds.Layout.DistributeRows, (_, __) => DistributeRows(), CanEditTable);
         _router.RegisterAction(EditorTableCommandIds.Layout.ColumnWidthsSet, (_, payload) => SetColumnWidths(payload), CanEditTable);
+        _router.RegisterAction(EditorTableCommandIds.Layout.RepeatHeaderRows, (_, __) => ToggleRepeatHeaderRows(), CanEditTable);
 
         _router.RegisterAction(EditorTableCommandIds.Alignment.AlignTop, (_, __) => ApplyVerticalAlignment(TableCellVerticalAlignment.Top), CanEditTable);
         _router.RegisterAction(EditorTableCommandIds.Alignment.AlignMiddle, (_, __) => ApplyVerticalAlignment(TableCellVerticalAlignment.Center), CanEditTable);
@@ -207,6 +208,55 @@ public sealed class EditorTableCommandMap
         document.Blocks.Insert(context.BlockIndex, new ParagraphBlock());
         var paragraphIndex = FindParagraphIndexForBlock(document, context.BlockIndex);
         _session.SetSelection(new TextRange(new TextPosition(paragraphIndex, 0), new TextPosition(paragraphIndex, 0)));
+        _session.RefreshLayout();
+    }
+
+    private void ToggleRepeatHeaderRows()
+    {
+        if (!TryGetTableContext(out var context))
+        {
+            return;
+        }
+
+        var table = context.Table;
+        if (table.Rows.Count == 0)
+        {
+            return;
+        }
+
+        var headerEnd = context.RowIndex;
+        if (TryGetSelectionRange(out var range))
+        {
+            headerEnd = range.RowEnd;
+        }
+
+        headerEnd = Math.Clamp(headerEnd, 0, table.Rows.Count - 1);
+        var shouldClear = true;
+        for (var i = 0; i <= headerEnd; i++)
+        {
+            if (table.Rows[i].Properties.RepeatOnEachPage != true)
+            {
+                shouldClear = false;
+                break;
+            }
+        }
+
+        if (shouldClear)
+        {
+            for (var i = 0; i < table.Rows.Count; i++)
+            {
+                table.Rows[i].Properties.RepeatOnEachPage = false;
+            }
+
+            _session.RefreshLayout();
+            return;
+        }
+
+        for (var i = 0; i < table.Rows.Count; i++)
+        {
+            table.Rows[i].Properties.RepeatOnEachPage = i <= headerEnd;
+        }
+
         _session.RefreshLayout();
     }
 

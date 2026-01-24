@@ -224,6 +224,13 @@ internal sealed class TableRibbonExtension : IRibbonExtension
             iconKey: "RibbonIcon.Layout",
             size: RibbonControlSize.Small);
 
+        var repeatHeaderRows = new RibbonButton(
+            "table-repeat-header",
+            "Repeat Header Rows",
+            CreateCommand(EditorTableCommandIds.Layout.RepeatHeaderRows),
+            iconKey: "RibbonIcon.Table",
+            size: RibbonControlSize.Small);
+
         var layoutGroup = new RibbonGroup(
             "table-layout-group",
             "Layout",
@@ -231,7 +238,8 @@ internal sealed class TableRibbonExtension : IRibbonExtension
             {
                 autoFitButton,
                 distributeColumns,
-                distributeRows
+                distributeRows,
+                repeatHeaderRows
             },
             keyTip: "LY");
 

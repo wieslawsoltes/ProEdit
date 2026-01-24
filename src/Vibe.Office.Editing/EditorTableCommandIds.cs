@@ -35,6 +35,7 @@ public static class EditorTableCommandIds
         public const string DistributeColumns = "table.layout.distribute.columns";
         public const string DistributeRows = "table.layout.distribute.rows";
         public const string ColumnWidthsSet = "table.layout.columns.set";
+        public const string RepeatHeaderRows = "table.layout.repeatHeaderRows";
     }
 
     public static class Alignment
