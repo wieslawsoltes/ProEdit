@@ -27,6 +27,7 @@ public static class EditorHomeServiceRegistry
         clipboardService ??= new EditorClipboardServiceAdapter(session);
         var formatPainter = new EditorFormatPainter(session, new EditorTextFormattingApplier(session, textNormalizer), formattingState);
         var undoRedoService = new EditorCommandHistory(session);
+        var historySnapshotService = new EditorHistorySnapshotService(session, undoRedoService);
         var findReplaceService = new EditorFindReplaceService(session);
         var selectionTextService = new EditorSelectionTextServiceAdapter(session);
         var commandRouter = new EditorCommandRouterAdapter(commands, session);
@@ -50,6 +51,7 @@ public static class EditorHomeServiceRegistry
         services.Register<IClipboardService>(clipboardService);
         services.Register<IFormatPainterService>(formatPainter);
         services.Register<ITextContainerNormalizer>(textNormalizer);
+        services.Register<IEditorHistorySnapshotService>(historySnapshotService);
         services.Register<IUndoRedoService>(undoRedoService);
         services.Register<IFindReplaceService>(findReplaceService);
         services.Register<ISelectionTextService>(selectionTextService);
@@ -85,7 +87,7 @@ public static class EditorHomeServiceRegistry
         var referencesCommandMap = new EditorReferencesCommandMap(commandRouter, session);
         referencesCommandMap.Register();
 
-        var reviewCommandMap = new EditorReviewCommandMap(commandRouter, session);
+        var reviewCommandMap = new EditorReviewCommandMap(commandRouter, session, services);
         reviewCommandMap.Register();
 
         var designCommandMap = new EditorDesignCommandMap(commandRouter, session);

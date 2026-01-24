@@ -103,12 +103,21 @@ public interface IParagraphService
 
 public readonly record struct EditorParagraphStyleInfo(string Id, string Name, bool IsDefault);
 
+public readonly record struct EditorDirectFormattingInfo(bool HasParagraphFormatting, bool HasCharacterFormatting);
+
 public interface IStyleService
 {
     IReadOnlyList<EditorParagraphStyleInfo> GetParagraphStyles();
     EditorValue<string> GetCurrentParagraphStyleId();
     ParagraphStyleDefinition? GetParagraphStyle(string styleId);
+    TextStyle? GetParagraphStylePreview(string styleId);
+    IReadOnlyCollection<string> GetParagraphStylesInUse();
+    EditorDirectFormattingInfo GetDirectFormattingInfo();
     bool ApplyParagraphStyle(string styleId);
+    bool RenameParagraphStyle(string styleId, string name);
+    bool SetParagraphStyleBasedOn(string styleId, string? basedOnId);
+    bool SetParagraphStyleNext(string styleId, string? nextStyleId);
+    bool SetDefaultParagraphStyle(string styleId);
 }
 
 public readonly record struct EditorFontFamilyInfo(string Name, bool IsEmbedded);
@@ -175,6 +184,21 @@ public interface IEditorViewOptionsService
     bool ShowGridlines { get; set; }
     bool ShowNavigationPane { get; set; }
     PageFlowDirection PageMovement { get; set; }
+    EditorViewMode ViewMode { get; set; }
+}
+
+public enum ReviewMarkupMode
+{
+    All,
+    Simple,
+    None,
+    Balloons
+}
+
+public interface IReviewPaneService
+{
+    ReviewMarkupMode MarkupMode { get; set; }
+    void ToggleReviewingPane();
 }
 
 public interface IMailMergeSourceManager
@@ -191,5 +215,5 @@ public interface IStylePaneService
 public interface IEditorCommandRouter
 {
     bool CanExecute(string commandId, object? payload = null, RibbonContextSnapshot? context = null);
-    ValueTask<bool> ExecuteAsync(string commandId, object? payload = null, RibbonContextSnapshot? context = null);
+    ValueTask<bool> ExecuteAsync(string commandId, object? payload = null, RibbonContextSnapshot? context = null, bool recordHistory = true);
 }

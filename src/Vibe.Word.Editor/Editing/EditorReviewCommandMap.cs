@@ -7,12 +7,14 @@ public sealed class EditorReviewCommandMap
 {
     private readonly EditorCommandRouterAdapter _router;
     private readonly IEditorMutableSession _session;
+    private readonly EditorServices _services;
     private int _commentCounter;
 
-    public EditorReviewCommandMap(EditorCommandRouterAdapter router, IEditorMutableSession session)
+    public EditorReviewCommandMap(EditorCommandRouterAdapter router, IEditorMutableSession session, EditorServices services)
     {
         _router = router ?? throw new ArgumentNullException(nameof(router));
         _session = session ?? throw new ArgumentNullException(nameof(session));
+        _services = services ?? throw new ArgumentNullException(nameof(services));
         _commentCounter = FindNextCommentId(session.Document);
     }
 
@@ -24,6 +26,8 @@ public sealed class EditorReviewCommandMap
         _router.RegisterAction(EditorReviewCommandIds.Comments.NextComment, (_, __) => NavigateComment(1), (context, _) => HasComments(context));
 
         _router.RegisterAction(EditorReviewCommandIds.Tracking.TrackChangesToggle, (_, payload) => ToggleTrackChanges(payload));
+        _router.RegisterAction(EditorReviewCommandIds.Tracking.ShowMarkup, (_, payload) => SetMarkupMode(payload), (context, _) => CanToggleReviewPane(context), isUndoable: false);
+        _router.RegisterAction(EditorReviewCommandIds.Tracking.ReviewingPane, (_, __) => ToggleReviewingPane(), (context, _) => CanToggleReviewPane(context), isUndoable: false);
 
         _router.RegisterAction(EditorReviewCommandIds.Changes.Accept, (_, __) => ApplyRevision(true), (context, _) => HasRevisions(context));
         _router.RegisterAction(EditorReviewCommandIds.Changes.Reject, (_, __) => ApplyRevision(false), (context, _) => HasRevisions(context));
@@ -65,6 +69,78 @@ public sealed class EditorReviewCommandMap
     {
         var enabled = payload is bool value ? value : !_session.Document.TrackChangesEnabled;
         _session.Document.TrackChangesEnabled = enabled;
+    }
+
+    private bool CanToggleReviewPane(RibbonContextSnapshot? context)
+    {
+        return TryGetReviewPaneService(out _);
+    }
+
+    private void ToggleReviewingPane()
+    {
+        if (TryGetReviewPaneService(out var service))
+        {
+            service.ToggleReviewingPane();
+        }
+    }
+
+    private void SetMarkupMode(object? payload)
+    {
+        if (!TryGetReviewPaneService(out var service))
+        {
+            return;
+        }
+
+        if (payload is ReviewMarkupMode mode)
+        {
+            service.MarkupMode = mode;
+            return;
+        }
+
+        if (payload is string label && TryParseMarkupMode(label, out mode))
+        {
+            service.MarkupMode = mode;
+        }
+    }
+
+    private bool TryGetReviewPaneService(out IReviewPaneService service)
+    {
+        return _services.TryGet(out service);
+    }
+
+    private static bool TryParseMarkupMode(string label, out ReviewMarkupMode mode)
+    {
+        mode = ReviewMarkupMode.All;
+        if (string.IsNullOrWhiteSpace(label))
+        {
+            return false;
+        }
+
+        if (string.Equals(label, "All", StringComparison.OrdinalIgnoreCase))
+        {
+            mode = ReviewMarkupMode.All;
+            return true;
+        }
+
+        if (string.Equals(label, "Simple", StringComparison.OrdinalIgnoreCase))
+        {
+            mode = ReviewMarkupMode.Simple;
+            return true;
+        }
+
+        if (string.Equals(label, "None", StringComparison.OrdinalIgnoreCase))
+        {
+            mode = ReviewMarkupMode.None;
+            return true;
+        }
+
+        if (string.Equals(label, "Balloons", StringComparison.OrdinalIgnoreCase))
+        {
+            mode = ReviewMarkupMode.Balloons;
+            return true;
+        }
+
+        return false;
     }
 
     private void InsertComment()
