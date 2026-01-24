@@ -1,6 +1,5 @@
-using System.Buffers;
-using System.Text;
 using SkiaSharp;
+using SkiaSharp.HarfBuzz;
 using Vibe.Office.Documents;
 using Vibe.Office.Layout;
 using Vibe.Office.Primitives;
@@ -10,7 +9,19 @@ namespace Vibe.Office.Rendering.Skia;
 
 public sealed partial class SkiaDocumentRenderer
 {
-    private void DrawShape(SKCanvas canvas, LayoutShape shapeLayout, float lineX, float baseline, float ascent, RenderOptions options, TextStyle defaultStyle)
+    private static readonly DocumentLayouter ShapeTextLayouter = new DocumentLayouter();
+    private SkiaTextMeasurer? _shapeTextMeasurer;
+
+    private void DrawShape(
+        SKCanvas canvas,
+        LayoutShape shapeLayout,
+        float lineX,
+        float baseline,
+        float ascent,
+        RenderOptions options,
+        TextStyle defaultStyle,
+        Document document,
+        LayoutSettings layoutSettings)
     {
         var shape = shapeLayout.Shape;
         var width = shapeLayout.Width;
@@ -37,9 +48,19 @@ public sealed partial class SkiaDocumentRenderer
         ApplyShapeTransform(canvas, properties, width, height);
 
         using var path = CreateShapePath(kind, rect);
+        ShapeTextBox? textBox = null;
+        if (shape.TextBox is { Blocks.Count: > 0 } resolvedTextBox)
+        {
+            textBox = resolvedTextBox;
+        }
+
+        var hasText = textBox is not null;
         if (!hasFill && !hasOutline)
         {
-            DrawShapePlaceholder(canvas, rect, options, "Shape");
+            if (!hasText)
+            {
+                DrawShapePlaceholder(canvas, rect, options, "Shape");
+            }
         }
         else
         {
@@ -64,9 +85,9 @@ public sealed partial class SkiaDocumentRenderer
             DrawShapeGeometry(canvas, path, kind, fillColor, outline);
         }
 
-        if (shape.TextBox is { Blocks.Count: > 0 })
+        if (textBox is not null)
         {
-            DrawShapeText(canvas, shape.TextBox, rect, options, defaultStyle, TypefaceResolver);
+            DrawShapeText(canvas, textBox, rect, options, document, defaultStyle, layoutSettings);
         }
 
         if (effects?.Reflection is not null && (hasFill || hasOutline))
@@ -348,13 +369,14 @@ public sealed partial class SkiaDocumentRenderer
         }
     }
 
-    private static void DrawShapeText(
+    private void DrawShapeText(
         SKCanvas canvas,
         ShapeTextBox textBox,
         SKRect bounds,
         RenderOptions options,
+        Document document,
         TextStyle defaultStyle,
-        ISkiaTypefaceResolver? typefaceResolver)
+        LayoutSettings layoutSettings)
     {
         var padding = textBox.Properties.Padding;
         var left = bounds.Left + padding.Left;
@@ -368,252 +390,1310 @@ public sealed partial class SkiaDocumentRenderer
             return;
         }
 
-        var textStyle = defaultStyle.Clone();
-        textStyle.Color = options.TextColor;
-        using var paint = SkiaTextMeasurer.CreatePaint(textStyle, typefaceResolver);
-        paint.Color = ToSkColor(options.TextColor);
+        var shapeDocument = CreateShapeTextDocument(document, textBox, defaultStyle);
+        var shapeSettings = layoutSettings.Clone();
+        shapeSettings.UsePagination = false;
+        shapeSettings.ViewportWidth = width;
+        shapeSettings.ViewportHeight = height;
+        shapeSettings.PageWidth = width;
+        shapeSettings.PageHeight = height;
+        shapeSettings.PageGap = 0f;
+        shapeSettings.MarginLeft = 0f;
+        shapeSettings.MarginRight = 0f;
+        shapeSettings.MarginTop = 0f;
+        shapeSettings.MarginBottom = 0f;
+        shapeSettings.HeaderOffset = 0f;
+        shapeSettings.FooterOffset = 0f;
+        shapeSettings.Gutter = 0f;
 
-        var metrics = paint.FontMetrics;
-        var ascent = MathF.Max(1f, -metrics.Ascent);
-        var descent = MathF.Max(0f, metrics.Descent);
-        var lineHeight = ascent + descent;
+        var measurer = _shapeTextMeasurer ??= new SkiaTextMeasurer();
+        measurer.TypefaceResolver = TypefaceResolver;
+        measurer.UseHarfBuzz = options.UseHarfBuzz;
 
-        var lines = BuildShapeTextLines(textBox.Blocks, width, paint);
-        if (lines.Count == 0)
+        var layout = ShapeTextLayouter.Layout(shapeDocument, shapeSettings, measurer);
+        if (layout.Lines.Count == 0 && layout.Tables.Count == 0 && layout.FloatingObjects.Count == 0)
         {
             return;
         }
 
-        var totalHeight = lineHeight * lines.Count;
+        var contentBottom = 0f;
+        foreach (var line in layout.Lines)
+        {
+            var lineBottom = line.Y + line.LineHeight;
+            if (lineBottom > contentBottom)
+            {
+                contentBottom = lineBottom;
+            }
+        }
+
+        foreach (var table in layout.Tables)
+        {
+            if (table.Bounds.Bottom > contentBottom)
+            {
+                contentBottom = table.Bounds.Bottom;
+            }
+        }
+
+        foreach (var floating in layout.FloatingObjects)
+        {
+            if (floating.Bounds.Bottom > contentBottom)
+            {
+                contentBottom = floating.Bounds.Bottom;
+            }
+        }
+
+        var contentHeight = MathF.Max(0f, contentBottom);
         var startY = top;
-        if (totalHeight < height)
+        if (contentHeight < height)
         {
             startY = textBox.Properties.VerticalAlignment switch
             {
-                ShapeTextVerticalAlignment.Center => top + (height - totalHeight) / 2f,
-                ShapeTextVerticalAlignment.Bottom => top + (height - totalHeight),
+                ShapeTextVerticalAlignment.Center => top + (height - contentHeight) / 2f,
+                ShapeTextVerticalAlignment.Bottom => top + (height - contentHeight),
                 _ => top
             };
         }
 
-        canvas.Save();
-        canvas.ClipRect(new SKRect(left, top, right, bottom));
+        var styleResolver = new DocumentStyleResolver(shapeDocument);
+        var paintCache = new Dictionary<TextStyleKey, SKPaint>();
+        var highlightPaintCache = new Dictionary<DocColor, SKPaint>();
+        var borderPaintCache = new Dictionary<BorderPaintKey, SKPaint>();
+        var invisibleTextPaintCache = new Dictionary<TextStyleKey, SKPaint>();
+        var shaperCache = new Dictionary<TextStyleKey, SKShaper>();
+        var typefacePaintCache = new Dictionary<(TextStyleKey StyleKey, SKTypeface Typeface), SKPaint>();
+        var typefaceShaperCache = new Dictionary<SKTypeface, SKShaper>();
+        var runMetricsCache = new Dictionary<RunMetricsKey, RunMetrics>();
+        var canShapeText = options.UseHarfBuzz;
+        var fallbackResolver = TypefaceResolver as ISkiaTypefaceFallbackResolver;
+        var commentHighlightsByParagraph = layout.CommentHighlightsByParagraph;
 
-        var y = startY;
-        foreach (var line in lines)
+        SKPaint GetRunPaint(TextStyle runStyle)
         {
-            var baseline = y + ascent;
-            var lineWidth = paint.MeasureText(line.Text);
-            var x = left;
-            if (line.Alignment == ParagraphAlignment.Center)
+            var key = new TextStyleKey(runStyle);
+            if (paintCache.TryGetValue(key, out var cached))
             {
-                x = left + (width - lineWidth) / 2f;
-            }
-            else if (line.Alignment == ParagraphAlignment.Right)
-            {
-                x = left + (width - lineWidth);
+                return cached;
             }
 
-            canvas.DrawText(line.Text, x, baseline, paint);
-            y += lineHeight;
-            if (y > bottom)
+            var paint = SkiaTextMeasurer.CreatePaint(runStyle, TypefaceResolver);
+            paint.Color = ToSkColor(runStyle.Color);
+            paintCache[key] = paint;
+            return paint;
+        }
+
+        SKPaint GetTypefacePaint(TextStyle runStyle, SKTypeface typeface)
+        {
+            var basePaint = GetRunPaint(runStyle);
+            if (ReferenceEquals(basePaint.Typeface, typeface))
             {
-                break;
+                return basePaint;
+            }
+
+            var key = (new TextStyleKey(runStyle), typeface);
+            if (typefacePaintCache.TryGetValue(key, out var cached))
+            {
+                return cached;
+            }
+
+            var paint = SkiaTextMeasurer.CreatePaint(runStyle, null);
+            paint.Typeface = typeface;
+            paint.Color = ToSkColor(runStyle.Color);
+            typefacePaintCache[key] = paint;
+            return paint;
+        }
+
+        void DisableShaping()
+        {
+            canShapeText = false;
+            foreach (var shaper in shaperCache.Values)
+            {
+                shaper.Dispose();
+            }
+
+            shaperCache.Clear();
+
+            foreach (var shaper in typefaceShaperCache.Values)
+            {
+                shaper.Dispose();
+            }
+
+            typefaceShaperCache.Clear();
+        }
+
+        SKShaper? GetRunShaper(TextStyle runStyle)
+        {
+            if (!canShapeText)
+            {
+                return null;
+            }
+
+            var key = new TextStyleKey(runStyle);
+            if (shaperCache.TryGetValue(key, out var cached))
+            {
+                return cached;
+            }
+
+            try
+            {
+                var paint = GetRunPaint(runStyle);
+                var typeface = paint.Typeface ?? SKTypeface.Default;
+                var shaper = new SKShaper(typeface);
+                shaperCache[key] = shaper;
+                return shaper;
+            }
+            catch
+            {
+                DisableShaping();
+                return null;
             }
         }
 
-        canvas.Restore();
-    }
-
-    private static List<ShapeTextLine> BuildShapeTextLines(IReadOnlyList<Block> blocks, float maxWidth, SKPaint paint)
-    {
-        var lines = new List<ShapeTextLine>();
-        if (blocks.Count == 0 || maxWidth <= 1f)
+        SKShaper? GetTypefaceShaper(SKTypeface typeface)
         {
-            return lines;
-        }
-
-        for (var index = 0; index < blocks.Count; index++)
-        {
-            if (blocks[index] is not ParagraphBlock paragraph)
+            if (!canShapeText)
             {
-                continue;
+                return null;
             }
 
-            var alignment = paragraph.Properties.Alignment;
-            var text = GetParagraphText(paragraph);
+            if (typefaceShaperCache.TryGetValue(typeface, out var cached))
+            {
+                return cached;
+            }
+
+            try
+            {
+                var shaper = new SKShaper(typeface);
+                typefaceShaperCache[typeface] = shaper;
+                return shaper;
+            }
+            catch
+            {
+                DisableShaping();
+                return null;
+            }
+        }
+
+        TextShapeInfo ShapeText(string text, TextStyle runStyle)
+        {
             if (string.IsNullOrEmpty(text))
             {
-                lines.Add(new ShapeTextLine(string.Empty, alignment));
+                return new TextShapeInfo(0, Array.Empty<int>(), Array.Empty<float>());
             }
-            else
+
+            void AppendShapeInfo(TextShapeInfo segmentShape, int offsetBase, List<int> offsets, List<float> advances)
             {
-                var lineStart = 0;
-                for (var i = 0; i <= text.Length; i++)
+                if (segmentShape.ClusterOffsets.Length == 0)
                 {
-                    if (i < text.Length && text[i] != '\n')
+                    return;
+                }
+
+                for (var i = 0; i < segmentShape.ClusterOffsets.Length; i++)
+                {
+                    offsets.Add(segmentShape.ClusterOffsets[i] + offsetBase);
+                    var advance = i < segmentShape.ClusterAdvances.Length ? segmentShape.ClusterAdvances[i] : 0f;
+                    advances.Add(advance);
+                }
+            }
+
+            var paint = GetRunPaint(runStyle);
+            var textSpan = text.AsSpan();
+            var needsFallback = fallbackResolver is not null && !paint.ContainsGlyphs(text);
+            var applyKerning = SkiaTextMeasurer.ShouldApplyKerning(runStyle);
+            if (!needsFallback)
+            {
+                var shaper = applyKerning ? GetRunShaper(runStyle) : null;
+                if (applyKerning && shaper is not null)
+                {
+                    try
+                    {
+                        if (SkiaTextMeasurer.TryShapeTextSegment(textSpan, runStyle, paint, shaper, out var shaped))
+                        {
+                            return shaped;
+                        }
+                    }
+                    catch
+                    {
+                        // fall back to cluster measurement
+                    }
+                }
+
+                return SkiaTextMeasurer.BuildSimpleShapeInfo(textSpan, paint);
+            }
+
+            var segments = SkiaTextMeasurer.BuildTypefaceSegments(textSpan, runStyle, paint, fallbackResolver);
+            if (segments.Count == 0)
+            {
+                return new TextShapeInfo(0, Array.Empty<int>(), Array.Empty<float>());
+            }
+
+            var segmentOffsets = new List<int>();
+            var segmentAdvances = new List<float>();
+            foreach (var segment in segments)
+            {
+                var segmentSpan = textSpan.Slice(segment.Start, segment.Length);
+                var segmentPaint = GetTypefacePaint(runStyle, segment.Typeface);
+                if (canShapeText && applyKerning)
+                {
+                    var shaper = GetTypefaceShaper(segment.Typeface);
+                    if (shaper is not null)
+                    {
+                        try
+                        {
+                            if (SkiaTextMeasurer.TryShapeTextSegment(segmentSpan, runStyle, segmentPaint, shaper, out var segmentShape))
+                            {
+                                AppendShapeInfo(segmentShape, segment.Start, segmentOffsets, segmentAdvances);
+                                continue;
+                            }
+                        }
+                        catch
+                        {
+                            // fall back to cluster measurement
+                        }
+                    }
+                }
+
+                var fallbackShape = SkiaTextMeasurer.BuildSimpleShapeInfo(segmentSpan, segmentPaint);
+                AppendShapeInfo(fallbackShape, segment.Start, segmentOffsets, segmentAdvances);
+            }
+
+            return segmentOffsets.Count == 0
+                ? new TextShapeInfo(text.Length, Array.Empty<int>(), Array.Empty<float>())
+                : new TextShapeInfo(text.Length, segmentOffsets.ToArray(), segmentAdvances.ToArray());
+        }
+
+        RunMetrics GetRunMetrics(string text, TextStyle runStyle, float letterSpacing, float gridSpacing)
+        {
+            if (string.IsNullOrEmpty(text))
+            {
+                return RunMetrics.Empty;
+            }
+
+            var key = new RunMetricsKey(text, runStyle, letterSpacing, gridSpacing);
+            if (runMetricsCache.TryGetValue(key, out var cached))
+            {
+                return cached;
+            }
+
+            var shape = ShapeText(text, runStyle);
+            var metrics = new RunMetrics(shape, letterSpacing, gridSpacing);
+            runMetricsCache[key] = metrics;
+            return metrics;
+        }
+
+        float ResolveGridSpacing(DocGridSettings? docGrid)
+        {
+            if (docGrid is null || !docGrid.HasValues)
+            {
+                return 0f;
+            }
+
+            if (docGrid.CharacterSpace is not > 0f)
+            {
+                return 0f;
+            }
+
+            return !docGrid.Type.HasValue
+                || docGrid.Type == DocGridType.LinesAndChars
+                || docGrid.Type == DocGridType.SnapToChars
+                ? docGrid.CharacterSpace.Value
+                : 0f;
+        }
+
+        float ResolveLineGridSpacing(int paragraphIndex, int pageIndex)
+        {
+            if (paragraphIndex >= 0
+                && layout.ParagraphSectionIndices.TryGetValue(paragraphIndex, out var sectionIndex)
+                && layout.SectionSettings.TryGetValue(sectionIndex, out var section))
+            {
+                return ResolveGridSpacing(section.ResolveForPage(pageIndex).DocGrid);
+            }
+
+            return pageIndex >= 0 && pageIndex < layout.PageSections.Count
+                ? ResolveGridSpacing(layout.PageSections[pageIndex].DocGrid)
+                : 0f;
+        }
+
+        SKPaint GetHighlightPaint(DocColor color)
+        {
+            if (highlightPaintCache.TryGetValue(color, out var cached))
+            {
+                return cached;
+            }
+
+            var paint = new SKPaint
+            {
+                Style = SKPaintStyle.Fill,
+                Color = ToSkColor(color),
+                IsAntialias = true
+            };
+            highlightPaintCache[color] = paint;
+            return paint;
+        }
+
+        SKPaint GetBorderPaint(BorderLine border, float thickness)
+        {
+            var key = new BorderPaintKey(border.Color, thickness, border.Style);
+            if (borderPaintCache.TryGetValue(key, out var cached))
+            {
+                return cached;
+            }
+
+            var paint = new SKPaint
+            {
+                Style = SKPaintStyle.Stroke,
+                Color = ToSkColor(border.Color),
+                StrokeWidth = thickness,
+                IsAntialias = true,
+                StrokeCap = border.Style == DocBorderStyle.Dotted ? SKStrokeCap.Round : SKStrokeCap.Butt,
+                PathEffect = CreateBorderEffect(border.Style, thickness)
+            };
+            borderPaintCache[key] = paint;
+            return paint;
+        }
+
+        SKPaint GetInvisibleTextPaint(TextStyle runStyle)
+        {
+            var key = new TextStyleKey(runStyle);
+            if (invisibleTextPaintCache.TryGetValue(key, out var cached))
+            {
+                return cached;
+            }
+
+            var paint = SkiaTextMeasurer.CreatePaint(runStyle, TypefaceResolver);
+            paint.Color = ToSkColor(options.InvisiblesColor);
+            invisibleTextPaintCache[key] = paint;
+            return paint;
+        }
+
+        using var defaultPaint = SkiaTextMeasurer.CreatePaint(defaultStyle, TypefaceResolver);
+        defaultPaint.Color = ToSkColor(options.TextColor);
+
+        using var invisiblesStrokePaint = new SKPaint
+        {
+            Style = SKPaintStyle.Stroke,
+            Color = ToSkColor(options.InvisiblesColor),
+            StrokeWidth = 1f,
+            IsAntialias = true
+        };
+
+        using var invisiblesFillPaint = new SKPaint
+        {
+            Style = SKPaintStyle.Fill,
+            Color = ToSkColor(options.InvisiblesColor),
+            IsAntialias = true
+        };
+
+        void DrawLineRangeRect(
+            float lineX,
+            float lineY,
+            float lineHeight,
+            DocTextDirection? textDirection,
+            float start,
+            float end,
+            SKPaint paint)
+        {
+            if (end <= start)
+            {
+                return;
+            }
+
+            if (!DocTextDirectionHelpers.IsVertical(textDirection))
+            {
+                var rect = new SKRect(lineX + start, lineY, lineX + end, lineY + lineHeight);
+                canvas.DrawRect(rect, paint);
+                return;
+            }
+
+            canvas.Save();
+            canvas.Translate(lineX, lineY);
+            canvas.RotateDegrees(DocTextDirectionHelpers.GetRotationDegrees(textDirection!.Value));
+            var localRect = new SKRect(start, 0f, end, lineHeight);
+            canvas.DrawRect(localRect, paint);
+            canvas.Restore();
+        }
+
+        void DrawLineHighlights(
+            float lineX,
+            float lineY,
+            float lineHeight,
+            DocTextDirection? textDirection,
+            ReadOnlySpan<char> lineText,
+            bool baseRtl,
+            IReadOnlyList<LayoutRun> runs,
+            IReadOnlyList<LayoutImage> images,
+            IReadOnlyList<LayoutShape> shapes,
+            IReadOnlyList<LayoutChart> charts,
+            IReadOnlyList<LayoutEquation> equations,
+            float gridSpacing)
+        {
+            var segments = BuildVisualSegments(lineText, baseRtl, runs, images, shapes, charts, equations, gridSpacing, GetRunMetrics);
+            foreach (var segment in segments)
+            {
+                if (!segment.IsText || segment.Run is null)
+                {
+                    continue;
+                }
+
+                var run = segment.Run;
+                if (run.Style.Hidden || run.Style.HighlightColor is null || string.IsNullOrEmpty(run.Text))
+                {
+                    continue;
+                }
+
+                var highlightPaint = GetHighlightPaint(run.Style.HighlightColor.Value);
+                DrawLineRangeRect(lineX, lineY, lineHeight, textDirection, segment.X, segment.X + segment.Width, highlightPaint);
+            }
+        }
+
+        void DrawCommentHighlights(
+            int paragraphIndex,
+            int lineStart,
+            int lineLength,
+            float lineX,
+            float lineY,
+            float lineHeight,
+            DocTextDirection? textDirection,
+            ReadOnlySpan<char> lineText,
+            bool baseRtl,
+            IReadOnlyList<LayoutRun> runs,
+            IReadOnlyList<LayoutImage> images,
+            IReadOnlyList<LayoutShape> shapes,
+            IReadOnlyList<LayoutChart> charts,
+            IReadOnlyList<LayoutEquation> equations,
+            float gridSpacing)
+        {
+            if (lineLength <= 0 || commentHighlightsByParagraph.Count == 0 || options.CommentHighlightColor.A == 0)
+            {
+                return;
+            }
+
+            if (!commentHighlightsByParagraph.TryGetValue(paragraphIndex, out var spans))
+            {
+                return;
+            }
+
+            var highlightPaint = GetHighlightPaint(options.CommentHighlightColor);
+            var lineEnd = lineStart + lineLength;
+            foreach (var span in spans)
+            {
+                var spanStart = Math.Max(lineStart, span.StartOffset);
+                var spanEnd = Math.Min(lineEnd, span.EndOffset);
+                if (spanEnd <= spanStart)
+                {
+                    continue;
+                }
+
+                var startOffset = spanStart - lineStart;
+                var endOffset = spanEnd - lineStart;
+                var highlightX1 = MeasureLineOffset(lineText, baseRtl, runs, images, shapes, charts, equations, startOffset, gridSpacing, GetRunMetrics);
+                var highlightX2 = MeasureLineOffset(lineText, baseRtl, runs, images, shapes, charts, equations, endOffset, gridSpacing, GetRunMetrics);
+                if (highlightX2 <= highlightX1)
+                {
+                    continue;
+                }
+
+                DrawLineRangeRect(lineX, lineY, lineHeight, textDirection, highlightX1, highlightX2, highlightPaint);
+            }
+        }
+
+        void DrawLineContent(
+            float lineX,
+            float lineY,
+            float lineHeight,
+            float lineAscent,
+            string? prefix,
+            float prefixWidth,
+            ReadOnlySpan<char> lineText,
+            bool baseRtl,
+            IReadOnlyList<LayoutRun> runs,
+            IReadOnlyList<LayoutImage> images,
+            IReadOnlyList<LayoutShape> shapes,
+            IReadOnlyList<LayoutChart> charts,
+            IReadOnlyList<LayoutEquation> equations,
+            IReadOnlyList<LayoutRuby> rubies,
+            DocTextDirection? textDirection,
+            float gridSpacing)
+        {
+            var originX = lineX;
+            var originY = lineY;
+            var restoreTransform = false;
+            if (DocTextDirectionHelpers.IsVertical(textDirection))
+            {
+                restoreTransform = true;
+                canvas.Save();
+                canvas.Translate(lineX, lineY);
+                var rotation = DocTextDirectionHelpers.GetRotationDegrees(textDirection!.Value);
+                canvas.RotateDegrees(rotation);
+                originX = 0f;
+                originY = 0f;
+            }
+
+            var baseline = originY + lineAscent;
+            var segments = BuildVisualSegments(lineText, baseRtl, runs, images, shapes, charts, equations, gridSpacing, GetRunMetrics);
+            if (!string.IsNullOrEmpty(prefix))
+            {
+                var lineWidth = segments.Count > 0 ? segments[^1].X + segments[^1].Width : 0f;
+                var prefixX = baseRtl ? originX + lineWidth : originX - prefixWidth;
+                var prefixBaseline = originY + lineAscent;
+                var prefixShaper = SkiaTextMeasurer.ShouldApplyKerning(defaultStyle) ? GetRunShaper(defaultStyle) : null;
+                if (prefixShaper is null)
+                {
+                    canvas.DrawText(prefix, prefixX, prefixBaseline, defaultPaint);
+                }
+                else
+                {
+                    canvas.DrawShapedText(prefixShaper, prefix, prefixX, prefixBaseline, defaultPaint);
+                }
+            }
+            foreach (var segment in segments)
+            {
+                if (segment.IsTab && segment.Run is not null)
+                {
+                    var run = segment.Run;
+                    if (run.Style.Hidden)
                     {
                         continue;
                     }
 
-                    var lineLength = i - lineStart;
-                    var lineText = lineLength == 0 ? string.Empty : new string(text.AsSpan(lineStart, lineLength));
-                    foreach (var line in WrapShapeText(lineText, maxWidth, paint))
+                    if (run.TabLeader != TabLeader.None && segment.Width > 0f)
                     {
-                        lines.Add(new ShapeTextLine(line, alignment));
+                        var leaderChar = run.TabLeader switch
+                        {
+                            TabLeader.Dot => '.',
+                            TabLeader.Hyphen => '-',
+                            TabLeader.Underscore => '_',
+                            _ => '\0'
+                        };
+
+                        if (leaderChar != '\0')
+                        {
+                            var paint = GetRunPaint(run.Style);
+                            var glyphWidth = MeasureChar(paint, leaderChar);
+                            if (glyphWidth > 0f)
+                            {
+                                var count = Math.Max(1, (int)MathF.Ceiling(segment.Width / glyphWidth));
+                                var text = new string(leaderChar, count);
+                                var startX = originX + segment.X;
+                                var clipRect = new SKRect(startX, originY, startX + segment.Width, originY + lineHeight);
+                                canvas.Save();
+                                canvas.ClipRect(clipRect);
+                                canvas.DrawText(text, startX, baseline, paint);
+                                canvas.Restore();
+                            }
+                        }
                     }
 
-                    lineStart = i + 1;
+                    continue;
+                }
+
+                if (segment.IsText && segment.Run is not null)
+                {
+                    var run = segment.Run;
+                    if (run.Style.Hidden || string.IsNullOrEmpty(run.Text))
+                    {
+                        continue;
+                    }
+
+                    var runBaseline = baseline - run.BaselineOffset;
+                    var runPaint = GetRunPaint(run.Style);
+                    var segmentText = run.Text.Substring(segment.RunStart, segment.Length);
+                    var segmentSpan = segmentText.AsSpan();
+                    var segmentX = originX + segment.X;
+                    var drawX = segment.IsRtl ? segmentX + segment.Width : segmentX;
+                    var baseTypeface = runPaint.Typeface ?? SKTypeface.Default;
+                    var applyKerning = SkiaTextMeasurer.ShouldApplyKerning(run.Style);
+                    var fallbackSegments = fallbackResolver is not null && !runPaint.ContainsGlyphs(segmentText)
+                        ? SkiaTextMeasurer.BuildTypefaceSegments(segmentSpan, run.Style, runPaint, fallbackResolver)
+                        : null;
+
+                    if (fallbackSegments is null
+                        || fallbackSegments.Count == 0
+                        || (fallbackSegments.Count == 1 && ReferenceEquals(fallbackSegments[0].Typeface, baseTypeface)))
+                    {
+                        var shaper = applyKerning ? GetRunShaper(run.Style) : null;
+                        DrawTextWithSpacing(canvas, segmentText, drawX, runBaseline, runPaint, shaper, run.LetterSpacing, gridSpacing, run.Style);
+                    }
+                    else
+                    {
+                        var segmentMetrics = GetRunMetrics(segmentText, run.Style, run.LetterSpacing, gridSpacing);
+                        var metricsWidth = segmentMetrics.Width;
+                        var scale = metricsWidth > 0f ? segment.Width / metricsWidth : 1f;
+
+                        foreach (var fallbackSegment in fallbackSegments)
+                        {
+                            var fallbackText = segmentSpan.Slice(fallbackSegment.Start, fallbackSegment.Length).ToString();
+                            var fallbackPaint = GetTypefacePaint(run.Style, fallbackSegment.Typeface);
+                            var fallbackShaper = applyKerning ? GetTypefaceShaper(fallbackSegment.Typeface) : null;
+                            var localX = segmentMetrics.GetWidth(fallbackSegment.Start) * scale;
+                            var fallbackX = segment.IsRtl ? drawX - localX : drawX + localX;
+
+                            DrawTextWithSpacing(canvas, fallbackText, fallbackX, runBaseline, fallbackPaint, fallbackShaper, run.LetterSpacing, gridSpacing, run.Style);
+                        }
+                    }
+
+                    DrawUnderlineSpan(canvas, runBaseline, segmentX, segment.Width, segmentText, run.Style, run.LetterSpacing, runPaint);
+                    DrawStrikeThroughSpan(canvas, runBaseline, segmentX, segment.Width, segmentText, run.Style, runPaint);
+                    continue;
+                }
+
+                if (segment.Image is not null)
+                {
+                    DrawImage(canvas, segment.Image with { X = segment.X }, originX, baseline, lineAscent, options);
+                }
+                else if (segment.Shape is not null)
+                {
+                    DrawShape(canvas, segment.Shape with { X = segment.X }, originX, baseline, lineAscent, options, defaultStyle, shapeDocument, shapeSettings);
+                }
+                else if (segment.Chart is not null)
+                {
+                    DrawChart(canvas, segment.Chart with { X = segment.X }, originX, baseline, options);
+                }
+                else if (segment.Equation is not null)
+                {
+                    DrawEquation(
+                        canvas,
+                        segment.Equation with { X = segment.X },
+                        originX,
+                        baseline,
+                        GetRunPaint,
+                        runStyle => SkiaTextMeasurer.ShouldApplyKerning(runStyle) ? GetRunShaper(runStyle) : null);
                 }
             }
 
-            if (index < blocks.Count - 1)
+            if (rubies.Count > 0)
             {
-                lines.Add(new ShapeTextLine(string.Empty, alignment));
+                foreach (var ruby in rubies)
+                {
+                    if (ruby.Length <= 0 || string.IsNullOrEmpty(ruby.RubyText))
+                    {
+                        continue;
+                    }
+
+                    if (ruby.RubyStyle.Hidden)
+                    {
+                        continue;
+                    }
+
+                    var startX = MeasureLineOffset(lineText, baseRtl, runs, images, shapes, charts, equations, ruby.StartOffset, gridSpacing, GetRunMetrics);
+                    var endX = MeasureLineOffset(lineText, baseRtl, runs, images, shapes, charts, equations, ruby.StartOffset + ruby.Length, gridSpacing, GetRunMetrics);
+                    var rangeX = MathF.Min(startX, endX);
+                    var baseWidth = MathF.Abs(endX - startX);
+
+                    var rubyMetrics = GetRunMetrics(ruby.RubyText, ruby.RubyStyle, 0f, gridSpacing);
+                    var rubyWidth = rubyMetrics.Width;
+                    var rubyX = originX + rangeX + MathF.Max(0f, (baseWidth - rubyWidth) / 2f);
+                    var rubyBaseline = baseline + ruby.BaselineOffset;
+
+                    var rubyPaint = GetRunPaint(ruby.RubyStyle);
+                    var applyKerning = SkiaTextMeasurer.ShouldApplyKerning(ruby.RubyStyle);
+                    var rubyShaper = applyKerning ? GetRunShaper(ruby.RubyStyle) : null;
+                    var rubySpan = ruby.RubyText.AsSpan();
+                    var baseTypeface = rubyPaint.Typeface ?? SKTypeface.Default;
+                    var fallbackSegments = fallbackResolver is not null && !rubyPaint.ContainsGlyphs(ruby.RubyText)
+                        ? SkiaTextMeasurer.BuildTypefaceSegments(rubySpan, ruby.RubyStyle, rubyPaint, fallbackResolver)
+                        : null;
+
+                    if (fallbackSegments is null
+                        || fallbackSegments.Count == 0
+                        || (fallbackSegments.Count == 1 && ReferenceEquals(fallbackSegments[0].Typeface, baseTypeface)))
+                    {
+                        DrawTextWithSpacing(canvas, ruby.RubyText, rubyX, rubyBaseline, rubyPaint, rubyShaper, 0f, gridSpacing, ruby.RubyStyle);
+                    }
+                    else
+                    {
+                        foreach (var fallbackSegment in fallbackSegments)
+                        {
+                            var fallbackText = rubySpan.Slice(fallbackSegment.Start, fallbackSegment.Length).ToString();
+                            var fallbackPaint = GetTypefacePaint(ruby.RubyStyle, fallbackSegment.Typeface);
+                            var fallbackShaper = applyKerning ? GetTypefaceShaper(fallbackSegment.Typeface) : null;
+                            var localX = rubyMetrics.GetWidth(fallbackSegment.Start);
+                            var fallbackX = rubyX + localX;
+
+                            DrawTextWithSpacing(canvas, fallbackText, fallbackX, rubyBaseline, fallbackPaint, fallbackShaper, 0f, gridSpacing, ruby.RubyStyle);
+                        }
+                    }
+                }
+            }
+
+            if (restoreTransform)
+            {
+                canvas.Restore();
             }
         }
 
-        return lines;
-    }
-
-    private static IEnumerable<string> WrapShapeText(string text, float maxWidth, SKPaint paint)
-    {
-        if (string.IsNullOrWhiteSpace(text))
+        void DrawLineInvisibles(
+            float lineX,
+            float lineY,
+            float lineHeight,
+            float lineAscent,
+            ReadOnlySpan<char> lineText,
+            bool baseRtl,
+            IReadOnlyList<LayoutRun> runs,
+            IReadOnlyList<LayoutImage> images,
+            IReadOnlyList<LayoutShape> shapes,
+            IReadOnlyList<LayoutChart> charts,
+            IReadOnlyList<LayoutEquation> equations,
+            DocTextDirection? textDirection,
+            float gridSpacing,
+            bool showParagraphMark,
+            float paragraphMarkOffset)
         {
-            yield return string.Empty;
-            yield break;
-        }
-
-        var pool = ArrayPool<char>.Shared;
-        var buffer = pool.Rent(Math.Max(16, text.Length));
-        var length = 0;
-
-        try
-        {
-            var index = 0;
-            while (index < text.Length)
+            if (!options.ShowInvisibles)
             {
-                while (index < text.Length && text[index] == ' ')
+                return;
+            }
+
+            var originX = lineX;
+            var originY = lineY;
+            var restoreTransform = false;
+            if (DocTextDirectionHelpers.IsVertical(textDirection))
+            {
+                restoreTransform = true;
+                canvas.Save();
+                canvas.Translate(lineX, lineY);
+                canvas.RotateDegrees(DocTextDirectionHelpers.GetRotationDegrees(textDirection!.Value));
+                originX = 0f;
+                originY = 0f;
+            }
+
+            var baseline = originY + lineAscent;
+            var dotY = baseline - lineAscent * 0.2f;
+            var arrowSize = MathF.Max(4f, lineAscent * 0.3f);
+
+            var segments = BuildVisualSegments(lineText, baseRtl, runs, images, shapes, charts, equations, gridSpacing, GetRunMetrics);
+
+            float MeasureOffsetFromSegments(int length)
+            {
+                if (length <= 0 || segments.Count == 0)
                 {
-                    index++;
+                    return 0f;
                 }
 
-                if (index >= text.Length)
+                var totalWidth = segments[^1].X + segments[^1].Width;
+                var target = Math.Clamp(length, 0, int.MaxValue);
+                VisualSegment? containing = null;
+                foreach (var segment in segments)
                 {
+                    if (target == segment.StartOffset)
+                    {
+                        containing = segment;
+                        break;
+                    }
+
+                    if (containing is null && target > segment.StartOffset && target <= segment.StartOffset + segment.Length)
+                    {
+                        containing = segment;
+                    }
+                }
+
+                if (containing is not null)
+                {
+                    var offsetInSegment = Math.Clamp(target - containing.StartOffset, 0, containing.Length);
+                    var localX = MeasureSegmentOffset(containing, offsetInSegment, gridSpacing, GetRunMetrics);
+                    return containing.X + localX;
+                }
+
+                return target <= 0 ? 0f : totalWidth;
+            }
+
+            foreach (var segment in segments)
+            {
+                if (!segment.IsTab)
+                {
+                    continue;
+                }
+
+                if (segment.Run?.Style.Hidden == true)
+                {
+                    continue;
+                }
+
+                var startX = originX + segment.X;
+                var endX = startX + segment.Width;
+                if (segment.IsRtl)
+                {
+                    (startX, endX) = (endX, startX);
+                }
+
+                var lineEnd = segment.IsRtl
+                    ? MathF.Min(startX, endX + arrowSize)
+                    : MathF.Max(startX, endX - arrowSize);
+                canvas.DrawLine(startX, baseline, lineEnd, baseline, invisiblesStrokePaint);
+                canvas.DrawLine(lineEnd, baseline, lineEnd - arrowSize * 0.6f, baseline - arrowSize * 0.4f, invisiblesStrokePaint);
+                canvas.DrawLine(lineEnd, baseline, lineEnd - arrowSize * 0.6f, baseline + arrowSize * 0.4f, invisiblesStrokePaint);
+            }
+
+            for (var i = 0; i < lineText.Length; i++)
+            {
+                var ch = lineText[i];
+                if (ch != ' ' && ch != '\u00A0')
+                {
+                    continue;
+                }
+
+                var startX = originX + MeasureOffsetFromSegments(i);
+                var endX = originX + MeasureOffsetFromSegments(i + 1);
+                var dotX = (startX + endX) / 2f;
+                canvas.DrawCircle(dotX, dotY, 1.3f, invisiblesFillPaint);
+            }
+
+            if (showParagraphMark)
+            {
+                var markStyle = defaultStyle;
+                for (var i = runs.Count - 1; i >= 0; i--)
+                {
+                    var run = runs[i];
+                    if (!run.IsTab && !string.IsNullOrEmpty(run.Text))
+                    {
+                        markStyle = run.Style;
+                        break;
+                    }
+                }
+
+                var markPaint = GetInvisibleTextPaint(markStyle);
+                canvas.DrawText("\u00B6", originX + paragraphMarkOffset + 2f, baseline, markPaint);
+            }
+
+            if (restoreTransform)
+            {
+                canvas.Restore();
+            }
+        }
+
+        void DrawFloatingObject(FloatingLayoutObject floating)
+        {
+            var bounds = floating.Bounds;
+            switch (floating.Object.Content)
+            {
+                case ImageInline image:
+                {
+                    var layoutImage = new LayoutImage(image, 0f, bounds.Width, bounds.Height, 1);
+                    DrawImage(canvas, layoutImage, bounds.X, bounds.Y + bounds.Height, 0f, options);
                     break;
                 }
-
-                var wordStart = index;
-                while (index < text.Length && text[index] != ' ')
+                case ShapeInline shape:
                 {
-                    index++;
+                    var layoutShape = new LayoutShape(shape, 0f, bounds.Width, bounds.Height, 1);
+                    DrawShape(canvas, layoutShape, bounds.X, bounds.Y + bounds.Height, 0f, options, defaultStyle, shapeDocument, shapeSettings);
+                    break;
                 }
-
-                var wordLength = index - wordStart;
-                if (length == 0)
+                case ChartInline chart:
                 {
-                    if (wordLength > buffer.Length)
-                    {
-                        buffer = GrowBuffer(buffer, wordLength, 0, pool);
-                    }
-
-                    text.CopyTo(wordStart, buffer, 0, wordLength);
-                    length = wordLength;
-                    continue;
+                    var layoutChart = new LayoutChart(chart, 0f, bounds.Width, bounds.Height, 1);
+                    DrawChart(canvas, layoutChart, bounds.X, bounds.Y + bounds.Height, options);
+                    break;
                 }
+            }
+        }
 
-                var previousLength = length;
-                var requiredLength = previousLength + 1 + wordLength;
-                if (requiredLength > buffer.Length)
-                {
-                    buffer = GrowBuffer(buffer, requiredLength, previousLength, pool);
-                }
+        void DrawFloatingObjects(bool behindText)
+        {
+            if (layout.FloatingObjects.Count == 0)
+            {
+                return;
+            }
 
-                buffer[previousLength] = ' ';
-                text.CopyTo(wordStart, buffer, previousLength + 1, wordLength);
-                length = requiredLength;
-
-                var width = MeasureBuffer(paint, buffer, length);
-                if (width <= maxWidth)
+            foreach (var floating in layout.FloatingObjects)
+            {
+                if (floating.Object.Anchor.BehindText != behindText)
                 {
                     continue;
                 }
 
-                length = previousLength;
-                if (length > 0)
+                DrawFloatingObject(floating);
+            }
+        }
+
+        void DrawParagraphDecorations(int lineStart, int lineEnd)
+        {
+            if (lineEnd <= lineStart)
+            {
+                return;
+            }
+
+            var handled = new HashSet<int>();
+            for (var lineIndex = lineStart; lineIndex < lineEnd; lineIndex++)
+            {
+                var line = layout.Lines[lineIndex];
+                if (line.IsInTable)
                 {
-                    yield return new string(buffer, 0, length);
+                    continue;
                 }
 
-                length = 0;
-                if (wordLength > 0)
+                var paragraphIndex = line.ParagraphIndex;
+                if (!handled.Add(paragraphIndex))
                 {
-                    if (wordLength > buffer.Length)
+                    continue;
+                }
+
+                if (!layout.ParagraphLineRanges.TryGetValue(paragraphIndex, out var range) || range.Count == 0)
+                {
+                    continue;
+                }
+
+                var segmentStart = Math.Clamp(Math.Max(range.Start, lineStart), lineStart, lineEnd);
+                var segmentEnd = Math.Clamp(Math.Min(range.End, lineEnd), lineStart, lineEnd);
+                if (segmentEnd <= segmentStart)
+                {
+                    continue;
+                }
+
+                var leftEdge = float.MaxValue;
+                var rightEdge = float.MinValue;
+                var topEdge = float.MaxValue;
+                var bottomEdge = float.MinValue;
+
+                for (var i = segmentStart; i < segmentEnd; i++)
+                {
+                    var segmentLine = layout.Lines[i];
+                    if (segmentLine.IsInTable)
                     {
-                        buffer = GrowBuffer(buffer, wordLength, 0, pool);
+                        continue;
                     }
 
-                    text.CopyTo(wordStart, buffer, 0, wordLength);
-                    length = wordLength;
+                    var lineLeft = segmentLine.X - (segmentLine.Prefix is null ? 0f : segmentLine.PrefixWidth);
+                    var lineRight = segmentLine.X + segmentLine.Width;
+                    leftEdge = MathF.Min(leftEdge, lineLeft);
+                    rightEdge = MathF.Max(rightEdge, lineRight);
+                    topEdge = MathF.Min(topEdge, segmentLine.Y);
+                    bottomEdge = MathF.Max(bottomEdge, segmentLine.Y + segmentLine.LineHeight);
+                }
+
+                if (leftEdge >= rightEdge || topEdge >= bottomEdge)
+                {
+                    continue;
+                }
+
+                var paragraph = shapeDocument.GetParagraph(paragraphIndex);
+                var properties = styleResolver.ResolveParagraphProperties(paragraph);
+                var borders = properties.Borders;
+                var leftSpace = borders.Left is { IsVisible: true } leftBorder ? MathF.Max(0f, leftBorder.Spacing ?? 0f) : 0f;
+                var rightSpace = borders.Right is { IsVisible: true } rightBorder ? MathF.Max(0f, rightBorder.Spacing ?? 0f) : 0f;
+                var topSpace = borders.Top is { IsVisible: true } topBorder ? MathF.Max(0f, topBorder.Spacing ?? 0f) : 0f;
+                var bottomSpace = borders.Bottom is { IsVisible: true } bottomBorder ? MathF.Max(0f, bottomBorder.Spacing ?? 0f) : 0f;
+                var borderLeft = leftEdge - leftSpace;
+                var borderRight = rightEdge + rightSpace;
+                var borderTop = topEdge - topSpace;
+                var borderBottom = bottomEdge + bottomSpace;
+
+                if (properties.ShadingColor is { } shading)
+                {
+                    if (borderRight > borderLeft && borderBottom > borderTop)
+                    {
+                        using var shadingPaint = new SKPaint
+                        {
+                            Style = SKPaintStyle.Fill,
+                            Color = ToSkColor(shading),
+                            IsAntialias = true
+                        };
+                        canvas.DrawRect(new SKRect(borderLeft, borderTop, borderRight, borderBottom), shadingPaint);
+                    }
+                }
+
+                if (borders.HasAny)
+                {
+                    var drawTop = range.Start >= lineStart && range.Start < lineEnd;
+                    var drawBottom = range.End <= lineEnd && range.End > lineStart;
+
+                    if (drawTop && borders.Top is not null && borders.Top.IsVisible)
+                    {
+                        DrawBorderSegment(canvas, borders.Top, borderLeft, borderTop, borderRight, borderTop, GetBorderPaint);
+                    }
+
+                    if (drawBottom && borders.Bottom is not null && borders.Bottom.IsVisible)
+                    {
+                        DrawBorderSegment(canvas, borders.Bottom, borderLeft, borderBottom, borderRight, borderBottom, GetBorderPaint);
+                    }
+
+                    if (borders.Left is not null && borders.Left.IsVisible)
+                    {
+                        DrawBorderSegment(canvas, borders.Left, borderLeft, borderTop, borderLeft, borderBottom, GetBorderPaint);
+                    }
+
+                    if (borders.Right is not null && borders.Right.IsVisible)
+                    {
+                        DrawBorderSegment(canvas, borders.Right, borderRight, borderTop, borderRight, borderBottom, GetBorderPaint);
+                    }
+                }
+            }
+        }
+
+        canvas.Save();
+        canvas.ClipRect(new SKRect(left, top, right, bottom));
+        canvas.Translate(left, startY);
+
+        DrawFloatingObjects(true);
+
+        foreach (var table in layout.Tables)
+        {
+            if (table.Properties.ShadingColor is { } tableShading)
+            {
+                var tableBounds = table.Bounds;
+                var tableRect = new SKRect(tableBounds.X, tableBounds.Y, tableBounds.Right, tableBounds.Bottom);
+                using var tablePaint = new SKPaint
+                {
+                    Style = SKPaintStyle.Fill,
+                    Color = ToSkColor(tableShading),
+                    IsAntialias = true
+                };
+                canvas.DrawRect(tableRect, tablePaint);
+            }
+
+            foreach (var cell in table.Cells)
+            {
+                var cellBounds = cell.Bounds;
+                var cellRect = new SKRect(cellBounds.X, cellBounds.Y, cellBounds.Right, cellBounds.Bottom);
+                if (cell.Properties.ShadingColor is { } shading)
+                {
+                    using var shadingPaint = new SKPaint
+                    {
+                        Style = SKPaintStyle.Fill,
+                        Color = ToSkColor(shading),
+                        IsAntialias = true
+                    };
+                    canvas.DrawRect(cellRect, shadingPaint);
+                }
+
+                foreach (var line in cell.Lines)
+                {
+                    var lineGridSpacing = ResolveLineGridSpacing(line.ParagraphIndex, 0);
+                    DrawCommentHighlights(line.ParagraphIndex, line.StartOffset, line.Length, line.X, line.Y, line.LineHeight, line.TextDirection, line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, lineGridSpacing);
+                    DrawLineHighlights(line.X, line.Y, line.LineHeight, line.TextDirection, line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, lineGridSpacing);
+                    DrawLineContent(line.X, line.Y, line.LineHeight, line.Ascent, line.Prefix, line.PrefixWidth, line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, line.Rubies, line.TextDirection, lineGridSpacing);
+                    DrawLineInvisibles(line.X, line.Y, line.LineHeight, line.Ascent, line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, line.TextDirection, lineGridSpacing, false, 0f);
                 }
             }
 
-            if (length > 0)
+            DrawTableBorders(canvas, table, GetBorderPaint);
+        }
+
+        DrawParagraphDecorations(0, layout.Lines.Count);
+
+        for (var lineIndex = 0; lineIndex < layout.Lines.Count; lineIndex++)
+        {
+            var line = layout.Lines[lineIndex];
+            if (line.IsInTable)
             {
-                yield return new string(buffer, 0, length);
+                continue;
             }
+
+            var pageIndex = layout.LineIndex.GetPageForLine(lineIndex);
+            var lineGridSpacing = ResolveLineGridSpacing(line.ParagraphIndex, pageIndex);
+            DrawCommentHighlights(line.ParagraphIndex, line.StartOffset, line.Length, line.X, line.Y, line.LineHeight, line.TextDirection, line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, lineGridSpacing);
+            DrawLineHighlights(line.X, line.Y, line.LineHeight, line.TextDirection, line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, lineGridSpacing);
+            DrawLineContent(line.X, line.Y, line.LineHeight, line.Ascent, line.Prefix, line.PrefixWidth, line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, line.Rubies, line.TextDirection, lineGridSpacing);
+
+            var isLastLine = lineIndex == layout.Lines.Count - 1
+                             || layout.Lines[lineIndex + 1].ParagraphIndex != line.ParagraphIndex;
+            DrawLineInvisibles(line.X, line.Y, line.LineHeight, line.Ascent, line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, line.TextDirection, lineGridSpacing, isLastLine, line.Width);
         }
-        finally
+
+        DrawFloatingObjects(false);
+
+        canvas.Restore();
+
+        foreach (var paint in paintCache.Values)
         {
-            pool.Return(buffer);
+            paint.Dispose();
+        }
+
+        foreach (var paint in typefacePaintCache.Values)
+        {
+            paint.Dispose();
+        }
+
+        foreach (var paint in highlightPaintCache.Values)
+        {
+            paint.Dispose();
+        }
+
+        foreach (var paint in borderPaintCache.Values)
+        {
+            paint.Dispose();
+        }
+
+        foreach (var paint in invisibleTextPaintCache.Values)
+        {
+            paint.Dispose();
+        }
+
+        foreach (var shaper in shaperCache.Values)
+        {
+            shaper.Dispose();
+        }
+
+        foreach (var shaper in typefaceShaperCache.Values)
+        {
+            shaper.Dispose();
         }
     }
 
-    private static char[] GrowBuffer(char[] buffer, int requiredLength, int copyLength, ArrayPool<char> pool)
+    private static Document CreateShapeTextDocument(Document source, ShapeTextBox textBox, TextStyle defaultStyle)
     {
-        var newSize = Math.Max(requiredLength, buffer.Length * 2);
-        var next = pool.Rent(newSize);
-        if (copyLength > 0)
+        var shapeDocument = new Document();
+        shapeDocument.Blocks.Clear();
+        if (textBox.Blocks.Count > 0)
         {
-            Array.Copy(buffer, 0, next, 0, copyLength);
+            shapeDocument.Blocks.AddRange(textBox.Blocks);
         }
 
-        pool.Return(buffer);
-        return next;
+        CopyTextStyle(defaultStyle, shapeDocument.DefaultTextStyle);
+        CopyParagraphStyleProperties(source.DefaultParagraphStyleProperties, shapeDocument.DefaultParagraphStyleProperties);
+        CopyDocumentStyles(source.Styles, shapeDocument.Styles);
+        CopyDocumentFonts(source.Fonts, shapeDocument.Fonts);
+        CopyThemeColors(source.ThemeColors, shapeDocument.ThemeColors);
+        CopyListDefinitions(source.ListDefinitions, shapeDocument.ListDefinitions);
+        CopyNotes(source.Footnotes, shapeDocument.Footnotes);
+        CopyNotes(source.Endnotes, shapeDocument.Endnotes);
+        CopyNotes(source.Comments, shapeDocument.Comments);
+
+        return shapeDocument;
     }
 
-    private static float MeasureBuffer(SKPaint paint, char[] buffer, int length)
+    private static void CopyTextStyle(TextStyle source, TextStyle target)
     {
-        if (length <= 0)
-        {
-            return 0f;
-        }
-
-        return paint.MeasureText(buffer.AsSpan(0, length));
+        target.FontFamily = source.FontFamily;
+        target.FontFamilyAscii = source.FontFamilyAscii;
+        target.FontFamilyHighAnsi = source.FontFamilyHighAnsi;
+        target.FontFamilyEastAsia = source.FontFamilyEastAsia;
+        target.FontFamilyComplexScript = source.FontFamilyComplexScript;
+        target.FontSize = source.FontSize;
+        target.FontSizeComplexScript = source.FontSizeComplexScript;
+        target.FontWeight = source.FontWeight;
+        target.FontStyle = source.FontStyle;
+        target.Color = source.Color;
+        target.ThemeColor = source.ThemeColor;
+        target.ThemeTint = source.ThemeTint;
+        target.ThemeShade = source.ThemeShade;
+        target.VerticalPosition = source.VerticalPosition;
+        target.BaselineOffset = source.BaselineOffset;
+        target.LetterSpacing = source.LetterSpacing;
+        target.HorizontalScale = source.HorizontalScale;
+        target.Kerning = source.Kerning;
+        target.Caps = source.Caps;
+        target.SmallCaps = source.SmallCaps;
+        target.Underline = source.Underline;
+        target.UnderlineStyle = source.UnderlineStyle;
+        target.UnderlineColor = source.UnderlineColor;
+        target.UnderlineThemeColor = source.UnderlineThemeColor;
+        target.UnderlineThemeTint = source.UnderlineThemeTint;
+        target.UnderlineThemeShade = source.UnderlineThemeShade;
+        target.Strikethrough = source.Strikethrough;
+        target.HighlightColor = source.HighlightColor;
+        target.Hidden = source.Hidden;
+        target.ThemeFontAscii = source.ThemeFontAscii;
+        target.ThemeFontHighAnsi = source.ThemeFontHighAnsi;
+        target.ThemeFontEastAsia = source.ThemeFontEastAsia;
+        target.ThemeFontComplexScript = source.ThemeFontComplexScript;
+        target.Language = source.Language;
+        target.LanguageEastAsia = source.LanguageEastAsia;
+        target.LanguageBidi = source.LanguageBidi;
+        target.EastAsianLayout = source.EastAsianLayout?.Clone();
+        target.Effects = source.Effects?.Clone();
     }
 
-    private static string GetParagraphText(ParagraphBlock paragraph)
+    private static void CopyParagraphStyleProperties(ParagraphStyleProperties source, ParagraphStyleProperties target)
     {
-        if (!string.IsNullOrEmpty(paragraph.Text))
+        target.Alignment = source.Alignment;
+        target.SpacingBefore = source.SpacingBefore;
+        target.SpacingAfter = source.SpacingAfter;
+        target.SpacingBeforeLines = source.SpacingBeforeLines;
+        target.SpacingAfterLines = source.SpacingAfterLines;
+        target.AutoSpacingBefore = source.AutoSpacingBefore;
+        target.AutoSpacingAfter = source.AutoSpacingAfter;
+        target.LineSpacing = source.LineSpacing;
+        target.LineSpacingRule = source.LineSpacingRule;
+        target.IndentLeft = source.IndentLeft;
+        target.IndentRight = source.IndentRight;
+        target.FirstLineIndent = source.FirstLineIndent;
+        target.KeepWithNext = source.KeepWithNext;
+        target.KeepLinesTogether = source.KeepLinesTogether;
+        target.WidowControl = source.WidowControl;
+        target.PageBreakBefore = source.PageBreakBefore;
+        target.ContextualSpacing = source.ContextualSpacing;
+        target.Bidi = source.Bidi;
+        target.TextDirection = source.TextDirection;
+        target.EastAsianLayout = source.EastAsianLayout?.Clone();
+        target.ShadingColor = source.ShadingColor;
+        target.SuppressLineNumbers = source.SuppressLineNumbers;
+        target.DropCap = source.DropCap?.Clone();
+        target.Frame = source.Frame?.Clone();
+        target.Borders.Top = source.Borders.Top?.Clone();
+        target.Borders.Bottom = source.Borders.Bottom?.Clone();
+        target.Borders.Left = source.Borders.Left?.Clone();
+        target.Borders.Right = source.Borders.Right?.Clone();
+        target.TabStops.Clear();
+        foreach (var tabStop in source.TabStops)
         {
-            return paragraph.Text;
+            target.TabStops.Add(tabStop.Clone());
+        }
+    }
+
+    private static void CopyDocumentStyles(DocumentStyles source, DocumentStyles target)
+    {
+        target.ParagraphStyles.Clear();
+        foreach (var pair in source.ParagraphStyles)
+        {
+            target.ParagraphStyles[pair.Key] = pair.Value;
         }
 
-        if (paragraph.Inlines.Count == 0)
+        target.CharacterStyles.Clear();
+        foreach (var pair in source.CharacterStyles)
         {
-            return string.Empty;
+            target.CharacterStyles[pair.Key] = pair.Value;
         }
 
-        var builder = new StringBuilder();
-        foreach (var inline in paragraph.Inlines)
+        target.TableStyles.Clear();
+        foreach (var pair in source.TableStyles)
         {
-            if (inline is RunInline run)
-            {
-                builder.Append(run.GetText());
-            }
+            target.TableStyles[pair.Key] = pair.Value;
         }
 
-        return builder.ToString();
+        target.DefaultParagraphStyleId = source.DefaultParagraphStyleId;
+        target.DefaultCharacterStyleId = source.DefaultCharacterStyleId;
+        target.DefaultTableStyleId = source.DefaultTableStyleId;
+    }
+
+    private static void CopyDocumentFonts(DocumentFonts source, DocumentFonts target)
+    {
+        target.FontTable.Clear();
+        foreach (var pair in source.FontTable)
+        {
+            target.FontTable[pair.Key] = pair.Value;
+        }
+
+        target.Theme.Clear();
+        foreach (var pair in source.Theme.Entries)
+        {
+            target.Theme.Set(pair.Key, pair.Value);
+        }
+    }
+
+    private static void CopyThemeColors(DocumentThemeColorMap source, DocumentThemeColorMap target)
+    {
+        target.Clear();
+        foreach (var pair in source.Overrides)
+        {
+            target.Set(pair.Key, pair.Value);
+        }
+    }
+
+    private static void CopyListDefinitions(IReadOnlyDictionary<int, ListDefinition> source, Dictionary<int, ListDefinition> target)
+    {
+        target.Clear();
+        foreach (var pair in source)
+        {
+            target[pair.Key] = pair.Value;
+        }
+    }
+
+    private static void CopyNotes<T>(IReadOnlyDictionary<int, T> source, Dictionary<int, T> target)
+    {
+        target.Clear();
+        foreach (var pair in source)
+        {
+            target[pair.Key] = pair.Value;
+        }
     }
 
     private static ShapeKind ResolveShapeKind(string? preset)
@@ -948,8 +2028,6 @@ public sealed partial class SkiaDocumentRenderer
         path.LineTo(rect.Left, cy - half);
         path.Close();
     }
-
-    private sealed record ShapeTextLine(string Text, ParagraphAlignment? Alignment);
 
     private enum ShapeKind
     {
