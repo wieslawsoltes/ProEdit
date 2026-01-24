@@ -1,0 +1,922 @@
+using Vibe.Office.Documents;
+using Vibe.Office.Editing;
+
+namespace Vibe.Word.Editor.Editing;
+
+public sealed class EditorReviewCommandMap
+{
+    private readonly EditorCommandRouterAdapter _router;
+    private readonly IEditorMutableSession _session;
+    private int _commentCounter;
+
+    public EditorReviewCommandMap(EditorCommandRouterAdapter router, IEditorMutableSession session)
+    {
+        _router = router ?? throw new ArgumentNullException(nameof(router));
+        _session = session ?? throw new ArgumentNullException(nameof(session));
+        _commentCounter = FindNextCommentId(session.Document);
+    }
+
+    public void Register()
+    {
+        _router.RegisterAction(EditorReviewCommandIds.Comments.NewComment, (_, __) => InsertComment(), (context, _) => HasParagraphs(context));
+        _router.RegisterAction(EditorReviewCommandIds.Comments.DeleteComment, (_, __) => DeleteComment(), (context, _) => HasComments(context));
+        _router.RegisterAction(EditorReviewCommandIds.Comments.PreviousComment, (_, __) => NavigateComment(-1), (context, _) => HasComments(context));
+        _router.RegisterAction(EditorReviewCommandIds.Comments.NextComment, (_, __) => NavigateComment(1), (context, _) => HasComments(context));
+
+        _router.RegisterAction(EditorReviewCommandIds.Tracking.TrackChangesToggle, (_, payload) => ToggleTrackChanges(payload));
+
+        _router.RegisterAction(EditorReviewCommandIds.Changes.Accept, (_, __) => ApplyRevision(true), (context, _) => HasRevisions(context));
+        _router.RegisterAction(EditorReviewCommandIds.Changes.Reject, (_, __) => ApplyRevision(false), (context, _) => HasRevisions(context));
+        _router.RegisterAction(EditorReviewCommandIds.Changes.PreviousChange, (_, __) => NavigateRevision(-1), (context, _) => HasRevisions(context));
+        _router.RegisterAction(EditorReviewCommandIds.Changes.NextChange, (_, __) => NavigateRevision(1), (context, _) => HasRevisions(context));
+    }
+
+    private bool HasParagraphs(RibbonContextSnapshot? context)
+    {
+        if (context.HasValue && context.Value.Selection.Kind == EditorSelectionKind.FloatingObject)
+        {
+            return false;
+        }
+
+        return _session.Document.ParagraphCount > 0;
+    }
+
+    private bool HasComments(RibbonContextSnapshot? context)
+    {
+        if (!HasParagraphs(context))
+        {
+            return false;
+        }
+
+        return _session.Document.Comments.Count > 0 || HasCommentMarkers();
+    }
+
+    private bool HasRevisions(RibbonContextSnapshot? context)
+    {
+        if (!HasParagraphs(context))
+        {
+            return false;
+        }
+
+        return HasRevisionMarkers();
+    }
+
+    private void ToggleTrackChanges(object? payload)
+    {
+        var enabled = payload is bool value ? value : !_session.Document.TrackChangesEnabled;
+        _session.Document.TrackChangesEnabled = enabled;
+    }
+
+    private void InsertComment()
+    {
+        var range = ResolveCommentRange();
+        var commentId = _commentCounter++;
+        var definition = new CommentDefinition(commentId)
+        {
+            Author = Environment.UserName,
+            Date = DateTime.UtcNow
+        };
+        definition.Blocks.Add(new ParagraphBlock("Comment"));
+        _session.Document.Comments[commentId] = definition;
+
+        InsertCommentMarkers(range, commentId);
+        _session.RefreshLayout();
+    }
+
+    private void DeleteComment()
+    {
+        if (!TryResolveCommentId(out var commentId))
+        {
+            return;
+        }
+
+        _session.Document.Comments.Remove(commentId);
+        RemoveCommentMarkers(commentId);
+        _session.RefreshLayout();
+    }
+
+    private void NavigateComment(int direction)
+    {
+        var anchors = BuildCommentAnchors();
+        if (anchors.Count == 0)
+        {
+            return;
+        }
+
+        anchors.Sort(CompareAnchors);
+        var caret = _session.Caret;
+        var nextIndex = FindAnchorIndex(anchors, caret, direction);
+        if (nextIndex < 0)
+        {
+            return;
+        }
+
+        var anchor = anchors[nextIndex];
+        _session.SetSelection(new TextRange(anchor.Position, anchor.Position));
+    }
+
+    private void ApplyRevision(bool accept)
+    {
+        if (!TryGetRevisionSpan(out var span))
+        {
+            return;
+        }
+
+        if (span.IsBlock)
+        {
+            ApplyBlockRevision(span.BlockSpan, accept);
+            _session.RefreshLayout();
+            return;
+        }
+
+        ApplyInlineRevision(span.InlineSpan, accept);
+        _session.RefreshLayout();
+    }
+
+    private void NavigateRevision(int direction)
+    {
+        var anchors = BuildRevisionAnchors();
+        if (anchors.Count == 0)
+        {
+            return;
+        }
+
+        anchors.Sort(CompareAnchors);
+        var caret = _session.Caret;
+        var nextIndex = FindAnchorIndex(anchors, caret, direction);
+        if (nextIndex < 0)
+        {
+            return;
+        }
+
+        var anchor = anchors[nextIndex];
+        _session.SetSelection(new TextRange(anchor.Position, anchor.Position));
+    }
+
+    private TextRange ResolveCommentRange()
+    {
+        var selection = _session.Selection.Normalize();
+        return selection.IsEmpty
+            ? new TextRange(_session.Caret, _session.Caret)
+            : selection;
+    }
+
+    private void InsertCommentMarkers(TextRange range, int commentId)
+    {
+        var normalized = range.Normalize();
+        var endPosition = normalized.End;
+        var startPosition = normalized.Start;
+
+        InsertInlinesAtPosition(endPosition, new Inline[]
+        {
+            new CommentRangeEndInline(commentId),
+            new CommentReferenceInline(commentId)
+        });
+
+        InsertInlinesAtPosition(startPosition, new Inline[]
+        {
+            new CommentRangeStartInline(commentId)
+        });
+    }
+
+    private void InsertInlinesAtPosition(TextPosition position, IReadOnlyList<Inline> inlines)
+    {
+        _session.SetSelection(new TextRange(position, position));
+        _session.InsertInlines(inlines);
+    }
+
+    private bool TryResolveCommentId(out int commentId)
+    {
+        commentId = 0;
+        var caret = _session.Caret;
+        if (TryGetCommentIdAtPosition(caret, out commentId))
+        {
+            return true;
+        }
+
+        var selection = _session.Selection.Normalize();
+        if (!selection.IsEmpty && TryGetCommentIdAtPosition(selection.Start, out commentId))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    private bool TryGetCommentIdAtPosition(TextPosition position, out int commentId)
+    {
+        commentId = 0;
+        if (_session.Layout.CommentHighlightsByParagraph.TryGetValue(position.ParagraphIndex, out var spans))
+        {
+            foreach (var span in spans)
+            {
+                if (position.Offset >= span.StartOffset && position.Offset <= span.EndOffset)
+                {
+                    commentId = span.Id;
+                    return true;
+                }
+            }
+        }
+
+        if (TryGetInlineAtPosition(position, out var inline) && inline is CommentReferenceInline comment)
+        {
+            commentId = comment.Id;
+            return true;
+        }
+
+        return false;
+    }
+
+    private void RemoveCommentMarkers(int commentId)
+    {
+        foreach (var (paragraph, _) in EnumerateParagraphs())
+        {
+            if (paragraph.Inlines.Count == 0)
+            {
+                continue;
+            }
+
+            var removed = false;
+            for (var i = paragraph.Inlines.Count - 1; i >= 0; i--)
+            {
+                var inline = paragraph.Inlines[i];
+                if (inline is CommentRangeStartInline start && start.Id == commentId)
+                {
+                    paragraph.Inlines.RemoveAt(i);
+                    removed = true;
+                }
+                else if (inline is CommentRangeEndInline end && end.Id == commentId)
+                {
+                    paragraph.Inlines.RemoveAt(i);
+                    removed = true;
+                }
+                else if (inline is CommentReferenceInline reference && reference.Id == commentId)
+                {
+                    paragraph.Inlines.RemoveAt(i);
+                    removed = true;
+                }
+            }
+
+            if (removed)
+            {
+                NormalizeParagraphInlines(paragraph);
+            }
+        }
+    }
+
+    private bool HasCommentMarkers()
+    {
+        foreach (var (paragraph, _) in EnumerateParagraphs())
+        {
+            foreach (var inline in paragraph.Inlines)
+            {
+                if (inline is CommentRangeStartInline or CommentRangeEndInline or CommentReferenceInline)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private bool HasRevisionMarkers()
+    {
+        foreach (var block in _session.Document.Blocks)
+        {
+            if (block is RevisionStartBlock or RevisionEndBlock)
+            {
+                return true;
+            }
+        }
+
+        foreach (var (paragraph, _) in EnumerateParagraphs())
+        {
+            foreach (var inline in paragraph.Inlines)
+            {
+                if (inline is RevisionStartInline or RevisionEndInline)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private List<CommentAnchor> BuildCommentAnchors()
+    {
+        var anchors = new List<CommentAnchor>();
+        foreach (var (paragraph, paragraphIndex) in EnumerateParagraphs())
+        {
+            var position = 0;
+            foreach (var inline in paragraph.Inlines)
+            {
+                switch (inline)
+                {
+                    case CommentRangeStartInline start:
+                        anchors.Add(new CommentAnchor(start.Id, new TextPosition(paragraphIndex, position)));
+                        break;
+                    case CommentReferenceInline reference:
+                        anchors.Add(new CommentAnchor(reference.Id, new TextPosition(paragraphIndex, position)));
+                        break;
+                }
+
+                position += DocumentEditHelpers.GetInlineLength(inline);
+            }
+        }
+
+        return anchors;
+    }
+
+    private List<CommentAnchor> BuildRevisionAnchors()
+    {
+        var anchors = new List<CommentAnchor>();
+        foreach (var span in CollectInlineRevisionSpans())
+        {
+            anchors.Add(new CommentAnchor(span.RevisionId, new TextPosition(span.ParagraphIndex, span.StartOffset)));
+        }
+
+        foreach (var span in CollectBlockRevisionSpans())
+        {
+            anchors.Add(new CommentAnchor(span.RevisionId, new TextPosition(span.StartParagraphIndex, 0)));
+        }
+
+        return anchors;
+    }
+
+    private bool TryGetRevisionSpan(out RevisionSpan span)
+    {
+        span = default;
+        var caret = _session.Caret;
+        var inlineSpans = CollectInlineRevisionSpans();
+        foreach (var candidate in inlineSpans)
+        {
+            if (candidate.ParagraphIndex == caret.ParagraphIndex
+                && caret.Offset >= candidate.StartOffset
+                && caret.Offset <= candidate.EndOffset)
+            {
+                span = RevisionSpan.FromInline(candidate);
+                return true;
+            }
+        }
+
+        foreach (var candidate in CollectBlockRevisionSpans())
+        {
+            if (caret.ParagraphIndex >= candidate.StartParagraphIndex && caret.ParagraphIndex <= candidate.EndParagraphIndex)
+            {
+                span = RevisionSpan.FromBlock(candidate);
+                return true;
+            }
+        }
+
+        var anchors = BuildRevisionAnchors();
+        if (anchors.Count == 0)
+        {
+            return false;
+        }
+
+        anchors.Sort(CompareAnchors);
+        var nextIndex = FindAnchorIndex(anchors, caret, 1);
+        if (nextIndex < 0)
+        {
+            return false;
+        }
+
+        var anchor = anchors[nextIndex];
+        foreach (var candidate in inlineSpans)
+        {
+            if (candidate.RevisionId == anchor.Id && candidate.ParagraphIndex == anchor.Position.ParagraphIndex)
+            {
+                span = RevisionSpan.FromInline(candidate);
+                return true;
+            }
+        }
+
+        foreach (var candidate in CollectBlockRevisionSpans())
+        {
+            if (candidate.RevisionId == anchor.Id)
+            {
+                span = RevisionSpan.FromBlock(candidate);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private void ApplyInlineRevision(InlineRevisionSpan span, bool accept)
+    {
+        if (_session.Document.ParagraphCount <= 0)
+        {
+            return;
+        }
+
+        var paragraph = _session.Document.GetParagraph(span.ParagraphIndex);
+        var removeContent = ShouldRemoveContent(span.Kind, accept);
+        if (removeContent)
+        {
+            DeleteRangeInParagraph(paragraph, span.StartOffset, span.EndOffset);
+        }
+
+        RemoveInlineRevisionMarkers(paragraph, span.Kind, span.RevisionId);
+    }
+
+    private void ApplyBlockRevision(BlockRevisionSpan span, bool accept)
+    {
+        var removeBlocks = ShouldRemoveContent(span.Kind, accept);
+        var blocks = _session.Document.Blocks;
+
+        for (var i = span.EndBlockIndex; i >= span.StartBlockIndex; i--)
+        {
+            var block = blocks[i];
+            if (removeBlocks)
+            {
+                blocks.RemoveAt(i);
+                continue;
+            }
+
+            if (block is RevisionStartBlock or RevisionEndBlock)
+            {
+                blocks.RemoveAt(i);
+            }
+        }
+    }
+
+    private static bool ShouldRemoveContent(RevisionKind kind, bool accept)
+    {
+        var isInsert = kind is RevisionKind.Insert or RevisionKind.MoveTo;
+        if (accept)
+        {
+            return !isInsert;
+        }
+
+        return isInsert;
+    }
+
+    private void RemoveInlineRevisionMarkers(ParagraphBlock paragraph, RevisionKind kind, int? id)
+    {
+        if (paragraph.Inlines.Count == 0)
+        {
+            return;
+        }
+
+        var removed = false;
+        for (var i = paragraph.Inlines.Count - 1; i >= 0; i--)
+        {
+            var inline = paragraph.Inlines[i];
+            if (inline is RevisionStartInline start && RevisionMatches(start.Revision, kind, id))
+            {
+                paragraph.Inlines.RemoveAt(i);
+                removed = true;
+            }
+            else if (inline is RevisionEndInline end && end.Kind == kind && end.Id == id)
+            {
+                paragraph.Inlines.RemoveAt(i);
+                removed = true;
+            }
+        }
+
+        if (removed)
+        {
+            NormalizeParagraphInlines(paragraph);
+        }
+    }
+
+    private static bool RevisionMatches(RevisionInfo revision, RevisionKind kind, int? id)
+    {
+        if (revision.Kind != kind)
+        {
+            return false;
+        }
+
+        if (!id.HasValue)
+        {
+            return revision.Id is null;
+        }
+
+        return revision.Id == id;
+    }
+
+    private void DeleteRangeInParagraph(ParagraphBlock paragraph, int startOffset, int endOffset)
+    {
+        var length = DocumentEditHelpers.GetParagraphLength(paragraph);
+        var start = Math.Clamp(startOffset, 0, length);
+        var end = Math.Clamp(endOffset, 0, length);
+        if (end <= start)
+        {
+            return;
+        }
+
+        if (paragraph.Inlines.Count == 0)
+        {
+            var text = paragraph.Text ?? string.Empty;
+            paragraph.Text = text.Remove(start, end - start);
+            return;
+        }
+
+        var newInlines = new List<Inline>(paragraph.Inlines.Count);
+        var position = 0;
+        foreach (var inline in paragraph.Inlines)
+        {
+            var inlineLength = DocumentEditHelpers.GetInlineLength(inline);
+            var inlineEnd = position + inlineLength;
+            if (inlineEnd <= start || position >= end)
+            {
+                newInlines.Add(inline);
+            }
+            else if (inline is RunInline run)
+            {
+                var runLength = run.Text.Length;
+                var deleteStart = Math.Clamp(start - position, 0, runLength);
+                var deleteEnd = Math.Clamp(end - position, 0, runLength);
+                if (deleteStart > 0)
+                {
+                    newInlines.Add(new RunInline(run.Text.SliceBuffer(0, deleteStart), run.Style) { StyleId = run.StyleId });
+                }
+
+                var afterLength = runLength - deleteEnd;
+                if (afterLength > 0)
+                {
+                    newInlines.Add(new RunInline(run.Text.SliceBuffer(deleteEnd, afterLength), run.Style) { StyleId = run.StyleId });
+                }
+            }
+
+            position = inlineEnd;
+        }
+
+        paragraph.Inlines.Clear();
+        paragraph.Inlines.AddRange(newInlines);
+        NormalizeParagraphInlines(paragraph);
+    }
+
+    private List<InlineRevisionSpan> CollectInlineRevisionSpans()
+    {
+        var spans = new List<InlineRevisionSpan>();
+        foreach (var (paragraph, paragraphIndex) in EnumerateParagraphs())
+        {
+            if (paragraph.Inlines.Count == 0)
+            {
+                continue;
+            }
+
+            var open = new Dictionary<RevisionKey, int>();
+            var position = 0;
+            foreach (var inline in paragraph.Inlines)
+            {
+                switch (inline)
+                {
+                    case RevisionStartInline start:
+                        if (!open.ContainsKey(new RevisionKey(start.Revision.Kind, start.Revision.Id)))
+                        {
+                            open[new RevisionKey(start.Revision.Kind, start.Revision.Id)] = position;
+                        }
+
+                        break;
+                    case RevisionEndInline end:
+                    {
+                        var key = new RevisionKey(end.Kind, end.Id);
+                        if (open.TryGetValue(key, out var startOffset))
+                        {
+                            spans.Add(new InlineRevisionSpan(end.Kind, end.Id, paragraphIndex, startOffset, position));
+                            open.Remove(key);
+                        }
+
+                        break;
+                    }
+                }
+
+                position += DocumentEditHelpers.GetInlineLength(inline);
+            }
+        }
+
+        return spans;
+    }
+
+    private List<BlockRevisionSpan> CollectBlockRevisionSpans()
+    {
+        var spans = new List<BlockRevisionSpan>();
+        var open = new Dictionary<RevisionKey, OpenBlockRevision>();
+        var paragraphIndex = 0;
+        var blocks = _session.Document.Blocks;
+
+        for (var blockIndex = 0; blockIndex < blocks.Count; blockIndex++)
+        {
+            var block = blocks[blockIndex];
+            switch (block)
+            {
+                case RevisionStartBlock start:
+                {
+                    var key = new RevisionKey(start.Revision.Kind, start.Revision.Id);
+                    if (!open.ContainsKey(key))
+                    {
+                        open[key] = new OpenBlockRevision(start.Revision, blockIndex, paragraphIndex);
+                    }
+
+                    break;
+                }
+                case RevisionEndBlock end:
+                {
+                    var key = new RevisionKey(end.Kind, end.Id);
+                    if (open.TryGetValue(key, out var openRevision))
+                    {
+                        spans.Add(new BlockRevisionSpan(openRevision.Revision, openRevision.StartBlockIndex, blockIndex, openRevision.StartParagraphIndex, paragraphIndex));
+                        open.Remove(key);
+                    }
+
+                    break;
+                }
+                case ParagraphBlock:
+                    paragraphIndex++;
+                    break;
+                case TableBlock table:
+                    paragraphIndex += CountParagraphs(table);
+                    break;
+            }
+        }
+
+        return spans;
+    }
+
+    private static int CountParagraphs(TableBlock table)
+    {
+        var count = 0;
+        foreach (var row in table.Rows)
+        {
+            foreach (var cell in row.Cells)
+            {
+                count += cell.Paragraphs.Count;
+            }
+        }
+
+        return count;
+    }
+
+    private IEnumerable<(ParagraphBlock Paragraph, int ParagraphIndex)> EnumerateParagraphs()
+    {
+        var paragraphIndex = 0;
+        foreach (var block in _session.Document.Blocks)
+        {
+            switch (block)
+            {
+                case ParagraphBlock paragraph:
+                    yield return (paragraph, paragraphIndex++);
+                    break;
+                case TableBlock table:
+                    foreach (var row in table.Rows)
+                    {
+                        foreach (var cell in row.Cells)
+                        {
+                            foreach (var paragraph in cell.Paragraphs)
+                            {
+                                yield return (paragraph, paragraphIndex++);
+                            }
+                        }
+                    }
+
+                    break;
+            }
+        }
+    }
+
+    private bool TryGetInlineAtPosition(TextPosition position, out Inline inline)
+    {
+        inline = null!;
+        if (position.ParagraphIndex < 0 || position.ParagraphIndex >= _session.Document.ParagraphCount)
+        {
+            return false;
+        }
+
+        var paragraph = _session.Document.GetParagraph(position.ParagraphIndex);
+        if (paragraph.Inlines.Count == 0)
+        {
+            return false;
+        }
+
+        var offset = Math.Clamp(position.Offset, 0, DocumentEditHelpers.GetParagraphLength(paragraph));
+        var current = 0;
+        foreach (var item in paragraph.Inlines)
+        {
+            var length = DocumentEditHelpers.GetInlineLength(item);
+            var end = current + length;
+            if (length == 0 && offset == current)
+            {
+                inline = item;
+                return true;
+            }
+
+            if (offset < end)
+            {
+                inline = item;
+                return true;
+            }
+
+            current = end;
+        }
+
+        return false;
+    }
+
+    private static int CompareAnchors(CommentAnchor left, CommentAnchor right)
+    {
+        var paragraphComparison = left.Position.ParagraphIndex.CompareTo(right.Position.ParagraphIndex);
+        if (paragraphComparison != 0)
+        {
+            return paragraphComparison;
+        }
+
+        return left.Position.Offset.CompareTo(right.Position.Offset);
+    }
+
+    private static int FindAnchorIndex(List<CommentAnchor> anchors, TextPosition caret, int direction)
+    {
+        if (anchors.Count == 0)
+        {
+            return -1;
+        }
+
+        if (direction >= 0)
+        {
+            for (var i = 0; i < anchors.Count; i++)
+            {
+                var anchor = anchors[i];
+                if (ComparePosition(anchor.Position, caret) > 0)
+                {
+                    return i;
+                }
+            }
+
+            return 0;
+        }
+
+        for (var i = anchors.Count - 1; i >= 0; i--)
+        {
+            var anchor = anchors[i];
+            if (ComparePosition(anchor.Position, caret) < 0)
+            {
+                return i;
+            }
+        }
+
+        return anchors.Count - 1;
+    }
+
+    private static int ComparePosition(TextPosition left, TextPosition right)
+    {
+        if (left.ParagraphIndex != right.ParagraphIndex)
+        {
+            return left.ParagraphIndex.CompareTo(right.ParagraphIndex);
+        }
+
+        return left.Offset.CompareTo(right.Offset);
+    }
+
+    private static int FindNextCommentId(Document document)
+    {
+        var nextId = 1;
+        foreach (var id in document.Comments.Keys)
+        {
+            if (id >= nextId)
+            {
+                nextId = id + 1;
+            }
+        }
+
+        foreach (var block in document.Blocks)
+        {
+            if (block is ParagraphBlock paragraphBlock)
+            {
+                UpdateCommentIdFromInlines(paragraphBlock.Inlines, ref nextId);
+            }
+            else if (block is TableBlock table)
+            {
+                foreach (var row in table.Rows)
+                {
+                    foreach (var cell in row.Cells)
+                    {
+                        foreach (var paragraph in cell.Paragraphs)
+                        {
+                            UpdateCommentIdFromInlines(paragraph.Inlines, ref nextId);
+                        }
+                    }
+                }
+            }
+        }
+
+        return nextId;
+    }
+
+    private static void UpdateCommentIdFromInlines(IReadOnlyList<Inline> inlines, ref int nextId)
+    {
+        foreach (var inline in inlines)
+        {
+            var id = inline switch
+            {
+                CommentRangeStartInline start => start.Id,
+                CommentRangeEndInline end => end.Id,
+                CommentReferenceInline reference => reference.Id,
+                _ => 0
+            };
+
+            if (id >= nextId)
+            {
+                nextId = id + 1;
+            }
+        }
+    }
+
+    private static void NormalizeParagraphInlines(ParagraphBlock paragraph)
+    {
+        if (paragraph.Inlines.Count == 0)
+        {
+            paragraph.Text = paragraph.Text ?? string.Empty;
+            return;
+        }
+
+        var normalized = new List<Inline>(paragraph.Inlines.Count);
+        RunInline? lastRun = null;
+
+        foreach (var inline in paragraph.Inlines)
+        {
+            if (inline is RunInline run)
+            {
+                if (run.Text.Length == 0)
+                {
+                    continue;
+                }
+
+                if (lastRun is not null && AreRunsMergeable(lastRun, run))
+                {
+                    lastRun.Text.Append(run.Text);
+                }
+                else
+                {
+                    normalized.Add(run);
+                    lastRun = run;
+                }
+            }
+            else
+            {
+                normalized.Add(inline);
+                lastRun = null;
+            }
+        }
+
+        paragraph.Inlines.Clear();
+        paragraph.Inlines.AddRange(normalized);
+        paragraph.Text = DocumentEditHelpers.GetParagraphText(paragraph);
+    }
+
+    private static bool AreRunsMergeable(RunInline left, RunInline right)
+    {
+        if (!string.Equals(left.StyleId, right.StyleId, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (left.Style is null && right.Style is null)
+        {
+            return true;
+        }
+
+        if (left.Style is null || right.Style is null)
+        {
+            return false;
+        }
+
+        return left.Style.IsEquivalentTo(right.Style);
+    }
+
+    private readonly record struct CommentAnchor(int? Id, TextPosition Position);
+
+    private readonly record struct RevisionKey(RevisionKind Kind, int? Id);
+
+    private readonly record struct InlineRevisionSpan(
+        RevisionKind Kind,
+        int? RevisionId,
+        int ParagraphIndex,
+        int StartOffset,
+        int EndOffset);
+
+    private readonly record struct OpenBlockRevision(RevisionInfo Revision, int StartBlockIndex, int StartParagraphIndex);
+
+    private readonly record struct BlockRevisionSpan(
+        RevisionInfo Revision,
+        int StartBlockIndex,
+        int EndBlockIndex,
+        int StartParagraphIndex,
+        int EndParagraphIndex)
+    {
+        public RevisionKind Kind => Revision.Kind;
+        public int? RevisionId => Revision.Id;
+    }
+
+    private readonly record struct RevisionSpan(bool IsBlock, InlineRevisionSpan InlineSpan, BlockRevisionSpan BlockSpan)
+    {
+        public static RevisionSpan FromInline(InlineRevisionSpan span)
+            => new RevisionSpan(false, span, default);
+
+        public static RevisionSpan FromBlock(BlockRevisionSpan span)
+            => new RevisionSpan(true, default, span);
+    }
+}

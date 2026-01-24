@@ -76,6 +76,30 @@ public static class EditorHomeServiceRegistry
         var insertCommandMap = new EditorInsertCommandMap(commandRouter, session);
         insertCommandMap.Register();
 
+        var tableCommandMap = new EditorTableCommandMap(commandRouter, session);
+        tableCommandMap.Register();
+
+        var layoutCommandMap = new EditorLayoutCommandMap(commandRouter, session);
+        layoutCommandMap.Register();
+
+        var referencesCommandMap = new EditorReferencesCommandMap(commandRouter, session);
+        referencesCommandMap.Register();
+
+        var reviewCommandMap = new EditorReviewCommandMap(commandRouter, session);
+        reviewCommandMap.Register();
+
+        var designCommandMap = new EditorDesignCommandMap(commandRouter, session);
+        designCommandMap.Register();
+
+        var mailingsCommandMap = new EditorMailingsCommandMap(commandRouter, session, services);
+        mailingsCommandMap.Register();
+
+        var drawCommandMap = new EditorDrawCommandMap(commandRouter, services);
+        drawCommandMap.Register();
+
+        var viewCommandMap = new EditorViewCommandMap(commandRouter, services);
+        viewCommandMap.Register();
+
         return commandRouter;
     }
 }
