@@ -126,10 +126,10 @@
                     </ScrollViewer>
                 </Grid>
                 <Grid Grid.Column="2"
-                      Width="320"
                       RowDefinitions="Auto,*">
                     <Border x:Name="ReviewPane"
                             Grid.Row="0"
+                            Width="320"
                             Height="320"
                             Background="#F7F7F7"
                             BorderBrush="#DDDDDD"
@@ -249,6 +249,7 @@
                     </Border>
                     <Border x:Name="EquationEditorPanel"
                             Grid.Row="1"
+                            Width="320"
                             Background="#FBFBFB"
                             BorderBrush="#DDDDDD"
                             BorderThickness="1,0,0,0">
