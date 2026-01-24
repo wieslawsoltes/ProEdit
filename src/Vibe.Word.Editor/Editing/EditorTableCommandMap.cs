@@ -863,6 +863,8 @@ public sealed class EditorTableCommandMap
         target.CantSplit = source.CantSplit;
         target.RepeatOnEachPage = source.RepeatOnEachPage;
         target.ShadingColor = source.ShadingColor;
+        target.GridBefore = source.GridBefore;
+        target.GridAfter = source.GridAfter;
     }
 
     private static void CopyTableCellProperties(TableCellProperties source, TableCellProperties target)

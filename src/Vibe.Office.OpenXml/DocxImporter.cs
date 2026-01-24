@@ -4471,6 +4471,18 @@ public sealed class DocxImporter
             properties.RepeatOnEachPage = true;
         }
 
+        var gridBefore = props.GetFirstChild<GridBefore>();
+        if (gridBefore?.Val?.Value is int beforeCount)
+        {
+            properties.GridBefore = beforeCount;
+        }
+
+        var gridAfter = props.GetFirstChild<GridAfter>();
+        if (gridAfter?.Val?.Value is int afterCount)
+        {
+            properties.GridAfter = afterCount;
+        }
+
         var shading = props.GetFirstChild<Shading>();
         if (shading is not null && TryResolveShadingColor(shading, themeColors, out var color))
         {

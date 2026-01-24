@@ -3219,6 +3219,7 @@ public sealed class DocumentLayouter
         var tableWidth = ResolveTableWidth(resolvedTableProperties, contentWidth);
         var spacingBaseWidth = tableWidth ?? ResolveTableSpacingBaseWidth(resolvedTableProperties, contentWidth);
         var cellSpacing = ResolveTableCellSpacing(resolvedTableProperties, spacingBaseWidth);
+        var separateBorders = cellSpacing > 0f;
         var columnWidths = ResolveColumnWidths(resolvedTableProperties, columnCount, contentWidth, tableWidth, cellSpacing);
         var effectiveTableWidth = MathF.Max(0f, columnWidths.Sum() + cellSpacing * (columnCount + 1));
         var rowHeights = new float[rowCount];
@@ -3233,7 +3234,7 @@ public sealed class DocumentLayouter
         {
             placementsByRow[rowIndex] = new List<TableCellPlacement>();
             var row = rows[rowIndex];
-            var columnIndex = 0;
+            var columnIndex = Math.Clamp(row.Properties.GridBefore ?? 0, 0, columnCount);
             foreach (var cell in row.Cells)
             {
                 while (columnIndex < columnCount && grid[rowIndex, columnIndex] is not null)
@@ -3304,6 +3305,7 @@ public sealed class DocumentLayouter
                     directTableProperties,
                     tableStyle,
                     tableLook,
+                    separateBorders,
                     rowIndex,
                     placement.ColumnIndex,
                     rowCount,
@@ -3388,12 +3390,10 @@ public sealed class DocumentLayouter
                     }
                 }
 
-                if (targetRow < 0)
+                if (targetRow >= 0)
                 {
-                    targetRow = endRow - 1;
+                    rowHeights[targetRow] += delta;
                 }
-
-                rowHeights[targetRow] += delta;
             }
         }
 
@@ -3461,7 +3461,7 @@ public sealed class DocumentLayouter
                 var cellHeight = SumRowsWithSpacing(data.RowHeights, rowStart + localRowIndex, spanInChunk, cellSpacing);
                 var cellBounds = new DocRect(cellX, cellY, cellWidth, cellHeight);
                 cellLayouts.Add(new TableCellLayout(
-                    placement.RowIndex,
+                    localRowIndex,
                     origin.ColumnIndex,
                     origin.ColumnSpan,
                     spanInChunk,
@@ -3526,7 +3526,7 @@ public sealed class DocumentLayouter
             }
 
             cellLayouts.Add(new TableCellLayout(
-                placement.RowIndex,
+                localRowIndex,
                 placement.ColumnIndex,
                 placement.ColumnSpan,
                 spanInPage,
@@ -3648,7 +3648,7 @@ public sealed class DocumentLayouter
                 var cellHeight = SumRowsWithSpacing(data.RowHeights, placement.RowIndex, spanInChunk, cellSpacing);
                 var cellBounds = new DocRect(cellX, cellY, cellWidth, cellHeight);
                 cellLayouts.Add(new TableCellLayout(
-                    placement.RowIndex,
+                    localRowIndex,
                     origin.ColumnIndex,
                     origin.ColumnSpan,
                     spanInChunk,
@@ -3724,7 +3724,7 @@ public sealed class DocumentLayouter
             }
 
             cellLayouts.Add(new TableCellLayout(
-                placement.RowIndex,
+                localIndex,
                 placement.ColumnIndex,
                 placement.ColumnSpan,
                 spanInPage,
@@ -7157,12 +7157,13 @@ public sealed class DocumentLayouter
         var maxColumns = 0;
         foreach (var row in rows)
         {
-            var rowColumns = 0;
+            var rowColumns = Math.Max(0, row.Properties.GridBefore ?? 0);
             foreach (var cell in row.Cells)
             {
                 rowColumns += Math.Max(1, cell.ColumnSpan);
             }
 
+            rowColumns += Math.Max(0, row.Properties.GridAfter ?? 0);
             maxColumns = Math.Max(maxColumns, rowColumns);
         }
 
@@ -7324,6 +7325,7 @@ public sealed class DocumentLayouter
         TableProperties tableProperties,
         TableStyleDefinition? tableStyle,
         TableLook tableLook,
+        bool separateBorders,
         int rowIndex,
         int columnIndex,
         int rowCount,
@@ -7333,7 +7335,7 @@ public sealed class DocumentLayouter
 
         if (tableStyle is not null)
         {
-            ApplyTablePropertiesToCell(resolved, tableStyle.TableProperties, rowIndex, columnIndex, rowCount, columnCount);
+            ApplyTablePropertiesToCell(resolved, tableStyle.TableProperties, separateBorders, rowIndex, columnIndex, rowCount, columnCount);
             ApplyTableCellProperties(resolved, tableStyle.CellProperties);
 
             foreach (var condition in GetApplicableTableStyleConditions(tableLook, rowIndex, columnIndex, rowCount, columnCount))
@@ -7343,12 +7345,12 @@ public sealed class DocumentLayouter
                     continue;
                 }
 
-                ApplyTablePropertiesToCell(resolved, conditionProperties.TableProperties, rowIndex, columnIndex, rowCount, columnCount);
+                ApplyTablePropertiesToCell(resolved, conditionProperties.TableProperties, separateBorders, rowIndex, columnIndex, rowCount, columnCount);
                 ApplyTableCellProperties(resolved, conditionProperties.CellProperties);
             }
         }
 
-        ApplyTablePropertiesToCell(resolved, tableProperties, rowIndex, columnIndex, rowCount, columnCount);
+        ApplyTablePropertiesToCell(resolved, tableProperties, separateBorders, rowIndex, columnIndex, rowCount, columnCount);
         ApplyTableRowPropertiesToCell(resolved, rowProperties);
         ApplyTableCellProperties(resolved, cell.Properties);
 
@@ -7532,6 +7534,7 @@ public sealed class DocumentLayouter
     private static void ApplyTablePropertiesToCell(
         TableCellProperties target,
         TableProperties source,
+        bool separateBorders,
         int rowIndex,
         int columnIndex,
         int rowCount,
@@ -7547,7 +7550,7 @@ public sealed class DocumentLayouter
             target.ShadingColor = source.ShadingColor;
         }
 
-        ApplyTableBordersToCell(target.Borders, source.Borders, rowIndex, columnIndex, rowCount, columnCount);
+        ApplyTableBordersToCell(target.Borders, source.Borders, separateBorders, rowIndex, columnIndex, rowCount, columnCount);
     }
 
     private static void ApplyTableBorders(TableBorders target, TableBorders source)
@@ -7586,6 +7589,7 @@ public sealed class DocumentLayouter
     private static void ApplyTableBordersToCell(
         TableCellBorders target,
         TableBorders source,
+        bool separateBorders,
         int rowIndex,
         int columnIndex,
         int rowCount,
@@ -7616,14 +7620,44 @@ public sealed class DocumentLayouter
             target.Right = source.Right.Clone();
         }
 
-        if (!isLastRow && source.InsideHorizontal is not null)
+        if (source.InsideHorizontal is not null)
         {
-            target.Bottom = source.InsideHorizontal.Clone();
+            if (separateBorders)
+            {
+                if (!isFirstRow)
+                {
+                    target.Top = source.InsideHorizontal.Clone();
+                }
+
+                if (!isLastRow)
+                {
+                    target.Bottom = source.InsideHorizontal.Clone();
+                }
+            }
+            else if (!isLastRow)
+            {
+                target.Bottom = source.InsideHorizontal.Clone();
+            }
         }
 
-        if (!isLastColumn && source.InsideVertical is not null)
+        if (source.InsideVertical is not null)
         {
-            target.Right = source.InsideVertical.Clone();
+            if (separateBorders)
+            {
+                if (!isFirstColumn)
+                {
+                    target.Left = source.InsideVertical.Clone();
+                }
+
+                if (!isLastColumn)
+                {
+                    target.Right = source.InsideVertical.Clone();
+                }
+            }
+            else if (!isLastColumn)
+            {
+                target.Right = source.InsideVertical.Clone();
+            }
         }
     }
 

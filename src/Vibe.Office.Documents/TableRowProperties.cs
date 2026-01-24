@@ -9,12 +9,16 @@ public sealed class TableRowProperties
     public bool? CantSplit { get; set; }
     public bool? RepeatOnEachPage { get; set; }
     public DocColor? ShadingColor { get; set; }
+    public int? GridBefore { get; set; }
+    public int? GridAfter { get; set; }
 
     public bool HasValues => Height.HasValue
                              || HeightRule.HasValue
                              || CantSplit.HasValue
                              || RepeatOnEachPage.HasValue
-                             || ShadingColor.HasValue;
+                             || ShadingColor.HasValue
+                             || GridBefore.HasValue
+                             || GridAfter.HasValue;
 
     public TableRowProperties Clone()
     {
@@ -24,7 +28,9 @@ public sealed class TableRowProperties
             HeightRule = HeightRule,
             CantSplit = CantSplit,
             RepeatOnEachPage = RepeatOnEachPage,
-            ShadingColor = ShadingColor
+            ShadingColor = ShadingColor,
+            GridBefore = GridBefore,
+            GridAfter = GridAfter
         };
     }
 }

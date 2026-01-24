@@ -1522,6 +1522,16 @@ public sealed class DocxExporter
             rowProperties.AppendChild(new TableHeader());
         }
 
+        if (properties.GridBefore is > 0)
+        {
+            rowProperties.AppendChild(new GridBefore { Val = properties.GridBefore.Value });
+        }
+
+        if (properties.GridAfter is > 0)
+        {
+            rowProperties.AppendChild(new GridAfter { Val = properties.GridAfter.Value });
+        }
+
         if (properties.Height.HasValue || properties.HeightRule.HasValue)
         {
             var height = new TableRowHeight();
