@@ -120,6 +120,8 @@ public sealed class DocumentLayouter
         var pageHeight = 0f;
         var pageX = 0f;
         var pageY = settings.UsePagination ? settings.PageGap : 0f;
+        var pageOriginX = settings.UsePagination ? settings.PageGap : 0f;
+        var pageOriginY = settings.UsePagination ? settings.PageGap : 0f;
         var pageIndex = 0;
         var pageSettings = sectionSettings.ResolveForPage(pageIndex);
         var pageContentWidth = 0f;
@@ -169,7 +171,21 @@ public sealed class DocumentLayouter
             marginBottom = pageSettings.MarginBottom;
             pageWidth = settings.UsePagination ? pageSettings.PageWidth : settings.ViewportWidth;
             pageHeight = settings.UsePagination ? pageSettings.PageHeight : MathF.Max(settings.ViewportHeight, 1f);
-            pageX = settings.UsePagination ? MathF.Max(0f, (settings.ViewportWidth - pageWidth) / 2f) : 0f;
+            if (!settings.UsePagination)
+            {
+                pageX = 0f;
+                pageY = 0f;
+            }
+            else if (settings.PageFlow == PageFlowDirection.Horizontal)
+            {
+                pageX = pageOriginX;
+                pageY = pageOriginY;
+            }
+            else
+            {
+                pageX = MathF.Max(0f, (settings.ViewportWidth - pageWidth) / 2f);
+                pageY = pageOriginY;
+            }
             pageContentWidth = MathF.Max(1f, pageWidth - marginLeft - marginRight);
             contentTop = pageY + marginTop;
             contentBottom = pageY + pageHeight - marginBottom;
@@ -202,7 +218,17 @@ public sealed class DocumentLayouter
         void StartNewPage(PageSectionSettings? newSection = null)
         {
             pageIndex++;
-            pageY += pageHeight + settings.PageGap;
+            if (settings.UsePagination)
+            {
+                if (settings.PageFlow == PageFlowDirection.Horizontal)
+                {
+                    pageOriginX += pageWidth + settings.PageGap;
+                }
+                else
+                {
+                    pageOriginY += pageHeight + settings.PageGap;
+                }
+            }
             if (newSection is not null)
             {
                 sectionSettings = newSection;

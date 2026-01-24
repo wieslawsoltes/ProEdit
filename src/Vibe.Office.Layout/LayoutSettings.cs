@@ -1,5 +1,11 @@
 namespace Vibe.Office.Layout;
 
+public enum PageFlowDirection
+{
+    Vertical,
+    Horizontal
+}
+
 public sealed class LayoutSettings
 {
     public float ViewportWidth { get; set; } = 800f;
@@ -8,6 +14,7 @@ public sealed class LayoutSettings
     public float PageWidth { get; set; } = 816f;
     public float PageHeight { get; set; } = 1056f;
     public float PageGap { get; set; } = 24f;
+    public PageFlowDirection PageFlow { get; set; } = PageFlowDirection.Vertical;
     public float MarginLeft { get; set; } = 96f;
     public float MarginTop { get; set; } = 96f;
     public float MarginRight { get; set; } = 96f;
@@ -37,6 +44,7 @@ public sealed class LayoutSettings
             PageWidth = PageWidth,
             PageHeight = PageHeight,
             PageGap = PageGap,
+            PageFlow = PageFlow,
             MarginLeft = MarginLeft,
             MarginTop = MarginTop,
             MarginRight = MarginRight,
