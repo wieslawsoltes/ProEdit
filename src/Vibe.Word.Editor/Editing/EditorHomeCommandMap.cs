@@ -2,18 +2,36 @@ using System.Globalization;
 using Vibe.Office.Documents;
 using Vibe.Office.Editing;
 using Vibe.Office.Primitives;
+using Vibe.Office.Layout;
 
 namespace Vibe.Word.Editor.Editing;
 
 public sealed class EditorHomeCommandMap
 {
     private const float IndentStep = 24f;
-    private const float FontSizeStep = 1f;
+    private const float TabStopTolerance = 0.5f;
+    private const float PointsToDipScale = 96f / 72f;
+    private const float FontSizeStep = PointsToDipScale;
     private const int MaxListLevel = 8;
-    private const float MinimumFontSize = 1f;
+    private const float MinimumFontSize = PointsToDipScale;
     private static readonly float[] StandardFontSizes =
     {
-        8f, 9f, 10f, 11f, 12f, 14f, 16f, 18f, 20f, 22f, 24f, 26f, 28f, 36f, 48f, 72f
+        8f * PointsToDipScale,
+        9f * PointsToDipScale,
+        10f * PointsToDipScale,
+        11f * PointsToDipScale,
+        12f * PointsToDipScale,
+        14f * PointsToDipScale,
+        16f * PointsToDipScale,
+        18f * PointsToDipScale,
+        20f * PointsToDipScale,
+        22f * PointsToDipScale,
+        24f * PointsToDipScale,
+        26f * PointsToDipScale,
+        28f * PointsToDipScale,
+        36f * PointsToDipScale,
+        48f * PointsToDipScale,
+        72f * PointsToDipScale
     };
     private const int LineSpacingTwipsPerLine = 240;
     private static readonly DocColor DefaultShadingColor = new DocColor(242, 242, 242);
@@ -97,10 +115,10 @@ public sealed class EditorHomeCommandMap
     {
         _router.RegisterAction(EditorHomeCommandIds.Clipboard.Copy, (_, __) => CopySelection(), (context, _) => CanCopy(context), isUndoable: false);
         _router.RegisterAction(EditorHomeCommandIds.Clipboard.Cut, (_, __) => CutSelection(), (context, _) => CanCut(context));
-        _router.RegisterAction(EditorHomeCommandIds.Clipboard.Paste, (_, __) => PasteClipboard(), (context, _) => CanPaste(context));
-        _router.RegisterAction(EditorHomeCommandIds.Clipboard.PasteKeepSource, (_, __) => PasteClipboard(), (context, _) => CanPaste(context));
-        _router.RegisterAction(EditorHomeCommandIds.Clipboard.PasteMatchDestination, (_, __) => PasteClipboard(), (context, _) => CanPaste(context));
-        _router.RegisterAction(EditorHomeCommandIds.Clipboard.PasteTextOnly, (_, __) => PasteClipboard(), (context, _) => CanPaste(context));
+        _router.RegisterAction(EditorHomeCommandIds.Clipboard.Paste, (_, __) => PasteClipboardMatchDestination(), (context, _) => CanPaste(context));
+        _router.RegisterAction(EditorHomeCommandIds.Clipboard.PasteKeepSource, (_, __) => PasteClipboardKeepSource(), (context, _) => CanPaste(context));
+        _router.RegisterAction(EditorHomeCommandIds.Clipboard.PasteMatchDestination, (_, __) => PasteClipboardMatchDestination(), (context, _) => CanPaste(context));
+        _router.RegisterAction(EditorHomeCommandIds.Clipboard.PasteTextOnly, (_, __) => PasteClipboardTextOnly(), (context, _) => CanPaste(context));
         _router.RegisterAction(EditorHomeCommandIds.Clipboard.FormatPainterToggle, (_, __) => ToggleFormatPainter(), (context, _) => HasParagraphs(context), isUndoable: false);
     }
 
@@ -145,6 +163,10 @@ public sealed class EditorHomeCommandMap
 
         _router.RegisterAction(EditorHomeCommandIds.Paragraph.IndentIncrease, (_, __) => AdjustIndent(IndentStep), (context, _) => HasParagraphs(context));
         _router.RegisterAction(EditorHomeCommandIds.Paragraph.IndentDecrease, (_, __) => AdjustIndent(-IndentStep), (context, _) => HasParagraphs(context));
+        _router.RegisterAction(EditorHomeCommandIds.Paragraph.TabStopAdd, (_, payload) => AddTabStop(payload), (context, _) => HasParagraphs(context));
+        _router.RegisterAction(EditorHomeCommandIds.Paragraph.TabStopUpdate, (_, payload) => UpdateTabStop(payload), (context, _) => HasParagraphs(context));
+        _router.RegisterAction(EditorHomeCommandIds.Paragraph.TabStopRemove, (_, payload) => RemoveTabStop(payload), (context, _) => HasParagraphs(context));
+        _router.RegisterAction(EditorHomeCommandIds.Paragraph.TabStopClear, (_, __) => ClearTabStops(), (context, _) => HasParagraphs(context));
 
         _router.RegisterAction(EditorHomeCommandIds.Paragraph.ListBullets, (_, __) => ToggleList(ListKind.Bullet, multilevel: false), (context, _) => HasParagraphs(context));
         _router.RegisterAction(EditorHomeCommandIds.Paragraph.ListNumbering, (_, __) => ToggleList(ListKind.Numbered, multilevel: false), (context, _) => HasParagraphs(context));
@@ -250,9 +272,19 @@ public sealed class EditorHomeCommandMap
         _textClipboard?.CutSelection();
     }
 
-    private void PasteClipboard()
+    private void PasteClipboardKeepSource()
     {
-        _textClipboard?.PasteText();
+        _textClipboard?.PasteKeepSource();
+    }
+
+    private void PasteClipboardMatchDestination()
+    {
+        _textClipboard?.PasteMatchDestination();
+    }
+
+    private void PasteClipboardTextOnly()
+    {
+        _textClipboard?.PasteTextOnly();
     }
 
     private void ToggleFormatPainter()
@@ -934,6 +966,139 @@ public sealed class EditorHomeCommandMap
             var current = paragraph.Properties.IndentLeft ?? 0f;
             paragraph.Properties.IndentLeft = Math.Max(0f, current + delta);
         });
+    }
+
+    private void AddTabStop(object? payload)
+    {
+        if (payload is not EditorParagraphTabStopRequest request)
+        {
+            return;
+        }
+
+        var position = MathF.Max(0f, request.Position);
+        var resolver = new DocumentStyleResolver(_session.Document);
+        _paragraphFormatting.Apply(paragraph =>
+        {
+            var tabStops = ResolveTabStopsForEdit(paragraph, resolver);
+            var index = FindTabStopIndex(tabStops, position);
+            if (index >= 0)
+            {
+                var existing = tabStops[index];
+                existing.Position = position;
+                existing.Alignment = request.Alignment;
+                existing.Leader = request.Leader;
+            }
+            else
+            {
+                tabStops.Add(new TabStopDefinition(position)
+                {
+                    Alignment = request.Alignment,
+                    Leader = request.Leader
+                });
+            }
+
+            if (tabStops.Count > 1)
+            {
+                tabStops.Sort();
+            }
+        });
+    }
+
+    private void UpdateTabStop(object? payload)
+    {
+        if (payload is not EditorParagraphTabStopUpdateRequest request)
+        {
+            return;
+        }
+
+        var position = MathF.Max(0f, request.Position);
+        var resolver = new DocumentStyleResolver(_session.Document);
+        _paragraphFormatting.Apply(paragraph =>
+        {
+            var tabStops = ResolveTabStopsForEdit(paragraph, resolver);
+            var index = FindTabStopIndex(tabStops, request.OriginalPosition);
+            if (index >= 0)
+            {
+                var existing = tabStops[index];
+                existing.Position = position;
+                existing.Alignment = request.Alignment;
+                existing.Leader = request.Leader;
+            }
+            else
+            {
+                tabStops.Add(new TabStopDefinition(position)
+                {
+                    Alignment = request.Alignment,
+                    Leader = request.Leader
+                });
+            }
+
+            if (tabStops.Count > 1)
+            {
+                tabStops.Sort();
+            }
+        });
+    }
+
+    private void RemoveTabStop(object? payload)
+    {
+        if (payload is not EditorParagraphTabStopRemoveRequest request)
+        {
+            return;
+        }
+
+        var resolver = new DocumentStyleResolver(_session.Document);
+        _paragraphFormatting.Apply(paragraph =>
+        {
+            var tabStops = ResolveTabStopsForEdit(paragraph, resolver);
+            for (var i = tabStops.Count - 1; i >= 0; i--)
+            {
+                if (MathF.Abs(tabStops[i].Position - request.Position) <= TabStopTolerance)
+                {
+                    tabStops.RemoveAt(i);
+                }
+            }
+        });
+    }
+
+    private void ClearTabStops()
+    {
+        _paragraphFormatting.Apply(paragraph => paragraph.Properties.TabStops.Clear());
+    }
+
+    private static int FindTabStopIndex(List<TabStopDefinition> tabStops, float position)
+    {
+        for (var i = 0; i < tabStops.Count; i++)
+        {
+            if (MathF.Abs(tabStops[i].Position - position) <= TabStopTolerance)
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    private static List<TabStopDefinition> ResolveTabStopsForEdit(ParagraphBlock paragraph, DocumentStyleResolver resolver)
+    {
+        if (paragraph.Properties.TabStops.Count > 0)
+        {
+            return paragraph.Properties.TabStops;
+        }
+
+        var resolved = resolver.ResolveParagraphProperties(paragraph);
+        if (resolved.TabStops.Count == 0)
+        {
+            return paragraph.Properties.TabStops;
+        }
+
+        paragraph.Properties.TabStops.Clear();
+        foreach (var tabStop in resolved.TabStops)
+        {
+            paragraph.Properties.TabStops.Add(tabStop.Clone());
+        }
+
+        return paragraph.Properties.TabStops;
     }
 
     private void ToggleList(ListKind kind, bool multilevel)

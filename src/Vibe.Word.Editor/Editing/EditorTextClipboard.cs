@@ -9,6 +9,7 @@ internal sealed class EditorTextClipboard
 {
     private readonly IEditorMutableSession _session;
     private readonly IClipboardService _clipboard;
+    private ClipboardFragment? _lastFragment;
 
     public EditorTextClipboard(IEditorMutableSession session, IClipboardService clipboard)
     {
@@ -30,6 +31,7 @@ internal sealed class EditorTextClipboard
             return false;
         }
 
+        _lastFragment = BuildSelectionFragment(selection);
         _clipboard.SetText(text);
         return true;
     }
@@ -58,6 +60,20 @@ internal sealed class EditorTextClipboard
 
         return PasteText(text.AsSpan());
     }
+
+    public bool PasteKeepSource()
+    {
+        if (_lastFragment is null || _lastFragment.Paragraphs.Count == 0)
+        {
+            return PasteText();
+        }
+
+        return PasteFragment(_lastFragment);
+    }
+
+    public bool PasteMatchDestination() => PasteText();
+
+    public bool PasteTextOnly() => PasteText();
 
     private bool PasteText(ReadOnlySpan<char> text)
     {
@@ -105,6 +121,176 @@ internal sealed class EditorTextClipboard
         }
 
         return inserted;
+    }
+
+    private bool PasteFragment(ClipboardFragment fragment)
+    {
+        if (fragment.Paragraphs.Count == 0)
+        {
+            return false;
+        }
+
+        var inserted = false;
+        for (var i = 0; i < fragment.Paragraphs.Count; i++)
+        {
+            if (i > 0)
+            {
+                _session.InsertParagraphBreak();
+                inserted = true;
+            }
+
+            var paragraph = fragment.Paragraphs[i];
+            if (paragraph.Inlines.Count == 0)
+            {
+                continue;
+            }
+
+            _session.InsertInlines(paragraph.Inlines);
+            inserted = true;
+        }
+
+        return inserted;
+    }
+
+    private ClipboardFragment BuildSelectionFragment(TextRange range)
+    {
+        var selection = range.Normalize();
+        var fragment = new ClipboardFragment();
+        if (_session.Document.ParagraphCount == 0)
+        {
+            return fragment;
+        }
+
+        var startIndex = Math.Clamp(selection.Start.ParagraphIndex, 0, _session.Document.ParagraphCount - 1);
+        var endIndex = Math.Clamp(selection.End.ParagraphIndex, 0, _session.Document.ParagraphCount - 1);
+        if (startIndex > endIndex)
+        {
+            (startIndex, endIndex) = (endIndex, startIndex);
+        }
+
+        for (var i = startIndex; i <= endIndex; i++)
+        {
+            var paragraph = _session.Document.GetParagraph(i);
+            var paragraphLength = DocumentEditHelpers.GetParagraphLength(paragraph);
+            var startOffset = i == startIndex ? selection.Start.Offset : 0;
+            var endOffset = i == endIndex ? selection.End.Offset : paragraphLength;
+
+            startOffset = Math.Clamp(startOffset, 0, paragraphLength);
+            endOffset = Math.Clamp(endOffset, 0, paragraphLength);
+
+            var paragraphFragment = BuildParagraphFragment(paragraph, startOffset, endOffset);
+            fragment.Paragraphs.Add(paragraphFragment);
+        }
+
+        return fragment;
+    }
+
+    private static ClipboardParagraph BuildParagraphFragment(ParagraphBlock paragraph, int startOffset, int endOffset)
+    {
+        var fragment = new ClipboardParagraph();
+        if (startOffset >= endOffset)
+        {
+            return fragment;
+        }
+
+        if (paragraph.Inlines.Count == 0)
+        {
+            var text = paragraph.Text ?? string.Empty;
+            var slice = SliceString(text, startOffset, endOffset - startOffset);
+            if (slice.Length > 0)
+            {
+                fragment.Inlines.Add(new RunInline(slice));
+            }
+
+            return fragment;
+        }
+
+        var position = 0;
+        foreach (var inline in paragraph.Inlines)
+        {
+            var length = DocumentEditHelpers.GetInlineLength(inline);
+            var inlineStart = position;
+            var inlineEnd = position + length;
+            position = inlineEnd;
+
+            if (inlineEnd <= startOffset || inlineStart >= endOffset)
+            {
+                continue;
+            }
+
+            if (inline is RunInline run)
+            {
+                var sliceStart = Math.Max(startOffset, inlineStart) - inlineStart;
+                var sliceEnd = Math.Min(endOffset, inlineEnd) - inlineStart;
+                var sliceLength = sliceEnd - sliceStart;
+                if (sliceLength > 0)
+                {
+                    fragment.Inlines.Add(CloneRunSlice(run, sliceStart, sliceLength));
+                }
+
+                continue;
+            }
+
+            if (length > 0)
+            {
+                fragment.Inlines.Add(CloneInlineOrPlaceholder(inline));
+            }
+        }
+
+        return fragment;
+    }
+
+    private static RunInline CloneRunSlice(RunInline source, int start, int length)
+    {
+        var slice = source.Text.GetSlice(start, length);
+        var clone = new RunInline(slice, source.Style?.Clone())
+        {
+            StyleId = source.StyleId,
+            Hyperlink = CloneHyperlink(source.Hyperlink)
+        };
+        return clone;
+    }
+
+    private static Inline CloneInlineOrPlaceholder(Inline inline)
+    {
+        try
+        {
+            return DocumentClone.CloneInline(inline);
+        }
+        catch (NotSupportedException)
+        {
+            return new RunInline(DocumentConstants.ObjectReplacementChar.ToString())
+            {
+                Hyperlink = CloneHyperlink(inline.Hyperlink)
+            };
+        }
+    }
+
+    private static HyperlinkInfo? CloneHyperlink(HyperlinkInfo? source)
+    {
+        if (source is null)
+        {
+            return null;
+        }
+
+        return new HyperlinkInfo(source.Uri, source.Anchor, source.Tooltip);
+    }
+
+    private static string SliceString(string text, int start, int length)
+    {
+        if (string.IsNullOrEmpty(text) || length <= 0)
+        {
+            return string.Empty;
+        }
+
+        start = Math.Clamp(start, 0, text.Length);
+        length = Math.Clamp(length, 0, text.Length - start);
+        if (length == 0)
+        {
+            return string.Empty;
+        }
+
+        return text.AsSpan(start, length).ToString();
     }
 
     private string BuildSelectionText(TextRange range)
@@ -264,5 +450,15 @@ internal sealed class EditorTextClipboard
         }
 
         builder.Append(text.AsSpan(start, length));
+    }
+
+    private sealed class ClipboardFragment
+    {
+        public List<ClipboardParagraph> Paragraphs { get; } = new();
+    }
+
+    private sealed class ClipboardParagraph
+    {
+        public List<Inline> Inlines { get; } = new();
     }
 }
