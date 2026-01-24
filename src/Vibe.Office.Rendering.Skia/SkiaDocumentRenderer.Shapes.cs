@@ -1709,7 +1709,7 @@ public sealed partial class SkiaDocumentRenderer
             "rect" or "rectangle" => ShapeKind.Rectangle,
             "roundrect" or "roundrectangle" => ShapeKind.RoundRectangle,
             "ellipse" or "oval" => ShapeKind.Ellipse,
-            "line" => ShapeKind.Line,
+            "line" or "lineinv" or "straightconnector1" => ShapeKind.Line,
             "triangle" => ShapeKind.Triangle,
             "rttriangle" or "righttriangle" => ShapeKind.RightTriangle,
             "diamond" => ShapeKind.Diamond,
@@ -1725,8 +1725,8 @@ public sealed partial class SkiaDocumentRenderer
             "uparrow" => ShapeKind.ArrowUp,
             "downarrow" => ShapeKind.ArrowDown,
             "chevron" => ShapeKind.Chevron,
-            "plus" => ShapeKind.Plus,
-            "cross" or "x" => ShapeKind.Cross,
+            "plus" or "mathplus" => ShapeKind.Plus,
+            "cross" or "x" or "mathmultiply" => ShapeKind.Cross,
             _ => ShapeKind.Unknown
         };
     }

@@ -6211,61 +6211,32 @@ public sealed class DocxExporter
             return A.ShapeTypeValues.Rectangle;
         }
 
-        var span = preset.AsSpan().Trim();
-        if (span.Equals("rect", StringComparison.OrdinalIgnoreCase)
-            || span.Equals("rectangle", StringComparison.OrdinalIgnoreCase))
+        var value = preset.Trim().ToLowerInvariant();
+        return value switch
         {
-            return A.ShapeTypeValues.Rectangle;
-        }
-
-        if (span.Equals("roundrect", StringComparison.OrdinalIgnoreCase)
-            || span.Equals("roundrectangle", StringComparison.OrdinalIgnoreCase))
-        {
-            return A.ShapeTypeValues.RoundRectangle;
-        }
-
-        if (span.Equals("ellipse", StringComparison.OrdinalIgnoreCase)
-            || span.Equals("oval", StringComparison.OrdinalIgnoreCase))
-        {
-            return A.ShapeTypeValues.Ellipse;
-        }
-
-        if (span.Equals("line", StringComparison.OrdinalIgnoreCase))
-        {
-            return A.ShapeTypeValues.Line;
-        }
-
-        if (span.Equals("triangle", StringComparison.OrdinalIgnoreCase))
-        {
-            return A.ShapeTypeValues.Triangle;
-        }
-
-        if (span.Equals("diamond", StringComparison.OrdinalIgnoreCase))
-        {
-            return A.ShapeTypeValues.Diamond;
-        }
-
-        if (span.Equals("parallelogram", StringComparison.OrdinalIgnoreCase))
-        {
-            return A.ShapeTypeValues.Parallelogram;
-        }
-
-        if (span.Equals("trapezoid", StringComparison.OrdinalIgnoreCase))
-        {
-            return A.ShapeTypeValues.Trapezoid;
-        }
-
-        if (span.Equals("hexagon", StringComparison.OrdinalIgnoreCase))
-        {
-            return A.ShapeTypeValues.Hexagon;
-        }
-
-        if (span.Equals("octagon", StringComparison.OrdinalIgnoreCase))
-        {
-            return A.ShapeTypeValues.Octagon;
-        }
-
-        return A.ShapeTypeValues.Rectangle;
+            "rect" or "rectangle" => A.ShapeTypeValues.Rectangle,
+            "roundrect" or "roundrectangle" => A.ShapeTypeValues.RoundRectangle,
+            "ellipse" or "oval" => A.ShapeTypeValues.Ellipse,
+            "line" or "lineinv" or "straightconnector1" => A.ShapeTypeValues.Line,
+            "triangle" => A.ShapeTypeValues.Triangle,
+            "rttriangle" or "righttriangle" => A.ShapeTypeValues.RightTriangle,
+            "diamond" => A.ShapeTypeValues.Diamond,
+            "parallelogram" => A.ShapeTypeValues.Parallelogram,
+            "trapezoid" => A.ShapeTypeValues.Trapezoid,
+            "pentagon" => A.ShapeTypeValues.Pentagon,
+            "hexagon" => A.ShapeTypeValues.Hexagon,
+            "octagon" => A.ShapeTypeValues.Octagon,
+            "star5" or "star" => A.ShapeTypeValues.Star5,
+            "star8" => A.ShapeTypeValues.Star8,
+            "rightarrow" => A.ShapeTypeValues.RightArrow,
+            "leftarrow" => A.ShapeTypeValues.LeftArrow,
+            "uparrow" => A.ShapeTypeValues.UpArrow,
+            "downarrow" => A.ShapeTypeValues.DownArrow,
+            "chevron" => A.ShapeTypeValues.Chevron,
+            "plus" or "mathplus" => A.ShapeTypeValues.Plus,
+            "cross" or "x" or "mathmultiply" => A.ShapeTypeValues.MathMultiply,
+            _ => A.ShapeTypeValues.Rectangle
+        };
     }
 
     private static A.Outline? BuildShapeOutline(BorderLine? border)
