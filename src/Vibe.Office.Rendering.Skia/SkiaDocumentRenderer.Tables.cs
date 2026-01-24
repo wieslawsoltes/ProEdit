@@ -83,6 +83,8 @@ public sealed partial class SkiaDocumentRenderer
         }
 
         var tableBorders = table.Properties.Borders;
+        var topFallback = table.ContinuesFromPrevious ? null : tableBorders.Top;
+        var bottomFallback = table.ContinuesOnNext ? null : tableBorders.Bottom;
 
         for (var col = 0; col <= colCount; col++)
         {
@@ -140,8 +142,8 @@ public sealed partial class SkiaDocumentRenderer
 
                 var border = row switch
                 {
-                    0 => ResolveBorderLine(lowerCell?.Properties.Borders.Top, null, tableBorders.Top),
-                    _ when row == rowCount => ResolveBorderLine(upperCell?.Properties.Borders.Bottom, null, tableBorders.Bottom),
+                    0 => ResolveBorderLine(lowerCell?.Properties.Borders.Top, null, topFallback),
+                    _ when row == rowCount => ResolveBorderLine(upperCell?.Properties.Borders.Bottom, null, bottomFallback),
                     _ => ResolveBorderLine(upperCell?.Properties.Borders.Bottom, lowerCell?.Properties.Borders.Top, tableBorders.InsideHorizontal)
                 };
 
@@ -157,6 +159,7 @@ public sealed partial class SkiaDocumentRenderer
 
     private static void DrawSeparatedCellBorders(SKCanvas canvas, TableLayout table, Func<BorderLine, float, SKPaint> paintProvider)
     {
+        var rowCount = table.Rows;
         foreach (var cell in table.Cells)
         {
             if (cell.IsMergeContinuation)
@@ -166,12 +169,17 @@ public sealed partial class SkiaDocumentRenderer
 
             var bounds = cell.Bounds;
             var borders = cell.Properties.Borders;
-            if (borders.Top is { IsVisible: true } top)
+            var rowSpan = Math.Max(1, cell.RowSpan);
+            var isTopRow = cell.RowIndex <= 0;
+            var isBottomRow = rowCount > 0 && cell.RowIndex + rowSpan - 1 >= rowCount - 1;
+            var suppressTop = table.ContinuesFromPrevious && isTopRow;
+            var suppressBottom = table.ContinuesOnNext && isBottomRow;
+            if (!suppressTop && borders.Top is { IsVisible: true } top)
             {
                 DrawBorderSegment(canvas, top, bounds.X, bounds.Y, bounds.Right, bounds.Y, paintProvider);
             }
 
-            if (borders.Bottom is { IsVisible: true } bottom)
+            if (!suppressBottom && borders.Bottom is { IsVisible: true } bottom)
             {
                 DrawBorderSegment(canvas, bottom, bounds.X, bounds.Bottom, bounds.Right, bounds.Bottom, paintProvider);
             }

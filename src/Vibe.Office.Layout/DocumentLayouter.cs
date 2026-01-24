@@ -2270,15 +2270,28 @@ public sealed class DocumentLayouter
             var data = plan.Data;
             var tableX = ResolveTableX(columnX, columnWidth, plan.ResolvedProperties, data.TableWidth);
             var rowStart = 0;
+            var rowOffset = 0f;
             var totalRows = data.RowHeights.Length;
             var headerRowCount = GetRepeatHeaderRowCount(plan.Table);
             if (headerRowCount > 0 && HasHeaderRowSpanCrossing(data, headerRowCount))
             {
                 headerRowCount = 0;
             }
+            var rowSplittable = BuildRowSplitMap(plan.Table, data);
             if (totalRows == 0)
             {
-                var emptyLayout = BuildTableLayout(plan.Table, plan.ResolvedProperties, data, tableX, cursorY, 0, 0, settings);
+                var emptyLayout = BuildTableLayout(
+                    plan.Table,
+                    plan.ResolvedProperties,
+                    data,
+                    tableX,
+                    cursorY,
+                    Array.Empty<TableRowSlice>(),
+                    settings,
+                    includeTopSpacing: true,
+                    includeBottomSpacing: true,
+                    continuesFromPrevious: false,
+                    continuesOnNext: false);
                 tables.Add(emptyLayout);
                 cursorY += emptyLayout.Bounds.Height + settings.BlockSpacing;
                 return;
@@ -2295,9 +2308,10 @@ public sealed class DocumentLayouter
                 }
 
                 var includeHeader = headerRowCount > 0 && rowStart >= headerRowCount;
+                var headerHeight = 0f;
                 if (includeHeader)
                 {
-                    var headerHeight = ComputeHeaderBlockHeight(data.RowHeights, headerRowCount, data.CellSpacing, includeGapToBody: true);
+                    headerHeight = ComputeHeaderBlockHeight(data.RowHeights, headerRowCount, data.CellSpacing, includeGapToBody: true);
                     if (availableHeight - headerHeight <= 0f && cursorY > columnTop)
                     {
                         StartNewColumnOrPage();
@@ -2306,15 +2320,9 @@ public sealed class DocumentLayouter
                     }
                 }
 
-                var bodyAvailableHeight = availableHeight;
-                if (includeHeader)
-                {
-                    bodyAvailableHeight = MathF.Max(0f, availableHeight
-                        - ComputeHeaderBlockHeight(data.RowHeights, headerRowCount, data.CellSpacing, includeGapToBody: true));
-                }
-
-                var rowsToFit = CountRowsToFit(data.RowHeights, rowStart, bodyAvailableHeight, data.CellSpacing);
-                if (rowsToFit == 0)
+                var bodyAvailableHeight = MathF.Max(0f, availableHeight - headerHeight);
+                var slices = BuildRowSlices(plan.Table, data, rowStart, rowOffset, bodyAvailableHeight, rowSplittable, out var nextRow, out var nextOffset);
+                if (slices.Count == 0)
                 {
                     if (cursorY > columnTop)
                     {
@@ -2323,13 +2331,18 @@ public sealed class DocumentLayouter
                         continue;
                     }
 
-                    rowsToFit = Math.Min(1, totalRows - rowStart);
+                    var rowHeight = data.RowHeights[rowStart];
+                    var remaining = MathF.Max(0f, rowHeight - rowOffset);
+                    slices.Add(new TableRowSlice(rowStart, rowOffset, remaining));
+                    nextRow = rowStart + 1;
+                    nextOffset = 0f;
                 }
 
+                var continuesFromPrevious = rowStart > 0 || rowOffset > 0f;
+                var continuesOnNext = nextRow < totalRows || nextOffset > 0f;
                 TableLayout tableLayout;
                 if (includeHeader)
                 {
-                    var includeBottomSpacing = rowStart + rowsToFit >= totalRows;
                     tableLayout = BuildTableLayoutWithHeader(
                         plan.Table,
                         plan.ResolvedProperties,
@@ -2337,20 +2350,33 @@ public sealed class DocumentLayouter
                         tableX,
                         cursorY,
                         headerRowCount,
-                        rowStart,
-                        rowsToFit,
+                        slices,
                         settings,
-                        includeTopSpacing: false,
-                        includeBottomSpacing: includeBottomSpacing);
+                        includeTopSpacing: !continuesFromPrevious,
+                        includeBottomSpacing: !continuesOnNext,
+                        continuesFromPrevious: continuesFromPrevious,
+                        continuesOnNext: continuesOnNext);
                 }
                 else
                 {
-                    tableLayout = BuildTableLayout(plan.Table, plan.ResolvedProperties, data, tableX, cursorY, rowStart, rowsToFit, settings);
+                    tableLayout = BuildTableLayout(
+                        plan.Table,
+                        plan.ResolvedProperties,
+                        data,
+                        tableX,
+                        cursorY,
+                        slices,
+                        settings,
+                        includeTopSpacing: !continuesFromPrevious,
+                        includeBottomSpacing: !continuesOnNext,
+                        continuesFromPrevious: continuesFromPrevious,
+                        continuesOnNext: continuesOnNext);
                 }
                 tables.Add(tableLayout);
                 AddTableLines(tableLayout);
                 cursorY += tableLayout.Bounds.Height + settings.BlockSpacing;
-                rowStart += rowsToFit;
+                rowStart = nextRow;
+                rowOffset = nextOffset;
 
                 if (rowStart < totalRows)
                 {
@@ -3144,7 +3170,24 @@ public sealed class DocumentLayouter
         var tableLook = ResolveTableLook(table.Properties.Look ?? tableStyle?.TableProperties.Look);
         var paragraphIndex = 0;
         var data = ComputeTableLayoutData(table, document, resolvedTableProperties, table.Properties, tableStyle, tableLook, contentWidth, settings, measurer, style, styleResolver, spacingMetricsCache, lineHeight, ascent, docGrid, ref paragraphIndex);
-        return BuildTableLayout(table, resolvedTableProperties, data, tableX, tableY, 0, data.RowHeights.Length, settings);
+        var slices = new List<TableRowSlice>(data.RowHeights.Length);
+        for (var i = 0; i < data.RowHeights.Length; i++)
+        {
+            slices.Add(new TableRowSlice(i, 0f, data.RowHeights[i]));
+        }
+
+        return BuildTableLayout(
+            table,
+            resolvedTableProperties,
+            data,
+            tableX,
+            tableY,
+            slices,
+            settings,
+            includeTopSpacing: true,
+            includeBottomSpacing: true,
+            continuesFromPrevious: false,
+            continuesOnNext: false);
     }
 
     private sealed class TableCellPlacement
@@ -3186,10 +3229,13 @@ public sealed class DocumentLayouter
         int ParagraphIndex,
         int StartOffset);
 
+    private readonly record struct TableRowSlice(int RowIndex, float Offset, float Height);
+
     private sealed record TableLayoutData(
         float[] ColumnWidths,
         float[] RowHeights,
         List<TableCellPlacement> Cells,
+        List<TableCellPlacement>[] PlacementsByRow,
         int Columns,
         int Rows,
         float TableWidth,
@@ -3397,7 +3443,7 @@ public sealed class DocumentLayouter
             }
         }
 
-        return new TableLayoutData(columnWidths, rowHeights, placements, columnCount, rowCount, effectiveTableWidth, cellSpacing);
+        return new TableLayoutData(columnWidths, rowHeights, placements, placementsByRow, columnCount, rowCount, effectiveTableWidth, cellSpacing);
     }
 
     private static TableLayout BuildTableLayout(
@@ -3406,14 +3452,18 @@ public sealed class DocumentLayouter
         TableLayoutData data,
         float tableX,
         float tableY,
-        int rowStart,
-        int rowCount,
-        LayoutSettings settings)
+        IReadOnlyList<TableRowSlice> slices,
+        LayoutSettings settings,
+        bool includeTopSpacing,
+        bool includeBottomSpacing,
+        bool continuesFromPrevious,
+        bool continuesOnNext)
     {
         var columnCount = data.Columns;
+        var rowCount = slices.Count;
         var cellSpacing = data.CellSpacing;
-        var topSpacing = rowStart == 0 ? cellSpacing : 0f;
-        var bottomSpacing = rowStart + rowCount >= data.RowHeights.Length ? cellSpacing : 0f;
+        var topSpacing = includeTopSpacing ? cellSpacing : 0f;
+        var bottomSpacing = includeBottomSpacing ? cellSpacing : 0f;
         var cellLayouts = new List<TableCellLayout>();
         var columnOffsets = new float[columnCount];
         var offset = cellSpacing;
@@ -3428,37 +3478,54 @@ public sealed class DocumentLayouter
         for (var i = 0; i < rowCount; i++)
         {
             rowOffsets[i] = rowOffset;
-            rowOffset += data.RowHeights[rowStart + i];
+            rowOffset += slices[i].Height;
             if (i < rowCount - 1)
             {
                 rowOffset += cellSpacing;
             }
         }
 
+        var rowIndexMap = BuildRowIndexMap(data.Rows, slices);
         var proxyOrigins = new HashSet<(int Row, int Column)>();
         foreach (var placement in data.Cells.OrderBy(cell => cell.RowIndex).ThenBy(cell => cell.ColumnIndex))
         {
-            var localRowIndex = placement.RowIndex - rowStart;
-            if (localRowIndex < 0 || localRowIndex >= rowCount)
-            {
-                continue;
-            }
+            var localRowIndex = placement.RowIndex >= 0 && placement.RowIndex < rowIndexMap.Length
+                ? rowIndexMap[placement.RowIndex]
+                : -1;
 
-            if (placement.IsMergeContinuation && placement.MergeOrigin is { } origin && origin.RowIndex < rowStart)
+            if (placement.IsMergeContinuation)
             {
+                if (localRowIndex < 0)
+                {
+                    continue;
+                }
+
+                if (placement.MergeOrigin is not { } origin || origin.RowIndex < 0 || origin.RowIndex >= rowIndexMap.Length)
+                {
+                    continue;
+                }
+
+                if (rowIndexMap[origin.RowIndex] >= 0)
+                {
+                    continue;
+                }
+
                 var key = (origin.RowIndex, origin.ColumnIndex);
                 if (!proxyOrigins.Add(key))
                 {
                     continue;
                 }
 
-                var spanOffset = rowStart - origin.RowIndex;
-                var remainingSpan = Math.Max(1, origin.RowSpan - spanOffset);
-                var spanInChunk = Math.Min(remainingSpan, rowCount - localRowIndex);
+                var spanInChunk = CountSpanInLayout(rowIndexMap, placement.RowIndex, origin.RowSpan - (placement.RowIndex - origin.RowIndex));
+                if (spanInChunk <= 0)
+                {
+                    continue;
+                }
+
                 var cellX = tableX + columnOffsets[origin.ColumnIndex];
                 var cellWidth = SumColumnsWithSpacing(data.ColumnWidths, origin.ColumnIndex, origin.ColumnSpan, cellSpacing);
                 var cellY = tableY + rowOffsets[localRowIndex];
-                var cellHeight = SumRowsWithSpacing(data.RowHeights, rowStart + localRowIndex, spanInChunk, cellSpacing);
+                var cellHeight = SumSliceHeights(rowOffsets, slices, localRowIndex, spanInChunk, cellSpacing);
                 var cellBounds = new DocRect(cellX, cellY, cellWidth, cellHeight);
                 cellLayouts.Add(new TableCellLayout(
                     localRowIndex,
@@ -3475,7 +3542,13 @@ public sealed class DocumentLayouter
                 continue;
             }
 
-            if (placement.IsMergeContinuation)
+            if (localRowIndex < 0)
+            {
+                continue;
+            }
+
+            var spanInPage = CountSpanInLayout(rowIndexMap, placement.RowIndex, placement.RowSpan);
+            if (spanInPage <= 0)
             {
                 continue;
             }
@@ -3483,46 +3556,24 @@ public sealed class DocumentLayouter
             var cellXOrigin = tableX + columnOffsets[placement.ColumnIndex];
             var cellWidthOrigin = SumColumnsWithSpacing(data.ColumnWidths, placement.ColumnIndex, placement.ColumnSpan, cellSpacing);
             var cellYOrigin = tableY + rowOffsets[localRowIndex];
-            var spanInPage = Math.Min(placement.RowSpan, rowCount - localRowIndex);
-            var cellHeightOrigin = SumRowsWithSpacing(data.RowHeights, rowStart + localRowIndex, spanInPage, cellSpacing);
+            var cellHeightOrigin = SumSliceHeights(rowOffsets, slices, localRowIndex, spanInPage, cellSpacing);
             var cellBoundsOrigin = new DocRect(cellXOrigin, cellYOrigin, cellWidthOrigin, cellHeightOrigin);
-            var lines = placement.Lines;
-            var offsetLines = new List<TableCellLine>(lines.Count);
-            var contentHeight = lines.Count == 0 ? 0f : lines.Last().Y + GetLineBlockHeight(lines.Last());
-            var availableHeight = MathF.Max(0f, cellHeightOrigin - placement.Padding.Vertical);
-            var verticalOffset = 0f;
-            if (contentHeight < availableHeight)
+            IReadOnlyList<TableCellLine> offsetLines = Array.Empty<TableCellLine>();
+            if (placement.Lines.Count > 0)
             {
-                verticalOffset = (placement.Properties.VerticalAlignment ?? TableCellVerticalAlignment.Top) switch
+                if (placement.RowSpan == 1 && localRowIndex < slices.Count)
                 {
-                    TableCellVerticalAlignment.Center => (availableHeight - contentHeight) / 2f,
-                    TableCellVerticalAlignment.Bottom => availableHeight - contentHeight,
-                    _ => 0f
-                };
-            }
-
-            foreach (var line in lines)
-            {
-                offsetLines.Add(new TableCellLine(
-                    line.ParagraphIndex,
-                    line.StartOffset,
-                    line.Length,
-                    cellXOrigin + placement.Padding.Left + line.X,
-                    cellYOrigin + placement.Padding.Top + verticalOffset + line.Y,
-                    line.Width,
-                    line.TextSlice,
-                    line.Prefix,
-                    line.PrefixWidth,
-                    line.LineHeight,
-                    line.Ascent,
-                    line.Runs,
-                    line.Images,
-                    line.Shapes,
-                    line.Charts,
-                    line.Equations,
-                    line.Rubies,
-                    line.TextDirection,
-                    line.IsRtl));
+                    var slice = slices[localRowIndex];
+                    var rowHeight = data.RowHeights[Math.Clamp(placement.RowIndex, 0, data.RowHeights.Length - 1)];
+                    var isPartial = slice.Offset > 0f || slice.Height < rowHeight - 0.01f;
+                    offsetLines = isPartial
+                        ? BuildCellLinesForSlice(placement, cellXOrigin, cellYOrigin, rowHeight, slice.Offset, slice.Height)
+                        : BuildCellLines(placement, cellXOrigin, cellYOrigin, rowHeight);
+                }
+                else
+                {
+                    offsetLines = BuildCellLines(placement, cellXOrigin, cellYOrigin, cellHeightOrigin);
+                }
             }
 
             cellLayouts.Add(new TableCellLayout(
@@ -3542,7 +3593,11 @@ public sealed class DocumentLayouter
         var tableHeight = 0f;
         if (rowCount > 0)
         {
-            tableHeight = SumRows(data.RowHeights, rowStart, rowCount);
+            for (var i = 0; i < rowCount; i++)
+            {
+                tableHeight += slices[i].Height;
+            }
+
             if (rowCount > 1)
             {
                 tableHeight += cellSpacing * (rowCount - 1);
@@ -3552,8 +3607,13 @@ public sealed class DocumentLayouter
         }
 
         var tableBounds = new DocRect(tableX, tableY, data.TableWidth, tableHeight);
-        var rowHeightsSlice = data.RowHeights.Skip(rowStart).Take(rowCount).ToArray();
-        return new TableLayout(tableBounds, rowCount, columnCount, data.ColumnWidths, rowHeightsSlice, cellLayouts, tableProperties, cellSpacing);
+        var rowHeightsSlice = new float[rowCount];
+        for (var i = 0; i < rowCount; i++)
+        {
+            rowHeightsSlice[i] = slices[i].Height;
+        }
+
+        return new TableLayout(tableBounds, rowCount, columnCount, data.ColumnWidths, rowHeightsSlice, cellLayouts, tableProperties, cellSpacing, continuesFromPrevious, continuesOnNext);
     }
 
     private static TableLayout BuildTableLayoutWithHeader(
@@ -3563,202 +3623,425 @@ public sealed class DocumentLayouter
         float tableX,
         float tableY,
         int headerRowCount,
-        int bodyRowStart,
-        int bodyRowCount,
+        IReadOnlyList<TableRowSlice> bodySlices,
         LayoutSettings settings,
         bool includeTopSpacing,
-        bool includeBottomSpacing)
+        bool includeBottomSpacing,
+        bool continuesFromPrevious,
+        bool continuesOnNext)
     {
-        if (headerRowCount <= 0 || bodyRowCount <= 0)
+        if (headerRowCount <= 0 || bodySlices.Count == 0)
         {
-            return BuildTableLayout(table, tableProperties, data, tableX, tableY, bodyRowStart, bodyRowCount, settings);
+            return BuildTableLayout(table, tableProperties, data, tableX, tableY, bodySlices, settings, includeTopSpacing, includeBottomSpacing, continuesFromPrevious, continuesOnNext);
         }
 
-        var columnCount = data.Columns;
-        var cellSpacing = data.CellSpacing;
-        var totalRowCount = headerRowCount + bodyRowCount;
-        var topSpacing = includeTopSpacing ? cellSpacing : 0f;
-        var bottomSpacing = includeBottomSpacing ? cellSpacing : 0f;
-        var cellLayouts = new List<TableCellLayout>();
-        var columnOffsets = new float[columnCount];
-        var offset = cellSpacing;
-        for (var i = 0; i < columnCount; i++)
+        var slices = new List<TableRowSlice>(headerRowCount + bodySlices.Count);
+        for (var i = 0; i < headerRowCount && i < data.RowHeights.Length; i++)
         {
-            columnOffsets[i] = offset;
-            offset += data.ColumnWidths[i] + cellSpacing;
+            slices.Add(new TableRowSlice(i, 0f, data.RowHeights[i]));
         }
 
-        var rowOffsets = new float[totalRowCount];
-        var rowOffset = topSpacing;
-        for (var i = 0; i < totalRowCount; i++)
+        slices.AddRange(bodySlices);
+        return BuildTableLayout(table, tableProperties, data, tableX, tableY, slices, settings, includeTopSpacing, includeBottomSpacing, continuesFromPrevious, continuesOnNext);
+    }
+
+    private static int[] BuildRowIndexMap(int rowCount, IReadOnlyList<TableRowSlice> slices)
+    {
+        var map = new int[rowCount];
+        Array.Fill(map, -1);
+        for (var i = 0; i < slices.Count; i++)
         {
-            var sourceRow = i < headerRowCount ? i : bodyRowStart + (i - headerRowCount);
-            rowOffsets[i] = rowOffset;
-            rowOffset += data.RowHeights[sourceRow];
-            if (i < totalRowCount - 1)
+            var rowIndex = slices[i].RowIndex;
+            if (rowIndex >= 0 && rowIndex < map.Length)
             {
-                rowOffset += cellSpacing;
+                map[rowIndex] = i;
             }
         }
 
-        int GetLocalRowIndex(int rowIndex)
+        return map;
+    }
+
+    private static int CountSpanInLayout(int[] rowIndexMap, int rowIndex, int span)
+    {
+        if (span <= 0 || rowIndex < 0 || rowIndex >= rowIndexMap.Length)
         {
-            if (rowIndex < headerRowCount)
-            {
-                return rowIndex;
-            }
-
-            if (rowIndex >= bodyRowStart && rowIndex < bodyRowStart + bodyRowCount)
-            {
-                return headerRowCount + (rowIndex - bodyRowStart);
-            }
-
-            return -1;
+            return 0;
         }
 
-        var proxyOrigins = new HashSet<(int Row, int Column)>();
-        foreach (var placement in data.Cells.OrderBy(cell => cell.RowIndex).ThenBy(cell => cell.ColumnIndex))
+        var localStart = rowIndexMap[rowIndex];
+        if (localStart < 0)
         {
-            if (placement.IsMergeContinuation && placement.MergeOrigin is { } origin && origin.RowIndex < bodyRowStart)
+            return 0;
+        }
+
+        var count = 0;
+        for (var i = 0; i < span && rowIndex + i < rowIndexMap.Length; i++)
+        {
+            var local = rowIndexMap[rowIndex + i];
+            if (local != localStart + i)
             {
-                var localRowIndex = GetLocalRowIndex(placement.RowIndex);
-                if (localRowIndex < 0)
-                {
-                    continue;
-                }
+                break;
+            }
 
-                var key = (origin.RowIndex, origin.ColumnIndex);
-                if (!proxyOrigins.Add(key))
-                {
-                    continue;
-                }
+            count++;
+        }
 
-                var spanOffset = bodyRowStart - origin.RowIndex;
-                var remainingSpan = Math.Max(0, origin.RowSpan - spanOffset);
-                var rowOffsetInBody = placement.RowIndex - bodyRowStart;
-                var spanInChunk = Math.Min(remainingSpan, bodyRowCount - rowOffsetInBody);
-                if (spanInChunk <= 0)
-                {
-                    continue;
-                }
+        return count;
+    }
 
-                var cellX = tableX + columnOffsets[origin.ColumnIndex];
-                var cellWidth = SumColumnsWithSpacing(data.ColumnWidths, origin.ColumnIndex, origin.ColumnSpan, cellSpacing);
-                var cellY = tableY + rowOffsets[localRowIndex];
-                var cellHeight = SumRowsWithSpacing(data.RowHeights, placement.RowIndex, spanInChunk, cellSpacing);
-                var cellBounds = new DocRect(cellX, cellY, cellWidth, cellHeight);
-                cellLayouts.Add(new TableCellLayout(
-                    localRowIndex,
-                    origin.ColumnIndex,
-                    origin.ColumnSpan,
-                    spanInChunk,
-                    cellBounds,
-                    Array.Empty<TableCellLine>(),
-                    origin.Properties,
-                    origin.Padding,
-                    true,
-                    origin.RowIndex,
-                    origin.ColumnIndex));
+    private static float SumSliceHeights(float[] rowOffsets, IReadOnlyList<TableRowSlice> slices, int start, int count, float spacing)
+    {
+        if (count <= 0 || start < 0 || start >= slices.Count)
+        {
+            return 0f;
+        }
+
+        var lastIndex = Math.Min(slices.Count - 1, start + count - 1);
+        var startOffset = rowOffsets[start];
+        var endOffset = rowOffsets[lastIndex] + slices[lastIndex].Height;
+        var height = endOffset - startOffset;
+        if (height <= 0f && count > 0)
+        {
+            for (var i = start; i < start + count && i < slices.Count; i++)
+            {
+                height += slices[i].Height;
+                if (i < start + count - 1)
+                {
+                    height += spacing;
+                }
+            }
+        }
+
+        return height;
+    }
+
+    private static float ResolveCellVerticalOffset(TableCellPlacement placement, float alignmentHeight)
+    {
+        var availableHeight = MathF.Max(0f, alignmentHeight - placement.Padding.Vertical);
+        var contentHeight = placement.ContentHeight;
+        if (contentHeight >= availableHeight)
+        {
+            return 0f;
+        }
+
+        return (placement.Properties.VerticalAlignment ?? TableCellVerticalAlignment.Top) switch
+        {
+            TableCellVerticalAlignment.Center => (availableHeight - contentHeight) / 2f,
+            TableCellVerticalAlignment.Bottom => availableHeight - contentHeight,
+            _ => 0f
+        };
+    }
+
+    private static IReadOnlyList<TableCellLine> BuildCellLines(
+        TableCellPlacement placement,
+        float cellX,
+        float cellY,
+        float alignmentHeight)
+    {
+        if (placement.Lines.Count == 0)
+        {
+            return Array.Empty<TableCellLine>();
+        }
+
+        var verticalOffset = ResolveCellVerticalOffset(placement, alignmentHeight);
+        var offsetLines = new List<TableCellLine>(placement.Lines.Count);
+        foreach (var line in placement.Lines)
+        {
+            offsetLines.Add(new TableCellLine(
+                line.ParagraphIndex,
+                line.StartOffset,
+                line.Length,
+                cellX + placement.Padding.Left + line.X,
+                cellY + placement.Padding.Top + verticalOffset + line.Y,
+                line.Width,
+                line.TextSlice,
+                line.Prefix,
+                line.PrefixWidth,
+                line.LineHeight,
+                line.Ascent,
+                line.Runs,
+                line.Images,
+                line.Shapes,
+                line.Charts,
+                line.Equations,
+                line.Rubies,
+                line.TextDirection,
+                line.IsRtl));
+        }
+
+        return offsetLines;
+    }
+
+    private static IReadOnlyList<TableCellLine> BuildCellLinesForSlice(
+        TableCellPlacement placement,
+        float cellX,
+        float cellY,
+        float alignmentHeight,
+        float sliceOffset,
+        float sliceHeight)
+    {
+        if (placement.Lines.Count == 0)
+        {
+            return Array.Empty<TableCellLine>();
+        }
+
+        var verticalOffset = ResolveCellVerticalOffset(placement, alignmentHeight);
+        var sliceEnd = sliceOffset + sliceHeight;
+        var offsetLines = new List<TableCellLine>(placement.Lines.Count);
+        foreach (var line in placement.Lines)
+        {
+            var lineHeight = GetLineBlockHeight(line);
+            var lineTop = placement.Padding.Top + verticalOffset + line.Y;
+            var lineBottom = lineTop + lineHeight;
+            if (lineTop + 0.01f < sliceOffset || lineBottom - 0.01f > sliceEnd)
+            {
                 continue;
             }
 
+            offsetLines.Add(new TableCellLine(
+                line.ParagraphIndex,
+                line.StartOffset,
+                line.Length,
+                cellX + placement.Padding.Left + line.X,
+                cellY + (lineTop - sliceOffset),
+                line.Width,
+                line.TextSlice,
+                line.Prefix,
+                line.PrefixWidth,
+                line.LineHeight,
+                line.Ascent,
+                line.Runs,
+                line.Images,
+                line.Shapes,
+                line.Charts,
+                line.Equations,
+                line.Rubies,
+                line.TextDirection,
+                line.IsRtl));
+        }
+
+        return offsetLines.Count == 0 ? Array.Empty<TableCellLine>() : offsetLines;
+    }
+
+    private static bool[] BuildRowSplitMap(TableBlock table, TableLayoutData data)
+    {
+        var rowCount = data.RowHeights.Length;
+        var canSplit = new bool[rowCount];
+        for (var i = 0; i < rowCount && i < table.Rows.Count; i++)
+        {
+            canSplit[i] = table.Rows[i].Properties.CantSplit != true;
+        }
+
+        if (rowCount == 0)
+        {
+            return canSplit;
+        }
+
+        var hasMerge = new bool[rowCount];
+        foreach (var placement in data.Cells)
+        {
             if (placement.IsMergeContinuation)
             {
-                continue;
-            }
-
-            var localIndex = GetLocalRowIndex(placement.RowIndex);
-            if (localIndex < 0)
-            {
-                continue;
-            }
-
-            var remainingRows = placement.RowIndex < headerRowCount
-                ? headerRowCount - placement.RowIndex
-                : bodyRowCount - (placement.RowIndex - bodyRowStart);
-            var spanInPage = Math.Min(placement.RowSpan, remainingRows);
-
-            var cellXOrigin = tableX + columnOffsets[placement.ColumnIndex];
-            var cellWidthOrigin = SumColumnsWithSpacing(data.ColumnWidths, placement.ColumnIndex, placement.ColumnSpan, cellSpacing);
-            var cellYOrigin = tableY + rowOffsets[localIndex];
-            var cellHeightOrigin = SumRowsWithSpacing(data.RowHeights, placement.RowIndex, spanInPage, cellSpacing);
-            var cellBoundsOrigin = new DocRect(cellXOrigin, cellYOrigin, cellWidthOrigin, cellHeightOrigin);
-
-            var lines = placement.Lines;
-            var offsetLines = new List<TableCellLine>(lines.Count);
-            var contentHeight = lines.Count == 0 ? 0f : lines.Last().Y + GetLineBlockHeight(lines.Last());
-            var availableHeight = MathF.Max(0f, cellHeightOrigin - placement.Padding.Vertical);
-            var verticalOffset = 0f;
-            if (contentHeight < availableHeight)
-            {
-                verticalOffset = (placement.Properties.VerticalAlignment ?? TableCellVerticalAlignment.Top) switch
+                if (placement.RowIndex >= 0 && placement.RowIndex < rowCount)
                 {
-                    TableCellVerticalAlignment.Center => (availableHeight - contentHeight) / 2f,
-                    TableCellVerticalAlignment.Bottom => availableHeight - contentHeight,
-                    _ => 0f
-                };
+                    hasMerge[placement.RowIndex] = true;
+                }
+
+                continue;
             }
 
-            foreach (var line in lines)
+            if (placement.RowSpan > 1)
             {
-                offsetLines.Add(new TableCellLine(
-                    line.ParagraphIndex,
-                    line.StartOffset,
-                    line.Length,
-                    cellXOrigin + placement.Padding.Left + line.X,
-                    cellYOrigin + placement.Padding.Top + verticalOffset + line.Y,
-                    line.Width,
-                    line.TextSlice,
-                    line.Prefix,
-                    line.PrefixWidth,
-                    line.LineHeight,
-                    line.Ascent,
-                    line.Runs,
-                    line.Images,
-                    line.Shapes,
-                    line.Charts,
-                    line.Equations,
-                    line.Rubies,
-                    line.TextDirection,
-                    line.IsRtl));
+                var endRow = Math.Min(rowCount, placement.RowIndex + placement.RowSpan);
+                for (var row = Math.Max(0, placement.RowIndex); row < endRow; row++)
+                {
+                    hasMerge[row] = true;
+                }
             }
-
-            cellLayouts.Add(new TableCellLayout(
-                localIndex,
-                placement.ColumnIndex,
-                placement.ColumnSpan,
-                spanInPage,
-                cellBoundsOrigin,
-                offsetLines,
-                placement.Properties,
-                placement.Padding,
-                false,
-                placement.RowIndex,
-                placement.ColumnIndex));
         }
 
-        var tableHeight = 0f;
-        if (totalRowCount > 0)
+        for (var i = 0; i < rowCount; i++)
         {
-            tableHeight = SumRows(data.RowHeights, 0, headerRowCount)
-                          + SumRows(data.RowHeights, bodyRowStart, bodyRowCount);
-            if (totalRowCount > 1)
+            if (hasMerge[i])
             {
-                tableHeight += cellSpacing * (totalRowCount - 1);
+                canSplit[i] = false;
+            }
+        }
+
+        return canSplit;
+    }
+
+    private static List<TableRowSlice> BuildRowSlices(
+        TableBlock table,
+        TableLayoutData data,
+        int rowStart,
+        float rowOffset,
+        float availableHeight,
+        bool[] rowSplittable,
+        out int nextRow,
+        out float nextOffset)
+    {
+        var slices = new List<TableRowSlice>();
+        nextRow = rowStart;
+        nextOffset = rowOffset;
+        if (rowStart < 0 || rowStart >= data.RowHeights.Length || availableHeight <= 0f)
+        {
+            return slices;
+        }
+
+        var remainingHeight = availableHeight;
+        var currentRow = rowStart;
+        var currentOffset = MathF.Max(0f, rowOffset);
+        while (currentRow < data.RowHeights.Length)
+        {
+            var rowHeight = data.RowHeights[currentRow];
+            var rowRemaining = MathF.Max(0f, rowHeight - currentOffset);
+            var spacing = slices.Count > 0 ? data.CellSpacing : 0f;
+            if (remainingHeight <= spacing + 0.01f)
+            {
+                break;
             }
 
-            tableHeight += topSpacing + bottomSpacing;
+            var availableForRow = remainingHeight - spacing;
+            if (availableForRow <= 0f)
+            {
+                break;
+            }
+
+            if (rowRemaining <= availableForRow)
+            {
+                slices.Add(new TableRowSlice(currentRow, currentOffset, rowRemaining));
+                remainingHeight -= spacing + rowRemaining;
+                currentRow++;
+                currentOffset = 0f;
+                continue;
+            }
+
+            var canSplit = currentRow < rowSplittable.Length && rowSplittable[currentRow];
+            if (!canSplit)
+            {
+                if (slices.Count == 0)
+                {
+                    slices.Add(new TableRowSlice(currentRow, currentOffset, rowRemaining));
+                    currentRow++;
+                    currentOffset = 0f;
+                }
+
+                break;
+            }
+
+            var sliceHeight = ComputeRowSliceHeight(data, currentRow, currentOffset, availableForRow);
+            if (sliceHeight <= 0f)
+            {
+                if (slices.Count > 0)
+                {
+                    break;
+                }
+
+                sliceHeight = MathF.Min(rowRemaining, MathF.Max(availableForRow, 1f));
+                if (sliceHeight <= 0f)
+                {
+                    break;
+                }
+            }
+
+            slices.Add(new TableRowSlice(currentRow, currentOffset, sliceHeight));
+            remainingHeight -= spacing + sliceHeight;
+            currentOffset += sliceHeight;
+            if (currentOffset >= rowHeight - 0.01f)
+            {
+                currentRow++;
+                currentOffset = 0f;
+                continue;
+            }
+
+            break;
         }
 
-        var tableBounds = new DocRect(tableX, tableY, data.TableWidth, tableHeight);
-        var rowHeightsSlice = new float[totalRowCount];
-        for (var i = 0; i < totalRowCount; i++)
+        nextRow = currentRow;
+        nextOffset = currentOffset;
+        return slices;
+    }
+
+    private static float ComputeRowSliceHeight(
+        TableLayoutData data,
+        int rowIndex,
+        float rowOffset,
+        float maxHeight)
+    {
+        if (rowIndex < 0 || rowIndex >= data.RowHeights.Length || maxHeight <= 0f)
         {
-            var sourceRow = i < headerRowCount ? i : bodyRowStart + (i - headerRowCount);
-            rowHeightsSlice[i] = data.RowHeights[sourceRow];
+            return 0f;
         }
 
-        return new TableLayout(tableBounds, totalRowCount, columnCount, data.ColumnWidths, rowHeightsSlice, cellLayouts, tableProperties, cellSpacing);
+        var rowHeight = data.RowHeights[rowIndex];
+        var maxEnd = MathF.Min(rowHeight, rowOffset + maxHeight);
+        if (maxEnd <= rowOffset)
+        {
+            return 0f;
+        }
+
+        var placements = data.PlacementsByRow[rowIndex];
+        if (placements.Count == 0)
+        {
+            return maxEnd - rowOffset;
+        }
+
+        var sliceEnd = maxEnd;
+        foreach (var placement in placements)
+        {
+            if (placement.IsMergeContinuation || placement.RowSpan > 1)
+            {
+                continue;
+            }
+
+            var candidate = ComputeCellSliceBoundary(placement, rowHeight, rowOffset, maxEnd);
+            sliceEnd = MathF.Min(sliceEnd, candidate);
+            if (sliceEnd <= rowOffset)
+            {
+                return 0f;
+            }
+        }
+
+        return MathF.Max(0f, sliceEnd - rowOffset);
+    }
+
+    private static float ComputeCellSliceBoundary(
+        TableCellPlacement placement,
+        float rowHeight,
+        float rowOffset,
+        float maxEnd)
+    {
+        var verticalOffset = ResolveCellVerticalOffset(placement, rowHeight);
+        var candidate = rowOffset;
+        var insideLine = false;
+        foreach (var line in placement.Lines)
+        {
+            var lineHeight = GetLineBlockHeight(line);
+            var lineTop = placement.Padding.Top + verticalOffset + line.Y;
+            var lineBottom = lineTop + lineHeight;
+            if (lineBottom <= rowOffset + 0.01f)
+            {
+                continue;
+            }
+
+            if (lineBottom <= maxEnd + 0.01f)
+            {
+                candidate = MathF.Max(candidate, lineBottom);
+            }
+
+            if (lineTop < maxEnd && lineBottom > maxEnd)
+            {
+                insideLine = true;
+            }
+        }
+
+        if (!insideLine)
+        {
+            candidate = MathF.Max(candidate, maxEnd);
+        }
+
+        return candidate;
     }
 
     private static int CountRowsToFit(float[] rowHeights, int rowStart, float maxHeight, float cellSpacing)

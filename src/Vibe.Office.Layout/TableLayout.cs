@@ -11,4 +11,6 @@ public sealed record TableLayout(
     IReadOnlyList<float> RowHeights,
     IReadOnlyList<TableCellLayout> Cells,
     TableProperties Properties,
-    float CellSpacing);
+    float CellSpacing,
+    bool ContinuesFromPrevious = false,
+    bool ContinuesOnNext = false);
