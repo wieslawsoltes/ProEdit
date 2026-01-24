@@ -9,5 +9,9 @@ public enum TableStyleCondition
     Band1Horizontal,
     Band2Horizontal,
     Band1Vertical,
-    Band2Vertical
+    Band2Vertical,
+    NorthWestCell,
+    NorthEastCell,
+    SouthWestCell,
+    SouthEastCell
 }

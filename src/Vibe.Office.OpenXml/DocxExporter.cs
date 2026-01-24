@@ -6050,6 +6050,10 @@ public sealed class DocxExporter
             TableStyleCondition.Band2Horizontal => TableStyleOverrideValues.Band2Horizontal,
             TableStyleCondition.Band1Vertical => TableStyleOverrideValues.Band1Vertical,
             TableStyleCondition.Band2Vertical => TableStyleOverrideValues.Band2Vertical,
+            TableStyleCondition.NorthWestCell => TableStyleOverrideValues.NorthWestCell,
+            TableStyleCondition.NorthEastCell => TableStyleOverrideValues.NorthEastCell,
+            TableStyleCondition.SouthWestCell => TableStyleOverrideValues.SouthWestCell,
+            TableStyleCondition.SouthEastCell => TableStyleOverrideValues.SouthEastCell,
             _ => TableStyleOverrideValues.WholeTable
         };
     }

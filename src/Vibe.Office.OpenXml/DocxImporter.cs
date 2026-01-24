@@ -4589,6 +4589,26 @@ public sealed class DocxImporter
             return TableStyleCondition.Band2Vertical;
         }
 
+        if (value == TableStyleOverrideValues.NorthWestCell)
+        {
+            return TableStyleCondition.NorthWestCell;
+        }
+
+        if (value == TableStyleOverrideValues.NorthEastCell)
+        {
+            return TableStyleCondition.NorthEastCell;
+        }
+
+        if (value == TableStyleOverrideValues.SouthWestCell)
+        {
+            return TableStyleCondition.SouthWestCell;
+        }
+
+        if (value == TableStyleOverrideValues.SouthEastCell)
+        {
+            return TableStyleCondition.SouthEastCell;
+        }
+
         return null;
     }
 

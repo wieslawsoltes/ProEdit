@@ -2316,6 +2316,13 @@ public sealed class DocumentLayouter
                 var rowsToFit = CountRowsToFit(data.RowHeights, rowStart, bodyAvailableHeight, data.CellSpacing);
                 if (rowsToFit == 0)
                 {
+                    if (cursorY > columnTop)
+                    {
+                        StartNewColumnOrPage();
+                        tableX = ResolveTableX(columnX, columnWidth, plan.ResolvedProperties, data.TableWidth);
+                        continue;
+                    }
+
                     rowsToFit = Math.Min(1, totalRows - rowStart);
                 }
 
@@ -3334,7 +3341,7 @@ public sealed class DocumentLayouter
                     maxHeight = height;
                     rowCanExpand[rowIndex] = false;
                 }
-                else
+                else if (rule != TableRowHeightRule.Auto)
                 {
                     maxHeight = MathF.Max(maxHeight, height);
                 }
@@ -3780,7 +3787,7 @@ public sealed class DocumentLayouter
 
             if (count == 0 && candidate > maxHeight)
             {
-                return 1;
+                return 0;
             }
 
             height = candidate;
@@ -7383,6 +7390,26 @@ public sealed class DocumentLayouter
         if (look.LastColumn && columnIndex == columnCount - 1)
         {
             yield return TableStyleCondition.LastColumn;
+        }
+
+        if (look.FirstRow && look.FirstColumn && rowIndex == 0 && columnIndex == 0)
+        {
+            yield return TableStyleCondition.NorthWestCell;
+        }
+
+        if (look.FirstRow && look.LastColumn && rowIndex == 0 && columnIndex == columnCount - 1)
+        {
+            yield return TableStyleCondition.NorthEastCell;
+        }
+
+        if (look.LastRow && look.FirstColumn && rowIndex == rowCount - 1 && columnIndex == 0)
+        {
+            yield return TableStyleCondition.SouthWestCell;
+        }
+
+        if (look.LastRow && look.LastColumn && rowIndex == rowCount - 1 && columnIndex == columnCount - 1)
+        {
+            yield return TableStyleCondition.SouthEastCell;
         }
     }
 
