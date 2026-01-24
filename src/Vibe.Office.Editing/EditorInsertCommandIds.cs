@@ -25,6 +25,17 @@ public static class EditorInsertCommandIds
         public const string Screenshot = "insert.illustrations.screenshot";
     }
 
+    public static class AddIns
+    {
+        public const string GetAddIns = "insert.addins.get";
+        public const string MyAddIns = "insert.addins.my";
+    }
+
+    public static class Media
+    {
+        public const string OnlineVideo = "insert.media.onlineVideo";
+    }
+
     public static class Links
     {
         public const string Hyperlink = "insert.links.hyperlink";

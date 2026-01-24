@@ -27,3 +27,15 @@ public readonly record struct EditorChartInsertRequest(
     ChartStacking? Stacking = null,
     int? SeriesCount = null,
     int? CategoryCount = null);
+
+public readonly record struct EditorEmbeddedObjectInsertRequest(
+    byte[] Data,
+    string? ContentType,
+    string? ProgId = null,
+    string? TargetUri = null,
+    bool IsLinked = false);
+
+public readonly record struct EditorCrossReferenceInsertRequest(
+    string? BookmarkName,
+    bool IncludePageNumber = false,
+    bool Hyperlink = true);

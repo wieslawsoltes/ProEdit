@@ -49,6 +49,10 @@ public static class EditorHomeCommandIds
         public const string ListMultilevel = "para.list.multilevel";
         public const string IndentIncrease = "para.indent.increase";
         public const string IndentDecrease = "para.indent.decrease";
+        public const string TabStopAdd = "para.tab.add";
+        public const string TabStopUpdate = "para.tab.update";
+        public const string TabStopRemove = "para.tab.remove";
+        public const string TabStopClear = "para.tab.clear";
         public const string Sort = "para.sort";
         public const string ShowInvisiblesToggle = "para.showInvisibles.toggle";
         public const string AlignLeft = "para.align.left";

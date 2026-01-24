@@ -71,3 +71,16 @@ public readonly record struct EditorParagraphDialogOptions(
     bool? SuppressLineNumbers,
     bool? Bidi,
     DocTextDirection? TextDirection);
+
+public readonly record struct EditorParagraphTabStopRequest(
+    float Position,
+    TabAlignment Alignment,
+    TabLeader Leader);
+
+public readonly record struct EditorParagraphTabStopUpdateRequest(
+    float OriginalPosition,
+    float Position,
+    TabAlignment Alignment,
+    TabLeader Leader);
+
+public readonly record struct EditorParagraphTabStopRemoveRequest(float Position);

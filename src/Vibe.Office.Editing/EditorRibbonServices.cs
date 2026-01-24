@@ -1,4 +1,6 @@
+using System.Threading.Tasks;
 using Vibe.Office.Documents;
+using Vibe.Office.Layout;
 using Vibe.Office.Primitives;
 
 namespace Vibe.Office.Editing;
@@ -169,6 +171,15 @@ public interface ISelectionTextService
 public interface IEditorViewOptionsService
 {
     bool ShowInvisibles { get; set; }
+    bool ShowRuler { get; set; }
+    bool ShowGridlines { get; set; }
+    bool ShowNavigationPane { get; set; }
+    PageFlowDirection PageMovement { get; set; }
+}
+
+public interface IMailMergeSourceManager
+{
+    ValueTask<MailMergeData?> EditRecipientsAsync(MailMergeData? currentData);
 }
 
 public interface IStylePaneService
