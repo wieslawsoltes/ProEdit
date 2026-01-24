@@ -24,9 +24,21 @@ public sealed class DocumentView : Control, ILogicalScrollable
     private const float MinZoom = 0.1f;
     private const float MaxZoom = 5f;
     private const float ZoomStep = 0.1f;
+    private const int DefaultMultiplePages = 2;
     private const float InkMinDistance = 0.6f;
     private const float InkHitPadding = 6f;
     private const string InkStrokeProgId = "InkStroke";
+    private const float CommentBalloonWidth = 220f;
+    private const float CommentBalloonPadding = 8f;
+    private const float CommentBalloonMargin = 12f;
+    private const float CommentBalloonSpacing = 6f;
+    private const float CommentBalloonCornerRadius = 4f;
+    private const float CommentBalloonFontSize = 12f;
+
+    private static readonly IBrush CommentBalloonFillBrush = new SolidColorBrush(Color.Parse("#FFF7D6"));
+    private static readonly IBrush CommentBalloonBorderBrush = new SolidColorBrush(Color.Parse("#D7C284"));
+    private static readonly IBrush CommentBalloonTextBrush = new SolidColorBrush(Color.Parse("#303030"));
+    private static readonly Typeface CommentBalloonTypeface = new Typeface("Calibri");
 
     public static readonly StyledProperty<Color> SurfaceColorProperty =
         AvaloniaProperty.Register<DocumentView, Color>(nameof(SurfaceColor), new Color(255, 238, 241, 245));
@@ -43,6 +55,9 @@ public sealed class DocumentView : Control, ILogicalScrollable
         PageColor = DocColor.White,
         PageBorderColor = new DocColor(220, 220, 220),
         PageBorderThickness = 1f,
+        HeaderFooterOverlayColor = new DocColor(235, 235, 235, 160),
+        HeaderFooterBoundsColor = new DocColor(160, 160, 160),
+        HeaderFooterBoundsThickness = 1f,
         TextColor = DocColor.Black,
         SelectionColor = DocColor.SelectionBlue,
         CaretColor = DocColor.Black,
@@ -50,6 +65,9 @@ public sealed class DocumentView : Control, ILogicalScrollable
         UseHarfBuzz = true,
         UsePictureCache = true
     };
+    private readonly DocColor _defaultCommentHighlightColor;
+    private ReviewMarkupMode _reviewMarkupMode = ReviewMarkupMode.All;
+    private readonly List<CommentAnchorInfo> _commentAnchors = new();
 
     private bool _isSelecting;
     private bool _isLoading;
@@ -58,17 +76,25 @@ public sealed class DocumentView : Control, ILogicalScrollable
     private Size _viewport;
     private float _zoomFactor = 1f;
     private DocumentZoomMode _zoomMode = DocumentZoomMode.Custom;
+    private int _multiplePagesPerRow = DefaultMultiplePages;
     private EquationInline? _selectedEquation;
     private long _renderVersion;
     private InkStrokeBuilder? _activeInk;
     private bool _isDrawing;
     private EditorDrawTool _activeDrawTool;
+    private HeaderFooterEditSession? _headerFooterSession;
+    private HeaderFooterHit? _headerFooterHit;
+    private EditorServices? _headerFooterServices;
+    private EditorSessionSnapshot? _headerFooterSnapshot;
+    private bool _headerFooterDirty;
+    private bool _isHeaderFooterSelecting;
 
     public DocumentView()
     {
         Focusable = true;
         _renderOptions.ZoomFactor = _zoomFactor;
         _renderOptions.SvgRasterizationScale = _zoomFactor;
+        _defaultCommentHighlightColor = _renderOptions.CommentHighlightColor;
         _kernel.AddModule(new BasicEditingModule());
         _editor = CreateEditor(DocumentTemplates.CreateDefaultDocument());
         ApplyEditorState();
@@ -90,6 +116,8 @@ public sealed class DocumentView : Control, ILogicalScrollable
     public Vector EffectiveScrollOffset => GetEffectiveScrollOffset();
 
     public EquationInline? SelectedEquation => _selectedEquation;
+    public bool IsHeaderFooterEditing => _headerFooterSession is not null;
+    public HeaderFooterEditMode HeaderFooterMode => _headerFooterSession?.Mode ?? HeaderFooterEditMode.None;
 
     public event EventHandler<EquationInline?>? SelectedEquationChanged;
     public event EventHandler? EditorStateChanged;
@@ -155,6 +183,21 @@ public sealed class DocumentView : Control, ILogicalScrollable
         }
     }
 
+    public bool UsePagination
+    {
+        get => _editor.LayoutSettings.UsePagination;
+        set
+        {
+            if (_editor.LayoutSettings.UsePagination == value)
+            {
+                return;
+            }
+
+            _editor.LayoutSettings.UsePagination = value;
+            _editor.RefreshLayout();
+        }
+    }
+
     public bool UseHarfBuzz
     {
         get => _renderOptions.UseHarfBuzz;
@@ -188,6 +231,21 @@ public sealed class DocumentView : Control, ILogicalScrollable
         }
     }
 
+    public ReviewMarkupMode ReviewMarkupMode
+    {
+        get => _reviewMarkupMode;
+        set
+        {
+            if (_reviewMarkupMode == value)
+            {
+                return;
+            }
+
+            _reviewMarkupMode = value;
+            UpdateReviewMarkupMode();
+        }
+    }
+
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
@@ -202,6 +260,24 @@ public sealed class DocumentView : Control, ILogicalScrollable
     {
         _renderOptions.BackgroundColor = new DocColor(color.R, color.G, color.B);
         InvalidateVisual();
+    }
+
+    private void UpdateReviewMarkupMode()
+    {
+        _renderOptions.CommentHighlightColor = ShouldShowCommentHighlights(_reviewMarkupMode)
+            ? _defaultCommentHighlightColor
+            : new DocColor(0, 0, 0, 0);
+        InvalidateVisual();
+    }
+
+    private static bool ShouldShowCommentHighlights(ReviewMarkupMode mode)
+    {
+        return mode != ReviewMarkupMode.None;
+    }
+
+    private static bool ShouldShowCommentBalloons(ReviewMarkupMode mode)
+    {
+        return mode is ReviewMarkupMode.All or ReviewMarkupMode.Balloons;
     }
 
     protected override void OnSizeChanged(SizeChangedEventArgs e)
@@ -222,6 +298,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
             }
 
             UpdateScrollMetrics();
+            UpdateHeaderFooterSessionLayout();
         }
     }
 
@@ -230,6 +307,17 @@ public sealed class DocumentView : Control, ILogicalScrollable
         base.OnTextInput(e);
         if (_isLoading)
         {
+            return;
+        }
+
+        if (_headerFooterSession is not null)
+        {
+            if (_headerFooterSession.InputAdapter.HandleTextInput(e))
+            {
+                MarkHeaderFooterDirty();
+                e.Handled = true;
+            }
+
             return;
         }
 
@@ -250,6 +338,29 @@ public sealed class DocumentView : Control, ILogicalScrollable
         if (HandleZoomShortcut(e))
         {
             e.Handled = true;
+            return;
+        }
+
+        if (_headerFooterSession is not null)
+        {
+            if (e.Key == Key.Escape)
+            {
+                EndHeaderFooterEdit();
+                e.Handled = true;
+                return;
+            }
+
+            var isEditKey = IsHeaderFooterEditKey(e);
+            if (_headerFooterSession.InputAdapter.HandleKeyDown(e))
+            {
+                if (isEditKey)
+                {
+                    MarkHeaderFooterDirty();
+                }
+
+                e.Handled = true;
+            }
+
             return;
         }
 
@@ -291,7 +402,19 @@ public sealed class DocumentView : Control, ILogicalScrollable
         }
         Focus();
 
-        if (TryHandleInkPointerPressed(e))
+        if (_headerFooterSession is null && TryHandleInkPointerPressed(e))
+        {
+            return;
+        }
+
+        if (_headerFooterSession is not null)
+        {
+            if (TryHandleHeaderFooterPointerPressed(e))
+            {
+                return;
+            }
+        }
+        else if (TryBeginHeaderFooterEditFromPoint(e))
         {
             return;
         }
@@ -315,6 +438,16 @@ public sealed class DocumentView : Control, ILogicalScrollable
         if (_isDrawing)
         {
             HandleInkPointerMoved(e);
+            return;
+        }
+        if (_isHeaderFooterSelecting && _headerFooterSession is not null && _headerFooterHit.HasValue)
+        {
+            var offset = BuildHeaderFooterScrollOffset(_headerFooterHit.Value);
+            if (_headerFooterSession.InputAdapter.HandlePointerMoved(e, offset, _zoomFactor, this))
+            {
+                e.Handled = true;
+            }
+
             return;
         }
         if (!_isSelecting)
@@ -349,6 +482,16 @@ public sealed class DocumentView : Control, ILogicalScrollable
             return;
         }
 
+        if (_isHeaderFooterSelecting && _headerFooterSession is not null && _headerFooterHit.HasValue)
+        {
+            _isHeaderFooterSelecting = false;
+            var offset = BuildHeaderFooterScrollOffset(_headerFooterHit.Value);
+            _headerFooterSession.InputAdapter.HandlePointerReleased(e, offset, _zoomFactor, this);
+            e.Pointer.Capture(null);
+            e.Handled = true;
+            return;
+        }
+
         if (_isSelecting)
         {
             _isSelecting = false;
@@ -363,13 +506,16 @@ public sealed class DocumentView : Control, ILogicalScrollable
     {
         base.Render(context);
         var effectiveOffset = GetEffectiveScrollOffset();
+        UpdateHeaderFooterRenderOptions();
         context.Custom(new SkiaDrawOperation(Bounds, _editor, _renderer, _renderOptions, effectiveOffset));
+        DrawCommentBalloons(context, effectiveOffset);
         DrawInkPreview(context, effectiveOffset);
     }
 
     public void LoadDocument(Document document)
     {
         ArgumentNullException.ThrowIfNull(document);
+        EndHeaderFooterEdit();
         _editor.Changed -= OnEditorChanged;
         _editor = CreateEditor(document);
         _editor.UpdateLayout((float)Bounds.Width, (float)Bounds.Height);
@@ -380,6 +526,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
     {
         ArgumentNullException.ThrowIfNull(document);
 
+        EndHeaderFooterEdit();
         _editor.Changed -= OnEditorChanged;
         ConfigureMeasurer(document);
 
@@ -419,6 +566,15 @@ public sealed class DocumentView : Control, ILogicalScrollable
 
         var index = Math.Clamp(paragraphIndex, 0, _editor.Document.ParagraphCount - 1);
         _editor.SetSelection(new TextRange(new TextPosition(index, 0), new TextPosition(index, 0)));
+    }
+
+    public void GoToPosition(TextPosition position, bool ensureVisible = true)
+    {
+        _editor.SetSelection(new TextRange(position, position));
+        if (ensureVisible)
+        {
+            EnsurePositionVisible(position);
+        }
     }
 
     public void SetLoading(bool isLoading)
@@ -683,6 +839,142 @@ public sealed class DocumentView : Control, ILogicalScrollable
         context.DrawGeometry(null, pen, geometry);
     }
 
+    private void UpdateCommentAnchors()
+    {
+        _commentAnchors.Clear();
+        var anchors = ReviewingHelpers.BuildCommentAnchors(_editor.Document);
+        if (anchors.Count == 0 || _editor.Layout.Lines.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var anchor in anchors)
+        {
+            var position = anchor.Value;
+            var lineIndex = EditorSelectionService.FindLineIndexForPosition(_editor.Layout, position, out var line);
+            var pageIndex = _editor.Layout.LineIndex.GetPageForLine(lineIndex);
+            if (pageIndex < 0)
+            {
+                pageIndex = 0;
+            }
+
+            _commentAnchors.Add(new CommentAnchorInfo(
+                anchor.Key,
+                position.ParagraphIndex,
+                position.Offset,
+                line.Y,
+                line.LineHeight,
+                pageIndex));
+        }
+
+        _commentAnchors.Sort(CompareCommentAnchors);
+    }
+
+    private static int CompareCommentAnchors(CommentAnchorInfo left, CommentAnchorInfo right)
+    {
+        var pageCompare = left.PageIndex.CompareTo(right.PageIndex);
+        if (pageCompare != 0)
+        {
+            return pageCompare;
+        }
+
+        var yCompare = left.DocY.CompareTo(right.DocY);
+        if (yCompare != 0)
+        {
+            return yCompare;
+        }
+
+        var paragraphCompare = left.ParagraphIndex.CompareTo(right.ParagraphIndex);
+        if (paragraphCompare != 0)
+        {
+            return paragraphCompare;
+        }
+
+        return left.Offset.CompareTo(right.Offset);
+    }
+
+    private void DrawCommentBalloons(DrawingContext context, Vector effectiveOffset)
+    {
+        if (!ShouldShowCommentBalloons(_reviewMarkupMode))
+        {
+            return;
+        }
+
+        if (_commentAnchors.Count == 0 || _editor.Document.Comments.Count == 0)
+        {
+            return;
+        }
+
+        var pages = _editor.Layout.Pages;
+        if (pages.Count == 0)
+        {
+            return;
+        }
+
+        var zoom = _zoomFactor;
+        var balloonWidth = CommentBalloonWidth * zoom;
+        var padding = CommentBalloonPadding * zoom;
+        var spacing = CommentBalloonSpacing * zoom;
+        var cornerRadius = CommentBalloonCornerRadius * zoom;
+        var borderThickness = Math.Max(1f, zoom * 0.75f);
+        var borderPen = new Pen(CommentBalloonBorderBrush, borderThickness);
+        var bottomsByPage = new Dictionary<int, double>();
+
+        foreach (var anchor in _commentAnchors)
+        {
+            if (!_editor.Document.Comments.TryGetValue(anchor.Id, out var comment))
+            {
+                continue;
+            }
+
+            if (anchor.PageIndex < 0 || anchor.PageIndex >= pages.Count)
+            {
+                continue;
+            }
+
+            var page = pages[anchor.PageIndex];
+            var docX = page.Bounds.Right + CommentBalloonMargin;
+            var viewX = (docX * zoom) - effectiveOffset.X;
+            var viewY = (anchor.DocY * zoom) - effectiveOffset.Y;
+
+            var text = ReviewingHelpers.BuildCommentDisplayText(comment);
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                text = $"Comment {anchor.Id}";
+            }
+
+            var formatted = new FormattedText(
+                text,
+                CultureInfo.CurrentCulture,
+                FlowDirection.LeftToRight,
+                CommentBalloonTypeface,
+                CommentBalloonFontSize * zoom,
+                CommentBalloonTextBrush);
+            formatted.MaxTextWidth = Math.Max(1f, balloonWidth - (2f * padding));
+            formatted.TextAlignment = TextAlignment.Left;
+
+            var height = formatted.Height + (2f * padding);
+            if (bottomsByPage.TryGetValue(anchor.PageIndex, out var lastBottom) && viewY < lastBottom + spacing)
+            {
+                viewY = lastBottom + spacing;
+            }
+
+            bottomsByPage[anchor.PageIndex] = viewY + height;
+
+            var rect = new Rect(viewX, viewY, balloonWidth, height);
+            context.DrawRectangle(CommentBalloonFillBrush, borderPen, rect, cornerRadius, cornerRadius, default);
+            context.DrawText(formatted, new Point(rect.X + padding, rect.Y + padding));
+        }
+    }
+
+    private readonly record struct CommentAnchorInfo(
+        int Id,
+        int ParagraphIndex,
+        int Offset,
+        float DocY,
+        float LineHeight,
+        int PageIndex);
+
     private Point DocToView(DocPoint point, Vector effectiveOffset)
     {
         return new Point(point.X * _zoomFactor - effectiveOffset.X, point.Y * _zoomFactor - effectiveOffset.Y);
@@ -847,6 +1139,86 @@ public sealed class DocumentView : Control, ILogicalScrollable
         }
     }
 
+    private enum HeaderFooterVariant
+    {
+        Default,
+        First,
+        Even
+    }
+
+    private readonly record struct HeaderFooterTarget(
+        int SectionIndex,
+        HeaderFooterVariant Variant,
+        HeaderFooter Container);
+
+    private sealed class HeaderFooterEditSession
+    {
+        public HeaderFooterEditMode Mode { get; }
+        public HeaderFooterTarget Target { get; }
+        public Document Document { get; }
+        public EditorController Editor { get; }
+        public AvaloniaEditorInputAdapter InputAdapter { get; }
+
+        public HeaderFooterEditSession(
+            HeaderFooterEditMode mode,
+            HeaderFooterTarget target,
+            Document document,
+            EditorController editor,
+            AvaloniaEditorInputAdapter inputAdapter)
+        {
+            Mode = mode;
+            Target = target;
+            Document = document ?? throw new ArgumentNullException(nameof(document));
+            Editor = editor ?? throw new ArgumentNullException(nameof(editor));
+            InputAdapter = inputAdapter ?? throw new ArgumentNullException(nameof(inputAdapter));
+        }
+    }
+
+    private readonly record struct HeaderFooterHit(
+        HeaderFooterEditMode Mode,
+        int PageIndex,
+        DocRect Region,
+        float OriginX,
+        float OriginY,
+        float ContentWidth,
+        float ContentHeight,
+        HeaderFooterTarget Target);
+
+    private sealed class HeaderFooterCommandRouter : IEditorCommandRouter
+    {
+        private readonly IEditorCommandRouter _inner;
+        private readonly EditorCommandHistory? _history;
+        private readonly Action _onModified;
+
+        public HeaderFooterCommandRouter(IEditorCommandRouter inner, Action onModified, EditorCommandHistory? history)
+        {
+            _inner = inner ?? throw new ArgumentNullException(nameof(inner));
+            _onModified = onModified ?? throw new ArgumentNullException(nameof(onModified));
+            _history = history;
+        }
+
+        public bool CanExecute(string commandId, object? payload = null, RibbonContextSnapshot? context = null)
+        {
+            return _inner.CanExecute(commandId, payload, context);
+        }
+
+        public async ValueTask<bool> ExecuteAsync(
+            string commandId,
+            object? payload = null,
+            RibbonContextSnapshot? context = null,
+            bool recordHistory = true)
+        {
+            var beforeVersion = _history?.Version ?? -1;
+            var result = await _inner.ExecuteAsync(commandId, payload, context, recordHistory).ConfigureAwait(true);
+            if (result && (_history is null || _history.Version != beforeVersion))
+            {
+                _onModified();
+            }
+
+            return result;
+        }
+    }
+
 
     private EditorController CreateEditor(Document document)
     {
@@ -913,6 +1285,8 @@ public sealed class DocumentView : Control, ILogicalScrollable
         UpdateDirtyPages(GetAllPages());
         UpdateScrollMetrics();
         UpdateSelectedEquation();
+        UpdateHeaderFooterSessionLayout();
+        UpdateCommentAnchors();
         InvalidateVisual();
         EditorStateChanged?.Invoke(this, EventArgs.Empty);
     }
@@ -922,13 +1296,35 @@ public sealed class DocumentView : Control, ILogicalScrollable
         UpdateScrollMetrics();
         UpdateDirtyPages(_editor.DirtyPages);
         UpdateSelectedEquation();
+        UpdateHeaderFooterSessionLayout();
+        UpdateCommentAnchors();
         InvalidateVisual();
         EditorStateChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    public bool TryGetService<T>(out T service) where T : class => _kernel.Services.TryGet(out service);
+    public bool TryGetService<T>(out T service) where T : class
+    {
+        if (_headerFooterSession is not null
+            && _headerFooterServices is not null
+            && _headerFooterServices.TryGet(out service))
+        {
+            return true;
+        }
 
-    public bool TryGetService(Type serviceType, out object? service) => _kernel.Services.TryGet(serviceType, out service);
+        return _kernel.Services.TryGet(out service);
+    }
+
+    public bool TryGetService(Type serviceType, out object? service)
+    {
+        if (_headerFooterSession is not null
+            && _headerFooterServices is not null
+            && _headerFooterServices.TryGet(serviceType, out service))
+        {
+            return true;
+        }
+
+        return _kernel.Services.TryGet(serviceType, out service);
+    }
 
     public void RegisterService<T>(T service) where T : class => _kernel.Services.Register(service);
 
@@ -966,6 +1362,661 @@ public sealed class DocumentView : Control, ILogicalScrollable
 
         _selectedEquation = equation;
         SelectedEquationChanged?.Invoke(this, equation);
+    }
+
+    private void UpdateHeaderFooterRenderOptions()
+    {
+        if (_headerFooterSession is null)
+        {
+            _renderOptions.HeaderFooterMode = HeaderFooterEditMode.None;
+            _renderOptions.HeaderFooterSelection = null;
+            _renderOptions.HeaderFooterCaret = default;
+            _renderOptions.ShowHeaderFooterCaret = false;
+            return;
+        }
+
+        _renderOptions.HeaderFooterMode = _headerFooterSession.Mode;
+        _renderOptions.HeaderFooterSelection = _headerFooterSession.Editor.Selection.IsEmpty
+            ? null
+            : _headerFooterSession.Editor.Selection;
+        _renderOptions.HeaderFooterCaret = _headerFooterSession.Editor.Caret;
+        _renderOptions.ShowHeaderFooterCaret = true;
+    }
+
+    public void BeginHeaderFooterEdit(HeaderFooterEditMode mode)
+    {
+        if (mode == HeaderFooterEditMode.None)
+        {
+            EndHeaderFooterEdit();
+            return;
+        }
+
+        var pageIndex = ResolveHeaderFooterPageIndex();
+        if (!TryBuildHeaderFooterHit(pageIndex, mode, out var hit))
+        {
+            return;
+        }
+
+        BeginHeaderFooterEdit(hit);
+    }
+
+    private bool BeginHeaderFooterEdit(HeaderFooterHit hit)
+    {
+        if (_headerFooterSession is not null && _headerFooterSession.Target.Equals(hit.Target))
+        {
+            _headerFooterHit = hit;
+            UpdateHeaderFooterSessionLayout(hit);
+            InvalidateVisual();
+            return true;
+        }
+
+        EndHeaderFooterEdit();
+
+        if (!TryCreateHeaderFooterSession(hit, out var session, out var services))
+        {
+            return false;
+        }
+
+        _headerFooterSession = session;
+        _headerFooterServices = services;
+        _headerFooterHit = hit;
+        _headerFooterSession.Editor.Changed += OnHeaderFooterEditorChanged;
+        _headerFooterDirty = false;
+
+        if (_kernel.Services.TryGet<IEditorHistorySnapshotService>(out var history))
+        {
+            _headerFooterSnapshot = history.CaptureSnapshot();
+        }
+
+        UpdateHeaderFooterSessionLayout(hit);
+        UpdateDirtyPages(GetAllPages());
+        InvalidateVisual();
+        EditorStateChanged?.Invoke(this, EventArgs.Empty);
+        return true;
+    }
+
+    public void EndHeaderFooterEdit()
+    {
+        if (_headerFooterSession is null)
+        {
+            return;
+        }
+
+        _headerFooterSession.Editor.Changed -= OnHeaderFooterEditorChanged;
+        if (_headerFooterDirty && _headerFooterSnapshot.HasValue
+            && _kernel.Services.TryGet<IEditorHistorySnapshotService>(out var history))
+        {
+            history.RecordSnapshot(_headerFooterSnapshot.Value);
+        }
+
+        _headerFooterSession = null;
+        _headerFooterHit = null;
+        _headerFooterServices = null;
+        _headerFooterSnapshot = null;
+        _headerFooterDirty = false;
+        _isHeaderFooterSelecting = false;
+        UpdateHeaderFooterRenderOptions();
+        UpdateDirtyPages(GetAllPages());
+        InvalidateVisual();
+        EditorStateChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void OnHeaderFooterEditorChanged(object? sender, EventArgs e)
+    {
+        UpdateDirtyPages(GetAllPages());
+        InvalidateVisual();
+        EditorStateChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private bool TryCreateHeaderFooterSession(HeaderFooterHit hit, out HeaderFooterEditSession session, out EditorServices services)
+    {
+        session = null!;
+        services = null!;
+        if (hit.Mode == HeaderFooterEditMode.None)
+        {
+            return false;
+        }
+
+        var document = BuildHeaderFooterDocument(_editor.Document, hit.Target, hit.Mode);
+        var editor = new EditorController(_textMeasurer, document);
+        services = new EditorServices();
+        var dispatcher = new EditorCommandDispatcher();
+        new BasicEditingModule().Register(new EditorModuleContext(services, dispatcher));
+        var viewOptions = _kernel.Services.TryGet<IEditorViewOptionsService>(out var resolvedViewOptions)
+            ? resolvedViewOptions
+            : null;
+        var router = EditorHomeServiceRegistry.Register(
+            services,
+            dispatcher,
+            editor,
+            CreateFontService(editor),
+            CreateClipboardService(editor),
+            viewOptions);
+        var undoRedo = services.GetRequired<IUndoRedoService>();
+        var history = undoRedo as EditorCommandHistory;
+        services.Register<IEditorCommandRouter>(new HeaderFooterCommandRouter(router, MarkHeaderFooterDirty, history));
+        var clipboard = services.GetRequired<IClipboardService>();
+        var selectionText = services.GetRequired<ISelectionTextService>();
+        var inputRouter = new EditorCommandInputRouter(dispatcher, editor, undoRedo, clipboard, selectionText);
+        var inputAdapter = new AvaloniaEditorInputAdapter(inputRouter);
+        session = new HeaderFooterEditSession(hit.Mode, hit.Target, document, editor, inputAdapter);
+        return true;
+    }
+
+    private void ApplyHeaderFooterChanges()
+    {
+        if (_headerFooterSession is null)
+        {
+            return;
+        }
+
+        if (!_kernel.Services.TryGet<IEditorCommandRouter>(out var router))
+        {
+            return;
+        }
+
+        var request = new EditorHeaderFooterUpdateRequest(
+            _headerFooterSession.Editor.Document.Blocks,
+            _headerFooterSession.Editor.Document,
+            _headerFooterSession.Target.Container);
+        var commandId = _headerFooterSession.Mode == HeaderFooterEditMode.Footer
+            ? EditorInsertCommandIds.HeaderFooter.Footer
+            : EditorInsertCommandIds.HeaderFooter.Header;
+        _ = router.ExecuteAsync(commandId, request, recordHistory: false);
+    }
+
+    private void MarkHeaderFooterDirty()
+    {
+        if (_headerFooterSession is null)
+        {
+            return;
+        }
+
+        _headerFooterDirty = true;
+        ApplyHeaderFooterChanges();
+    }
+
+    private void UpdateHeaderFooterSessionLayout()
+    {
+        if (_headerFooterSession is null)
+        {
+            return;
+        }
+
+        if (_headerFooterHit.HasValue)
+        {
+            UpdateHeaderFooterSessionLayout(_headerFooterHit.Value);
+            return;
+        }
+
+        var pageIndex = ResolveHeaderFooterPageIndex();
+        if (TryBuildHeaderFooterHit(pageIndex, _headerFooterSession.Mode, out var hit))
+        {
+            _headerFooterHit = hit;
+            UpdateHeaderFooterSessionLayout(hit);
+        }
+    }
+
+    private void UpdateHeaderFooterSessionLayout(HeaderFooterHit hit)
+    {
+        if (_headerFooterSession is null)
+        {
+            return;
+        }
+
+        ApplyHeaderFooterLayoutSettings(_headerFooterSession.Editor.LayoutSettings, _editor.Layout.Settings, hit.ContentWidth, hit.ContentHeight);
+        _headerFooterSession.Editor.UpdateLayout(hit.ContentWidth, hit.ContentHeight);
+    }
+
+    private bool TryBeginHeaderFooterEditFromPoint(PointerPressedEventArgs e)
+    {
+        if (e.ClickCount < 2)
+        {
+            return false;
+        }
+
+        if (!TryGetDocumentPoint(e, out var docX, out var docY))
+        {
+            return false;
+        }
+
+        if (TryResolveHeaderFooterHit(docX, docY, HeaderFooterEditMode.Header, out var hit))
+        {
+            if (!BeginHeaderFooterEdit(hit))
+            {
+                return false;
+            }
+
+            return StartHeaderFooterSelection(e, hit);
+        }
+
+        if (TryResolveHeaderFooterHit(docX, docY, HeaderFooterEditMode.Footer, out hit))
+        {
+            if (!BeginHeaderFooterEdit(hit))
+            {
+                return false;
+            }
+
+            return StartHeaderFooterSelection(e, hit);
+        }
+
+        return false;
+    }
+
+    private bool TryHandleHeaderFooterPointerPressed(PointerPressedEventArgs e)
+    {
+        if (_headerFooterSession is null)
+        {
+            return false;
+        }
+
+        if (!TryGetDocumentPoint(e, out var docX, out var docY))
+        {
+            return false;
+        }
+
+        if (TryResolveHeaderFooterHit(docX, docY, _headerFooterSession.Mode, out var hit))
+        {
+            if (!BeginHeaderFooterEdit(hit))
+            {
+                return false;
+            }
+
+            return StartHeaderFooterSelection(e, hit);
+        }
+
+        EndHeaderFooterEdit();
+        return false;
+    }
+
+    private bool StartHeaderFooterSelection(PointerPressedEventArgs e, HeaderFooterHit hit)
+    {
+        if (_headerFooterSession is null)
+        {
+            return false;
+        }
+
+        _isSelecting = false;
+        _isHeaderFooterSelecting = true;
+        _headerFooterHit = hit;
+        UpdateHeaderFooterSessionLayout(hit);
+        var offset = BuildHeaderFooterScrollOffset(hit);
+        if (_headerFooterSession.InputAdapter.HandlePointerPressed(e, offset, _zoomFactor, this))
+        {
+            e.Pointer.Capture(this);
+            e.Handled = true;
+            return true;
+        }
+
+        return false;
+    }
+
+    private bool TryGetDocumentPoint(PointerEventArgs e, out float docX, out float docY)
+    {
+        var point = e.GetCurrentPoint(this);
+        var position = point.Position;
+        var effectiveOffset = GetEffectiveScrollOffset();
+        var scale = _zoomFactor <= 0f ? 1f : _zoomFactor;
+        docX = (float)((position.X + effectiveOffset.X) / scale);
+        docY = (float)((position.Y + effectiveOffset.Y) / scale);
+        return true;
+    }
+
+    private bool TryResolveHeaderFooterHit(float docX, float docY, HeaderFooterEditMode mode, out HeaderFooterHit hit)
+    {
+        hit = default;
+        if (mode == HeaderFooterEditMode.None)
+        {
+            return false;
+        }
+
+        var pages = _editor.Layout.Pages;
+        var pageIndex = FindPageIndex(pages, docX, docY);
+        if (pageIndex < 0)
+        {
+            return false;
+        }
+
+        if (!TryBuildHeaderFooterHit(pageIndex, mode, out hit))
+        {
+            return false;
+        }
+
+        return hit.Region.Contains(docX, docY);
+    }
+
+    private bool TryBuildHeaderFooterHit(int pageIndex, HeaderFooterEditMode mode, out HeaderFooterHit hit)
+    {
+        hit = default;
+        var layout = _editor.Layout;
+        if (mode == HeaderFooterEditMode.None || pageIndex < 0 || pageIndex >= layout.Pages.Count)
+        {
+            return false;
+        }
+
+        if (pageIndex >= layout.PageSections.Count)
+        {
+            return false;
+        }
+
+        if (!TryResolveHeaderFooterTarget(pageIndex, mode, out var target))
+        {
+            return false;
+        }
+
+        var page = layout.Pages[pageIndex];
+        var section = layout.PageSections[pageIndex];
+        var contentLeft = page.Bounds.X + section.MarginLeft;
+        var contentRight = page.Bounds.Right - section.MarginRight;
+        var contentWidth = MathF.Max(1f, contentRight - contentLeft);
+        var lineHeight = MathF.Max(1f, layout.LineHeight);
+
+        IReadOnlyList<HeaderFooterLine> lines = Array.Empty<HeaderFooterLine>();
+        if (TryGetHeaderFooterLayout(layout, pageIndex, out var headerFooter))
+        {
+            lines = mode == HeaderFooterEditMode.Footer
+                ? headerFooter.FooterLines
+                : headerFooter.HeaderLines;
+        }
+
+        var regionTop = 0f;
+        var regionBottom = 0f;
+        if (lines.Count > 0)
+        {
+            var minY = float.MaxValue;
+            var maxY = float.MinValue;
+            foreach (var line in lines)
+            {
+                if (line.Y < minY)
+                {
+                    minY = line.Y;
+                }
+
+                var lineBottom = line.Y + line.LineHeight;
+                if (lineBottom > maxY)
+                {
+                    maxY = lineBottom;
+                }
+            }
+
+            regionTop = minY;
+            regionBottom = maxY;
+        }
+        else if (mode == HeaderFooterEditMode.Header)
+        {
+            regionTop = page.Bounds.Y + section.HeaderOffset;
+            regionBottom = regionTop + lineHeight;
+        }
+        else
+        {
+            regionTop = page.Bounds.Bottom - section.FooterOffset - lineHeight;
+            regionBottom = regionTop + lineHeight;
+        }
+
+        var regionHeight = MathF.Max(1f, regionBottom - regionTop);
+        var region = new DocRect(contentLeft, regionTop, contentWidth, regionHeight);
+        hit = new HeaderFooterHit(
+            mode,
+            pageIndex,
+            region,
+            contentLeft,
+            regionTop,
+            contentWidth,
+            MathF.Max(lineHeight, regionHeight),
+            target);
+        return true;
+    }
+
+    private bool TryResolveHeaderFooterTarget(int pageIndex, HeaderFooterEditMode mode, out HeaderFooterTarget target)
+    {
+        target = default;
+        var layout = _editor.Layout;
+        if (mode == HeaderFooterEditMode.None
+            || pageIndex < 0
+            || pageIndex >= layout.Pages.Count
+            || pageIndex >= layout.PageSections.Count)
+        {
+            return false;
+        }
+
+        static void ResolveEffectiveHeaderFooter(
+            HeaderFooter current,
+            int currentSectionIndex,
+            ref HeaderFooter? effective,
+            ref int effectiveSectionIndex)
+        {
+            if (current.IsDefined || current.Blocks.Count > 0)
+            {
+                effective = current;
+                effectiveSectionIndex = currentSectionIndex;
+            }
+        }
+
+        var document = _editor.Document;
+        HeaderFooter? effectiveDefaultHeader = null;
+        HeaderFooter? effectiveDefaultFooter = null;
+        HeaderFooter? effectiveFirstHeader = null;
+        HeaderFooter? effectiveFirstFooter = null;
+        HeaderFooter? effectiveEvenHeader = null;
+        HeaderFooter? effectiveEvenFooter = null;
+        var effectiveDefaultHeaderSection = -1;
+        var effectiveDefaultFooterSection = -1;
+        var effectiveFirstHeaderSection = -1;
+        var effectiveFirstFooterSection = -1;
+        var effectiveEvenHeaderSection = -1;
+        var effectiveEvenFooterSection = -1;
+        var currentSectionIndex = -1;
+
+        for (var i = 0; i <= pageIndex; i++)
+        {
+            var sectionSettings = layout.PageSections[i];
+            var sectionInfo = document.GetSection(sectionSettings.SectionIndex);
+            if (sectionSettings.SectionIndex != currentSectionIndex)
+            {
+                currentSectionIndex = sectionSettings.SectionIndex;
+                ResolveEffectiveHeaderFooter(sectionInfo.Header, currentSectionIndex, ref effectiveDefaultHeader, ref effectiveDefaultHeaderSection);
+                ResolveEffectiveHeaderFooter(sectionInfo.Footer, currentSectionIndex, ref effectiveDefaultFooter, ref effectiveDefaultFooterSection);
+                ResolveEffectiveHeaderFooter(sectionInfo.FirstHeader, currentSectionIndex, ref effectiveFirstHeader, ref effectiveFirstHeaderSection);
+                ResolveEffectiveHeaderFooter(sectionInfo.FirstFooter, currentSectionIndex, ref effectiveFirstFooter, ref effectiveFirstFooterSection);
+                ResolveEffectiveHeaderFooter(sectionInfo.EvenHeader, currentSectionIndex, ref effectiveEvenHeader, ref effectiveEvenHeaderSection);
+                ResolveEffectiveHeaderFooter(sectionInfo.EvenFooter, currentSectionIndex, ref effectiveEvenFooter, ref effectiveEvenFooterSection);
+            }
+
+            if (i != pageIndex)
+            {
+                continue;
+            }
+
+            var isFirstPageOfSection = i == 0 || layout.PageSections[i - 1].SectionIndex != sectionSettings.SectionIndex;
+            var pageNumber = layout.Pages[i].Index + 1;
+            var isEvenPage = pageNumber % 2 == 0;
+            var variant = HeaderFooterVariant.Default;
+            if (isFirstPageOfSection && sectionInfo.Properties.DifferentFirstPageHeaderFooter == true)
+            {
+                variant = HeaderFooterVariant.First;
+            }
+            else if (document.EvenAndOddHeaders && isEvenPage)
+            {
+                variant = HeaderFooterVariant.Even;
+            }
+
+            HeaderFooter container;
+            int containerSectionIndex;
+            switch (variant)
+            {
+                case HeaderFooterVariant.First:
+                    if (mode == HeaderFooterEditMode.Footer)
+                    {
+                        container = effectiveFirstFooter ?? sectionInfo.FirstFooter;
+                        containerSectionIndex = effectiveFirstFooter is null ? sectionSettings.SectionIndex : effectiveFirstFooterSection;
+                    }
+                    else
+                    {
+                        container = effectiveFirstHeader ?? sectionInfo.FirstHeader;
+                        containerSectionIndex = effectiveFirstHeader is null ? sectionSettings.SectionIndex : effectiveFirstHeaderSection;
+                    }
+                    break;
+                case HeaderFooterVariant.Even:
+                    if (mode == HeaderFooterEditMode.Footer)
+                    {
+                        container = effectiveEvenFooter ?? sectionInfo.EvenFooter;
+                        containerSectionIndex = effectiveEvenFooter is null ? sectionSettings.SectionIndex : effectiveEvenFooterSection;
+                    }
+                    else
+                    {
+                        container = effectiveEvenHeader ?? sectionInfo.EvenHeader;
+                        containerSectionIndex = effectiveEvenHeader is null ? sectionSettings.SectionIndex : effectiveEvenHeaderSection;
+                    }
+                    break;
+                default:
+                    if (mode == HeaderFooterEditMode.Footer)
+                    {
+                        container = effectiveDefaultFooter ?? sectionInfo.Footer;
+                        containerSectionIndex = effectiveDefaultFooter is null ? sectionSettings.SectionIndex : effectiveDefaultFooterSection;
+                    }
+                    else
+                    {
+                        container = effectiveDefaultHeader ?? sectionInfo.Header;
+                        containerSectionIndex = effectiveDefaultHeader is null ? sectionSettings.SectionIndex : effectiveDefaultHeaderSection;
+                    }
+                    break;
+            }
+
+            target = new HeaderFooterTarget(containerSectionIndex, variant, container);
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryGetHeaderFooterLayout(DocumentLayout layout, int pageIndex, out HeaderFooterLayout headerFooter)
+    {
+        foreach (var candidate in layout.HeaderFooters)
+        {
+            if (candidate.PageIndex == pageIndex)
+            {
+                headerFooter = candidate;
+                return true;
+            }
+        }
+
+        headerFooter = null!;
+        return false;
+    }
+
+    private Vector BuildHeaderFooterScrollOffset(HeaderFooterHit hit)
+    {
+        var effectiveOffset = GetEffectiveScrollOffset();
+        var scale = _zoomFactor <= 0f ? 1f : _zoomFactor;
+        return new Vector(
+            effectiveOffset.X - hit.OriginX * scale,
+            effectiveOffset.Y - hit.OriginY * scale);
+    }
+
+    private static bool IsHeaderFooterEditKey(KeyEventArgs e)
+    {
+        switch (e.Key)
+        {
+            case Key.Back:
+            case Key.Delete:
+            case Key.Enter:
+                return true;
+        }
+
+        var modifiers = e.KeyModifiers;
+        var commandModifier = modifiers.HasFlag(KeyModifiers.Control) || modifiers.HasFlag(KeyModifiers.Meta);
+        if (!commandModifier || modifiers.HasFlag(KeyModifiers.Alt))
+        {
+            return false;
+        }
+
+        return e.Key == Key.V || e.Key == Key.X || e.Key == Key.Z || e.Key == Key.Y;
+    }
+
+    private static Document BuildHeaderFooterDocument(Document source, HeaderFooterTarget target, HeaderFooterEditMode mode)
+    {
+        var clone = DocumentClone.Clone(source);
+        var headerFooter = ResolveHeaderFooterContainer(clone, target, mode);
+        var blocks = headerFooter.Blocks;
+        clone.Blocks.Clear();
+        if (blocks.Count == 0)
+        {
+            clone.Blocks.Add(new ParagraphBlock());
+        }
+        else
+        {
+            clone.Blocks.AddRange(blocks);
+        }
+
+        return clone;
+    }
+
+    private static HeaderFooter ResolveHeaderFooterContainer(Document document, HeaderFooterTarget target, HeaderFooterEditMode mode)
+    {
+        var section = document.GetSection(target.SectionIndex);
+        if (target.Variant == HeaderFooterVariant.First)
+        {
+            return mode == HeaderFooterEditMode.Footer ? section.FirstFooter : section.FirstHeader;
+        }
+
+        if (target.Variant == HeaderFooterVariant.Even)
+        {
+            return mode == HeaderFooterEditMode.Footer ? section.EvenFooter : section.EvenHeader;
+        }
+
+        return mode == HeaderFooterEditMode.Footer ? section.Footer : section.Header;
+    }
+
+    private static void ApplyHeaderFooterLayoutSettings(LayoutSettings target, LayoutSettings source, float width, float height)
+    {
+        target.ViewportWidth = width;
+        target.ViewportHeight = height;
+        target.UsePagination = false;
+        target.PageWidth = width;
+        target.PageHeight = height;
+        target.PageGap = 0f;
+        target.PageFlow = PageFlowDirection.Vertical;
+        target.MarginLeft = 0f;
+        target.MarginRight = 0f;
+        target.MarginTop = 0f;
+        target.MarginBottom = 0f;
+        target.HeaderOffset = 0f;
+        target.FooterOffset = 0f;
+        target.Gutter = 0f;
+        target.ParagraphSpacing = source.ParagraphSpacing;
+        target.BlockSpacing = source.BlockSpacing;
+        target.ListIndent = source.ListIndent;
+        target.ListMarkerGap = source.ListMarkerGap;
+        target.DefaultTabWidth = source.DefaultTabWidth;
+        target.ColumnGap = source.ColumnGap;
+        target.TableCellPadding = source.TableCellPadding;
+        target.TableBorderThickness = source.TableBorderThickness;
+    }
+
+    private int ResolveHeaderFooterPageIndex()
+    {
+        var layout = _editor.Layout;
+        if (layout.Pages.Count == 0 || layout.Lines.Count == 0)
+        {
+            return 0;
+        }
+
+        var lineIndex = EditorSelectionService.FindLineIndexForPosition(layout, _editor.Caret, out _);
+        var pageIndex = layout.LineIndex.GetPageForLine(lineIndex);
+        return pageIndex < 0 ? 0 : pageIndex;
+    }
+
+    private static int FindPageIndex(IReadOnlyList<PageLayout> pages, float x, float y)
+    {
+        for (var i = 0; i < pages.Count; i++)
+        {
+            if (pages[i].Bounds.Contains(x, y))
+            {
+                return i;
+            }
+        }
+
+        return -1;
     }
 
     public bool CanHorizontallyScroll
@@ -1071,6 +2122,45 @@ public sealed class DocumentView : Control, ILogicalScrollable
         return new Vector(clampedX, clampedY);
     }
 
+    private void EnsurePositionVisible(TextPosition position)
+    {
+        var layout = _editor.Layout;
+        if (layout.Lines.Count == 0)
+        {
+            return;
+        }
+
+        var lineIndex = EditorSelectionService.FindLineIndexForPosition(layout, position, out var line);
+        if (lineIndex < 0)
+        {
+            return;
+        }
+
+        var lineTop = line.Y * _zoomFactor;
+        var lineBottom = (line.Y + line.LineHeight) * _zoomFactor;
+        var offset = _scrollOffset;
+
+        if (lineTop < offset.Y)
+        {
+            offset = new Vector(offset.X, lineTop);
+        }
+        else if (lineBottom > offset.Y + _viewport.Height)
+        {
+            offset = new Vector(offset.X, lineBottom - _viewport.Height);
+        }
+
+        if (_editor.Layout.Settings.PageFlow == PageFlowDirection.Horizontal)
+        {
+            var pageIndex = layout.LineIndex.GetPageForLine(lineIndex);
+            if (pageIndex >= 0 && pageIndex < layout.Pages.Count)
+            {
+                offset = new Vector(layout.Pages[pageIndex].Bounds.Left * _zoomFactor, offset.Y);
+            }
+        }
+
+        Offset = offset;
+    }
+
     private Vector GetEffectiveScrollOffset()
     {
         var alignmentOffset = GetHorizontalAlignmentOffset();
@@ -1170,6 +2260,13 @@ public sealed class DocumentView : Control, ILogicalScrollable
         SetZoom(ComputeWholePageZoom(), DocumentZoomMode.WholePage, preserveCenter: false);
     }
 
+    public void ZoomToMultiplePages(int pagesPerRow = DefaultMultiplePages)
+    {
+        var resolved = Math.Max(1, pagesPerRow);
+        _multiplePagesPerRow = resolved;
+        SetZoom(ComputeMultiplePagesZoom(resolved), DocumentZoomMode.MultiplePages, preserveCenter: false);
+    }
+
     private void SetZoom(float value, DocumentZoomMode mode, bool preserveCenter = true)
     {
         var clamped = Math.Clamp(value, MinZoom, MaxZoom);
@@ -1228,6 +2325,9 @@ public sealed class DocumentView : Control, ILogicalScrollable
             case DocumentZoomMode.WholePage:
                 SetZoom(ComputeWholePageZoom(), DocumentZoomMode.WholePage, preserveCenter);
                 break;
+            case DocumentZoomMode.MultiplePages:
+                SetZoom(ComputeMultiplePagesZoom(_multiplePagesPerRow), DocumentZoomMode.MultiplePages, preserveCenter);
+                break;
             default:
                 SetZoom(_zoomFactor, DocumentZoomMode.Custom, preserveCenter);
                 break;
@@ -1268,6 +2368,49 @@ public sealed class DocumentView : Control, ILogicalScrollable
         var zoomX = viewportWidth / width;
         var zoomY = viewportHeight / height;
         return Math.Min(zoomX, zoomY);
+    }
+
+    private float ComputeMultiplePagesZoom(int pagesPerRow)
+    {
+        if (_viewport.Width <= 0 || _editor.Layout.Pages.Count == 0)
+        {
+            return _zoomFactor;
+        }
+
+        var pageWidth = _editor.Layout.Pages.Max(page => page.Bounds.Width);
+        if (pageWidth <= 0f)
+        {
+            return _zoomFactor;
+        }
+
+        var gap = _editor.Layout.Settings.PageGap;
+        var count = Math.Max(1, pagesPerRow);
+        var targetWidth = (pageWidth * count) + (gap * count);
+        var viewportWidth = (float)_viewport.Width;
+        return viewportWidth / Math.Max(1f, targetWidth);
+    }
+
+    public void ScrollToPage(int pageIndex)
+    {
+        var pages = _editor.Layout.Pages;
+        if (pages.Count == 0)
+        {
+            return;
+        }
+
+        var index = Math.Clamp(pageIndex, 0, pages.Count - 1);
+        var page = pages[index];
+        var offset = _scrollOffset;
+        if (_editor.Layout.Settings.PageFlow == PageFlowDirection.Horizontal)
+        {
+            offset = new Vector(page.Bounds.Left * _zoomFactor, offset.Y);
+        }
+        else
+        {
+            offset = new Vector(offset.X, page.Bounds.Top * _zoomFactor);
+        }
+
+        Offset = offset;
     }
 
     private static bool HasZoomModifier(KeyModifiers modifiers)
@@ -1337,8 +2480,19 @@ public sealed class DocumentView : Control, ILogicalScrollable
             var offsetDocY = (float)(_offset.Y / _options.ZoomFactor);
             canvas.Translate(-offsetDocX, -offsetDocY);
 
-            _options.Caret = _editor.Caret;
-            _options.Selection = _editor.Selection.IsEmpty ? null : _editor.Selection;
+            if (_options.HeaderFooterMode == HeaderFooterEditMode.None)
+            {
+                _options.Caret = _editor.Caret;
+                _options.Selection = _editor.Selection.IsEmpty ? null : _editor.Selection;
+                _options.ShowCaret = true;
+            }
+            else
+            {
+                _options.Caret = _editor.Caret;
+                _options.Selection = null;
+                _options.ShowCaret = false;
+            }
+
             _options.SelectedFloatingObjectId = _editor.SelectedFloatingObjectId;
 
             _renderer.Render(canvas, _editor.Document, _editor.Layout, _options);
@@ -1358,5 +2512,6 @@ public enum DocumentZoomMode
 {
     Custom,
     PageWidth,
-    WholePage
+    WholePage,
+    MultiplePages
 }

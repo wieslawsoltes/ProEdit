@@ -11,6 +11,7 @@ using Vibe.Office.Editing;
 using Vibe.Office.Layout;
 using Vibe.Office.OpenXml;
 using Vibe.Office.Primitives;
+using Vibe.Office.Rendering;
 using Vibe.Office.Ribbon;
 using Vibe.Office.Ribbon.Avalonia;
 
@@ -24,6 +25,18 @@ public partial class MainWindow : Window
     private readonly RulerCornerControl? _rulerCorner;
     private readonly Border? _navigationPane;
     private readonly ListBox? _navigationPaneList;
+    private readonly ListBox? _pagePaneList;
+    private readonly Border? _reviewPane;
+    private readonly ListBox? _reviewCommentsList;
+    private readonly ListBox? _reviewChangesList;
+    private readonly TextBox? _reviewCommentEditor;
+    private readonly Button? _reviewCommentApplyButton;
+    private readonly Button? _reviewCommentDeleteButton;
+    private readonly Button? _reviewChangeAcceptButton;
+    private readonly Button? _reviewChangeRejectButton;
+    private readonly Button? _reviewChangePreviousButton;
+    private readonly Button? _reviewChangeNextButton;
+    private readonly Button? _reviewPaneCloseButton;
     private readonly Border? _loadingOverlay;
     private readonly TextBlock? _loadingText;
     private readonly RibbonControl? _ribbon;
@@ -37,10 +50,15 @@ public partial class MainWindow : Window
     private readonly ObservableCollection<RibbonGalleryItem> _styleGalleryItems = new();
     private readonly Dictionary<string, RibbonGalleryItem> _styleGalleryItemMap = new(StringComparer.OrdinalIgnoreCase);
     private readonly ObservableCollection<NavigationPaneItem> _navigationItems = new();
+    private readonly ObservableCollection<PageNavigationItem> _pageItems = new();
+    private readonly ObservableCollection<ReviewCommentItem> _reviewCommentItems = new();
+    private readonly ObservableCollection<ReviewRevisionItem> _reviewRevisionItems = new();
     private string? _currentPath;
     private bool _isLoading;
     private bool _suppressQuickAccessSave;
     private bool _suppressZoomUpdate;
+    private bool _suppressPageSelection;
+    private bool _suppressReviewSelection;
     private static readonly FilePickerFileType DocxFileType = new("Word Documents")
     {
         Patterns = new[] { "*.docx" }
@@ -74,6 +92,18 @@ public partial class MainWindow : Window
         _rulerCorner = this.FindControl<RulerCornerControl>("RulerCorner");
         _navigationPane = this.FindControl<Border>("NavigationPane");
         _navigationPaneList = this.FindControl<ListBox>("NavigationPaneList");
+        _pagePaneList = this.FindControl<ListBox>("PagePaneList");
+        _reviewPane = this.FindControl<Border>("ReviewPane");
+        _reviewCommentsList = this.FindControl<ListBox>("ReviewCommentsList");
+        _reviewChangesList = this.FindControl<ListBox>("ReviewChangesList");
+        _reviewCommentEditor = this.FindControl<TextBox>("ReviewCommentEditor");
+        _reviewCommentApplyButton = this.FindControl<Button>("ReviewCommentApplyButton");
+        _reviewCommentDeleteButton = this.FindControl<Button>("ReviewCommentDeleteButton");
+        _reviewChangeAcceptButton = this.FindControl<Button>("ReviewChangeAcceptButton");
+        _reviewChangeRejectButton = this.FindControl<Button>("ReviewChangeRejectButton");
+        _reviewChangePreviousButton = this.FindControl<Button>("ReviewChangePreviousButton");
+        _reviewChangeNextButton = this.FindControl<Button>("ReviewChangeNextButton");
+        _reviewPaneCloseButton = this.FindControl<Button>("ReviewPaneCloseButton");
         var equationEditor = this.FindControl<EquationEditor>("EquationEditor");
         var equationPanel = this.FindControl<Border>("EquationEditorPanel");
         _loadingOverlay = this.FindControl<Border>("LoadingOverlay");
@@ -149,20 +179,83 @@ public partial class MainWindow : Window
                 _navigationPaneList.SelectionChanged += OnNavigationSelectionChanged;
             }
 
-            _editorView.RegisterService<IEditorViewOptionsService>(new MainWindowViewOptionsService(
-                _editorView,
-                _horizontalRuler,
-                _verticalRuler,
-                _rulerCorner,
-                _navigationPane));
-
-            _editorView.RegisterService<IDrawToolService>(new DrawToolService());
-            _editorView.RegisterService<IMailMergeSourceManager>(new MailMergeSourceManager(this));
-
-            _editorView.RegisterService<IStylePaneService>(new StylesPaneService(
-                this,
-                () => _editorView.TryGetService<IStyleService>(out var service) ? service : null));
+        if (_pagePaneList is not null)
+        {
+            _pagePaneList.ItemsSource = _pageItems;
+            _pagePaneList.SelectionChanged += OnPageSelectionChanged;
         }
+
+        if (_reviewCommentsList is not null)
+        {
+            _reviewCommentsList.ItemsSource = _reviewCommentItems;
+            _reviewCommentsList.SelectionChanged += OnReviewCommentSelectionChanged;
+        }
+
+        if (_reviewChangesList is not null)
+        {
+            _reviewChangesList.ItemsSource = _reviewRevisionItems;
+            _reviewChangesList.SelectionChanged += OnReviewChangeSelectionChanged;
+        }
+
+        if (_reviewCommentApplyButton is not null)
+        {
+            _reviewCommentApplyButton.Click += OnReviewCommentApplyClicked;
+        }
+
+        if (_reviewCommentDeleteButton is not null)
+        {
+            _reviewCommentDeleteButton.Click += OnReviewCommentDeleteClicked;
+        }
+
+        if (_reviewChangeAcceptButton is not null)
+        {
+            _reviewChangeAcceptButton.Click += OnReviewChangeAcceptClicked;
+        }
+
+        if (_reviewChangeRejectButton is not null)
+        {
+            _reviewChangeRejectButton.Click += OnReviewChangeRejectClicked;
+        }
+
+        if (_reviewChangePreviousButton is not null)
+        {
+            _reviewChangePreviousButton.Click += OnReviewChangePreviousClicked;
+        }
+
+        if (_reviewChangeNextButton is not null)
+        {
+            _reviewChangeNextButton.Click += OnReviewChangeNextClicked;
+        }
+
+        if (_reviewPaneCloseButton is not null)
+        {
+            _reviewPaneCloseButton.Click += (_, _) => SetReviewPaneVisible(false);
+        }
+
+        if (_reviewCommentEditor is not null)
+        {
+            _reviewCommentEditor.IsEnabled = false;
+        }
+
+        _editorView.RegisterService<IEditorViewOptionsService>(new MainWindowViewOptionsService(
+            _editorView,
+            _horizontalRuler,
+            _verticalRuler,
+            _rulerCorner,
+            _navigationPane));
+
+        _editorView.RegisterService<IDrawToolService>(new DrawToolService());
+        _editorView.RegisterService<IMailMergeSourceManager>(new MailMergeSourceManager(this));
+
+        _editorView.RegisterService<IStylePaneService>(new StylesPaneService(
+            this,
+            () => _editorView.TryGetService<IStyleService>(out var service) ? service : null));
+
+        _editorView.RegisterService<IReviewPaneService>(new MainWindowReviewPaneService(
+            _editorView,
+            _reviewPane,
+            RefreshReviewPaneItems));
+    }
 
         if (_ribbon is not null)
         {
@@ -200,6 +293,7 @@ public partial class MainWindow : Window
                 _ribbon?.RefreshState();
                 UpdateStatusBar();
                 RefreshNavigationPaneItems();
+                RefreshReviewPaneItems();
             };
             _editorView.ZoomChanged += (_, _) => UpdateZoomUi();
             UpdateZoomUi();
@@ -370,10 +464,13 @@ public partial class MainWindow : Window
             if (TryGetSnapshot(out var snapshot))
             {
                 await router.ExecuteAsync(commandId, payload, snapshot);
-                return;
+            }
+            else
+            {
+                await router.ExecuteAsync(commandId, payload);
             }
 
-            await router.ExecuteAsync(commandId, payload);
+            _ribbon?.RefreshState();
         }
 
         RibbonCommand CreateEditorCommand(string commandId, object? payload = null)
@@ -399,6 +496,17 @@ public partial class MainWindow : Window
                     return ValueTask.CompletedTask;
                 },
                 canInteract);
+        }
+
+        RibbonCommand CreateViewCommandWithCanExecute(Action action, Func<bool> canExecute)
+        {
+            return new RibbonCommand(
+                () =>
+                {
+                    action();
+                    return ValueTask.CompletedTask;
+                },
+                canExecute);
         }
 
         bool CanUseFindReplace()
@@ -533,24 +641,15 @@ public partial class MainWindow : Window
             }
         }
 
-        async Task OpenHeaderFooterDialogAsync(bool editHeader)
+        void BeginHeaderFooterEdit(bool editHeader)
         {
             if (!canInteract() || _editorView is null)
             {
                 return;
             }
 
-            var document = _editorView.Document;
-            var target = editHeader ? document.Header : document.Footer;
-            var text = ResolveHeaderFooterText(target);
-            var title = editHeader ? "Edit Header" : "Edit Footer";
-            var dialog = new HeaderFooterEditDialog(title, text);
-            var result = await dialog.ShowDialog<string?>(this);
-            if (result is not null)
-            {
-                var command = editHeader ? EditorInsertCommandIds.HeaderFooter.Header : EditorInsertCommandIds.HeaderFooter.Footer;
-                await ExecuteEditorCommandAsync(command, result);
-            }
+            var mode = editHeader ? HeaderFooterEditMode.Header : HeaderFooterEditMode.Footer;
+            _editorView.BeginHeaderFooterEdit(mode);
         }
 
         async Task OpenCrossReferenceDialogAsync()
@@ -821,19 +920,6 @@ public partial class MainWindow : Window
             {
                 await ExecuteEditorCommandAsync(EditorInsertCommandIds.Illustrations.Chart, request);
             }
-        }
-
-        static string ResolveHeaderFooterText(HeaderFooter headerFooter)
-        {
-            foreach (var block in headerFooter.Blocks)
-            {
-                if (block is ParagraphBlock paragraph)
-                {
-                    return DocumentEditHelpers.GetParagraphText(paragraph);
-                }
-            }
-
-            return string.Empty;
         }
 
         static IReadOnlyList<PickerItem> BuildBookmarkPickerItems(Document document)
@@ -1498,6 +1584,16 @@ public partial class MainWindow : Window
         bool IsNavigationPaneActive()
         {
             return canInteract() && TryGetViewOptionsService(out var service) && service.ShowNavigationPane;
+        }
+
+        bool IsHeaderFooterEditing()
+        {
+            return canInteract() && _editorView?.IsHeaderFooterEditing == true;
+        }
+
+        bool IsViewMode(EditorViewMode mode)
+        {
+            return canInteract() && TryGetViewOptionsService(out var service) && service.ViewMode == mode;
         }
 
         bool IsPageMovementVertical()
@@ -2934,7 +3030,7 @@ public partial class MainWindow : Window
             new RibbonMenuItem(
                 "header-edit",
                 "Edit Header",
-                CreateAsyncCommand(() => OpenHeaderFooterDialogAsync(true), canInteract),
+                CreateViewCommand(() => BeginHeaderFooterEdit(true)),
                 iconKey: "RibbonIcon.Header")
         });
 
@@ -2956,7 +3052,7 @@ public partial class MainWindow : Window
             new RibbonMenuItem(
                 "footer-edit",
                 "Edit Footer",
-                CreateAsyncCommand(() => OpenHeaderFooterDialogAsync(false), canInteract),
+                CreateViewCommand(() => BeginHeaderFooterEdit(false)),
                 iconKey: "RibbonIcon.Footer")
         });
 
@@ -2995,6 +3091,13 @@ public partial class MainWindow : Window
             iconKey: "RibbonIcon.PageNumber",
             size: RibbonControlSize.Medium);
 
+        var closeHeaderFooterButton = new RibbonButton(
+            "insert-close-header-footer",
+            "Close Header and Footer",
+            CreateViewCommandWithCanExecute(() => _editorView?.EndHeaderFooterEdit(), IsHeaderFooterEditing),
+            iconKey: "RibbonIcon.Check",
+            size: RibbonControlSize.Small);
+
         var headerFooterGroup = new RibbonGroup(
             "insert-header-footer",
             "Header & Footer",
@@ -3002,7 +3105,8 @@ public partial class MainWindow : Window
             {
                 headerButton,
                 footerButton,
-                pageNumberButton
+                pageNumberButton,
+                closeHeaderFooterButton
             },
             keyTip: "HF");
 
@@ -5182,24 +5286,26 @@ public partial class MainWindow : Window
         var printLayoutToggle = new RibbonToggleButton(
             "view-print-layout",
             "Print Layout",
-            () => _editorView?.ShowLayout ?? false,
-            value => ToggleShowLayout(value),
+            () => IsViewMode(EditorViewMode.PrintLayout),
+            value => value ? ExecuteEditorCommandAsync(EditorViewCommandIds.Views.PrintLayout) : ValueTask.CompletedTask,
             iconKey: "RibbonIcon.Layout",
             canExecute: canInteract,
             size: RibbonControlSize.Medium);
 
-        var webLayoutButton = new RibbonButton(
+        var webLayoutToggle = new RibbonToggleButton(
             "view-web-layout",
             "Web Layout",
-            CreateEditorCommand(EditorViewCommandIds.Views.WebLayout),
+            () => IsViewMode(EditorViewMode.WebLayout),
+            value => value ? ExecuteEditorCommandAsync(EditorViewCommandIds.Views.WebLayout) : ValueTask.CompletedTask,
             keyTip: "WL",
             iconKey: "RibbonIcon.Globe",
             size: RibbonControlSize.Medium);
 
-        var outlineButton = new RibbonButton(
+        var outlineToggle = new RibbonToggleButton(
             "view-outline",
             "Outline",
-            CreateEditorCommand(EditorViewCommandIds.Views.Outline),
+            () => IsViewMode(EditorViewMode.Outline),
+            value => value ? ExecuteEditorCommandAsync(EditorViewCommandIds.Views.Outline) : ValueTask.CompletedTask,
             keyTip: "OL",
             iconKey: "RibbonIcon.Outline",
             size: RibbonControlSize.Medium);
@@ -5207,8 +5313,8 @@ public partial class MainWindow : Window
         var draftViewToggle = new RibbonToggleButton(
             "view-draft",
             "Draft",
-            () => _editorView is not null && !_editorView.ShowLayout,
-            value => ToggleShowLayout(!value),
+            () => IsViewMode(EditorViewMode.Draft),
+            value => value ? ExecuteEditorCommandAsync(EditorViewCommandIds.Views.Draft) : ValueTask.CompletedTask,
             iconKey: "RibbonIcon.Draft",
             canExecute: canInteract,
             size: RibbonControlSize.Medium);
@@ -5220,8 +5326,8 @@ public partial class MainWindow : Window
             {
                 readModeButton,
                 printLayoutToggle,
-                webLayoutButton,
-                outlineButton,
+                webLayoutToggle,
+                outlineToggle,
                 draftViewToggle
             },
             keyTip: "VW");
@@ -5310,7 +5416,7 @@ public partial class MainWindow : Window
         var zoomDialogButton = new RibbonButton(
             "zoom-dialog",
             "Zoom",
-            CreateEditorCommand(EditorViewCommandIds.Zoom.ZoomDialog),
+            CreateAsyncCommand(OpenZoomDialogAsync, canInteract),
             keyTip: "ZD",
             iconKey: "RibbonIcon.ZoomIn",
             size: RibbonControlSize.Medium);
@@ -5358,7 +5464,7 @@ public partial class MainWindow : Window
         var zoomMultiplePagesButton = new RibbonButton(
             "zoom-multiple-pages",
             "Multiple Pages",
-            CreateEditorCommand(EditorViewCommandIds.Zoom.MultiplePages),
+            CreateViewCommand(() => _editorView?.ZoomToMultiplePages()),
             keyTip: "MP",
             iconKey: "RibbonIcon.MultiplePages",
             size: RibbonControlSize.Medium);
@@ -5975,17 +6081,6 @@ public partial class MainWindow : Window
         }
     }
 
-    private ValueTask ToggleShowLayout(bool value)
-    {
-        if (_editorView is null)
-        {
-            return ValueTask.CompletedTask;
-        }
-
-        _editorView.ShowLayout = value;
-        return ValueTask.CompletedTask;
-    }
-
     private ValueTask ToggleUseHarfBuzz(bool value)
     {
         if (_editorView is null)
@@ -6006,6 +6101,53 @@ public partial class MainWindow : Window
 
         _editorView.UsePictureCache = value;
         return ValueTask.CompletedTask;
+    }
+
+    private async Task OpenZoomDialogAsync()
+    {
+        if (_editorView is null)
+        {
+            return;
+        }
+
+        var items = new[]
+        {
+            new PickerItem("200", "200%"),
+            new PickerItem("150", "150%"),
+            new PickerItem("125", "125%"),
+            new PickerItem("100", "100%"),
+            new PickerItem("75", "75%"),
+            new PickerItem("50", "50%"),
+            new PickerItem("pageWidth", "Page Width"),
+            new PickerItem("wholePage", "One Page"),
+            new PickerItem("multiplePages", "Multiple Pages")
+        };
+
+        var dialog = new PickerDialog("Zoom", items);
+        var result = await dialog.ShowDialog<PickerItem?>(this);
+        if (result is null)
+        {
+            return;
+        }
+
+        if (int.TryParse(result.Id, NumberStyles.Integer, CultureInfo.InvariantCulture, out var percent))
+        {
+            _editorView.ZoomToPercent(percent);
+            return;
+        }
+
+        switch (result.Id)
+        {
+            case "pageWidth":
+                _editorView.ZoomToPageWidth();
+                break;
+            case "wholePage":
+                _editorView.ZoomToWholePage();
+                break;
+            case "multiplePages":
+                _editorView.ZoomToMultiplePages();
+                break;
+        }
     }
 
     private async Task LoadDocumentAsync(string path)
@@ -6105,6 +6247,39 @@ public partial class MainWindow : Window
         {
             _navigationItems.Add(item);
         }
+
+        RefreshPagePaneItems();
+    }
+
+    private void RefreshPagePaneItems()
+    {
+        if (_editorView is null)
+        {
+            return;
+        }
+
+        var layout = _editorView.Layout;
+        var pageCount = Math.Max(1, layout.Pages.Count);
+        _pageItems.Clear();
+        for (var i = 0; i < pageCount; i++)
+        {
+            _pageItems.Add(new PageNavigationItem(i));
+        }
+
+        if (_pagePaneList is null || _pageItems.Count == 0)
+        {
+            return;
+        }
+
+        var currentPage = ResolveCurrentPage(layout, _editorView.Caret) - 1;
+        if (currentPage < 0 || currentPage >= _pageItems.Count)
+        {
+            return;
+        }
+
+        _suppressPageSelection = true;
+        _pagePaneList.SelectedItem = _pageItems[currentPage];
+        _suppressPageSelection = false;
     }
 
     private void OnNavigationSelectionChanged(object? sender, Avalonia.Controls.SelectionChangedEventArgs e)
@@ -6114,6 +6289,343 @@ public partial class MainWindow : Window
             _editorView?.GoToParagraph(item.ParagraphIndex);
             _navigationPaneList.SelectedItem = null;
         }
+    }
+
+    private void OnPageSelectionChanged(object? sender, Avalonia.Controls.SelectionChangedEventArgs e)
+    {
+        if (_suppressPageSelection)
+        {
+            return;
+        }
+
+        if (_pagePaneList?.SelectedItem is PageNavigationItem item)
+        {
+            _editorView?.ScrollToPage(item.PageIndex);
+        }
+    }
+
+    private void SetReviewPaneVisible(bool visible)
+    {
+        if (_reviewPane is null)
+        {
+            return;
+        }
+
+        if (_reviewPane.IsVisible == visible)
+        {
+            return;
+        }
+
+        _reviewPane.IsVisible = visible;
+        if (visible)
+        {
+            RefreshReviewPaneItems();
+        }
+    }
+
+    private void RefreshReviewPaneItems()
+    {
+        if (_editorView is null || _reviewPane?.IsVisible != true)
+        {
+            return;
+        }
+
+        var document = _editorView.Document;
+        var selectedCommentId = (_reviewCommentsList?.SelectedItem as ReviewCommentItem)?.Id;
+        var selectedRevision = _reviewChangesList?.SelectedItem as ReviewRevisionItem;
+
+        var commentAnchors = ReviewingHelpers.BuildCommentAnchors(document);
+        var commentItems = new List<ReviewCommentItem>(document.Comments.Count);
+        foreach (var comment in document.Comments.Values)
+        {
+            if (!commentAnchors.TryGetValue(comment.Id, out var anchor))
+            {
+                anchor = new TextPosition(int.MaxValue, 0);
+            }
+
+            var header = BuildReviewCommentHeader(comment);
+            var text = ReviewingHelpers.BuildCommentText(comment);
+            var preview = BuildReviewPreview(text);
+            commentItems.Add(new ReviewCommentItem(comment.Id, header, preview, text, anchor));
+        }
+
+        commentItems.Sort(CompareReviewCommentItems);
+
+        _suppressReviewSelection = true;
+        _reviewCommentItems.Clear();
+        foreach (var item in commentItems)
+        {
+            _reviewCommentItems.Add(item);
+        }
+
+        if (_reviewCommentsList is not null)
+        {
+            _reviewCommentsList.SelectedItem = FindReviewCommentItem(selectedCommentId);
+        }
+
+        var revisionAnchors = ReviewingHelpers.BuildRevisionAnchors(document);
+        revisionAnchors.Sort(CompareRevisionAnchors);
+        _reviewRevisionItems.Clear();
+        foreach (var anchor in revisionAnchors)
+        {
+            var header = BuildReviewRevisionHeader(anchor.Revision, anchor.IsBlock);
+            var preview = BuildReviewRevisionPreview(anchor.Revision, anchor.IsBlock);
+            _reviewRevisionItems.Add(new ReviewRevisionItem(anchor.Revision, anchor.Anchor, anchor.IsBlock, header, preview));
+        }
+
+        if (_reviewChangesList is not null)
+        {
+            _reviewChangesList.SelectedItem = FindReviewRevisionItem(selectedRevision);
+        }
+
+        _suppressReviewSelection = false;
+        UpdateReviewCommentEditor(_reviewCommentsList?.SelectedItem as ReviewCommentItem, force: false);
+    }
+
+    private ReviewCommentItem? FindReviewCommentItem(int? id)
+    {
+        if (!id.HasValue)
+        {
+            return null;
+        }
+
+        foreach (var item in _reviewCommentItems)
+        {
+            if (item.Id == id.Value)
+            {
+                return item;
+            }
+        }
+
+        return null;
+    }
+
+    private ReviewRevisionItem? FindReviewRevisionItem(ReviewRevisionItem? selected)
+    {
+        if (selected is null)
+        {
+            return null;
+        }
+
+        foreach (var item in _reviewRevisionItems)
+        {
+            if (item.Kind == selected.Kind && item.Id == selected.Id && item.Anchor.Equals(selected.Anchor))
+            {
+                return item;
+            }
+        }
+
+        return null;
+    }
+
+    private static int CompareReviewCommentItems(ReviewCommentItem left, ReviewCommentItem right)
+    {
+        var paragraphCompare = left.Anchor.ParagraphIndex.CompareTo(right.Anchor.ParagraphIndex);
+        if (paragraphCompare != 0)
+        {
+            return paragraphCompare;
+        }
+
+        return left.Anchor.Offset.CompareTo(right.Anchor.Offset);
+    }
+
+    private static int CompareRevisionAnchors(ReviewRevisionAnchor left, ReviewRevisionAnchor right)
+    {
+        var paragraphCompare = left.Anchor.ParagraphIndex.CompareTo(right.Anchor.ParagraphIndex);
+        if (paragraphCompare != 0)
+        {
+            return paragraphCompare;
+        }
+
+        return left.Anchor.Offset.CompareTo(right.Anchor.Offset);
+    }
+
+    private static string BuildReviewCommentHeader(CommentDefinition comment)
+    {
+        var author = string.IsNullOrWhiteSpace(comment.Author) ? $"Comment {comment.Id}" : comment.Author.Trim();
+        if (comment.Date.HasValue)
+        {
+            return $"{author} ({comment.Date.Value.ToLocalTime():g})";
+        }
+
+        return author;
+    }
+
+    private static string BuildReviewPreview(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return "(empty)";
+        }
+
+        var span = text.AsSpan().Trim();
+        var lineBreak = span.IndexOf('\n');
+        if (lineBreak >= 0)
+        {
+            span = span[..lineBreak];
+        }
+
+        const int maxLength = 80;
+        if (span.Length > maxLength)
+        {
+            return $"{new string(span[..maxLength])}...";
+        }
+
+        return new string(span);
+    }
+
+    private static string BuildReviewRevisionHeader(RevisionInfo revision, bool isBlock)
+    {
+        var kind = revision.Kind.ToString();
+        var author = string.IsNullOrWhiteSpace(revision.Author) ? "Unknown" : revision.Author.Trim();
+        var prefix = isBlock ? "Block" : "Inline";
+
+        if (revision.Date.HasValue)
+        {
+            return $"{prefix} {kind} - {author} ({revision.Date.Value.ToLocalTime():g})";
+        }
+
+        return $"{prefix} {kind} - {author}";
+    }
+
+    private static string BuildReviewRevisionPreview(RevisionInfo revision, bool isBlock)
+    {
+        if (!string.IsNullOrWhiteSpace(revision.Name))
+        {
+            return revision.Name;
+        }
+
+        return isBlock ? "Block change" : "Inline change";
+    }
+
+    private void UpdateReviewCommentEditor(ReviewCommentItem? item, bool force)
+    {
+        if (_reviewCommentEditor is null)
+        {
+            return;
+        }
+
+        if (!force && _reviewCommentEditor.IsFocused)
+        {
+            return;
+        }
+
+        if (item is null)
+        {
+            _reviewCommentEditor.Text = string.Empty;
+            _reviewCommentEditor.IsEnabled = false;
+            return;
+        }
+
+        _reviewCommentEditor.Text = item.FullText;
+        _reviewCommentEditor.IsEnabled = true;
+    }
+
+    private void OnReviewCommentSelectionChanged(object? sender, Avalonia.Controls.SelectionChangedEventArgs e)
+    {
+        if (_suppressReviewSelection)
+        {
+            return;
+        }
+
+        if (_reviewCommentsList?.SelectedItem is ReviewCommentItem item)
+        {
+            _editorView?.GoToPosition(item.Anchor, ensureVisible: true);
+            UpdateReviewCommentEditor(item, force: true);
+            return;
+        }
+
+        UpdateReviewCommentEditor(null, force: true);
+    }
+
+    private void OnReviewChangeSelectionChanged(object? sender, Avalonia.Controls.SelectionChangedEventArgs e)
+    {
+        if (_suppressReviewSelection)
+        {
+            return;
+        }
+
+        if (_reviewChangesList?.SelectedItem is ReviewRevisionItem item)
+        {
+            _editorView?.GoToPosition(item.Anchor, ensureVisible: true);
+        }
+    }
+
+    private void OnReviewCommentApplyClicked(object? sender, RoutedEventArgs e)
+    {
+        if (_editorView is null || _reviewCommentEditor is null)
+        {
+            return;
+        }
+
+        if (_reviewCommentsList?.SelectedItem is not ReviewCommentItem item)
+        {
+            return;
+        }
+
+        if (!_editorView.Document.Comments.TryGetValue(item.Id, out var comment))
+        {
+            return;
+        }
+
+        ReviewingHelpers.UpdateCommentText(comment, _reviewCommentEditor.Text ?? string.Empty);
+        _editorView.InvalidateVisual();
+        RefreshReviewPaneItems();
+    }
+
+    private async void OnReviewCommentDeleteClicked(object? sender, RoutedEventArgs e)
+    {
+        if (_reviewCommentsList?.SelectedItem is not ReviewCommentItem item)
+        {
+            return;
+        }
+
+        _editorView?.GoToPosition(item.Anchor, ensureVisible: true);
+        await ExecuteEditorCommandFromPaneAsync(EditorReviewCommandIds.Comments.DeleteComment);
+    }
+
+    private async void OnReviewChangeAcceptClicked(object? sender, RoutedEventArgs e)
+    {
+        await ExecuteEditorCommandFromPaneAsync(EditorReviewCommandIds.Changes.Accept);
+    }
+
+    private async void OnReviewChangeRejectClicked(object? sender, RoutedEventArgs e)
+    {
+        await ExecuteEditorCommandFromPaneAsync(EditorReviewCommandIds.Changes.Reject);
+    }
+
+    private async void OnReviewChangePreviousClicked(object? sender, RoutedEventArgs e)
+    {
+        await ExecuteEditorCommandFromPaneAsync(EditorReviewCommandIds.Changes.PreviousChange);
+    }
+
+    private async void OnReviewChangeNextClicked(object? sender, RoutedEventArgs e)
+    {
+        await ExecuteEditorCommandFromPaneAsync(EditorReviewCommandIds.Changes.NextChange);
+    }
+
+    private async ValueTask ExecuteEditorCommandFromPaneAsync(string commandId, object? payload = null)
+    {
+        if (_editorView is null)
+        {
+            return;
+        }
+
+        if (!_editorView.TryGetService<IEditorCommandRouter>(out var router))
+        {
+            return;
+        }
+
+        if (_editorView.TryGetService<IRibbonContextSnapshotProvider>(out var provider))
+        {
+            await router.ExecuteAsync(commandId, payload, provider.GetSnapshot());
+        }
+        else
+        {
+            await router.ExecuteAsync(commandId, payload);
+        }
+
+        _ribbon?.RefreshState();
     }
 
     private static List<NavigationPaneItem> BuildNavigationItems(Document document)
@@ -6283,5 +6795,57 @@ public partial class MainWindow : Window
         }
 
         public override string ToString() => Display;
+    }
+
+    private sealed class PageNavigationItem
+    {
+        public int PageIndex { get; }
+        public string Display { get; }
+
+        public PageNavigationItem(int pageIndex)
+        {
+            PageIndex = pageIndex;
+            Display = $"Page {pageIndex + 1}";
+        }
+
+        public override string ToString() => Display;
+    }
+
+    private sealed class ReviewCommentItem
+    {
+        public int Id { get; }
+        public string Header { get; }
+        public string Preview { get; }
+        public string FullText { get; }
+        public TextPosition Anchor { get; }
+
+        public ReviewCommentItem(int id, string header, string preview, string fullText, TextPosition anchor)
+        {
+            Id = id;
+            Header = header;
+            Preview = preview;
+            FullText = fullText;
+            Anchor = anchor;
+        }
+    }
+
+    private sealed class ReviewRevisionItem
+    {
+        public RevisionKind Kind { get; }
+        public int? Id { get; }
+        public bool IsBlock { get; }
+        public string Header { get; }
+        public string Preview { get; }
+        public TextPosition Anchor { get; }
+
+        public ReviewRevisionItem(RevisionInfo revision, TextPosition anchor, bool isBlock, string header, string preview)
+        {
+            Kind = revision.Kind;
+            Id = revision.Id;
+            IsBlock = isBlock;
+            Header = header;
+            Preview = preview;
+            Anchor = anchor;
+        }
     }
 }
