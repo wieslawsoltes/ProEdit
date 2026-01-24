@@ -532,7 +532,7 @@ public sealed class EditorTableCommandMap
         var newRow = new TableRow();
         CopyTableRowProperties(templateRow.Properties, newRow.Properties);
 
-        var columnIndex = 0;
+        var columnIndex = Math.Max(0, newRow.Properties.GridBefore ?? 0);
         foreach (var cell in templateRow.Cells)
         {
             var span = Math.Max(1, cell.ColumnSpan);
@@ -569,7 +569,29 @@ public sealed class EditorTableCommandMap
         foreach (var row in table.Rows)
         {
             var inserted = false;
-            var columnCursor = 0;
+            var gridBefore = Math.Max(0, row.Properties.GridBefore ?? 0);
+            var gridAfter = Math.Max(0, row.Properties.GridAfter ?? 0);
+            var totalSpan = 0;
+            foreach (var rowCell in row.Cells)
+            {
+                totalSpan += Math.Max(1, rowCell.ColumnSpan);
+            }
+
+            var cellRegionStart = gridBefore;
+            var cellRegionEnd = gridBefore + totalSpan;
+            if (insertIndex <= cellRegionStart)
+            {
+                row.Properties.GridBefore = gridBefore + 1;
+                continue;
+            }
+
+            if (insertIndex >= cellRegionEnd)
+            {
+                row.Properties.GridAfter = gridAfter + 1;
+                continue;
+            }
+
+            var columnCursor = gridBefore;
             for (var cellIndex = 0; cellIndex < row.Cells.Count; cellIndex++)
             {
                 var cell = row.Cells[cellIndex];
@@ -603,8 +625,7 @@ public sealed class EditorTableCommandMap
 
             if (!inserted)
             {
-                var template = row.Cells.Count > 0 ? row.Cells[^1] : null;
-                row.Cells.Add(CreateCellFromTemplate(template));
+                row.Properties.GridAfter = gridAfter + 1;
             }
         }
 
@@ -628,6 +649,28 @@ public sealed class EditorTableCommandMap
         columnIndex = Math.Clamp(columnIndex, 0, columnCount - 1);
         foreach (var row in table.Rows)
         {
+            var gridBefore = Math.Max(0, row.Properties.GridBefore ?? 0);
+            var gridAfter = Math.Max(0, row.Properties.GridAfter ?? 0);
+            var totalSpan = 0;
+            foreach (var rowCell in row.Cells)
+            {
+                totalSpan += Math.Max(1, rowCell.ColumnSpan);
+            }
+
+            var cellRegionStart = gridBefore;
+            var cellRegionEnd = gridBefore + totalSpan;
+            if (columnIndex < cellRegionStart)
+            {
+                row.Properties.GridBefore = Math.Max(0, gridBefore - 1);
+                continue;
+            }
+
+            if (columnIndex >= cellRegionEnd)
+            {
+                row.Properties.GridAfter = Math.Max(0, gridAfter - 1);
+                continue;
+            }
+
             if (!TryGetCellAtColumn(row, columnIndex, out var cell, out var cellIndex, out _))
             {
                 continue;
@@ -767,7 +810,7 @@ public sealed class EditorTableCommandMap
         out int cellIndex,
         out int cellStart)
     {
-        var cursor = 0;
+        var cursor = Math.Max(0, row.Properties.GridBefore ?? 0);
         for (var i = 0; i < row.Cells.Count; i++)
         {
             var current = row.Cells[i];
@@ -794,12 +837,13 @@ public sealed class EditorTableCommandMap
         var max = 0;
         foreach (var row in table.Rows)
         {
-            var count = 0;
+            var count = Math.Max(0, row.Properties.GridBefore ?? 0);
             foreach (var cell in row.Cells)
             {
                 count += Math.Max(1, cell.ColumnSpan);
             }
 
+            count += Math.Max(0, row.Properties.GridAfter ?? 0);
             max = Math.Max(max, count);
         }
 
@@ -809,7 +853,7 @@ public sealed class EditorTableCommandMap
     private static List<CellPlacement> GetRowPlacements(TableRow row)
     {
         var placements = new List<CellPlacement>();
-        var cursor = 0;
+        var cursor = Math.Max(0, row.Properties.GridBefore ?? 0);
         for (var i = 0; i < row.Cells.Count; i++)
         {
             var cell = row.Cells[i];

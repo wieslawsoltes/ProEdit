@@ -116,9 +116,10 @@ public sealed class Document
                     for (var rowIndex = 0; rowIndex < table.Rows.Count; rowIndex++)
                     {
                         var row = table.Rows[rowIndex];
-                        for (var columnIndex = 0; columnIndex < row.Cells.Count; columnIndex++)
+                        var columnIndex = Math.Max(0, row.Properties.GridBefore ?? 0);
+                        for (var cellIndex = 0; cellIndex < row.Cells.Count; cellIndex++)
                         {
-                            var cell = row.Cells[columnIndex];
+                            var cell = row.Cells[cellIndex];
                             for (var paragraphIndexInCell = 0; paragraphIndexInCell < cell.Paragraphs.Count; paragraphIndexInCell++)
                             {
                                 var paragraph = cell.Paragraphs[paragraphIndexInCell];
@@ -129,6 +130,8 @@ public sealed class Document
 
                                 count++;
                             }
+
+                            columnIndex += Math.Max(1, cell.ColumnSpan);
                         }
                     }
 
