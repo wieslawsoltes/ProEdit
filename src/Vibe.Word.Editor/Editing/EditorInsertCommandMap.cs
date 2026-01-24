@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text;
 using Vibe.Office.Documents;
 using Vibe.Office.Editing;
 using Vibe.Office.Primitives;
@@ -20,6 +21,8 @@ public sealed class EditorInsertCommandMap
     private const float DefaultSmartArtHeight = 180f;
     private const float DefaultTextBoxWidth = 200f;
     private const float DefaultTextBoxHeight = 120f;
+    private const float DefaultSignatureLineWidth = 220f;
+    private const float DefaultSignatureLineHeight = 12f;
     private const int DefaultDropCapLines = 3;
     private const float DefaultTableBorderThickness = 1f;
     private const float DefaultTableCellPadding = 4f;
@@ -29,12 +32,14 @@ public sealed class EditorInsertCommandMap
     private readonly EditorCommandRouterAdapter _router;
     private readonly IEditorMutableSession _session;
     private int _bookmarkCounter;
+    private int _contentControlCounter;
 
     public EditorInsertCommandMap(EditorCommandRouterAdapter router, IEditorMutableSession session)
     {
         _router = router ?? throw new ArgumentNullException(nameof(router));
         _session = session ?? throw new ArgumentNullException(nameof(session));
         _bookmarkCounter = FindNextBookmarkId(session.Document);
+        _contentControlCounter = FindNextContentControlId(session.Document);
     }
 
     public void Register()
@@ -65,17 +70,17 @@ public sealed class EditorInsertCommandMap
         _router.RegisterAction(EditorInsertCommandIds.Illustrations.Pictures, (_, payload) => InsertPicture(payload), (context, _) => HasParagraphs(context));
         _router.RegisterAction(EditorInsertCommandIds.Illustrations.Shapes, (_, payload) => InsertShape(payload), (context, _) => HasParagraphs(context));
         _router.RegisterAction(EditorInsertCommandIds.Illustrations.Icons, (_, payload) => InsertIcon(payload), (context, _) => HasParagraphs(context));
-        _router.RegisterAction(EditorInsertCommandIds.Illustrations.Models3D, (_, __) => InsertModel3D(), (context, _) => HasParagraphs(context));
+        _router.RegisterAction(EditorInsertCommandIds.Illustrations.Models3D, (_, payload) => InsertModel3D(payload), (context, _) => HasParagraphs(context));
         _router.RegisterAction(EditorInsertCommandIds.Illustrations.SmartArt, (_, payload) => InsertSmartArt(payload), (context, _) => HasParagraphs(context));
         _router.RegisterAction(EditorInsertCommandIds.Illustrations.Chart, (_, payload) => InsertChart(payload), (context, _) => HasParagraphs(context));
-        _router.RegisterAction(EditorInsertCommandIds.Illustrations.Screenshot, (_, __) => InsertScreenshot(), (context, _) => HasParagraphs(context));
+        _router.RegisterAction(EditorInsertCommandIds.Illustrations.Screenshot, (_, payload) => InsertScreenshot(payload), (context, _) => HasParagraphs(context));
     }
 
     private void RegisterLinksCommands()
     {
         _router.RegisterAction(EditorInsertCommandIds.Links.Hyperlink, (_, payload) => InsertHyperlink(payload), (context, _) => HasParagraphs(context));
         _router.RegisterAction(EditorInsertCommandIds.Links.Bookmark, (_, payload) => InsertBookmark(payload), (context, _) => HasParagraphs(context));
-        _router.RegisterAction(EditorInsertCommandIds.Links.CrossReference, (_, __) => InsertCrossReference(), (context, _) => HasParagraphs(context));
+        _router.RegisterAction(EditorInsertCommandIds.Links.CrossReference, (_, payload) => InsertCrossReference(payload), (context, _) => HasParagraphs(context));
     }
 
     private void RegisterHeaderFooterCommands()
@@ -91,9 +96,9 @@ public sealed class EditorInsertCommandMap
         _router.RegisterAction(EditorInsertCommandIds.Text.QuickParts, (_, payload) => InsertQuickParts(payload), (context, _) => HasParagraphs(context));
         _router.RegisterAction(EditorInsertCommandIds.Text.WordArt, (_, payload) => InsertWordArt(payload), (context, _) => HasParagraphs(context));
         _router.RegisterAction(EditorInsertCommandIds.Text.DropCap, (_, payload) => InsertDropCap(payload), (context, _) => HasParagraphs(context));
-        _router.RegisterAction(EditorInsertCommandIds.Text.SignatureLine, (_, __) => InsertPlaceholderText("Signature Line"), (context, _) => HasParagraphs(context));
+        _router.RegisterAction(EditorInsertCommandIds.Text.SignatureLine, (_, __) => InsertSignatureLine(), (context, _) => HasParagraphs(context));
         _router.RegisterAction(EditorInsertCommandIds.Text.DateTime, (_, payload) => InsertDateTime(payload), (context, _) => HasParagraphs(context));
-        _router.RegisterAction(EditorInsertCommandIds.Text.Object, (_, __) => InsertEmbeddedObject(), (context, _) => HasParagraphs(context));
+        _router.RegisterAction(EditorInsertCommandIds.Text.Object, (_, payload) => InsertEmbeddedObject(payload), (context, _) => HasParagraphs(context));
     }
 
     private void RegisterSymbolsCommands()
@@ -115,10 +120,13 @@ public sealed class EditorInsertCommandMap
     private void InsertCoverPage(object? payload)
     {
         var label = payload as string;
-        var title = string.IsNullOrWhiteSpace(label) ? "Cover Page" : $"Cover Page - {label}";
         _session.InsertBlock(new PageBreakBlock());
-        _session.InsertText(title.AsSpan());
+        InsertCoverPagePlaceholder("Title", label);
+        InsertCoverPagePlaceholder("Subtitle", label);
+        InsertCoverPagePlaceholder("Author", label);
+        InsertDateField("MMMM d, yyyy");
         _session.InsertParagraphBreak();
+        _session.InsertBlock(new PageBreakBlock());
     }
 
     private void InsertBlankPage()
@@ -146,11 +154,8 @@ public sealed class EditorInsertCommandMap
     {
         if (payload is EditorImageInsertRequest request)
         {
-            var data = request.Data ?? Array.Empty<byte>();
-            var width = request.Width > 0 ? request.Width : DefaultImageWidth;
-            var height = request.Height > 0 ? request.Height : DefaultImageHeight;
-            var contentType = string.IsNullOrWhiteSpace(request.ContentType) ? "image/png" : request.ContentType;
-            _session.InsertInline(new ImageInline(data, width, height, contentType));
+            var image = CreateImageInline(request, DefaultImageWidth, DefaultImageHeight);
+            _session.InsertInline(image);
             return;
         }
 
@@ -180,41 +185,44 @@ public sealed class EditorInsertCommandMap
     private void InsertIcon(object? payload)
     {
         var label = payload as string;
-        var image = new ImageInline(Array.Empty<byte>(), DefaultIconSize, DefaultIconSize, "image/svg+xml");
+        var svgData = BuildIconSvgData(label);
+        var image = new ImageInline(svgData, DefaultIconSize, DefaultIconSize, "image/svg+xml");
         if (!string.IsNullOrWhiteSpace(label))
         {
             image.EmbeddedObject = new EmbeddedObjectInfo
             {
                 ProgId = label,
-                ContentType = "image/svg+xml"
+                ContentType = image.ContentType
             };
         }
 
         _session.InsertInline(image);
     }
 
-    private void InsertModel3D()
+    private void InsertModel3D(object? payload)
     {
-        var image = new ImageInline(Array.Empty<byte>(), DefaultImageWidth, DefaultImageHeight, "model/3d");
-        image.EmbeddedObject = new EmbeddedObjectInfo
-        {
-            ProgId = "3D Model",
-            ContentType = "model/3d"
-        };
+        var request = payload is EditorEmbeddedObjectInsertRequest provided
+            ? provided
+            : default;
+
+        var image = CreateEmbeddedObjectInline(
+            request,
+            DefaultImageWidth,
+            DefaultImageHeight,
+            "3D Model",
+            "model/3d");
         _session.InsertInline(image);
     }
 
     private void InsertSmartArt(object? payload)
     {
+        var layoutName = payload as string;
         var image = new ImageInline(
             Array.Empty<byte>(),
             DefaultSmartArtWidth,
             DefaultSmartArtHeight,
             "application/vnd.openxmlformats-officedocument.drawingml.diagram");
-        image.Diagram = new DiagramInfo
-        {
-            LayoutRelationshipId = payload as string
-        };
+        image.Diagram = BuildSmartArtDiagram(layoutName);
         _session.InsertInline(image);
     }
 
@@ -227,9 +235,29 @@ public sealed class EditorInsertCommandMap
         _session.InsertInline(new ChartInline(DefaultChartWidth, DefaultChartHeight, model, null));
     }
 
-    private void InsertScreenshot()
+    private void InsertScreenshot(object? payload)
     {
-        _session.InsertInline(new ImageInline(Array.Empty<byte>(), DefaultImageWidth, DefaultImageHeight, "image/png"));
+        if (payload is EditorImageInsertRequest request)
+        {
+            var image = CreateImageInline(request, DefaultImageWidth, DefaultImageHeight);
+            image.EmbeddedObject = new EmbeddedObjectInfo
+            {
+                ProgId = "Screenshot",
+                ContentType = image.ContentType
+            };
+            _session.InsertInline(image);
+            return;
+        }
+
+        var placeholder = new ImageInline(Array.Empty<byte>(), DefaultImageWidth, DefaultImageHeight, "image/png")
+        {
+            EmbeddedObject = new EmbeddedObjectInfo
+            {
+                ProgId = "Screenshot",
+                ContentType = "image/png"
+            }
+        };
+        _session.InsertInline(placeholder);
     }
 
     private void InsertHyperlink(object? payload)
@@ -270,9 +298,31 @@ public sealed class EditorInsertCommandMap
         _session.InsertInlines(inlines);
     }
 
-    private void InsertCrossReference()
+    private void InsertCrossReference(object? payload)
     {
-        InsertPlaceholderText("Cross-reference");
+        var request = payload is EditorCrossReferenceInsertRequest provided
+            ? provided
+            : new EditorCrossReferenceInsertRequest(payload as string);
+
+        var bookmarkName = !string.IsNullOrWhiteSpace(request.BookmarkName)
+            ? request.BookmarkName
+            : FindFirstBookmarkName(_session.Document);
+        if (string.IsNullOrWhiteSpace(bookmarkName))
+        {
+            InsertPlaceholderText("Cross-reference");
+            return;
+        }
+
+        var displayText = ResolveBookmarkDisplayText(_session.Document, bookmarkName) ?? bookmarkName;
+        var instruction = request.IncludePageNumber
+            ? $"PAGEREF \"{bookmarkName}\""
+            : $"REF \"{bookmarkName}\"";
+        if (request.Hyperlink)
+        {
+            instruction += " \\h";
+        }
+
+        InsertField(instruction, displayText);
     }
 
     private void InsertHeader(object? payload)
@@ -302,6 +352,7 @@ public sealed class EditorInsertCommandMap
         }
 
         target.Blocks.Add(paragraph);
+        target.IsDefined = true;
         _session.RefreshLayout();
     }
 
@@ -318,8 +369,25 @@ public sealed class EditorInsertCommandMap
     private void InsertQuickParts(object? payload)
     {
         var label = payload as string;
-        var text = string.IsNullOrWhiteSpace(label) ? "Quick Parts" : $"Quick Parts - {label}";
-        InsertPlaceholderText(text);
+        if (string.Equals(label, "AutoText", StringComparison.OrdinalIgnoreCase))
+        {
+            InsertContentControlPlaceholder("AutoText");
+            return;
+        }
+
+        if (string.Equals(label, "Field", StringComparison.OrdinalIgnoreCase))
+        {
+            InsertField("FIELD", "Field");
+            return;
+        }
+
+        if (string.Equals(label, "DocProperty", StringComparison.OrdinalIgnoreCase))
+        {
+            InsertField("DOCPROPERTY \"Title\"", "Title");
+            return;
+        }
+
+        InsertPlaceholderText(string.IsNullOrWhiteSpace(label) ? "Quick Parts" : $"Quick Parts - {label}");
     }
 
     private void InsertWordArt(object? payload)
@@ -363,26 +431,39 @@ public sealed class EditorInsertCommandMap
         _session.RefreshLayout();
     }
 
+    private void InsertSignatureLine()
+    {
+        _session.InsertText("Signature: ".AsSpan());
+        var signatureLine = CreateSignatureLine(DefaultSignatureLineWidth);
+        _session.InsertInline(signatureLine);
+        _session.InsertParagraphBreak();
+
+        _session.InsertText("Date: ".AsSpan());
+        var dateLine = CreateSignatureLine(DefaultSignatureLineWidth * 0.7f);
+        _session.InsertInline(dateLine);
+    }
+
     private void InsertDateTime(object? payload)
     {
         var mode = payload as string;
         var format = string.Equals(mode, "long", StringComparison.OrdinalIgnoreCase)
             ? "dddd, MMMM d, yyyy"
             : "yyyy-MM-dd";
-        var text = DateTime.Now.ToString(format, CultureInfo.InvariantCulture);
-        _session.InsertText(text.AsSpan());
+        InsertDateField(format);
     }
 
-    private void InsertEmbeddedObject()
+    private void InsertEmbeddedObject(object? payload)
     {
-        var image = new ImageInline(Array.Empty<byte>(), DefaultImageWidth, DefaultImageHeight, "application/octet-stream")
-        {
-            EmbeddedObject = new EmbeddedObjectInfo
-            {
-                ProgId = "Embedded Object",
-                ContentType = "application/octet-stream"
-            }
-        };
+        var request = payload is EditorEmbeddedObjectInsertRequest provided
+            ? provided
+            : default;
+
+        var image = CreateEmbeddedObjectInline(
+            request,
+            DefaultImageWidth,
+            DefaultImageHeight,
+            "Embedded Object",
+            "application/octet-stream");
         _session.InsertInline(image);
     }
 
@@ -457,22 +538,564 @@ public sealed class EditorInsertCommandMap
         };
     }
 
-    private static void InsertHeaderFooter(HeaderFooter target, string label, string? textOverride)
+    private void InsertHeaderFooter(HeaderFooter target, string label, string? textOverride)
     {
-        if (textOverride is not null)
+        target.Blocks.Clear();
+        target.IsDefined = true;
+
+        if (!string.IsNullOrWhiteSpace(textOverride))
         {
-            target.Blocks.Clear();
             target.Blocks.Add(new ParagraphBlock(textOverride));
             return;
         }
 
-        target.Blocks.Add(new ParagraphBlock(label));
+        var paragraph = new ParagraphBlock();
+        paragraph.Inlines.AddRange(BuildPlaceholderInlines(label, "HeaderFooter"));
+        target.Blocks.Add(paragraph);
+    }
+
+    private void InsertCoverPagePlaceholder(string placeholder, string? template)
+    {
+        var tag = string.IsNullOrWhiteSpace(template) ? "CoverPage" : $"CoverPage:{template}";
+        InsertContentControlPlaceholder(placeholder, tag);
+        _session.InsertParagraphBreak();
+    }
+
+    private void InsertContentControlPlaceholder(string placeholderText, string? tag = null)
+    {
+        var inlines = BuildPlaceholderInlines(placeholderText, tag);
+        _session.InsertInlines(inlines);
+    }
+
+    private void InsertDateField(string format)
+    {
+        var text = DateTime.Now.ToString(format, CultureInfo.CurrentCulture);
+        var instruction = $"DATE \\@ \"{format}\"";
+        InsertField(instruction, text);
+    }
+
+    private void InsertField(string instruction, string resultText)
+    {
+        var inlines = BuildFieldInlines(instruction, resultText);
+        _session.InsertInlines(inlines);
+    }
+
+    private Inline[] BuildPlaceholderInlines(string placeholderText, string? tag)
+    {
+        var properties = CreateContentControlProperties(placeholderText, tag);
+        return new Inline[]
+        {
+            new ContentControlStartInline(properties),
+            new ContentControlEndInline(properties.Id)
+        };
+    }
+
+    private ContentControlProperties CreateContentControlProperties(string placeholderText, string? tag)
+    {
+        return new ContentControlProperties
+        {
+            Id = _contentControlCounter++,
+            Kind = ContentControlKind.Run,
+            Tag = tag,
+            PlaceholderText = placeholderText,
+            ShowingPlaceholder = true
+        };
+    }
+
+    private static Inline[] BuildFieldInlines(string instruction, string resultText)
+    {
+        var start = new FieldStartInline(instruction)
+        {
+            Definition = FieldInstructionParser.Parse(instruction)
+        };
+        return new Inline[]
+        {
+            start,
+            new FieldSeparatorInline(),
+            new RunInline(resultText),
+            new FieldEndInline()
+        };
+    }
+
+    private static ShapeInline CreateSignatureLine(float width)
+    {
+        var properties = CreateDefaultShapeProperties("line");
+        properties.FillColor = DocColor.Transparent;
+        if (properties.Outline is not null)
+        {
+            properties.Outline.Thickness = 1.2f;
+        }
+
+        return new ShapeInline(width, DefaultSignatureLineHeight, properties, null, "Signature Line");
+    }
+
+    private static ImageInline CreateImageInline(EditorImageInsertRequest request, float defaultWidth, float defaultHeight)
+    {
+        var data = request.Data ?? Array.Empty<byte>();
+        var width = request.Width > 0 ? request.Width : defaultWidth;
+        var height = request.Height > 0 ? request.Height : defaultHeight;
+        var contentType = string.IsNullOrWhiteSpace(request.ContentType) ? "image/png" : request.ContentType;
+        return new ImageInline(data, width, height, contentType!);
+    }
+
+    private static ImageInline CreateEmbeddedObjectInline(
+        EditorEmbeddedObjectInsertRequest request,
+        float width,
+        float height,
+        string defaultProgId,
+        string defaultContentType)
+    {
+        var contentType = string.IsNullOrWhiteSpace(request.ContentType) ? defaultContentType : request.ContentType!;
+        var image = new ImageInline(Array.Empty<byte>(), width, height, contentType);
+        var embedded = new EmbeddedObjectInfo
+        {
+            ProgId = string.IsNullOrWhiteSpace(request.ProgId) ? defaultProgId : request.ProgId,
+            ContentType = contentType
+        };
+
+        if (!string.IsNullOrWhiteSpace(request.TargetUri))
+        {
+            embedded.TargetUri = request.TargetUri;
+        }
+
+        if (request.Data is { Length: > 0 })
+        {
+            embedded.Data = request.Data;
+        }
+
+        if (request.IsLinked)
+        {
+            embedded.IsLinked = true;
+        }
+
+        image.EmbeddedObject = embedded;
+        return image;
+    }
+
+    private static DiagramInfo BuildSmartArtDiagram(string? layoutName)
+    {
+        var normalized = ResolveSmartArtLayoutName(layoutName);
+        var nodes = normalized switch
+        {
+            "Process" => new[] { "Step 1", "Step 2", "Step 3", "Step 4" },
+            "Cycle" => new[] { "Phase 1", "Phase 2", "Phase 3", "Phase 4" },
+            "Hierarchy" => new[] { "Root", "Child 1", "Child 2", "Child 3" },
+            "Matrix" => new[] { "Item A", "Item B", "Item C", "Item D" },
+            _ => new[] { "Item 1", "Item 2", "Item 3" }
+        };
+
+        var dataXml = BuildSmartArtData(nodes, normalized);
+        var layoutXml = BuildSmartArtLayoutPart(normalized);
+        return new DiagramInfo
+        {
+            DataPart = Encoding.UTF8.GetBytes(dataXml),
+            LayoutPart = Encoding.UTF8.GetBytes(layoutXml)
+        };
+    }
+
+    private static string ResolveSmartArtLayoutName(string? layoutName)
+    {
+        if (string.IsNullOrWhiteSpace(layoutName))
+        {
+            return "List";
+        }
+
+        return layoutName.Trim() switch
+        {
+            "Process" => "Process",
+            "Cycle" => "Cycle",
+            "Hierarchy" => "Hierarchy",
+            "Matrix" => "Matrix",
+            "Pyramid" => "Matrix",
+            "Relationship" => "Cycle",
+            "List" => "List",
+            _ => "List"
+        };
+    }
+
+    private static string BuildSmartArtData(IReadOnlyList<string> nodes, string layoutName)
+    {
+        var builder = new StringBuilder();
+        builder.Append("<dgm:dataModel xmlns:dgm=\"http://schemas.openxmlformats.org/drawingml/2006/diagram\" ");
+        builder.Append("xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\">");
+
+        for (var i = 0; i < nodes.Count; i++)
+        {
+            var id = $"n{i + 1}";
+            builder.Append("<dgm:pt modelId=\"").Append(id).Append("\">");
+            builder.Append("<dgm:t><a:t>");
+            builder.Append(EscapeXml(nodes[i]));
+            builder.Append("</a:t></dgm:t></dgm:pt>");
+        }
+
+        if (nodes.Count > 1)
+        {
+            if (layoutName == "Hierarchy")
+            {
+                for (var i = 1; i < nodes.Count; i++)
+                {
+                    builder.Append("<dgm:cxn srcId=\"n1\" destId=\"n").Append(i + 1).Append("\"/>");
+                }
+            }
+            else
+            {
+                for (var i = 1; i < nodes.Count; i++)
+                {
+                    builder.Append("<dgm:cxn srcId=\"n").Append(i).Append("\" destId=\"n").Append(i + 1).Append("\"/>");
+                }
+
+                if (layoutName == "Cycle" && nodes.Count > 2)
+                {
+                    builder.Append("<dgm:cxn srcId=\"n").Append(nodes.Count).Append("\" destId=\"n1\"/>");
+                }
+            }
+        }
+
+        builder.Append("</dgm:dataModel>");
+        return builder.ToString();
+    }
+
+    private static string BuildSmartArtLayoutPart(string layoutName)
+    {
+        return $"<dgm:layoutDef xmlns:dgm=\"http://schemas.openxmlformats.org/drawingml/2006/diagram\" name=\"{layoutName.ToLowerInvariant()}\"/>";
+    }
+
+    private static byte[] BuildIconSvgData(string? label)
+    {
+        var glyph = ResolveIconGlyph(label);
+        var svg = $"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"64\" height=\"64\" viewBox=\"0 0 64 64\">" +
+                  "<rect x=\"2\" y=\"2\" width=\"60\" height=\"60\" rx=\"12\" ry=\"12\" fill=\"#F2F2F2\" stroke=\"#3A3A3A\" stroke-width=\"2\"/>" +
+                  $"<text x=\"32\" y=\"40\" font-size=\"24\" text-anchor=\"middle\" fill=\"#3A3A3A\" font-family=\"Arial\">{EscapeXml(glyph)}</text>" +
+                  "</svg>";
+        return Encoding.UTF8.GetBytes(svg);
+    }
+
+    private static string ResolveIconGlyph(string? label)
+    {
+        if (string.IsNullOrWhiteSpace(label))
+        {
+            return "I";
+        }
+
+        var trimmed = label.Trim();
+        return trimmed.ToUpperInvariant() switch
+        {
+            "INFO" => "i",
+            "ALERT" => "!",
+            "CHECK" => "OK",
+            "STAR" => "*",
+            "CALENDAR" => "C",
+            "SEARCH" => "Q",
+            "LOCK" => "L",
+            "GLOBE" => "G",
+            "USER" => "U",
+            "SETTINGS" => "S",
+            _ => trimmed.Length > 1 ? trimmed.AsSpan(0, 1).ToString().ToUpperInvariant() : trimmed.ToUpperInvariant()
+        };
+    }
+
+    private static string? FindFirstBookmarkName(Document document)
+    {
+        foreach (var name in EnumerateBookmarkNames(document))
+        {
+            return name;
+        }
+
+        return null;
+    }
+
+    private static IEnumerable<string> EnumerateBookmarkNames(Document document)
+    {
+        foreach (var block in document.Blocks)
+        {
+            foreach (var name in EnumerateBookmarkNames(block))
+            {
+                yield return name;
+            }
+        }
+
+        foreach (var name in EnumerateBookmarkNames(document.Header))
+        {
+            yield return name;
+        }
+
+        foreach (var name in EnumerateBookmarkNames(document.Footer))
+        {
+            yield return name;
+        }
+    }
+
+    private static IEnumerable<string> EnumerateBookmarkNames(Block block)
+    {
+        switch (block)
+        {
+            case ParagraphBlock paragraph:
+                foreach (var name in EnumerateBookmarkNames(paragraph))
+                {
+                    yield return name;
+                }
+
+                break;
+            case TableBlock table:
+                foreach (var row in table.Rows)
+                {
+                    foreach (var cell in row.Cells)
+                    {
+                        foreach (var paragraph in cell.Paragraphs)
+                        {
+                            foreach (var name in EnumerateBookmarkNames(paragraph))
+                            {
+                                yield return name;
+                            }
+                        }
+                    }
+                }
+
+                break;
+        }
+    }
+
+    private static IEnumerable<string> EnumerateBookmarkNames(ParagraphBlock paragraph)
+    {
+        foreach (var inline in paragraph.Inlines)
+        {
+            if (inline is BookmarkStartInline bookmarkStart && !string.IsNullOrWhiteSpace(bookmarkStart.Name))
+            {
+                yield return bookmarkStart.Name;
+            }
+        }
+    }
+
+    private static IEnumerable<string> EnumerateBookmarkNames(HeaderFooter headerFooter)
+    {
+        foreach (var block in headerFooter.Blocks)
+        {
+            foreach (var name in EnumerateBookmarkNames(block))
+            {
+                yield return name;
+            }
+        }
+    }
+
+    private static string? ResolveBookmarkDisplayText(Document document, string bookmarkName)
+    {
+        foreach (var block in document.Blocks)
+        {
+            var text = ResolveBookmarkDisplayText(block, bookmarkName);
+            if (!string.IsNullOrWhiteSpace(text))
+            {
+                return text;
+            }
+        }
+
+        var headerText = ResolveBookmarkDisplayText(document.Header, bookmarkName);
+        if (!string.IsNullOrWhiteSpace(headerText))
+        {
+            return headerText;
+        }
+
+        var footerText = ResolveBookmarkDisplayText(document.Footer, bookmarkName);
+        if (!string.IsNullOrWhiteSpace(footerText))
+        {
+            return footerText;
+        }
+
+        return null;
+    }
+
+    private static string? ResolveBookmarkDisplayText(Block block, string bookmarkName)
+    {
+        return block switch
+        {
+            ParagraphBlock paragraph => ResolveBookmarkDisplayText(paragraph, bookmarkName),
+            TableBlock table => ResolveBookmarkDisplayText(table, bookmarkName),
+            _ => null
+        };
+    }
+
+    private static string? ResolveBookmarkDisplayText(TableBlock table, string bookmarkName)
+    {
+        foreach (var row in table.Rows)
+        {
+            foreach (var cell in row.Cells)
+            {
+                foreach (var paragraph in cell.Paragraphs)
+                {
+                    var text = ResolveBookmarkDisplayText(paragraph, bookmarkName);
+                    if (!string.IsNullOrWhiteSpace(text))
+                    {
+                        return text;
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static string? ResolveBookmarkDisplayText(HeaderFooter headerFooter, string bookmarkName)
+    {
+        foreach (var block in headerFooter.Blocks)
+        {
+            var text = ResolveBookmarkDisplayText(block, bookmarkName);
+            if (!string.IsNullOrWhiteSpace(text))
+            {
+                return text;
+            }
+        }
+
+        return null;
+    }
+
+    private static string? ResolveBookmarkDisplayText(ParagraphBlock paragraph, string bookmarkName)
+    {
+        if (paragraph.Inlines.Count == 0)
+        {
+            return null;
+        }
+
+        for (var i = 0; i < paragraph.Inlines.Count; i++)
+        {
+            if (paragraph.Inlines[i] is not BookmarkStartInline start || !string.Equals(start.Name, bookmarkName, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var builder = new StringBuilder();
+            for (var j = i + 1; j < paragraph.Inlines.Count; j++)
+            {
+                var inline = paragraph.Inlines[j];
+                if (inline is BookmarkEndInline end && end.Id == start.Id)
+                {
+                    return builder.Length > 0 ? builder.ToString() : null;
+                }
+
+                AppendInlineText(builder, inline);
+            }
+
+            return builder.Length > 0 ? builder.ToString() : null;
+        }
+
+        return null;
+    }
+
+    private static void AppendInlineText(StringBuilder builder, Inline inline)
+    {
+        switch (inline)
+        {
+            case RunInline run:
+                builder.Append(run.Text.GetText());
+                break;
+            case ImageInline:
+            case ShapeInline:
+            case ChartInline:
+            case EquationInline:
+            case PageNumberInline:
+            case TotalPagesInline:
+                builder.Append(DocumentConstants.ObjectReplacementChar);
+                break;
+        }
+    }
+
+    private static string EscapeXml(string value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return string.Empty;
+        }
+
+        var builder = new StringBuilder(value.Length + 8);
+        foreach (var ch in value)
+        {
+            builder.Append(ch switch
+            {
+                '<' => "&lt;",
+                '>' => "&gt;",
+                '&' => "&amp;",
+                '"' => "&quot;",
+                '\'' => "&apos;",
+                _ => ch.ToString()
+            });
+        }
+
+        return builder.ToString();
+    }
+
+    private static int FindNextContentControlId(Document document)
+    {
+        var maxId = 0;
+        ScanContentControls(document.Blocks, ref maxId);
+        ScanContentControls(document.Header.Blocks, ref maxId);
+        ScanContentControls(document.Footer.Blocks, ref maxId);
+        ScanContentControls(document.FirstHeader.Blocks, ref maxId);
+        ScanContentControls(document.FirstFooter.Blocks, ref maxId);
+        ScanContentControls(document.EvenHeader.Blocks, ref maxId);
+        ScanContentControls(document.EvenFooter.Blocks, ref maxId);
+        return maxId + 1;
+    }
+
+    private static void ScanContentControls(IEnumerable<Block> blocks, ref int maxId)
+    {
+        foreach (var block in blocks)
+        {
+            switch (block)
+            {
+                case ContentControlStartBlock contentStart when contentStart.Properties.Id.HasValue:
+                    maxId = Math.Max(maxId, contentStart.Properties.Id.Value);
+                    break;
+                case ParagraphBlock paragraph:
+                    ScanContentControls(paragraph, ref maxId);
+                    break;
+                case TableBlock table:
+                    foreach (var row in table.Rows)
+                    {
+                        foreach (var cell in row.Cells)
+                        {
+                            if (cell.ContentControl?.Id is int cellId)
+                            {
+                                maxId = Math.Max(maxId, cellId);
+                            }
+
+                            foreach (var paragraph in cell.Paragraphs)
+                            {
+                                ScanContentControls(paragraph, ref maxId);
+                            }
+                        }
+                    }
+
+                    break;
+            }
+        }
+    }
+
+    private static void ScanContentControls(ParagraphBlock paragraph, ref int maxId)
+    {
+        foreach (var inline in paragraph.Inlines)
+        {
+            if (inline is ContentControlStartInline start && start.Properties.Id.HasValue)
+            {
+                maxId = Math.Max(maxId, start.Properties.Id.Value);
+            }
+        }
     }
 
     private static int FindNextBookmarkId(Document document)
     {
         var maxId = 0;
-        foreach (var block in document.Blocks)
+        ScanBookmarks(document.Blocks, ref maxId);
+        ScanBookmarks(document.Header.Blocks, ref maxId);
+        ScanBookmarks(document.Footer.Blocks, ref maxId);
+        ScanBookmarks(document.FirstHeader.Blocks, ref maxId);
+        ScanBookmarks(document.FirstFooter.Blocks, ref maxId);
+        ScanBookmarks(document.EvenHeader.Blocks, ref maxId);
+        ScanBookmarks(document.EvenFooter.Blocks, ref maxId);
+
+        return maxId + 1;
+    }
+
+    private static void ScanBookmarks(IEnumerable<Block> blocks, ref int maxId)
+    {
+        foreach (var block in blocks)
         {
             if (block is ParagraphBlock paragraph)
             {
@@ -494,8 +1117,6 @@ public sealed class EditorInsertCommandMap
                 }
             }
         }
-
-        return maxId + 1;
     }
 
     private static int FindBookmarkMax(ParagraphBlock paragraph)
