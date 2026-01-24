@@ -476,6 +476,12 @@ public sealed class DocxImporter
         {
             document.EvenAndOddHeaders = evenAndOddHeaders.Value;
         }
+
+        var trackRevisions = ReadOnOff(settings.GetFirstChild<TrackRevisions>());
+        if (trackRevisions.HasValue)
+        {
+            document.TrackChangesEnabled = trackRevisions.Value;
+        }
     }
 
     private static void LoadDocumentBackground(MainDocumentPart? mainPart, VibeDocument document)
@@ -3181,6 +3187,12 @@ public sealed class DocxImporter
             properties.TextDirection = MapTextDirection(textDirection.Value);
         }
 
+        var eastAsianLayout = props.GetFirstChild<EastAsianLayout>();
+        if (eastAsianLayout is not null)
+        {
+            properties.EastAsianLayout = ParseEastAsianLayout(eastAsianLayout);
+        }
+
         var shading = props.GetFirstChild<Shading>();
         if (shading?.Fill?.Value is string fill && TryParseHexColor(fill, out var shadingColor))
         {
@@ -3459,6 +3471,12 @@ public sealed class DocxImporter
         if (textDirection is not null)
         {
             properties.TextDirection = MapTextDirection(textDirection.Value);
+        }
+
+        var eastAsianLayout = props.GetFirstChild<EastAsianLayout>();
+        if (eastAsianLayout is not null)
+        {
+            properties.EastAsianLayout = ParseEastAsianLayout(eastAsianLayout);
         }
 
         var shading = props.GetFirstChild<Shading>();
@@ -5831,11 +5849,24 @@ public sealed class DocxImporter
 
     private static MathElement ParseMathFraction(OpenXmlElement element)
     {
+        var hasBar = true;
+        var properties = element.Elements().FirstOrDefault(child => string.Equals(child.LocalName, "fPr", StringComparison.OrdinalIgnoreCase));
+        if (properties is not null)
+        {
+            var typeElement = properties.Elements().FirstOrDefault(child => string.Equals(child.LocalName, "type", StringComparison.OrdinalIgnoreCase));
+            var typeValue = typeElement is not null ? GetAttributeValue(typeElement, "val", typeElement.NamespaceUri) : null;
+            if (!string.IsNullOrWhiteSpace(typeValue)
+                && typeValue.Equals("noBar", StringComparison.OrdinalIgnoreCase))
+            {
+                hasBar = false;
+            }
+        }
+
         var numeratorElement = element.Elements().FirstOrDefault(child => string.Equals(child.LocalName, "num", StringComparison.OrdinalIgnoreCase));
         var denominatorElement = element.Elements().FirstOrDefault(child => string.Equals(child.LocalName, "den", StringComparison.OrdinalIgnoreCase));
         var numerator = numeratorElement is not null ? ParseMathGroup(numeratorElement) : new MathRun();
         var denominator = denominatorElement is not null ? ParseMathGroup(denominatorElement) : new MathRun();
-        return new MathFraction(numerator, denominator);
+        return new MathFraction(numerator, denominator) { HasBar = hasBar };
     }
 
     private static MathElement ParseMathScript(OpenXmlElement element)

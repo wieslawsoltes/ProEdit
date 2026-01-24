@@ -24,7 +24,13 @@ public sealed class DocxExporter
 {
     private const string RelationshipNamespace = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
     private const string WordprocessingNamespace = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+    private const string VmlNamespace = "urn:schemas-microsoft-com:vml";
+    private const string OfficeNamespace = "urn:schemas-microsoft-com:office:office";
+    private const string DiagramNamespace = "http://schemas.openxmlformats.org/drawingml/2006/diagram";
+    private const string AltChunkRelationshipType = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/aFChunk";
     private const string ObfuscatedFontContentType = "application/vnd.openxmlformats-officedocument.obfuscatedFont";
+    private const string OleObjectContentType = "application/vnd.openxmlformats-officedocument.oleObject";
+    private const string OleObjectRelationshipType = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/oleObject";
 
     public void Save(VibeDocument document, string filePath)
     {
@@ -44,12 +50,16 @@ public sealed class DocxExporter
         var body = mainPart.Document.Body!;
 
         var numberingContext = EnsureNumbering(mainPart, document);
+        EnsureThemePart(mainPart, document);
         EnsureStyles(mainPart, document);
         EnsureFontTable(mainPart, document);
-        EnsureNotesAndComments(mainPart, document, numberingContext);
+        var placeholderWriter = new ContentControlPlaceholderWriter(mainPart);
+        EnsureNotesAndComments(mainPart, document, numberingContext, placeholderWriter);
         var imageWriter = new ImageWriter(mainPart);
         var chartWriter = new ChartWriter(mainPart);
         var hyperlinkWriter = new HyperlinkWriter(mainPart);
+        var embeddedObjectWriter = new EmbeddedObjectWriter(mainPart);
+        var altChunkWriter = new AltChunkWriter(mainPart);
         var sectionParts = new Dictionary<int, SectionPartInfo>();
         var includeEvenHeaders = document.EvenAndOddHeaders
             || document.Sections.Any(section =>
@@ -81,7 +91,9 @@ public sealed class DocxExporter
                 var headerWriter = new ImageWriter(headerPart);
                 var headerChartWriter = new ChartWriter(headerPart);
                 var headerLinkWriter = new HyperlinkWriter(headerPart);
-                headerPart.Header = CreateHeader(section.Header, numberingContext, headerWriter, headerChartWriter, headerLinkWriter, document.Fonts);
+                var headerEmbeddedWriter = new EmbeddedObjectWriter(headerPart);
+                var headerAltChunkWriter = new AltChunkWriter(headerPart);
+                headerPart.Header = CreateHeader(section.Header, numberingContext, headerWriter, headerChartWriter, headerLinkWriter, headerEmbeddedWriter, headerAltChunkWriter, placeholderWriter, document.Fonts);
                 headerId = mainPart.GetIdOfPart(headerPart);
             }
 
@@ -92,7 +104,9 @@ public sealed class DocxExporter
                 var footerWriter = new ImageWriter(footerPart);
                 var footerChartWriter = new ChartWriter(footerPart);
                 var footerLinkWriter = new HyperlinkWriter(footerPart);
-                footerPart.Footer = CreateFooter(section.Footer, numberingContext, footerWriter, footerChartWriter, footerLinkWriter, document.Fonts);
+                var footerEmbeddedWriter = new EmbeddedObjectWriter(footerPart);
+                var footerAltChunkWriter = new AltChunkWriter(footerPart);
+                footerPart.Footer = CreateFooter(section.Footer, numberingContext, footerWriter, footerChartWriter, footerLinkWriter, footerEmbeddedWriter, footerAltChunkWriter, placeholderWriter, document.Fonts);
                 footerId = mainPart.GetIdOfPart(footerPart);
             }
 
@@ -106,7 +120,9 @@ public sealed class DocxExporter
                     var firstHeaderWriter = new ImageWriter(firstHeaderPart);
                     var firstHeaderChartWriter = new ChartWriter(firstHeaderPart);
                     var firstHeaderLinkWriter = new HyperlinkWriter(firstHeaderPart);
-                    firstHeaderPart.Header = CreateHeader(section.FirstHeader, numberingContext, firstHeaderWriter, firstHeaderChartWriter, firstHeaderLinkWriter, document.Fonts);
+                    var firstHeaderEmbeddedWriter = new EmbeddedObjectWriter(firstHeaderPart);
+                    var firstHeaderAltChunkWriter = new AltChunkWriter(firstHeaderPart);
+                    firstHeaderPart.Header = CreateHeader(section.FirstHeader, numberingContext, firstHeaderWriter, firstHeaderChartWriter, firstHeaderLinkWriter, firstHeaderEmbeddedWriter, firstHeaderAltChunkWriter, placeholderWriter, document.Fonts);
                     firstHeaderId = mainPart.GetIdOfPart(firstHeaderPart);
                 }
 
@@ -116,7 +132,9 @@ public sealed class DocxExporter
                     var firstFooterWriter = new ImageWriter(firstFooterPart);
                     var firstFooterChartWriter = new ChartWriter(firstFooterPart);
                     var firstFooterLinkWriter = new HyperlinkWriter(firstFooterPart);
-                    firstFooterPart.Footer = CreateFooter(section.FirstFooter, numberingContext, firstFooterWriter, firstFooterChartWriter, firstFooterLinkWriter, document.Fonts);
+                    var firstFooterEmbeddedWriter = new EmbeddedObjectWriter(firstFooterPart);
+                    var firstFooterAltChunkWriter = new AltChunkWriter(firstFooterPart);
+                    firstFooterPart.Footer = CreateFooter(section.FirstFooter, numberingContext, firstFooterWriter, firstFooterChartWriter, firstFooterLinkWriter, firstFooterEmbeddedWriter, firstFooterAltChunkWriter, placeholderWriter, document.Fonts);
                     firstFooterId = mainPart.GetIdOfPart(firstFooterPart);
                 }
             }
@@ -131,7 +149,9 @@ public sealed class DocxExporter
                     var evenHeaderWriter = new ImageWriter(evenHeaderPart);
                     var evenHeaderChartWriter = new ChartWriter(evenHeaderPart);
                     var evenHeaderLinkWriter = new HyperlinkWriter(evenHeaderPart);
-                    evenHeaderPart.Header = CreateHeader(section.EvenHeader, numberingContext, evenHeaderWriter, evenHeaderChartWriter, evenHeaderLinkWriter, document.Fonts);
+                    var evenHeaderEmbeddedWriter = new EmbeddedObjectWriter(evenHeaderPart);
+                    var evenHeaderAltChunkWriter = new AltChunkWriter(evenHeaderPart);
+                    evenHeaderPart.Header = CreateHeader(section.EvenHeader, numberingContext, evenHeaderWriter, evenHeaderChartWriter, evenHeaderLinkWriter, evenHeaderEmbeddedWriter, evenHeaderAltChunkWriter, placeholderWriter, document.Fonts);
                     evenHeaderId = mainPart.GetIdOfPart(evenHeaderPart);
                 }
 
@@ -141,7 +161,9 @@ public sealed class DocxExporter
                     var evenFooterWriter = new ImageWriter(evenFooterPart);
                     var evenFooterChartWriter = new ChartWriter(evenFooterPart);
                     var evenFooterLinkWriter = new HyperlinkWriter(evenFooterPart);
-                    evenFooterPart.Footer = CreateFooter(section.EvenFooter, numberingContext, evenFooterWriter, evenFooterChartWriter, evenFooterLinkWriter, document.Fonts);
+                    var evenFooterEmbeddedWriter = new EmbeddedObjectWriter(evenFooterPart);
+                    var evenFooterAltChunkWriter = new AltChunkWriter(evenFooterPart);
+                    evenFooterPart.Footer = CreateFooter(section.EvenFooter, numberingContext, evenFooterWriter, evenFooterChartWriter, evenFooterLinkWriter, evenFooterEmbeddedWriter, evenFooterAltChunkWriter, placeholderWriter, document.Fonts);
                     evenFooterId = mainPart.GetIdOfPart(evenFooterPart);
                 }
             }
@@ -152,37 +174,89 @@ public sealed class DocxExporter
         }
 
         var currentSectionIndex = 0;
+        var blocks = document.Blocks;
         var containerStack = new Stack<OpenXmlCompositeElement>();
         OpenXmlCompositeElement currentContainer = body;
-        foreach (var block in document.Blocks)
+        var index = 0;
+        while (index < blocks.Count)
         {
+            var block = blocks[index];
             switch (block)
             {
-                case ParagraphBlock paragraph:
-                    currentContainer.AppendChild(CreateParagraph(paragraph, numberingContext, imageWriter, chartWriter, hyperlinkWriter, document.Fonts));
-                    break;
-                case TableBlock table:
-                    currentContainer.AppendChild(CreateTable(table, numberingContext, imageWriter, chartWriter, hyperlinkWriter, document.Fonts));
-                    break;
-                case PageBreakBlock:
-                    currentContainer.AppendChild(CreatePageBreakParagraph());
-                    break;
-                case ColumnBreakBlock:
-                    currentContainer.AppendChild(CreateColumnBreakParagraph());
-                    break;
                 case RevisionStartBlock revisionStart:
                 {
                     var revisionElement = BuildBlockRevisionElement(revisionStart.Revision);
                     currentContainer.AppendChild(revisionElement);
                     containerStack.Push(currentContainer);
                     currentContainer = revisionElement;
-                    break;
+                    index++;
+                    continue;
                 }
                 case RevisionEndBlock:
                     if (containerStack.Count > 0)
                     {
                         currentContainer = containerStack.Pop();
                     }
+                    index++;
+                    continue;
+                case MetadataStartBlock metadataStart:
+                {
+                    var metadataElement = BuildMetadataWrapperElement(metadataStart.Metadata);
+                    currentContainer.AppendChild(metadataElement);
+                    containerStack.Push(currentContainer);
+                    currentContainer = metadataElement;
+                    index++;
+                    continue;
+                }
+                case MetadataEndBlock:
+                    if (containerStack.Count > 0)
+                    {
+                        currentContainer = containerStack.Pop();
+                    }
+                    index++;
+                    continue;
+                case ContentControlStartBlock startBlock:
+                {
+                    var contentBlocks = new List<Block>();
+                    index++;
+                    while (index < blocks.Count)
+                    {
+                        if (blocks[index] is ContentControlEndBlock endBlock
+                            && (!startBlock.Properties.Id.HasValue || endBlock.Id == startBlock.Properties.Id))
+                        {
+                            index++;
+                            break;
+                        }
+
+                        contentBlocks.Add(blocks[index]);
+                        index++;
+                    }
+
+                    currentContainer.AppendChild(BuildSdtBlock(startBlock.Properties, contentBlocks, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, document.Fonts));
+                    continue;
+                }
+                case ContentControlEndBlock:
+                    index++;
+                    continue;
+                case ParagraphBlock paragraph:
+                    currentContainer.AppendChild(CreateParagraph(paragraph, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, document.Fonts));
+                    index++;
+                    break;
+                case TableBlock table:
+                    currentContainer.AppendChild(CreateTable(table, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, document.Fonts));
+                    index++;
+                    break;
+                case AltChunkBlock altChunk:
+                    currentContainer.AppendChild(BuildAltChunkElement(altChunkWriter, altChunk));
+                    index++;
+                    break;
+                case PageBreakBlock:
+                    currentContainer.AppendChild(CreatePageBreakParagraph());
+                    index++;
+                    break;
+                case ColumnBreakBlock:
+                    currentContainer.AppendChild(CreateColumnBreakParagraph());
+                    index++;
                     break;
                 case SectionBreakBlock sectionBreak:
                 {
@@ -191,8 +265,12 @@ public sealed class DocxExporter
                     currentContainer.AppendChild(CreateSectionBreakParagraph(sectionBreak, section, parts));
                     var nextIndex = sectionBreak.SectionIndex ?? Math.Min(currentSectionIndex + 1, document.SectionCount - 1);
                     currentSectionIndex = Math.Max(0, nextIndex);
+                    index++;
                     break;
                 }
+                default:
+                    index++;
+                    break;
             }
         }
 
@@ -226,6 +304,7 @@ public sealed class DocxExporter
         var numberingPart = mainPart.AddNewPart<NumberingDefinitionsPart>();
         var numbering = new Numbering();
         var listMap = new Dictionary<int, int>();
+        var listInfoMap = new Dictionary<ListInfoKey, int>();
         var kindMap = new Dictionary<ListKind, int>();
         var usedIds = new HashSet<int>();
         var nextId = 1;
@@ -263,6 +342,26 @@ public sealed class DocxExporter
             listMap[listDefinition.Id] = numId;
         }
 
+        foreach (var info in EnumerateListInfos(document))
+        {
+            if (info.ListId.HasValue && listMap.ContainsKey(info.ListId.Value))
+            {
+                continue;
+            }
+
+            var key = CreateListInfoKey(info);
+            if (listInfoMap.ContainsKey(key))
+            {
+                continue;
+            }
+
+            var numId = AllocateId();
+            var definition = BuildListDefinition(info, numId);
+            numbering.Append(CreateAbstractNumbering(definition, numId));
+            numbering.Append(CreateNumberingInstance(numId, numId));
+            listInfoMap[key] = numId;
+        }
+
         var bulletId = AllocateId();
         var decimalId = AllocateId();
         numbering.Append(CreateAbstractNumbering(bulletId, NumberFormatValues.Bullet, "•"));
@@ -273,17 +372,19 @@ public sealed class DocxExporter
         kindMap[ListKind.Numbered] = decimalId;
 
         numberingPart.Numbering = numbering;
-        return new NumberingContext(listMap, kindMap);
+        return new NumberingContext(listMap, listInfoMap, kindMap);
     }
 
     private sealed class NumberingContext
     {
         private readonly Dictionary<int, int> _listMap;
+        private readonly Dictionary<ListInfoKey, int> _listInfoMap;
         private readonly Dictionary<ListKind, int> _kindMap;
 
-        public NumberingContext(Dictionary<int, int> listMap, Dictionary<ListKind, int> kindMap)
+        public NumberingContext(Dictionary<int, int> listMap, Dictionary<ListInfoKey, int> listInfoMap, Dictionary<ListKind, int> kindMap)
         {
             _listMap = listMap;
+            _listInfoMap = listInfoMap;
             _kindMap = kindMap;
         }
 
@@ -294,7 +395,183 @@ public sealed class DocxExporter
                 return true;
             }
 
+            if (_listInfoMap.TryGetValue(CreateListInfoKey(info), out numId))
+            {
+                return true;
+            }
+
             return _kindMap.TryGetValue(info.Kind, out numId);
+        }
+    }
+
+    private readonly record struct ListInfoKey(
+        ListKind Kind,
+        int Level,
+        ListNumberFormat Format,
+        string? LevelText,
+        string? BulletSymbol,
+        int StartAt,
+        float? LeftIndent,
+        float? HangingIndent,
+        float? TabStop);
+
+    private static ListInfoKey CreateListInfoKey(ListInfo info)
+    {
+        var format = ResolveListNumberFormat(info);
+        var levelText = string.IsNullOrWhiteSpace(info.LevelText) ? null : info.LevelText;
+        var bulletSymbol = string.IsNullOrWhiteSpace(info.BulletSymbol) ? null : info.BulletSymbol;
+        var startAt = info.StartAt.HasValue ? Math.Max(1, info.StartAt.Value) : 1;
+        return new ListInfoKey(
+            info.Kind,
+            info.Level,
+            format,
+            levelText,
+            bulletSymbol,
+            startAt,
+            info.LeftIndent,
+            info.HangingIndent,
+            info.TabStop);
+    }
+
+    private static ListDefinition BuildListDefinition(ListInfo info, int listId)
+    {
+        var definition = new ListDefinition(listId);
+        var format = ResolveListNumberFormat(info);
+        var levelText = info.LevelText;
+        var bulletSymbol = info.BulletSymbol;
+        if (format == ListNumberFormat.Bullet)
+        {
+            if (string.IsNullOrWhiteSpace(levelText))
+            {
+                levelText = bulletSymbol ?? "•";
+            }
+
+            if (string.IsNullOrWhiteSpace(bulletSymbol))
+            {
+                bulletSymbol = levelText;
+            }
+        }
+        else if (string.IsNullOrWhiteSpace(levelText))
+        {
+            levelText = $"%{Math.Max(1, info.Level + 1)}.";
+        }
+
+        var level = new ListLevelDefinition(info.Level)
+        {
+            Format = format,
+            LevelText = levelText,
+            BulletSymbol = bulletSymbol,
+            StartAt = info.StartAt.HasValue ? Math.Max(1, info.StartAt.Value) : 1,
+            LeftIndent = info.LeftIndent,
+            HangingIndent = info.HangingIndent,
+            TabStop = info.TabStop
+        };
+        definition.Levels[level.Level] = level;
+        return definition;
+    }
+
+    private static ListNumberFormat ResolveListNumberFormat(ListInfo info)
+    {
+        if (info.NumberFormat.HasValue)
+        {
+            return info.NumberFormat.Value;
+        }
+
+        return info.Kind == ListKind.Bullet
+            ? ListNumberFormat.Bullet
+            : ListNumberFormat.Decimal;
+    }
+
+    private static IEnumerable<ListInfo> EnumerateListInfos(VibeDocument document)
+    {
+        var listInfos = new List<ListInfo>();
+        CollectListInfosFromBlocks(document.Blocks, listInfos);
+
+        foreach (var section in document.Sections)
+        {
+            CollectListInfosFromBlocks(section.Header.Blocks, listInfos);
+            CollectListInfosFromBlocks(section.Footer.Blocks, listInfos);
+            CollectListInfosFromBlocks(section.FirstHeader.Blocks, listInfos);
+            CollectListInfosFromBlocks(section.FirstFooter.Blocks, listInfos);
+            CollectListInfosFromBlocks(section.EvenHeader.Blocks, listInfos);
+            CollectListInfosFromBlocks(section.EvenFooter.Blocks, listInfos);
+        }
+
+        foreach (var footnote in document.Footnotes.Values)
+        {
+            CollectListInfosFromBlocks(footnote.Blocks, listInfos);
+        }
+
+        foreach (var endnote in document.Endnotes.Values)
+        {
+            CollectListInfosFromBlocks(endnote.Blocks, listInfos);
+        }
+
+        foreach (var comment in document.Comments.Values)
+        {
+            CollectListInfosFromBlocks(comment.Blocks, listInfos);
+        }
+
+        return listInfos;
+    }
+
+    private static void CollectListInfosFromBlocks(IReadOnlyList<Block> blocks, List<ListInfo> listInfos)
+    {
+        foreach (var block in blocks)
+        {
+            switch (block)
+            {
+                case ParagraphBlock paragraph:
+                    if (paragraph.ListInfo is not null)
+                    {
+                        listInfos.Add(paragraph.ListInfo);
+                    }
+
+                    CollectListInfosFromInlines(paragraph.Inlines, listInfos);
+                    foreach (var floating in paragraph.FloatingObjects)
+                    {
+                        if (floating.Content is ShapeInline shape && shape.TextBox is not null)
+                        {
+                            CollectListInfosFromBlocks(shape.TextBox.Blocks, listInfos);
+                        }
+                    }
+                    break;
+                case TableBlock table:
+                    foreach (var row in table.Rows)
+                    {
+                        foreach (var cell in row.Cells)
+                        {
+                            foreach (var paragraph in cell.Paragraphs)
+                            {
+                                if (paragraph.ListInfo is not null)
+                                {
+                                    listInfos.Add(paragraph.ListInfo);
+                                }
+
+                                CollectListInfosFromInlines(paragraph.Inlines, listInfos);
+                                foreach (var floating in paragraph.FloatingObjects)
+                                {
+                                    if (floating.Content is ShapeInline shape && shape.TextBox is not null)
+                                    {
+                                        CollectListInfosFromBlocks(shape.TextBox.Blocks, listInfos);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    break;
+            }
+        }
+    }
+
+    private static void CollectListInfosFromInlines(IReadOnlyList<Inline> inlines, List<ListInfo> listInfos)
+    {
+        foreach (var inline in inlines)
+        {
+            if (inline is ShapeInline shape && shape.TextBox is not null)
+            {
+                CollectListInfosFromBlocks(shape.TextBox.Blocks, listInfos);
+            }
         }
     }
 
@@ -372,30 +649,149 @@ public sealed class DocxExporter
         fontTablePart.Fonts = fonts;
     }
 
-    private static void EnsureNotesAndComments(MainDocumentPart mainPart, VibeDocument document, NumberingContext numberingContext)
+    private static void EnsureThemePart(MainDocumentPart mainPart, VibeDocument document)
+    {
+        if (!document.Fonts.Theme.HasValues && !document.ThemeColors.HasValues)
+        {
+            return;
+        }
+
+        var themePart = mainPart.AddNewPart<ThemePart>();
+        themePart.Theme = BuildTheme(document.Fonts, document.ThemeColors);
+    }
+
+    private static A.Theme BuildTheme(DocumentFonts fonts, DocumentThemeColorMap colors)
+    {
+        var theme = new A.Theme { Name = "Vibe Theme" };
+        var elements = new A.ThemeElements
+        {
+            ColorScheme = BuildThemeColorScheme(colors),
+            FontScheme = BuildThemeFontScheme(fonts),
+            FormatScheme = BuildThemeFormatScheme()
+        };
+
+        theme.ThemeElements = elements;
+        return theme;
+    }
+
+    private static A.ColorScheme BuildThemeColorScheme(DocumentThemeColorMap colors)
+    {
+        var scheme = new A.ColorScheme { Name = "Vibe Colors" };
+        scheme.AppendChild(new A.Dark1Color(new A.RgbColorModelHex { Val = ColorToHex(colors.GetOrDefault(DocThemeColor.Dark1)) }));
+        scheme.AppendChild(new A.Light1Color(new A.RgbColorModelHex { Val = ColorToHex(colors.GetOrDefault(DocThemeColor.Light1)) }));
+        scheme.AppendChild(new A.Dark2Color(new A.RgbColorModelHex { Val = ColorToHex(colors.GetOrDefault(DocThemeColor.Dark2)) }));
+        scheme.AppendChild(new A.Light2Color(new A.RgbColorModelHex { Val = ColorToHex(colors.GetOrDefault(DocThemeColor.Light2)) }));
+        scheme.AppendChild(new A.Accent1Color(new A.RgbColorModelHex { Val = ColorToHex(colors.GetOrDefault(DocThemeColor.Accent1)) }));
+        scheme.AppendChild(new A.Accent2Color(new A.RgbColorModelHex { Val = ColorToHex(colors.GetOrDefault(DocThemeColor.Accent2)) }));
+        scheme.AppendChild(new A.Accent3Color(new A.RgbColorModelHex { Val = ColorToHex(colors.GetOrDefault(DocThemeColor.Accent3)) }));
+        scheme.AppendChild(new A.Accent4Color(new A.RgbColorModelHex { Val = ColorToHex(colors.GetOrDefault(DocThemeColor.Accent4)) }));
+        scheme.AppendChild(new A.Accent5Color(new A.RgbColorModelHex { Val = ColorToHex(colors.GetOrDefault(DocThemeColor.Accent5)) }));
+        scheme.AppendChild(new A.Accent6Color(new A.RgbColorModelHex { Val = ColorToHex(colors.GetOrDefault(DocThemeColor.Accent6)) }));
+        scheme.AppendChild(new A.Hyperlink(new A.RgbColorModelHex { Val = ColorToHex(colors.GetOrDefault(DocThemeColor.Hyperlink)) }));
+        scheme.AppendChild(new A.FollowedHyperlinkColor(new A.RgbColorModelHex { Val = ColorToHex(colors.GetOrDefault(DocThemeColor.FollowedHyperlink)) }));
+        return scheme;
+    }
+
+    private static A.FontScheme BuildThemeFontScheme(DocumentFonts fonts)
+    {
+        var majorLatin = fonts.Theme.Get(DocThemeFont.MajorAscii)
+                         ?? fonts.Theme.Get(DocThemeFont.MajorHighAnsi)
+                         ?? "Calibri";
+        var majorEastAsia = fonts.Theme.Get(DocThemeFont.MajorEastAsia) ?? string.Empty;
+        var majorBidi = fonts.Theme.Get(DocThemeFont.MajorBidi) ?? string.Empty;
+
+        var minorLatin = fonts.Theme.Get(DocThemeFont.MinorAscii)
+                         ?? fonts.Theme.Get(DocThemeFont.MinorHighAnsi)
+                         ?? "Calibri";
+        var minorEastAsia = fonts.Theme.Get(DocThemeFont.MinorEastAsia) ?? string.Empty;
+        var minorBidi = fonts.Theme.Get(DocThemeFont.MinorBidi) ?? string.Empty;
+
+        var majorFont = new A.MajorFont(
+            new A.LatinFont { Typeface = majorLatin },
+            new A.EastAsianFont { Typeface = majorEastAsia },
+            new A.ComplexScriptFont { Typeface = majorBidi });
+
+        var minorFont = new A.MinorFont(
+            new A.LatinFont { Typeface = minorLatin },
+            new A.EastAsianFont { Typeface = minorEastAsia },
+            new A.ComplexScriptFont { Typeface = minorBidi });
+
+        return new A.FontScheme
+        {
+            Name = "Vibe Fonts",
+            MajorFont = majorFont,
+            MinorFont = minorFont
+        };
+    }
+
+    private static A.FormatScheme BuildThemeFormatScheme()
+    {
+        var fillStyleList = new A.FillStyleList(
+            new A.SolidFill(new A.SchemeColor { Val = A.SchemeColorValues.PhColor }),
+            new A.SolidFill(new A.SchemeColor { Val = A.SchemeColorValues.PhColor }),
+            new A.SolidFill(new A.SchemeColor { Val = A.SchemeColorValues.PhColor }));
+
+        var lineStyleList = new A.LineStyleList(
+            BuildThemeLineStyle(),
+            BuildThemeLineStyle(),
+            BuildThemeLineStyle());
+
+        var effectStyleList = new A.EffectStyleList(
+            new A.EffectStyle(new A.EffectList()),
+            new A.EffectStyle(new A.EffectList()),
+            new A.EffectStyle(new A.EffectList()));
+
+        var backgroundFillStyleList = new A.BackgroundFillStyleList(
+            new A.SolidFill(new A.SchemeColor { Val = A.SchemeColorValues.PhColor }),
+            new A.SolidFill(new A.SchemeColor { Val = A.SchemeColorValues.PhColor }),
+            new A.SolidFill(new A.SchemeColor { Val = A.SchemeColorValues.PhColor }));
+
+        return new A.FormatScheme
+        {
+            Name = "Vibe Format",
+            FillStyleList = fillStyleList,
+            LineStyleList = lineStyleList,
+            EffectStyleList = effectStyleList,
+            BackgroundFillStyleList = backgroundFillStyleList
+        };
+    }
+
+    private static A.Outline BuildThemeLineStyle()
+    {
+        var line = new A.Outline { Width = 12700 };
+        line.AppendChild(new A.SolidFill(new A.SchemeColor { Val = A.SchemeColorValues.PhColor }));
+        line.AppendChild(new A.PresetDash { Val = A.PresetLineDashValues.Solid });
+        return line;
+    }
+
+    private static void EnsureNotesAndComments(
+        MainDocumentPart mainPart,
+        VibeDocument document,
+        NumberingContext numberingContext,
+        ContentControlPlaceholderWriter? placeholderWriter)
     {
         if (document.Footnotes.Count > 0)
         {
             var footnotesPart = mainPart.AddNewPart<FootnotesPart>();
-            PopulateFootnotes(footnotesPart, document, numberingContext, document.Fonts);
+            PopulateFootnotes(footnotesPart, document, numberingContext, placeholderWriter, document.Fonts);
         }
 
         if (document.Endnotes.Count > 0)
         {
             var endnotesPart = mainPart.AddNewPart<EndnotesPart>();
-            PopulateEndnotes(endnotesPart, document, numberingContext, document.Fonts);
+            PopulateEndnotes(endnotesPart, document, numberingContext, placeholderWriter, document.Fonts);
         }
 
         if (document.Comments.Count > 0)
         {
             var commentsPart = mainPart.AddNewPart<WordprocessingCommentsPart>();
-            PopulateComments(commentsPart, document, numberingContext, document.Fonts);
+            PopulateComments(commentsPart, document, numberingContext, placeholderWriter, document.Fonts);
         }
     }
 
     private static void EnsureDocumentSettings(MainDocumentPart mainPart, VibeDocument document, bool includeEvenHeaders)
     {
-        if (!document.MirrorMargins && !document.GutterAtTop && !includeEvenHeaders)
+        if (!document.MirrorMargins && !document.GutterAtTop && !includeEvenHeaders && !document.TrackChangesEnabled)
         {
             return;
         }
@@ -416,6 +812,11 @@ public sealed class DocxExporter
         if (includeEvenHeaders)
         {
             settings.AppendChild(new EvenAndOddHeaders());
+        }
+
+        if (document.TrackChangesEnabled)
+        {
+            settings.AppendChild(new TrackRevisions());
         }
 
         settingsPart.Settings = settings;
@@ -995,6 +1396,9 @@ public sealed class DocxExporter
         ImageWriter imageWriter,
         ChartWriter chartWriter,
         HyperlinkWriter hyperlinkWriter,
+        EmbeddedObjectWriter embeddedObjectWriter,
+        AltChunkWriter altChunkWriter,
+        ContentControlPlaceholderWriter? placeholderWriter,
         DocumentFonts fonts)
     {
         var paragraph = new Paragraph();
@@ -1017,8 +1421,8 @@ public sealed class DocxExporter
             paragraph.ParagraphProperties = props;
         }
 
-        AppendRuns(paragraph, paragraphBlock, numberingContext, imageWriter, chartWriter, hyperlinkWriter, fonts);
-        AppendFloatingObjects(paragraph, paragraphBlock, numberingContext, imageWriter, chartWriter, hyperlinkWriter, fonts);
+        AppendRuns(paragraph, paragraphBlock, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts);
+        AppendFloatingObjects(paragraph, paragraphBlock, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts);
         return paragraph;
     }
 
@@ -1028,6 +1432,9 @@ public sealed class DocxExporter
         ImageWriter imageWriter,
         ChartWriter chartWriter,
         HyperlinkWriter hyperlinkWriter,
+        EmbeddedObjectWriter embeddedObjectWriter,
+        AltChunkWriter altChunkWriter,
+        ContentControlPlaceholderWriter? placeholderWriter,
         DocumentFonts fonts)
     {
         var table = new Table();
@@ -1065,7 +1472,7 @@ public sealed class DocxExporter
                 ApplyTableCellStructure(tableCell, cell);
                 foreach (var paragraph in cell.Paragraphs)
                 {
-                    tableCell.AppendChild(CreateParagraph(paragraph, numberingContext, imageWriter, chartWriter, hyperlinkWriter, fonts));
+                    tableCell.AppendChild(CreateParagraph(paragraph, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts));
                 }
 
                 if (cell.Paragraphs.Count == 0)
@@ -1076,7 +1483,7 @@ public sealed class DocxExporter
                 OpenXmlElement cellElement = tableCell;
                 if (cell.ContentControl is not null)
                 {
-                    cellElement = BuildSdtCell(cell.ContentControl, tableCell);
+                    cellElement = BuildSdtCell(cell.ContentControl, tableCell, placeholderWriter);
                 }
 
                 cellElement = WrapWithMetadata(cellElement, cell.Metadata);
@@ -1086,7 +1493,7 @@ public sealed class DocxExporter
             OpenXmlElement rowElement = tableRow;
             if (row.ContentControl is not null)
             {
-                rowElement = BuildSdtRow(row.ContentControl, tableRow);
+                rowElement = BuildSdtRow(row.ContentControl, tableRow, placeholderWriter);
             }
 
             rowElement = WrapWithMetadata(rowElement, row.Metadata);
@@ -1243,10 +1650,13 @@ public sealed class DocxExporter
         ImageWriter imageWriter,
         ChartWriter chartWriter,
         HyperlinkWriter hyperlinkWriter,
+        EmbeddedObjectWriter embeddedObjectWriter,
+        AltChunkWriter altChunkWriter,
+        ContentControlPlaceholderWriter? placeholderWriter,
         DocumentFonts fonts)
     {
         var header = new Header();
-        AppendBlocks(header, headerFooter.Blocks, numberingContext, imageWriter, chartWriter, hyperlinkWriter, fonts);
+        AppendBlocks(header, headerFooter.Blocks, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts);
         if (!header.ChildElements.Any())
         {
             header.AppendChild(new Paragraph(new Run(new Text(string.Empty))));
@@ -1261,10 +1671,13 @@ public sealed class DocxExporter
         ImageWriter imageWriter,
         ChartWriter chartWriter,
         HyperlinkWriter hyperlinkWriter,
+        EmbeddedObjectWriter embeddedObjectWriter,
+        AltChunkWriter altChunkWriter,
+        ContentControlPlaceholderWriter? placeholderWriter,
         DocumentFonts fonts)
     {
         var footer = new Footer();
-        AppendBlocks(footer, headerFooter.Blocks, numberingContext, imageWriter, chartWriter, hyperlinkWriter, fonts);
+        AppendBlocks(footer, headerFooter.Blocks, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts);
         if (!footer.ChildElements.Any())
         {
             footer.AppendChild(new Paragraph(new Run(new Text(string.Empty))));
@@ -1280,6 +1693,9 @@ public sealed class DocxExporter
         ImageWriter imageWriter,
         ChartWriter chartWriter,
         HyperlinkWriter hyperlinkWriter,
+        EmbeddedObjectWriter embeddedObjectWriter,
+        AltChunkWriter altChunkWriter,
+        ContentControlPlaceholderWriter? placeholderWriter,
         DocumentFonts fonts)
     {
         var index = 0;
@@ -1339,18 +1755,22 @@ public sealed class DocxExporter
                         index++;
                     }
 
-                    currentContainer.AppendChild(BuildSdtBlock(startBlock.Properties, contentBlocks, numberingContext, imageWriter, chartWriter, hyperlinkWriter, fonts));
+                    currentContainer.AppendChild(BuildSdtBlock(startBlock.Properties, contentBlocks, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts));
                     continue;
                 }
                 case ContentControlEndBlock:
                     index++;
                     continue;
                 case ParagraphBlock paragraph:
-                    currentContainer.AppendChild(CreateParagraph(paragraph, numberingContext, imageWriter, chartWriter, hyperlinkWriter, fonts));
+                    currentContainer.AppendChild(CreateParagraph(paragraph, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts));
                     index++;
                     break;
                 case TableBlock table:
-                    currentContainer.AppendChild(CreateTable(table, numberingContext, imageWriter, chartWriter, hyperlinkWriter, fonts));
+                    currentContainer.AppendChild(CreateTable(table, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts));
+                    index++;
+                    break;
+                case AltChunkBlock altChunk:
+                    currentContainer.AppendChild(BuildAltChunkElement(altChunkWriter, altChunk));
                     index++;
                     break;
                 case PageBreakBlock:
@@ -1368,6 +1788,12 @@ public sealed class DocxExporter
         }
     }
 
+    private static AltChunk BuildAltChunkElement(AltChunkWriter writer, AltChunkBlock block)
+    {
+        var relId = writer.AddAltChunk(block);
+        return new AltChunk { Id = relId };
+    }
+
     private static SdtBlock BuildSdtBlock(
         ContentControlProperties properties,
         IReadOnlyList<Block> blocks,
@@ -1375,12 +1801,15 @@ public sealed class DocxExporter
         ImageWriter imageWriter,
         ChartWriter chartWriter,
         HyperlinkWriter hyperlinkWriter,
+        EmbeddedObjectWriter embeddedObjectWriter,
+        AltChunkWriter altChunkWriter,
+        ContentControlPlaceholderWriter? placeholderWriter,
         DocumentFonts fonts)
     {
         var sdt = new SdtBlock();
-        sdt.AppendChild(BuildContentControlProperties(properties));
+        sdt.AppendChild(BuildContentControlProperties(properties, placeholderWriter));
         var content = new SdtContentBlock();
-        AppendBlocks(content, blocks, numberingContext, imageWriter, chartWriter, hyperlinkWriter, fonts);
+        AppendBlocks(content, blocks, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts);
         if (!content.ChildElements.Any())
         {
             content.AppendChild(new Paragraph(new Run(new Text(string.Empty))));
@@ -1390,20 +1819,26 @@ public sealed class DocxExporter
         return sdt;
     }
 
-    private static SdtRow BuildSdtRow(ContentControlProperties properties, DocumentFormat.OpenXml.Wordprocessing.TableRow row)
+    private static SdtRow BuildSdtRow(
+        ContentControlProperties properties,
+        DocumentFormat.OpenXml.Wordprocessing.TableRow row,
+        ContentControlPlaceholderWriter? placeholderWriter)
     {
         var sdt = new SdtRow();
-        sdt.AppendChild(BuildContentControlProperties(properties));
+        sdt.AppendChild(BuildContentControlProperties(properties, placeholderWriter));
         var content = new SdtContentRow();
         content.AppendChild(row);
         sdt.AppendChild(content);
         return sdt;
     }
 
-    private static SdtCell BuildSdtCell(ContentControlProperties properties, DocumentFormat.OpenXml.Wordprocessing.TableCell cell)
+    private static SdtCell BuildSdtCell(
+        ContentControlProperties properties,
+        DocumentFormat.OpenXml.Wordprocessing.TableCell cell,
+        ContentControlPlaceholderWriter? placeholderWriter)
     {
         var sdt = new SdtCell();
-        sdt.AppendChild(BuildContentControlProperties(properties));
+        sdt.AppendChild(BuildContentControlProperties(properties, placeholderWriter));
         var content = new SdtContentCell();
         content.AppendChild(cell);
         sdt.AppendChild(content);
@@ -1417,12 +1852,15 @@ public sealed class DocxExporter
         ImageWriter imageWriter,
         ChartWriter chartWriter,
         HyperlinkWriter hyperlinkWriter,
+        EmbeddedObjectWriter embeddedObjectWriter,
+        AltChunkWriter altChunkWriter,
+        ContentControlPlaceholderWriter? placeholderWriter,
         DocumentFonts fonts)
     {
         var sdt = new SdtRun();
-        sdt.AppendChild(BuildContentControlProperties(properties));
+        sdt.AppendChild(BuildContentControlProperties(properties, placeholderWriter));
         var content = new SdtContentRun();
-        AppendInlineSequence(content, inlines, numberingContext, imageWriter, chartWriter, hyperlinkWriter, fonts);
+        AppendInlineSequence(content, inlines, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts);
         if (!content.ChildElements.Any())
         {
             content.AppendChild(new Run(new Text(string.Empty)));
@@ -1432,7 +1870,7 @@ public sealed class DocxExporter
         return sdt;
     }
 
-    private static SdtProperties BuildContentControlProperties(ContentControlProperties properties)
+    private static SdtProperties BuildContentControlProperties(ContentControlProperties properties, ContentControlPlaceholderWriter? placeholderWriter)
     {
         var props = new SdtProperties();
         if (properties.Id.HasValue)
@@ -1456,9 +1894,15 @@ public sealed class DocxExporter
             props.AppendChild(new DocumentFormat.OpenXml.Wordprocessing.Lock { Val = lockValue });
         }
 
-        if (!string.IsNullOrWhiteSpace(properties.Placeholder))
+        var placeholderName = properties.Placeholder;
+        if (placeholderWriter is not null && !string.IsNullOrWhiteSpace(properties.PlaceholderText))
         {
-            var placeholder = new SdtPlaceholder(new DocPartReference { Val = properties.Placeholder });
+            placeholderName = placeholderWriter.RegisterPlaceholder(placeholderName, properties.PlaceholderText);
+        }
+
+        if (!string.IsNullOrWhiteSpace(placeholderName))
+        {
+            var placeholder = new SdtPlaceholder(new DocPartReference { Val = placeholderName });
             props.AppendChild(placeholder);
         }
 
@@ -1528,7 +1972,12 @@ public sealed class DocxExporter
         return LockingValueMap.TryGetValue(value.Trim(), out result);
     }
 
-    private static void PopulateFootnotes(FootnotesPart footnotesPart, VibeDocument document, NumberingContext numberingContext, DocumentFonts fonts)
+    private static void PopulateFootnotes(
+        FootnotesPart footnotesPart,
+        VibeDocument document,
+        NumberingContext numberingContext,
+        ContentControlPlaceholderWriter? placeholderWriter,
+        DocumentFonts fonts)
     {
         var footnotes = new Footnotes();
         footnotes.AppendChild(CreateSeparatorFootnote(-1, false));
@@ -1537,10 +1986,12 @@ public sealed class DocxExporter
         var imageWriter = new ImageWriter(footnotesPart);
         var chartWriter = new ChartWriter(footnotesPart);
         var hyperlinkWriter = new HyperlinkWriter(footnotesPart);
+        var embeddedObjectWriter = new EmbeddedObjectWriter(footnotesPart);
+        var altChunkWriter = new AltChunkWriter(footnotesPart);
         foreach (var definition in document.Footnotes.Values.OrderBy(item => item.Id))
         {
             var footnote = new Footnote { Id = definition.Id };
-            AppendBlocks(footnote, definition.Blocks, numberingContext, imageWriter, chartWriter, hyperlinkWriter, fonts);
+            AppendBlocks(footnote, definition.Blocks, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts);
             if (!footnote.ChildElements.Any())
             {
                 footnote.AppendChild(new Paragraph(new Run(new Text(string.Empty))));
@@ -1552,7 +2003,12 @@ public sealed class DocxExporter
         footnotesPart.Footnotes = footnotes;
     }
 
-    private static void PopulateEndnotes(EndnotesPart endnotesPart, VibeDocument document, NumberingContext numberingContext, DocumentFonts fonts)
+    private static void PopulateEndnotes(
+        EndnotesPart endnotesPart,
+        VibeDocument document,
+        NumberingContext numberingContext,
+        ContentControlPlaceholderWriter? placeholderWriter,
+        DocumentFonts fonts)
     {
         var endnotes = new Endnotes();
         endnotes.AppendChild(CreateEndnoteSeparator(-1));
@@ -1561,10 +2017,12 @@ public sealed class DocxExporter
         var imageWriter = new ImageWriter(endnotesPart);
         var chartWriter = new ChartWriter(endnotesPart);
         var hyperlinkWriter = new HyperlinkWriter(endnotesPart);
+        var embeddedObjectWriter = new EmbeddedObjectWriter(endnotesPart);
+        var altChunkWriter = new AltChunkWriter(endnotesPart);
         foreach (var definition in document.Endnotes.Values.OrderBy(item => item.Id))
         {
             var endnote = new Endnote { Id = definition.Id };
-            AppendBlocks(endnote, definition.Blocks, numberingContext, imageWriter, chartWriter, hyperlinkWriter, fonts);
+            AppendBlocks(endnote, definition.Blocks, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts);
             if (!endnote.ChildElements.Any())
             {
                 endnote.AppendChild(new Paragraph(new Run(new Text(string.Empty))));
@@ -1576,12 +2034,19 @@ public sealed class DocxExporter
         endnotesPart.Endnotes = endnotes;
     }
 
-    private static void PopulateComments(WordprocessingCommentsPart commentsPart, VibeDocument document, NumberingContext numberingContext, DocumentFonts fonts)
+    private static void PopulateComments(
+        WordprocessingCommentsPart commentsPart,
+        VibeDocument document,
+        NumberingContext numberingContext,
+        ContentControlPlaceholderWriter? placeholderWriter,
+        DocumentFonts fonts)
     {
         var comments = new Comments();
         var imageWriter = new ImageWriter(commentsPart);
         var chartWriter = new ChartWriter(commentsPart);
         var hyperlinkWriter = new HyperlinkWriter(commentsPart);
+        var embeddedObjectWriter = new EmbeddedObjectWriter(commentsPart);
+        var altChunkWriter = new AltChunkWriter(commentsPart);
 
         foreach (var definition in document.Comments.Values.OrderBy(item => item.Id))
         {
@@ -1593,7 +2058,7 @@ public sealed class DocxExporter
                 Date = definition.Date
             };
 
-            AppendBlocks(comment, definition.Blocks, numberingContext, imageWriter, chartWriter, hyperlinkWriter, fonts);
+            AppendBlocks(comment, definition.Blocks, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts);
             if (!comment.ChildElements.Any())
             {
                 comment.AppendChild(new Paragraph(new Run(new Text(string.Empty))));
@@ -1824,6 +2289,9 @@ public sealed class DocxExporter
         ImageWriter imageWriter,
         ChartWriter chartWriter,
         HyperlinkWriter hyperlinkWriter,
+        EmbeddedObjectWriter embeddedObjectWriter,
+        AltChunkWriter altChunkWriter,
+        ContentControlPlaceholderWriter? placeholderWriter,
         DocumentFonts fonts)
     {
         if (block.Inlines.Count == 0)
@@ -1832,7 +2300,7 @@ public sealed class DocxExporter
             return;
         }
 
-        AppendInlineSequence(paragraph, block.Inlines, numberingContext, imageWriter, chartWriter, hyperlinkWriter, fonts);
+        AppendInlineSequence(paragraph, block.Inlines, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts);
     }
 
     private static void AppendFloatingObjects(
@@ -1842,6 +2310,9 @@ public sealed class DocxExporter
         ImageWriter imageWriter,
         ChartWriter chartWriter,
         HyperlinkWriter hyperlinkWriter,
+        EmbeddedObjectWriter embeddedObjectWriter,
+        AltChunkWriter altChunkWriter,
+        ContentControlPlaceholderWriter? placeholderWriter,
         DocumentFonts fonts)
     {
         if (block.FloatingObjects.Count == 0)
@@ -1849,20 +2320,46 @@ public sealed class DocxExporter
             return;
         }
 
-        foreach (var floating in block.FloatingObjects)
+        var floatingObjects = block.FloatingObjects;
+        var ordered = floatingObjects;
+        var lastOffset = int.MinValue;
+        for (var i = 0; i < floatingObjects.Count; i++)
+        {
+            var offset = floatingObjects[i].Anchor.AnchorOffset ?? int.MaxValue;
+            if (offset < lastOffset)
+            {
+                ordered = floatingObjects
+                    .Select(static (item, index) => (item, index))
+                    .OrderBy(static pair => pair.item.Anchor.AnchorOffset ?? int.MaxValue)
+                    .ThenBy(static pair => pair.index)
+                    .Select(static pair => pair.item)
+                    .ToList();
+                break;
+            }
+
+            lastOffset = offset;
+        }
+
+        foreach (var floating in ordered)
         {
             Drawing? drawing = floating.Content switch
             {
-                ImageInline image when image.EmbeddedObject is not null
-                    && !image.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase) => null,
+                ImageInline image when image.EmbeddedObject is not null => null,
                 ImageInline image => CreateImageDrawing(imageWriter, image, floating.Anchor),
-                ShapeInline shape => CreateShapeDrawing(shape, numberingContext, imageWriter, chartWriter, hyperlinkWriter, fonts, floating.Anchor),
+                ShapeInline shape => CreateShapeDrawing(shape, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter!, altChunkWriter, placeholderWriter, fonts, floating.Anchor),
                 ChartInline chart => CreateChartDrawing(chartWriter, chart, floating.Anchor),
                 _ => null
             };
 
             if (drawing is null)
             {
+                if (floating.Content is ImageInline embeddedImage && embeddedImage.EmbeddedObject is not null
+                    && embeddedObjectWriter is not null)
+                {
+                    var embeddedRun = BuildEmbeddedObjectRun(embeddedImage, embeddedImage.EmbeddedObject, imageWriter, embeddedObjectWriter);
+                    InsertFloatingElement(paragraph, embeddedRun, floating.Anchor.AnchorOffset);
+                }
+
                 continue;
             }
 
@@ -1872,25 +2369,82 @@ public sealed class DocxExporter
             {
                 var hyperlink = BuildHyperlinkElement(link, hyperlinkWriter);
                 hyperlink.AppendChild(run);
-                paragraph.AppendChild(hyperlink);
+                InsertFloatingElement(paragraph, hyperlink, floating.Anchor.AnchorOffset);
             }
             else
             {
-                paragraph.AppendChild(run);
+                InsertFloatingElement(paragraph, run, floating.Anchor.AnchorOffset);
             }
         }
     }
 
-    private static void AppendInlineSequence(
-        OpenXmlCompositeElement container,
-        IReadOnlyList<Inline> inlines,
-        NumberingContext numberingContext,
-        ImageWriter imageWriter,
-        ChartWriter chartWriter,
-        HyperlinkWriter hyperlinkWriter,
-        DocumentFonts fonts)
+    private static void InsertFloatingElement(Paragraph paragraph, OpenXmlElement element, int? anchorOffset)
     {
-        AppendInlineSequence(container, inlines, numberingContext, imageWriter, chartWriter, hyperlinkWriter, fonts, null);
+        var insertIndex = ResolveAnchorInsertIndex(paragraph, anchorOffset);
+        if (insertIndex < 0 || insertIndex >= paragraph.ChildElements.Count)
+        {
+            paragraph.AppendChild(element);
+            return;
+        }
+
+        paragraph.InsertAt(element, insertIndex);
+    }
+
+    private static int ResolveAnchorInsertIndex(Paragraph paragraph, int? anchorOffset)
+    {
+        if (!anchorOffset.HasValue)
+        {
+            return paragraph.ChildElements.Count;
+        }
+
+        var target = Math.Max(0, anchorOffset.Value);
+        var cumulative = 0;
+        for (var i = 0; i < paragraph.ChildElements.Count; i++)
+        {
+            if (target <= cumulative)
+            {
+                return i;
+            }
+
+            cumulative += GetElementTextLength(paragraph.ChildElements[i]);
+            if (target <= cumulative)
+            {
+                return i + 1;
+            }
+        }
+
+        return paragraph.ChildElements.Count;
+    }
+
+    private static int GetElementTextLength(OpenXmlElement element)
+    {
+        switch (element)
+        {
+            case Text text:
+                return text.Text?.Length ?? 0;
+            case DeletedText deletedText:
+                return deletedText.Text?.Length ?? 0;
+            case TabChar:
+            case Break:
+            case CarriageReturn:
+                return 1;
+            case Drawing:
+                return 1;
+            case OpenXmlElement elementNode when elementNode.LocalName.Equals("object", StringComparison.OrdinalIgnoreCase):
+                return 1;
+            case FootnoteReference:
+            case EndnoteReference:
+            case CommentReference:
+                return 1;
+        }
+
+        var length = 0;
+        foreach (var child in element.ChildElements)
+        {
+            length += GetElementTextLength(child);
+        }
+
+        return length;
     }
 
     private static void AppendInlineSequence(
@@ -1900,6 +2454,24 @@ public sealed class DocxExporter
         ImageWriter imageWriter,
         ChartWriter chartWriter,
         HyperlinkWriter hyperlinkWriter,
+        EmbeddedObjectWriter embeddedObjectWriter,
+        AltChunkWriter altChunkWriter,
+        ContentControlPlaceholderWriter? placeholderWriter,
+        DocumentFonts fonts)
+    {
+        AppendInlineSequence(container, inlines, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts, null);
+    }
+
+    private static void AppendInlineSequence(
+        OpenXmlCompositeElement container,
+        IReadOnlyList<Inline> inlines,
+        NumberingContext numberingContext,
+        ImageWriter imageWriter,
+        ChartWriter chartWriter,
+        HyperlinkWriter hyperlinkWriter,
+        EmbeddedObjectWriter embeddedObjectWriter,
+        AltChunkWriter altChunkWriter,
+        ContentControlPlaceholderWriter? placeholderWriter,
         DocumentFonts fonts,
         RevisionKind? revisionKind)
     {
@@ -1963,7 +2535,7 @@ public sealed class DocxExporter
                         index++;
                     }
 
-                    AppendSimpleField(container, fieldStart.Instruction, fieldInlines, numberingContext, imageWriter, chartWriter, hyperlinkWriter, fonts);
+                    AppendSimpleField(container, fieldStart.Instruction, fieldInlines, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts);
                     continue;
                 }
                 case ContentControlStartInline controlStart:
@@ -1983,7 +2555,7 @@ public sealed class DocxExporter
                         index++;
                     }
 
-                    container.AppendChild(BuildSdtRun(controlStart.Properties, contentInlines, numberingContext, imageWriter, chartWriter, hyperlinkWriter, fonts));
+                    container.AppendChild(BuildSdtRun(controlStart.Properties, contentInlines, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts));
                     continue;
                 }
                 case MetadataStartInline metadataStart:
@@ -2015,7 +2587,7 @@ public sealed class DocxExporter
                     }
 
                     var wrapper = BuildMetadataWrapperElement(metadataStart.Metadata);
-                    AppendInlineSequence(wrapper, metadataInlines, numberingContext, imageWriter, chartWriter, hyperlinkWriter, fonts, revisionKind);
+                    AppendInlineSequence(wrapper, metadataInlines, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts, revisionKind);
                     container.AppendChild(wrapper);
                     continue;
                 }
@@ -2049,7 +2621,7 @@ public sealed class DocxExporter
                     }
 
                     var revisionElement = BuildRunRevisionElement(revisionStart.Revision);
-                    AppendInlineSequence(revisionElement, revisionInlines, numberingContext, imageWriter, chartWriter, hyperlinkWriter, fonts, revisionStart.Revision.Kind);
+                    AppendInlineSequence(revisionElement, revisionInlines, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts, revisionStart.Revision.Kind);
                     container.AppendChild(revisionElement);
                     continue;
                 }
@@ -2099,12 +2671,12 @@ public sealed class DocxExporter
             if (link is not null && !link.IsEmpty)
             {
                 var hyperlink = BuildHyperlinkElement(link, hyperlinkWriter);
-                AppendInlineRuns(hyperlink, group, numberingContext, imageWriter, chartWriter, hyperlinkWriter, fonts, revisionKind);
+                AppendInlineRuns(hyperlink, group, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts, revisionKind);
                 container.AppendChild(hyperlink);
             }
             else
             {
-                AppendInlineRuns(container, group, numberingContext, imageWriter, chartWriter, hyperlinkWriter, fonts, revisionKind);
+                AppendInlineRuns(container, group, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts, revisionKind);
             }
         }
     }
@@ -2116,9 +2688,12 @@ public sealed class DocxExporter
         ImageWriter imageWriter,
         ChartWriter chartWriter,
         HyperlinkWriter hyperlinkWriter,
+        EmbeddedObjectWriter embeddedObjectWriter,
+        AltChunkWriter altChunkWriter,
+        ContentControlPlaceholderWriter? placeholderWriter,
         DocumentFonts fonts)
     {
-        AppendInlineRuns(container, inlines, numberingContext, imageWriter, chartWriter, hyperlinkWriter, fonts, null);
+        AppendInlineRuns(container, inlines, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts, null);
     }
 
     private static void AppendInlineRuns(
@@ -2128,6 +2703,9 @@ public sealed class DocxExporter
         ImageWriter imageWriter,
         ChartWriter chartWriter,
         HyperlinkWriter hyperlinkWriter,
+        EmbeddedObjectWriter embeddedObjectWriter,
+        AltChunkWriter altChunkWriter,
+        ContentControlPlaceholderWriter? placeholderWriter,
         DocumentFonts fonts,
         RevisionKind? revisionKind)
     {
@@ -2140,18 +2718,28 @@ public sealed class DocxExporter
                     break;
                 case ImageInline imageInline:
                 {
-                    if (imageInline.EmbeddedObject is not null
-                        && !imageInline.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+                    if (imageInline.EmbeddedObject is not null)
                     {
-                        var label = string.IsNullOrWhiteSpace(imageInline.EmbeddedObject.ProgId)
-                            ? "[Embedded Object]"
-                            : $"[Embedded Object: {imageInline.EmbeddedObject.ProgId}]";
-                        container.AppendChild(new Run(new Text(label)));
+                        if (embeddedObjectWriter is not null)
+                        {
+                            container.AppendChild(BuildEmbeddedObjectRun(imageInline, imageInline.EmbeddedObject, imageWriter, embeddedObjectWriter));
+                        }
+                        else if (imageInline.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+                        {
+                            container.AppendChild(new Run(CreateImageDrawing(imageWriter, imageInline)));
+                        }
+                        else
+                        {
+                            var label = string.IsNullOrWhiteSpace(imageInline.EmbeddedObject.ProgId)
+                                ? "[Embedded Object]"
+                                : $"[Embedded Object: {imageInline.EmbeddedObject.ProgId}]";
+                            container.AppendChild(new Run(new Text(label)));
+                        }
+
                         break;
                     }
 
-                    var run = new Run(CreateImageDrawing(imageWriter, imageInline));
-                    container.AppendChild(run);
+                    container.AppendChild(new Run(CreateImageDrawing(imageWriter, imageInline)));
                     break;
                 }
                 case ChartInline chartInline:
@@ -2162,7 +2750,7 @@ public sealed class DocxExporter
                 }
                 case ShapeInline shapeInline:
                 {
-                    var run = new Run(CreateShapeDrawing(shapeInline, numberingContext, imageWriter, chartWriter, hyperlinkWriter, fonts));
+                    var run = new Run(CreateShapeDrawing(shapeInline, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter!, altChunkWriter, placeholderWriter, fonts));
                     container.AppendChild(run);
                     break;
                 }
@@ -2229,6 +2817,73 @@ public sealed class DocxExporter
         }
     }
 
+    private static Run BuildEmbeddedObjectRun(
+        ImageInline imageInline,
+        EmbeddedObjectInfo embeddedObject,
+        ImageWriter imageWriter,
+        EmbeddedObjectWriter embeddedObjectWriter)
+    {
+        var oleRelId = embeddedObjectWriter.AddEmbeddedObject(embeddedObject);
+        var shapeId = embeddedObjectWriter.AllocateShapeId();
+        string? previewRelId = null;
+        if (imageInline.Data.Length > 0 && imageInline.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+        {
+            previewRelId = imageWriter.AddImage(imageInline);
+        }
+
+        var width = imageInline.Width > 0f ? imageInline.Width : 100f;
+        var height = imageInline.Height > 0f ? imageInline.Height : 100f;
+        var widthPoints = DipToPointsString(width);
+        var heightPoints = DipToPointsString(height);
+        var style = $"width:{widthPoints}pt;height:{heightPoints}pt";
+
+        var shape = new OpenXmlUnknownElement("v", "shape", VmlNamespace);
+        shape.SetAttribute(new OpenXmlAttribute("id", string.Empty, shapeId));
+        shape.SetAttribute(new OpenXmlAttribute("style", string.Empty, style));
+        shape.SetAttribute(new OpenXmlAttribute("type", string.Empty, "#_x0000_t75"));
+
+        if (!string.IsNullOrWhiteSpace(previewRelId))
+        {
+            var imageData = new OpenXmlUnknownElement("v", "imagedata", VmlNamespace);
+            imageData.SetAttribute(new OpenXmlAttribute("r", "id", RelationshipNamespace, previewRelId));
+            imageData.SetAttribute(new OpenXmlAttribute("o", "title", OfficeNamespace, string.Empty));
+            shape.AppendChild(imageData);
+        }
+
+        var oleObject = new OpenXmlUnknownElement("o", "OLEObject", OfficeNamespace);
+        var isLinked = embeddedObject.IsLinked
+            ?? (!string.IsNullOrWhiteSpace(embeddedObject.TargetUri) && embeddedObject.Data is null);
+        oleObject.SetAttribute(new OpenXmlAttribute("Type", string.Empty, isLinked == true ? "Link" : "Embed"));
+
+        if (!string.IsNullOrWhiteSpace(embeddedObject.ProgId))
+        {
+            oleObject.SetAttribute(new OpenXmlAttribute("ProgID", string.Empty, embeddedObject.ProgId));
+        }
+
+        if (!string.IsNullOrWhiteSpace(embeddedObject.ClassId))
+        {
+            oleObject.SetAttribute(new OpenXmlAttribute("ClassID", string.Empty, embeddedObject.ClassId));
+        }
+
+        if (!string.IsNullOrWhiteSpace(embeddedObject.ObjectId))
+        {
+            oleObject.SetAttribute(new OpenXmlAttribute("ObjectID", string.Empty, embeddedObject.ObjectId));
+        }
+
+        if (!string.IsNullOrWhiteSpace(embeddedObject.UpdateMode))
+        {
+            oleObject.SetAttribute(new OpenXmlAttribute("UpdateMode", string.Empty, embeddedObject.UpdateMode));
+        }
+
+        oleObject.SetAttribute(new OpenXmlAttribute("ShapeID", string.Empty, shapeId));
+        oleObject.SetAttribute(new OpenXmlAttribute("r", "id", RelationshipNamespace, oleRelId));
+
+        var objectElement = new OpenXmlUnknownElement("w", "object", WordprocessingNamespace);
+        objectElement.AppendChild(shape);
+        objectElement.AppendChild(oleObject);
+        return new Run(objectElement);
+    }
+
     private static Ruby BuildRubyElement(RubyInline rubyInline, DocumentFonts fonts)
     {
         var ruby = new Ruby();
@@ -2272,10 +2927,13 @@ public sealed class DocxExporter
         ImageWriter imageWriter,
         ChartWriter chartWriter,
         HyperlinkWriter hyperlinkWriter,
+        EmbeddedObjectWriter embeddedObjectWriter,
+        AltChunkWriter altChunkWriter,
+        ContentControlPlaceholderWriter? placeholderWriter,
         DocumentFonts fonts)
     {
         var field = new SimpleField { Instruction = instruction ?? string.Empty };
-        AppendInlineSequence(field, inlines, numberingContext, imageWriter, chartWriter, hyperlinkWriter, fonts);
+        AppendInlineSequence(field, inlines, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts);
         if (!field.ChildElements.Any())
         {
             field.AppendChild(new Run(new Text(string.Empty)));
@@ -5402,6 +6060,9 @@ public sealed class DocxExporter
         ImageWriter imageWriter,
         ChartWriter chartWriter,
         HyperlinkWriter hyperlinkWriter,
+        EmbeddedObjectWriter embeddedObjectWriter,
+        AltChunkWriter altChunkWriter,
+        ContentControlPlaceholderWriter? placeholderWriter,
         DocumentFonts fonts,
         FloatingAnchor? anchor = null)
     {
@@ -5412,7 +6073,7 @@ public sealed class DocxExporter
 
         var shapeProperties = BuildShapeProperties(shapeInline, widthEmu, heightEmu);
         var bodyProperties = BuildShapeBodyProperties(shapeInline.TextBox);
-        var textBox = BuildShapeTextBox(shapeInline.TextBox, numberingContext, imageWriter, chartWriter, hyperlinkWriter, fonts);
+        var textBox = BuildShapeTextBox(shapeInline.TextBox, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts);
 
         var wpsShape = new Wps.WordprocessingShape();
         wpsShape.AppendChild(new Wps.NonVisualDrawingProperties { Id = 0U, Name = name });
@@ -5517,6 +6178,9 @@ public sealed class DocxExporter
         ImageWriter imageWriter,
         ChartWriter chartWriter,
         HyperlinkWriter hyperlinkWriter,
+        EmbeddedObjectWriter embeddedObjectWriter,
+        AltChunkWriter altChunkWriter,
+        ContentControlPlaceholderWriter? placeholderWriter,
         DocumentFonts fonts)
     {
         if (textBox is null)
@@ -5526,7 +6190,7 @@ public sealed class DocxExporter
 
         var info = new Wps.TextBoxInfo2();
         var content = new TextBoxContent();
-        AppendBlocks(content, textBox.Blocks, numberingContext, imageWriter, chartWriter, hyperlinkWriter, fonts);
+        AppendBlocks(content, textBox.Blocks, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts);
         if (!content.ChildElements.Any())
         {
             content.AppendChild(new Paragraph(new Run(new Text(string.Empty))));
@@ -5764,6 +6428,11 @@ public sealed class DocxExporter
 
     private static Drawing CreateImageDrawing(ImageWriter writer, ImageInline imageInline, FloatingAnchor? anchor = null)
     {
+        if (imageInline.Diagram is { HasValues: true })
+        {
+            return CreateDiagramDrawing(writer, imageInline, anchor);
+        }
+
         var relationshipId = writer.AddImage(imageInline);
         var widthEmu = DipToEmu(imageInline.Width);
         var heightEmu = DipToEmu(imageInline.Height);
@@ -5796,6 +6465,46 @@ public sealed class DocxExporter
             )
             { Uri = "http://schemas.openxmlformats.org/drawingml/2006/picture" });
 
+        return CreateDrawingContainer(docProperties, graphic, widthEmu, heightEmu, anchor);
+    }
+
+    private static Drawing CreateDiagramDrawing(ImageWriter writer, ImageInline imageInline, FloatingAnchor? anchor)
+    {
+        var diagramInfo = imageInline.Diagram;
+        if (diagramInfo is null)
+        {
+            return CreateImageDrawing(writer, imageInline, anchor);
+        }
+
+        var relIds = writer.AddDiagram(diagramInfo);
+        var widthEmu = DipToEmu(imageInline.Width);
+        var heightEmu = DipToEmu(imageInline.Height);
+        var docProperties = new DW.DocProperties { Id = 1U, Name = "Diagram" };
+
+        var graphicData = new A.GraphicData { Uri = DiagramNamespace };
+        var relIdsElement = new OpenXmlUnknownElement("dgm", "relIds", DiagramNamespace);
+        if (!string.IsNullOrWhiteSpace(relIds.Data))
+        {
+            relIdsElement.SetAttribute(new OpenXmlAttribute("r", "dm", RelationshipNamespace, relIds.Data));
+        }
+
+        if (!string.IsNullOrWhiteSpace(relIds.Layout))
+        {
+            relIdsElement.SetAttribute(new OpenXmlAttribute("r", "lo", RelationshipNamespace, relIds.Layout));
+        }
+
+        if (!string.IsNullOrWhiteSpace(relIds.QuickStyle))
+        {
+            relIdsElement.SetAttribute(new OpenXmlAttribute("r", "qs", RelationshipNamespace, relIds.QuickStyle));
+        }
+
+        if (!string.IsNullOrWhiteSpace(relIds.ColorStyle))
+        {
+            relIdsElement.SetAttribute(new OpenXmlAttribute("r", "cs", RelationshipNamespace, relIds.ColorStyle));
+        }
+
+        graphicData.AppendChild(relIdsElement);
+        var graphic = new A.Graphic(graphicData);
         return CreateDrawingContainer(docProperties, graphic, widthEmu, heightEmu, anchor);
     }
 
@@ -6054,6 +6763,12 @@ public sealed class DocxExporter
         return new UInt32Value(clamped);
     }
 
+    private static string DipToPointsString(float value)
+    {
+        var points = value / 96f * 72f;
+        return points.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+    }
+
     private static uint BorderDipToEighthPoints(float value)
     {
         var points = value / (96f / 72f);
@@ -6068,6 +6783,284 @@ public sealed class DocxExporter
         string? FirstFooterId,
         string? EvenHeaderId,
         string? EvenFooterId);
+
+    private static string? ResolveRelationshipId(OpenXmlPartContainer container, string? requestedId)
+    {
+        if (string.IsNullOrWhiteSpace(requestedId))
+        {
+            return null;
+        }
+
+        var trimmed = requestedId.Trim();
+        if (container.Parts.Any(part => part.RelationshipId == trimmed))
+        {
+            return null;
+        }
+
+        if (container.ExternalRelationships.Any(rel => rel.Id == trimmed))
+        {
+            return null;
+        }
+
+        return trimmed;
+    }
+
+    private sealed class ContentControlPlaceholderWriter
+    {
+        private readonly MainDocumentPart _mainPart;
+        private readonly Dictionary<string, string> _placeholders = new(StringComparer.OrdinalIgnoreCase);
+        private GlossaryDocumentPart? _glossaryPart;
+        private DocParts? _docParts;
+        private int _nextId = 1;
+
+        public ContentControlPlaceholderWriter(MainDocumentPart mainPart)
+        {
+            _mainPart = mainPart;
+        }
+
+        public string RegisterPlaceholder(string? name, string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return string.IsNullOrWhiteSpace(name) ? string.Empty : name.Trim();
+            }
+
+            EnsureGlossary();
+            var resolvedName = string.IsNullOrWhiteSpace(name) ? null : name.Trim();
+            if (!string.IsNullOrWhiteSpace(resolvedName))
+            {
+                if (_placeholders.TryGetValue(resolvedName, out var existing))
+                {
+                    if (string.Equals(existing, text, StringComparison.Ordinal))
+                    {
+                        return resolvedName;
+                    }
+
+                    resolvedName = null;
+                }
+                else
+                {
+                    AddDocPart(resolvedName, text);
+                    _placeholders[resolvedName] = text;
+                    return resolvedName;
+                }
+            }
+
+            string generated;
+            do
+            {
+                generated = $"VibePlaceholder{_nextId++}";
+            }
+            while (_placeholders.ContainsKey(generated));
+
+            AddDocPart(generated, text);
+            _placeholders[generated] = text;
+            return generated;
+        }
+
+        private void EnsureGlossary()
+        {
+            if (_docParts is not null)
+            {
+                return;
+            }
+
+            _glossaryPart = _mainPart.GlossaryDocumentPart ?? _mainPart.AddNewPart<GlossaryDocumentPart>();
+            if (_glossaryPart.GlossaryDocument is null)
+            {
+                _glossaryPart.GlossaryDocument = new GlossaryDocument(new DocParts());
+            }
+
+            _docParts = _glossaryPart.GlossaryDocument.DocParts ?? _glossaryPart.GlossaryDocument.AppendChild(new DocParts());
+        }
+
+        private void AddDocPart(string name, string text)
+        {
+            var docPart = new DocPart();
+            var props = new DocPartProperties();
+            props.AppendChild(new DocPartName { Val = name });
+            docPart.DocPartProperties = props;
+
+            var body = new DocPartBody();
+            AppendPlaceholderBody(body, text);
+            docPart.DocPartBody = body;
+            _docParts!.AppendChild(docPart);
+        }
+
+        private static void AppendPlaceholderBody(DocPartBody body, string text)
+        {
+            var span = text.AsSpan();
+            var lineStart = 0;
+            var hasParagraph = false;
+            for (var i = 0; i <= span.Length; i++)
+            {
+                if (i < span.Length && span[i] != '\n')
+                {
+                    continue;
+                }
+
+                var line = span.Slice(lineStart, i - lineStart);
+                if (line.Length > 0 && line[^1] == '\r')
+                {
+                    line = line[..^1];
+                }
+
+                var textElement = new Text(new string(line)) { Space = SpaceProcessingModeValues.Preserve };
+                var paragraph = new Paragraph(new Run(textElement));
+                body.AppendChild(paragraph);
+                hasParagraph = true;
+                lineStart = i + 1;
+            }
+
+            if (!hasParagraph)
+            {
+                body.AppendChild(new Paragraph(new Run(new Text(string.Empty))));
+            }
+        }
+    }
+
+    private sealed class EmbeddedObjectWriter
+    {
+        private readonly OpenXmlPartContainer _container;
+        private int _nextShapeId = 1;
+
+        public EmbeddedObjectWriter(OpenXmlPartContainer container)
+        {
+            _container = container;
+        }
+
+        public string AllocateShapeId()
+        {
+            return $"_x0000_i{_nextShapeId++}";
+        }
+
+        public string AddEmbeddedObject(EmbeddedObjectInfo embeddedObject)
+        {
+            if (embeddedObject is null)
+            {
+                throw new ArgumentNullException(nameof(embeddedObject));
+            }
+
+            var resolvedId = ResolveRelationshipId(_container, embeddedObject.RelationshipId);
+            if (embeddedObject.Data is { Length: > 0 })
+            {
+                return AddEmbeddedPart(embeddedObject, resolvedId);
+            }
+
+            if (!string.IsNullOrWhiteSpace(embeddedObject.TargetUri))
+            {
+                var uri = new Uri(embeddedObject.TargetUri, UriKind.RelativeOrAbsolute);
+                var relationship = resolvedId is null
+                    ? _container.AddExternalRelationship(OleObjectRelationshipType, uri)
+                    : _container.AddExternalRelationship(OleObjectRelationshipType, uri, resolvedId);
+                return relationship.Id;
+            }
+
+            return AddEmbeddedPart(embeddedObject, resolvedId);
+        }
+
+        private string AddEmbeddedPart(EmbeddedObjectInfo embeddedObject, string? resolvedId)
+        {
+            var contentType = string.IsNullOrWhiteSpace(embeddedObject.ContentType)
+                ? OleObjectContentType
+                : embeddedObject.ContentType!;
+
+            OpenXmlPart part;
+            if (string.Equals(contentType, OleObjectContentType, StringComparison.OrdinalIgnoreCase))
+            {
+                part = resolvedId is null
+                    ? _container.AddNewPart<EmbeddedObjectPart>(contentType)
+                    : _container.AddNewPart<EmbeddedObjectPart>(contentType, resolvedId);
+            }
+            else
+            {
+                part = resolvedId is null
+                    ? _container.AddNewPart<EmbeddedPackagePart>(contentType)
+                    : _container.AddNewPart<EmbeddedPackagePart>(contentType, resolvedId);
+            }
+
+            if (embeddedObject.Data is { Length: > 0 })
+            {
+                using var stream = new MemoryStream(embeddedObject.Data);
+                part.FeedData(stream);
+            }
+
+            return _container.GetIdOfPart(part);
+        }
+    }
+
+    private sealed class AltChunkWriter
+    {
+        private readonly OpenXmlPartContainer _container;
+
+        public AltChunkWriter(OpenXmlPartContainer container)
+        {
+            _container = container;
+        }
+
+        public string AddAltChunk(AltChunkBlock block)
+        {
+            if (block is null)
+            {
+                throw new ArgumentNullException(nameof(block));
+            }
+
+            var preferredId = string.IsNullOrWhiteSpace(block.RelationshipId) ? block.Label : block.RelationshipId;
+            var resolvedId = ResolveRelationshipId(_container, preferredId);
+            if (!string.IsNullOrWhiteSpace(block.TargetUri)
+                && (block.Data is null || block.Data.Length == 0))
+            {
+                var uri = new Uri(block.TargetUri, UriKind.RelativeOrAbsolute);
+                var relationship = resolvedId is null
+                    ? _container.AddExternalRelationship(AltChunkRelationshipType, uri)
+                    : _container.AddExternalRelationship(AltChunkRelationshipType, uri, resolvedId);
+                return relationship.Id;
+            }
+
+            var contentType = string.IsNullOrWhiteSpace(block.ContentType) ? "application/octet-stream" : block.ContentType!;
+            var altPart = AddAltChunkPart(contentType, resolvedId);
+
+            if (block.Data is { Length: > 0 })
+            {
+                using var stream = new MemoryStream(block.Data);
+                altPart.FeedData(stream);
+            }
+
+            return _container.GetIdOfPart(altPart);
+        }
+
+        private AlternativeFormatImportPart AddAltChunkPart(string contentType, string? relationshipId)
+        {
+            return _container switch
+            {
+                MainDocumentPart mainPart => relationshipId is null
+                    ? mainPart.AddAlternativeFormatImportPart(contentType)
+                    : mainPart.AddAlternativeFormatImportPart(contentType, relationshipId),
+                HeaderPart headerPart => relationshipId is null
+                    ? headerPart.AddAlternativeFormatImportPart(contentType)
+                    : headerPart.AddAlternativeFormatImportPart(contentType, relationshipId),
+                FooterPart footerPart => relationshipId is null
+                    ? footerPart.AddAlternativeFormatImportPart(contentType)
+                    : footerPart.AddAlternativeFormatImportPart(contentType, relationshipId),
+                FootnotesPart footnotesPart => relationshipId is null
+                    ? footnotesPart.AddAlternativeFormatImportPart(contentType)
+                    : footnotesPart.AddAlternativeFormatImportPart(contentType, relationshipId),
+                EndnotesPart endnotesPart => relationshipId is null
+                    ? endnotesPart.AddAlternativeFormatImportPart(contentType)
+                    : endnotesPart.AddAlternativeFormatImportPart(contentType, relationshipId),
+                WordprocessingCommentsPart commentsPart => relationshipId is null
+                    ? commentsPart.AddAlternativeFormatImportPart(contentType)
+                    : commentsPart.AddAlternativeFormatImportPart(contentType, relationshipId),
+                _ => throw new NotSupportedException("Unsupported OpenXML part for altChunk.")
+            };
+        }
+    }
+
+    private readonly record struct DiagramRelationshipIds(
+        string? Data,
+        string? Layout,
+        string? QuickStyle,
+        string? ColorStyle);
 
     private sealed class HyperlinkWriter
     {
@@ -6106,6 +7099,42 @@ public sealed class DocxExporter
             using var stream = new MemoryStream(image.Data);
             imagePart.FeedData(stream);
             return _container.GetIdOfPart(imagePart);
+        }
+
+        public DiagramRelationshipIds AddDiagram(DiagramInfo diagram)
+        {
+            return AddDiagramParts(_container, diagram);
+        }
+
+        private static DiagramRelationshipIds AddDiagramParts(OpenXmlPartContainer container, DiagramInfo diagram)
+        {
+            var dataId = AddDiagramPart<DiagramDataPart>(container, diagram.DataPart, diagram.DataRelationshipId);
+            var layoutId = AddDiagramPart<DiagramLayoutDefinitionPart>(container, diagram.LayoutPart, diagram.LayoutRelationshipId);
+            var quickStyleId = AddDiagramPart<DiagramStylePart>(container, diagram.QuickStylePart, diagram.QuickStyleRelationshipId);
+            var colorStyleId = AddDiagramPart<DiagramColorsPart>(container, diagram.ColorStylePart, diagram.ColorStyleRelationshipId);
+            return new DiagramRelationshipIds(dataId, layoutId, quickStyleId, colorStyleId);
+        }
+
+        private static string? AddDiagramPart<TPart>(OpenXmlPartContainer container, byte[]? data, string? relationshipId)
+            where TPart : OpenXmlPart, IFixedContentTypePart
+        {
+            if (data is null && string.IsNullOrWhiteSpace(relationshipId))
+            {
+                return null;
+            }
+
+            var resolvedId = ResolveRelationshipId(container, relationshipId);
+            var part = resolvedId is null
+                ? container.AddNewPart<TPart>()
+                : container.AddNewPart<TPart>(resolvedId);
+
+            if (data is { Length: > 0 })
+            {
+                using var stream = new MemoryStream(data);
+                part.FeedData(stream);
+            }
+
+            return container.GetIdOfPart(part);
         }
     }
 
@@ -6146,12 +7175,29 @@ public sealed class DocxExporter
     {
         var chartSpace = new C.ChartSpace();
         var chartElement = chartSpace.AppendChild(new C.Chart());
+        if (chart.Model?.ChartAreaStyle is { } chartAreaStyle)
+        {
+            var chartShape = BuildChartShapeProperties(chartAreaStyle);
+            if (chartShape is not null)
+            {
+                chartSpace.AppendChild(chartShape);
+            }
+        }
+
         if (!string.IsNullOrWhiteSpace(chart.Model?.Title))
         {
             chartElement.AppendChild(BuildChartTitle(chart.Model.Title!));
         }
 
         var plotArea = chartElement.AppendChild(new C.PlotArea());
+        if (chart.Model?.PlotAreaStyle is { } plotAreaStyle)
+        {
+            var plotShape = BuildChartShapeProperties(plotAreaStyle);
+            if (plotShape is not null)
+            {
+                plotArea.AppendChild(plotShape);
+            }
+        }
 
         if (chart.Model is null || chart.Model.Series.Count == 0)
         {
@@ -6285,6 +7331,7 @@ public sealed class DocxExporter
 
         barSeries.AppendChild(BuildCategoryAxisData(series));
         barSeries.AppendChild(BuildValues(series));
+        ApplyChartSeriesStyle(barSeries, series);
         return barSeries;
     }
 
@@ -6297,6 +7344,7 @@ public sealed class DocxExporter
 
         lineSeries.AppendChild(BuildCategoryAxisData(series));
         lineSeries.AppendChild(BuildValues(series));
+        ApplyChartSeriesStyle(lineSeries, series);
         return lineSeries;
     }
 
@@ -6309,6 +7357,7 @@ public sealed class DocxExporter
 
         pieSeries.AppendChild(BuildCategoryAxisData(series));
         pieSeries.AppendChild(BuildValues(series));
+        ApplyChartSeriesStyle(pieSeries, series);
         return pieSeries;
     }
 
@@ -6321,6 +7370,7 @@ public sealed class DocxExporter
 
         scatterSeries.AppendChild(BuildXValues(series));
         scatterSeries.AppendChild(BuildYValues(series));
+        ApplyChartSeriesStyle(scatterSeries, series);
         return scatterSeries;
     }
 
@@ -6334,6 +7384,7 @@ public sealed class DocxExporter
         bubbleSeries.AppendChild(BuildXValues(series));
         bubbleSeries.AppendChild(BuildYValues(series));
         bubbleSeries.AppendChild(BuildBubbleSize(series));
+        ApplyChartSeriesStyle(bubbleSeries, series);
         return bubbleSeries;
     }
 
@@ -6346,6 +7397,7 @@ public sealed class DocxExporter
 
         areaSeries.AppendChild(BuildCategoryAxisData(series));
         areaSeries.AppendChild(BuildValues(series));
+        ApplyChartSeriesStyle(areaSeries, series);
         return areaSeries;
     }
 
@@ -6358,6 +7410,7 @@ public sealed class DocxExporter
 
         radarSeries.AppendChild(BuildCategoryAxisData(series));
         radarSeries.AppendChild(BuildValues(series));
+        ApplyChartSeriesStyle(radarSeries, series);
         return radarSeries;
     }
 
@@ -6492,6 +7545,134 @@ public sealed class DocxExporter
             new C.ChartText(richText),
             new C.Layout(),
             new C.Overlay { Val = false });
+    }
+
+    private static void ApplyChartSeriesStyle(OpenXmlCompositeElement seriesElement, ChartSeries series)
+    {
+        if (series.Style is not null)
+        {
+            var props = BuildChartShapeProperties(series.Style);
+            if (props is not null)
+            {
+                seriesElement.AppendChild(props);
+            }
+        }
+
+        AppendChartPointStyles(seriesElement, series);
+    }
+
+    private static void AppendChartPointStyles(OpenXmlCompositeElement seriesElement, ChartSeries series)
+    {
+        for (var i = 0; i < series.Points.Count; i++)
+        {
+            var pointStyle = series.Points[i].Style;
+            if (pointStyle is null)
+            {
+                continue;
+            }
+
+            var props = BuildChartShapeProperties(pointStyle);
+            if (props is null)
+            {
+                continue;
+            }
+
+            var dataPoint = new C.DataPoint(new C.Index { Val = (uint)i });
+            dataPoint.AppendChild(props);
+            seriesElement.AppendChild(dataPoint);
+        }
+    }
+
+    private static C.ShapeProperties? BuildChartShapeProperties(ChartStyle style)
+    {
+        if (style is null)
+        {
+            return null;
+        }
+
+        var props = new C.ShapeProperties();
+        var hasContent = false;
+
+        if (style.Fill is not null)
+        {
+            if (style.Fill.IsNone)
+            {
+                props.AppendChild(new A.NoFill());
+                hasContent = true;
+            }
+            else if (style.Fill.Color.HasValue)
+            {
+                props.AppendChild(new A.SolidFill(new A.RgbColorModelHex { Val = ColorToHex(style.Fill.Color.Value) }));
+                hasContent = true;
+            }
+        }
+
+        if (style.Line is not null)
+        {
+            var outline = new A.Outline();
+            if (style.Line.Width.HasValue)
+            {
+                outline.Width = (Int32Value)DipToEmu(style.Line.Width.Value);
+            }
+
+            if (style.Line.IsNone)
+            {
+                outline.AppendChild(new A.NoFill());
+            }
+            else if (style.Line.Color.HasValue)
+            {
+                outline.AppendChild(new A.SolidFill(new A.RgbColorModelHex { Val = ColorToHex(style.Line.Color.Value) }));
+            }
+
+            if (style.Line.Style.HasValue)
+            {
+                var dash = MapShapeDash(style.Line.Style.Value);
+                if (dash.HasValue)
+                {
+                    outline.AppendChild(new A.PresetDash { Val = dash.Value });
+                }
+            }
+
+            props.AppendChild(outline);
+            hasContent = true;
+        }
+
+        var effects = BuildChartEffectList(style.Effects);
+        if (effects is not null)
+        {
+            props.AppendChild(effects);
+            hasContent = true;
+        }
+
+        return hasContent ? props : null;
+    }
+
+    private static A.EffectList? BuildChartEffectList(ChartEffectStyle? effects)
+    {
+        if (effects?.Shadow is null)
+        {
+            return null;
+        }
+
+        var shadow = effects.Shadow;
+        var outerShadow = new A.OuterShadow();
+        if (shadow.BlurRadius > 0f)
+        {
+            outerShadow.BlurRadius = DipToEmu(shadow.BlurRadius);
+        }
+
+        if (shadow.Distance > 0f)
+        {
+            outerShadow.Distance = DipToEmu(shadow.Distance);
+        }
+
+        if (MathF.Abs(shadow.Direction) > 0.01f)
+        {
+            outerShadow.Direction = (Int32Value)MathF.Round(shadow.Direction * 60000f);
+        }
+
+        outerShadow.AppendChild(BuildDrawingColor(shadow.Color));
+        return new A.EffectList(outerShadow);
     }
 
     private static C.BarGroupingValues MapBarGrouping(ChartStacking stacking)
