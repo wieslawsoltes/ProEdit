@@ -20,12 +20,14 @@ public sealed class Document
     public DocumentFonts Fonts { get; } = new DocumentFonts();
     public DocumentThemeColorMap ThemeColors { get; } = new DocumentThemeColorMap();
     public DocumentRevisions Revisions { get; } = new DocumentRevisions();
+    public DocumentMacros Macros { get; } = new DocumentMacros();
     public Dictionary<int, ListDefinition> ListDefinitions { get; } = new();
     public Dictionary<int, FootnoteDefinition> Footnotes { get; } = new();
     public Dictionary<int, EndnoteDefinition> Endnotes { get; } = new();
     public Dictionary<int, CommentDefinition> Comments { get; } = new();
     public bool TrackChangesEnabled { get; set; }
     public string? CitationStyle { get; set; }
+    public CitationSourceCatalog CitationSources { get; } = new CitationSourceCatalog();
     public MailMergeData? MailMergeData { get; set; }
 
     public Document()

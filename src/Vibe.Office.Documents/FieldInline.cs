@@ -8,6 +8,8 @@ public sealed class FieldStartInline : FieldInline
 {
     public string Instruction { get; set; }
     public FieldDefinition? Definition { get; set; }
+    public bool IsLocked { get; set; }
+    public bool IsDirty { get; set; }
 
     public FieldStartInline(string instruction)
     {

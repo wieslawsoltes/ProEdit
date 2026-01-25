@@ -13,7 +13,9 @@ public enum FieldKind
     Time,
     Hyperlink,
     Ref,
-    DocProperty
+    DocProperty,
+    Citation,
+    Bibliography
 }
 
 public readonly record struct FieldArgument(string Value);
@@ -132,6 +134,8 @@ public static class FieldInstructionParser
             "REF" => FieldKind.Ref,
             "PAGEREF" => FieldKind.Ref,
             "DOCPROPERTY" => FieldKind.DocProperty,
+            "CITATION" => FieldKind.Citation,
+            "BIBLIOGRAPHY" => FieldKind.Bibliography,
             _ => FieldKind.Unknown
         };
     }

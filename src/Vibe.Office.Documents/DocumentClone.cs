@@ -26,6 +26,7 @@ public static class DocumentClone
         target.TrackChangesEnabled = source.TrackChangesEnabled;
         target.CitationStyle = source.CitationStyle;
         target.MailMergeData = source.MailMergeData?.Clone();
+        CopyCitationSources(source.CitationSources, target.CitationSources);
 
         CopyTextStyle(source.DefaultTextStyle, target.DefaultTextStyle);
         CopyParagraphStyleProperties(source.DefaultParagraphStyleProperties, target.DefaultParagraphStyleProperties);
@@ -42,6 +43,7 @@ public static class DocumentClone
         CopyDocumentFonts(source.Fonts, target.Fonts);
         CopyThemeColors(source.ThemeColors, target.ThemeColors);
         CopyRevisions(source.Revisions, target.Revisions);
+        CopyMacros(source.Macros, target.Macros);
 
         CopyListDefinitions(source.ListDefinitions, target.ListDefinitions);
         CopyNotes(source.Footnotes, target.Footnotes, CloneFootnoteDefinition);
@@ -50,6 +52,100 @@ public static class DocumentClone
 
         CopyBlocks(source.Blocks, target.Blocks);
         CopySections(source.Sections, target.Sections);
+    }
+
+    private static void CopyCitationSources(CitationSourceCatalog source, CitationSourceCatalog target)
+    {
+        target.Sources.Clear();
+        foreach (var citationSource in source.Sources)
+        {
+            target.Sources.Add(citationSource.Clone());
+        }
+    }
+
+    private static void CopyMacros(DocumentMacros source, DocumentMacros target)
+    {
+        target.Items.Clear();
+        target.VbaModules.Clear();
+        target.References.Clear();
+        target.IsTrusted = source.IsTrusted;
+        target.VbaProject = CloneBytes(source.VbaProject);
+        foreach (var macro in source.Items)
+        {
+            target.Items.Add(CloneMacroDefinition(macro));
+        }
+
+        foreach (var module in source.VbaModules)
+        {
+            target.VbaModules.Add(CloneVbaModuleInfo(module));
+        }
+
+        foreach (var reference in source.References)
+        {
+            target.References.Add(CloneVbaProjectReference(reference));
+        }
+    }
+
+    private static MacroDefinition CloneMacroDefinition(MacroDefinition source)
+    {
+        var clone = new MacroDefinition
+        {
+            Id = source.Id,
+            Name = source.Name,
+            Description = source.Description,
+            Language = source.Language,
+            IsTrusted = source.IsTrusted,
+            Source = source.Source
+        };
+
+        foreach (var command in source.Commands)
+        {
+            clone.Commands.Add(CloneMacroCommand(command));
+        }
+
+        return clone;
+    }
+
+    private static MacroCommand CloneMacroCommand(MacroCommand source)
+    {
+        return new MacroCommand
+        {
+            CommandId = source.CommandId,
+            Payload = source.Payload is null
+                ? null
+                : new MacroPayload
+                {
+                    TypeId = source.Payload.TypeId,
+                    Json = source.Payload.Json
+                }
+        };
+    }
+
+    private static VbaModuleInfo CloneVbaModuleInfo(VbaModuleInfo source)
+    {
+        var clone = new VbaModuleInfo
+        {
+            Name = source.Name,
+            StreamName = source.StreamName,
+            Source = source.Source
+        };
+
+        foreach (var procedure in source.Procedures)
+        {
+            clone.Procedures.Add(procedure);
+        }
+
+        return clone;
+    }
+
+    private static VbaProjectReference CloneVbaProjectReference(VbaProjectReference source)
+    {
+        return new VbaProjectReference
+        {
+            Name = source.Name,
+            Identifier = source.Identifier,
+            Description = source.Description
+        };
     }
 
     private static void CopySections(IReadOnlyList<DocumentSection> source, List<DocumentSection> target)
@@ -95,7 +191,7 @@ public static class DocumentClone
         }
     }
 
-    private static Block CloneBlock(Block block)
+    public static Block CloneBlock(Block block)
     {
         return block switch
         {
@@ -231,7 +327,12 @@ public static class DocumentClone
             ChartInline chart => CloneChartInline(chart),
             PageNumberInline pageNumber => new PageNumberInline(pageNumber.Style?.Clone()),
             TotalPagesInline totalPages => new TotalPagesInline(totalPages.Style?.Clone()),
-            FieldStartInline fieldStart => new FieldStartInline(fieldStart.Instruction) { Definition = fieldStart.Definition },
+            FieldStartInline fieldStart => new FieldStartInline(fieldStart.Instruction)
+            {
+                Definition = fieldStart.Definition,
+                IsLocked = fieldStart.IsLocked,
+                IsDirty = fieldStart.IsDirty
+            },
             FieldSeparatorInline => new FieldSeparatorInline(),
             FieldEndInline => new FieldEndInline(),
             BookmarkStartInline bookmarkStart => new BookmarkStartInline(bookmarkStart.Id, bookmarkStart.Name),
@@ -305,7 +406,8 @@ public static class DocumentClone
         {
             EmbeddedObject = CloneEmbeddedObject(source.EmbeddedObject),
             Diagram = CloneDiagram(source.Diagram),
-            Effects = source.Effects?.Clone()
+            Effects = source.Effects?.Clone(),
+            Crop = source.Crop?.Clone()
         };
         return clone;
     }

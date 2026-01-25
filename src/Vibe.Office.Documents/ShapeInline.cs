@@ -3,8 +3,8 @@ namespace Vibe.Office.Documents;
 public sealed class ShapeInline : Inline
 {
     public Guid Id { get; } = Guid.NewGuid();
-    public float Width { get; }
-    public float Height { get; }
+    public float Width { get; set; }
+    public float Height { get; set; }
     public ShapeProperties Properties { get; } = new ShapeProperties();
     public ShapeTextBox? TextBox { get; set; }
     public string? Name { get; set; }
