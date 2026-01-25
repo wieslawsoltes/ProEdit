@@ -9,6 +9,9 @@ public sealed class RenderOptions
     public DocColor PageColor { get; set; } = DocColor.White;
     public DocColor PageBorderColor { get; set; } = new DocColor(220, 220, 220);
     public float PageBorderThickness { get; set; } = 1f;
+    public DocColor HeaderFooterOverlayColor { get; set; } = new DocColor(235, 235, 235, 160);
+    public DocColor HeaderFooterBoundsColor { get; set; } = new DocColor(160, 160, 160);
+    public float HeaderFooterBoundsThickness { get; set; } = 1f;
     public DocColor ColumnSeparatorColor { get; set; } = new DocColor(200, 200, 200);
     public float ColumnSeparatorThickness { get; set; } = 1f;
     public DocColor TextColor { get; set; } = DocColor.Black;
@@ -41,6 +44,10 @@ public sealed class RenderOptions
     public TextPosition Caret { get; set; }
     public bool ShowCaret { get; set; } = true;
     public Guid? SelectedFloatingObjectId { get; set; }
+    public HeaderFooterEditMode HeaderFooterMode { get; set; }
+    public TextRange? HeaderFooterSelection { get; set; }
+    public TextPosition HeaderFooterCaret { get; set; }
+    public bool ShowHeaderFooterCaret { get; set; }
     public IReadOnlyList<int>? DirtyPages { get; set; }
     public long DirtyVersion { get; set; }
 }

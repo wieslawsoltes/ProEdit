@@ -62,6 +62,7 @@ public sealed class DocumentLayouter
 
     private readonly record struct HeaderFooterLayoutResult(
         IReadOnlyList<HeaderFooterLine> Lines,
+        IReadOnlyList<TableLayout> Tables,
         float Height,
         IReadOnlyDictionary<int, LineRange> ParagraphLineRanges);
 
@@ -1539,38 +1540,6 @@ public sealed class DocumentLayouter
             endnotesByPage = endnotesSnapshot;
         }
 
-        TableLayout OffsetTableLayout(TableLayout table, float dx, float dy)
-        {
-            if (MathF.Abs(dx) < 0.01f && MathF.Abs(dy) < 0.01f)
-            {
-                return table;
-            }
-
-            var bounds = table.Bounds;
-            var updatedBounds = new DocRect(bounds.X + dx, bounds.Y + dy, bounds.Width, bounds.Height);
-            var updatedCells = new List<TableCellLayout>(table.Cells.Count);
-            foreach (var cell in table.Cells)
-            {
-                var cellBounds = cell.Bounds;
-                var updatedCellBounds = new DocRect(cellBounds.X + dx, cellBounds.Y + dy, cellBounds.Width, cellBounds.Height);
-                if (cell.Lines.Count == 0)
-                {
-                    updatedCells.Add(cell with { Bounds = updatedCellBounds });
-                    continue;
-                }
-
-                var updatedLines = new List<TableCellLine>(cell.Lines.Count);
-                foreach (var line in cell.Lines)
-                {
-                    updatedLines.Add(line with { X = line.X + dx, Y = line.Y + dy });
-                }
-
-                updatedCells.Add(cell with { Bounds = updatedCellBounds, Lines = updatedLines });
-            }
-
-            return table with { Bounds = updatedBounds, Cells = updatedCells };
-        }
-
         void OffsetTableLines(int rangeStart, int rangeEnd, DocRect bounds, float dx, float dy)
         {
             if (MathF.Abs(dx) < 0.01f && MathF.Abs(dy) < 0.01f)
@@ -2018,6 +1987,8 @@ public sealed class DocumentLayouter
             var prefix = listMarker?.Prefix;
             var listIndent = listMarker?.Indent ?? 0f;
             var prefixWidth = listMarker?.PrefixWidth ?? 0f;
+            var paragraphBorders = properties.Borders.HasAny ? properties.Borders.Clone() : null;
+            var paragraphShading = properties.ShadingColor;
 
             var keepWithNext = properties.KeepWithNext == true;
             var keepLinesTogether = properties.KeepLinesTogether == true;
@@ -2529,7 +2500,8 @@ public sealed class DocumentLayouter
                     ascent,
                     section.DocGrid,
                     pageNumberText,
-                    totalPagesText);
+                    totalPagesText,
+                    includeTables: true);
                 var footerLayout = LayoutHeaderFooterBlocks(
                     footerBlocks,
                     document,
@@ -2543,12 +2515,15 @@ public sealed class DocumentLayouter
                     ascent,
                     section.DocGrid,
                     pageNumberText,
-                    totalPagesText);
+                    totalPagesText,
+                    includeTables: true);
 
                 var headerTop = page.Bounds.Y + section.HeaderOffset;
                 var footerTop = page.Bounds.Bottom - section.FooterOffset - footerLayout.Height;
                 var headerLines = OffsetHeaderFooterLines(headerLayout.Lines, page.Bounds.X + section.MarginLeft, headerTop);
                 var footerLines = OffsetHeaderFooterLines(footerLayout.Lines, page.Bounds.X + section.MarginLeft, footerTop);
+                var headerTables = OffsetHeaderFooterTables(headerLayout.Tables, page.Bounds.X + section.MarginLeft, headerTop);
+                var footerTables = OffsetHeaderFooterTables(footerLayout.Tables, page.Bounds.X + section.MarginLeft, footerTop);
                 var headerFloatingObjects = BuildHeaderFooterFloatingObjects(
                     headerBlocks,
                     headerLines,
@@ -2572,7 +2547,7 @@ public sealed class DocumentLayouter
                     floatingObjects.AddRange(footerFloatingObjects);
                 }
 
-                headerFooters.Add(new HeaderFooterLayout(page.Index, headerLines, footerLines, floatingObjects));
+                headerFooters.Add(new HeaderFooterLayout(page.Index, headerLines, footerLines, headerTables, footerTables, floatingObjects));
             }
         }
 
@@ -3747,26 +3722,11 @@ public sealed class DocumentLayouter
         var offsetLines = new List<TableCellLine>(placement.Lines.Count);
         foreach (var line in placement.Lines)
         {
-            offsetLines.Add(new TableCellLine(
-                line.ParagraphIndex,
-                line.StartOffset,
-                line.Length,
-                cellX + placement.Padding.Left + line.X,
-                cellY + placement.Padding.Top + verticalOffset + line.Y,
-                line.Width,
-                line.TextSlice,
-                line.Prefix,
-                line.PrefixWidth,
-                line.LineHeight,
-                line.Ascent,
-                line.Runs,
-                line.Images,
-                line.Shapes,
-                line.Charts,
-                line.Equations,
-                line.Rubies,
-                line.TextDirection,
-                line.IsRtl));
+            offsetLines.Add(line with
+            {
+                X = cellX + placement.Padding.Left + line.X,
+                Y = cellY + placement.Padding.Top + verticalOffset + line.Y
+            });
         }
 
         return offsetLines;
@@ -3798,26 +3758,11 @@ public sealed class DocumentLayouter
                 continue;
             }
 
-            offsetLines.Add(new TableCellLine(
-                line.ParagraphIndex,
-                line.StartOffset,
-                line.Length,
-                cellX + placement.Padding.Left + line.X,
-                cellY + (lineTop - sliceOffset),
-                line.Width,
-                line.TextSlice,
-                line.Prefix,
-                line.PrefixWidth,
-                line.LineHeight,
-                line.Ascent,
-                line.Runs,
-                line.Images,
-                line.Shapes,
-                line.Charts,
-                line.Equations,
-                line.Rubies,
-                line.TextDirection,
-                line.IsRtl));
+            offsetLines.Add(line with
+            {
+                X = cellX + placement.Padding.Left + line.X,
+                Y = cellY + (lineTop - sliceOffset)
+            });
         }
 
         return offsetLines.Count == 0 ? Array.Empty<TableCellLine>() : offsetLines;
@@ -4220,6 +4165,8 @@ public sealed class DocumentLayouter
             var prefix = listMarker?.Prefix;
             var listIndent = listMarker?.Indent ?? 0f;
             var prefixWidth = listMarker?.PrefixWidth ?? 0f;
+            var paragraphBorders = properties.Borders.HasAny ? properties.Borders.Clone() : null;
+            var paragraphShading = properties.ShadingColor;
 
             if (DocTextDirectionHelpers.IsVertical(textDirection))
             {
@@ -4267,7 +4214,11 @@ public sealed class DocumentLayouter
                         Array.Empty<LayoutEquation>(),
                         Array.Empty<LayoutRuby>(),
                         textDirection,
-                        emptyIsRtl));
+                        emptyIsRtl,
+                        paragraphBorders,
+                        paragraphShading,
+                        true,
+                        true));
                     y = emptyAxisOrigin + emptyLineHeight + spacingAfter;
                     paragraphIndex++;
                     continue;
@@ -4345,7 +4296,11 @@ public sealed class DocumentLayouter
                         lineLayout.Equations,
                         lineLayout.Rubies,
                         textDirection,
-                        isRtl));
+                        isRtl,
+                        paragraphBorders,
+                        paragraphShading,
+                        line.IsFirstLine,
+                        isLastLine));
                     maxLineAxisEnd = MathF.Max(maxLineAxisEnd, alignedY + lineLayout.Width);
                     currentX = lineX + lineLayout.LineHeight;
                 }
@@ -4390,7 +4345,11 @@ public sealed class DocumentLayouter
                     Array.Empty<LayoutEquation>(),
                     Array.Empty<LayoutRuby>(),
                     textDirection,
-                    emptyIsRtl));
+                    emptyIsRtl,
+                    paragraphBorders,
+                    paragraphShading,
+                    true,
+                    true));
                 y += emptyLineHeight;
                 y += spacingAfter;
                 paragraphIndex++;
@@ -4462,7 +4421,11 @@ public sealed class DocumentLayouter
                     lineLayout.Equations,
                     lineLayout.Rubies,
                     textDirection,
-                    isRtl));
+                    isRtl,
+                    paragraphBorders,
+                    paragraphShading,
+                    isFirstLine,
+                    isLastLine));
                 y += lineLayout.LineHeight;
                 isFirstLine = false;
             }
@@ -5734,23 +5697,81 @@ public sealed class DocumentLayouter
         float ascent,
         DocGridSettings? docGrid,
         string? pageNumberText,
-        string? totalPagesText)
+        string? totalPagesText,
+        bool includeTables)
     {
         if (blocks.Count == 0)
         {
-            return new HeaderFooterLayoutResult(new List<HeaderFooterLine>(), 0f, new Dictionary<int, LineRange>());
+            return new HeaderFooterLayoutResult(
+                new List<HeaderFooterLine>(),
+                new List<TableLayout>(),
+                0f,
+                new Dictionary<int, LineRange>());
         }
 
         var lines = new List<HeaderFooterLine>();
+        var tables = new List<TableLayout>();
         var paragraphLineRanges = new Dictionary<int, LineRange>();
         var charGridSpacing = TextGridSnapping.GetCharacterSpacing(docGrid);
         var y = 0f;
         var listState = new ListNumberingState(document);
         var paragraphIndex = 0;
 
+        TableLayout LayoutHeaderFooterTable(TableBlock table, float tableY, ref int index)
+        {
+            var tableStyle = styleResolver.ResolveTableStyle(table);
+            var resolvedTableProperties = MergeTableProperties(tableStyle?.TableProperties, table.Properties);
+            var tableLook = ResolveTableLook(table.Properties.Look ?? tableStyle?.TableProperties.Look);
+            var data = ComputeTableLayoutData(
+                table,
+                document,
+                resolvedTableProperties,
+                table.Properties,
+                tableStyle,
+                tableLook,
+                contentWidth,
+                settings,
+                measurer,
+                style,
+                styleResolver,
+                spacingMetricsCache,
+                lineHeight,
+                ascent,
+                docGrid,
+                ref index);
+
+            var slices = new List<TableRowSlice>(data.RowHeights.Length);
+            for (var i = 0; i < data.RowHeights.Length; i++)
+            {
+                slices.Add(new TableRowSlice(i, 0f, data.RowHeights[i]));
+            }
+
+            var tableX = ResolveTableX(0f, contentWidth, resolvedTableProperties, data.TableWidth);
+            return BuildTableLayout(
+                table,
+                resolvedTableProperties,
+                data,
+                tableX,
+                tableY,
+                slices,
+                settings,
+                includeTopSpacing: true,
+                includeBottomSpacing: true,
+                continuesFromPrevious: false,
+                continuesOnNext: false);
+        }
+
         for (var blockIndex = 0; blockIndex < blocks.Count; blockIndex++)
         {
             var block = blocks[blockIndex];
+            if (includeTables && block is TableBlock table)
+            {
+                var tableLayout = LayoutHeaderFooterTable(table, y, ref paragraphIndex);
+                tables.Add(tableLayout);
+                y = tableLayout.Bounds.Bottom + settings.BlockSpacing;
+                continue;
+            }
+
             if (block is not ParagraphBlock paragraph)
             {
                 continue;
@@ -6060,7 +6081,7 @@ public sealed class DocumentLayouter
             paragraphIndex++;
         }
 
-        return new HeaderFooterLayoutResult(lines, y, paragraphLineRanges);
+        return new HeaderFooterLayoutResult(lines, tables, y, paragraphLineRanges);
     }
 
     private static List<HeaderFooterLine> OffsetHeaderFooterLines(IReadOnlyList<HeaderFooterLine> lines, float offsetX, float offsetY)
@@ -6077,6 +6098,68 @@ public sealed class DocumentLayouter
         }
 
         return result;
+    }
+
+    private static List<TableLayout> OffsetHeaderFooterTables(IReadOnlyList<TableLayout> tables, float offsetX, float offsetY)
+    {
+        if (tables.Count == 0)
+        {
+            return new List<TableLayout>();
+        }
+
+        var result = new List<TableLayout>(tables.Count);
+        foreach (var table in tables)
+        {
+            result.Add(OffsetTableLayout(table, offsetX, offsetY));
+        }
+
+        return result;
+    }
+
+    private static TableLayout OffsetTableLayout(TableLayout table, float dx, float dy)
+    {
+        if (MathF.Abs(dx) < 0.01f && MathF.Abs(dy) < 0.01f)
+        {
+            return table;
+        }
+
+        var bounds = table.Bounds;
+        var updatedBounds = new DocRect(bounds.X + dx, bounds.Y + dy, bounds.Width, bounds.Height);
+        var updatedCells = new List<TableCellLayout>(table.Cells.Count);
+        foreach (var cell in table.Cells)
+        {
+            var cellBounds = cell.Bounds;
+            var updatedCellBounds = new DocRect(cellBounds.X + dx, cellBounds.Y + dy, cellBounds.Width, cellBounds.Height);
+            if (cell.Lines.Count == 0)
+            {
+                updatedCells.Add(cell with { Bounds = updatedCellBounds });
+                continue;
+            }
+
+            var updatedLines = new List<TableCellLine>(cell.Lines.Count);
+            foreach (var line in cell.Lines)
+            {
+                updatedLines.Add(line with { X = line.X + dx, Y = line.Y + dy });
+            }
+
+            updatedCells.Add(cell with { Bounds = updatedCellBounds, Lines = updatedLines });
+        }
+
+        return table with { Bounds = updatedBounds, Cells = updatedCells };
+    }
+
+    private static int CountParagraphsInTable(TableBlock table)
+    {
+        var count = 0;
+        foreach (var row in table.Rows)
+        {
+            foreach (var cell in row.Cells)
+            {
+                count += cell.Paragraphs.Count;
+            }
+        }
+
+        return count;
     }
 
     private static List<FloatingLayoutObject> BuildHeaderFooterFloatingObjects(
@@ -6097,6 +6180,11 @@ public sealed class DocumentLayouter
         {
             if (block is not ParagraphBlock paragraph)
             {
+                if (block is TableBlock table)
+                {
+                    paragraphIndex += CountParagraphsInTable(table);
+                }
+
                 continue;
             }
 
@@ -6138,6 +6226,65 @@ public sealed class DocumentLayouter
         }
 
         return result;
+    }
+
+    private static void AppendNoteBlocks(List<Block> target, IReadOnlyList<Block> source, int id, NoteKind kind)
+    {
+        if (source.Count == 0)
+        {
+            target.Add(BuildNotePrefixParagraph(id, kind));
+            return;
+        }
+
+        if (source[0] is ParagraphBlock paragraph)
+        {
+            var cloned = CloneParagraphWithNotePrefix(paragraph, id, kind);
+            target.Add(cloned);
+            for (var i = 1; i < source.Count; i++)
+            {
+                target.Add(source[i]);
+            }
+
+            return;
+        }
+
+        target.Add(BuildNotePrefixParagraph(id, kind));
+        for (var i = 0; i < source.Count; i++)
+        {
+            target.Add(source[i]);
+        }
+    }
+
+    private static ParagraphBlock CloneParagraphWithNotePrefix(ParagraphBlock source, int id, NoteKind kind)
+    {
+        var clone = (ParagraphBlock)DocumentClone.CloneBlock(source);
+        if (clone.Inlines.Count == 0)
+        {
+            var text = clone.Text ?? string.Empty;
+            if (text.Length > 0)
+            {
+                clone.Inlines.Add(new RunInline(text));
+            }
+        }
+
+        clone.Inlines.Insert(0, new RunInline(" "));
+        clone.Inlines.Insert(0, CreateNoteReferenceInline(kind, id));
+        return clone;
+    }
+
+    private static ParagraphBlock BuildNotePrefixParagraph(int id, NoteKind kind)
+    {
+        var paragraph = new ParagraphBlock();
+        paragraph.Inlines.Add(CreateNoteReferenceInline(kind, id));
+        paragraph.Inlines.Add(new RunInline(" "));
+        return paragraph;
+    }
+
+    private static Inline CreateNoteReferenceInline(NoteKind kind, int id)
+    {
+        return kind == NoteKind.Endnote
+            ? new EndnoteReferenceInline(id)
+            : new FootnoteReferenceInline(id);
     }
 
     private static List<FootnoteLayout> BuildFootnoteLayouts(
@@ -6182,7 +6329,7 @@ public sealed class DocumentLayouter
                 {
                     if (document.Footnotes.TryGetValue(id, out var definition))
                     {
-                        blocks.AddRange(definition.Blocks);
+                        AppendNoteBlocks(blocks, definition.Blocks, id, NoteKind.Footnote);
                     }
                 }
             }
@@ -6193,7 +6340,7 @@ public sealed class DocumentLayouter
                 {
                     if (document.Endnotes.TryGetValue(id, out var definition))
                     {
-                        blocks.AddRange(definition.Blocks);
+                        AppendNoteBlocks(blocks, definition.Blocks, id, NoteKind.Endnote);
                     }
                 }
             }
@@ -6226,18 +6373,49 @@ public sealed class DocumentLayouter
                 ascent,
                 section.DocGrid,
                 pageNumberText,
-                totalPagesText);
+                totalPagesText,
+                includeTables: true);
 
-            if (layout.Lines.Count == 0)
+            if (layout.Lines.Count == 0 && layout.Tables.Count == 0)
             {
                 continue;
             }
 
             var footerTop = page.Bounds.Bottom - section.MarginBottom;
-            if (headerFooterMap.TryGetValue(pageIndex, out var headerFooter)
-                && headerFooter.FooterLines.Count > 0)
+            if (headerFooterMap.TryGetValue(pageIndex, out var headerFooter))
             {
-                footerTop = headerFooter.FooterLines.Min(line => line.Y);
+                var minFooterY = float.MaxValue;
+                var hasFooterContent = false;
+                foreach (var line in headerFooter.FooterLines)
+                {
+                    if (line.Y < minFooterY)
+                    {
+                        minFooterY = line.Y;
+                    }
+
+                    hasFooterContent = true;
+                }
+
+                foreach (var table in headerFooter.FooterTables)
+                {
+                    var tableTop = table.Bounds.Y;
+                    if (table.Bounds.Height <= 0f)
+                    {
+                        continue;
+                    }
+
+                    if (tableTop < minFooterY)
+                    {
+                        minFooterY = tableTop;
+                    }
+
+                    hasFooterContent = true;
+                }
+
+                if (hasFooterContent)
+                {
+                    footerTop = minFooterY;
+                }
             }
 
             var footnoteTop = footerTop - layout.Height;
@@ -6249,7 +6427,8 @@ public sealed class DocumentLayouter
                 ? new DocRect(separatorX, separatorY, separatorWidth, 1f)
                 : new DocRect(separatorX, separatorY, 0f, 0f);
 
-            footnoteLayouts.Add(new FootnoteLayout(page.Index, offsetLines, separatorBounds));
+            var offsetTables = OffsetHeaderFooterTables(layout.Tables, page.Bounds.X + section.MarginLeft, footnoteTop);
+            footnoteLayouts.Add(new FootnoteLayout(page.Index, offsetLines, offsetTables, separatorBounds));
         }
 
         return footnoteLayouts;

@@ -1,4 +1,5 @@
 using Vibe.Office.Documents;
+using Vibe.Office.Primitives;
 
 namespace Vibe.Office.Layout;
 
@@ -21,7 +22,11 @@ public sealed record TableCellLine(
     IReadOnlyList<LayoutEquation> Equations,
     IReadOnlyList<LayoutRuby> Rubies,
     DocTextDirection? TextDirection,
-    bool IsRtl = false)
+    bool IsRtl = false,
+    ParagraphBorders? ParagraphBorders = null,
+    DocColor? ParagraphShadingColor = null,
+    bool IsParagraphStart = false,
+    bool IsParagraphEnd = false)
 {
     private string? _text;
 

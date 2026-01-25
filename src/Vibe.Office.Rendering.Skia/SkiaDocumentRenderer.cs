@@ -16,6 +16,25 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
     private long _lastDirtyVersion = -1;
     public ISkiaTypefaceResolver? TypefaceResolver { get; set; }
 
+    public bool TryDrawCachedPage(SKCanvas canvas, DocumentLayout layout, int pageIndex)
+    {
+        ArgumentNullException.ThrowIfNull(canvas);
+        ArgumentNullException.ThrowIfNull(layout);
+
+        if (!ReferenceEquals(layout, _cachedLayout))
+        {
+            return false;
+        }
+
+        if (!_pageCache.TryGetValue(pageIndex, out var picture) || picture is null)
+        {
+            return false;
+        }
+
+        canvas.DrawPicture(picture);
+        return true;
+    }
+
     public void Render(SKCanvas canvas, Document document, DocumentLayout layout, RenderOptions options)
     {
         ArgumentNullException.ThrowIfNull(canvas);
@@ -506,6 +525,15 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             IsAntialias = true
         };
 
+        using var headerFooterBoundsPaint = new SKPaint
+        {
+            Style = SKPaintStyle.Stroke,
+            Color = ToSkColor(options.HeaderFooterBoundsColor),
+            StrokeWidth = options.HeaderFooterBoundsThickness,
+            IsAntialias = true,
+            PathEffect = SKPathEffect.CreateDash(new[] { 4f, 3f }, 0f)
+        };
+
         using var invisiblesStrokePaint = new SKPaint
         {
             Style = SKPaintStyle.Stroke,
@@ -552,6 +580,10 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
         };
 
         var selection = options.Selection?.Normalize();
+        var headerFooterSelection = options.HeaderFooterSelection?.Normalize();
+        var headerFooterMode = options.HeaderFooterMode;
+        var headerFooterCaret = options.HeaderFooterCaret;
+        var showHeaderFooterCaret = options.ShowHeaderFooterCaret;
         var commentHighlightsByParagraph = layout.CommentHighlightsByParagraph;
         var footnoteMap = layout.Footnotes.ToDictionary(footnote => footnote.PageIndex);
 
@@ -1106,6 +1138,141 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             }
         }
 
+        bool TryGetHeaderFooterRegion(int pageIndex, bool isHeader, out DocRect region)
+        {
+            region = default;
+            if (pageIndex < 0 || pageIndex >= layout.Pages.Count || pageIndex >= layout.PageSections.Count)
+            {
+                return false;
+            }
+
+            var page = layout.Pages[pageIndex];
+            var section = layout.PageSections[pageIndex];
+            var contentLeft = page.Bounds.X + section.MarginLeft;
+            var contentRight = page.Bounds.Right - section.MarginRight;
+            var contentWidth = MathF.Max(1f, contentRight - contentLeft);
+            var lineHeight = MathF.Max(1f, layout.LineHeight);
+
+            IReadOnlyList<HeaderFooterLine> lines = Array.Empty<HeaderFooterLine>();
+            IReadOnlyList<TableLayout> tables = Array.Empty<TableLayout>();
+            if (headerFooterMap.TryGetValue(pageIndex, out var headerFooter))
+            {
+                if (isHeader)
+                {
+                    lines = headerFooter.HeaderLines;
+                    tables = headerFooter.HeaderTables;
+                }
+                else
+                {
+                    lines = headerFooter.FooterLines;
+                    tables = headerFooter.FooterTables;
+                }
+            }
+
+            var regionTop = 0f;
+            var regionBottom = 0f;
+            var hasContent = false;
+            var minY = float.MaxValue;
+            var maxY = float.MinValue;
+            if (lines.Count > 0)
+            {
+                foreach (var line in lines)
+                {
+                    if (line.Y < minY)
+                    {
+                        minY = line.Y;
+                    }
+
+                    var lineBottom = line.Y + line.LineHeight;
+                    if (lineBottom > maxY)
+                    {
+                        maxY = lineBottom;
+                    }
+                }
+
+                hasContent = true;
+            }
+
+            if (tables.Count > 0)
+            {
+                foreach (var table in tables)
+                {
+                    var tableBounds = table.Bounds;
+                    if (tableBounds.Height <= 0f)
+                    {
+                        continue;
+                    }
+
+                    if (tableBounds.Y < minY)
+                    {
+                        minY = tableBounds.Y;
+                    }
+
+                    if (tableBounds.Bottom > maxY)
+                    {
+                        maxY = tableBounds.Bottom;
+                    }
+
+                    hasContent = true;
+                }
+            }
+
+            if (hasContent)
+            {
+                regionTop = minY;
+                regionBottom = maxY;
+            }
+            else if (isHeader)
+            {
+                regionTop = page.Bounds.Y + section.HeaderOffset;
+                regionBottom = regionTop + lineHeight;
+            }
+            else
+            {
+                regionTop = page.Bounds.Bottom - section.FooterOffset - lineHeight;
+                regionBottom = regionTop + lineHeight;
+            }
+
+            var regionHeight = MathF.Max(1f, regionBottom - regionTop);
+            region = new DocRect(contentLeft, regionTop, contentWidth, regionHeight);
+            return true;
+        }
+
+        void DrawHeaderFooterOverlay(int pageIndex)
+        {
+            if (headerFooterMode == HeaderFooterEditMode.None)
+            {
+                return;
+            }
+
+            if (pageIndex < 0 || pageIndex >= layout.Pages.Count)
+            {
+                return;
+            }
+
+            var contentBounds = layout.Pages[pageIndex].ContentBounds;
+            if (contentBounds.Width > 0f && contentBounds.Height > 0f)
+            {
+                var overlayRect = new SKRect(contentBounds.X, contentBounds.Y, contentBounds.Right, contentBounds.Bottom);
+                targetCanvas.DrawRect(overlayRect, GetFillPaint(options.HeaderFooterOverlayColor));
+            }
+
+            if (options.HeaderFooterBoundsThickness <= 0f)
+            {
+                return;
+            }
+
+            if (TryGetHeaderFooterRegion(pageIndex, true, out var headerRegion))
+            {
+                targetCanvas.DrawRect(new SKRect(headerRegion.X, headerRegion.Y, headerRegion.Right, headerRegion.Bottom), headerFooterBoundsPaint);
+            }
+
+            if (TryGetHeaderFooterRegion(pageIndex, false, out var footerRegion))
+            {
+                targetCanvas.DrawRect(new SKRect(footerRegion.X, footerRegion.Y, footerRegion.Right, footerRegion.Bottom), headerFooterBoundsPaint);
+            }
+        }
+
         void DrawFloatingSelection(int pageIndex)
         {
             if (!options.SelectedFloatingObjectId.HasValue || layout.FloatingObjects.Count == 0)
@@ -1227,89 +1394,300 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             DrawHeaderFooterFloatingObjects(pageIndex, true);
             DrawFloatingObjects(pageIndex, true);
 
-            if (headerFooterMap.TryGetValue(pageIndex, out var headerFooter))
+            void DrawTableLayouts(
+                IReadOnlyList<TableLayout> tables,
+                TextRange? selectionRange,
+                bool drawSelection,
+                TextPosition caretPosition,
+                bool drawCaret,
+                ref bool caretDrawn)
             {
-                foreach (var line in headerFooter.HeaderLines)
+                if (tables.Count == 0)
                 {
-                    DrawLineHighlights(line.X, line.Y, line.LineHeight, line.TextDirection, line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, pageGridSpacing);
-                    DrawLineContent(line.X, line.Y, line.LineHeight, line.Ascent, line.Prefix, line.PrefixWidth, line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, line.Rubies, line.TextDirection, pageGridSpacing);
-                    DrawLineInvisibles(line.X, line.Y, line.LineHeight, line.Ascent, line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, line.TextDirection, pageGridSpacing, false, 0f);
+                    return;
                 }
 
-                foreach (var line in headerFooter.FooterLines)
+                void DrawCellParagraphDecorations(TableCellLayout cell)
                 {
-                    DrawLineHighlights(line.X, line.Y, line.LineHeight, line.TextDirection, line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, pageGridSpacing);
-                    DrawLineContent(line.X, line.Y, line.LineHeight, line.Ascent, line.Prefix, line.PrefixWidth, line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, line.Rubies, line.TextDirection, pageGridSpacing);
-                    DrawLineInvisibles(line.X, line.Y, line.LineHeight, line.Ascent, line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, line.TextDirection, pageGridSpacing, false, 0f);
-                }
-            }
-
-            foreach (var table in layout.Tables)
-            {
-                if (!IntersectsPage(bounds, table.Bounds))
-                {
-                    continue;
-                }
-
-                if (table.Properties.ShadingColor is { } tableShading)
-                {
-                    var tableBounds = table.Bounds;
-                    var tableRect = new SKRect(tableBounds.X, tableBounds.Y, tableBounds.Right, tableBounds.Bottom);
-                    using var tablePaint = new SKPaint
+                    if (cell.Lines.Count == 0)
                     {
-                        Style = SKPaintStyle.Fill,
-                        Color = ToSkColor(tableShading),
-                        IsAntialias = true
-                    };
-                    targetCanvas.DrawRect(tableRect, tablePaint);
-                }
-
-                foreach (var cell in table.Cells)
-                {
-                    var cellBounds = cell.Bounds;
-                    var cellRect = new SKRect(cellBounds.X, cellBounds.Y, cellBounds.Right, cellBounds.Bottom);
-                    if (cell.Properties.ShadingColor is { } shading)
-                    {
-                        using var shadingPaint = new SKPaint
-                        {
-                            Style = SKPaintStyle.Fill,
-                            Color = ToSkColor(shading),
-                            IsAntialias = true
-                        };
-                        targetCanvas.DrawRect(cellRect, shadingPaint);
+                        return;
                     }
 
-                    if (cell.Lines.Count > 0)
-                    {
-                        targetCanvas.Save();
-                        targetCanvas.ClipRect(cellRect);
-                        foreach (var line in cell.Lines)
-                        {
-                            var lineGridSpacing = ResolveLineGridSpacing(line.ParagraphIndex, pageIndex);
-                            DrawCommentHighlights(line.ParagraphIndex, line.StartOffset, line.Length, line.X, line.Y, line.LineHeight, line.TextDirection, line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, lineGridSpacing);
-                            DrawLineHighlights(line.X, line.Y, line.LineHeight, line.TextDirection, line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, lineGridSpacing);
-                            if (selection.HasValue && TryGetSelectionSpan(selection.Value, line.ParagraphIndex, line.StartOffset, line.Length, out var startOffset, out var endOffset))
-                            {
-                                var selectionX1 = MeasureLineOffset(line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, startOffset - line.StartOffset, lineGridSpacing, GetRunMetrics);
-                                var selectionX2 = MeasureLineOffset(line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, endOffset - line.StartOffset, lineGridSpacing, GetRunMetrics);
-                                DrawLineRangeRect(line.X, line.Y, line.LineHeight, line.TextDirection, selectionX1, selectionX2, selectionPaint);
-                            }
+                    var currentParagraphIndex = int.MinValue;
+                    ParagraphBorders? currentBorders = null;
+                    DocColor? currentShading = null;
+                    var left = 0f;
+                    var right = 0f;
+                    var top = 0f;
+                    var bottom = 0f;
+                    var drawTop = false;
+                    var drawBottom = false;
+                    var hasBounds = false;
 
-                            DrawLineContent(line.X, line.Y, line.LineHeight, line.Ascent, line.Prefix, line.PrefixWidth, line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, line.Rubies, line.TextDirection, lineGridSpacing);
-                            DrawLineInvisibles(line.X, line.Y, line.LineHeight, line.Ascent, line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, line.TextDirection, lineGridSpacing, false, 0f);
+                    void Flush(bool forceBottom)
+                    {
+                        if (!hasBounds)
+                        {
+                            return;
                         }
 
-                        targetCanvas.Restore();
+                        if (left >= right || top >= bottom)
+                        {
+                            hasBounds = false;
+                            return;
+                        }
+
+                        var borders = currentBorders;
+                        var shading = currentShading;
+                        var borderLeft = left;
+                        var borderRight = right;
+                        var borderTop = top;
+                        var borderBottom = bottom;
+
+                        if (borders is { HasAny: true })
+                        {
+                            var leftSpace = borders.Left is { IsVisible: true } leftBorder ? MathF.Max(0f, leftBorder.Spacing ?? 0f) : 0f;
+                            var rightSpace = borders.Right is { IsVisible: true } rightBorder ? MathF.Max(0f, rightBorder.Spacing ?? 0f) : 0f;
+                            var topSpace = borders.Top is { IsVisible: true } topBorder ? MathF.Max(0f, topBorder.Spacing ?? 0f) : 0f;
+                            var bottomSpace = borders.Bottom is { IsVisible: true } bottomBorder ? MathF.Max(0f, bottomBorder.Spacing ?? 0f) : 0f;
+                            borderLeft -= leftSpace;
+                            borderRight += rightSpace;
+                            borderTop -= topSpace;
+                            borderBottom += bottomSpace;
+                        }
+
+                        if (shading is { } shadingColor && borderRight > borderLeft && borderBottom > borderTop)
+                        {
+                            targetCanvas.DrawRect(new SKRect(borderLeft, borderTop, borderRight, borderBottom), GetFillPaint(shadingColor));
+                        }
+
+                        if (borders is { HasAny: true })
+                        {
+                            if (drawTop && borders.Top is { IsVisible: true } topBorder)
+                            {
+                                DrawBorderSegment(targetCanvas, topBorder, borderLeft, borderTop, borderRight, borderTop, GetBorderPaint);
+                            }
+
+                            if ((drawBottom || forceBottom) && borders.Bottom is { IsVisible: true } bottomBorder)
+                            {
+                                DrawBorderSegment(targetCanvas, bottomBorder, borderLeft, borderBottom, borderRight, borderBottom, GetBorderPaint);
+                            }
+
+                            if (borders.Left is { IsVisible: true } leftBorder)
+                            {
+                                DrawBorderSegment(targetCanvas, leftBorder, borderLeft, borderTop, borderLeft, borderBottom, GetBorderPaint);
+                            }
+
+                            if (borders.Right is { IsVisible: true } rightBorder)
+                            {
+                                DrawBorderSegment(targetCanvas, rightBorder, borderRight, borderTop, borderRight, borderBottom, GetBorderPaint);
+                            }
+                        }
+
+                        hasBounds = false;
+                    }
+
+                    for (var lineIndex = 0; lineIndex < cell.Lines.Count; lineIndex++)
+                    {
+                        var line = cell.Lines[lineIndex];
+                        if (!hasBounds || line.ParagraphIndex != currentParagraphIndex)
+                        {
+                            if (hasBounds)
+                            {
+                                Flush(true);
+                            }
+
+                            currentParagraphIndex = line.ParagraphIndex;
+                            currentBorders = line.ParagraphBorders;
+                            currentShading = line.ParagraphShadingColor;
+                            left = float.MaxValue;
+                            right = float.MinValue;
+                            top = float.MaxValue;
+                            bottom = float.MinValue;
+                            drawTop = line.IsParagraphStart;
+                            drawBottom = false;
+                            hasBounds = true;
+                        }
+
+                        var lineLeft = line.X - (line.Prefix is null ? 0f : line.PrefixWidth);
+                        var lineRight = line.X + line.Width;
+                        left = MathF.Min(left, lineLeft);
+                        right = MathF.Max(right, lineRight);
+                        top = MathF.Min(top, line.Y);
+                        bottom = MathF.Max(bottom, line.Y + line.LineHeight);
+
+                        if (line.IsParagraphEnd)
+                        {
+                            drawBottom = true;
+                            Flush(false);
+                        }
+                    }
+
+                    if (hasBounds)
+                    {
+                        Flush(false);
                     }
                 }
 
-                DrawTableBorders(targetCanvas, table, GetBorderPaint);
+                foreach (var table in tables)
+                {
+                    if (!IntersectsPage(bounds, table.Bounds))
+                    {
+                        continue;
+                    }
+
+                    if (table.Properties.ShadingColor is { } tableShading)
+                    {
+                        var tableBounds = table.Bounds;
+                        var tableRect = new SKRect(tableBounds.X, tableBounds.Y, tableBounds.Right, tableBounds.Bottom);
+                        targetCanvas.DrawRect(tableRect, GetFillPaint(tableShading));
+                    }
+
+                    foreach (var cell in table.Cells)
+                    {
+                        var cellBounds = cell.Bounds;
+                        var cellRect = new SKRect(cellBounds.X, cellBounds.Y, cellBounds.Right, cellBounds.Bottom);
+                        if (cell.Properties.ShadingColor is { } shading)
+                        {
+                            targetCanvas.DrawRect(cellRect, GetFillPaint(shading));
+                        }
+
+                        if (cell.Lines.Count > 0)
+                        {
+                            targetCanvas.Save();
+                            targetCanvas.ClipRect(cellRect);
+                            DrawCellParagraphDecorations(cell);
+                            for (var lineIndex = 0; lineIndex < cell.Lines.Count; lineIndex++)
+                            {
+                                var line = cell.Lines[lineIndex];
+                                var lineGridSpacing = ResolveLineGridSpacing(line.ParagraphIndex, pageIndex);
+                                DrawCommentHighlights(line.ParagraphIndex, line.StartOffset, line.Length, line.X, line.Y, line.LineHeight, line.TextDirection, line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, lineGridSpacing);
+                                DrawLineHighlights(line.X, line.Y, line.LineHeight, line.TextDirection, line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, lineGridSpacing);
+                                if (drawSelection && selectionRange.HasValue
+                                    && TryGetSelectionSpan(selectionRange.Value, line.ParagraphIndex, line.StartOffset, line.Length, out var startOffset, out var endOffset))
+                                {
+                                    var selectionX1 = MeasureLineOffset(line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, startOffset - line.StartOffset, lineGridSpacing, GetRunMetrics);
+                                    var selectionX2 = MeasureLineOffset(line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, endOffset - line.StartOffset, lineGridSpacing, GetRunMetrics);
+                                    DrawLineRangeRect(line.X, line.Y, line.LineHeight, line.TextDirection, selectionX1, selectionX2, selectionPaint);
+                                }
+
+                                DrawLineContent(line.X, line.Y, line.LineHeight, line.Ascent, line.Prefix, line.PrefixWidth, line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, line.Rubies, line.TextDirection, lineGridSpacing);
+                                DrawLineInvisibles(line.X, line.Y, line.LineHeight, line.Ascent, line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, line.TextDirection, lineGridSpacing, false, 0f);
+
+                                if (drawCaret && !caretDrawn && line.ParagraphIndex == caretPosition.ParagraphIndex)
+                                {
+                                    var lineStartOffset = line.StartOffset;
+                                    var lineEndOffset = line.StartOffset + line.Length;
+                                    if (caretPosition.Offset >= lineStartOffset && caretPosition.Offset <= lineEndOffset)
+                                    {
+                                        var isLastLine = lineIndex == cell.Lines.Count - 1
+                                                         || cell.Lines[lineIndex + 1].ParagraphIndex != line.ParagraphIndex;
+                                        if (caretPosition.Offset != lineEndOffset || isLastLine)
+                                        {
+                                            var offsetInLine = Math.Clamp(caretPosition.Offset - line.StartOffset, 0, line.Length);
+                                            var caretX = MeasureLineOffset(line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, offsetInLine, lineGridSpacing, GetRunMetrics);
+                                            DrawLineRangeRect(line.X, line.Y, line.LineHeight, line.TextDirection, caretX, caretX + options.CaretThickness, caretPaint);
+                                            caretDrawn = true;
+                                        }
+                                    }
+                                }
+                            }
+
+                            targetCanvas.Restore();
+                        }
+                    }
+
+                    DrawTableBorders(targetCanvas, table, GetBorderPaint);
+                }
             }
+
+            var headerCaretDrawn = false;
+            var footerCaretDrawn = false;
+            if (headerFooterMap.TryGetValue(pageIndex, out var headerFooter))
+            {
+                var drawHeaderSelection = headerFooterMode == HeaderFooterEditMode.Header;
+                for (var lineIndex = 0; lineIndex < headerFooter.HeaderLines.Count; lineIndex++)
+                {
+                    var line = headerFooter.HeaderLines[lineIndex];
+                    if (drawHeaderSelection && headerFooterSelection.HasValue
+                        && TryGetSelectionSpan(headerFooterSelection.Value, line.ParagraphIndex, line.StartOffset, line.Length, out var startOffset, out var endOffset))
+                    {
+                        var selectionX1 = MeasureLineOffset(line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, startOffset - line.StartOffset, pageGridSpacing, GetRunMetrics);
+                        var selectionX2 = MeasureLineOffset(line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, endOffset - line.StartOffset, pageGridSpacing, GetRunMetrics);
+                        DrawLineRangeRect(line.X, line.Y, line.LineHeight, line.TextDirection, selectionX1, selectionX2, selectionPaint);
+                    }
+
+                    DrawLineHighlights(line.X, line.Y, line.LineHeight, line.TextDirection, line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, pageGridSpacing);
+                    DrawLineContent(line.X, line.Y, line.LineHeight, line.Ascent, line.Prefix, line.PrefixWidth, line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, line.Rubies, line.TextDirection, pageGridSpacing);
+                    DrawLineInvisibles(line.X, line.Y, line.LineHeight, line.Ascent, line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, line.TextDirection, pageGridSpacing, false, 0f);
+
+                    if (drawHeaderSelection && showHeaderFooterCaret && !headerCaretDrawn && line.ParagraphIndex == headerFooterCaret.ParagraphIndex)
+                    {
+                        var lineStartOffset = line.StartOffset;
+                        var lineEndOffset = line.StartOffset + line.Length;
+                        if (headerFooterCaret.Offset >= lineStartOffset && headerFooterCaret.Offset <= lineEndOffset)
+                        {
+                            var isLastLine = lineIndex == headerFooter.HeaderLines.Count - 1
+                                             || headerFooter.HeaderLines[lineIndex + 1].ParagraphIndex != line.ParagraphIndex;
+                            if (headerFooterCaret.Offset != lineEndOffset || isLastLine)
+                            {
+                                var offsetInLine = Math.Clamp(headerFooterCaret.Offset - line.StartOffset, 0, line.Length);
+                                var caretX = MeasureLineOffset(line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, offsetInLine, pageGridSpacing, GetRunMetrics);
+                                DrawLineRangeRect(line.X, line.Y, line.LineHeight, line.TextDirection, caretX, caretX + options.CaretThickness, caretPaint);
+                                headerCaretDrawn = true;
+                            }
+                        }
+                    }
+                }
+
+                var drawFooterSelection = headerFooterMode == HeaderFooterEditMode.Footer;
+                for (var lineIndex = 0; lineIndex < headerFooter.FooterLines.Count; lineIndex++)
+                {
+                    var line = headerFooter.FooterLines[lineIndex];
+                    if (drawFooterSelection && headerFooterSelection.HasValue
+                        && TryGetSelectionSpan(headerFooterSelection.Value, line.ParagraphIndex, line.StartOffset, line.Length, out var startOffset, out var endOffset))
+                    {
+                        var selectionX1 = MeasureLineOffset(line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, startOffset - line.StartOffset, pageGridSpacing, GetRunMetrics);
+                        var selectionX2 = MeasureLineOffset(line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, endOffset - line.StartOffset, pageGridSpacing, GetRunMetrics);
+                        DrawLineRangeRect(line.X, line.Y, line.LineHeight, line.TextDirection, selectionX1, selectionX2, selectionPaint);
+                    }
+
+                    DrawLineHighlights(line.X, line.Y, line.LineHeight, line.TextDirection, line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, pageGridSpacing);
+                    DrawLineContent(line.X, line.Y, line.LineHeight, line.Ascent, line.Prefix, line.PrefixWidth, line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, line.Rubies, line.TextDirection, pageGridSpacing);
+                    DrawLineInvisibles(line.X, line.Y, line.LineHeight, line.Ascent, line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, line.TextDirection, pageGridSpacing, false, 0f);
+
+                    if (drawFooterSelection && showHeaderFooterCaret && !footerCaretDrawn && line.ParagraphIndex == headerFooterCaret.ParagraphIndex)
+                    {
+                        var lineStartOffset = line.StartOffset;
+                        var lineEndOffset = line.StartOffset + line.Length;
+                        if (headerFooterCaret.Offset >= lineStartOffset && headerFooterCaret.Offset <= lineEndOffset)
+                        {
+                            var isLastLine = lineIndex == headerFooter.FooterLines.Count - 1
+                                             || headerFooter.FooterLines[lineIndex + 1].ParagraphIndex != line.ParagraphIndex;
+                            if (headerFooterCaret.Offset != lineEndOffset || isLastLine)
+                            {
+                                var offsetInLine = Math.Clamp(headerFooterCaret.Offset - line.StartOffset, 0, line.Length);
+                                var caretX = MeasureLineOffset(line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, offsetInLine, pageGridSpacing, GetRunMetrics);
+                                DrawLineRangeRect(line.X, line.Y, line.LineHeight, line.TextDirection, caretX, caretX + options.CaretThickness, caretPaint);
+                                footerCaretDrawn = true;
+                            }
+                        }
+                    }
+                }
+
+                var drawHeaderCaret = drawHeaderSelection && showHeaderFooterCaret;
+                var drawFooterCaret = drawFooterSelection && showHeaderFooterCaret;
+                DrawTableLayouts(headerFooter.HeaderTables, headerFooterSelection, drawHeaderSelection, headerFooterCaret, drawHeaderCaret, ref headerCaretDrawn);
+                DrawTableLayouts(headerFooter.FooterTables, headerFooterSelection, drawFooterSelection, headerFooterCaret, drawFooterCaret, ref footerCaretDrawn);
+            }
+
+            var caretDrawn = false;
+            DrawTableLayouts(layout.Tables, selection, selection.HasValue, options.Caret, options.ShowCaret, ref caretDrawn);
 
             var lineRange = layout.LineIndex.GetLineRangeForPage(pageIndex);
             var lineStart = Math.Clamp(lineRange.Start, 0, layout.Lines.Count);
             var lineEnd = Math.Clamp(lineRange.End, lineStart, layout.Lines.Count);
-            var caretDrawn = false;
 
             DrawParagraphDecorations(lineStart, lineEnd);
 
@@ -1381,6 +1759,9 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                     targetCanvas.DrawLine(separator.Left, separator.Top, separator.Right, separator.Top, footnoteSeparatorPaint);
                 }
 
+                var footnoteCaretDrawn = false;
+                DrawTableLayouts(footnoteLayout.Tables, null, false, default, false, ref footnoteCaretDrawn);
+
                 foreach (var line in footnoteLayout.Lines)
                 {
                     DrawLineHighlights(line.X, line.Y, line.LineHeight, line.TextDirection, line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, pageGridSpacing);
@@ -1397,6 +1778,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             }
             DrawLayoutGuides(pageIndex);
             DrawFloatingSelection(pageIndex);
+            DrawHeaderFooterOverlay(pageIndex);
         }
 
         void DrawLayoutGuides(int pageIndex)
