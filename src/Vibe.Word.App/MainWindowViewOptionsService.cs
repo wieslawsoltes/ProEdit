@@ -11,23 +11,31 @@ public sealed class MainWindowViewOptionsService : IEditorViewOptionsService
     private readonly Control? _verticalRuler;
     private readonly Control? _rulerCorner;
     private readonly Control? _navigationPane;
+    private readonly ColumnDefinition? _navigationColumn;
     private bool _showRuler;
     private bool _showNavigationPane;
+    private EditorViewMode _viewMode;
+    private float _savedZoomFactor = 1f;
+    private DocumentZoomMode _savedZoomMode = DocumentZoomMode.Custom;
+    private bool _hasSavedZoom;
 
     public MainWindowViewOptionsService(
         DocumentView view,
         Control? horizontalRuler,
         Control? verticalRuler,
         Control? rulerCorner,
-        Control? navigationPane)
+        Control? navigationPane,
+        ColumnDefinition? navigationColumn)
     {
         _view = view ?? throw new ArgumentNullException(nameof(view));
         _horizontalRuler = horizontalRuler;
         _verticalRuler = verticalRuler;
         _rulerCorner = rulerCorner;
         _navigationPane = navigationPane;
+        _navigationColumn = navigationColumn;
         _showRuler = ResolveVisibility(horizontalRuler, verticalRuler, rulerCorner);
         _showNavigationPane = _navigationPane?.IsVisible ?? false;
+        _viewMode = ResolveViewMode(view);
     }
 
     public bool ShowInvisibles
@@ -61,6 +69,10 @@ public sealed class MainWindowViewOptionsService : IEditorViewOptionsService
         {
             _showNavigationPane = value;
             SetVisibility(_navigationPane, value);
+            if (_navigationColumn is not null)
+            {
+                _navigationColumn.Width = value ? GridLength.Auto : new GridLength(0);
+            }
         }
     }
 
@@ -68,6 +80,88 @@ public sealed class MainWindowViewOptionsService : IEditorViewOptionsService
     {
         get => _view.PageFlow;
         set => _view.PageFlow = value;
+    }
+
+    public EditorViewMode ViewMode
+    {
+        get => _viewMode;
+        set
+        {
+            if (_viewMode == value)
+            {
+                return;
+            }
+
+            var previous = _viewMode;
+            _viewMode = value;
+            ApplyViewMode(previous, value);
+        }
+    }
+
+    private void ApplyViewMode(EditorViewMode previous, EditorViewMode mode)
+    {
+        if (previous == EditorViewMode.ReadMode)
+        {
+            RestoreZoom();
+        }
+
+        switch (mode)
+        {
+            case EditorViewMode.ReadMode:
+                SaveZoom();
+                _view.UsePagination = true;
+                _view.ShowLayout = true;
+                _view.PageFlow = PageFlowDirection.Horizontal;
+                _view.ZoomToWholePage();
+                break;
+            case EditorViewMode.PrintLayout:
+                _view.UsePagination = true;
+                _view.ShowLayout = true;
+                _view.PageFlow = PageFlowDirection.Vertical;
+                break;
+            case EditorViewMode.WebLayout:
+            case EditorViewMode.Outline:
+            case EditorViewMode.Draft:
+                _view.UsePagination = false;
+                _view.ShowLayout = false;
+                _view.PageFlow = PageFlowDirection.Vertical;
+                break;
+            default:
+                _view.UsePagination = true;
+                _view.ShowLayout = true;
+                _view.PageFlow = PageFlowDirection.Vertical;
+                break;
+        }
+    }
+
+    private void SaveZoom()
+    {
+        _savedZoomFactor = _view.ZoomFactor;
+        _savedZoomMode = _view.ZoomMode;
+        _hasSavedZoom = true;
+    }
+
+    private void RestoreZoom()
+    {
+        if (!_hasSavedZoom)
+        {
+            return;
+        }
+
+        switch (_savedZoomMode)
+        {
+            case DocumentZoomMode.PageWidth:
+                _view.ZoomToPageWidth();
+                break;
+            case DocumentZoomMode.WholePage:
+                _view.ZoomToWholePage();
+                break;
+            default:
+                _view.ZoomToPercent(_savedZoomFactor * 100f);
+                break;
+        }
+
+        _hasSavedZoom = false;
     }
 
     private static bool ResolveVisibility(Control? horizontal, Control? vertical, Control? corner)
@@ -88,5 +182,10 @@ public sealed class MainWindowViewOptionsService : IEditorViewOptionsService
         {
             control.IsVisible = value;
         }
+    }
+
+    private static EditorViewMode ResolveViewMode(DocumentView view)
+    {
+        return view.UsePagination ? EditorViewMode.PrintLayout : EditorViewMode.Draft;
     }
 }

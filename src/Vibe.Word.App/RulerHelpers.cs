@@ -154,13 +154,13 @@ internal static class RulerHelpers
         return false;
     }
 
-    public static bool ExecuteCommand(DocumentView view, string commandId, object? payload)
+    public static bool ExecuteCommand(DocumentView view, string commandId, object? payload, bool recordHistory = true)
     {
         if (!view.TryGetService<IEditorCommandRouter>(out var router))
         {
             return false;
         }
 
-        return router.ExecuteAsync(commandId, payload).GetAwaiter().GetResult();
+        return router.ExecuteAsync(commandId, payload, recordHistory: recordHistory).GetAwaiter().GetResult();
     }
 }

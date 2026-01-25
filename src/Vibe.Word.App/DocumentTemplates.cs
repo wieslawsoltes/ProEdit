@@ -66,6 +66,7 @@ internal static class DocumentTemplates
         styles.TableStyles.Clear();
         styles.DefaultParagraphStyleId = "Normal";
         styles.DefaultCharacterStyleId = "DefaultParagraphFont";
+        styles.DefaultTableStyleId = "TableNormal";
 
         void AddParagraphStyle(ParagraphStyleDefinition style)
         {
@@ -75,6 +76,11 @@ internal static class DocumentTemplates
         void AddCharacterStyle(CharacterStyleDefinition style)
         {
             styles.CharacterStyles[style.Id] = style;
+        }
+
+        void AddTableStyle(TableStyleDefinition style)
+        {
+            styles.TableStyles[style.Id] = style;
         }
 
         var defaultParagraphFont = new CharacterStyleDefinition("DefaultParagraphFont")
@@ -163,6 +169,48 @@ internal static class DocumentTemplates
         title.ParagraphProperties.SpacingBefore = PointsToDips(12f);
         title.ParagraphProperties.SpacingAfter = PointsToDips(8f);
         AddParagraphStyle(title);
+
+        var tableNormal = new TableStyleDefinition("TableNormal")
+        {
+            Name = "Normal Table",
+            QuickStyle = true
+        };
+        AddTableStyle(tableNormal);
+
+        var tableGrid = new TableStyleDefinition("TableGrid")
+        {
+            Name = "Table Grid",
+            QuickStyle = true
+        };
+        var gridBorder = new BorderLine
+        {
+            Style = DocBorderStyle.Single,
+            Thickness = 1f,
+            Color = DocColor.Black
+        };
+        tableGrid.TableProperties.Borders.Top = gridBorder.Clone();
+        tableGrid.TableProperties.Borders.Bottom = gridBorder.Clone();
+        tableGrid.TableProperties.Borders.Left = gridBorder.Clone();
+        tableGrid.TableProperties.Borders.Right = gridBorder.Clone();
+        tableGrid.TableProperties.Borders.InsideHorizontal = gridBorder.Clone();
+        tableGrid.TableProperties.Borders.InsideVertical = gridBorder.Clone();
+        AddTableStyle(tableGrid);
+
+        var lightShading = new TableStyleDefinition("LightShading")
+        {
+            Name = "Light Shading",
+            QuickStyle = true
+        };
+        lightShading.TableProperties.Borders.Top = gridBorder.Clone();
+        lightShading.TableProperties.Borders.Bottom = gridBorder.Clone();
+        lightShading.TableProperties.Borders.Left = gridBorder.Clone();
+        lightShading.TableProperties.Borders.Right = gridBorder.Clone();
+        lightShading.TableProperties.Borders.InsideHorizontal = gridBorder.Clone();
+        lightShading.TableProperties.Borders.InsideVertical = gridBorder.Clone();
+        var headerCondition = new TableStyleConditionProperties();
+        headerCondition.CellProperties.ShadingColor = new DocColor(229, 229, 229);
+        lightShading.Conditions[TableStyleCondition.FirstRow] = headerCondition;
+        AddTableStyle(lightShading);
     }
 
     private static void ApplyMinorFont(TextStyleProperties properties, float fontSizePoints)

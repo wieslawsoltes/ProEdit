@@ -19,9 +19,14 @@ public partial class App : Application
             if (desktop.Args is { Length: > 0 })
             {
                 var candidate = desktop.Args[0];
-                if (File.Exists(candidate) && Path.GetExtension(candidate).Equals(".docx", StringComparison.OrdinalIgnoreCase))
+                if (File.Exists(candidate))
                 {
-                    path = candidate;
+                    var extension = Path.GetExtension(candidate);
+                    if (extension.Equals(".docx", StringComparison.OrdinalIgnoreCase)
+                        || extension.Equals(".docm", StringComparison.OrdinalIgnoreCase))
+                    {
+                        path = candidate;
+                    }
                 }
             }
 

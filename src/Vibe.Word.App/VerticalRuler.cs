@@ -23,6 +23,7 @@ public sealed class VerticalRuler : Control
     private const float MarkerHitSize = 6f;
     private const float MarkerWidth = 8f;
     private const float MarkerHeight = 6f;
+    private const float PreviewEpsilon = 0.25f;
 
     private static readonly Color BorderColor = new Color(255, 208, 212, 219);
     private static readonly Color TickColor = new Color(255, 94, 94, 94);
@@ -39,6 +40,9 @@ public sealed class VerticalRuler : Control
 
     private IBrush _surfaceBrush = new SolidColorBrush(new Color(255, 238, 241, 245));
     private DragState? _drag;
+    private EditorSessionSnapshot? _previewSnapshot;
+    private bool _previewApplied;
+    private float _lastPreviewDocY = float.NaN;
 
     public DocumentView? EditorView
     {
@@ -129,7 +133,9 @@ public sealed class VerticalRuler : Control
             return;
         }
 
-        _drag = _drag with { DocY = ScreenToDocY(point.Position.Y, context) };
+        var docY = ScreenToDocY(point.Position.Y, context);
+        _drag = _drag with { DocY = docY };
+        ApplyDragPreview(context, _drag);
         InvalidateVisual();
         e.Handled = true;
     }
@@ -145,15 +151,37 @@ public sealed class VerticalRuler : Control
         if (!TryBuildContext(out var context))
         {
             _drag = null;
+            CancelPreview();
             e.Pointer.Capture(null);
             return;
         }
 
         var drag = _drag;
         _drag = null;
-        CommitDrag(context, drag);
+        if (_previewSnapshot.HasValue)
+        {
+            ApplyDragPreview(context, drag, force: true);
+            CommitPreview();
+        }
+        else
+        {
+            CommitDrag(context, drag);
+        }
         e.Pointer.Capture(null);
         e.Handled = true;
+    }
+
+    protected override void OnPointerCaptureLost(PointerCaptureLostEventArgs e)
+    {
+        base.OnPointerCaptureLost(e);
+        if (_drag is null)
+        {
+            return;
+        }
+
+        _drag = null;
+        CancelPreview();
+        InvalidateVisual();
     }
 
     public override void Render(DrawingContext context)
@@ -374,7 +402,7 @@ public sealed class VerticalRuler : Control
         }
     }
 
-    private void ApplyMarginTop(RulerContext ruler, float docY)
+    private void ApplyMarginTop(RulerContext ruler, float docY, bool recordHistory = true)
     {
         if (EditorView is null)
         {
@@ -395,10 +423,10 @@ public sealed class VerticalRuler : Control
         }
 
         var request = new EditorPageMarginsRequest(ruler.BaseSection.MarginLeft, baseTop, ruler.BaseSection.MarginRight, ruler.BaseSection.MarginBottom);
-        RulerHelpers.ExecuteCommand(EditorView, EditorLayoutCommandIds.PageSetup.Margins, request);
+        RulerHelpers.ExecuteCommand(EditorView, EditorLayoutCommandIds.PageSetup.Margins, request, recordHistory);
     }
 
-    private void ApplyMarginBottom(RulerContext ruler, float docY)
+    private void ApplyMarginBottom(RulerContext ruler, float docY, bool recordHistory = true)
     {
         if (EditorView is null)
         {
@@ -410,10 +438,10 @@ public sealed class VerticalRuler : Control
         var resolvedBottom = Math.Clamp(ruler.PageBottom - docY, 0f, pageHeight - RulerHelpers.MinContentSize - currentTop);
         var baseBottom = MathF.Max(0f, resolvedBottom);
         var request = new EditorPageMarginsRequest(ruler.BaseSection.MarginLeft, ruler.BaseSection.MarginTop, ruler.BaseSection.MarginRight, baseBottom);
-        RulerHelpers.ExecuteCommand(EditorView, EditorLayoutCommandIds.PageSetup.Margins, request);
+        RulerHelpers.ExecuteCommand(EditorView, EditorLayoutCommandIds.PageSetup.Margins, request, recordHistory);
     }
 
-    private void ApplyHeaderOffset(RulerContext ruler, float docY)
+    private void ApplyHeaderOffset(RulerContext ruler, float docY, bool recordHistory = true)
     {
         if (EditorView is null)
         {
@@ -427,10 +455,10 @@ public sealed class VerticalRuler : Control
             ruler.BaseSection.MarginRight,
             ruler.BaseSection.MarginBottom,
             HeaderOffset: offset);
-        RulerHelpers.ExecuteCommand(EditorView, EditorLayoutCommandIds.PageSetup.Margins, request);
+        RulerHelpers.ExecuteCommand(EditorView, EditorLayoutCommandIds.PageSetup.Margins, request, recordHistory);
     }
 
-    private void ApplyFooterOffset(RulerContext ruler, float docY)
+    private void ApplyFooterOffset(RulerContext ruler, float docY, bool recordHistory = true)
     {
         if (EditorView is null)
         {
@@ -444,7 +472,118 @@ public sealed class VerticalRuler : Control
             ruler.BaseSection.MarginRight,
             ruler.BaseSection.MarginBottom,
             FooterOffset: offset);
-        RulerHelpers.ExecuteCommand(EditorView, EditorLayoutCommandIds.PageSetup.Margins, request);
+        RulerHelpers.ExecuteCommand(EditorView, EditorLayoutCommandIds.PageSetup.Margins, request, recordHistory);
+    }
+
+    private void ApplyDragPreview(RulerContext ruler, DragState drag, bool force = false)
+    {
+        if (EditorView is null)
+        {
+            return;
+        }
+
+        if (!EnsurePreviewSnapshot(EditorView))
+        {
+            return;
+        }
+
+        if (!force
+            && !float.IsNaN(_lastPreviewDocY)
+            && MathF.Abs(drag.DocY - _lastPreviewDocY) < PreviewEpsilon)
+        {
+            return;
+        }
+
+        _lastPreviewDocY = drag.DocY;
+        switch (drag.Kind)
+        {
+            case DragKind.MarginTop:
+                ApplyMarginTop(ruler, drag.DocY, recordHistory: false);
+                break;
+            case DragKind.MarginBottom:
+                ApplyMarginBottom(ruler, drag.DocY, recordHistory: false);
+                break;
+            case DragKind.HeaderOffset:
+                ApplyHeaderOffset(ruler, drag.DocY, recordHistory: false);
+                break;
+            case DragKind.FooterOffset:
+                ApplyFooterOffset(ruler, drag.DocY, recordHistory: false);
+                break;
+        }
+
+        _previewApplied = true;
+    }
+
+    private bool EnsurePreviewSnapshot(DocumentView view)
+    {
+        if (_previewSnapshot.HasValue)
+        {
+            return true;
+        }
+
+        if (!view.TryGetService<IEditorHistorySnapshotService>(out var snapshotService))
+        {
+            return false;
+        }
+
+        _previewSnapshot = snapshotService.CaptureSnapshot();
+        _previewApplied = false;
+        _lastPreviewDocY = float.NaN;
+        return true;
+    }
+
+    private void CommitPreview()
+    {
+        if (EditorView is null)
+        {
+            ResetPreview();
+            return;
+        }
+
+        if (!_previewSnapshot.HasValue)
+        {
+            return;
+        }
+
+        if (!EditorView.TryGetService<IEditorHistorySnapshotService>(out var snapshotService))
+        {
+            ResetPreview();
+            return;
+        }
+
+        if (_previewApplied)
+        {
+            snapshotService.RecordSnapshot(_previewSnapshot.Value);
+        }
+        else
+        {
+            snapshotService.RestoreSnapshot(_previewSnapshot.Value);
+        }
+
+        ResetPreview();
+    }
+
+    private void CancelPreview()
+    {
+        if (EditorView is null || !_previewSnapshot.HasValue)
+        {
+            ResetPreview();
+            return;
+        }
+
+        if (EditorView.TryGetService<IEditorHistorySnapshotService>(out var snapshotService))
+        {
+            snapshotService.RestoreSnapshot(_previewSnapshot.Value);
+        }
+
+        ResetPreview();
+    }
+
+    private void ResetPreview()
+    {
+        _previewSnapshot = null;
+        _previewApplied = false;
+        _lastPreviewDocY = float.NaN;
     }
 
     private static float DocToScreenY(float docY, RulerContext ruler)

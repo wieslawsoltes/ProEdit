@@ -7,23 +7,97 @@
         MinWidth="260"
         MinHeight="300"
         Title="Styles">
-  <DockPanel Margin="12">
-    <TextBlock x:Name="PaneTitle"
-               DockPanel.Dock="Top"
-               Text="Styles"
-               FontSize="14"
-               FontWeight="SemiBold"
-               Margin="0,0,0,8" />
+  <Grid Margin="12"
+        RowDefinitions="Auto,*,Auto,Auto,Auto">
+    <StackPanel Grid.Row="0"
+                Spacing="6"
+                Margin="0,0,0,8">
+      <TextBlock x:Name="PaneTitle"
+                 Text="Styles"
+                 FontSize="14"
+                 FontWeight="SemiBold" />
+      <DockPanel>
+        <TextBox x:Name="StyleSearchBox"
+                 Watermark="Search styles"
+                 Width="180" />
+        <ComboBox x:Name="StyleFilterCombo"
+                  DockPanel.Dock="Right"
+                  Width="110"
+                  Margin="8,0,0,0">
+          <ComboBoxItem Content="All Styles" />
+          <ComboBoxItem Content="In Use" />
+        </ComboBox>
+      </DockPanel>
+    </StackPanel>
+
     <ListBox x:Name="StylesList"
-             DockPanel.Dock="Top"
-             MinHeight="200">
+             Grid.Row="1"
+             MinHeight="180">
       <ListBox.ItemTemplate>
         <DataTemplate x:DataType="editing:EditorParagraphStyleInfo">
           <TextBlock Text="{Binding Name}" />
         </DataTemplate>
       </ListBox.ItemTemplate>
     </ListBox>
-    <StackPanel DockPanel.Dock="Bottom"
+
+    <Border x:Name="StylePreviewPanel"
+            Grid.Row="2"
+            BorderBrush="#DDDDDD"
+            BorderThickness="1"
+            Padding="8"
+            Margin="0,8,0,0">
+      <StackPanel Spacing="4">
+        <TextBlock x:Name="StylePreviewText"
+                   Text="AaBbCcDd"
+                   FontSize="16" />
+        <TextBlock x:Name="StyleDetailsText" />
+        <TextBlock x:Name="StyleDirectFormattingText" />
+      </StackPanel>
+    </Border>
+
+    <Border x:Name="StyleManagePanel"
+            Grid.Row="3"
+            BorderBrush="#DDDDDD"
+            BorderThickness="1"
+            Padding="8"
+            Margin="0,8,0,0"
+            IsVisible="False">
+      <StackPanel Spacing="6">
+        <TextBlock Text="Style settings"
+                   FontWeight="SemiBold" />
+        <StackPanel Orientation="Horizontal"
+                    Spacing="6">
+          <TextBlock Text="Name"
+                     Width="70" />
+          <TextBox x:Name="StyleNameBox"
+                   Width="200" />
+        </StackPanel>
+        <StackPanel Orientation="Horizontal"
+                    Spacing="6">
+          <TextBlock Text="Based on"
+                     Width="70" />
+          <ComboBox x:Name="StyleBasedOnCombo"
+                    Width="200" />
+        </StackPanel>
+        <StackPanel Orientation="Horizontal"
+                    Spacing="6">
+          <TextBlock Text="Next style"
+                     Width="70" />
+          <ComboBox x:Name="StyleNextCombo"
+                    Width="200" />
+        </StackPanel>
+        <StackPanel Orientation="Horizontal"
+                    Spacing="8"
+                    HorizontalAlignment="Right">
+          <Button x:Name="SetDefaultButton"
+                  Content="Set Default" />
+          <Button x:Name="UpdateStyleButton"
+                  Content="Update" />
+        </StackPanel>
+      </StackPanel>
+    </Border>
+
+    <StackPanel Grid.Row="4"
                 Orientation="Horizontal"
                 HorizontalAlignment="Right"
                 Spacing="8"
@@ -33,5 +107,5 @@
       <Button x:Name="CloseButton"
               Content="Close" />
     </StackPanel>
-  </DockPanel>
+  </Grid>
 </Window>

@@ -1,3 +1,7 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using Vibe.Office.Documents;
 using Vibe.Office.Editing;
 using Vibe.Office.Ribbon;
 
@@ -50,6 +54,13 @@ internal sealed class EquationRibbonExtension : IRibbonExtension
 
 internal sealed class TableRibbonExtension : IRibbonExtension
 {
+    private readonly Func<ValueTask>? _openPropertiesDialog;
+
+    public TableRibbonExtension(Func<ValueTask>? openPropertiesDialog = null)
+    {
+        _openPropertiesDialog = openPropertiesDialog;
+    }
+
     public void Build(RibbonModelBuilder builder, RibbonExtensionContext context)
     {
         if (!context.TryGetService<IRibbonContextSnapshotProvider>(out var snapshotProvider))
@@ -61,6 +72,9 @@ internal sealed class TableRibbonExtension : IRibbonExtension
         {
             return;
         }
+
+        context.TryGetService<ITableStyleService>(out var tableStyleService);
+        context.TryGetService<ITableSelectionSnapshotProvider>(out var tableSelectionProvider);
 
         bool IsActive()
         {
@@ -74,16 +88,208 @@ internal sealed class TableRibbonExtension : IRibbonExtension
             return commandRouter.CanExecute(commandId, null, snapshot);
         }
 
-        ValueTask ExecuteAsync(string commandId)
+        ValueTask ExecuteAsync(string commandId, object? payload = null)
         {
             var snapshot = snapshotProvider.GetSnapshot();
-            _ = commandRouter.ExecuteAsync(commandId, null, snapshot);
+            _ = commandRouter.ExecuteAsync(commandId, payload, snapshot);
             return ValueTask.CompletedTask;
         }
 
         RibbonCommand CreateCommand(string commandId)
         {
             return new RibbonCommand(() => ExecuteAsync(commandId), () => CanExecute(commandId));
+        }
+
+        bool TryGetTableSelection(out EditorTableSelectionSnapshot selection)
+        {
+            selection = default;
+            return tableSelectionProvider is not null
+                   && tableSelectionProvider.TryGetSnapshot(out selection);
+        }
+
+        bool IsTableLookValue(Func<TableLook, bool> selector)
+        {
+            if (!TryGetTableSelection(out var selection))
+            {
+                return false;
+            }
+
+            var look = selection.Table.Properties.Look ?? new TableLook();
+            return selector(look);
+        }
+
+        ValueTask ExecuteLookCommandAsync(string commandId, bool value)
+        {
+            return ExecuteAsync(commandId, value);
+        }
+
+        static bool TryResolveColumnWidths(EditorTableSelectionSnapshot selection, out IReadOnlyList<float> widths)
+        {
+            widths = selection.Table.Properties.ColumnWidths;
+            if (widths.Count > 0 && selection.Table.Properties.LayoutMode == TableLayoutMode.Fixed)
+            {
+                return true;
+            }
+
+            if (selection.Layout is { } layout && layout.ColumnWidths.Count > 0)
+            {
+                widths = layout.ColumnWidths;
+                return true;
+            }
+
+            return widths.Count > 0;
+        }
+
+        double? ResolveColumnWidthPoints()
+        {
+            if (!TryGetTableSelection(out var selection))
+            {
+                return null;
+            }
+
+            if (!TryResolveColumnWidths(selection, out var widths) || widths.Count == 0)
+            {
+                return null;
+            }
+
+            var start = Math.Clamp(selection.ColumnStart, 0, widths.Count - 1);
+            var end = Math.Clamp(selection.ColumnEnd, 0, widths.Count - 1);
+            if (end < start)
+            {
+                (start, end) = (end, start);
+            }
+
+            var first = widths[start];
+            for (var i = start + 1; i <= end; i++)
+            {
+                if (MathF.Abs(widths[i] - first) > 0.01f)
+                {
+                    return null;
+                }
+            }
+
+            return DipsToPoints(first);
+        }
+
+        ValueTask ApplyColumnWidthAsync(double? points)
+        {
+            if (!points.HasValue)
+            {
+                return ValueTask.CompletedTask;
+            }
+
+            if (!TryGetTableSelection(out var selection))
+            {
+                return ValueTask.CompletedTask;
+            }
+
+            if (!TryResolveColumnWidths(selection, out var widths) || widths.Count == 0)
+            {
+                return ValueTask.CompletedTask;
+            }
+
+            var updated = new float[widths.Count];
+            for (var i = 0; i < widths.Count; i++)
+            {
+                updated[i] = widths[i];
+            }
+
+            var start = Math.Clamp(selection.ColumnStart, 0, updated.Length - 1);
+            var end = Math.Clamp(selection.ColumnEnd, 0, updated.Length - 1);
+            if (end < start)
+            {
+                (start, end) = (end, start);
+            }
+
+            var newWidth = PointsToDips(points.Value);
+            for (var i = start; i <= end; i++)
+            {
+                updated[i] = newWidth;
+            }
+
+            return ExecuteAsync(EditorTableCommandIds.Layout.ColumnWidthsSet, new EditorTableColumnWidthsRequest(updated));
+        }
+
+        double? ResolveRowHeightPoints()
+        {
+            if (!TryGetTableSelection(out var selection))
+            {
+                return null;
+            }
+
+            var table = selection.Table;
+            if (table.Rows.Count == 0)
+            {
+                return null;
+            }
+
+            var start = Math.Clamp(selection.RowStart, 0, table.Rows.Count - 1);
+            var end = Math.Clamp(selection.RowEnd, 0, table.Rows.Count - 1);
+            float? height = null;
+            TableRowHeightRule? rule = null;
+
+            for (var i = start; i <= end; i++)
+            {
+                var properties = table.Rows[i].Properties;
+                if (!properties.Height.HasValue)
+                {
+                    height = null;
+                    break;
+                }
+
+                if (!height.HasValue)
+                {
+                    height = properties.Height.Value;
+                    rule = properties.HeightRule;
+                    continue;
+                }
+
+                if (MathF.Abs(properties.Height.Value - height.Value) > 0.01f
+                    || properties.HeightRule != rule)
+                {
+                    return null;
+                }
+            }
+
+            if (height.HasValue)
+            {
+                return DipsToPoints(height.Value);
+            }
+
+            if (start == end
+                && selection.Layout is { } layout
+                && selection.RowIndex >= 0
+                && selection.RowIndex < layout.RowHeights.Count)
+            {
+                return DipsToPoints(layout.RowHeights[selection.RowIndex]);
+            }
+
+            return null;
+        }
+
+        ValueTask ApplyRowHeightAsync(double? points)
+        {
+            if (!points.HasValue)
+            {
+                return ValueTask.CompletedTask;
+            }
+
+            if (!TryGetTableSelection(out var selection))
+            {
+                return ValueTask.CompletedTask;
+            }
+
+            var table = selection.Table;
+            if (table.Rows.Count == 0)
+            {
+                return ValueTask.CompletedTask;
+            }
+
+            var rowIndex = Math.Clamp(selection.RowIndex, 0, table.Rows.Count - 1);
+            var rule = table.Rows[rowIndex].Properties.HeightRule ?? TableRowHeightRule.AtLeast;
+            var height = PointsToDips(points.Value);
+
+            return ExecuteAsync(EditorTableCommandIds.Layout.RowHeightSet, new EditorTableRowHeightRequest(rowIndex, height, rule));
         }
 
         var contextualSet = new RibbonContextualTabSet(
@@ -243,6 +449,40 @@ internal sealed class TableRibbonExtension : IRibbonExtension
             },
             keyTip: "LY");
 
+        var cellWidthSpinner = new RibbonSpinner(
+            "table-cell-width",
+            "Width",
+            step: 1d,
+            minimum: 0d,
+            valueEvaluator: ResolveColumnWidthPoints,
+            valueChangedHandler: ApplyColumnWidthAsync,
+            keyTip: "CW",
+            iconKey: "RibbonIcon.Layout",
+            canExecute: () => CanExecute(EditorTableCommandIds.Layout.ColumnWidthsSet),
+            size: RibbonControlSize.Medium);
+
+        var cellHeightSpinner = new RibbonSpinner(
+            "table-cell-height",
+            "Height",
+            step: 1d,
+            minimum: 0d,
+            valueEvaluator: ResolveRowHeightPoints,
+            valueChangedHandler: ApplyRowHeightAsync,
+            keyTip: "CH",
+            iconKey: "RibbonIcon.Layout",
+            canExecute: () => CanExecute(EditorTableCommandIds.Layout.RowHeightSet),
+            size: RibbonControlSize.Medium);
+
+        var cellSizeGroup = new RibbonGroup(
+            "table-cell-size",
+            "Cell Size",
+            new IRibbonControl[]
+            {
+                cellWidthSpinner,
+                cellHeightSpinner
+            },
+            keyTip: "CS");
+
         var alignTop = new RibbonButton(
             "table-align-top",
             "Align Top",
@@ -280,6 +520,204 @@ internal sealed class TableRibbonExtension : IRibbonExtension
                 "Layout",
                 keyTip: "T",
                 contextualSet: contextualSet)
-            .AddGroups(new[] { rowsColumnsGroup, mergeGroup, layoutGroup, alignmentGroup });
+            .AddGroups(BuildLayoutGroups(
+                rowsColumnsGroup,
+                mergeGroup,
+                cellSizeGroup,
+                layoutGroup,
+                alignmentGroup,
+                () => CanExecute(EditorTableCommandIds.Layout.PropertiesApply)));
+
+        var headerRowToggle = new RibbonToggleButton(
+            "table-style-header-row",
+            "Header Row",
+            () => IsTableLookValue(look => look.FirstRow),
+            toggleHandler: value => ExecuteLookCommandAsync(EditorTableCommandIds.Design.ToggleHeaderRow, value),
+            keyTip: "HR",
+            iconKey: "RibbonIcon.Table",
+            canExecute: () => CanExecute(EditorTableCommandIds.Design.ToggleHeaderRow),
+            size: RibbonControlSize.Small);
+
+        var totalRowToggle = new RibbonToggleButton(
+            "table-style-total-row",
+            "Total Row",
+            () => IsTableLookValue(look => look.LastRow),
+            toggleHandler: value => ExecuteLookCommandAsync(EditorTableCommandIds.Design.ToggleTotalRow, value),
+            keyTip: "TR",
+            iconKey: "RibbonIcon.Table",
+            canExecute: () => CanExecute(EditorTableCommandIds.Design.ToggleTotalRow),
+            size: RibbonControlSize.Small);
+
+        var bandedRowsToggle = new RibbonToggleButton(
+            "table-style-banded-rows",
+            "Banded Rows",
+            () => IsTableLookValue(look => look.BandedRows),
+            toggleHandler: value => ExecuteLookCommandAsync(EditorTableCommandIds.Design.ToggleBandedRows, value),
+            keyTip: "BR",
+            iconKey: "RibbonIcon.Table",
+            canExecute: () => CanExecute(EditorTableCommandIds.Design.ToggleBandedRows),
+            size: RibbonControlSize.Small);
+
+        var firstColumnToggle = new RibbonToggleButton(
+            "table-style-first-column",
+            "First Column",
+            () => IsTableLookValue(look => look.FirstColumn),
+            toggleHandler: value => ExecuteLookCommandAsync(EditorTableCommandIds.Design.ToggleFirstColumn, value),
+            keyTip: "FC",
+            iconKey: "RibbonIcon.Table",
+            canExecute: () => CanExecute(EditorTableCommandIds.Design.ToggleFirstColumn),
+            size: RibbonControlSize.Small);
+
+        var lastColumnToggle = new RibbonToggleButton(
+            "table-style-last-column",
+            "Last Column",
+            () => IsTableLookValue(look => look.LastColumn),
+            toggleHandler: value => ExecuteLookCommandAsync(EditorTableCommandIds.Design.ToggleLastColumn, value),
+            keyTip: "LC",
+            iconKey: "RibbonIcon.Table",
+            canExecute: () => CanExecute(EditorTableCommandIds.Design.ToggleLastColumn),
+            size: RibbonControlSize.Small);
+
+        var bandedColumnsToggle = new RibbonToggleButton(
+            "table-style-banded-columns",
+            "Banded Columns",
+            () => IsTableLookValue(look => look.BandedColumns),
+            toggleHandler: value => ExecuteLookCommandAsync(EditorTableCommandIds.Design.ToggleBandedColumns, value),
+            keyTip: "BC",
+            iconKey: "RibbonIcon.Table",
+            canExecute: () => CanExecute(EditorTableCommandIds.Design.ToggleBandedColumns),
+            size: RibbonControlSize.Small);
+
+        var styleOptionsGroup = new RibbonGroup(
+            "table-style-options",
+            "Table Style Options",
+            new IRibbonControl[]
+            {
+                headerRowToggle,
+                totalRowToggle,
+                bandedRowsToggle,
+                firstColumnToggle,
+                lastColumnToggle,
+                bandedColumnsToggle
+            },
+            keyTip: "TO");
+
+        var designGroups = new List<RibbonGroup>
+        {
+            styleOptionsGroup
+        };
+
+        if (tableStyleService is not null)
+        {
+            var styleItems = BuildTableStyleItems(tableStyleService);
+            var styleGallery = new RibbonGallery(
+                "table-styles",
+                "Table Styles",
+                styleItems,
+                selectedItemEvaluator: () => ResolveSelectedStyleItem(styleItems, tableStyleService),
+                selectionHandler: item => ApplyTableStyleAsync(item, snapshotProvider, commandRouter),
+                showDropDown: true,
+                keyTip: "TS",
+                iconKey: "RibbonIcon.Table",
+                size: RibbonControlSize.Large);
+
+            var stylesGroup = new RibbonGroup(
+                "table-styles-group",
+                "Table Styles",
+                new IRibbonControl[] { styleGallery },
+                keyTip: "TS");
+
+            designGroups.Add(stylesGroup);
+        }
+
+        builder.AddTab(
+                "table-design",
+                "Design",
+                keyTip: "D",
+                contextualSet: contextualSet)
+            .AddGroups(designGroups);
+    }
+
+    private const float PointsToDipScale = 96f / 72f;
+    private static float PointsToDips(double points) => (float)(points * PointsToDipScale);
+    private static double DipsToPoints(float dips) => dips / PointsToDipScale;
+
+    private static List<RibbonGalleryItem> BuildTableStyleItems(ITableStyleService tableStyleService)
+    {
+        var styles = tableStyleService.GetTableStyles();
+        var items = new List<RibbonGalleryItem>();
+        items.Add(new RibbonGalleryItem("none", "No Style"));
+        foreach (var style in styles)
+        {
+            items.Add(new RibbonGalleryItem(style.Id, style.Name));
+        }
+
+        return items;
+    }
+
+    private static RibbonGalleryItem? ResolveSelectedStyleItem(
+        IReadOnlyList<RibbonGalleryItem> items,
+        ITableStyleService tableStyleService)
+    {
+        var currentId = tableStyleService.GetCurrentTableStyleId();
+        if (string.IsNullOrWhiteSpace(currentId))
+        {
+            return items.FirstOrDefault(item => item.Id == "none");
+        }
+
+        foreach (var item in items)
+        {
+            if (string.Equals(item.Id, currentId, StringComparison.OrdinalIgnoreCase))
+            {
+                return item;
+            }
+        }
+
+        return items.FirstOrDefault(item => item.Id == "none");
+    }
+
+    private static ValueTask ApplyTableStyleAsync(
+        RibbonGalleryItem? item,
+        IRibbonContextSnapshotProvider snapshotProvider,
+        IEditorCommandRouter commandRouter)
+    {
+        if (item is null)
+        {
+            return ValueTask.CompletedTask;
+        }
+
+        var styleId = item.Id == "none" ? null : item.Id;
+        var snapshot = snapshotProvider.GetSnapshot();
+        _ = commandRouter.ExecuteAsync(EditorTableCommandIds.Design.ApplyStyle, styleId, snapshot);
+        return ValueTask.CompletedTask;
+    }
+
+    private IEnumerable<RibbonGroup> BuildLayoutGroups(
+        RibbonGroup rowsColumnsGroup,
+        RibbonGroup mergeGroup,
+        RibbonGroup cellSizeGroup,
+        RibbonGroup layoutGroup,
+        RibbonGroup alignmentGroup,
+        Func<bool> canExecute)
+    {
+        if (_openPropertiesDialog is null)
+        {
+            return new[] { rowsColumnsGroup, mergeGroup, cellSizeGroup, layoutGroup, alignmentGroup };
+        }
+
+        var propertiesButton = new RibbonButton(
+            "table-properties",
+            "Properties",
+            new RibbonCommand(_openPropertiesDialog, canExecute),
+            iconKey: "RibbonIcon.Table",
+            size: RibbonControlSize.Small);
+
+        var tableGroup = new RibbonGroup(
+            "table-group",
+            "Table",
+            new IRibbonControl[] { propertiesButton },
+            keyTip: "TP");
+
+        return new[] { tableGroup, rowsColumnsGroup, mergeGroup, cellSizeGroup, layoutGroup, alignmentGroup };
     }
 }

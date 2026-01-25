@@ -63,7 +63,12 @@
                     </StackPanel>
                 </Grid>
             </Border>
-            <Grid ColumnDefinitions="Auto,*,Auto">
+            <Grid x:Name="LayoutGrid">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
                 <Border x:Name="NavigationPane"
                         Grid.Column="0"
                         Width="220"
@@ -88,10 +93,23 @@
                             <ListBox x:Name="PagePaneList"
                                      Margin="8">
                                 <ListBox.ItemTemplate>
-                                    <DataTemplate>
-                                        <TextBlock Text="{Binding}"
-                                                   Foreground="#404040"
-                                                   TextWrapping="Wrap" />
+                                    <DataTemplate x:CompileBindings="False">
+                                        <StackPanel Spacing="6"
+                                                    HorizontalAlignment="Center">
+                                            <Border BorderBrush="#D0D4DB"
+                                                    BorderThickness="1"
+                                                    CornerRadius="2"
+                                                    Padding="2">
+                                                <Image Width="120"
+                                                       Height="160"
+                                                       Stretch="Uniform"
+                                                       Source="{Binding Thumbnail}" />
+                                            </Border>
+                                            <TextBlock Text="{Binding Display}"
+                                                       Foreground="#404040"
+                                                       FontSize="11"
+                                                       HorizontalAlignment="Center" />
+                                        </StackPanel>
                                     </DataTemplate>
                                 </ListBox.ItemTemplate>
                             </ListBox>
@@ -125,7 +143,8 @@
                                             SurfaceColor="{DynamicResource RibbonSurfaceColor}" />
                     </ScrollViewer>
                 </Grid>
-                <Grid Grid.Column="2"
+                <Grid x:Name="RightPane"
+                      Grid.Column="2"
                       RowDefinitions="Auto,*">
                     <Border x:Name="ReviewPane"
                             Grid.Row="0"

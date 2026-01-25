@@ -27,6 +27,7 @@ public sealed class HorizontalRuler : Control
     private const float TabHitSize = 6f;
     private const float MarkerWidth = 8f;
     private const float MarkerHeight = 6f;
+    private const float PreviewEpsilon = 0.25f;
 
     private static readonly Color BorderColor = new Color(255, 208, 212, 219);
     private static readonly Color TickColor = new Color(255, 94, 94, 94);
@@ -45,6 +46,9 @@ public sealed class HorizontalRuler : Control
     private DocumentStyleResolver? _styleResolver;
     private Document? _styleDocument;
     private DragState? _drag;
+    private EditorSessionSnapshot? _previewSnapshot;
+    private bool _previewApplied;
+    private float _lastPreviewDocX = float.NaN;
 
     public DocumentView? EditorView
     {
@@ -164,7 +168,9 @@ public sealed class HorizontalRuler : Control
             return;
         }
 
-        _drag = _drag with { DocX = ScreenToDocX(point.Position.X, context) };
+        var docX = ScreenToDocX(point.Position.X, context);
+        _drag = _drag with { DocX = docX };
+        ApplyDragPreview(point.Position, context, _drag);
         InvalidateVisual();
         e.Handled = true;
     }
@@ -180,16 +186,38 @@ public sealed class HorizontalRuler : Control
         if (!TryBuildContext(out var context))
         {
             _drag = null;
+            CancelPreview();
             e.Pointer.Capture(null);
             return;
         }
 
-        var point = e.GetCurrentPoint(this);
         var drag = _drag;
         _drag = null;
-        CommitDrag(point.Position, context, drag);
+        var point = e.GetCurrentPoint(this);
+        if (_previewSnapshot.HasValue)
+        {
+            ApplyDragPreview(point.Position, context, drag, force: true);
+            CommitPreview();
+        }
+        else
+        {
+            CommitDrag(point.Position, context, drag);
+        }
         e.Pointer.Capture(null);
         e.Handled = true;
+    }
+
+    protected override void OnPointerCaptureLost(PointerCaptureLostEventArgs e)
+    {
+        base.OnPointerCaptureLost(e);
+        if (_drag is null)
+        {
+            return;
+        }
+
+        _drag = null;
+        CancelPreview();
+        InvalidateVisual();
     }
 
     public override void Render(DrawingContext context)
@@ -599,7 +627,7 @@ public sealed class HorizontalRuler : Control
         }
     }
 
-    private void ApplyMarginLeft(RulerContext ruler, float docX)
+    private void ApplyMarginLeft(RulerContext ruler, float docX, bool recordHistory = true)
     {
         if (EditorView is null)
         {
@@ -624,10 +652,10 @@ public sealed class HorizontalRuler : Control
         }
 
         var request = new EditorPageMarginsRequest(baseLeft, ruler.BaseSection.MarginTop, baseRight, ruler.BaseSection.MarginBottom);
-        RulerHelpers.ExecuteCommand(EditorView, EditorLayoutCommandIds.PageSetup.Margins, request);
+        RulerHelpers.ExecuteCommand(EditorView, EditorLayoutCommandIds.PageSetup.Margins, request, recordHistory);
     }
 
-    private void ApplyMarginRight(RulerContext ruler, float docX)
+    private void ApplyMarginRight(RulerContext ruler, float docX, bool recordHistory = true)
     {
         if (EditorView is null)
         {
@@ -652,10 +680,10 @@ public sealed class HorizontalRuler : Control
         }
 
         var request = new EditorPageMarginsRequest(baseLeft, ruler.BaseSection.MarginTop, baseRight, ruler.BaseSection.MarginBottom);
-        RulerHelpers.ExecuteCommand(EditorView, EditorLayoutCommandIds.PageSetup.Margins, request);
+        RulerHelpers.ExecuteCommand(EditorView, EditorLayoutCommandIds.PageSetup.Margins, request, recordHistory);
     }
 
-    private void ApplyIndentLeft(RulerContext ruler, float docX)
+    private void ApplyIndentLeft(RulerContext ruler, float docX, bool recordHistory = true)
     {
         if (EditorView is null)
         {
@@ -665,10 +693,10 @@ public sealed class HorizontalRuler : Control
         var max = MathF.Max(0f, ruler.ContentRight - ruler.ContentLeft - RulerHelpers.MinContentSize);
         var indentLeft = Math.Clamp(docX - ruler.ContentLeft, 0f, max);
         var options = CreateParagraphOptions(indentLeft: indentLeft, indentRight: null, firstLineIndent: null);
-        RulerHelpers.ExecuteCommand(EditorView, EditorHomeCommandIds.Paragraph.DialogApply, options);
+        RulerHelpers.ExecuteCommand(EditorView, EditorHomeCommandIds.Paragraph.DialogApply, options, recordHistory);
     }
 
-    private void ApplyIndentRight(RulerContext ruler, float docX)
+    private void ApplyIndentRight(RulerContext ruler, float docX, bool recordHistory = true)
     {
         if (EditorView is null)
         {
@@ -678,10 +706,10 @@ public sealed class HorizontalRuler : Control
         var max = MathF.Max(0f, ruler.ContentRight - ruler.ContentLeft - RulerHelpers.MinContentSize);
         var indentRight = Math.Clamp(ruler.ContentRight - docX, 0f, max);
         var options = CreateParagraphOptions(indentLeft: null, indentRight: indentRight, firstLineIndent: null);
-        RulerHelpers.ExecuteCommand(EditorView, EditorHomeCommandIds.Paragraph.DialogApply, options);
+        RulerHelpers.ExecuteCommand(EditorView, EditorHomeCommandIds.Paragraph.DialogApply, options, recordHistory);
     }
 
-    private void ApplyFirstLineIndent(RulerContext ruler, float docX)
+    private void ApplyFirstLineIndent(RulerContext ruler, float docX, bool recordHistory = true)
     {
         if (EditorView is null)
         {
@@ -693,10 +721,10 @@ public sealed class HorizontalRuler : Control
         var clamped = Math.Clamp(docX, minX, maxX);
         var firstLineIndent = clamped - (ruler.ContentLeft + ruler.IndentLeft);
         var options = CreateParagraphOptions(indentLeft: null, indentRight: null, firstLineIndent: firstLineIndent);
-        RulerHelpers.ExecuteCommand(EditorView, EditorHomeCommandIds.Paragraph.DialogApply, options);
+        RulerHelpers.ExecuteCommand(EditorView, EditorHomeCommandIds.Paragraph.DialogApply, options, recordHistory);
     }
 
-    private void ApplyTabStop(Point point, RulerContext ruler, DragState drag)
+    private void ApplyTabStop(Point point, RulerContext ruler, DragState drag, bool recordHistory = true)
     {
         if (EditorView is null)
         {
@@ -706,7 +734,7 @@ public sealed class HorizontalRuler : Control
         if (point.Y < -6f || point.Y > Bounds.Height + 6f)
         {
             var remove = new EditorParagraphTabStopRemoveRequest(drag.TabPosition);
-            RulerHelpers.ExecuteCommand(EditorView, EditorHomeCommandIds.Paragraph.TabStopRemove, remove);
+            RulerHelpers.ExecuteCommand(EditorView, EditorHomeCommandIds.Paragraph.TabStopRemove, remove, recordHistory);
             return;
         }
 
@@ -714,10 +742,10 @@ public sealed class HorizontalRuler : Control
         var max = MathF.Max(0f, ruler.ContentRight - lineStart);
         var position = Math.Clamp(drag.DocX - lineStart, 0f, max);
         var update = new EditorParagraphTabStopUpdateRequest(drag.TabPosition, position, drag.TabAlignment, drag.TabLeader);
-        RulerHelpers.ExecuteCommand(EditorView, EditorHomeCommandIds.Paragraph.TabStopUpdate, update);
+        RulerHelpers.ExecuteCommand(EditorView, EditorHomeCommandIds.Paragraph.TabStopUpdate, update, recordHistory);
     }
 
-    private void ApplyTableColumnResize(RulerContext ruler, DragState drag)
+    private void ApplyTableColumnResize(RulerContext ruler, DragState drag, bool recordHistory = true)
     {
         if (EditorView is null || drag.TableColumnWidths is null)
         {
@@ -756,7 +784,128 @@ public sealed class HorizontalRuler : Control
         widths[boundaryIndex + 1] = MathF.Max(min, rightWidth);
 
         var payload = new EditorTableColumnWidthsRequest(widths);
-        RulerHelpers.ExecuteCommand(EditorView, EditorTableCommandIds.Layout.ColumnWidthsSet, payload);
+        RulerHelpers.ExecuteCommand(EditorView, EditorTableCommandIds.Layout.ColumnWidthsSet, payload, recordHistory);
+    }
+
+    private void ApplyDragPreview(Point point, RulerContext ruler, DragState drag, bool force = false)
+    {
+        if (EditorView is null)
+        {
+            return;
+        }
+
+        if (!EnsurePreviewSnapshot(EditorView))
+        {
+            return;
+        }
+
+        if (!force
+            && drag.Kind != DragKind.TabStop
+            && !float.IsNaN(_lastPreviewDocX)
+            && MathF.Abs(drag.DocX - _lastPreviewDocX) < PreviewEpsilon)
+        {
+            return;
+        }
+
+        _lastPreviewDocX = drag.DocX;
+        switch (drag.Kind)
+        {
+            case DragKind.MarginLeft:
+                ApplyMarginLeft(ruler, drag.DocX, recordHistory: false);
+                break;
+            case DragKind.MarginRight:
+                ApplyMarginRight(ruler, drag.DocX, recordHistory: false);
+                break;
+            case DragKind.IndentLeft:
+                ApplyIndentLeft(ruler, drag.DocX, recordHistory: false);
+                break;
+            case DragKind.IndentRight:
+                ApplyIndentRight(ruler, drag.DocX, recordHistory: false);
+                break;
+            case DragKind.FirstLineIndent:
+                ApplyFirstLineIndent(ruler, drag.DocX, recordHistory: false);
+                break;
+            case DragKind.TabStop:
+                ApplyTabStop(point, ruler, drag, recordHistory: false);
+                break;
+            case DragKind.TableColumn:
+                ApplyTableColumnResize(ruler, drag, recordHistory: false);
+                break;
+        }
+
+        _previewApplied = true;
+    }
+
+    private bool EnsurePreviewSnapshot(DocumentView view)
+    {
+        if (_previewSnapshot.HasValue)
+        {
+            return true;
+        }
+
+        if (!view.TryGetService<IEditorHistorySnapshotService>(out var snapshotService))
+        {
+            return false;
+        }
+
+        _previewSnapshot = snapshotService.CaptureSnapshot();
+        _previewApplied = false;
+        _lastPreviewDocX = float.NaN;
+        return true;
+    }
+
+    private void CommitPreview()
+    {
+        if (EditorView is null)
+        {
+            ResetPreview();
+            return;
+        }
+
+        if (!_previewSnapshot.HasValue)
+        {
+            return;
+        }
+
+        if (!EditorView.TryGetService<IEditorHistorySnapshotService>(out var snapshotService))
+        {
+            ResetPreview();
+            return;
+        }
+
+        if (_previewApplied)
+        {
+            snapshotService.RecordSnapshot(_previewSnapshot.Value);
+        }
+        else
+        {
+            snapshotService.RestoreSnapshot(_previewSnapshot.Value);
+        }
+
+        ResetPreview();
+    }
+
+    private void CancelPreview()
+    {
+        if (EditorView is null || !_previewSnapshot.HasValue)
+        {
+            ResetPreview();
+            return;
+        }
+
+        if (EditorView.TryGetService<IEditorHistorySnapshotService>(out var snapshotService))
+        {
+            snapshotService.RestoreSnapshot(_previewSnapshot.Value);
+        }
+
+        ResetPreview();
+    }
+
+    private void ResetPreview()
+    {
+        _previewSnapshot = null;
+        _previewApplied = false;
+        _lastPreviewDocX = float.NaN;
     }
 
     private static float DocToScreenX(float docX, RulerContext ruler)

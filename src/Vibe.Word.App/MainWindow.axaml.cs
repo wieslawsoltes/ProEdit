@@ -5,10 +5,13 @@ using System.IO;
 using System.Text;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
 using Vibe.Office.Documents;
 using Vibe.Office.Editing;
 using Vibe.Office.Layout;
+using Vibe.Office.Macros;
+using Vibe.Office.Vba.Runtime;
 using Vibe.Office.OpenXml;
 using Vibe.Office.Primitives;
 using Vibe.Office.Rendering;
@@ -26,6 +29,9 @@ public partial class MainWindow : Window
     private readonly Border? _navigationPane;
     private readonly ListBox? _navigationPaneList;
     private readonly ListBox? _pagePaneList;
+    private readonly Grid? _layoutGrid;
+    private readonly Grid? _rightPane;
+    private readonly Border? _equationPanel;
     private readonly Border? _reviewPane;
     private readonly ListBox? _reviewCommentsList;
     private readonly ListBox? _reviewChangesList;
@@ -46,6 +52,8 @@ public partial class MainWindow : Window
     private readonly Button? _zoomOutButton;
     private readonly Button? _zoomResetButton;
     private FindReplaceDialog? _findReplaceDialog;
+    private VbaToolingWindow? _vbaToolingWindow;
+    private NotesPaneWindow? _notesPaneWindow;
     private readonly RibbonQuickAccessStore _quickAccessStore = new();
     private readonly ObservableCollection<RibbonGalleryItem> _styleGalleryItems = new();
     private readonly Dictionary<string, RibbonGalleryItem> _styleGalleryItemMap = new(StringComparer.OrdinalIgnoreCase);
@@ -54,6 +62,8 @@ public partial class MainWindow : Window
     private readonly ObservableCollection<ReviewCommentItem> _reviewCommentItems = new();
     private readonly ObservableCollection<ReviewRevisionItem> _reviewRevisionItems = new();
     private string? _currentPath;
+    private DocumentLayout? _navigationLayout;
+    private Document? _navigationDocument;
     private bool _isLoading;
     private bool _suppressQuickAccessSave;
     private bool _suppressZoomUpdate;
@@ -61,7 +71,7 @@ public partial class MainWindow : Window
     private bool _suppressReviewSelection;
     private static readonly FilePickerFileType DocxFileType = new("Word Documents")
     {
-        Patterns = new[] { "*.docx" }
+        Patterns = new[] { "*.docx", "*.docm" }
     };
     private static readonly FilePickerFileType ImageFileType = new("Images")
     {
@@ -75,6 +85,8 @@ public partial class MainWindow : Window
     {
         Patterns = new[] { "*.*" }
     };
+    private const float PageThumbnailWidth = 120f;
+    private const float PageThumbnailHeight = 160f;
 
     public MainWindow()
         : this(null, null)
@@ -93,6 +105,8 @@ public partial class MainWindow : Window
         _navigationPane = this.FindControl<Border>("NavigationPane");
         _navigationPaneList = this.FindControl<ListBox>("NavigationPaneList");
         _pagePaneList = this.FindControl<ListBox>("PagePaneList");
+        _layoutGrid = this.FindControl<Grid>("LayoutGrid");
+        _rightPane = this.FindControl<Grid>("RightPane");
         _reviewPane = this.FindControl<Border>("ReviewPane");
         _reviewCommentsList = this.FindControl<ListBox>("ReviewCommentsList");
         _reviewChangesList = this.FindControl<ListBox>("ReviewChangesList");
@@ -105,7 +119,7 @@ public partial class MainWindow : Window
         _reviewChangeNextButton = this.FindControl<Button>("ReviewChangeNextButton");
         _reviewPaneCloseButton = this.FindControl<Button>("ReviewPaneCloseButton");
         var equationEditor = this.FindControl<EquationEditor>("EquationEditor");
-        var equationPanel = this.FindControl<Border>("EquationEditorPanel");
+        _equationPanel = this.FindControl<Border>("EquationEditorPanel");
         _loadingOverlay = this.FindControl<Border>("LoadingOverlay");
         _loadingText = this.FindControl<TextBlock>("LoadingText");
         _statusPageText = this.FindControl<TextBlock>("StatusPageText");
@@ -237,15 +251,33 @@ public partial class MainWindow : Window
             _reviewCommentEditor.IsEnabled = false;
         }
 
+        var navigationColumn = _layoutGrid?.ColumnDefinitions.Count > 0
+            ? _layoutGrid.ColumnDefinitions[0]
+            : null;
+
         _editorView.RegisterService<IEditorViewOptionsService>(new MainWindowViewOptionsService(
             _editorView,
             _horizontalRuler,
             _verticalRuler,
             _rulerCorner,
-            _navigationPane));
+            _navigationPane,
+            navigationColumn));
+
+        var dialogService = new MainWindowDialogService(this);
+        _editorView.RegisterService<IEditorDialogService>(dialogService);
+        _editorView.RegisterService<IEditorWindowService>(new MainWindowWindowService(this, () => _editorView.Document, dialogService));
+        _editorView.RegisterService<IEditorZoomService>(new MainWindowZoomService(_editorView, OpenZoomDialogAsync));
+        _editorView.RegisterService<IMacroManagerService>(
+            new MainWindowMacroManagerService(
+                OpenMacroManagerAsync,
+                ToggleMacroRecordingFromServiceAsync,
+                OpenVbaToolingWindowFromServiceAsync,
+                StartMacroDebugFromServiceAsync));
 
         _editorView.RegisterService<IDrawToolService>(new DrawToolService());
+        _editorView.RegisterService<IInkReplayService>(new InkReplayService(_editorView));
         _editorView.RegisterService<IMailMergeSourceManager>(new MailMergeSourceManager(this));
+        _editorView.RegisterService<ICitationSourceManager>(new CitationSourceManager(this));
 
         _editorView.RegisterService<IStylePaneService>(new StylesPaneService(
             this,
@@ -273,12 +305,13 @@ public partial class MainWindow : Window
                 equationEditor.SetEquation(equation);
                 var visible = equation is not null;
                 equationEditor.IsVisible = visible;
-                if (equationPanel is not null)
+                if (_equationPanel is not null)
                 {
-                    equationPanel.IsVisible = visible;
+                    _equationPanel.IsVisible = visible;
                 }
 
                 _ribbon?.RefreshState();
+                UpdateRightPaneVisibility();
             }
 
             _editorView.SelectedEquationChanged += (_, equation) => UpdateEquationEditor(equation);
@@ -298,7 +331,7 @@ public partial class MainWindow : Window
             _editorView.ZoomChanged += (_, _) => UpdateZoomUi();
             UpdateZoomUi();
             UpdateStatusBar();
-            RefreshNavigationPaneItems();
+            RefreshNavigationPaneItems(force: true);
         }
 
         if (document is not null)
@@ -307,7 +340,8 @@ public partial class MainWindow : Window
             _currentPath = path;
             RefreshStyleGalleryItems();
             _ribbon?.RefreshState();
-            RefreshNavigationPaneItems();
+            RefreshNavigationPaneItems(force: true);
+            UpdateOpenAuxiliaryWindows();
         }
         else if (!string.IsNullOrWhiteSpace(path))
         {
@@ -608,6 +642,41 @@ public partial class MainWindow : Window
             }
         }
 
+        async ValueTask OpenTablePropertiesDialogAsync()
+        {
+            if (!canInteract())
+            {
+                return;
+            }
+
+            if (!TryResolveTablePropertiesDialogState(out var state))
+            {
+                return;
+            }
+
+            var dialog = new TablePropertiesDialog(state);
+            var result = await dialog.ShowDialog<EditorTablePropertiesDialogOptions?>(this);
+            if (result.HasValue)
+            {
+                await ExecuteEditorCommandAsync(EditorTableCommandIds.Layout.PropertiesApply, result.Value);
+            }
+        }
+
+        async Task InsertQuickTableAsync(QuickTableTemplate template)
+        {
+            if (!canInteract())
+            {
+                return;
+            }
+
+            var request = new EditorTableTemplateInsertRequest(
+                template.Rows,
+                template.Columns,
+                template.StyleId,
+                template.CellText);
+            await ExecuteEditorCommandAsync(EditorInsertCommandIds.Tables.InsertTable, request);
+        }
+
         async Task OpenHyperlinkDialogAsync()
         {
             if (!canInteract())
@@ -673,6 +742,72 @@ public partial class MainWindow : Window
                 var request = new EditorCrossReferenceInsertRequest(result.Id);
                 await ExecuteEditorCommandAsync(EditorInsertCommandIds.Links.CrossReference, request);
             }
+        }
+
+        async Task OpenLanguageDialogAsync()
+        {
+            if (!canInteract() || _editorView is null)
+            {
+                return;
+            }
+
+            var current = _editorView.Document.DefaultTextStyle.Language ?? "en-US";
+            var dialog = new TextInputDialog("Set Language", "Language tag (e.g., en-US):", current);
+            var result = await dialog.ShowDialog<string?>(this);
+            if (string.IsNullOrWhiteSpace(result))
+            {
+                return;
+            }
+
+            await ExecuteEditorCommandAsync(EditorReviewCommandIds.Language.SetLanguage, result.Trim());
+        }
+
+        Task OpenNotesPaneAsync()
+        {
+            if (!canInteract() || _editorView is null)
+            {
+                return Task.CompletedTask;
+            }
+
+            if (_notesPaneWindow is null)
+            {
+                _notesPaneWindow = new NotesPaneWindow(_editorView);
+                _notesPaneWindow.Closed += (_, _) => _notesPaneWindow = null;
+            }
+            else
+            {
+                _notesPaneWindow.SetDocumentView(_editorView);
+            }
+
+            _notesPaneWindow.Show(this);
+            _notesPaneWindow.Activate();
+            return Task.CompletedTask;
+        }
+
+        VbaDebugSession? GetActiveDebugSession()
+        {
+            if (_editorView is null)
+            {
+                return null;
+            }
+
+            if (!_editorView.TryGetService<IMacroEngine>(out var macroEngine))
+            {
+                return null;
+            }
+
+            return macroEngine is IMacroDebugEngine debugEngine ? debugEngine.ActiveDebugSession : null;
+        }
+
+        void RunDebugAction(Action<VbaDebugSession> action)
+        {
+            var session = GetActiveDebugSession();
+            if (session is null)
+            {
+                return;
+            }
+
+            action(session);
         }
 
         async Task InsertPictureAsync()
@@ -1232,6 +1367,148 @@ public partial class MainWindow : Window
                 keepLinesTogether,
                 pageBreakBefore,
                 suppressLineNumbers);
+        }
+
+        bool TryResolveTablePropertiesDialogState(out TablePropertiesDialogState state)
+        {
+            state = default;
+            if (_editorView is null)
+            {
+                return false;
+            }
+
+            if (!_editorView.TryGetService<ISelectionState>(out var selectionState))
+            {
+                return false;
+            }
+
+            var selectionSnapshot = selectionState.GetSnapshot();
+            if (!selectionSnapshot.IsInTable)
+            {
+                return false;
+            }
+
+            var selection = selectionSnapshot.Selection.Normalize();
+            var document = _editorView.Document;
+            var startLocation = document.GetParagraphLocation(selection.Start.ParagraphIndex);
+            var endLocation = document.GetParagraphLocation(selection.End.ParagraphIndex);
+            if (!startLocation.IsInTable || !endLocation.IsInTable || !ReferenceEquals(startLocation.Table, endLocation.Table))
+            {
+                return false;
+            }
+
+            var table = startLocation.Table!;
+            var rowIndex = Math.Clamp(startLocation.RowIndex, 0, Math.Max(0, table.Rows.Count - 1));
+            var row = table.Rows[rowIndex];
+            var cell = startLocation.Cell ?? (row.Cells.Count > 0 ? row.Cells[0] : null);
+            if (cell is null)
+            {
+                return false;
+            }
+
+            float? columnWidthPoints = null;
+            float? rowHeightPoints = null;
+            if (TryGetTableLayout(_editorView.Layout, document, table, out var tableLayout))
+            {
+                if (startLocation.ColumnIndex >= 0 && startLocation.ColumnIndex < tableLayout.ColumnWidths.Count)
+                {
+                    columnWidthPoints = (float)DipsToPoints(tableLayout.ColumnWidths[startLocation.ColumnIndex]);
+                }
+
+                if (rowIndex >= 0 && rowIndex < tableLayout.RowHeights.Count)
+                {
+                    rowHeightPoints = (float)DipsToPoints(tableLayout.RowHeights[rowIndex]);
+                }
+            }
+
+            var tableProperties = table.Properties;
+            var preferredWidthUnit = tableProperties.WidthUnit;
+            float? preferredWidth = preferredWidthUnit switch
+            {
+                TableWidthUnit.Pct => tableProperties.Width,
+                TableWidthUnit.Auto => null,
+                _ => tableProperties.Width.HasValue ? (float?)DipsToPoints(tableProperties.Width.Value) : null
+            };
+
+            var indentUnit = tableProperties.IndentUnit;
+            float? indentValue = indentUnit == TableWidthUnit.Pct
+                ? tableProperties.Indent
+                : tableProperties.Indent.HasValue
+                    ? (float?)DipsToPoints(tableProperties.Indent.Value)
+                    : null;
+
+            var spacingUnit = tableProperties.CellSpacingUnit;
+            float? spacingValue = spacingUnit == TableWidthUnit.Pct
+                ? tableProperties.CellSpacing
+                : tableProperties.CellSpacing.HasValue
+                    ? (float?)DipsToPoints(tableProperties.CellSpacing.Value)
+                    : null;
+
+            DocThickness? paddingPoints = null;
+            if (tableProperties.CellPadding.HasValue)
+            {
+                var padding = tableProperties.CellPadding.Value;
+                paddingPoints = new DocThickness(
+                    (float)DipsToPoints(padding.Left),
+                    (float)DipsToPoints(padding.Top),
+                    (float)DipsToPoints(padding.Right),
+                    (float)DipsToPoints(padding.Bottom));
+            }
+
+            var allowRowBreak = row.Properties.CantSplit.HasValue
+                ? !row.Properties.CantSplit.Value
+                : (bool?)null;
+
+            state = new TablePropertiesDialogState(
+                tableProperties.Alignment,
+                preferredWidth,
+                preferredWidthUnit,
+                indentValue,
+                indentUnit,
+                tableProperties.LayoutMode,
+                spacingValue,
+                spacingUnit,
+                paddingPoints,
+                rowHeightPoints,
+                row.Properties.HeightRule,
+                allowRowBreak,
+                row.Properties.RepeatOnEachPage,
+                columnWidthPoints,
+                cell.Properties.VerticalAlignment);
+
+            return true;
+        }
+
+        static bool TryGetTableLayout(
+            DocumentLayout layout,
+            Document document,
+            TableBlock table,
+            out TableLayout tableLayout)
+        {
+            tableLayout = null!;
+            var tableIndex = 0;
+            foreach (var block in document.Blocks)
+            {
+                if (block is not TableBlock candidate)
+                {
+                    continue;
+                }
+
+                if (ReferenceEquals(candidate, table))
+                {
+                    if (layout.Tables.Count > tableIndex)
+                    {
+                        tableLayout = layout.Tables[tableIndex];
+                        return true;
+                    }
+
+                    return false;
+                }
+
+                tableIndex++;
+            }
+
+            return false;
         }
 
         FontDialogState ResolveFontDialogState()
@@ -2075,602 +2352,658 @@ public partial class MainWindow : Window
             return _styleGalleryItemMap.TryGetValue(value.Value, out var item) ? item : null;
         }
 
-        var pasteMenu = new RibbonMenu(new IRibbonMenuEntry[]
+        RibbonGroup BuildClipboardGroup()
         {
-            new RibbonMenuItem(
-                "paste-keep-source",
-                "Keep Source Formatting",
-                CreateEditorCommand(EditorHomeCommandIds.Clipboard.PasteKeepSource)),
-            new RibbonMenuItem(
-                "paste-match-destination",
-                "Match Destination Formatting",
-                CreateEditorCommand(EditorHomeCommandIds.Clipboard.PasteMatchDestination)),
-            new RibbonMenuItem(
-                "paste-text-only",
-                "Keep Text Only",
-                CreateEditorCommand(EditorHomeCommandIds.Clipboard.PasteTextOnly))
-        });
-
-        var pasteSplit = new RibbonSplitButton(
-            "paste",
-            "Paste",
-            CreateEditorCommand(EditorHomeCommandIds.Clipboard.Paste),
-            pasteMenu,
-            keyTip: "V",
-            iconKey: "RibbonIcon.Paste",
-            size: RibbonControlSize.Large);
-
-        var cutButton = new RibbonButton(
-            "cut",
-            "Cut",
-            CreateEditorCommand(EditorHomeCommandIds.Clipboard.Cut),
-            keyTip: "X",
-            iconKey: "RibbonIcon.Cut",
-            size: RibbonControlSize.Small);
-
-        var copyButton = new RibbonButton(
-            "copy",
-            "Copy",
-            CreateEditorCommand(EditorHomeCommandIds.Clipboard.Copy),
-            keyTip: "C",
-            iconKey: "RibbonIcon.Copy",
-            size: RibbonControlSize.Small);
-
-        var formatPainter = new RibbonToggleButton(
-            "format-painter",
-            "Format Painter",
-            IsFormatPainterActive,
-            command: CreateEditorCommand(EditorHomeCommandIds.Clipboard.FormatPainterToggle),
-            keyTip: "FP",
-            iconKey: "RibbonIcon.FormatPainter",
-            size: RibbonControlSize.Small);
-
-        var clipboardGroup = new RibbonGroup(
-            "clipboard",
-            "Clipboard",
-            new IRibbonControl[]
+            var pasteMenu = new RibbonMenu(new IRibbonMenuEntry[]
             {
-                pasteSplit,
-                cutButton,
-                copyButton,
-                formatPainter
-            },
-            keyTip: "CL");
+                new RibbonMenuItem(
+                    "paste-keep-source",
+                    "Keep Source Formatting",
+                    CreateEditorCommand(EditorHomeCommandIds.Clipboard.PasteKeepSource)),
+                new RibbonMenuItem(
+                    "paste-match-destination",
+                    "Match Destination Formatting",
+                    CreateEditorCommand(EditorHomeCommandIds.Clipboard.PasteMatchDestination)),
+                new RibbonMenuItem(
+                    "paste-text-only",
+                    "Keep Text Only",
+                    CreateEditorCommand(EditorHomeCommandIds.Clipboard.PasteTextOnly))
+            });
 
-        var fontFamilyCombo = new RibbonComboBox(
-            "font-family",
-            "Font",
-            fontFamilyItems,
-            isEditable: true,
-            textEvaluator: ResolveFontFamilyText,
-            textChangedHandler: ApplyFontFamilyAsync,
-            selectionHandler: ApplyFontFamilyItemAsync,
-            keyTip: "FF",
-            iconKey: "RibbonIcon.FontFamily",
-            size: RibbonControlSize.Medium);
+            var pasteSplit = new RibbonSplitButton(
+                "paste",
+                "Paste",
+                CreateEditorCommand(EditorHomeCommandIds.Clipboard.Paste),
+                pasteMenu,
+                keyTip: "V",
+                iconKey: "RibbonIcon.Paste",
+                size: RibbonControlSize.Large);
 
-        var fontSizeCombo = new RibbonComboBox(
-            "font-size",
-            "Size",
-            fontSizeItems,
-            isEditable: true,
-            textEvaluator: ResolveFontSizeText,
-            textChangedHandler: ApplyFontSizeAsync,
-            selectionHandler: ApplyFontSizeItemAsync,
-            keyTip: "FS",
-            iconKey: "RibbonIcon.FontSize",
-            size: RibbonControlSize.Medium);
+            var cutButton = new RibbonButton(
+                "cut",
+                "Cut",
+                CreateEditorCommand(EditorHomeCommandIds.Clipboard.Cut),
+                keyTip: "X",
+                iconKey: "RibbonIcon.Cut",
+                size: RibbonControlSize.Small);
 
-        var growFont = new RibbonButton(
-            "font-grow",
-            "Grow Font",
-            CreateEditorCommand(EditorHomeCommandIds.Font.SizeIncrease),
-            keyTip: "FG",
-            iconKey: "RibbonIcon.GrowFont",
-            size: RibbonControlSize.Small);
+            var copyButton = new RibbonButton(
+                "copy",
+                "Copy",
+                CreateEditorCommand(EditorHomeCommandIds.Clipboard.Copy),
+                keyTip: "C",
+                iconKey: "RibbonIcon.Copy",
+                size: RibbonControlSize.Small);
 
-        var shrinkFont = new RibbonButton(
-            "font-shrink",
-            "Shrink Font",
-            CreateEditorCommand(EditorHomeCommandIds.Font.SizeDecrease),
-            keyTip: "FK",
-            iconKey: "RibbonIcon.ShrinkFont",
-            size: RibbonControlSize.Small);
+            var formatPainter = new RibbonToggleButton(
+                "format-painter",
+                "Format Painter",
+                IsFormatPainterActive,
+                command: CreateEditorCommand(EditorHomeCommandIds.Clipboard.FormatPainterToggle),
+                keyTip: "FP",
+                iconKey: "RibbonIcon.FormatPainter",
+                size: RibbonControlSize.Small);
 
-        var changeCaseMenu = new RibbonMenu(new IRibbonMenuEntry[]
+            return new RibbonGroup(
+                "clipboard",
+                "Clipboard",
+                new IRibbonControl[]
+                {
+                    pasteSplit,
+                    cutButton,
+                    copyButton,
+                    formatPainter
+                },
+                keyTip: "CL");
+        }
+
+        RibbonGroup BuildFontGroup()
         {
-            new RibbonMenuItem(
-                "change-case-sentence",
-                "Sentence case",
-                CreateEditorCommand(EditorHomeCommandIds.Font.ChangeCaseSentence)),
-            new RibbonMenuItem(
-                "change-case-lower",
-                "lowercase",
-                CreateEditorCommand(EditorHomeCommandIds.Font.ChangeCaseLower)),
-            new RibbonMenuItem(
-                "change-case-upper",
-                "UPPERCASE",
-                CreateEditorCommand(EditorHomeCommandIds.Font.ChangeCaseUpper)),
-            new RibbonMenuItem(
-                "change-case-capitalize",
-                "Capitalize Each Word",
-                CreateEditorCommand(EditorHomeCommandIds.Font.ChangeCaseCapitalize)),
-            new RibbonMenuItem(
-                "change-case-toggle",
-                "tOGGLE cASE",
-                CreateEditorCommand(EditorHomeCommandIds.Font.ChangeCaseToggle))
-        });
+            var fontFamilyCombo = new RibbonComboBox(
+                "font-family",
+                "Font",
+                fontFamilyItems,
+                isEditable: true,
+                textEvaluator: ResolveFontFamilyText,
+                textChangedHandler: ApplyFontFamilyAsync,
+                selectionHandler: ApplyFontFamilyItemAsync,
+                keyTip: "FF",
+                iconKey: "RibbonIcon.FontFamily",
+                size: RibbonControlSize.Medium);
 
-        var changeCase = new RibbonDropdownButton(
-            "font-case",
-            "Change Case",
-            changeCaseMenu,
-            keyTip: "CC",
-            iconKey: "RibbonIcon.ChangeCase",
-            size: RibbonControlSize.Small);
+            var fontSizeCombo = new RibbonComboBox(
+                "font-size",
+                "Size",
+                fontSizeItems,
+                isEditable: true,
+                textEvaluator: ResolveFontSizeText,
+                textChangedHandler: ApplyFontSizeAsync,
+                selectionHandler: ApplyFontSizeItemAsync,
+                keyTip: "FS",
+                iconKey: "RibbonIcon.FontSize",
+                size: RibbonControlSize.Medium);
 
-        var clearFormatting = new RibbonButton(
-            "font-clear",
-            "Clear Formatting",
-            CreateEditorCommand(EditorHomeCommandIds.Font.ClearFormatting),
-            keyTip: "CF",
-            iconKey: "RibbonIcon.ClearFormatting",
-            size: RibbonControlSize.Small);
+            var growFont = new RibbonButton(
+                "font-grow",
+                "Grow Font",
+                CreateEditorCommand(EditorHomeCommandIds.Font.SizeIncrease),
+                keyTip: "FG",
+                iconKey: "RibbonIcon.GrowFont",
+                size: RibbonControlSize.Small);
 
-        var boldToggle = new RibbonToggleButton(
-            "font-bold",
-            "Bold",
-            () => IsFormattingValue(snapshot => snapshot.Bold, true),
-            command: CreateEditorCommand(EditorHomeCommandIds.Font.BoldToggle),
-            keyTip: "B",
-            iconKey: "RibbonIcon.Bold",
-            size: RibbonControlSize.Small);
+            var shrinkFont = new RibbonButton(
+                "font-shrink",
+                "Shrink Font",
+                CreateEditorCommand(EditorHomeCommandIds.Font.SizeDecrease),
+                keyTip: "FK",
+                iconKey: "RibbonIcon.ShrinkFont",
+                size: RibbonControlSize.Small);
 
-        var italicToggle = new RibbonToggleButton(
-            "font-italic",
-            "Italic",
-            () => IsFormattingValue(snapshot => snapshot.Italic, true),
-            command: CreateEditorCommand(EditorHomeCommandIds.Font.ItalicToggle),
-            keyTip: "I",
-            iconKey: "RibbonIcon.Italic",
-            size: RibbonControlSize.Small);
-
-        var underlineMenu = new RibbonMenu(new IRibbonMenuEntry[]
-        {
-            new RibbonMenuItem(
-                "underline-single",
-                "Single",
-                CreateEditorCommand(EditorHomeCommandIds.Font.UnderlineStyleSet, DocUnderlineStyle.Single)),
-            new RibbonMenuItem(
-                "underline-double",
-                "Double",
-                CreateEditorCommand(EditorHomeCommandIds.Font.UnderlineStyleSet, DocUnderlineStyle.Double)),
-            new RibbonMenuItem(
-                "underline-wavy",
-                "Wavy",
-                CreateEditorCommand(EditorHomeCommandIds.Font.UnderlineStyleSet, DocUnderlineStyle.Wave)),
-            new RibbonMenuItem(
-                "underline-none",
-                "None",
-                CreateEditorCommand(EditorHomeCommandIds.Font.UnderlineStyleSet, DocUnderlineStyle.None))
-        });
-
-        var underlineSplit = new RibbonSplitToggleButton(
-            "font-underline",
-            "Underline",
-            underlineMenu,
-            isCheckedEvaluator: () => IsFormattingValue(snapshot => snapshot.Underline, true),
-            command: CreateEditorCommand(EditorHomeCommandIds.Font.UnderlineToggle),
-            keyTip: "U",
-            iconKey: "RibbonIcon.Underline",
-            size: RibbonControlSize.Small);
-
-        var strikethroughToggle = new RibbonToggleButton(
-            "font-strikethrough",
-            "Strikethrough",
-            () => IsFormattingValue(snapshot => snapshot.Strikethrough, true),
-            command: CreateEditorCommand(EditorHomeCommandIds.Font.StrikethroughToggle),
-            keyTip: "S",
-            iconKey: "RibbonIcon.Strikethrough",
-            size: RibbonControlSize.Small);
-
-        var superscriptToggle = new RibbonToggleButton(
-            "font-superscript",
-            "Superscript",
-            () => IsFormattingValue(snapshot => snapshot.VerticalPosition, DocVerticalPosition.Superscript),
-            command: CreateEditorCommand(EditorHomeCommandIds.Font.SuperscriptToggle),
-            keyTip: "SU",
-            iconKey: "RibbonIcon.Superscript",
-            size: RibbonControlSize.Small);
-
-        var subscriptToggle = new RibbonToggleButton(
-            "font-subscript",
-            "Subscript",
-            () => IsFormattingValue(snapshot => snapshot.VerticalPosition, DocVerticalPosition.Subscript),
-            command: CreateEditorCommand(EditorHomeCommandIds.Font.SubscriptToggle),
-            keyTip: "SB",
-            iconKey: "RibbonIcon.Subscript",
-            size: RibbonControlSize.Small);
-
-        var textEffectsMenu = new RibbonMenu(new IRibbonMenuEntry[]
-        {
-            new RibbonMenuToggleItem(
-                "text-effects-outline",
-                "Outline",
-                () => IsEffectActive(snapshot => snapshot.TextOutline),
-                CreateEditorCommand(EditorHomeCommandIds.Font.TextEffectOutline)),
-            new RibbonMenuToggleItem(
-                "text-effects-shadow",
-                "Shadow",
-                () => IsEffectActive(snapshot => snapshot.TextShadow),
-                CreateEditorCommand(EditorHomeCommandIds.Font.TextEffectShadow)),
-            new RibbonMenuToggleItem(
-                "text-effects-emboss",
-                "Emboss",
-                () => IsEffectActive(snapshot => snapshot.TextEmboss),
-                CreateEditorCommand(EditorHomeCommandIds.Font.TextEffectEmboss)),
-            new RibbonMenuToggleItem(
-                "text-effects-imprint",
-                "Imprint",
-                () => IsEffectActive(snapshot => snapshot.TextImprint),
-                CreateEditorCommand(EditorHomeCommandIds.Font.TextEffectImprint)),
-            new RibbonMenuSeparator(),
-            new RibbonMenuItem(
-                "text-effects-clear",
-                "Clear Text Effects",
-                CreateEditorCommand(EditorHomeCommandIds.Font.TextEffectClear),
-                canExecute: () => CanClearTextEffects())
-        });
-
-        var textEffects = new RibbonDropdownButton(
-            "font-effects",
-            "Text Effects",
-            textEffectsMenu,
-            keyTip: "TX",
-            iconKey: "RibbonIcon.TextEffects",
-            size: RibbonControlSize.Small);
-
-        var highlightButton = new RibbonColorSplitButton(
-            "font-highlight",
-            "Highlight",
-            CreateEditorCommandWithPayload(EditorHomeCommandIds.Font.HighlightSet, () => ResolveColorPayload(ResolveHighlightSelection(highlightPalette))),
-            highlightPalette,
-            selectedColorEvaluator: () => ResolveHighlightSelection(highlightPalette),
-            selectionHandler: color => ExecuteEditorCommandAsync(EditorHomeCommandIds.Font.HighlightSet, ResolveColorPayload(color)),
-            keyTip: "H",
-            iconKey: "RibbonIcon.Highlight",
-            size: RibbonControlSize.Small);
-
-        var fontColorButton = new RibbonColorSplitButton(
-            "font-color",
-            "Font Color",
-            CreateEditorCommandWithPayload(EditorHomeCommandIds.Font.ColorSet, () => ResolveColorPayload(ResolveFontColorSelection(fontColorPalette))),
-            fontColorPalette,
-            selectedColorEvaluator: () => ResolveFontColorSelection(fontColorPalette),
-            selectionHandler: color => ExecuteEditorCommandAsync(EditorHomeCommandIds.Font.ColorSet, ResolveColorPayload(color)),
-            keyTip: "FC",
-            iconKey: "RibbonIcon.FontColor",
-            size: RibbonControlSize.Small);
-
-        var fontLauncher = new RibbonGroupLauncher(
-            "font-launcher",
-            "Font Dialog",
-            CreateAsyncCommand(OpenFontDialogAsync, () => CanExecuteEditorCommand(EditorHomeCommandIds.Font.DialogApply)),
-            keyTip: "FO",
-            iconKey: "RibbonIcon.Launcher");
-
-        var fontGroup = new RibbonGroup(
-            "font",
-            "Font",
-            new IRibbonControl[]
+            var changeCaseMenu = new RibbonMenu(new IRibbonMenuEntry[]
             {
-                fontFamilyCombo,
-                fontSizeCombo,
-                growFont,
-                shrinkFont,
-                changeCase,
-                clearFormatting,
-                boldToggle,
-                italicToggle,
-                underlineSplit,
-                strikethroughToggle,
-                subscriptToggle,
-                superscriptToggle,
-                textEffects,
-                highlightButton,
-                fontColorButton
-            },
-            keyTip: "FN",
-            launcher: fontLauncher);
+                new RibbonMenuItem(
+                    "change-case-sentence",
+                    "Sentence case",
+                    CreateEditorCommand(EditorHomeCommandIds.Font.ChangeCaseSentence)),
+                new RibbonMenuItem(
+                    "change-case-lower",
+                    "lowercase",
+                    CreateEditorCommand(EditorHomeCommandIds.Font.ChangeCaseLower)),
+                new RibbonMenuItem(
+                    "change-case-upper",
+                    "UPPERCASE",
+                    CreateEditorCommand(EditorHomeCommandIds.Font.ChangeCaseUpper)),
+                new RibbonMenuItem(
+                    "change-case-capitalize",
+                    "Capitalize Each Word",
+                    CreateEditorCommand(EditorHomeCommandIds.Font.ChangeCaseCapitalize)),
+                new RibbonMenuItem(
+                    "change-case-toggle",
+                    "tOGGLE cASE",
+                    CreateEditorCommand(EditorHomeCommandIds.Font.ChangeCaseToggle))
+            });
 
-        var bulletsToggle = new RibbonToggleButton(
-            "para-bullets",
-            "Bullets",
-            () => IsParagraphValue(snapshot => snapshot.ListKind, ListKind.Bullet),
-            command: CreateEditorCommand(EditorHomeCommandIds.Paragraph.ListBullets),
-            keyTip: "BU",
-            iconKey: "RibbonIcon.Bullets",
-            size: RibbonControlSize.Small);
+            var changeCase = new RibbonDropdownButton(
+                "font-case",
+                "Change Case",
+                changeCaseMenu,
+                keyTip: "CC",
+                iconKey: "RibbonIcon.ChangeCase",
+                size: RibbonControlSize.Small);
 
-        var numberingToggle = new RibbonToggleButton(
-            "para-numbering",
-            "Numbering",
-            () => IsParagraphValue(snapshot => snapshot.ListKind, ListKind.Numbered),
-            command: CreateEditorCommand(EditorHomeCommandIds.Paragraph.ListNumbering),
-            keyTip: "NU",
-            iconKey: "RibbonIcon.Numbering",
-            size: RibbonControlSize.Small);
+            var clearFormatting = new RibbonButton(
+                "font-clear",
+                "Clear Formatting",
+                CreateEditorCommand(EditorHomeCommandIds.Font.ClearFormatting),
+                keyTip: "CF",
+                iconKey: "RibbonIcon.ClearFormatting",
+                size: RibbonControlSize.Small);
 
-        var multilevelToggle = new RibbonToggleButton(
-            "para-multilevel",
-            "Multilevel List",
-            () => IsParagraphValue(snapshot => snapshot.ListKind, ListKind.Numbered),
-            command: CreateEditorCommand(EditorHomeCommandIds.Paragraph.ListMultilevel),
-            keyTip: "ML",
-            iconKey: "RibbonIcon.Multilevel",
-            size: RibbonControlSize.Small);
+            var boldToggle = new RibbonToggleButton(
+                "font-bold",
+                "Bold",
+                () => IsFormattingValue(snapshot => snapshot.Bold, true),
+                command: CreateEditorCommand(EditorHomeCommandIds.Font.BoldToggle),
+                keyTip: "B",
+                iconKey: "RibbonIcon.Bold",
+                size: RibbonControlSize.Small);
 
-        var indentDecrease = new RibbonButton(
-            "para-indent-decrease",
-            "Decrease Indent",
-            CreateEditorCommand(EditorHomeCommandIds.Paragraph.IndentDecrease),
-            keyTip: "ID",
-            iconKey: "RibbonIcon.IndentDecrease",
-            size: RibbonControlSize.Small);
+            var italicToggle = new RibbonToggleButton(
+                "font-italic",
+                "Italic",
+                () => IsFormattingValue(snapshot => snapshot.Italic, true),
+                command: CreateEditorCommand(EditorHomeCommandIds.Font.ItalicToggle),
+                keyTip: "I",
+                iconKey: "RibbonIcon.Italic",
+                size: RibbonControlSize.Small);
 
-        var indentIncrease = new RibbonButton(
-            "para-indent-increase",
-            "Increase Indent",
-            CreateEditorCommand(EditorHomeCommandIds.Paragraph.IndentIncrease),
-            keyTip: "IN",
-            iconKey: "RibbonIcon.IndentIncrease",
-            size: RibbonControlSize.Small);
-
-        var sortParagraph = new RibbonButton(
-            "para-sort",
-            "Sort",
-            CreateEditorCommand(EditorHomeCommandIds.Paragraph.Sort),
-            keyTip: "SO",
-            iconKey: "RibbonIcon.Sort",
-            size: RibbonControlSize.Small);
-
-        var showParagraphMarks = new RibbonToggleButton(
-            "para-show-marks",
-            "Show/Hide ¶",
-            IsShowInvisiblesActive,
-            value => ToggleShowInvisibles(value),
-            keyTip: "SH",
-            iconKey: "RibbonIcon.Invisibles",
-            canExecute: canInteract,
-            size: RibbonControlSize.Small);
-
-        var alignLeft = new RibbonToggleButton(
-            "para-align-left",
-            "Align Left",
-            () => IsParagraphValue(snapshot => snapshot.Alignment, ParagraphAlignment.Left),
-            command: CreateEditorCommand(EditorHomeCommandIds.Paragraph.AlignLeft),
-            keyTip: "AL",
-            iconKey: "RibbonIcon.AlignLeft",
-            size: RibbonControlSize.Small);
-
-        var alignCenter = new RibbonToggleButton(
-            "para-align-center",
-            "Center",
-            () => IsParagraphValue(snapshot => snapshot.Alignment, ParagraphAlignment.Center),
-            command: CreateEditorCommand(EditorHomeCommandIds.Paragraph.AlignCenter),
-            keyTip: "AC",
-            iconKey: "RibbonIcon.AlignCenter",
-            size: RibbonControlSize.Small);
-
-        var alignRight = new RibbonToggleButton(
-            "para-align-right",
-            "Align Right",
-            () => IsParagraphValue(snapshot => snapshot.Alignment, ParagraphAlignment.Right),
-            command: CreateEditorCommand(EditorHomeCommandIds.Paragraph.AlignRight),
-            keyTip: "AR",
-            iconKey: "RibbonIcon.AlignRight",
-            size: RibbonControlSize.Small);
-
-        var alignJustify = new RibbonToggleButton(
-            "para-align-justify",
-            "Justify",
-            () => IsParagraphValue(snapshot => snapshot.Alignment, ParagraphAlignment.Justify),
-            command: CreateEditorCommand(EditorHomeCommandIds.Paragraph.AlignJustify),
-            keyTip: "AJ",
-            iconKey: "RibbonIcon.AlignJustify",
-            size: RibbonControlSize.Small);
-
-        var lineSpacingMenu = new RibbonMenu(new IRibbonMenuEntry[]
-        {
-            new RibbonMenuItem(
-                "line-spacing-1",
-                "1.0",
-                CreateEditorCommand(EditorHomeCommandIds.Paragraph.LineSpacingSet, EditorLineSpacingRequest.FromMultiple(1f))),
-            new RibbonMenuItem(
-                "line-spacing-1-15",
-                "1.15",
-                CreateEditorCommand(EditorHomeCommandIds.Paragraph.LineSpacingSet, EditorLineSpacingRequest.FromMultiple(1.15f))),
-            new RibbonMenuItem(
-                "line-spacing-1-5",
-                "1.5",
-                CreateEditorCommand(EditorHomeCommandIds.Paragraph.LineSpacingSet, EditorLineSpacingRequest.FromMultiple(1.5f))),
-            new RibbonMenuItem(
-                "line-spacing-2",
-                "2.0",
-                CreateEditorCommand(EditorHomeCommandIds.Paragraph.LineSpacingSet, EditorLineSpacingRequest.FromMultiple(2f))),
-            new RibbonMenuItem(
-                "line-spacing-options",
-                "Line Spacing Options...",
-                CreateAsyncCommand(OpenLineSpacingOptionsAsync, () => CanExecuteEditorCommand(EditorHomeCommandIds.Paragraph.LineSpacingOptions)))
-        });
-
-        var lineSpacing = new RibbonDropdownButton(
-            "para-line-spacing",
-            "Line Spacing",
-            lineSpacingMenu,
-            keyTip: "LS",
-            iconKey: "RibbonIcon.LineSpacing",
-            size: RibbonControlSize.Small);
-
-        var shading = new RibbonColorSplitButton(
-            "para-shading",
-            "Shading",
-            CreateEditorCommandWithPayload(EditorHomeCommandIds.Paragraph.ShadingSet, () => ResolveColorPayload(ResolveShadingSelection(shadingPalette))),
-            shadingPalette,
-            selectedColorEvaluator: () => ResolveShadingSelection(shadingPalette),
-            selectionHandler: color => ExecuteEditorCommandAsync(EditorHomeCommandIds.Paragraph.ShadingSet, ResolveColorPayload(color)),
-            keyTip: "SD",
-            iconKey: "RibbonIcon.Shading",
-            size: RibbonControlSize.Small);
-
-        var borderMenu = new RibbonMenu(new IRibbonMenuEntry[]
-        {
-            new RibbonMenuItem(
-                "para-border-none",
-                "No Border",
-                CreateEditorCommand(EditorHomeCommandIds.Paragraph.BorderSet, new EditorParagraphBorderRequest(EditorParagraphBorderKind.None))),
-            new RibbonMenuItem(
-                "para-border-all",
-                "All Borders",
-                CreateEditorCommand(EditorHomeCommandIds.Paragraph.BorderSet, new EditorParagraphBorderRequest(EditorParagraphBorderKind.All))),
-            new RibbonMenuItem(
-                "para-border-outside",
-                "Outside Borders",
-                CreateEditorCommand(EditorHomeCommandIds.Paragraph.BorderSet, new EditorParagraphBorderRequest(EditorParagraphBorderKind.Outside))),
-            new RibbonMenuSeparator(),
-            new RibbonMenuItem(
-                "para-border-top",
-                "Top Border",
-                CreateEditorCommand(EditorHomeCommandIds.Paragraph.BorderSet, new EditorParagraphBorderRequest(EditorParagraphBorderKind.Top))),
-            new RibbonMenuItem(
-                "para-border-bottom",
-                "Bottom Border",
-                CreateEditorCommand(EditorHomeCommandIds.Paragraph.BorderSet, new EditorParagraphBorderRequest(EditorParagraphBorderKind.Bottom))),
-            new RibbonMenuItem(
-                "para-border-left",
-                "Left Border",
-                CreateEditorCommand(EditorHomeCommandIds.Paragraph.BorderSet, new EditorParagraphBorderRequest(EditorParagraphBorderKind.Left))),
-            new RibbonMenuItem(
-                "para-border-right",
-                "Right Border",
-                CreateEditorCommand(EditorHomeCommandIds.Paragraph.BorderSet, new EditorParagraphBorderRequest(EditorParagraphBorderKind.Right)))
-        });
-
-        var borders = new RibbonDropdownButton(
-            "para-borders",
-            "Borders",
-            borderMenu,
-            keyTip: "BR",
-            iconKey: "RibbonIcon.Borders",
-            size: RibbonControlSize.Small);
-
-        var paragraphLauncher = new RibbonGroupLauncher(
-            "paragraph-launcher",
-            "Paragraph Dialog",
-            CreateAsyncCommand(OpenParagraphDialogAsync, () => CanExecuteEditorCommand(EditorHomeCommandIds.Paragraph.DialogApply)),
-            keyTip: "PP",
-            iconKey: "RibbonIcon.Launcher");
-
-        var paragraphGroup = new RibbonGroup(
-            "paragraph",
-            "Paragraph",
-            new IRibbonControl[]
+            var underlineMenu = new RibbonMenu(new IRibbonMenuEntry[]
             {
-                bulletsToggle,
-                numberingToggle,
-                multilevelToggle,
-                indentDecrease,
-                indentIncrease,
-                sortParagraph,
-                showParagraphMarks,
-                alignLeft,
-                alignCenter,
-                alignRight,
-                alignJustify,
-                lineSpacing,
-                shading,
-                borders
-            },
-            keyTip: "PG",
-            launcher: paragraphLauncher);
+                new RibbonMenuItem(
+                    "underline-single",
+                    "Single",
+                    CreateEditorCommand(EditorHomeCommandIds.Font.UnderlineStyleSet, DocUnderlineStyle.Single)),
+                new RibbonMenuItem(
+                    "underline-double",
+                    "Double",
+                    CreateEditorCommand(EditorHomeCommandIds.Font.UnderlineStyleSet, DocUnderlineStyle.Double)),
+                new RibbonMenuItem(
+                    "underline-wavy",
+                    "Wavy",
+                    CreateEditorCommand(EditorHomeCommandIds.Font.UnderlineStyleSet, DocUnderlineStyle.Wave)),
+                new RibbonMenuItem(
+                    "underline-none",
+                    "None",
+                    CreateEditorCommand(EditorHomeCommandIds.Font.UnderlineStyleSet, DocUnderlineStyle.None))
+            });
 
-        var stylesGallery = new RibbonGallery(
-            "styles-gallery",
-            "Styles",
-            _styleGalleryItems,
-            selectedItemEvaluator: ResolveStyleSelection,
-            selectionHandler: item => ExecuteEditorCommandAsync(EditorHomeCommandIds.Styles.Apply, item?.Id),
-            showDropDown: true,
-            keyTip: "SG",
-            iconKey: "RibbonIcon.Styles",
-            size: RibbonControlSize.Large);
+            var underlineSplit = new RibbonSplitToggleButton(
+                "font-underline",
+                "Underline",
+                underlineMenu,
+                isCheckedEvaluator: () => IsFormattingValue(snapshot => snapshot.Underline, true),
+                command: CreateEditorCommand(EditorHomeCommandIds.Font.UnderlineToggle),
+                keyTip: "U",
+                iconKey: "RibbonIcon.Underline",
+                size: RibbonControlSize.Small);
 
-        var stylesLauncher = new RibbonGroupLauncher(
-            "styles-launcher",
-            "Styles Pane",
-            CreateEditorCommand(EditorHomeCommandIds.Styles.OpenPane),
-            iconKey: "RibbonIcon.Launcher");
+            var strikethroughToggle = new RibbonToggleButton(
+                "font-strikethrough",
+                "Strikethrough",
+                () => IsFormattingValue(snapshot => snapshot.Strikethrough, true),
+                command: CreateEditorCommand(EditorHomeCommandIds.Font.StrikethroughToggle),
+                keyTip: "S",
+                iconKey: "RibbonIcon.Strikethrough",
+                size: RibbonControlSize.Small);
 
-        var stylesGroup = new RibbonGroup(
-            "styles",
-            "Styles",
-            new IRibbonControl[]
+            var superscriptToggle = new RibbonToggleButton(
+                "font-superscript",
+                "Superscript",
+                () => IsFormattingValue(snapshot => snapshot.VerticalPosition, DocVerticalPosition.Superscript),
+                command: CreateEditorCommand(EditorHomeCommandIds.Font.SuperscriptToggle),
+                keyTip: "SU",
+                iconKey: "RibbonIcon.Superscript",
+                size: RibbonControlSize.Small);
+
+            var subscriptToggle = new RibbonToggleButton(
+                "font-subscript",
+                "Subscript",
+                () => IsFormattingValue(snapshot => snapshot.VerticalPosition, DocVerticalPosition.Subscript),
+                command: CreateEditorCommand(EditorHomeCommandIds.Font.SubscriptToggle),
+                keyTip: "SB",
+                iconKey: "RibbonIcon.Subscript",
+                size: RibbonControlSize.Small);
+
+            var textEffectsMenu = new RibbonMenu(new IRibbonMenuEntry[]
             {
-                stylesGallery
-            },
-            keyTip: "ST",
-            launcher: stylesLauncher);
+                new RibbonMenuToggleItem(
+                    "text-effects-outline",
+                    "Outline",
+                    () => IsEffectActive(snapshot => snapshot.TextOutline),
+                    CreateEditorCommand(EditorHomeCommandIds.Font.TextEffectOutline)),
+                new RibbonMenuToggleItem(
+                    "text-effects-shadow",
+                    "Shadow",
+                    () => IsEffectActive(snapshot => snapshot.TextShadow),
+                    CreateEditorCommand(EditorHomeCommandIds.Font.TextEffectShadow)),
+                new RibbonMenuToggleItem(
+                    "text-effects-emboss",
+                    "Emboss",
+                    () => IsEffectActive(snapshot => snapshot.TextEmboss),
+                    CreateEditorCommand(EditorHomeCommandIds.Font.TextEffectEmboss)),
+                new RibbonMenuToggleItem(
+                    "text-effects-imprint",
+                    "Imprint",
+                    () => IsEffectActive(snapshot => snapshot.TextImprint),
+                    CreateEditorCommand(EditorHomeCommandIds.Font.TextEffectImprint)),
+                new RibbonMenuSeparator(),
+                new RibbonMenuItem(
+                    "text-effects-clear",
+                    "Clear Text Effects",
+                    CreateEditorCommand(EditorHomeCommandIds.Font.TextEffectClear),
+                    canExecute: () => CanClearTextEffects())
+            });
 
-        var findButton = new RibbonButton(
-            "edit-find",
-            "Find",
-            CreateAsyncCommand(() => ShowFindReplaceDialogAsync(false), CanUseFindReplace),
-            keyTip: "FD",
-            iconKey: "RibbonIcon.Find",
-            size: RibbonControlSize.Small);
+            var textEffects = new RibbonDropdownButton(
+                "font-effects",
+                "Text Effects",
+                textEffectsMenu,
+                keyTip: "TX",
+                iconKey: "RibbonIcon.TextEffects",
+                size: RibbonControlSize.Small);
 
-        var replaceButton = new RibbonButton(
-            "edit-replace",
-            "Replace",
-            CreateAsyncCommand(() => ShowFindReplaceDialogAsync(true), CanUseFindReplace),
-            keyTip: "RP",
-            iconKey: "RibbonIcon.Replace",
-            size: RibbonControlSize.Small);
+            var highlightButton = new RibbonColorSplitButton(
+                "font-highlight",
+                "Highlight",
+                CreateEditorCommandWithPayload(
+                    EditorHomeCommandIds.Font.HighlightSet,
+                    () => ResolveColorPayload(ResolveHighlightSelection(highlightPalette))),
+                highlightPalette,
+                selectedColorEvaluator: () => ResolveHighlightSelection(highlightPalette),
+                selectionHandler: color =>
+                    ExecuteEditorCommandAsync(EditorHomeCommandIds.Font.HighlightSet, ResolveColorPayload(color)),
+                keyTip: "H",
+                iconKey: "RibbonIcon.Highlight",
+                size: RibbonControlSize.Small);
 
-        var selectMenu = new RibbonMenu(new IRibbonMenuEntry[]
+            var fontColorButton = new RibbonColorSplitButton(
+                "font-color",
+                "Font Color",
+                CreateEditorCommandWithPayload(
+                    EditorHomeCommandIds.Font.ColorSet,
+                    () => ResolveColorPayload(ResolveFontColorSelection(fontColorPalette))),
+                fontColorPalette,
+                selectedColorEvaluator: () => ResolveFontColorSelection(fontColorPalette),
+                selectionHandler: color =>
+                    ExecuteEditorCommandAsync(EditorHomeCommandIds.Font.ColorSet, ResolveColorPayload(color)),
+                keyTip: "FC",
+                iconKey: "RibbonIcon.FontColor",
+                size: RibbonControlSize.Small);
+
+            var fontLauncher = new RibbonGroupLauncher(
+                "font-launcher",
+                "Font Dialog",
+                CreateAsyncCommand(OpenFontDialogAsync, () => CanExecuteEditorCommand(EditorHomeCommandIds.Font.DialogApply)),
+                keyTip: "FO",
+                iconKey: "RibbonIcon.Launcher");
+
+            return new RibbonGroup(
+                "font",
+                "Font",
+                new IRibbonControl[]
+                {
+                    fontFamilyCombo,
+                    fontSizeCombo,
+                    growFont,
+                    shrinkFont,
+                    changeCase,
+                    clearFormatting,
+                    boldToggle,
+                    italicToggle,
+                    underlineSplit,
+                    strikethroughToggle,
+                    subscriptToggle,
+                    superscriptToggle,
+                    textEffects,
+                    highlightButton,
+                    fontColorButton
+                },
+                keyTip: "FN",
+                launcher: fontLauncher);
+        }
+
+        RibbonGroup BuildParagraphGroup()
         {
-            new RibbonMenuItem(
-                "edit-select-all",
-                "Select All",
-                CreateEditorCommand(EditorHomeCommandIds.Editing.SelectAll)),
-            new RibbonMenuItem(
-                "edit-select-objects",
-                "Select Objects",
-                CreateEditorCommand(EditorHomeCommandIds.Editing.SelectObjects)),
-            new RibbonMenuItem(
-                "edit-select-similar",
-                "Select Text with Similar Formatting",
-                CreateEditorCommand(EditorHomeCommandIds.Editing.SelectSimilarFormatting))
-        });
+            var bulletsToggle = new RibbonToggleButton(
+                "para-bullets",
+                "Bullets",
+                () => IsParagraphValue(snapshot => snapshot.ListKind, ListKind.Bullet),
+                command: CreateEditorCommand(EditorHomeCommandIds.Paragraph.ListBullets),
+                keyTip: "BU",
+                iconKey: "RibbonIcon.Bullets",
+                size: RibbonControlSize.Small);
 
-        var selectSplit = new RibbonDropdownButton(
-            "edit-select",
-            "Select",
-            selectMenu,
-            keyTip: "SL",
-            iconKey: "RibbonIcon.Select",
-            size: RibbonControlSize.Small);
+            var numberingToggle = new RibbonToggleButton(
+                "para-numbering",
+                "Numbering",
+                () => IsParagraphValue(snapshot => snapshot.ListKind, ListKind.Numbered),
+                command: CreateEditorCommand(EditorHomeCommandIds.Paragraph.ListNumbering),
+                keyTip: "NU",
+                iconKey: "RibbonIcon.Numbering",
+                size: RibbonControlSize.Small);
 
-        var editingGroup = new RibbonGroup(
-            "editing",
-            "Editing",
-            new IRibbonControl[]
+            var multilevelToggle = new RibbonToggleButton(
+                "para-multilevel",
+                "Multilevel List",
+                () => IsParagraphValue(snapshot => snapshot.ListKind, ListKind.Numbered),
+                command: CreateEditorCommand(EditorHomeCommandIds.Paragraph.ListMultilevel),
+                keyTip: "ML",
+                iconKey: "RibbonIcon.Multilevel",
+                size: RibbonControlSize.Small);
+
+            var indentDecrease = new RibbonButton(
+                "para-indent-decrease",
+                "Decrease Indent",
+                CreateEditorCommand(EditorHomeCommandIds.Paragraph.IndentDecrease),
+                keyTip: "ID",
+                iconKey: "RibbonIcon.IndentDecrease",
+                size: RibbonControlSize.Small);
+
+            var indentIncrease = new RibbonButton(
+                "para-indent-increase",
+                "Increase Indent",
+                CreateEditorCommand(EditorHomeCommandIds.Paragraph.IndentIncrease),
+                keyTip: "IN",
+                iconKey: "RibbonIcon.IndentIncrease",
+                size: RibbonControlSize.Small);
+
+            var sortParagraph = new RibbonButton(
+                "para-sort",
+                "Sort",
+                CreateEditorCommand(EditorHomeCommandIds.Paragraph.Sort),
+                keyTip: "SO",
+                iconKey: "RibbonIcon.Sort",
+                size: RibbonControlSize.Small);
+
+            var showParagraphMarks = new RibbonToggleButton(
+                "para-show-marks",
+                "Show/Hide ¶",
+                IsShowInvisiblesActive,
+                value => ToggleShowInvisibles(value),
+                keyTip: "SH",
+                iconKey: "RibbonIcon.Invisibles",
+                canExecute: canInteract,
+                size: RibbonControlSize.Small);
+
+            var alignLeft = new RibbonToggleButton(
+                "para-align-left",
+                "Align Left",
+                () => IsParagraphValue(snapshot => snapshot.Alignment, ParagraphAlignment.Left),
+                command: CreateEditorCommand(EditorHomeCommandIds.Paragraph.AlignLeft),
+                keyTip: "AL",
+                iconKey: "RibbonIcon.AlignLeft",
+                size: RibbonControlSize.Small);
+
+            var alignCenter = new RibbonToggleButton(
+                "para-align-center",
+                "Center",
+                () => IsParagraphValue(snapshot => snapshot.Alignment, ParagraphAlignment.Center),
+                command: CreateEditorCommand(EditorHomeCommandIds.Paragraph.AlignCenter),
+                keyTip: "AC",
+                iconKey: "RibbonIcon.AlignCenter",
+                size: RibbonControlSize.Small);
+
+            var alignRight = new RibbonToggleButton(
+                "para-align-right",
+                "Align Right",
+                () => IsParagraphValue(snapshot => snapshot.Alignment, ParagraphAlignment.Right),
+                command: CreateEditorCommand(EditorHomeCommandIds.Paragraph.AlignRight),
+                keyTip: "AR",
+                iconKey: "RibbonIcon.AlignRight",
+                size: RibbonControlSize.Small);
+
+            var alignJustify = new RibbonToggleButton(
+                "para-align-justify",
+                "Justify",
+                () => IsParagraphValue(snapshot => snapshot.Alignment, ParagraphAlignment.Justify),
+                command: CreateEditorCommand(EditorHomeCommandIds.Paragraph.AlignJustify),
+                keyTip: "AJ",
+                iconKey: "RibbonIcon.AlignJustify",
+                size: RibbonControlSize.Small);
+
+            var lineSpacingMenu = new RibbonMenu(new IRibbonMenuEntry[]
             {
-                findButton,
-                replaceButton,
-                selectSplit
-            },
-            keyTip: "ED");
+                new RibbonMenuItem(
+                    "line-spacing-1",
+                    "1.0",
+                    CreateEditorCommand(
+                        EditorHomeCommandIds.Paragraph.LineSpacingSet,
+                        EditorLineSpacingRequest.FromMultiple(1f))),
+                new RibbonMenuItem(
+                    "line-spacing-1-15",
+                    "1.15",
+                    CreateEditorCommand(
+                        EditorHomeCommandIds.Paragraph.LineSpacingSet,
+                        EditorLineSpacingRequest.FromMultiple(1.15f))),
+                new RibbonMenuItem(
+                    "line-spacing-1-5",
+                    "1.5",
+                    CreateEditorCommand(
+                        EditorHomeCommandIds.Paragraph.LineSpacingSet,
+                        EditorLineSpacingRequest.FromMultiple(1.5f))),
+                new RibbonMenuItem(
+                    "line-spacing-2",
+                    "2.0",
+                    CreateEditorCommand(
+                        EditorHomeCommandIds.Paragraph.LineSpacingSet,
+                        EditorLineSpacingRequest.FromMultiple(2f))),
+                new RibbonMenuItem(
+                    "line-spacing-options",
+                    "Line Spacing Options...",
+                    CreateAsyncCommand(
+                        OpenLineSpacingOptionsAsync,
+                        () => CanExecuteEditorCommand(EditorHomeCommandIds.Paragraph.LineSpacingOptions)))
+            });
+
+            var lineSpacing = new RibbonDropdownButton(
+                "para-line-spacing",
+                "Line Spacing",
+                lineSpacingMenu,
+                keyTip: "LS",
+                iconKey: "RibbonIcon.LineSpacing",
+                size: RibbonControlSize.Small);
+
+            var shading = new RibbonColorSplitButton(
+                "para-shading",
+                "Shading",
+                CreateEditorCommandWithPayload(
+                    EditorHomeCommandIds.Paragraph.ShadingSet,
+                    () => ResolveColorPayload(ResolveShadingSelection(shadingPalette))),
+                shadingPalette,
+                selectedColorEvaluator: () => ResolveShadingSelection(shadingPalette),
+                selectionHandler: color =>
+                    ExecuteEditorCommandAsync(EditorHomeCommandIds.Paragraph.ShadingSet, ResolveColorPayload(color)),
+                keyTip: "SD",
+                iconKey: "RibbonIcon.Shading",
+                size: RibbonControlSize.Small);
+
+            var borderMenu = new RibbonMenu(new IRibbonMenuEntry[]
+            {
+                new RibbonMenuItem(
+                    "para-border-none",
+                    "No Border",
+                    CreateEditorCommand(
+                        EditorHomeCommandIds.Paragraph.BorderSet,
+                        new EditorParagraphBorderRequest(EditorParagraphBorderKind.None))),
+                new RibbonMenuItem(
+                    "para-border-all",
+                    "All Borders",
+                    CreateEditorCommand(
+                        EditorHomeCommandIds.Paragraph.BorderSet,
+                        new EditorParagraphBorderRequest(EditorParagraphBorderKind.All))),
+                new RibbonMenuItem(
+                    "para-border-outside",
+                    "Outside Borders",
+                    CreateEditorCommand(
+                        EditorHomeCommandIds.Paragraph.BorderSet,
+                        new EditorParagraphBorderRequest(EditorParagraphBorderKind.Outside))),
+                new RibbonMenuSeparator(),
+                new RibbonMenuItem(
+                    "para-border-top",
+                    "Top Border",
+                    CreateEditorCommand(
+                        EditorHomeCommandIds.Paragraph.BorderSet,
+                        new EditorParagraphBorderRequest(EditorParagraphBorderKind.Top))),
+                new RibbonMenuItem(
+                    "para-border-bottom",
+                    "Bottom Border",
+                    CreateEditorCommand(
+                        EditorHomeCommandIds.Paragraph.BorderSet,
+                        new EditorParagraphBorderRequest(EditorParagraphBorderKind.Bottom))),
+                new RibbonMenuItem(
+                    "para-border-left",
+                    "Left Border",
+                    CreateEditorCommand(
+                        EditorHomeCommandIds.Paragraph.BorderSet,
+                        new EditorParagraphBorderRequest(EditorParagraphBorderKind.Left))),
+                new RibbonMenuItem(
+                    "para-border-right",
+                    "Right Border",
+                    CreateEditorCommand(
+                        EditorHomeCommandIds.Paragraph.BorderSet,
+                        new EditorParagraphBorderRequest(EditorParagraphBorderKind.Right)))
+            });
+
+            var borders = new RibbonDropdownButton(
+                "para-borders",
+                "Borders",
+                borderMenu,
+                keyTip: "BR",
+                iconKey: "RibbonIcon.Borders",
+                size: RibbonControlSize.Small);
+
+            var paragraphLauncher = new RibbonGroupLauncher(
+                "paragraph-launcher",
+                "Paragraph Dialog",
+                CreateAsyncCommand(
+                    OpenParagraphDialogAsync,
+                    () => CanExecuteEditorCommand(EditorHomeCommandIds.Paragraph.DialogApply)),
+                keyTip: "PP",
+                iconKey: "RibbonIcon.Launcher");
+
+            return new RibbonGroup(
+                "paragraph",
+                "Paragraph",
+                new IRibbonControl[]
+                {
+                    bulletsToggle,
+                    numberingToggle,
+                    multilevelToggle,
+                    indentDecrease,
+                    indentIncrease,
+                    sortParagraph,
+                    showParagraphMarks,
+                    alignLeft,
+                    alignCenter,
+                    alignRight,
+                    alignJustify,
+                    lineSpacing,
+                    shading,
+                    borders
+                },
+                keyTip: "PG",
+                launcher: paragraphLauncher);
+        }
+
+        RibbonGroup BuildStylesGroup()
+        {
+            var stylesGallery = new RibbonGallery(
+                "styles-gallery",
+                "Styles",
+                _styleGalleryItems,
+                selectedItemEvaluator: ResolveStyleSelection,
+                selectionHandler: item => ExecuteEditorCommandAsync(EditorHomeCommandIds.Styles.Apply, item?.Id),
+                showDropDown: true,
+                keyTip: "SG",
+                iconKey: "RibbonIcon.Styles",
+                size: RibbonControlSize.Large);
+
+            var stylesLauncher = new RibbonGroupLauncher(
+                "styles-launcher",
+                "Styles Pane",
+                CreateEditorCommand(EditorHomeCommandIds.Styles.OpenPane),
+                iconKey: "RibbonIcon.Launcher");
+
+            return new RibbonGroup(
+                "styles",
+                "Styles",
+                new IRibbonControl[]
+                {
+                    stylesGallery
+                },
+                keyTip: "ST",
+                launcher: stylesLauncher);
+        }
+
+        RibbonGroup BuildEditingGroup()
+        {
+            var findButton = new RibbonButton(
+                "edit-find",
+                "Find",
+                CreateAsyncCommand(() => ShowFindReplaceDialogAsync(false), CanUseFindReplace),
+                keyTip: "FD",
+                iconKey: "RibbonIcon.Find",
+                size: RibbonControlSize.Small);
+
+            var replaceButton = new RibbonButton(
+                "edit-replace",
+                "Replace",
+                CreateAsyncCommand(() => ShowFindReplaceDialogAsync(true), CanUseFindReplace),
+                keyTip: "RP",
+                iconKey: "RibbonIcon.Replace",
+                size: RibbonControlSize.Small);
+
+            var selectMenu = new RibbonMenu(new IRibbonMenuEntry[]
+            {
+                new RibbonMenuItem(
+                    "edit-select-all",
+                    "Select All",
+                    CreateEditorCommand(EditorHomeCommandIds.Editing.SelectAll)),
+                new RibbonMenuItem(
+                    "edit-select-objects",
+                    "Select Objects",
+                    CreateEditorCommand(EditorHomeCommandIds.Editing.SelectObjects)),
+                new RibbonMenuItem(
+                    "edit-select-similar",
+                    "Select Text with Similar Formatting",
+                    CreateEditorCommand(EditorHomeCommandIds.Editing.SelectSimilarFormatting))
+            });
+
+            var selectSplit = new RibbonDropdownButton(
+                "edit-select",
+                "Select",
+                selectMenu,
+                keyTip: "SL",
+                iconKey: "RibbonIcon.Select",
+                size: RibbonControlSize.Small);
+
+            return new RibbonGroup(
+                "editing",
+                "Editing",
+                new IRibbonControl[]
+                {
+                    findButton,
+                    replaceButton,
+                    selectSplit
+                },
+                keyTip: "ED");
+        }
+
+        var clipboardGroup = BuildClipboardGroup();
+        var fontGroup = BuildFontGroup();
+        var paragraphGroup = BuildParagraphGroup();
+        var stylesGroup = BuildStylesGroup();
+        var editingGroup = BuildEditingGroup();
 
         var coverPageMenu = new RibbonMenu(new IRibbonMenuEntry[]
         {
@@ -2753,6 +3086,25 @@ public partial class MainWindow : Window
                 CreateAsyncCommand(OpenTableInsertDialogAsync, canInteract))
         });
 
+        var quickTableMenu = new RibbonMenu(new IRibbonMenuEntry[]
+        {
+            new RibbonMenuItem(
+                "quick-table-list",
+                "Simple List",
+                CreateAsyncCommand(() => InsertQuickTableAsync(QuickTableTemplate.SimpleList), canInteract),
+                iconKey: "RibbonIcon.Table"),
+            new RibbonMenuItem(
+                "quick-table-matrix",
+                "Matrix",
+                CreateAsyncCommand(() => InsertQuickTableAsync(QuickTableTemplate.Matrix), canInteract),
+                iconKey: "RibbonIcon.Table"),
+            new RibbonMenuItem(
+                "quick-table-calendar",
+                "Calendar (Week)",
+                CreateAsyncCommand(() => InsertQuickTableAsync(QuickTableTemplate.WeekCalendar), canInteract),
+                iconKey: "RibbonIcon.Table")
+        });
+
         var tableButton = new RibbonSplitButton(
             "insert-table",
             "Table",
@@ -2762,12 +3114,20 @@ public partial class MainWindow : Window
             iconKey: "RibbonIcon.Table",
             size: RibbonControlSize.Large);
 
+        var quickTablesButton = new RibbonDropdownButton(
+            "insert-quick-tables",
+            "Quick Tables",
+            quickTableMenu,
+            iconKey: "RibbonIcon.Table",
+            size: RibbonControlSize.Small);
+
         var tablesGroup = new RibbonGroup(
             "insert-tables",
             "Tables",
             new IRibbonControl[]
             {
-                tableButton
+                tableButton,
+                quickTablesButton
             },
             keyTip: "TS");
 
@@ -3402,7 +3762,7 @@ public partial class MainWindow : Window
         var showNotesButton = new RibbonButton(
             "references-show-notes",
             "Show Notes",
-            CreateEditorCommand(EditorReferencesCommandIds.Notes.ShowNotes),
+            CreateAsyncCommand(OpenNotesPaneAsync, canInteract),
             keyTip: "SN",
             iconKey: "RibbonIcon.Info",
             size: RibbonControlSize.Medium);
@@ -3572,6 +3932,60 @@ public partial class MainWindow : Window
             },
             keyTip: "CR");
 
+        var updateFieldsMenu = new RibbonMenu(new IRibbonMenuEntry[]
+        {
+            new RibbonMenuItem(
+                "references-fields-update-current",
+                "Update Field",
+                CreateEditorCommand(EditorReferencesCommandIds.Fields.UpdateCurrent),
+                iconKey: "RibbonIcon.QuickParts"),
+            new RibbonMenuItem(
+                "references-fields-update-all",
+                "Update All",
+                CreateEditorCommand(EditorReferencesCommandIds.Fields.UpdateAll),
+                iconKey: "RibbonIcon.QuickParts"),
+            new RibbonMenuItem(
+                "references-fields-update-page",
+                "Update Page Numbers",
+                CreateEditorCommand(EditorReferencesCommandIds.Fields.UpdatePageNumbers),
+                iconKey: "RibbonIcon.PageNumber")
+        });
+
+        var updateFieldsButton = new RibbonDropdownButton(
+            "references-fields-update",
+            "Update Fields",
+            updateFieldsMenu,
+            keyTip: "UF",
+            iconKey: "RibbonIcon.QuickParts",
+            size: RibbonControlSize.Medium);
+
+        var lockFieldButton = new RibbonButton(
+            "references-fields-lock",
+            "Lock Field",
+            CreateEditorCommand(EditorReferencesCommandIds.Fields.Lock),
+            keyTip: "LK",
+            iconKey: "RibbonIcon.Lock",
+            size: RibbonControlSize.Medium);
+
+        var unlockFieldButton = new RibbonButton(
+            "references-fields-unlock",
+            "Unlock Field",
+            CreateEditorCommand(EditorReferencesCommandIds.Fields.Unlock),
+            keyTip: "UL",
+            iconKey: "RibbonIcon.Lock",
+            size: RibbonControlSize.Medium);
+
+        var fieldsGroup = new RibbonGroup(
+            "references-fields",
+            "Fields",
+            new IRibbonControl[]
+            {
+                updateFieldsButton,
+                lockFieldButton,
+                unlockFieldButton
+            },
+            keyTip: "FD");
+
         var markIndexEntryButton = new RibbonButton(
             "references-mark-index-entry",
             "Mark Entry",
@@ -3624,627 +4038,809 @@ public partial class MainWindow : Window
             },
             keyTip: "TA");
 
-        var marginsMenu = new RibbonMenu(new IRibbonMenuEntry[]
+        RibbonGroup BuildPageSetupGroup()
         {
-            new RibbonMenuItem(
-                "layout-margins-normal",
-                "Normal",
-                CreateEditorCommand(
-                    EditorLayoutCommandIds.PageSetup.Margins,
-                    new EditorPageMarginsRequest(InchesToDips(1f), InchesToDips(1f), InchesToDips(1f), InchesToDips(1f))),
-                iconKey: "RibbonIcon.Layout"),
-            new RibbonMenuItem(
-                "layout-margins-narrow",
-                "Narrow",
-                CreateEditorCommand(
-                    EditorLayoutCommandIds.PageSetup.Margins,
-                    new EditorPageMarginsRequest(InchesToDips(0.5f), InchesToDips(0.5f), InchesToDips(0.5f), InchesToDips(0.5f))),
-                iconKey: "RibbonIcon.Layout"),
-            new RibbonMenuItem(
-                "layout-margins-moderate",
-                "Moderate",
-                CreateEditorCommand(
-                    EditorLayoutCommandIds.PageSetup.Margins,
-                    new EditorPageMarginsRequest(InchesToDips(0.75f), InchesToDips(1f), InchesToDips(0.75f), InchesToDips(1f))),
-                iconKey: "RibbonIcon.Layout"),
-            new RibbonMenuItem(
-                "layout-margins-wide",
-                "Wide",
-                CreateEditorCommand(
-                    EditorLayoutCommandIds.PageSetup.Margins,
-                    new EditorPageMarginsRequest(InchesToDips(2f), InchesToDips(1f), InchesToDips(2f), InchesToDips(1f))),
-                iconKey: "RibbonIcon.Layout")
-        });
-
-        var marginsButton = new RibbonDropdownButton(
-            "layout-margins",
-            "Margins",
-            marginsMenu,
-            keyTip: "MA",
-            iconKey: "RibbonIcon.Layout",
-            size: RibbonControlSize.Medium);
-
-        var orientationMenu = new RibbonMenu(new IRibbonMenuEntry[]
-        {
-            new RibbonMenuItem(
-                "layout-orientation-portrait",
-                "Portrait",
-                CreateEditorCommand(
-                    EditorLayoutCommandIds.PageSetup.Orientation,
-                    new EditorPageOrientationRequest(PageOrientation.Portrait)),
-                iconKey: "RibbonIcon.Layout"),
-            new RibbonMenuItem(
-                "layout-orientation-landscape",
-                "Landscape",
-                CreateEditorCommand(
-                    EditorLayoutCommandIds.PageSetup.Orientation,
-                    new EditorPageOrientationRequest(PageOrientation.Landscape)),
-                iconKey: "RibbonIcon.Layout")
-        });
-
-        var orientationButton = new RibbonDropdownButton(
-            "layout-orientation",
-            "Orientation",
-            orientationMenu,
-            keyTip: "OR",
-            iconKey: "RibbonIcon.Layout",
-            size: RibbonControlSize.Medium);
-
-        var sizeMenu = new RibbonMenu(new IRibbonMenuEntry[]
-        {
-            new RibbonMenuItem(
-                "layout-size-letter",
-                "Letter",
-                CreateEditorCommand(
-                    EditorLayoutCommandIds.PageSetup.Size,
-                    new EditorPageSizeRequest(InchesToDips(8.5f), InchesToDips(11f), PageOrientation.Portrait)),
-                iconKey: "RibbonIcon.Layout"),
-            new RibbonMenuItem(
-                "layout-size-a4",
-                "A4",
-                CreateEditorCommand(
-                    EditorLayoutCommandIds.PageSetup.Size,
-                    new EditorPageSizeRequest(InchesToDips(8.27f), InchesToDips(11.69f), PageOrientation.Portrait)),
-                iconKey: "RibbonIcon.Layout"),
-            new RibbonMenuItem(
-                "layout-size-a5",
-                "A5",
-                CreateEditorCommand(
-                    EditorLayoutCommandIds.PageSetup.Size,
-                    new EditorPageSizeRequest(InchesToDips(5.83f), InchesToDips(8.27f), PageOrientation.Portrait)),
-                iconKey: "RibbonIcon.Layout")
-        });
-
-        var sizeButton = new RibbonDropdownButton(
-            "layout-size",
-            "Size",
-            sizeMenu,
-            keyTip: "SZ",
-            iconKey: "RibbonIcon.Layout",
-            size: RibbonControlSize.Medium);
-
-        var columnsMenu = new RibbonMenu(new IRibbonMenuEntry[]
-        {
-            new RibbonMenuItem(
-                "layout-columns-one",
-                "One",
-                CreateEditorCommand(EditorLayoutCommandIds.PageSetup.Columns, new EditorColumnLayoutRequest(1)),
-                iconKey: "RibbonIcon.Layout"),
-            new RibbonMenuItem(
-                "layout-columns-two",
-                "Two",
-                CreateEditorCommand(EditorLayoutCommandIds.PageSetup.Columns, new EditorColumnLayoutRequest(2)),
-                iconKey: "RibbonIcon.Layout"),
-            new RibbonMenuItem(
-                "layout-columns-three",
-                "Three",
-                CreateEditorCommand(EditorLayoutCommandIds.PageSetup.Columns, new EditorColumnLayoutRequest(3)),
-                iconKey: "RibbonIcon.Layout")
-        });
-
-        var columnsButton = new RibbonDropdownButton(
-            "layout-columns",
-            "Columns",
-            columnsMenu,
-            keyTip: "CL",
-            iconKey: "RibbonIcon.Layout",
-            size: RibbonControlSize.Medium);
-
-        var breaksMenu = new RibbonMenu(new IRibbonMenuEntry[]
-        {
-            new RibbonMenuItem(
-                "layout-break-page",
-                "Page",
-                CreateEditorCommand(EditorLayoutCommandIds.PageSetup.Breaks, new EditorBreakRequest(EditorBreakKind.Page)),
-                iconKey: "RibbonIcon.PageBreak"),
-            new RibbonMenuItem(
-                "layout-break-column",
-                "Column",
-                CreateEditorCommand(EditorLayoutCommandIds.PageSetup.Breaks, new EditorBreakRequest(EditorBreakKind.Column)),
-                iconKey: "RibbonIcon.Layout"),
-            new RibbonMenuSeparator(),
-            new RibbonMenuItem(
-                "layout-break-section-next",
-                "Next Page",
-                CreateEditorCommand(EditorLayoutCommandIds.PageSetup.Breaks, new EditorBreakRequest(EditorBreakKind.SectionNextPage)),
-                iconKey: "RibbonIcon.Layout"),
-            new RibbonMenuItem(
-                "layout-break-section-continuous",
-                "Continuous",
-                CreateEditorCommand(EditorLayoutCommandIds.PageSetup.Breaks, new EditorBreakRequest(EditorBreakKind.SectionContinuous)),
-                iconKey: "RibbonIcon.Layout"),
-            new RibbonMenuItem(
-                "layout-break-section-even",
-                "Even Page",
-                CreateEditorCommand(EditorLayoutCommandIds.PageSetup.Breaks, new EditorBreakRequest(EditorBreakKind.SectionEvenPage)),
-                iconKey: "RibbonIcon.Layout"),
-            new RibbonMenuItem(
-                "layout-break-section-odd",
-                "Odd Page",
-                CreateEditorCommand(EditorLayoutCommandIds.PageSetup.Breaks, new EditorBreakRequest(EditorBreakKind.SectionOddPage)),
-                iconKey: "RibbonIcon.Layout"),
-            new RibbonMenuItem(
-                "layout-break-section-next-column",
-                "Next Column",
-                CreateEditorCommand(EditorLayoutCommandIds.PageSetup.Breaks, new EditorBreakRequest(EditorBreakKind.SectionNextColumn)),
-                iconKey: "RibbonIcon.Layout")
-        });
-
-        var breaksButton = new RibbonDropdownButton(
-            "layout-breaks",
-            "Breaks",
-            breaksMenu,
-            keyTip: "BR",
-            iconKey: "RibbonIcon.Layout",
-            size: RibbonControlSize.Medium);
-
-        var pageSetupGroup = new RibbonGroup(
-            "layout-page-setup",
-            "Page Setup",
-            new IRibbonControl[]
+            var marginsMenu = new RibbonMenu(new IRibbonMenuEntry[]
             {
-                marginsButton,
-                orientationButton,
-                sizeButton,
-                columnsButton,
-                breaksButton
-            },
-            keyTip: "PS");
+                new RibbonMenuItem(
+                    "layout-margins-normal",
+                    "Normal",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.PageSetup.Margins,
+                        new EditorPageMarginsRequest(
+                            InchesToDips(1f),
+                            InchesToDips(1f),
+                            InchesToDips(1f),
+                            InchesToDips(1f))),
+                    iconKey: "RibbonIcon.Layout"),
+                new RibbonMenuItem(
+                    "layout-margins-narrow",
+                    "Narrow",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.PageSetup.Margins,
+                        new EditorPageMarginsRequest(
+                            InchesToDips(0.5f),
+                            InchesToDips(0.5f),
+                            InchesToDips(0.5f),
+                            InchesToDips(0.5f))),
+                    iconKey: "RibbonIcon.Layout"),
+                new RibbonMenuItem(
+                    "layout-margins-moderate",
+                    "Moderate",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.PageSetup.Margins,
+                        new EditorPageMarginsRequest(
+                            InchesToDips(0.75f),
+                            InchesToDips(1f),
+                            InchesToDips(0.75f),
+                            InchesToDips(1f))),
+                    iconKey: "RibbonIcon.Layout"),
+                new RibbonMenuItem(
+                    "layout-margins-wide",
+                    "Wide",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.PageSetup.Margins,
+                        new EditorPageMarginsRequest(
+                            InchesToDips(2f),
+                            InchesToDips(1f),
+                            InchesToDips(2f),
+                            InchesToDips(1f))),
+                    iconKey: "RibbonIcon.Layout")
+            });
 
-        double? ResolveParagraphPoints(Func<EditorParagraphSnapshot, EditorValue<float>> selector)
-        {
-            if (!TryGetSnapshot(out var snapshot))
+            var marginsButton = new RibbonDropdownButton(
+                "layout-margins",
+                "Margins",
+                marginsMenu,
+                keyTip: "MA",
+                iconKey: "RibbonIcon.Layout",
+                size: RibbonControlSize.Medium);
+
+            var orientationMenu = new RibbonMenu(new IRibbonMenuEntry[]
             {
-                return null;
-            }
+                new RibbonMenuItem(
+                    "layout-orientation-portrait",
+                    "Portrait",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.PageSetup.Orientation,
+                        new EditorPageOrientationRequest(PageOrientation.Portrait)),
+                    iconKey: "RibbonIcon.Layout"),
+                new RibbonMenuItem(
+                    "layout-orientation-landscape",
+                    "Landscape",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.PageSetup.Orientation,
+                        new EditorPageOrientationRequest(PageOrientation.Landscape)),
+                    iconKey: "RibbonIcon.Layout")
+            });
 
-            var value = selector(snapshot.Paragraph);
-            if (!value.HasValue || value.IsMixed)
+            var orientationButton = new RibbonDropdownButton(
+                "layout-orientation",
+                "Orientation",
+                orientationMenu,
+                keyTip: "OR",
+                iconKey: "RibbonIcon.Layout",
+                size: RibbonControlSize.Medium);
+
+            var sizeMenu = new RibbonMenu(new IRibbonMenuEntry[]
             {
-                return null;
-            }
+                new RibbonMenuItem(
+                    "layout-size-letter",
+                    "Letter",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.PageSetup.Size,
+                        new EditorPageSizeRequest(
+                            InchesToDips(8.5f),
+                            InchesToDips(11f),
+                            PageOrientation.Portrait)),
+                    iconKey: "RibbonIcon.Layout"),
+                new RibbonMenuItem(
+                    "layout-size-a4",
+                    "A4",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.PageSetup.Size,
+                        new EditorPageSizeRequest(
+                            InchesToDips(8.27f),
+                            InchesToDips(11.69f),
+                            PageOrientation.Portrait)),
+                    iconKey: "RibbonIcon.Layout"),
+                new RibbonMenuItem(
+                    "layout-size-a5",
+                    "A5",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.PageSetup.Size,
+                        new EditorPageSizeRequest(
+                            InchesToDips(5.83f),
+                            InchesToDips(8.27f),
+                            PageOrientation.Portrait)),
+                    iconKey: "RibbonIcon.Layout")
+            });
 
-            return DipsToPoints(value.Value);
+            var sizeButton = new RibbonDropdownButton(
+                "layout-size",
+                "Size",
+                sizeMenu,
+                keyTip: "SZ",
+                iconKey: "RibbonIcon.Layout",
+                size: RibbonControlSize.Medium);
+
+            var columnsMenu = new RibbonMenu(new IRibbonMenuEntry[]
+            {
+                new RibbonMenuItem(
+                    "layout-columns-one",
+                    "One",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.PageSetup.Columns,
+                        new EditorColumnLayoutRequest(1)),
+                    iconKey: "RibbonIcon.Layout"),
+                new RibbonMenuItem(
+                    "layout-columns-two",
+                    "Two",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.PageSetup.Columns,
+                        new EditorColumnLayoutRequest(2)),
+                    iconKey: "RibbonIcon.Layout"),
+                new RibbonMenuItem(
+                    "layout-columns-three",
+                    "Three",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.PageSetup.Columns,
+                        new EditorColumnLayoutRequest(3)),
+                    iconKey: "RibbonIcon.Layout")
+            });
+
+            var columnsButton = new RibbonDropdownButton(
+                "layout-columns",
+                "Columns",
+                columnsMenu,
+                keyTip: "CL",
+                iconKey: "RibbonIcon.Layout",
+                size: RibbonControlSize.Medium);
+
+            var breaksMenu = new RibbonMenu(new IRibbonMenuEntry[]
+            {
+                new RibbonMenuItem(
+                    "layout-break-page",
+                    "Page",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.PageSetup.Breaks,
+                        new EditorBreakRequest(EditorBreakKind.Page)),
+                    iconKey: "RibbonIcon.PageBreak"),
+                new RibbonMenuItem(
+                    "layout-break-column",
+                    "Column",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.PageSetup.Breaks,
+                        new EditorBreakRequest(EditorBreakKind.Column)),
+                    iconKey: "RibbonIcon.Layout"),
+                new RibbonMenuSeparator(),
+                new RibbonMenuItem(
+                    "layout-break-section-next",
+                    "Next Page",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.PageSetup.Breaks,
+                        new EditorBreakRequest(EditorBreakKind.SectionNextPage)),
+                    iconKey: "RibbonIcon.Layout"),
+                new RibbonMenuItem(
+                    "layout-break-section-continuous",
+                    "Continuous",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.PageSetup.Breaks,
+                        new EditorBreakRequest(EditorBreakKind.SectionContinuous)),
+                    iconKey: "RibbonIcon.Layout"),
+                new RibbonMenuItem(
+                    "layout-break-section-even",
+                    "Even Page",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.PageSetup.Breaks,
+                        new EditorBreakRequest(EditorBreakKind.SectionEvenPage)),
+                    iconKey: "RibbonIcon.Layout"),
+                new RibbonMenuItem(
+                    "layout-break-section-odd",
+                    "Odd Page",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.PageSetup.Breaks,
+                        new EditorBreakRequest(EditorBreakKind.SectionOddPage)),
+                    iconKey: "RibbonIcon.Layout"),
+                new RibbonMenuItem(
+                    "layout-break-section-next-column",
+                    "Next Column",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.PageSetup.Breaks,
+                        new EditorBreakRequest(EditorBreakKind.SectionNextColumn)),
+                    iconKey: "RibbonIcon.Layout")
+            });
+
+            var breaksButton = new RibbonDropdownButton(
+                "layout-breaks",
+                "Breaks",
+                breaksMenu,
+                keyTip: "BR",
+                iconKey: "RibbonIcon.Layout",
+                size: RibbonControlSize.Medium);
+
+            return new RibbonGroup(
+                "layout-page-setup",
+                "Page Setup",
+                new IRibbonControl[]
+                {
+                    marginsButton,
+                    orientationButton,
+                    sizeButton,
+                    columnsButton,
+                    breaksButton
+                },
+                keyTip: "PS");
         }
 
-        ValueTask ApplyParagraphOptionsAsync(
-            double? indentLeftPoints = null,
-            double? indentRightPoints = null,
-            double? spacingBeforePoints = null,
-            double? spacingAfterPoints = null)
+        RibbonGroup BuildLayoutParagraphGroup()
         {
-            if (!indentLeftPoints.HasValue
-                && !indentRightPoints.HasValue
-                && !spacingBeforePoints.HasValue
-                && !spacingAfterPoints.HasValue)
+            double? ResolveParagraphPoints(Func<EditorParagraphSnapshot, EditorValue<float>> selector)
             {
-                return ValueTask.CompletedTask;
+                if (!TryGetSnapshot(out var snapshot))
+                {
+                    return null;
+                }
+
+                var value = selector(snapshot.Paragraph);
+                if (!value.HasValue || value.IsMixed)
+                {
+                    return null;
+                }
+
+                return DipsToPoints(value.Value);
             }
 
-            var options = new EditorParagraphDialogOptions(
-                Alignment: null,
-                IndentLeft: indentLeftPoints.HasValue ? PointsToDips(indentLeftPoints.Value) : null,
-                IndentRight: indentRightPoints.HasValue ? PointsToDips(indentRightPoints.Value) : null,
-                FirstLineIndent: null,
-                SpacingBefore: spacingBeforePoints.HasValue ? PointsToDips(Math.Max(0d, spacingBeforePoints.Value)) : null,
-                SpacingAfter: spacingAfterPoints.HasValue ? PointsToDips(Math.Max(0d, spacingAfterPoints.Value)) : null,
-                LineSpacing: null,
-                LineSpacingRule: null,
-                ContextualSpacing: null,
-                KeepWithNext: null,
-                KeepLinesTogether: null,
-                WidowControl: null,
-                PageBreakBefore: null,
-                SuppressLineNumbers: null,
-                Bidi: null,
-                TextDirection: null);
+            ValueTask ApplyParagraphOptionsAsync(
+                double? indentLeftPoints = null,
+                double? indentRightPoints = null,
+                double? spacingBeforePoints = null,
+                double? spacingAfterPoints = null)
+            {
+                if (!indentLeftPoints.HasValue
+                    && !indentRightPoints.HasValue
+                    && !spacingBeforePoints.HasValue
+                    && !spacingAfterPoints.HasValue)
+                {
+                    return ValueTask.CompletedTask;
+                }
 
-            return ExecuteEditorCommandAsync(EditorHomeCommandIds.Paragraph.DialogApply, options);
+                var options = new EditorParagraphDialogOptions(
+                    Alignment: null,
+                    IndentLeft: indentLeftPoints.HasValue ? PointsToDips(indentLeftPoints.Value) : null,
+                    IndentRight: indentRightPoints.HasValue ? PointsToDips(indentRightPoints.Value) : null,
+                    FirstLineIndent: null,
+                    SpacingBefore: spacingBeforePoints.HasValue
+                        ? PointsToDips(Math.Max(0d, spacingBeforePoints.Value))
+                        : null,
+                    SpacingAfter: spacingAfterPoints.HasValue
+                        ? PointsToDips(Math.Max(0d, spacingAfterPoints.Value))
+                        : null,
+                    LineSpacing: null,
+                    LineSpacingRule: null,
+                    ContextualSpacing: null,
+                    KeepWithNext: null,
+                    KeepLinesTogether: null,
+                    WidowControl: null,
+                    PageBreakBefore: null,
+                    SuppressLineNumbers: null,
+                    Bidi: null,
+                    TextDirection: null);
+
+                return ExecuteEditorCommandAsync(EditorHomeCommandIds.Paragraph.DialogApply, options);
+            }
+
+            var indentLeftSpinner = new RibbonSpinner(
+                "layout-indent-left",
+                "Indent Left",
+                step: 1d,
+                valueEvaluator: () => ResolveParagraphPoints(snapshot => snapshot.IndentLeft),
+                valueChangedHandler: value => ApplyParagraphOptionsAsync(indentLeftPoints: value),
+                keyTip: "IL",
+                iconKey: "RibbonIcon.IndentDecrease",
+                size: RibbonControlSize.Medium);
+
+            var indentRightSpinner = new RibbonSpinner(
+                "layout-indent-right",
+                "Indent Right",
+                step: 1d,
+                valueEvaluator: () => ResolveParagraphPoints(snapshot => snapshot.IndentRight),
+                valueChangedHandler: value => ApplyParagraphOptionsAsync(indentRightPoints: value),
+                keyTip: "IR",
+                iconKey: "RibbonIcon.IndentIncrease",
+                size: RibbonControlSize.Medium);
+
+            var spacingBeforeSpinner = new RibbonSpinner(
+                "layout-spacing-before",
+                "Spacing Before",
+                step: 1d,
+                minimum: 0d,
+                valueEvaluator: () => ResolveParagraphPoints(snapshot => snapshot.SpacingBefore),
+                valueChangedHandler: value => ApplyParagraphOptionsAsync(spacingBeforePoints: value),
+                keyTip: "SB",
+                iconKey: "RibbonIcon.LineSpacing",
+                size: RibbonControlSize.Medium);
+
+            var spacingAfterSpinner = new RibbonSpinner(
+                "layout-spacing-after",
+                "Spacing After",
+                step: 1d,
+                minimum: 0d,
+                valueEvaluator: () => ResolveParagraphPoints(snapshot => snapshot.SpacingAfter),
+                valueChangedHandler: value => ApplyParagraphOptionsAsync(spacingAfterPoints: value),
+                keyTip: "SA",
+                iconKey: "RibbonIcon.LineSpacing",
+                size: RibbonControlSize.Medium);
+
+            var layoutParagraphLauncher = new RibbonGroupLauncher(
+                "layout-paragraph-launcher",
+                "Paragraph",
+                CreateAsyncCommand(
+                    OpenParagraphDialogAsync,
+                    () => CanExecuteEditorCommand(EditorHomeCommandIds.Paragraph.DialogApply)),
+                iconKey: "RibbonIcon.Launcher");
+
+            return new RibbonGroup(
+                "layout-paragraph",
+                "Paragraph",
+                new IRibbonControl[]
+                {
+                    indentLeftSpinner,
+                    indentRightSpinner,
+                    spacingBeforeSpinner,
+                    spacingAfterSpinner
+                },
+                keyTip: "PG",
+                launcher: layoutParagraphLauncher);
         }
 
-        var indentLeftSpinner = new RibbonSpinner(
-            "layout-indent-left",
-            "Indent Left",
-            step: 1d,
-            valueEvaluator: () => ResolveParagraphPoints(snapshot => snapshot.IndentLeft),
-            valueChangedHandler: value => ApplyParagraphOptionsAsync(indentLeftPoints: value),
-            keyTip: "IL",
-            iconKey: "RibbonIcon.IndentDecrease",
-            size: RibbonControlSize.Medium);
-
-        var indentRightSpinner = new RibbonSpinner(
-            "layout-indent-right",
-            "Indent Right",
-            step: 1d,
-            valueEvaluator: () => ResolveParagraphPoints(snapshot => snapshot.IndentRight),
-            valueChangedHandler: value => ApplyParagraphOptionsAsync(indentRightPoints: value),
-            keyTip: "IR",
-            iconKey: "RibbonIcon.IndentIncrease",
-            size: RibbonControlSize.Medium);
-
-        var spacingBeforeSpinner = new RibbonSpinner(
-            "layout-spacing-before",
-            "Spacing Before",
-            step: 1d,
-            minimum: 0d,
-            valueEvaluator: () => ResolveParagraphPoints(snapshot => snapshot.SpacingBefore),
-            valueChangedHandler: value => ApplyParagraphOptionsAsync(spacingBeforePoints: value),
-            keyTip: "SB",
-            iconKey: "RibbonIcon.LineSpacing",
-            size: RibbonControlSize.Medium);
-
-        var spacingAfterSpinner = new RibbonSpinner(
-            "layout-spacing-after",
-            "Spacing After",
-            step: 1d,
-            minimum: 0d,
-            valueEvaluator: () => ResolveParagraphPoints(snapshot => snapshot.SpacingAfter),
-            valueChangedHandler: value => ApplyParagraphOptionsAsync(spacingAfterPoints: value),
-            keyTip: "SA",
-            iconKey: "RibbonIcon.LineSpacing",
-            size: RibbonControlSize.Medium);
-
-        var layoutParagraphLauncher = new RibbonGroupLauncher(
-            "layout-paragraph-launcher",
-            "Paragraph",
-            CreateAsyncCommand(OpenParagraphDialogAsync, () => CanExecuteEditorCommand(EditorHomeCommandIds.Paragraph.DialogApply)),
-            iconKey: "RibbonIcon.Launcher");
-
-        var layoutParagraphGroup = new RibbonGroup(
-            "layout-paragraph",
-            "Paragraph",
-            new IRibbonControl[]
+        RibbonGroup BuildArrangeGroup()
+        {
+            var positionMenu = new RibbonMenu(new IRibbonMenuEntry[]
             {
-                indentLeftSpinner,
-                indentRightSpinner,
-                spacingBeforeSpinner,
-                spacingAfterSpinner
-            },
-            keyTip: "PG",
-            launcher: layoutParagraphLauncher);
+                new RibbonMenuItem(
+                    "arrange-position-top-left",
+                    "Top Left",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.Arrange.Position,
+                        new EditorFloatingPositionRequest(EditorFloatingPositionKind.TopLeft)),
+                    iconKey: "RibbonIcon.Layout"),
+                new RibbonMenuItem(
+                    "arrange-position-top-center",
+                    "Top Center",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.Arrange.Position,
+                        new EditorFloatingPositionRequest(EditorFloatingPositionKind.TopCenter)),
+                    iconKey: "RibbonIcon.Layout"),
+                new RibbonMenuItem(
+                    "arrange-position-top-right",
+                    "Top Right",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.Arrange.Position,
+                        new EditorFloatingPositionRequest(EditorFloatingPositionKind.TopRight)),
+                    iconKey: "RibbonIcon.Layout"),
+                new RibbonMenuSeparator(),
+                new RibbonMenuItem(
+                    "arrange-position-middle-left",
+                    "Middle Left",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.Arrange.Position,
+                        new EditorFloatingPositionRequest(EditorFloatingPositionKind.MiddleLeft)),
+                    iconKey: "RibbonIcon.Layout"),
+                new RibbonMenuItem(
+                    "arrange-position-middle-center",
+                    "Center",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.Arrange.Position,
+                        new EditorFloatingPositionRequest(EditorFloatingPositionKind.MiddleCenter)),
+                    iconKey: "RibbonIcon.Layout"),
+                new RibbonMenuItem(
+                    "arrange-position-middle-right",
+                    "Middle Right",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.Arrange.Position,
+                        new EditorFloatingPositionRequest(EditorFloatingPositionKind.MiddleRight)),
+                    iconKey: "RibbonIcon.Layout"),
+                new RibbonMenuSeparator(),
+                new RibbonMenuItem(
+                    "arrange-position-bottom-left",
+                    "Bottom Left",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.Arrange.Position,
+                        new EditorFloatingPositionRequest(EditorFloatingPositionKind.BottomLeft)),
+                    iconKey: "RibbonIcon.Layout"),
+                new RibbonMenuItem(
+                    "arrange-position-bottom-center",
+                    "Bottom Center",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.Arrange.Position,
+                        new EditorFloatingPositionRequest(EditorFloatingPositionKind.BottomCenter)),
+                    iconKey: "RibbonIcon.Layout"),
+                new RibbonMenuItem(
+                    "arrange-position-bottom-right",
+                    "Bottom Right",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.Arrange.Position,
+                        new EditorFloatingPositionRequest(EditorFloatingPositionKind.BottomRight)),
+                    iconKey: "RibbonIcon.Layout")
+            });
 
-        var positionMenu = new RibbonMenu(new IRibbonMenuEntry[]
-        {
-            new RibbonMenuItem(
-                "arrange-position-top-left",
-                "Top Left",
-                CreateEditorCommand(EditorLayoutCommandIds.Arrange.Position, new EditorFloatingPositionRequest(EditorFloatingPositionKind.TopLeft)),
-                iconKey: "RibbonIcon.Layout"),
-            new RibbonMenuItem(
-                "arrange-position-top-center",
-                "Top Center",
-                CreateEditorCommand(EditorLayoutCommandIds.Arrange.Position, new EditorFloatingPositionRequest(EditorFloatingPositionKind.TopCenter)),
-                iconKey: "RibbonIcon.Layout"),
-            new RibbonMenuItem(
-                "arrange-position-top-right",
-                "Top Right",
-                CreateEditorCommand(EditorLayoutCommandIds.Arrange.Position, new EditorFloatingPositionRequest(EditorFloatingPositionKind.TopRight)),
-                iconKey: "RibbonIcon.Layout"),
-            new RibbonMenuSeparator(),
-            new RibbonMenuItem(
-                "arrange-position-middle-left",
-                "Middle Left",
-                CreateEditorCommand(EditorLayoutCommandIds.Arrange.Position, new EditorFloatingPositionRequest(EditorFloatingPositionKind.MiddleLeft)),
-                iconKey: "RibbonIcon.Layout"),
-            new RibbonMenuItem(
-                "arrange-position-middle-center",
-                "Center",
-                CreateEditorCommand(EditorLayoutCommandIds.Arrange.Position, new EditorFloatingPositionRequest(EditorFloatingPositionKind.MiddleCenter)),
-                iconKey: "RibbonIcon.Layout"),
-            new RibbonMenuItem(
-                "arrange-position-middle-right",
-                "Middle Right",
-                CreateEditorCommand(EditorLayoutCommandIds.Arrange.Position, new EditorFloatingPositionRequest(EditorFloatingPositionKind.MiddleRight)),
-                iconKey: "RibbonIcon.Layout"),
-            new RibbonMenuSeparator(),
-            new RibbonMenuItem(
-                "arrange-position-bottom-left",
-                "Bottom Left",
-                CreateEditorCommand(EditorLayoutCommandIds.Arrange.Position, new EditorFloatingPositionRequest(EditorFloatingPositionKind.BottomLeft)),
-                iconKey: "RibbonIcon.Layout"),
-            new RibbonMenuItem(
-                "arrange-position-bottom-center",
-                "Bottom Center",
-                CreateEditorCommand(EditorLayoutCommandIds.Arrange.Position, new EditorFloatingPositionRequest(EditorFloatingPositionKind.BottomCenter)),
-                iconKey: "RibbonIcon.Layout"),
-            new RibbonMenuItem(
-                "arrange-position-bottom-right",
-                "Bottom Right",
-                CreateEditorCommand(EditorLayoutCommandIds.Arrange.Position, new EditorFloatingPositionRequest(EditorFloatingPositionKind.BottomRight)),
-                iconKey: "RibbonIcon.Layout")
-        });
+            var positionButton = new RibbonDropdownButton(
+                "arrange-position",
+                "Position",
+                positionMenu,
+                keyTip: "PO",
+                iconKey: "RibbonIcon.Layout",
+                size: RibbonControlSize.Medium);
 
-        var positionButton = new RibbonDropdownButton(
-            "arrange-position",
-            "Position",
-            positionMenu,
-            keyTip: "PO",
-            iconKey: "RibbonIcon.Layout",
-            size: RibbonControlSize.Medium);
+            var wrapMenu = new RibbonMenu(new IRibbonMenuEntry[]
+            {
+                new RibbonMenuItem(
+                    "arrange-wrap-square",
+                    "Square",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.Arrange.WrapText,
+                        new EditorFloatingWrapRequest(EditorFloatingWrapKind.Square)),
+                    iconKey: "RibbonIcon.Layout"),
+                new RibbonMenuItem(
+                    "arrange-wrap-tight",
+                    "Tight",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.Arrange.WrapText,
+                        new EditorFloatingWrapRequest(EditorFloatingWrapKind.Tight)),
+                    iconKey: "RibbonIcon.Layout"),
+                new RibbonMenuItem(
+                    "arrange-wrap-through",
+                    "Through",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.Arrange.WrapText,
+                        new EditorFloatingWrapRequest(EditorFloatingWrapKind.Through)),
+                    iconKey: "RibbonIcon.Layout"),
+                new RibbonMenuItem(
+                    "arrange-wrap-top-bottom",
+                    "Top and Bottom",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.Arrange.WrapText,
+                        new EditorFloatingWrapRequest(EditorFloatingWrapKind.TopBottom)),
+                    iconKey: "RibbonIcon.Layout"),
+                new RibbonMenuSeparator(),
+                new RibbonMenuItem(
+                    "arrange-wrap-both-sides",
+                    "Both Sides",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.Arrange.WrapSide,
+                        new EditorFloatingWrapSideRequest(FloatingWrapSide.Both)),
+                    iconKey: "RibbonIcon.Layout"),
+                new RibbonMenuItem(
+                    "arrange-wrap-left-only",
+                    "Left Only",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.Arrange.WrapSide,
+                        new EditorFloatingWrapSideRequest(FloatingWrapSide.Left)),
+                    iconKey: "RibbonIcon.Layout"),
+                new RibbonMenuItem(
+                    "arrange-wrap-right-only",
+                    "Right Only",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.Arrange.WrapSide,
+                        new EditorFloatingWrapSideRequest(FloatingWrapSide.Right)),
+                    iconKey: "RibbonIcon.Layout"),
+                new RibbonMenuItem(
+                    "arrange-wrap-largest",
+                    "Largest",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.Arrange.WrapSide,
+                        new EditorFloatingWrapSideRequest(FloatingWrapSide.Largest)),
+                    iconKey: "RibbonIcon.Layout"),
+                new RibbonMenuSeparator(),
+                new RibbonMenuItem(
+                    "arrange-wrap-behind",
+                    "Behind Text",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.Arrange.WrapText,
+                        new EditorFloatingWrapRequest(EditorFloatingWrapKind.BehindText)),
+                    iconKey: "RibbonIcon.Layout"),
+                new RibbonMenuItem(
+                    "arrange-wrap-front",
+                    "In Front of Text",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.Arrange.WrapText,
+                        new EditorFloatingWrapRequest(EditorFloatingWrapKind.InFrontOfText)),
+                    iconKey: "RibbonIcon.Layout")
+            });
 
-        var wrapMenu = new RibbonMenu(new IRibbonMenuEntry[]
-        {
-            new RibbonMenuItem(
-                "arrange-wrap-square",
-                "Square",
-                CreateEditorCommand(EditorLayoutCommandIds.Arrange.WrapText, new EditorFloatingWrapRequest(EditorFloatingWrapKind.Square)),
-                iconKey: "RibbonIcon.Layout"),
-            new RibbonMenuItem(
-                "arrange-wrap-tight",
-                "Tight",
-                CreateEditorCommand(EditorLayoutCommandIds.Arrange.WrapText, new EditorFloatingWrapRequest(EditorFloatingWrapKind.Tight)),
-                iconKey: "RibbonIcon.Layout"),
-            new RibbonMenuItem(
-                "arrange-wrap-through",
-                "Through",
-                CreateEditorCommand(EditorLayoutCommandIds.Arrange.WrapText, new EditorFloatingWrapRequest(EditorFloatingWrapKind.Through)),
-                iconKey: "RibbonIcon.Layout"),
-            new RibbonMenuItem(
-                "arrange-wrap-top-bottom",
-                "Top and Bottom",
-                CreateEditorCommand(EditorLayoutCommandIds.Arrange.WrapText, new EditorFloatingWrapRequest(EditorFloatingWrapKind.TopBottom)),
-                iconKey: "RibbonIcon.Layout"),
-            new RibbonMenuSeparator(),
-            new RibbonMenuItem(
-                "arrange-wrap-both-sides",
-                "Both Sides",
-                CreateEditorCommand(EditorLayoutCommandIds.Arrange.WrapSide, new EditorFloatingWrapSideRequest(FloatingWrapSide.Both)),
-                iconKey: "RibbonIcon.Layout"),
-            new RibbonMenuItem(
-                "arrange-wrap-left-only",
-                "Left Only",
-                CreateEditorCommand(EditorLayoutCommandIds.Arrange.WrapSide, new EditorFloatingWrapSideRequest(FloatingWrapSide.Left)),
-                iconKey: "RibbonIcon.Layout"),
-            new RibbonMenuItem(
-                "arrange-wrap-right-only",
-                "Right Only",
-                CreateEditorCommand(EditorLayoutCommandIds.Arrange.WrapSide, new EditorFloatingWrapSideRequest(FloatingWrapSide.Right)),
-                iconKey: "RibbonIcon.Layout"),
-            new RibbonMenuItem(
-                "arrange-wrap-largest",
-                "Largest",
-                CreateEditorCommand(EditorLayoutCommandIds.Arrange.WrapSide, new EditorFloatingWrapSideRequest(FloatingWrapSide.Largest)),
-                iconKey: "RibbonIcon.Layout"),
-            new RibbonMenuSeparator(),
-            new RibbonMenuItem(
-                "arrange-wrap-behind",
-                "Behind Text",
-                CreateEditorCommand(EditorLayoutCommandIds.Arrange.WrapText, new EditorFloatingWrapRequest(EditorFloatingWrapKind.BehindText)),
-                iconKey: "RibbonIcon.Layout"),
-            new RibbonMenuItem(
-                "arrange-wrap-front",
-                "In Front of Text",
-                CreateEditorCommand(EditorLayoutCommandIds.Arrange.WrapText, new EditorFloatingWrapRequest(EditorFloatingWrapKind.InFrontOfText)),
-                iconKey: "RibbonIcon.Layout")
-        });
+            var wrapButton = new RibbonDropdownButton(
+                "arrange-wrap",
+                "Wrap Text",
+                wrapMenu,
+                keyTip: "WR",
+                iconKey: "RibbonIcon.Layout",
+                size: RibbonControlSize.Medium);
 
-        var wrapButton = new RibbonDropdownButton(
-            "arrange-wrap",
-            "Wrap Text",
-            wrapMenu,
-            keyTip: "WR",
-            iconKey: "RibbonIcon.Layout",
-            size: RibbonControlSize.Medium);
+            var bringForwardMenu = new RibbonMenu(new IRibbonMenuEntry[]
+            {
+                new RibbonMenuItem(
+                    "arrange-bring-forward",
+                    "Bring Forward",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.Arrange.Order,
+                        new EditorFloatingOrderRequest(EditorFloatingOrderKind.BringForward)),
+                    iconKey: "RibbonIcon.Layout"),
+                new RibbonMenuItem(
+                    "arrange-bring-front",
+                    "Bring to Front",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.Arrange.Order,
+                        new EditorFloatingOrderRequest(EditorFloatingOrderKind.BringToFront)),
+                    iconKey: "RibbonIcon.Layout")
+            });
 
-        var bringForwardMenu = new RibbonMenu(new IRibbonMenuEntry[]
-        {
-            new RibbonMenuItem(
-                "arrange-bring-forward",
+            var bringForwardButton = new RibbonSplitButton(
+                "arrange-bring-forward-split",
                 "Bring Forward",
-                CreateEditorCommand(EditorLayoutCommandIds.Arrange.Order, new EditorFloatingOrderRequest(EditorFloatingOrderKind.BringForward)),
-                iconKey: "RibbonIcon.Layout"),
-            new RibbonMenuItem(
-                "arrange-bring-front",
-                "Bring to Front",
-                CreateEditorCommand(EditorLayoutCommandIds.Arrange.Order, new EditorFloatingOrderRequest(EditorFloatingOrderKind.BringToFront)),
-                iconKey: "RibbonIcon.Layout")
-        });
+                CreateEditorCommand(
+                    EditorLayoutCommandIds.Arrange.Order,
+                    new EditorFloatingOrderRequest(EditorFloatingOrderKind.BringForward)),
+                bringForwardMenu,
+                keyTip: "BF",
+                iconKey: "RibbonIcon.Layout",
+                size: RibbonControlSize.Small);
 
-        var bringForwardButton = new RibbonSplitButton(
-            "arrange-bring-forward-split",
-            "Bring Forward",
-            CreateEditorCommand(EditorLayoutCommandIds.Arrange.Order, new EditorFloatingOrderRequest(EditorFloatingOrderKind.BringForward)),
-            bringForwardMenu,
-            keyTip: "BF",
-            iconKey: "RibbonIcon.Layout",
-            size: RibbonControlSize.Small);
-
-        var sendBackwardMenu = new RibbonMenu(new IRibbonMenuEntry[]
-        {
-            new RibbonMenuItem(
-                "arrange-send-backward",
-                "Send Backward",
-                CreateEditorCommand(EditorLayoutCommandIds.Arrange.Order, new EditorFloatingOrderRequest(EditorFloatingOrderKind.SendBackward)),
-                iconKey: "RibbonIcon.Layout"),
-            new RibbonMenuItem(
-                "arrange-send-back",
-                "Send to Back",
-                CreateEditorCommand(EditorLayoutCommandIds.Arrange.Order, new EditorFloatingOrderRequest(EditorFloatingOrderKind.SendToBack)),
-                iconKey: "RibbonIcon.Layout")
-        });
-
-        var sendBackwardButton = new RibbonSplitButton(
-            "arrange-send-backward-split",
-            "Send Backward",
-            CreateEditorCommand(EditorLayoutCommandIds.Arrange.Order, new EditorFloatingOrderRequest(EditorFloatingOrderKind.SendBackward)),
-            sendBackwardMenu,
-            keyTip: "SBK",
-            iconKey: "RibbonIcon.Layout",
-            size: RibbonControlSize.Small);
-
-        var alignMenu = new RibbonMenu(new IRibbonMenuEntry[]
-        {
-            new RibbonMenuItem(
-                "arrange-align-left",
-                "Align Left",
-                CreateEditorCommand(EditorLayoutCommandIds.Arrange.Align, new EditorFloatingAlignRequest(EditorFloatingAlignKind.Left)),
-                iconKey: "RibbonIcon.AlignLeft"),
-            new RibbonMenuItem(
-                "arrange-align-center",
-                "Align Center",
-                CreateEditorCommand(EditorLayoutCommandIds.Arrange.Align, new EditorFloatingAlignRequest(EditorFloatingAlignKind.Center)),
-                iconKey: "RibbonIcon.AlignCenter"),
-            new RibbonMenuItem(
-                "arrange-align-right",
-                "Align Right",
-                CreateEditorCommand(EditorLayoutCommandIds.Arrange.Align, new EditorFloatingAlignRequest(EditorFloatingAlignKind.Right)),
-                iconKey: "RibbonIcon.AlignRight"),
-            new RibbonMenuSeparator(),
-            new RibbonMenuItem(
-                "arrange-align-top",
-                "Align Top",
-                CreateEditorCommand(EditorLayoutCommandIds.Arrange.Align, new EditorFloatingAlignRequest(EditorFloatingAlignKind.Top)),
-                iconKey: "RibbonIcon.Layout"),
-            new RibbonMenuItem(
-                "arrange-align-middle",
-                "Align Middle",
-                CreateEditorCommand(EditorLayoutCommandIds.Arrange.Align, new EditorFloatingAlignRequest(EditorFloatingAlignKind.Middle)),
-                iconKey: "RibbonIcon.Layout"),
-            new RibbonMenuItem(
-                "arrange-align-bottom",
-                "Align Bottom",
-                CreateEditorCommand(EditorLayoutCommandIds.Arrange.Align, new EditorFloatingAlignRequest(EditorFloatingAlignKind.Bottom)),
-                iconKey: "RibbonIcon.Layout"),
-            new RibbonMenuSeparator(),
-            new RibbonMenuItem(
-                "arrange-align-left-page",
-                "Align Left to Page",
-                CreateEditorCommand(EditorLayoutCommandIds.Arrange.Align, new EditorFloatingAlignRequest(EditorFloatingAlignKind.Left, EditorFloatingAlignTarget.Page)),
-                iconKey: "RibbonIcon.AlignLeft"),
-            new RibbonMenuItem(
-                "arrange-align-center-page",
-                "Align Center to Page",
-                CreateEditorCommand(EditorLayoutCommandIds.Arrange.Align, new EditorFloatingAlignRequest(EditorFloatingAlignKind.Center, EditorFloatingAlignTarget.Page)),
-                iconKey: "RibbonIcon.AlignCenter"),
-            new RibbonMenuItem(
-                "arrange-align-right-page",
-                "Align Right to Page",
-                CreateEditorCommand(EditorLayoutCommandIds.Arrange.Align, new EditorFloatingAlignRequest(EditorFloatingAlignKind.Right, EditorFloatingAlignTarget.Page)),
-                iconKey: "RibbonIcon.AlignRight"),
-            new RibbonMenuSeparator(),
-            new RibbonMenuItem(
-                "arrange-align-top-page",
-                "Align Top to Page",
-                CreateEditorCommand(EditorLayoutCommandIds.Arrange.Align, new EditorFloatingAlignRequest(EditorFloatingAlignKind.Top, EditorFloatingAlignTarget.Page)),
-                iconKey: "RibbonIcon.Layout"),
-            new RibbonMenuItem(
-                "arrange-align-middle-page",
-                "Align Middle to Page",
-                CreateEditorCommand(EditorLayoutCommandIds.Arrange.Align, new EditorFloatingAlignRequest(EditorFloatingAlignKind.Middle, EditorFloatingAlignTarget.Page)),
-                iconKey: "RibbonIcon.Layout"),
-            new RibbonMenuItem(
-                "arrange-align-bottom-page",
-                "Align Bottom to Page",
-                CreateEditorCommand(EditorLayoutCommandIds.Arrange.Align, new EditorFloatingAlignRequest(EditorFloatingAlignKind.Bottom, EditorFloatingAlignTarget.Page)),
-                iconKey: "RibbonIcon.Layout"),
-            new RibbonMenuSeparator(),
-            new RibbonMenuItem(
-                "arrange-align-left-selection",
-                "Align Left to Selected Objects",
-                CreateEditorCommand(EditorLayoutCommandIds.Arrange.Align, new EditorFloatingAlignRequest(EditorFloatingAlignKind.Left, EditorFloatingAlignTarget.SelectedObjects)),
-                iconKey: "RibbonIcon.AlignLeft"),
-            new RibbonMenuItem(
-                "arrange-align-center-selection",
-                "Align Center to Selected Objects",
-                CreateEditorCommand(EditorLayoutCommandIds.Arrange.Align, new EditorFloatingAlignRequest(EditorFloatingAlignKind.Center, EditorFloatingAlignTarget.SelectedObjects)),
-                iconKey: "RibbonIcon.AlignCenter"),
-            new RibbonMenuItem(
-                "arrange-align-right-selection",
-                "Align Right to Selected Objects",
-                CreateEditorCommand(EditorLayoutCommandIds.Arrange.Align, new EditorFloatingAlignRequest(EditorFloatingAlignKind.Right, EditorFloatingAlignTarget.SelectedObjects)),
-                iconKey: "RibbonIcon.AlignRight"),
-            new RibbonMenuSeparator(),
-            new RibbonMenuItem(
-                "arrange-align-top-selection",
-                "Align Top to Selected Objects",
-                CreateEditorCommand(EditorLayoutCommandIds.Arrange.Align, new EditorFloatingAlignRequest(EditorFloatingAlignKind.Top, EditorFloatingAlignTarget.SelectedObjects)),
-                iconKey: "RibbonIcon.Layout"),
-            new RibbonMenuItem(
-                "arrange-align-middle-selection",
-                "Align Middle to Selected Objects",
-                CreateEditorCommand(EditorLayoutCommandIds.Arrange.Align, new EditorFloatingAlignRequest(EditorFloatingAlignKind.Middle, EditorFloatingAlignTarget.SelectedObjects)),
-                iconKey: "RibbonIcon.Layout"),
-            new RibbonMenuItem(
-                "arrange-align-bottom-selection",
-                "Align Bottom to Selected Objects",
-                CreateEditorCommand(EditorLayoutCommandIds.Arrange.Align, new EditorFloatingAlignRequest(EditorFloatingAlignKind.Bottom, EditorFloatingAlignTarget.SelectedObjects)),
-                iconKey: "RibbonIcon.Layout")
-        });
-
-        var alignButton = new RibbonDropdownButton(
-            "arrange-align",
-            "Align",
-            alignMenu,
-            keyTip: "AL",
-            iconKey: "RibbonIcon.Layout",
-            size: RibbonControlSize.Medium);
-
-        var rotateMenu = new RibbonMenu(new IRibbonMenuEntry[]
-        {
-            new RibbonMenuItem(
-                "arrange-rotate-right",
-                "Rotate Right 90°",
-                CreateEditorCommand(EditorLayoutCommandIds.Arrange.Rotate, new EditorFloatingRotateRequest(EditorFloatingRotateKind.RotateRight90)),
-                iconKey: "RibbonIcon.Layout"),
-            new RibbonMenuItem(
-                "arrange-rotate-left",
-                "Rotate Left 90°",
-                CreateEditorCommand(EditorLayoutCommandIds.Arrange.Rotate, new EditorFloatingRotateRequest(EditorFloatingRotateKind.RotateLeft90)),
-                iconKey: "RibbonIcon.Layout"),
-            new RibbonMenuSeparator(),
-            new RibbonMenuItem(
-                "arrange-flip-horizontal",
-                "Flip Horizontal",
-                CreateEditorCommand(EditorLayoutCommandIds.Arrange.Rotate, new EditorFloatingRotateRequest(EditorFloatingRotateKind.FlipHorizontal)),
-                iconKey: "RibbonIcon.Layout"),
-            new RibbonMenuItem(
-                "arrange-flip-vertical",
-                "Flip Vertical",
-                CreateEditorCommand(EditorLayoutCommandIds.Arrange.Rotate, new EditorFloatingRotateRequest(EditorFloatingRotateKind.FlipVertical)),
-                iconKey: "RibbonIcon.Layout")
-        });
-
-        var rotateButton = new RibbonDropdownButton(
-            "arrange-rotate",
-            "Rotate",
-            rotateMenu,
-            keyTip: "RT",
-            iconKey: "RibbonIcon.Layout",
-            size: RibbonControlSize.Medium);
-
-        var arrangeGroup = new RibbonGroup(
-            "layout-arrange",
-            "Arrange",
-            new IRibbonControl[]
+            var sendBackwardMenu = new RibbonMenu(new IRibbonMenuEntry[]
             {
-                positionButton,
-                wrapButton,
-                bringForwardButton,
-                sendBackwardButton,
-                alignButton,
-                rotateButton
-            },
-            keyTip: "AR");
+                new RibbonMenuItem(
+                    "arrange-send-backward",
+                    "Send Backward",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.Arrange.Order,
+                        new EditorFloatingOrderRequest(EditorFloatingOrderKind.SendBackward)),
+                    iconKey: "RibbonIcon.Layout"),
+                new RibbonMenuItem(
+                    "arrange-send-back",
+                    "Send to Back",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.Arrange.Order,
+                        new EditorFloatingOrderRequest(EditorFloatingOrderKind.SendToBack)),
+                    iconKey: "RibbonIcon.Layout")
+            });
+
+            var sendBackwardButton = new RibbonSplitButton(
+                "arrange-send-backward-split",
+                "Send Backward",
+                CreateEditorCommand(
+                    EditorLayoutCommandIds.Arrange.Order,
+                    new EditorFloatingOrderRequest(EditorFloatingOrderKind.SendBackward)),
+                sendBackwardMenu,
+                keyTip: "SBK",
+                iconKey: "RibbonIcon.Layout",
+                size: RibbonControlSize.Small);
+
+            var alignMenu = new RibbonMenu(new IRibbonMenuEntry[]
+            {
+                new RibbonMenuItem(
+                    "arrange-align-left",
+                    "Align Left",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.Arrange.Align,
+                        new EditorFloatingAlignRequest(EditorFloatingAlignKind.Left)),
+                    iconKey: "RibbonIcon.AlignLeft"),
+                new RibbonMenuItem(
+                    "arrange-align-center",
+                    "Align Center",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.Arrange.Align,
+                        new EditorFloatingAlignRequest(EditorFloatingAlignKind.Center)),
+                    iconKey: "RibbonIcon.AlignCenter"),
+                new RibbonMenuItem(
+                    "arrange-align-right",
+                    "Align Right",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.Arrange.Align,
+                        new EditorFloatingAlignRequest(EditorFloatingAlignKind.Right)),
+                    iconKey: "RibbonIcon.AlignRight"),
+                new RibbonMenuSeparator(),
+                new RibbonMenuItem(
+                    "arrange-align-top",
+                    "Align Top",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.Arrange.Align,
+                        new EditorFloatingAlignRequest(EditorFloatingAlignKind.Top)),
+                    iconKey: "RibbonIcon.Layout"),
+                new RibbonMenuItem(
+                    "arrange-align-middle",
+                    "Align Middle",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.Arrange.Align,
+                        new EditorFloatingAlignRequest(EditorFloatingAlignKind.Middle)),
+                    iconKey: "RibbonIcon.Layout"),
+                new RibbonMenuItem(
+                    "arrange-align-bottom",
+                    "Align Bottom",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.Arrange.Align,
+                        new EditorFloatingAlignRequest(EditorFloatingAlignKind.Bottom)),
+                    iconKey: "RibbonIcon.Layout"),
+                new RibbonMenuSeparator(),
+                new RibbonMenuItem(
+                    "arrange-align-left-page",
+                    "Align Left to Page",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.Arrange.Align,
+                        new EditorFloatingAlignRequest(
+                            EditorFloatingAlignKind.Left,
+                            EditorFloatingAlignTarget.Page)),
+                    iconKey: "RibbonIcon.AlignLeft"),
+                new RibbonMenuItem(
+                    "arrange-align-center-page",
+                    "Align Center to Page",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.Arrange.Align,
+                        new EditorFloatingAlignRequest(
+                            EditorFloatingAlignKind.Center,
+                            EditorFloatingAlignTarget.Page)),
+                    iconKey: "RibbonIcon.AlignCenter"),
+                new RibbonMenuItem(
+                    "arrange-align-right-page",
+                    "Align Right to Page",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.Arrange.Align,
+                        new EditorFloatingAlignRequest(
+                            EditorFloatingAlignKind.Right,
+                            EditorFloatingAlignTarget.Page)),
+                    iconKey: "RibbonIcon.AlignRight"),
+                new RibbonMenuSeparator(),
+                new RibbonMenuItem(
+                    "arrange-align-top-page",
+                    "Align Top to Page",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.Arrange.Align,
+                        new EditorFloatingAlignRequest(
+                            EditorFloatingAlignKind.Top,
+                            EditorFloatingAlignTarget.Page)),
+                    iconKey: "RibbonIcon.Layout"),
+                new RibbonMenuItem(
+                    "arrange-align-middle-page",
+                    "Align Middle to Page",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.Arrange.Align,
+                        new EditorFloatingAlignRequest(
+                            EditorFloatingAlignKind.Middle,
+                            EditorFloatingAlignTarget.Page)),
+                    iconKey: "RibbonIcon.Layout"),
+                new RibbonMenuItem(
+                    "arrange-align-bottom-page",
+                    "Align Bottom to Page",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.Arrange.Align,
+                        new EditorFloatingAlignRequest(
+                            EditorFloatingAlignKind.Bottom,
+                            EditorFloatingAlignTarget.Page)),
+                    iconKey: "RibbonIcon.Layout"),
+                new RibbonMenuSeparator(),
+                new RibbonMenuItem(
+                    "arrange-align-left-selection",
+                    "Align Left to Selected Objects",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.Arrange.Align,
+                        new EditorFloatingAlignRequest(
+                            EditorFloatingAlignKind.Left,
+                            EditorFloatingAlignTarget.SelectedObjects)),
+                    iconKey: "RibbonIcon.AlignLeft"),
+                new RibbonMenuItem(
+                    "arrange-align-center-selection",
+                    "Align Center to Selected Objects",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.Arrange.Align,
+                        new EditorFloatingAlignRequest(
+                            EditorFloatingAlignKind.Center,
+                            EditorFloatingAlignTarget.SelectedObjects)),
+                    iconKey: "RibbonIcon.AlignCenter"),
+                new RibbonMenuItem(
+                    "arrange-align-right-selection",
+                    "Align Right to Selected Objects",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.Arrange.Align,
+                        new EditorFloatingAlignRequest(
+                            EditorFloatingAlignKind.Right,
+                            EditorFloatingAlignTarget.SelectedObjects)),
+                    iconKey: "RibbonIcon.AlignRight"),
+                new RibbonMenuSeparator(),
+                new RibbonMenuItem(
+                    "arrange-align-top-selection",
+                    "Align Top to Selected Objects",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.Arrange.Align,
+                        new EditorFloatingAlignRequest(
+                            EditorFloatingAlignKind.Top,
+                            EditorFloatingAlignTarget.SelectedObjects)),
+                    iconKey: "RibbonIcon.Layout"),
+                new RibbonMenuItem(
+                    "arrange-align-middle-selection",
+                    "Align Middle to Selected Objects",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.Arrange.Align,
+                        new EditorFloatingAlignRequest(
+                            EditorFloatingAlignKind.Middle,
+                            EditorFloatingAlignTarget.SelectedObjects)),
+                    iconKey: "RibbonIcon.Layout"),
+                new RibbonMenuItem(
+                    "arrange-align-bottom-selection",
+                    "Align Bottom to Selected Objects",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.Arrange.Align,
+                        new EditorFloatingAlignRequest(
+                            EditorFloatingAlignKind.Bottom,
+                            EditorFloatingAlignTarget.SelectedObjects)),
+                    iconKey: "RibbonIcon.Layout")
+            });
+
+            var alignButton = new RibbonDropdownButton(
+                "arrange-align",
+                "Align",
+                alignMenu,
+                keyTip: "AL",
+                iconKey: "RibbonIcon.Layout",
+                size: RibbonControlSize.Medium);
+
+            var rotateMenu = new RibbonMenu(new IRibbonMenuEntry[]
+            {
+                new RibbonMenuItem(
+                    "arrange-rotate-right",
+                    "Rotate Right 90°",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.Arrange.Rotate,
+                        new EditorFloatingRotateRequest(EditorFloatingRotateKind.RotateRight90)),
+                    iconKey: "RibbonIcon.Layout"),
+                new RibbonMenuItem(
+                    "arrange-rotate-left",
+                    "Rotate Left 90°",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.Arrange.Rotate,
+                        new EditorFloatingRotateRequest(EditorFloatingRotateKind.RotateLeft90)),
+                    iconKey: "RibbonIcon.Layout"),
+                new RibbonMenuSeparator(),
+                new RibbonMenuItem(
+                    "arrange-flip-horizontal",
+                    "Flip Horizontal",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.Arrange.Rotate,
+                        new EditorFloatingRotateRequest(EditorFloatingRotateKind.FlipHorizontal)),
+                    iconKey: "RibbonIcon.Layout"),
+                new RibbonMenuItem(
+                    "arrange-flip-vertical",
+                    "Flip Vertical",
+                    CreateEditorCommand(
+                        EditorLayoutCommandIds.Arrange.Rotate,
+                        new EditorFloatingRotateRequest(EditorFloatingRotateKind.FlipVertical)),
+                    iconKey: "RibbonIcon.Layout")
+            });
+
+            var rotateButton = new RibbonDropdownButton(
+                "arrange-rotate",
+                "Rotate",
+                rotateMenu,
+                keyTip: "RT",
+                iconKey: "RibbonIcon.Layout",
+                size: RibbonControlSize.Medium);
+
+            return new RibbonGroup(
+                "layout-arrange",
+                "Arrange",
+                new IRibbonControl[]
+                {
+                    positionButton,
+                    wrapButton,
+                    bringForwardButton,
+                    sendBackwardButton,
+                    alignButton,
+                    rotateButton
+                },
+                keyTip: "AR");
+        }
+
+        var pageSetupGroup = BuildPageSetupGroup();
+        var layoutParagraphGroup = BuildLayoutParagraphGroup();
+        var arrangeGroup = BuildArrangeGroup();
 
         var themesMenu = new RibbonMenu(new IRibbonMenuEntry[]
         {
@@ -5068,7 +5664,7 @@ public partial class MainWindow : Window
         var languageButton = new RibbonButton(
             "review-language",
             "Language",
-            CreateEditorCommand(EditorReviewCommandIds.Language.SetLanguage),
+            CreateAsyncCommand(OpenLanguageDialogAsync, canInteract),
             keyTip: "LG",
             iconKey: "RibbonIcon.Text",
             size: RibbonControlSize.Medium);
@@ -5188,18 +5784,46 @@ public partial class MainWindow : Window
             },
             keyTip: "TR");
 
-        var acceptChangeButton = new RibbonButton(
+        var acceptChangeMenu = new RibbonMenu(new IRibbonMenuEntry[]
+        {
+            new RibbonMenuItem(
+                "review-accept",
+                "Accept",
+                CreateEditorCommand(EditorReviewCommandIds.Changes.Accept),
+                iconKey: "RibbonIcon.Check"),
+            new RibbonMenuItem(
+                "review-accept-all",
+                "Accept All Changes",
+                CreateEditorCommand(EditorReviewCommandIds.Changes.AcceptAll),
+                iconKey: "RibbonIcon.Check")
+        });
+
+        var acceptChangeButton = new RibbonDropdownButton(
             "review-accept",
             "Accept",
-            CreateEditorCommand(EditorReviewCommandIds.Changes.Accept),
+            acceptChangeMenu,
             keyTip: "AC",
             iconKey: "RibbonIcon.Check",
             size: RibbonControlSize.Medium);
 
-        var rejectChangeButton = new RibbonButton(
+        var rejectChangeMenu = new RibbonMenu(new IRibbonMenuEntry[]
+        {
+            new RibbonMenuItem(
+                "review-reject",
+                "Reject",
+                CreateEditorCommand(EditorReviewCommandIds.Changes.Reject),
+                iconKey: "RibbonIcon.Reject"),
+            new RibbonMenuItem(
+                "review-reject-all",
+                "Reject All Changes",
+                CreateEditorCommand(EditorReviewCommandIds.Changes.RejectAll),
+                iconKey: "RibbonIcon.Reject")
+        });
+
+        var rejectChangeButton = new RibbonDropdownButton(
             "review-reject",
             "Reject",
-            CreateEditorCommand(EditorReviewCommandIds.Changes.Reject),
+            rejectChangeMenu,
             keyTip: "RJ",
             iconKey: "RibbonIcon.Reject",
             size: RibbonControlSize.Medium);
@@ -5581,6 +6205,106 @@ public partial class MainWindow : Window
             },
             keyTip: "MC");
 
+        var vbaEditorButton = new RibbonButton(
+            "vba-editor",
+            "VBA Editor",
+            CreateEditorCommand(EditorViewCommandIds.Macros.VbaEditor),
+            keyTip: "VE",
+            iconKey: "RibbonIcon.Settings",
+            size: RibbonControlSize.Medium);
+
+        var debugMacroButton = new RibbonButton(
+            "vba-debug-start",
+            "Debug Macro",
+            CreateEditorCommand(EditorViewCommandIds.Macros.Debug),
+            keyTip: "VM",
+            iconKey: "RibbonIcon.Check",
+            size: RibbonControlSize.Medium);
+
+        var vbaToolsGroup = new RibbonGroup(
+            "view-vba-tools",
+            "VBA",
+            new IRibbonControl[]
+            {
+                vbaEditorButton,
+                debugMacroButton
+            },
+            keyTip: "VB");
+
+        var debugContinueButton = new RibbonButton(
+            "vba-debug-continue",
+            "Continue",
+            CreateViewCommandWithCanExecute(
+                () => RunDebugAction(session => session.Continue()),
+                () => GetActiveDebugSession() is not null),
+            keyTip: "DC",
+            iconKey: "RibbonIcon.Check",
+            size: RibbonControlSize.Small);
+
+        var debugBreakButton = new RibbonButton(
+            "vba-debug-break",
+            "Break",
+            CreateViewCommandWithCanExecute(
+                () => RunDebugAction(session => session.Break()),
+                () => GetActiveDebugSession() is not null),
+            keyTip: "DB",
+            iconKey: "RibbonIcon.Alert",
+            size: RibbonControlSize.Small);
+
+        var debugStepInButton = new RibbonButton(
+            "vba-debug-step-in",
+            "Step In",
+            CreateViewCommandWithCanExecute(
+                () => RunDebugAction(session => session.StepIn()),
+                () => GetActiveDebugSession() is not null),
+            keyTip: "DI",
+            iconKey: "RibbonIcon.Undo",
+            size: RibbonControlSize.Small);
+
+        var debugStepOverButton = new RibbonButton(
+            "vba-debug-step-over",
+            "Step Over",
+            CreateViewCommandWithCanExecute(
+                () => RunDebugAction(session => session.StepOver()),
+                () => GetActiveDebugSession() is not null),
+            keyTip: "DO",
+            iconKey: "RibbonIcon.Redo",
+            size: RibbonControlSize.Small);
+
+        var debugStepOutButton = new RibbonButton(
+            "vba-debug-step-out",
+            "Step Out",
+            CreateViewCommandWithCanExecute(
+                () => RunDebugAction(session => session.StepOut()),
+                () => GetActiveDebugSession() is not null),
+            keyTip: "DU",
+            iconKey: "RibbonIcon.Sort",
+            size: RibbonControlSize.Small);
+
+        var debugStopButton = new RibbonButton(
+            "vba-debug-stop",
+            "Stop",
+            CreateViewCommandWithCanExecute(
+                () => RunDebugAction(session => session.Stop()),
+                () => GetActiveDebugSession() is not null),
+            keyTip: "DS",
+            iconKey: "RibbonIcon.Reject",
+            size: RibbonControlSize.Small);
+
+        var debugGroup = new RibbonGroup(
+            "view-debug",
+            "Debug",
+            new IRibbonControl[]
+            {
+                debugContinueButton,
+                debugBreakButton,
+                debugStepInButton,
+                debugStepOverButton,
+                debugStepOutButton,
+                debugStopButton
+            },
+            keyTip: "DG");
+
         var useHarfBuzz = new RibbonToggleButton(
             "use-harfbuzz",
             "Use HarfBuzz",
@@ -5608,6 +6332,22 @@ public partial class MainWindow : Window
                 useCache
             },
             keyTip: "TX");
+
+        bool IsTextContextActive()
+        {
+            if (!TryGetSnapshot(out var snapshot))
+            {
+                return false;
+            }
+
+            var selection = snapshot.Selection;
+            if (selection.IsInTable)
+            {
+                return false;
+            }
+
+            return selection.Kind == EditorSelectionKind.Range && !selection.IsCollapsed;
+        }
 
         var builder = new RibbonModelBuilder();
         builder.AddTab("file", "File", keyTip: "F")
@@ -5649,6 +6389,7 @@ public partial class MainWindow : Window
                 citationsGroup,
                 captionsGroup,
                 referencesLinksGroup,
+                fieldsGroup,
                 indexGroup,
                 tableAuthoritiesGroup
             });
@@ -5685,7 +6426,34 @@ public partial class MainWindow : Window
                 zoomGroup,
                 windowGroup,
                 macrosGroup,
+                vbaToolsGroup,
+                debugGroup,
                 textGroup
+            });
+
+        var textContextualSet = new RibbonContextualTabSet(
+            "text-tools",
+            "Text Tools",
+            IsTextContextActive,
+            accentKey: "Text");
+        builder.AddContextualSet(textContextualSet);
+
+        builder.AddTab("text-tools-text", "Text", keyTip: "TX", contextualSet: textContextualSet)
+            .AddGroups(new[]
+            {
+                BuildClipboardGroup(),
+                BuildFontGroup(),
+                BuildStylesGroup(),
+                BuildEditingGroup()
+            });
+        builder.AddTab("text-tools-paragraph", "Paragraph", keyTip: "PG", contextualSet: textContextualSet)
+            .AddGroup(BuildParagraphGroup());
+        builder.AddTab("text-tools-layout", "Layout", keyTip: "LY", contextualSet: textContextualSet)
+            .AddGroups(new[]
+            {
+                BuildPageSetupGroup(),
+                BuildLayoutParagraphGroup(),
+                BuildArrangeGroup()
             });
 
         builder.AddQuickAccess(undoButton);
@@ -5716,7 +6484,7 @@ public partial class MainWindow : Window
                 () => _editorView?.SelectedEquation is not null,
                 RefreshEquationLayoutAsync,
                 canInteract),
-            new TableRibbonExtension()
+            new TableRibbonExtension(OpenTablePropertiesDialogAsync)
         };
 
         var extensionContext = new RibbonExtensionContext(ResolveService);
@@ -6103,6 +6871,116 @@ public partial class MainWindow : Window
         return ValueTask.CompletedTask;
     }
 
+    private bool CanInteract()
+    {
+        return !_isLoading && _editorView is not null;
+    }
+
+    private async Task OpenMacroManagerAsync()
+    {
+        if (!CanInteract() || _editorView is null)
+        {
+            return;
+        }
+
+        if (!_editorView.TryGetService<IMacroEngine>(out var macroEngine))
+        {
+            return;
+        }
+
+        if (!_editorView.TryGetService<IEditorCommandRouter>(out var router))
+        {
+            return;
+        }
+
+        var dialog = new MacroManagerDialog(
+            _editorView.Document,
+            macroEngine,
+            router,
+            () => TryGetRibbonSnapshot(out var snapshotValue) ? snapshotValue : null);
+        await dialog.ShowDialog(this);
+    }
+
+    private async Task ToggleMacroRecordingFromServiceAsync()
+    {
+        if (!CanInteract() || _editorView is null)
+        {
+            return;
+        }
+
+        if (!_editorView.TryGetService<IMacroEngine>(out var macroEngine))
+        {
+            return;
+        }
+
+        if (macroEngine.IsRecording)
+        {
+            macroEngine.StopRecording(save: true);
+            _ribbon?.RefreshState();
+            return;
+        }
+
+        var dialog = new TextInputDialog("Record Macro", "Macro name:", "Macro");
+        var name = await dialog.ShowDialog<string?>(this);
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return;
+        }
+
+        if (macroEngine.StartRecording(name))
+        {
+            _ribbon?.RefreshState();
+        }
+    }
+
+    private async Task OpenVbaToolingWindowFromServiceAsync()
+    {
+        if (!CanInteract() || _editorView is null)
+        {
+            return;
+        }
+
+        if (!_editorView.TryGetService<IMacroEngine>(out var macroEngine))
+        {
+            return;
+        }
+
+        if (!_editorView.TryGetService<IEditorCommandRouter>(out var router))
+        {
+            return;
+        }
+
+        if (_vbaToolingWindow is null)
+        {
+            _vbaToolingWindow = new VbaToolingWindow(
+                _editorView.Document,
+                macroEngine,
+                router,
+                () => TryGetRibbonSnapshot(out var snapshotValue) ? snapshotValue : null);
+            _vbaToolingWindow.Closed += (_, _) => _vbaToolingWindow = null;
+        }
+        else
+        {
+            _vbaToolingWindow.UpdateContext(
+                _editorView.Document,
+                macroEngine,
+                router,
+                () => TryGetRibbonSnapshot(out var snapshotValue) ? snapshotValue : null);
+        }
+
+        _vbaToolingWindow.Show(this);
+        _vbaToolingWindow.Activate();
+    }
+
+    private async Task StartMacroDebugFromServiceAsync()
+    {
+        await OpenVbaToolingWindowFromServiceAsync();
+        if (_vbaToolingWindow is not null)
+        {
+            await _vbaToolingWindow.StartDebugAsync();
+        }
+    }
+
     private async Task OpenZoomDialogAsync()
     {
         if (_editorView is null)
@@ -6179,6 +7057,39 @@ public partial class MainWindow : Window
         {
             RefreshStyleGalleryItems();
             _ribbon?.RefreshState();
+            UpdateOpenAuxiliaryWindows();
+        }
+    }
+
+    private void UpdateOpenAuxiliaryWindows()
+    {
+        if (_editorView is null)
+        {
+            return;
+        }
+
+        if (_notesPaneWindow is not null)
+        {
+            _notesPaneWindow.SetDocumentView(_editorView);
+        }
+
+        if (_vbaToolingWindow is null)
+        {
+            return;
+        }
+
+        if (_editorView.TryGetService<IMacroEngine>(out var macroEngine)
+            && _editorView.TryGetService<IEditorCommandRouter>(out var router))
+        {
+            _vbaToolingWindow.UpdateContext(
+                _editorView.Document,
+                macroEngine,
+                router,
+                () => TryGetRibbonSnapshot(out var snapshotValue) ? snapshotValue : null);
+        }
+        else
+        {
+            _vbaToolingWindow.LoadDocument(_editorView.Document);
         }
     }
 
@@ -6234,24 +7145,7 @@ public partial class MainWindow : Window
         _statusPageText.Text = $"Page {currentPage} of {totalPages}";
     }
 
-    private void RefreshNavigationPaneItems()
-    {
-        if (_editorView is null)
-        {
-            return;
-        }
-
-        var items = BuildNavigationItems(_editorView.Document);
-        _navigationItems.Clear();
-        foreach (var item in items)
-        {
-            _navigationItems.Add(item);
-        }
-
-        RefreshPagePaneItems();
-    }
-
-    private void RefreshPagePaneItems()
+    private void RefreshNavigationPaneItems(bool force = false)
     {
         if (_editorView is null)
         {
@@ -6259,14 +7153,44 @@ public partial class MainWindow : Window
         }
 
         var layout = _editorView.Layout;
+        var document = _editorView.Document;
+        if (!force
+            && ReferenceEquals(layout, _navigationLayout)
+            && ReferenceEquals(document, _navigationDocument))
+        {
+            UpdatePagePaneSelection(layout);
+            return;
+        }
+
+        _navigationLayout = layout;
+        _navigationDocument = document;
+
+        var items = BuildNavigationItems(document);
+        _navigationItems.Clear();
+        foreach (var item in items)
+        {
+            _navigationItems.Add(item);
+        }
+
+        RefreshPagePaneItems(layout);
+    }
+
+    private void RefreshPagePaneItems(DocumentLayout layout)
+    {
+        DisposePageThumbnails();
         var pageCount = Math.Max(1, layout.Pages.Count);
         _pageItems.Clear();
         for (var i = 0; i < pageCount; i++)
         {
-            _pageItems.Add(new PageNavigationItem(i));
+            _pageItems.Add(new PageNavigationItem(i, CreatePageThumbnail(i)));
         }
 
-        if (_pagePaneList is null || _pageItems.Count == 0)
+        UpdatePagePaneSelection(layout);
+    }
+
+    private void UpdatePagePaneSelection(DocumentLayout layout)
+    {
+        if (_editorView is null || _pagePaneList is null || _pageItems.Count == 0)
         {
             return;
         }
@@ -6280,6 +7204,26 @@ public partial class MainWindow : Window
         _suppressPageSelection = true;
         _pagePaneList.SelectedItem = _pageItems[currentPage];
         _suppressPageSelection = false;
+    }
+
+    private Bitmap? CreatePageThumbnail(int pageIndex)
+    {
+        if (_editorView is null)
+        {
+            return null;
+        }
+
+        return _editorView.TryCreatePageThumbnail(pageIndex, PageThumbnailWidth, PageThumbnailHeight, out var bitmap)
+            ? bitmap
+            : null;
+    }
+
+    private void DisposePageThumbnails()
+    {
+        foreach (var item in _pageItems)
+        {
+            item.Dispose();
+        }
     }
 
     private void OnNavigationSelectionChanged(object? sender, Avalonia.Controls.SelectionChangedEventArgs e)
@@ -6321,6 +7265,24 @@ public partial class MainWindow : Window
         {
             RefreshReviewPaneItems();
         }
+
+        UpdateRightPaneVisibility();
+    }
+
+    private void UpdateRightPaneVisibility()
+    {
+        if (_layoutGrid is null || _layoutGrid.ColumnDefinitions.Count < 3)
+        {
+            return;
+        }
+
+        var showPane = (_reviewPane?.IsVisible ?? false) || (_equationPanel?.IsVisible ?? false);
+        if (_rightPane is not null)
+        {
+            _rightPane.IsVisible = showPane;
+        }
+
+        _layoutGrid.ColumnDefinitions[2].Width = showPane ? GridLength.Auto : new GridLength(0);
     }
 
     private void RefreshReviewPaneItems()
@@ -6797,18 +7759,99 @@ public partial class MainWindow : Window
         public override string ToString() => Display;
     }
 
-    private sealed class PageNavigationItem
+    private sealed class PageNavigationItem : IDisposable
     {
         public int PageIndex { get; }
         public string Display { get; }
+        public Bitmap? Thumbnail { get; private set; }
 
-        public PageNavigationItem(int pageIndex)
+        public PageNavigationItem(int pageIndex, Bitmap? thumbnail)
         {
             PageIndex = pageIndex;
             Display = $"Page {pageIndex + 1}";
+            Thumbnail = thumbnail;
+        }
+
+        public void Dispose()
+        {
+            Thumbnail?.Dispose();
+            Thumbnail = null;
         }
 
         public override string ToString() => Display;
+    }
+
+    private sealed record QuickTableTemplate(
+        string Label,
+        int Rows,
+        int Columns,
+        string? StyleId,
+        string[] CellText)
+    {
+        public static readonly QuickTableTemplate SimpleList = new(
+            "Simple List",
+            4,
+            2,
+            "LightShading",
+            new[]
+            {
+                "Item",
+                "Description",
+                "Item 1",
+                "Details",
+                "Item 2",
+                "Details",
+                "Item 3",
+                "Details"
+            });
+
+        public static readonly QuickTableTemplate Matrix = new(
+            "Matrix",
+            4,
+            4,
+            "TableGrid",
+            new[]
+            {
+                string.Empty,
+                "Column 1",
+                "Column 2",
+                "Column 3",
+                "Row 1",
+                string.Empty,
+                string.Empty,
+                string.Empty,
+                "Row 2",
+                string.Empty,
+                string.Empty,
+                string.Empty,
+                "Row 3",
+                string.Empty,
+                string.Empty,
+                string.Empty
+            });
+
+        public static readonly QuickTableTemplate WeekCalendar = new(
+            "Calendar (Week)",
+            2,
+            7,
+            "LightShading",
+            new[]
+            {
+                "Mon",
+                "Tue",
+                "Wed",
+                "Thu",
+                "Fri",
+                "Sat",
+                "Sun",
+                string.Empty,
+                string.Empty,
+                string.Empty,
+                string.Empty,
+                string.Empty,
+                string.Empty,
+                string.Empty
+            });
     }
 
     private sealed class ReviewCommentItem
