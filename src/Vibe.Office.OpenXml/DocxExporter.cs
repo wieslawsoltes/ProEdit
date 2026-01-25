@@ -10,6 +10,7 @@ using OpenXmlTableBorders = DocumentFormat.OpenXml.Wordprocessing.TableBorders;
 using OpenXmlTableCellBorders = DocumentFormat.OpenXml.Wordprocessing.TableCellBorders;
 using OpenXmlParagraphBorders = DocumentFormat.OpenXml.Wordprocessing.ParagraphBorders;
 using OpenXmlPageBorders = DocumentFormat.OpenXml.Wordprocessing.PageBorders;
+using DocSectionProperties = Vibe.Office.Documents.SectionProperties;
 using A = DocumentFormat.OpenXml.Drawing;
 using C = DocumentFormat.OpenXml.Drawing.Charts;
 using DW = DocumentFormat.OpenXml.Drawing.Wordprocessing;
@@ -34,6 +35,11 @@ public sealed class DocxExporter
     private const string OleObjectContentType = "application/vnd.openxmlformats-officedocument.oleObject";
     private const string OleObjectRelationshipType = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/oleObject";
     private static readonly XNamespace BibliographyNamespace = "http://schemas.openxmlformats.org/officeDocument/2006/bibliography";
+    private const float DefaultPageWidth = 816f;
+    private const float DefaultMarginLeft = 96f;
+    private const float DefaultMarginRight = 96f;
+    private const float DefaultListLevelIndent = 48f;
+    private const float DefaultListHangingIndent = 24f;
 
     public void Save(VibeDocument document, string filePath)
     {
@@ -249,7 +255,17 @@ public sealed class DocxExporter
                     index++;
                     break;
                 case TableBlock table:
-                    currentContainer.AppendChild(CreateTable(table, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, document.Fonts));
+                    currentContainer.AppendChild(CreateTable(
+                        table,
+                        numberingContext,
+                        imageWriter,
+                        chartWriter,
+                        hyperlinkWriter,
+                        embeddedObjectWriter,
+                        altChunkWriter,
+                        placeholderWriter,
+                        document.Fonts,
+                        document.GetSection(currentSectionIndex).Properties));
                     index++;
                     break;
                 case AltChunkBlock altChunk:
@@ -1048,13 +1064,16 @@ public sealed class DocxExporter
     private static AbstractNum CreateAbstractNumbering(int abstractId, NumberFormatValues format, string levelText)
     {
         var abstractNum = new AbstractNum { AbstractNumberId = abstractId };
+        var listFormat = MapNumberFormatValue(format);
         for (var levelIndex = 0; levelIndex < 9; levelIndex++)
         {
-            var level = new Level { LevelIndex = levelIndex };
-            level.Append(new StartNumberingValue { Val = 1 });
-            level.Append(new NumberingFormat { Val = format });
-            level.Append(new LevelText { Val = levelText });
-            abstractNum.Append(level);
+            var resolvedLevelText = levelText;
+            if (listFormat != ListNumberFormat.Bullet && levelText.Contains("%1", StringComparison.Ordinal))
+            {
+                resolvedLevelText = $"%{levelIndex + 1}.";
+            }
+
+            abstractNum.Append(CreateLevelDefinition(levelIndex, listFormat, resolvedLevelText, 1, null, null, null));
         }
 
         return abstractNum;
@@ -1105,6 +1124,10 @@ public sealed class DocxExporter
         level.Append(new StartNumberingValue { Val = startAt });
         level.Append(new NumberingFormat { Val = MapNumberFormat(format) });
         level.Append(new LevelText { Val = levelText });
+        level.Append(new LevelJustification { Val = LevelJustificationValues.Left });
+        level.Append(new LevelSuffix { Val = LevelSuffixValues.Tab });
+
+        ApplyDefaultListIndent(levelIndex, ref leftIndent, ref hangingIndent, ref tabStop);
 
         var paragraphProperties = new DocumentFormat.OpenXml.Wordprocessing.ParagraphProperties();
         if (leftIndent.HasValue || hangingIndent.HasValue)
@@ -1134,6 +1157,33 @@ public sealed class DocxExporter
         return level;
     }
 
+    private static void ApplyDefaultListIndent(
+        int levelIndex,
+        ref float? leftIndent,
+        ref float? hangingIndent,
+        ref float? tabStop)
+    {
+        if (!leftIndent.HasValue)
+        {
+            leftIndent = DefaultListLevelIndent * (levelIndex + 1);
+        }
+
+        if (!hangingIndent.HasValue)
+        {
+            hangingIndent = DefaultListHangingIndent;
+        }
+
+        if (leftIndent.HasValue && hangingIndent.HasValue && leftIndent.Value < hangingIndent.Value)
+        {
+            leftIndent = hangingIndent.Value;
+        }
+
+        if (!tabStop.HasValue && leftIndent.HasValue)
+        {
+            tabStop = leftIndent.Value;
+        }
+    }
+
     private static NumberFormatValues MapNumberFormat(ListNumberFormat format)
     {
         return format switch
@@ -1145,6 +1195,36 @@ public sealed class DocxExporter
             ListNumberFormat.UpperRoman => NumberFormatValues.UpperRoman,
             _ => NumberFormatValues.Decimal
         };
+    }
+
+    private static ListNumberFormat MapNumberFormatValue(NumberFormatValues format)
+    {
+        if (format == NumberFormatValues.Bullet)
+        {
+            return ListNumberFormat.Bullet;
+        }
+
+        if (format == NumberFormatValues.LowerLetter)
+        {
+            return ListNumberFormat.LowerLetter;
+        }
+
+        if (format == NumberFormatValues.UpperLetter)
+        {
+            return ListNumberFormat.UpperLetter;
+        }
+
+        if (format == NumberFormatValues.LowerRoman)
+        {
+            return ListNumberFormat.LowerRoman;
+        }
+
+        if (format == NumberFormatValues.UpperRoman)
+        {
+            return ListNumberFormat.UpperRoman;
+        }
+
+        return ListNumberFormat.Decimal;
     }
 
     private static NumberingInstance CreateNumberingInstance(int numId, int abstractId)
@@ -1631,20 +1711,39 @@ public sealed class DocxExporter
         EmbeddedObjectWriter embeddedObjectWriter,
         AltChunkWriter altChunkWriter,
         ContentControlPlaceholderWriter? placeholderWriter,
-        DocumentFonts fonts)
+        DocumentFonts fonts,
+        DocSectionProperties? sectionProperties = null)
     {
         var table = new Table();
         var tableProperties = BuildTableProperties(tableBlock.Properties, tableBlock.StyleId);
-        if (tableProperties is not null)
+        var widths = ResolveTableGridWidths(tableBlock, sectionProperties, out var fallbackWidth, out var usedFallbackWidths);
+        if (usedFallbackWidths)
+        {
+            tableProperties ??= new DocumentFormat.OpenXml.Wordprocessing.TableProperties();
+            if (tableProperties.TableLayout is null)
+            {
+                tableProperties.TableLayout = new TableLayout { Type = TableLayoutValues.Fixed };
+            }
+
+            if (tableProperties.TableWidth is null && fallbackWidth.HasValue)
+            {
+                tableProperties.TableWidth = new TableWidth
+                {
+                    Width = DipToTwips(fallbackWidth.Value),
+                    Type = TableWidthUnitValues.Dxa
+                };
+            }
+        }
+
+        if (tableProperties is not null && tableProperties.ChildElements.Count > 0)
         {
             table.AppendChild(tableProperties);
         }
 
-        var columnWidths = tableBlock.Properties.ColumnWidths;
-        if (columnWidths.Count > 0)
+        if (widths.Count > 0)
         {
             var grid = new TableGrid();
-            foreach (var width in columnWidths)
+            foreach (var width in widths)
             {
                 grid.AppendChild(new GridColumn { Width = DipToTwips(width) });
             }
@@ -1697,6 +1796,95 @@ public sealed class DocxExporter
         }
 
         return table;
+    }
+
+    private static IReadOnlyList<float> ResolveTableGridWidths(
+        TableBlock tableBlock,
+        DocSectionProperties? sectionProperties,
+        out float? totalWidth,
+        out bool usedFallback)
+    {
+        var columnWidths = tableBlock.Properties.ColumnWidths;
+        if (columnWidths.Count > 0)
+        {
+            totalWidth = columnWidths.Sum();
+            usedFallback = false;
+            return columnWidths;
+        }
+
+        var columnCount = ResolveTableColumnCount(tableBlock);
+        if (columnCount <= 0)
+        {
+            totalWidth = null;
+            usedFallback = false;
+            return Array.Empty<float>();
+        }
+
+        var availableWidth = ResolveSectionContentWidth(sectionProperties);
+        if (availableWidth <= 0f)
+        {
+            availableWidth = DefaultPageWidth - DefaultMarginLeft - DefaultMarginRight;
+        }
+
+        if (availableWidth <= 0f)
+        {
+            totalWidth = null;
+            usedFallback = false;
+            return Array.Empty<float>();
+        }
+
+        var width = availableWidth / columnCount;
+        if (width <= 0f)
+        {
+            totalWidth = null;
+            usedFallback = false;
+            return Array.Empty<float>();
+        }
+
+        var fallback = new float[columnCount];
+        for (var i = 0; i < columnCount; i++)
+        {
+            fallback[i] = width;
+        }
+
+        totalWidth = width * columnCount;
+        usedFallback = true;
+        return fallback;
+    }
+
+    private static int ResolveTableColumnCount(TableBlock tableBlock)
+    {
+        var maxColumns = 0;
+        foreach (var row in tableBlock.Rows)
+        {
+            var columnCount = Math.Max(0, row.Properties.GridBefore ?? 0);
+            foreach (var cell in row.Cells)
+            {
+                columnCount += Math.Max(1, cell.ColumnSpan);
+            }
+
+            columnCount += Math.Max(0, row.Properties.GridAfter ?? 0);
+            if (columnCount > maxColumns)
+            {
+                maxColumns = columnCount;
+            }
+        }
+
+        return maxColumns;
+    }
+
+    private static float ResolveSectionContentWidth(DocSectionProperties? properties)
+    {
+        if (properties is null)
+        {
+            return DefaultPageWidth - DefaultMarginLeft - DefaultMarginRight;
+        }
+
+        var pageWidth = properties.PageWidth ?? DefaultPageWidth;
+        var marginLeft = properties.MarginLeft ?? DefaultMarginLeft;
+        var marginRight = properties.MarginRight ?? DefaultMarginRight;
+        var gutter = properties.Gutter ?? 0f;
+        return MathF.Max(0f, pageWidth - marginLeft - marginRight - gutter);
     }
 
     private static DocumentFormat.OpenXml.Wordprocessing.TableRowProperties? BuildTableRowProperties(Vibe.Office.Documents.TableRow row)
