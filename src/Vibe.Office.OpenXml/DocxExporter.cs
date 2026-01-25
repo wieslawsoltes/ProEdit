@@ -1,6 +1,8 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Text;
+using System.Xml.Linq;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
@@ -31,6 +33,7 @@ public sealed class DocxExporter
     private const string ObfuscatedFontContentType = "application/vnd.openxmlformats-officedocument.obfuscatedFont";
     private const string OleObjectContentType = "application/vnd.openxmlformats-officedocument.oleObject";
     private const string OleObjectRelationshipType = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/oleObject";
+    private static readonly XNamespace BibliographyNamespace = "http://schemas.openxmlformats.org/officeDocument/2006/bibliography";
 
     public void Save(VibeDocument document, string filePath)
     {
@@ -44,7 +47,8 @@ public sealed class DocxExporter
             throw new ArgumentException("File path is required.", nameof(filePath));
         }
 
-        using var wordDocument = WordprocessingDocument.Create(filePath, WordprocessingDocumentType.Document);
+        var documentType = ResolveDocumentType(filePath, document.Macros);
+        using var wordDocument = WordprocessingDocument.Create(filePath, documentType);
         var mainPart = wordDocument.AddMainDocumentPart();
         mainPart.Document = new DocumentFormat.OpenXml.Wordprocessing.Document(new Body());
         var body = mainPart.Document.Body!;
@@ -69,6 +73,8 @@ public sealed class DocxExporter
                 || section.EvenFooter.Blocks.Count > 0);
         EnsureDocumentSettings(mainPart, document, includeEvenHeaders);
         ApplyDocumentBackground(mainPart.Document, document);
+        SaveMacros(mainPart, document);
+        SaveBibliography(mainPart, document);
 
         SectionPartInfo EnsureSectionParts(int sectionIndex)
         {
@@ -297,6 +303,196 @@ public sealed class DocxExporter
         }
 
         mainPart.Document.Save();
+    }
+
+    private static WordprocessingDocumentType ResolveDocumentType(string filePath, DocumentMacros macros)
+    {
+        var extension = Path.GetExtension(filePath);
+        var isMacroEnabled = extension.Equals(".docm", StringComparison.OrdinalIgnoreCase)
+            || macros.VbaProject is { Length: > 0 };
+        return isMacroEnabled ? WordprocessingDocumentType.MacroEnabledDocument : WordprocessingDocumentType.Document;
+    }
+
+    private static void SaveMacros(MainDocumentPart mainPart, VibeDocument document)
+    {
+        var macros = document.Macros;
+        var hasMacroData = macros.IsTrusted
+            || macros.Items.Count > 0
+            || macros.VbaModules.Count > 0
+            || macros.References.Count > 0
+            || macros.VbaProject is { Length: > 0 };
+        if (!hasMacroData)
+        {
+            return;
+        }
+
+        var json = DocxMacroSerializer.Serialize(macros);
+        var part = mainPart.AddCustomXmlPart(DocxMacroSerializer.MacroCustomPartContentType);
+        using (var stream = part.GetStream(FileMode.Create, FileAccess.Write))
+        using (var writer = new StreamWriter(stream, new UTF8Encoding(false)))
+        {
+            writer.Write(json);
+        }
+
+        if (macros.VbaProject is not { Length: > 0 })
+        {
+            return;
+        }
+
+        var vbaPart = mainPart.AddNewPart<VbaProjectPart>();
+        using var vbaStream = vbaPart.GetStream(FileMode.Create, FileAccess.Write);
+        vbaStream.Write(macros.VbaProject, 0, macros.VbaProject.Length);
+    }
+
+    private static void SaveBibliography(MainDocumentPart mainPart, VibeDocument document)
+    {
+        var sources = document.CitationSources;
+        if (sources.Sources.Count == 0 && string.IsNullOrWhiteSpace(document.CitationStyle))
+        {
+            return;
+        }
+
+        var root = new XElement(BibliographyNamespace + "Sources");
+        if (!string.IsNullOrWhiteSpace(document.CitationStyle))
+        {
+            root.SetAttributeValue("SelectedStyle", document.CitationStyle);
+            root.SetAttributeValue("StyleName", document.CitationStyle);
+        }
+
+        foreach (var source in sources.Sources)
+        {
+            root.Add(BuildBibliographySourceElement(source));
+        }
+
+        var xml = new XDocument(new XDeclaration("1.0", "utf-8", "yes"), root);
+        var part = mainPart.AddCustomXmlPart(CustomXmlPartType.Bibliography);
+        using var stream = part.GetStream(FileMode.Create, FileAccess.Write);
+        xml.Save(stream);
+    }
+
+    private static XElement BuildBibliographySourceElement(CitationSource source)
+    {
+        var element = new XElement(BibliographyNamespace + "Source");
+        var tag = string.IsNullOrWhiteSpace(source.Tag)
+            ? (source.Guid ?? "Source")
+            : source.Tag;
+        tag = tag.Trim();
+        element.Add(new XElement(BibliographyNamespace + "Tag", tag));
+
+        if (!string.IsNullOrWhiteSpace(source.SourceType))
+        {
+            element.Add(new XElement(BibliographyNamespace + "SourceType", source.SourceType.Trim()));
+        }
+
+        if (!string.IsNullOrWhiteSpace(source.Guid))
+        {
+            element.Add(new XElement(BibliographyNamespace + "Guid", source.Guid.Trim()));
+        }
+
+        foreach (var pair in source.Fields)
+        {
+            if (string.IsNullOrWhiteSpace(pair.Key) || string.IsNullOrWhiteSpace(pair.Value))
+            {
+                continue;
+            }
+
+            if (string.Equals(pair.Key, "Tag", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(pair.Key, "SourceType", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(pair.Key, "Guid", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            element.Add(BuildBibliographyField(pair.Key, pair.Value));
+        }
+
+        return element;
+    }
+
+    private static XElement BuildBibliographyField(string name, string value)
+    {
+        if (IsNameListField(name))
+        {
+            return BuildNameListField(name, value);
+        }
+
+        return new XElement(BibliographyNamespace + name, value);
+    }
+
+    private static XElement BuildNameListField(string name, string value)
+    {
+        var list = new XElement(BibliographyNamespace + "NameList");
+        foreach (var person in SplitNames(value))
+        {
+            var personElement = new XElement(BibliographyNamespace + "Person");
+            var (last, first) = ParseName(person);
+            if (!string.IsNullOrWhiteSpace(last))
+            {
+                personElement.Add(new XElement(BibliographyNamespace + "Last", last));
+            }
+
+            if (!string.IsNullOrWhiteSpace(first))
+            {
+                personElement.Add(new XElement(BibliographyNamespace + "First", first));
+            }
+
+            if (personElement.HasElements)
+            {
+                list.Add(personElement);
+            }
+        }
+
+        if (!list.HasElements)
+        {
+            return new XElement(BibliographyNamespace + name, value);
+        }
+
+        return new XElement(BibliographyNamespace + name, list);
+    }
+
+    private static bool IsNameListField(string name)
+    {
+        return name.Equals("Author", StringComparison.OrdinalIgnoreCase)
+               || name.Equals("Editor", StringComparison.OrdinalIgnoreCase)
+               || name.Equals("Translator", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static IEnumerable<string> SplitNames(string value)
+    {
+        var start = 0;
+        for (var i = 0; i <= value.Length; i++)
+        {
+            if (i < value.Length && value[i] != ';')
+            {
+                continue;
+            }
+
+            var segment = value.AsSpan(start, i - start).Trim();
+            if (!segment.IsEmpty)
+            {
+                yield return segment.ToString();
+            }
+
+            start = i + 1;
+        }
+    }
+
+    private static (string? Last, string? First) ParseName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return (null, null);
+        }
+
+        var parts = name.Split(',', 2, StringSplitOptions.TrimEntries);
+        if (parts.Length == 1)
+        {
+            return (parts[0], null);
+        }
+
+        var last = parts[0];
+        var first = parts[1];
+        return (last, first);
     }
 
     private static NumberingContext EnsureNumbering(MainDocumentPart mainPart, VibeDocument document)
@@ -2545,7 +2741,7 @@ public sealed class DocxExporter
                         index++;
                     }
 
-                    AppendSimpleField(container, fieldStart.Instruction, fieldInlines, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts);
+                    AppendSimpleField(container, fieldStart, fieldInlines, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts);
                     continue;
                 }
                 case ContentControlStartInline controlStart:
@@ -2931,7 +3127,7 @@ public sealed class DocxExporter
 
     private static void AppendSimpleField(
         OpenXmlCompositeElement container,
-        string instruction,
+        FieldStartInline fieldStart,
         IReadOnlyList<Inline> inlines,
         NumberingContext numberingContext,
         ImageWriter imageWriter,
@@ -2942,7 +3138,17 @@ public sealed class DocxExporter
         ContentControlPlaceholderWriter? placeholderWriter,
         DocumentFonts fonts)
     {
-        var field = new SimpleField { Instruction = instruction ?? string.Empty };
+        var field = new SimpleField { Instruction = fieldStart.Instruction ?? string.Empty };
+        if (fieldStart.IsLocked)
+        {
+            field.FieldLock = new OnOffValue(true);
+        }
+
+        if (fieldStart.IsDirty)
+        {
+            field.Dirty = new OnOffValue(true);
+        }
+
         AppendInlineSequence(field, inlines, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts);
         if (!field.ChildElements.Any())
         {

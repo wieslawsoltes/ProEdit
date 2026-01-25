@@ -1,4 +1,5 @@
 using System;
+using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
@@ -9,6 +10,7 @@ using System.Text.Json;
 using SkiaSharp;
 using Vibe.Office.Layout;
 using Vibe.Office.OpenXml;
+using Vibe.Office.Primitives;
 using Vibe.Office.Rendering;
 using Vibe.Office.Rendering.Skia;
 using Xunit;
@@ -78,6 +80,8 @@ internal sealed class DocxAssetHarnessOptions
     public int MaxDocuments { get; private set; }
     public int MaxRenderPixels { get; private set; } = 30_000_000;
     public bool RenderEnabled { get; private set; } = true;
+    public bool RenderTableSnapshots { get; private set; } = true;
+    public bool RenderFootnoteSnapshots { get; private set; } = true;
     public bool EmitReports { get; private set; } = true;
     public bool FailOnImportError { get; private set; }
     public bool FailOnLayoutError { get; private set; }
@@ -97,6 +101,8 @@ internal sealed class DocxAssetHarnessOptions
             MaxDocuments = GetIntEnv("DOCX_ASSETS_MAX_DOCS", 0),
             MaxRenderPixels = GetIntEnv("DOCX_ASSETS_MAX_RENDER_PIXELS", 30_000_000),
             RenderEnabled = GetBoolEnv("DOCX_ASSETS_RENDER", true),
+            RenderTableSnapshots = GetBoolEnv("DOCX_ASSETS_RENDER_TABLES", true),
+            RenderFootnoteSnapshots = GetBoolEnv("DOCX_ASSETS_RENDER_FOOTNOTES", true),
             EmitReports = GetBoolEnv("DOCX_ASSETS_REPORT", true),
             FailOnImportError = GetBoolEnv("DOCX_ASSETS_FAIL_ON_IMPORT", false),
             FailOnLayoutError = GetBoolEnv("DOCX_ASSETS_FAIL_ON_LAYOUT", false),
@@ -308,6 +314,17 @@ internal static class DocxAssetHarness
             else
             {
                 result.RenderHash = ComputeSha256Hex(data);
+                if (options.RenderTableSnapshots)
+                {
+                    var tableRegions = CollectTableRegions(layout);
+                    result.TableRenderHash = ComputeRegionHash(image, tableRegions);
+                }
+
+                if (options.RenderFootnoteSnapshots)
+                {
+                    var footnoteRegions = CollectFootnoteRegions(layout);
+                    result.FootnoteRenderHash = ComputeRegionHash(image, footnoteRegions);
+                }
             }
         }
         catch (Exception ex)
@@ -355,6 +372,214 @@ internal static class DocxAssetHarness
         return Math.Max(1, (int)MathF.Ceiling(maxBottom));
     }
 
+    private static IReadOnlyList<DocRect> CollectTableRegions(DocumentLayout layout)
+    {
+        if (layout.Tables.Count == 0 && layout.HeaderFooters.Count == 0 && layout.Footnotes.Count == 0)
+        {
+            return Array.Empty<DocRect>();
+        }
+
+        var regions = new List<DocRect>();
+        AddTables(layout.Tables, regions);
+        foreach (var headerFooter in layout.HeaderFooters)
+        {
+            AddTables(headerFooter.HeaderTables, regions);
+            AddTables(headerFooter.FooterTables, regions);
+        }
+
+        foreach (var footnote in layout.Footnotes)
+        {
+            AddTables(footnote.Tables, regions);
+        }
+
+        return regions.Count == 0 ? Array.Empty<DocRect>() : regions;
+    }
+
+    private static IReadOnlyList<DocRect> CollectFootnoteRegions(DocumentLayout layout)
+    {
+        if (layout.Footnotes.Count == 0)
+        {
+            return Array.Empty<DocRect>();
+        }
+
+        var regions = new List<DocRect>(layout.Footnotes.Count);
+        foreach (var footnote in layout.Footnotes)
+        {
+            if (TryBuildFootnoteBounds(footnote, out var bounds))
+            {
+                regions.Add(bounds);
+            }
+        }
+
+        return regions.Count == 0 ? Array.Empty<DocRect>() : regions;
+    }
+
+    private static void AddTables(IReadOnlyList<TableLayout> tables, List<DocRect> regions)
+    {
+        foreach (var table in tables)
+        {
+            if (IsValidBounds(table.Bounds))
+            {
+                regions.Add(table.Bounds);
+            }
+        }
+    }
+
+    private static bool TryBuildFootnoteBounds(FootnoteLayout footnote, out DocRect bounds)
+    {
+        var left = float.MaxValue;
+        var right = float.MinValue;
+        var top = float.MaxValue;
+        var bottom = float.MinValue;
+        var hasBounds = false;
+
+        if (IsValidBounds(footnote.SeparatorBounds))
+        {
+            var separator = footnote.SeparatorBounds;
+            left = MathF.Min(left, separator.X);
+            right = MathF.Max(right, separator.Right);
+            top = MathF.Min(top, separator.Y);
+            bottom = MathF.Max(bottom, separator.Bottom);
+            hasBounds = true;
+        }
+
+        foreach (var table in footnote.Tables)
+        {
+            var boundsTable = table.Bounds;
+            if (!IsValidBounds(boundsTable))
+            {
+                continue;
+            }
+
+            left = MathF.Min(left, boundsTable.X);
+            right = MathF.Max(right, boundsTable.Right);
+            top = MathF.Min(top, boundsTable.Y);
+            bottom = MathF.Max(bottom, boundsTable.Bottom);
+            hasBounds = true;
+        }
+
+        foreach (var line in footnote.Lines)
+        {
+            var lineLeft = line.X - (line.Prefix is null ? 0f : line.PrefixWidth);
+            var lineRight = line.X + line.Width;
+            left = MathF.Min(left, lineLeft);
+            right = MathF.Max(right, lineRight);
+            top = MathF.Min(top, line.Y);
+            bottom = MathF.Max(bottom, line.Y + line.LineHeight);
+            hasBounds = true;
+        }
+
+        if (!hasBounds || right <= left || bottom <= top)
+        {
+            bounds = default;
+            return false;
+        }
+
+        bounds = new DocRect(left, top, right - left, bottom - top);
+        return true;
+    }
+
+    private static bool IsValidBounds(DocRect bounds)
+    {
+        return bounds.Width > 0f
+               && bounds.Height > 0f
+               && !float.IsNaN(bounds.X)
+               && !float.IsNaN(bounds.Y)
+               && !float.IsNaN(bounds.Width)
+               && !float.IsNaN(bounds.Height);
+    }
+
+    private static string? ComputeRegionHash(SKImage image, IReadOnlyList<DocRect> regions)
+    {
+        if (regions.Count == 0)
+        {
+            return null;
+        }
+
+        var rects = new List<SKRectI>(regions.Count);
+        foreach (var region in regions)
+        {
+            var rect = NormalizeCrop(region, image.Width, image.Height);
+            if (rect.Width <= 0 || rect.Height <= 0)
+            {
+                continue;
+            }
+
+            rects.Add(rect);
+        }
+
+        if (rects.Count == 0)
+        {
+            return null;
+        }
+
+        rects.Sort(static (left, right) =>
+        {
+            var compare = left.Top.CompareTo(right.Top);
+            if (compare != 0)
+            {
+                return compare;
+            }
+
+            compare = left.Left.CompareTo(right.Left);
+            if (compare != 0)
+            {
+                return compare;
+            }
+
+            compare = left.Bottom.CompareTo(right.Bottom);
+            if (compare != 0)
+            {
+                return compare;
+            }
+
+            return left.Right.CompareTo(right.Right);
+        });
+
+        using var hasher = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        Span<byte> rectBytes = stackalloc byte[16];
+
+        foreach (var rect in rects)
+        {
+            BinaryPrimitives.WriteInt32LittleEndian(rectBytes[..4], rect.Left);
+            BinaryPrimitives.WriteInt32LittleEndian(rectBytes[4..8], rect.Top);
+            BinaryPrimitives.WriteInt32LittleEndian(rectBytes[8..12], rect.Right);
+            BinaryPrimitives.WriteInt32LittleEndian(rectBytes[12..16], rect.Bottom);
+            hasher.AppendData(rectBytes);
+
+            var info = new SKImageInfo(rect.Width, rect.Height, SKColorType.Bgra8888, SKAlphaType.Premul);
+            using var surface = SKSurface.Create(info);
+            if (surface is null)
+            {
+                continue;
+            }
+
+            surface.Canvas.Clear(SKColors.Transparent);
+            var src = new SKRect(rect.Left, rect.Top, rect.Right, rect.Bottom);
+            var dest = new SKRect(0, 0, rect.Width, rect.Height);
+            surface.Canvas.DrawImage(image, src, dest);
+            using var subset = surface.Snapshot();
+            using var data = subset.Encode(SKEncodedImageFormat.Png, 100);
+            if (data is null)
+            {
+                continue;
+            }
+
+            hasher.AppendData(data.ToArray());
+        }
+
+        return Convert.ToHexString(hasher.GetHashAndReset());
+    }
+
+    private static SKRectI NormalizeCrop(DocRect bounds, int imageWidth, int imageHeight)
+    {
+        var left = Math.Clamp((int)MathF.Floor(bounds.X), 0, imageWidth);
+        var top = Math.Clamp((int)MathF.Floor(bounds.Y), 0, imageHeight);
+        var right = Math.Clamp((int)MathF.Ceiling(bounds.Right), left, imageWidth);
+        var bottom = Math.Clamp((int)MathF.Ceiling(bounds.Bottom), top, imageHeight);
+        return new SKRectI(left, top, right, bottom);
+    }
+
     private static string ComputeSha256Hex(SKData data)
     {
         using var sha = SHA256.Create();
@@ -380,6 +605,8 @@ internal sealed class DocxAssetResult
     public int RenderWidth { get; set; }
     public int RenderHeight { get; set; }
     public string? RenderHash { get; set; }
+    public string? TableRenderHash { get; set; }
+    public string? FootnoteRenderHash { get; set; }
 }
 
 internal sealed class DocxAssetHarnessReport

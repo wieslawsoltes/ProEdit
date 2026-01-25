@@ -3,6 +3,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Xml.Linq;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
@@ -15,6 +16,7 @@ using OpenXmlTableCellBorders = DocumentFormat.OpenXml.Wordprocessing.TableCellB
 using OpenXmlParagraphBorders = DocumentFormat.OpenXml.Wordprocessing.ParagraphBorders;
 using OpenXmlPageBorders = DocumentFormat.OpenXml.Wordprocessing.PageBorders;
 using Vibe.Office.Documents;
+using Vibe.Office.Macros;
 using Vibe.Office.Primitives;
 using VibeDocument = Vibe.Office.Documents.Document;
 
@@ -26,6 +28,7 @@ public sealed class DocxImporter
     private const string WordprocessingNamespace = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
     private const string Wordprocessing16DuNamespace = "http://schemas.microsoft.com/office/word/2023/wordml/word16du";
     private const string OleObjectContentType = "application/vnd.openxmlformats-officedocument.oleObject";
+    private static readonly XNamespace BibliographyNamespace = "http://schemas.openxmlformats.org/officeDocument/2006/bibliography";
 
     public VibeDocument Load(string filePath)
     {
@@ -49,6 +52,8 @@ public sealed class DocxImporter
         if (body is null)
         {
             document.Blocks.Add(new ParagraphBlock());
+            LoadMacros(mainPart, document);
+            LoadBibliography(mainPart, document);
             return document;
         }
 
@@ -153,6 +158,8 @@ public sealed class DocxImporter
             document.Blocks.Add(new ParagraphBlock());
         }
 
+        LoadMacros(mainPart, document);
+        LoadBibliography(mainPart, document);
         return document;
     }
 
@@ -1352,6 +1359,11 @@ public sealed class DocxImporter
             };
         }
 
+        static bool ReadOnOff(OnOffValue? value)
+        {
+            return value?.Value ?? false;
+        }
+
         void FinalizeFieldInstruction(FieldParseState state)
         {
             if (state.InstructionFinalized)
@@ -1369,9 +1381,11 @@ public sealed class DocxImporter
             state.InstructionFinalized = true;
         }
 
-        void BeginField()
+        void BeginField(bool isLocked, bool isDirty)
         {
             var startInline = new FieldStartInline(string.Empty);
+            startInline.IsLocked = isLocked;
+            startInline.IsDirty = isDirty;
             current.Inlines.Add(startInline);
             fieldStack.Push(new FieldParseState(startInline));
         }
@@ -1490,7 +1504,7 @@ public sealed class DocxImporter
                         var type = fieldChar.FieldCharType?.Value;
                         if (type == FieldCharValues.Begin)
                         {
-                            BeginField();
+                            BeginField(ReadOnOff(fieldChar.FieldLock), ReadOnOff(fieldChar.Dirty));
                         }
                         else if (type == FieldCharValues.Separate)
                         {
@@ -1747,7 +1761,11 @@ public sealed class DocxImporter
         void ProcessSimpleField(SimpleField field, HyperlinkInfo? hyperlink)
         {
             var instruction = field.Instruction?.Value ?? string.Empty;
-            var startInline = new FieldStartInline(instruction);
+            var startInline = new FieldStartInline(instruction)
+            {
+                IsLocked = ReadOnOff(field.FieldLock),
+                IsDirty = ReadOnOff(field.Dirty)
+            };
             var definition = FieldInstructionParser.Parse(instruction);
             startInline.Definition = definition;
             AddInline(startInline, false, hyperlink);
@@ -9388,6 +9406,289 @@ public sealed class DocxImporter
         }
 
         return values;
+    }
+
+    private static void LoadBibliography(MainDocumentPart? mainPart, VibeDocument document)
+    {
+        if (mainPart is null)
+        {
+            return;
+        }
+
+        foreach (var part in mainPart.CustomXmlParts)
+        {
+            if (string.Equals(part.ContentType, DocxMacroSerializer.MacroCustomPartContentType, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (TryLoadBibliographyPart(part, document))
+            {
+                break;
+            }
+        }
+    }
+
+    private static bool TryLoadBibliographyPart(CustomXmlPart part, VibeDocument document)
+    {
+        try
+        {
+            using var stream = part.GetStream(FileMode.Open, FileAccess.Read);
+            var xml = XDocument.Load(stream);
+            var root = xml.Root;
+            if (root is null
+                || root.Name.LocalName != "Sources"
+                || root.Name.Namespace != BibliographyNamespace)
+            {
+                return false;
+            }
+
+            var selectedStyle = (string?)root.Attribute("SelectedStyle")
+                                ?? (string?)root.Attribute("StyleName");
+            if (!string.IsNullOrWhiteSpace(selectedStyle))
+            {
+                document.CitationStyle = selectedStyle;
+            }
+
+            document.CitationSources.Sources.Clear();
+            foreach (var sourceElement in root.Elements(BibliographyNamespace + "Source"))
+            {
+                var source = ParseBibliographySource(sourceElement);
+                if (source is not null)
+                {
+                    document.CitationSources.Sources.Add(source);
+                }
+            }
+
+            document.CitationSources.EnsureUniqueTags();
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static CitationSource? ParseBibliographySource(XElement element)
+    {
+        if (element is null)
+        {
+            return null;
+        }
+
+        var source = new CitationSource();
+        foreach (var child in element.Elements())
+        {
+            var localName = child.Name.LocalName;
+            var value = child.Value?.Trim();
+            if (string.Equals(localName, "Tag", StringComparison.OrdinalIgnoreCase))
+            {
+                source.Tag = value ?? string.Empty;
+                continue;
+            }
+
+            if (string.Equals(localName, "SourceType", StringComparison.OrdinalIgnoreCase))
+            {
+                source.SourceType = value ?? source.SourceType;
+                continue;
+            }
+
+            if (string.Equals(localName, "Guid", StringComparison.OrdinalIgnoreCase))
+            {
+                source.Guid = value;
+                continue;
+            }
+
+            if (TryParseNameList(child, out var names))
+            {
+                source.SetField(localName, names);
+                continue;
+            }
+
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                source.SetField(localName, value);
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(source.Tag))
+        {
+            source.Tag = source.Guid ?? string.Empty;
+        }
+
+        return source;
+    }
+
+    private static bool TryParseNameList(XElement element, out string names)
+    {
+        names = string.Empty;
+        var list = element.Element(BibliographyNamespace + "NameList");
+        if (list is null)
+        {
+            return false;
+        }
+
+        var parts = new List<string>();
+        foreach (var person in list.Elements(BibliographyNamespace + "Person"))
+        {
+            var name = BuildPersonName(person);
+            if (!string.IsNullOrWhiteSpace(name))
+            {
+                parts.Add(name);
+            }
+        }
+
+        foreach (var corp in list.Elements(BibliographyNamespace + "Corporate"))
+        {
+            var name = corp.Value?.Trim();
+            if (!string.IsNullOrWhiteSpace(name))
+            {
+                parts.Add(name);
+            }
+        }
+
+        if (parts.Count == 0)
+        {
+            return false;
+        }
+
+        names = string.Join("; ", parts);
+        return true;
+    }
+
+    private static string BuildPersonName(XElement person)
+    {
+        var last = person.Element(BibliographyNamespace + "Last")?.Value?.Trim();
+        var first = person.Element(BibliographyNamespace + "First")?.Value?.Trim();
+        var middle = person.Element(BibliographyNamespace + "Middle")?.Value?.Trim();
+        var suffix = person.Element(BibliographyNamespace + "Suffix")?.Value?.Trim();
+
+        var builder = new StringBuilder();
+        if (!string.IsNullOrWhiteSpace(last))
+        {
+            builder.Append(last);
+        }
+
+        if (!string.IsNullOrWhiteSpace(first))
+        {
+            if (builder.Length > 0)
+            {
+                builder.Append(", ");
+            }
+
+            builder.Append(first);
+        }
+
+        if (!string.IsNullOrWhiteSpace(middle))
+        {
+            builder.Append(' ');
+            builder.Append(middle);
+        }
+
+        if (!string.IsNullOrWhiteSpace(suffix))
+        {
+            builder.Append(' ');
+            builder.Append(suffix);
+        }
+
+        return builder.ToString();
+    }
+
+    private static void LoadMacros(MainDocumentPart? mainPart, VibeDocument document)
+    {
+        if (mainPart is null)
+        {
+            return;
+        }
+
+        foreach (var part in mainPart.CustomXmlParts)
+        {
+            if (!string.Equals(part.ContentType, DocxMacroSerializer.MacroCustomPartContentType, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            using var stream = part.GetStream(FileMode.Open, FileAccess.Read);
+            using var reader = new StreamReader(stream, Encoding.UTF8, true);
+            var json = reader.ReadToEnd();
+            DocxMacroSerializer.TryDeserialize(json, document.Macros);
+            break;
+        }
+
+        var hasCustomVbaSource = document.Macros.VbaModules.Any(module => !string.IsNullOrWhiteSpace(module.Source));
+        EnsureVbaModuleProcedures(document.Macros.VbaModules);
+        if (hasCustomVbaSource)
+        {
+            VbaMacroUtilities.SyncVbaDefinitions(document.Macros);
+        }
+
+        var vbaPart = mainPart.VbaProjectPart;
+        if (vbaPart is null)
+        {
+            return;
+        }
+
+        using var vbaStream = vbaPart.GetStream(FileMode.Open, FileAccess.Read);
+        using var buffer = new MemoryStream();
+        vbaStream.CopyTo(buffer);
+        var data = buffer.ToArray();
+        if (data.Length == 0)
+        {
+            return;
+        }
+
+        document.Macros.VbaProject = data;
+        var project = VbaProjectReader.ReadProject(data);
+        if (hasCustomVbaSource)
+        {
+            MergeVbaModuleStreams(document.Macros.VbaModules, project.Modules);
+            EnsureVbaModuleProcedures(document.Macros.VbaModules);
+            VbaMacroUtilities.SyncVbaDefinitions(document.Macros);
+            return;
+        }
+
+        document.Macros.VbaModules.Clear();
+        document.Macros.VbaModules.AddRange(project.Modules);
+        EnsureVbaModuleProcedures(document.Macros.VbaModules);
+        VbaMacroUtilities.SyncVbaDefinitions(document.Macros);
+    }
+
+    private static void EnsureVbaModuleProcedures(IEnumerable<VbaModuleInfo> modules)
+    {
+        foreach (var module in modules)
+        {
+            if (string.IsNullOrWhiteSpace(module.Source))
+            {
+                continue;
+            }
+
+            VbaMacroUtilities.UpdateModuleProcedures(module, module.Source);
+        }
+    }
+
+    private static void MergeVbaModuleStreams(List<VbaModuleInfo> targetModules, IReadOnlyList<VbaModuleInfo> projectModules)
+    {
+        if (targetModules.Count == 0 || projectModules.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var module in targetModules)
+        {
+            if (!string.IsNullOrWhiteSpace(module.StreamName))
+            {
+                continue;
+            }
+
+            foreach (var project in projectModules)
+            {
+                if (string.Equals(project.Name, module.Name, StringComparison.OrdinalIgnoreCase))
+                {
+                    module.StreamName = project.StreamName;
+                    break;
+                }
+            }
+        }
     }
 
     private sealed class HyperlinkResolver
