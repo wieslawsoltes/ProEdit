@@ -47,6 +47,7 @@ public sealed class DocxImporter
         LoadFonts(mainPart, document);
         LoadDocumentSettings(mainPart, document);
         LoadDocumentBackground(mainPart, document);
+        DocumentDefaults.ApplyDefaultPageSetup(document.SectionProperties);
         document.Sections.Add(new DocumentSection(document.SectionProperties, document.Header, document.Footer, document.FirstHeader, document.FirstFooter, document.EvenHeader, document.EvenFooter));
 
         if (body is null)

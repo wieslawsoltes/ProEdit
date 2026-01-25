@@ -20,9 +20,6 @@ public sealed class HorizontalRuler : Control
     public static readonly StyledProperty<TabAlignment> DefaultTabAlignmentProperty =
         AvaloniaProperty.Register<HorizontalRuler, TabAlignment>(nameof(DefaultTabAlignment), TabAlignment.Left);
 
-    private const float MinorTick = RulerHelpers.DipPerInch / 8f;
-    private const float MajorTick = RulerHelpers.DipPerInch / 2f;
-    private const float LabelTick = RulerHelpers.DipPerInch;
     private const float MarkerHitSize = 6f;
     private const float TabHitSize = 6f;
     private const float MarkerWidth = 8f;
@@ -374,24 +371,27 @@ public sealed class HorizontalRuler : Control
         var viewRightDoc = (offsetX + width) / zoom;
         var origin = ruler.ContentLeft;
 
-        var startIndex = (int)MathF.Floor((viewLeftDoc - origin) / MinorTick) - 1;
-        var endIndex = (int)MathF.Ceiling((viewRightDoc - origin) / MinorTick) + 1;
+        var minorTick = RulerHelpers.MinorTick;
+        var majorStep = RulerHelpers.MinorTicksPerMajor;
+        var labelStep = RulerHelpers.MinorTicksPerLabel;
+        var startIndex = (int)MathF.Floor((viewLeftDoc - origin) / minorTick) - 1;
+        var endIndex = (int)MathF.Ceiling((viewRightDoc - origin) / minorTick) + 1;
 
         for (var i = startIndex; i <= endIndex; i++)
         {
-            var docX = origin + i * MinorTick;
-            if (docX < ruler.PageLeft - MinorTick || docX > ruler.PageRight + MinorTick)
+            var docX = origin + i * minorTick;
+            if (docX < ruler.PageLeft - minorTick || docX > ruler.PageRight + minorTick)
             {
                 continue;
             }
 
             var screenX = docX * zoom - offsetX;
             var tickHeight = 3f;
-            if (i % (int)(LabelTick / MinorTick) == 0)
+            if (i % labelStep == 0)
             {
                 tickHeight = 8f;
             }
-            else if (i % (int)(MajorTick / MinorTick) == 0)
+            else if (i % majorStep == 0)
             {
                 tickHeight = 6f;
             }
@@ -402,9 +402,9 @@ public sealed class HorizontalRuler : Control
 
             context.DrawLine(TickPen, new Point(screenX, height - tickHeight), new Point(screenX, height));
 
-            if (i % (int)(LabelTick / MinorTick) == 0)
+            if (i % labelStep == 0)
             {
-                var labelValue = i / (int)(LabelTick / MinorTick);
+                var labelValue = i / labelStep;
                 DrawLabel(context, labelValue.ToString(CultureInfo.InvariantCulture), screenX, 2f);
             }
         }

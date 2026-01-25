@@ -35,9 +35,10 @@ public sealed class DocxExporter
     private const string OleObjectContentType = "application/vnd.openxmlformats-officedocument.oleObject";
     private const string OleObjectRelationshipType = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/oleObject";
     private static readonly XNamespace BibliographyNamespace = "http://schemas.openxmlformats.org/officeDocument/2006/bibliography";
-    private const float DefaultPageWidth = 816f;
-    private const float DefaultMarginLeft = 96f;
-    private const float DefaultMarginRight = 96f;
+    private static readonly PageSetupDefaults DefaultPageSetup = DocumentDefaults.ResolvePageSetup();
+    private static readonly float DefaultPageWidth = DefaultPageSetup.PageWidth;
+    private static readonly float DefaultMarginLeft = DefaultPageSetup.MarginLeft;
+    private static readonly float DefaultMarginRight = DefaultPageSetup.MarginRight;
     private const float DefaultListLevelIndent = 48f;
     private const float DefaultListHangingIndent = 24f;
 
@@ -60,11 +61,12 @@ public sealed class DocxExporter
         var body = mainPart.Document.Body!;
 
         var numberingContext = EnsureNumbering(mainPart, document);
+        var spacingResolver = new ParagraphContextualSpacingResolver(document);
         EnsureThemePart(mainPart, document);
         EnsureStyles(mainPart, document);
         EnsureFontTable(mainPart, document);
         var placeholderWriter = new ContentControlPlaceholderWriter(mainPart);
-        EnsureNotesAndComments(mainPart, document, numberingContext, placeholderWriter);
+        EnsureNotesAndComments(mainPart, document, spacingResolver, numberingContext, placeholderWriter);
         var imageWriter = new ImageWriter(mainPart);
         var chartWriter = new ChartWriter(mainPart);
         var hyperlinkWriter = new HyperlinkWriter(mainPart);
@@ -105,7 +107,7 @@ public sealed class DocxExporter
                 var headerLinkWriter = new HyperlinkWriter(headerPart);
                 var headerEmbeddedWriter = new EmbeddedObjectWriter(headerPart);
                 var headerAltChunkWriter = new AltChunkWriter(headerPart);
-                headerPart.Header = CreateHeader(section.Header, numberingContext, headerWriter, headerChartWriter, headerLinkWriter, headerEmbeddedWriter, headerAltChunkWriter, placeholderWriter, document.Fonts);
+                headerPart.Header = CreateHeader(section.Header, document, spacingResolver, numberingContext, headerWriter, headerChartWriter, headerLinkWriter, headerEmbeddedWriter, headerAltChunkWriter, placeholderWriter, document.Fonts);
                 headerId = mainPart.GetIdOfPart(headerPart);
             }
 
@@ -118,7 +120,7 @@ public sealed class DocxExporter
                 var footerLinkWriter = new HyperlinkWriter(footerPart);
                 var footerEmbeddedWriter = new EmbeddedObjectWriter(footerPart);
                 var footerAltChunkWriter = new AltChunkWriter(footerPart);
-                footerPart.Footer = CreateFooter(section.Footer, numberingContext, footerWriter, footerChartWriter, footerLinkWriter, footerEmbeddedWriter, footerAltChunkWriter, placeholderWriter, document.Fonts);
+                footerPart.Footer = CreateFooter(section.Footer, document, spacingResolver, numberingContext, footerWriter, footerChartWriter, footerLinkWriter, footerEmbeddedWriter, footerAltChunkWriter, placeholderWriter, document.Fonts);
                 footerId = mainPart.GetIdOfPart(footerPart);
             }
 
@@ -134,7 +136,7 @@ public sealed class DocxExporter
                     var firstHeaderLinkWriter = new HyperlinkWriter(firstHeaderPart);
                     var firstHeaderEmbeddedWriter = new EmbeddedObjectWriter(firstHeaderPart);
                     var firstHeaderAltChunkWriter = new AltChunkWriter(firstHeaderPart);
-                    firstHeaderPart.Header = CreateHeader(section.FirstHeader, numberingContext, firstHeaderWriter, firstHeaderChartWriter, firstHeaderLinkWriter, firstHeaderEmbeddedWriter, firstHeaderAltChunkWriter, placeholderWriter, document.Fonts);
+                    firstHeaderPart.Header = CreateHeader(section.FirstHeader, document, spacingResolver, numberingContext, firstHeaderWriter, firstHeaderChartWriter, firstHeaderLinkWriter, firstHeaderEmbeddedWriter, firstHeaderAltChunkWriter, placeholderWriter, document.Fonts);
                     firstHeaderId = mainPart.GetIdOfPart(firstHeaderPart);
                 }
 
@@ -146,7 +148,7 @@ public sealed class DocxExporter
                     var firstFooterLinkWriter = new HyperlinkWriter(firstFooterPart);
                     var firstFooterEmbeddedWriter = new EmbeddedObjectWriter(firstFooterPart);
                     var firstFooterAltChunkWriter = new AltChunkWriter(firstFooterPart);
-                    firstFooterPart.Footer = CreateFooter(section.FirstFooter, numberingContext, firstFooterWriter, firstFooterChartWriter, firstFooterLinkWriter, firstFooterEmbeddedWriter, firstFooterAltChunkWriter, placeholderWriter, document.Fonts);
+                    firstFooterPart.Footer = CreateFooter(section.FirstFooter, document, spacingResolver, numberingContext, firstFooterWriter, firstFooterChartWriter, firstFooterLinkWriter, firstFooterEmbeddedWriter, firstFooterAltChunkWriter, placeholderWriter, document.Fonts);
                     firstFooterId = mainPart.GetIdOfPart(firstFooterPart);
                 }
             }
@@ -163,7 +165,7 @@ public sealed class DocxExporter
                     var evenHeaderLinkWriter = new HyperlinkWriter(evenHeaderPart);
                     var evenHeaderEmbeddedWriter = new EmbeddedObjectWriter(evenHeaderPart);
                     var evenHeaderAltChunkWriter = new AltChunkWriter(evenHeaderPart);
-                    evenHeaderPart.Header = CreateHeader(section.EvenHeader, numberingContext, evenHeaderWriter, evenHeaderChartWriter, evenHeaderLinkWriter, evenHeaderEmbeddedWriter, evenHeaderAltChunkWriter, placeholderWriter, document.Fonts);
+                    evenHeaderPart.Header = CreateHeader(section.EvenHeader, document, spacingResolver, numberingContext, evenHeaderWriter, evenHeaderChartWriter, evenHeaderLinkWriter, evenHeaderEmbeddedWriter, evenHeaderAltChunkWriter, placeholderWriter, document.Fonts);
                     evenHeaderId = mainPart.GetIdOfPart(evenHeaderPart);
                 }
 
@@ -175,7 +177,7 @@ public sealed class DocxExporter
                     var evenFooterLinkWriter = new HyperlinkWriter(evenFooterPart);
                     var evenFooterEmbeddedWriter = new EmbeddedObjectWriter(evenFooterPart);
                     var evenFooterAltChunkWriter = new AltChunkWriter(evenFooterPart);
-                    evenFooterPart.Footer = CreateFooter(section.EvenFooter, numberingContext, evenFooterWriter, evenFooterChartWriter, evenFooterLinkWriter, evenFooterEmbeddedWriter, evenFooterAltChunkWriter, placeholderWriter, document.Fonts);
+                    evenFooterPart.Footer = CreateFooter(section.EvenFooter, document, spacingResolver, numberingContext, evenFooterWriter, evenFooterChartWriter, evenFooterLinkWriter, evenFooterEmbeddedWriter, evenFooterAltChunkWriter, placeholderWriter, document.Fonts);
                     evenFooterId = mainPart.GetIdOfPart(evenFooterPart);
                 }
             }
@@ -244,14 +246,27 @@ public sealed class DocxExporter
                         index++;
                     }
 
-                    currentContainer.AppendChild(BuildSdtBlock(startBlock.Properties, contentBlocks, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, document.Fonts));
+                    currentContainer.AppendChild(BuildSdtBlock(startBlock.Properties, contentBlocks, document, spacingResolver, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, document.Fonts));
                     continue;
                 }
                 case ContentControlEndBlock:
                     index++;
                     continue;
                 case ParagraphBlock paragraph:
-                    currentContainer.AppendChild(CreateParagraph(paragraph, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, document.Fonts));
+                    currentContainer.AppendChild(CreateParagraph(
+                        document,
+                        paragraph,
+                        index > 0 ? blocks[index - 1] as ParagraphBlock : null,
+                        index + 1 < blocks.Count ? blocks[index + 1] as ParagraphBlock : null,
+                        spacingResolver,
+                        numberingContext,
+                        imageWriter,
+                        chartWriter,
+                        hyperlinkWriter,
+                        embeddedObjectWriter,
+                        altChunkWriter,
+                        placeholderWriter,
+                        document.Fonts));
                     index++;
                     break;
                 case TableBlock table:
@@ -265,7 +280,9 @@ public sealed class DocxExporter
                         altChunkWriter,
                         placeholderWriter,
                         document.Fonts,
-                        document.GetSection(currentSectionIndex).Properties));
+                        document.GetSection(currentSectionIndex).Properties,
+                        document,
+                        spacingResolver));
                     index++;
                     break;
                 case AltChunkBlock altChunk:
@@ -613,6 +630,211 @@ public sealed class DocxExporter
             }
 
             return _kindMap.TryGetValue(info.Kind, out numId);
+        }
+    }
+
+    private struct ParagraphSpacingValues
+    {
+        public float? SpacingBefore;
+        public float? SpacingAfter;
+        public int? SpacingBeforeLines;
+        public int? SpacingAfterLines;
+        public bool? AutoSpacingBefore;
+        public bool? AutoSpacingAfter;
+        public int? LineSpacing;
+        public DocLineSpacingRule? LineSpacingRule;
+    }
+
+    private sealed class ParagraphContextualSpacingResolver
+    {
+        private readonly VibeDocument _document;
+        private readonly ParagraphSpacingValues _defaultSpacing;
+        private readonly Dictionary<string, bool?> _contextualSpacingCache = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, ParagraphSpacingValues> _spacingCache = new(StringComparer.OrdinalIgnoreCase);
+
+        public ParagraphContextualSpacingResolver(VibeDocument document)
+        {
+            _document = document ?? throw new ArgumentNullException(nameof(document));
+            _defaultSpacing = new ParagraphSpacingValues();
+            ApplySpacing(ref _defaultSpacing, document.DefaultParagraphStyleProperties);
+        }
+
+        public bool IsContextualSpacing(ParagraphBlock paragraph)
+        {
+            var styleId = ResolveParagraphStyleId(_document, paragraph);
+            var value = ResolveStyleContextualSpacing(styleId);
+            if (paragraph.Properties.ContextualSpacing.HasValue)
+            {
+                value = paragraph.Properties.ContextualSpacing.Value;
+            }
+
+            return value == true;
+        }
+
+        public ParagraphSpacingValues ResolveSpacing(ParagraphBlock paragraph)
+        {
+            var styleId = ResolveParagraphStyleId(_document, paragraph);
+            var resolved = ResolveStyleSpacing(styleId);
+            ApplySpacing(ref resolved, paragraph.Properties);
+            return resolved;
+        }
+
+        private bool? ResolveStyleContextualSpacing(string? styleId)
+        {
+            if (string.IsNullOrWhiteSpace(styleId))
+            {
+                return _document.DefaultParagraphStyleProperties.ContextualSpacing;
+            }
+
+            if (_contextualSpacingCache.TryGetValue(styleId, out var cached))
+            {
+                return cached;
+            }
+
+            bool? value = _document.DefaultParagraphStyleProperties.ContextualSpacing;
+            foreach (var style in EnumerateParagraphStyleChain(styleId))
+            {
+                if (style.ParagraphProperties.ContextualSpacing.HasValue)
+                {
+                    value = style.ParagraphProperties.ContextualSpacing.Value;
+                }
+            }
+
+            _contextualSpacingCache[styleId] = value;
+            return value;
+        }
+
+        private ParagraphSpacingValues ResolveStyleSpacing(string? styleId)
+        {
+            if (string.IsNullOrWhiteSpace(styleId))
+            {
+                return _defaultSpacing;
+            }
+
+            if (_spacingCache.TryGetValue(styleId, out var cached))
+            {
+                return cached;
+            }
+
+            var resolved = _defaultSpacing;
+            foreach (var style in EnumerateParagraphStyleChain(styleId))
+            {
+                ApplySpacing(ref resolved, style.ParagraphProperties);
+            }
+
+            _spacingCache[styleId] = resolved;
+            return resolved;
+        }
+
+        private IEnumerable<ParagraphStyleDefinition> EnumerateParagraphStyleChain(string styleId)
+        {
+            var styles = _document.Styles.ParagraphStyles;
+            if (styles.Count == 0)
+            {
+                yield break;
+            }
+
+            var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var stack = new Stack<ParagraphStyleDefinition>();
+            var current = styleId;
+            while (!string.IsNullOrWhiteSpace(current)
+                   && styles.TryGetValue(current, out var style)
+                   && visited.Add(current))
+            {
+                stack.Push(style);
+                current = style.BasedOnId;
+            }
+
+            while (stack.Count > 0)
+            {
+                yield return stack.Pop();
+            }
+        }
+
+        private static void ApplySpacing(ref ParagraphSpacingValues target, ParagraphStyleProperties source)
+        {
+            if (source.SpacingBefore.HasValue)
+            {
+                target.SpacingBefore = source.SpacingBefore;
+            }
+
+            if (source.SpacingAfter.HasValue)
+            {
+                target.SpacingAfter = source.SpacingAfter;
+            }
+
+            if (source.SpacingBeforeLines.HasValue)
+            {
+                target.SpacingBeforeLines = source.SpacingBeforeLines;
+            }
+
+            if (source.SpacingAfterLines.HasValue)
+            {
+                target.SpacingAfterLines = source.SpacingAfterLines;
+            }
+
+            if (source.AutoSpacingBefore.HasValue)
+            {
+                target.AutoSpacingBefore = source.AutoSpacingBefore;
+            }
+
+            if (source.AutoSpacingAfter.HasValue)
+            {
+                target.AutoSpacingAfter = source.AutoSpacingAfter;
+            }
+
+            if (source.LineSpacing.HasValue)
+            {
+                target.LineSpacing = source.LineSpacing;
+            }
+
+            if (source.LineSpacingRule.HasValue)
+            {
+                target.LineSpacingRule = source.LineSpacingRule;
+            }
+        }
+
+        private static void ApplySpacing(ref ParagraphSpacingValues target, Vibe.Office.Documents.ParagraphProperties source)
+        {
+            if (source.SpacingBefore.HasValue)
+            {
+                target.SpacingBefore = source.SpacingBefore;
+            }
+
+            if (source.SpacingAfter.HasValue)
+            {
+                target.SpacingAfter = source.SpacingAfter;
+            }
+
+            if (source.SpacingBeforeLines.HasValue)
+            {
+                target.SpacingBeforeLines = source.SpacingBeforeLines;
+            }
+
+            if (source.SpacingAfterLines.HasValue)
+            {
+                target.SpacingAfterLines = source.SpacingAfterLines;
+            }
+
+            if (source.AutoSpacingBefore.HasValue)
+            {
+                target.AutoSpacingBefore = source.AutoSpacingBefore;
+            }
+
+            if (source.AutoSpacingAfter.HasValue)
+            {
+                target.AutoSpacingAfter = source.AutoSpacingAfter;
+            }
+
+            if (source.LineSpacing.HasValue)
+            {
+                target.LineSpacing = source.LineSpacing;
+            }
+
+            if (source.LineSpacingRule.HasValue)
+            {
+                target.LineSpacingRule = source.LineSpacingRule;
+            }
         }
     }
 
@@ -979,25 +1201,26 @@ public sealed class DocxExporter
     private static void EnsureNotesAndComments(
         MainDocumentPart mainPart,
         VibeDocument document,
+        ParagraphContextualSpacingResolver spacingResolver,
         NumberingContext numberingContext,
         ContentControlPlaceholderWriter? placeholderWriter)
     {
         if (document.Footnotes.Count > 0)
         {
             var footnotesPart = mainPart.AddNewPart<FootnotesPart>();
-            PopulateFootnotes(footnotesPart, document, numberingContext, placeholderWriter, document.Fonts);
+            PopulateFootnotes(footnotesPart, document, spacingResolver, numberingContext, placeholderWriter, document.Fonts);
         }
 
         if (document.Endnotes.Count > 0)
         {
             var endnotesPart = mainPart.AddNewPart<EndnotesPart>();
-            PopulateEndnotes(endnotesPart, document, numberingContext, placeholderWriter, document.Fonts);
+            PopulateEndnotes(endnotesPart, document, spacingResolver, numberingContext, placeholderWriter, document.Fonts);
         }
 
         if (document.Comments.Count > 0)
         {
             var commentsPart = mainPart.AddNewPart<WordprocessingCommentsPart>();
-            PopulateComments(commentsPart, document, numberingContext, placeholderWriter, document.Fonts);
+            PopulateComments(commentsPart, document, spacingResolver, numberingContext, placeholderWriter, document.Fonts);
         }
     }
 
@@ -1667,7 +1890,11 @@ public sealed class DocxExporter
     }
 
     private static Paragraph CreateParagraph(
+        VibeDocument document,
         ParagraphBlock paragraphBlock,
+        ParagraphBlock? previousParagraph,
+        ParagraphBlock? nextParagraph,
+        ParagraphContextualSpacingResolver spacingResolver,
         NumberingContext numberingContext,
         ImageWriter imageWriter,
         ChartWriter chartWriter,
@@ -1682,6 +1909,13 @@ public sealed class DocxExporter
         var paragraphProperties = BuildParagraphProperties(paragraphBlock);
         if (paragraphProperties is not null)
         {
+            ApplyContextualSpacingOverrides(
+                document,
+                paragraphBlock,
+                previousParagraph,
+                nextParagraph,
+                spacingResolver,
+                paragraphProperties);
             paragraph.AppendChild(paragraphProperties);
         }
 
@@ -1697,9 +1931,130 @@ public sealed class DocxExporter
             paragraph.ParagraphProperties = props;
         }
 
-        AppendRuns(paragraph, paragraphBlock, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts);
-        AppendFloatingObjects(paragraph, paragraphBlock, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts);
+        AppendRuns(paragraph, paragraphBlock, document, spacingResolver, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts);
+        AppendFloatingObjects(paragraph, paragraphBlock, document, spacingResolver, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts);
         return paragraph;
+    }
+
+    private static void ApplyContextualSpacingOverrides(
+        VibeDocument document,
+        ParagraphBlock paragraph,
+        ParagraphBlock? previousParagraph,
+        ParagraphBlock? nextParagraph,
+        ParagraphContextualSpacingResolver spacingResolver,
+        DocumentFormat.OpenXml.Wordprocessing.ParagraphProperties paragraphProperties)
+    {
+        if (!spacingResolver.IsContextualSpacing(paragraph))
+        {
+            return;
+        }
+
+        var removeBefore = previousParagraph is not null && IsSameParagraphStyle(document, previousParagraph, paragraph);
+        var removeAfter = nextParagraph is not null && IsSameParagraphStyle(document, paragraph, nextParagraph);
+        if (!removeBefore && !removeAfter)
+        {
+            return;
+        }
+
+        var spacing = paragraphProperties.SpacingBetweenLines ?? new SpacingBetweenLines();
+        var resolved = spacingResolver.ResolveSpacing(paragraph);
+        if (removeBefore)
+        {
+            spacing.Before = "0";
+            spacing.BeforeLines = 0;
+            spacing.BeforeAutoSpacing = false;
+        }
+        else
+        {
+            ApplyResolvedBefore(spacing, resolved);
+        }
+
+        if (removeAfter)
+        {
+            spacing.After = "0";
+            spacing.AfterLines = 0;
+            spacing.AfterAutoSpacing = false;
+        }
+        else
+        {
+            ApplyResolvedAfter(spacing, resolved);
+        }
+
+        ApplyResolvedLineSpacing(spacing, resolved);
+
+        paragraphProperties.SpacingBetweenLines = spacing;
+    }
+
+    private static void ApplyResolvedBefore(SpacingBetweenLines spacing, ParagraphSpacingValues resolved)
+    {
+        if (spacing.Before is null && resolved.SpacingBefore.HasValue)
+        {
+            spacing.Before = DipToTwips(resolved.SpacingBefore.Value);
+        }
+
+        if (spacing.BeforeLines is null && resolved.SpacingBeforeLines.HasValue)
+        {
+            spacing.BeforeLines = resolved.SpacingBeforeLines.Value;
+        }
+
+        if (spacing.BeforeAutoSpacing is null && resolved.AutoSpacingBefore.HasValue)
+        {
+            spacing.BeforeAutoSpacing = resolved.AutoSpacingBefore.Value;
+        }
+    }
+
+    private static void ApplyResolvedAfter(SpacingBetweenLines spacing, ParagraphSpacingValues resolved)
+    {
+        if (spacing.After is null && resolved.SpacingAfter.HasValue)
+        {
+            spacing.After = DipToTwips(resolved.SpacingAfter.Value);
+        }
+
+        if (spacing.AfterLines is null && resolved.SpacingAfterLines.HasValue)
+        {
+            spacing.AfterLines = resolved.SpacingAfterLines.Value;
+        }
+
+        if (spacing.AfterAutoSpacing is null && resolved.AutoSpacingAfter.HasValue)
+        {
+            spacing.AfterAutoSpacing = resolved.AutoSpacingAfter.Value;
+        }
+    }
+
+    private static void ApplyResolvedLineSpacing(SpacingBetweenLines spacing, ParagraphSpacingValues resolved)
+    {
+        if (spacing.Line is null && resolved.LineSpacing.HasValue)
+        {
+            spacing.Line = resolved.LineSpacing.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        }
+
+        if (spacing.LineRule is null && resolved.LineSpacingRule.HasValue)
+        {
+            spacing.LineRule = MapLineSpacingRule(resolved.LineSpacingRule.Value);
+        }
+    }
+
+    private static string? ResolveParagraphStyleId(VibeDocument document, ParagraphBlock paragraph)
+    {
+        return paragraph.StyleId ?? document.Styles.DefaultParagraphStyleId;
+    }
+
+    private static bool IsSameParagraphStyle(VibeDocument document, ParagraphBlock current, ParagraphBlock other)
+    {
+        var currentId = ResolveParagraphStyleId(document, current);
+        var otherId = ResolveParagraphStyleId(document, other);
+
+        if (string.IsNullOrWhiteSpace(currentId) && string.IsNullOrWhiteSpace(otherId))
+        {
+            return true;
+        }
+
+        if (string.IsNullOrWhiteSpace(currentId) || string.IsNullOrWhiteSpace(otherId))
+        {
+            return false;
+        }
+
+        return string.Equals(currentId, otherId, StringComparison.OrdinalIgnoreCase);
     }
 
     private static Table CreateTable(
@@ -1712,7 +2067,9 @@ public sealed class DocxExporter
         AltChunkWriter altChunkWriter,
         ContentControlPlaceholderWriter? placeholderWriter,
         DocumentFonts fonts,
-        DocSectionProperties? sectionProperties = null)
+        DocSectionProperties? sectionProperties,
+        VibeDocument document,
+        ParagraphContextualSpacingResolver spacingResolver)
     {
         var table = new Table();
         var tableProperties = BuildTableProperties(tableBlock.Properties, tableBlock.StyleId);
@@ -1765,9 +2122,25 @@ public sealed class DocxExporter
                 var tableCell = new DocumentFormat.OpenXml.Wordprocessing.TableCell();
                 ApplyTableCellProperties(tableCell, cell.Properties);
                 ApplyTableCellStructure(tableCell, cell);
-                foreach (var paragraph in cell.Paragraphs)
+                for (var paragraphIndex = 0; paragraphIndex < cell.Paragraphs.Count; paragraphIndex++)
                 {
-                    tableCell.AppendChild(CreateParagraph(paragraph, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts));
+                    var paragraph = cell.Paragraphs[paragraphIndex];
+                    var previousParagraph = paragraphIndex > 0 ? cell.Paragraphs[paragraphIndex - 1] : null;
+                    var nextParagraph = paragraphIndex + 1 < cell.Paragraphs.Count ? cell.Paragraphs[paragraphIndex + 1] : null;
+                    tableCell.AppendChild(CreateParagraph(
+                        document,
+                        paragraph,
+                        previousParagraph,
+                        nextParagraph,
+                        spacingResolver,
+                        numberingContext,
+                        imageWriter,
+                        chartWriter,
+                        hyperlinkWriter,
+                        embeddedObjectWriter,
+                        altChunkWriter,
+                        placeholderWriter,
+                        fonts));
                 }
 
                 if (cell.Paragraphs.Count == 0)
@@ -2040,6 +2413,8 @@ public sealed class DocxExporter
 
     private static Header CreateHeader(
         HeaderFooter headerFooter,
+        VibeDocument document,
+        ParagraphContextualSpacingResolver spacingResolver,
         NumberingContext numberingContext,
         ImageWriter imageWriter,
         ChartWriter chartWriter,
@@ -2050,7 +2425,7 @@ public sealed class DocxExporter
         DocumentFonts fonts)
     {
         var header = new Header();
-        AppendBlocks(header, headerFooter.Blocks, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts);
+        AppendBlocks(header, headerFooter.Blocks, document, spacingResolver, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts);
         if (!header.ChildElements.Any())
         {
             header.AppendChild(new Paragraph(new Run(new Text(string.Empty))));
@@ -2061,6 +2436,8 @@ public sealed class DocxExporter
 
     private static Footer CreateFooter(
         HeaderFooter headerFooter,
+        VibeDocument document,
+        ParagraphContextualSpacingResolver spacingResolver,
         NumberingContext numberingContext,
         ImageWriter imageWriter,
         ChartWriter chartWriter,
@@ -2071,7 +2448,7 @@ public sealed class DocxExporter
         DocumentFonts fonts)
     {
         var footer = new Footer();
-        AppendBlocks(footer, headerFooter.Blocks, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts);
+        AppendBlocks(footer, headerFooter.Blocks, document, spacingResolver, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts);
         if (!footer.ChildElements.Any())
         {
             footer.AppendChild(new Paragraph(new Run(new Text(string.Empty))));
@@ -2083,6 +2460,8 @@ public sealed class DocxExporter
     private static void AppendBlocks(
         OpenXmlCompositeElement container,
         IReadOnlyList<Block> blocks,
+        VibeDocument document,
+        ParagraphContextualSpacingResolver spacingResolver,
         NumberingContext numberingContext,
         ImageWriter imageWriter,
         ChartWriter chartWriter,
@@ -2149,18 +2528,43 @@ public sealed class DocxExporter
                         index++;
                     }
 
-                    currentContainer.AppendChild(BuildSdtBlock(startBlock.Properties, contentBlocks, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts));
+                    currentContainer.AppendChild(BuildSdtBlock(startBlock.Properties, contentBlocks, document, spacingResolver, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts));
                     continue;
                 }
                 case ContentControlEndBlock:
                     index++;
                     continue;
                 case ParagraphBlock paragraph:
-                    currentContainer.AppendChild(CreateParagraph(paragraph, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts));
+                    currentContainer.AppendChild(CreateParagraph(
+                        document,
+                        paragraph,
+                        index > 0 ? blocks[index - 1] as ParagraphBlock : null,
+                        index + 1 < blocks.Count ? blocks[index + 1] as ParagraphBlock : null,
+                        spacingResolver,
+                        numberingContext,
+                        imageWriter,
+                        chartWriter,
+                        hyperlinkWriter,
+                        embeddedObjectWriter,
+                        altChunkWriter,
+                        placeholderWriter,
+                        fonts));
                     index++;
                     break;
                 case TableBlock table:
-                    currentContainer.AppendChild(CreateTable(table, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts));
+                    currentContainer.AppendChild(CreateTable(
+                        table,
+                        numberingContext,
+                        imageWriter,
+                        chartWriter,
+                        hyperlinkWriter,
+                        embeddedObjectWriter,
+                        altChunkWriter,
+                        placeholderWriter,
+                        fonts,
+                        document.SectionProperties,
+                        document,
+                        spacingResolver));
                     index++;
                     break;
                 case AltChunkBlock altChunk:
@@ -2191,6 +2595,8 @@ public sealed class DocxExporter
     private static SdtBlock BuildSdtBlock(
         ContentControlProperties properties,
         IReadOnlyList<Block> blocks,
+        VibeDocument document,
+        ParagraphContextualSpacingResolver spacingResolver,
         NumberingContext numberingContext,
         ImageWriter imageWriter,
         ChartWriter chartWriter,
@@ -2203,7 +2609,7 @@ public sealed class DocxExporter
         var sdt = new SdtBlock();
         sdt.AppendChild(BuildContentControlProperties(properties, placeholderWriter));
         var content = new SdtContentBlock();
-        AppendBlocks(content, blocks, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts);
+        AppendBlocks(content, blocks, document, spacingResolver, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts);
         if (!content.ChildElements.Any())
         {
             content.AppendChild(new Paragraph(new Run(new Text(string.Empty))));
@@ -2242,6 +2648,8 @@ public sealed class DocxExporter
     private static SdtRun BuildSdtRun(
         ContentControlProperties properties,
         IReadOnlyList<Inline> inlines,
+        VibeDocument document,
+        ParagraphContextualSpacingResolver spacingResolver,
         NumberingContext numberingContext,
         ImageWriter imageWriter,
         ChartWriter chartWriter,
@@ -2254,7 +2662,7 @@ public sealed class DocxExporter
         var sdt = new SdtRun();
         sdt.AppendChild(BuildContentControlProperties(properties, placeholderWriter));
         var content = new SdtContentRun();
-        AppendInlineSequence(content, inlines, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts);
+        AppendInlineSequence(content, inlines, document, spacingResolver, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts);
         if (!content.ChildElements.Any())
         {
             content.AppendChild(new Run(new Text(string.Empty)));
@@ -2369,6 +2777,7 @@ public sealed class DocxExporter
     private static void PopulateFootnotes(
         FootnotesPart footnotesPart,
         VibeDocument document,
+        ParagraphContextualSpacingResolver spacingResolver,
         NumberingContext numberingContext,
         ContentControlPlaceholderWriter? placeholderWriter,
         DocumentFonts fonts)
@@ -2385,7 +2794,7 @@ public sealed class DocxExporter
         foreach (var definition in document.Footnotes.Values.OrderBy(item => item.Id))
         {
             var footnote = new Footnote { Id = definition.Id };
-            AppendBlocks(footnote, definition.Blocks, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts);
+            AppendBlocks(footnote, definition.Blocks, document, spacingResolver, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts);
             if (!footnote.ChildElements.Any())
             {
                 footnote.AppendChild(new Paragraph(new Run(new Text(string.Empty))));
@@ -2400,6 +2809,7 @@ public sealed class DocxExporter
     private static void PopulateEndnotes(
         EndnotesPart endnotesPart,
         VibeDocument document,
+        ParagraphContextualSpacingResolver spacingResolver,
         NumberingContext numberingContext,
         ContentControlPlaceholderWriter? placeholderWriter,
         DocumentFonts fonts)
@@ -2416,7 +2826,7 @@ public sealed class DocxExporter
         foreach (var definition in document.Endnotes.Values.OrderBy(item => item.Id))
         {
             var endnote = new Endnote { Id = definition.Id };
-            AppendBlocks(endnote, definition.Blocks, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts);
+            AppendBlocks(endnote, definition.Blocks, document, spacingResolver, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts);
             if (!endnote.ChildElements.Any())
             {
                 endnote.AppendChild(new Paragraph(new Run(new Text(string.Empty))));
@@ -2431,6 +2841,7 @@ public sealed class DocxExporter
     private static void PopulateComments(
         WordprocessingCommentsPart commentsPart,
         VibeDocument document,
+        ParagraphContextualSpacingResolver spacingResolver,
         NumberingContext numberingContext,
         ContentControlPlaceholderWriter? placeholderWriter,
         DocumentFonts fonts)
@@ -2452,7 +2863,7 @@ public sealed class DocxExporter
                 Date = definition.Date
             };
 
-            AppendBlocks(comment, definition.Blocks, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts);
+            AppendBlocks(comment, definition.Blocks, document, spacingResolver, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts);
             if (!comment.ChildElements.Any())
             {
                 comment.AppendChild(new Paragraph(new Run(new Text(string.Empty))));
@@ -2679,6 +3090,8 @@ public sealed class DocxExporter
     private static void AppendRuns(
         Paragraph paragraph,
         ParagraphBlock block,
+        VibeDocument document,
+        ParagraphContextualSpacingResolver spacingResolver,
         NumberingContext numberingContext,
         ImageWriter imageWriter,
         ChartWriter chartWriter,
@@ -2694,12 +3107,14 @@ public sealed class DocxExporter
             return;
         }
 
-        AppendInlineSequence(paragraph, block.Inlines, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts);
+        AppendInlineSequence(paragraph, block.Inlines, document, spacingResolver, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts);
     }
 
     private static void AppendFloatingObjects(
         Paragraph paragraph,
         ParagraphBlock block,
+        VibeDocument document,
+        ParagraphContextualSpacingResolver spacingResolver,
         NumberingContext numberingContext,
         ImageWriter imageWriter,
         ChartWriter chartWriter,
@@ -2740,7 +3155,7 @@ public sealed class DocxExporter
             {
                 ImageInline image when image.EmbeddedObject is not null => null,
                 ImageInline image => CreateImageDrawing(imageWriter, image, floating.Anchor),
-                ShapeInline shape => CreateShapeDrawing(shape, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter!, altChunkWriter, placeholderWriter, fonts, floating.Anchor),
+                ShapeInline shape => CreateShapeDrawing(shape, document, spacingResolver, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter!, altChunkWriter, placeholderWriter, fonts, floating.Anchor),
                 ChartInline chart => CreateChartDrawing(chartWriter, chart, floating.Anchor),
                 _ => null
             };
@@ -2844,6 +3259,8 @@ public sealed class DocxExporter
     private static void AppendInlineSequence(
         OpenXmlCompositeElement container,
         IReadOnlyList<Inline> inlines,
+        VibeDocument document,
+        ParagraphContextualSpacingResolver spacingResolver,
         NumberingContext numberingContext,
         ImageWriter imageWriter,
         ChartWriter chartWriter,
@@ -2853,12 +3270,14 @@ public sealed class DocxExporter
         ContentControlPlaceholderWriter? placeholderWriter,
         DocumentFonts fonts)
     {
-        AppendInlineSequence(container, inlines, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts, null);
+        AppendInlineSequence(container, inlines, document, spacingResolver, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts, null);
     }
 
     private static void AppendInlineSequence(
         OpenXmlCompositeElement container,
         IReadOnlyList<Inline> inlines,
+        VibeDocument document,
+        ParagraphContextualSpacingResolver spacingResolver,
         NumberingContext numberingContext,
         ImageWriter imageWriter,
         ChartWriter chartWriter,
@@ -2929,7 +3348,7 @@ public sealed class DocxExporter
                         index++;
                     }
 
-                    AppendSimpleField(container, fieldStart, fieldInlines, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts);
+                    AppendSimpleField(container, fieldStart, fieldInlines, document, spacingResolver, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts);
                     continue;
                 }
                 case ContentControlStartInline controlStart:
@@ -2949,7 +3368,7 @@ public sealed class DocxExporter
                         index++;
                     }
 
-                    container.AppendChild(BuildSdtRun(controlStart.Properties, contentInlines, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts));
+                    container.AppendChild(BuildSdtRun(controlStart.Properties, contentInlines, document, spacingResolver, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts));
                     continue;
                 }
                 case MetadataStartInline metadataStart:
@@ -2981,7 +3400,7 @@ public sealed class DocxExporter
                     }
 
                     var wrapper = BuildMetadataWrapperElement(metadataStart.Metadata);
-                    AppendInlineSequence(wrapper, metadataInlines, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts, revisionKind);
+                    AppendInlineSequence(wrapper, metadataInlines, document, spacingResolver, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts, revisionKind);
                     container.AppendChild(wrapper);
                     continue;
                 }
@@ -3015,7 +3434,7 @@ public sealed class DocxExporter
                     }
 
                     var revisionElement = BuildRunRevisionElement(revisionStart.Revision);
-                    AppendInlineSequence(revisionElement, revisionInlines, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts, revisionStart.Revision.Kind);
+                    AppendInlineSequence(revisionElement, revisionInlines, document, spacingResolver, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts, revisionStart.Revision.Kind);
                     container.AppendChild(revisionElement);
                     continue;
                 }
@@ -3065,12 +3484,12 @@ public sealed class DocxExporter
             if (link is not null && !link.IsEmpty)
             {
                 var hyperlink = BuildHyperlinkElement(link, hyperlinkWriter);
-                AppendInlineRuns(hyperlink, group, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts, revisionKind);
+                AppendInlineRuns(hyperlink, group, document, spacingResolver, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts, revisionKind);
                 container.AppendChild(hyperlink);
             }
             else
             {
-                AppendInlineRuns(container, group, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts, revisionKind);
+                AppendInlineRuns(container, group, document, spacingResolver, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts, revisionKind);
             }
         }
     }
@@ -3078,6 +3497,8 @@ public sealed class DocxExporter
     private static void AppendInlineRuns(
         OpenXmlCompositeElement container,
         IReadOnlyList<Inline> inlines,
+        VibeDocument document,
+        ParagraphContextualSpacingResolver spacingResolver,
         NumberingContext numberingContext,
         ImageWriter imageWriter,
         ChartWriter chartWriter,
@@ -3087,12 +3508,14 @@ public sealed class DocxExporter
         ContentControlPlaceholderWriter? placeholderWriter,
         DocumentFonts fonts)
     {
-        AppendInlineRuns(container, inlines, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts, null);
+        AppendInlineRuns(container, inlines, document, spacingResolver, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts, null);
     }
 
     private static void AppendInlineRuns(
         OpenXmlCompositeElement container,
         IReadOnlyList<Inline> inlines,
+        VibeDocument document,
+        ParagraphContextualSpacingResolver spacingResolver,
         NumberingContext numberingContext,
         ImageWriter imageWriter,
         ChartWriter chartWriter,
@@ -3144,7 +3567,7 @@ public sealed class DocxExporter
                 }
                 case ShapeInline shapeInline:
                 {
-                    var run = new Run(CreateShapeDrawing(shapeInline, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter!, altChunkWriter, placeholderWriter, fonts));
+                    var run = new Run(CreateShapeDrawing(shapeInline, document, spacingResolver, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter!, altChunkWriter, placeholderWriter, fonts));
                     container.AppendChild(run);
                     break;
                 }
@@ -3317,6 +3740,8 @@ public sealed class DocxExporter
         OpenXmlCompositeElement container,
         FieldStartInline fieldStart,
         IReadOnlyList<Inline> inlines,
+        VibeDocument document,
+        ParagraphContextualSpacingResolver spacingResolver,
         NumberingContext numberingContext,
         ImageWriter imageWriter,
         ChartWriter chartWriter,
@@ -3337,7 +3762,7 @@ public sealed class DocxExporter
             field.Dirty = new OnOffValue(true);
         }
 
-        AppendInlineSequence(field, inlines, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts);
+        AppendInlineSequence(field, inlines, document, spacingResolver, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts);
         if (!field.ChildElements.Any())
         {
             field.AppendChild(new Run(new Text(string.Empty)));
@@ -6464,6 +6889,8 @@ public sealed class DocxExporter
 
     private static Drawing CreateShapeDrawing(
         ShapeInline shapeInline,
+        VibeDocument document,
+        ParagraphContextualSpacingResolver spacingResolver,
         NumberingContext numberingContext,
         ImageWriter imageWriter,
         ChartWriter chartWriter,
@@ -6481,7 +6908,7 @@ public sealed class DocxExporter
 
         var shapeProperties = BuildShapeProperties(shapeInline, widthEmu, heightEmu);
         var bodyProperties = BuildShapeBodyProperties(shapeInline.TextBox);
-        var textBox = BuildShapeTextBox(shapeInline.TextBox, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts);
+        var textBox = BuildShapeTextBox(shapeInline.TextBox, document, spacingResolver, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts);
 
         var wpsShape = new Wps.WordprocessingShape();
         wpsShape.AppendChild(new Wps.NonVisualDrawingProperties { Id = 0U, Name = name });
@@ -6582,6 +7009,8 @@ public sealed class DocxExporter
 
     private static Wps.TextBoxInfo2? BuildShapeTextBox(
         ShapeTextBox? textBox,
+        VibeDocument document,
+        ParagraphContextualSpacingResolver spacingResolver,
         NumberingContext numberingContext,
         ImageWriter imageWriter,
         ChartWriter chartWriter,
@@ -6598,7 +7027,7 @@ public sealed class DocxExporter
 
         var info = new Wps.TextBoxInfo2();
         var content = new TextBoxContent();
-        AppendBlocks(content, textBox.Blocks, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts);
+        AppendBlocks(content, textBox.Blocks, document, spacingResolver, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts);
         if (!content.ChildElements.Any())
         {
             content.AppendChild(new Paragraph(new Run(new Text(string.Empty))));

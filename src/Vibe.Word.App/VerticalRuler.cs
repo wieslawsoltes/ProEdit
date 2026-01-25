@@ -17,9 +17,6 @@ public sealed class VerticalRuler : Control
     public static readonly StyledProperty<Color> SurfaceColorProperty =
         AvaloniaProperty.Register<VerticalRuler, Color>(nameof(SurfaceColor), new Color(255, 238, 241, 245));
 
-    private const float MinorTick = RulerHelpers.DipPerInch / 8f;
-    private const float MajorTick = RulerHelpers.DipPerInch / 2f;
-    private const float LabelTick = RulerHelpers.DipPerInch;
     private const float MarkerHitSize = 6f;
     private const float MarkerWidth = 8f;
     private const float MarkerHeight = 6f;
@@ -289,24 +286,27 @@ public sealed class VerticalRuler : Control
         var viewBottomDoc = (offsetY + height) / zoom;
         var origin = ruler.ContentTop;
 
-        var startIndex = (int)MathF.Floor((viewTopDoc - origin) / MinorTick) - 1;
-        var endIndex = (int)MathF.Ceiling((viewBottomDoc - origin) / MinorTick) + 1;
+        var minorTick = RulerHelpers.MinorTick;
+        var majorStep = RulerHelpers.MinorTicksPerMajor;
+        var labelStep = RulerHelpers.MinorTicksPerLabel;
+        var startIndex = (int)MathF.Floor((viewTopDoc - origin) / minorTick) - 1;
+        var endIndex = (int)MathF.Ceiling((viewBottomDoc - origin) / minorTick) + 1;
 
         for (var i = startIndex; i <= endIndex; i++)
         {
-            var docY = origin + i * MinorTick;
-            if (docY < ruler.PageTop - MinorTick || docY > ruler.PageBottom + MinorTick)
+            var docY = origin + i * minorTick;
+            if (docY < ruler.PageTop - minorTick || docY > ruler.PageBottom + minorTick)
             {
                 continue;
             }
 
             var screenY = docY * zoom - offsetY;
             var tickWidth = 3f;
-            if (i % (int)(LabelTick / MinorTick) == 0)
+            if (i % labelStep == 0)
             {
                 tickWidth = 8f;
             }
-            else if (i % (int)(MajorTick / MinorTick) == 0)
+            else if (i % majorStep == 0)
             {
                 tickWidth = 6f;
             }
@@ -317,9 +317,9 @@ public sealed class VerticalRuler : Control
 
             context.DrawLine(TickPen, new Point(width - tickWidth, screenY), new Point(width, screenY));
 
-            if (i % (int)(LabelTick / MinorTick) == 0)
+            if (i % labelStep == 0)
             {
-                var labelValue = i / (int)(LabelTick / MinorTick);
+                var labelValue = i / labelStep;
                 DrawLabel(context, labelValue.ToString(CultureInfo.InvariantCulture), 2f, screenY - 6f);
             }
         }

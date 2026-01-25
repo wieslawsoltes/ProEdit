@@ -23,6 +23,7 @@ internal static class DocumentTemplates
         ApplyThemeFonts(document);
         ApplyDefaultTextStyle(document);
         ApplyDefaultParagraphDefaults(document);
+        DocumentDefaults.ApplyDefaultPageSetup(document.SectionProperties);
         ApplyStyles(document);
     }
 

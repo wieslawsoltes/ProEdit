@@ -7,6 +7,13 @@ namespace Vibe.Word.App;
 internal static class RulerHelpers
 {
     public const float DipPerInch = 96f;
+    public const float DipPerCentimeter = DipPerInch / 2.54f;
+    public static readonly bool UseMetricUnits = DocumentDefaults.UseMetricUnits;
+    public static readonly float MinorTick = UseMetricUnits ? DipPerCentimeter / 10f : DipPerInch / 8f;
+    public static readonly float MajorTick = UseMetricUnits ? DipPerCentimeter / 2f : DipPerInch / 2f;
+    public static readonly float LabelTick = UseMetricUnits ? DipPerCentimeter : DipPerInch;
+    public static readonly int MinorTicksPerMajor = UseMetricUnits ? 5 : 4;
+    public static readonly int MinorTicksPerLabel = UseMetricUnits ? 10 : 8;
     public const float MinContentSize = 36f;
     public const float MinColumnWidth = 12f;
 
