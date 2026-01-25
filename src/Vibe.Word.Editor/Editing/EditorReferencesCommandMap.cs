@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using System.Threading.Tasks;
 using Vibe.Office.Documents;
 using Vibe.Office.Editing;
 using Vibe.Office.Layout;
@@ -18,16 +19,18 @@ public sealed class EditorReferencesCommandMap
     private const string AuthoritiesTitleText = "Table of Authorities";
     private readonly EditorCommandRouterAdapter _router;
     private readonly IEditorMutableSession _session;
+    private readonly EditorServices _services;
     private int _contentControlCounter;
     private int _footnoteCounter;
     private int _endnoteCounter;
     private int _citationCounter;
     private readonly Dictionary<string, int> _captionCounters = new(StringComparer.OrdinalIgnoreCase);
 
-    public EditorReferencesCommandMap(EditorCommandRouterAdapter router, IEditorMutableSession session)
+    public EditorReferencesCommandMap(EditorCommandRouterAdapter router, IEditorMutableSession session, EditorServices services)
     {
         _router = router ?? throw new ArgumentNullException(nameof(router));
         _session = session ?? throw new ArgumentNullException(nameof(session));
+        _services = services ?? throw new ArgumentNullException(nameof(services));
         _contentControlCounter = FindNextContentControlId(session.Document);
         _footnoteCounter = FindNextId(session.Document.Footnotes.Keys);
         _endnoteCounter = FindNextId(session.Document.Endnotes.Keys);
@@ -54,6 +57,11 @@ public sealed class EditorReferencesCommandMap
         _router.RegisterAction(EditorReferencesCommandIds.Index.InsertIndex, (_, payload) => InsertIndex(payload), (context, _) => HasParagraphs(context));
         _router.RegisterAction(EditorReferencesCommandIds.TableOfAuthorities.MarkCitation, (_, payload) => MarkAuthorityEntry(payload), (context, _) => HasParagraphs(context));
         _router.RegisterAction(EditorReferencesCommandIds.TableOfAuthorities.InsertTable, (_, payload) => InsertTableOfAuthorities(payload), (context, _) => HasParagraphs(context));
+        _router.RegisterAction(EditorReferencesCommandIds.Fields.UpdateCurrent, (_, __) => UpdateFields(FieldUpdateScope.Current, false), (context, _) => HasFields(context));
+        _router.RegisterAction(EditorReferencesCommandIds.Fields.UpdateAll, (_, __) => UpdateFields(FieldUpdateScope.Document, false), (context, _) => HasFields(context));
+        _router.RegisterAction(EditorReferencesCommandIds.Fields.UpdatePageNumbers, (_, __) => UpdateFields(FieldUpdateScope.Document, true), (context, _) => HasFields(context));
+        _router.RegisterAction(EditorReferencesCommandIds.Fields.Lock, (_, __) => SetFieldLocks(true), (context, _) => HasFields(context));
+        _router.RegisterAction(EditorReferencesCommandIds.Fields.Unlock, (_, __) => SetFieldLocks(false), (context, _) => HasFields(context));
     }
 
     private bool HasParagraphs(RibbonContextSnapshot? context)
@@ -64,6 +72,24 @@ public sealed class EditorReferencesCommandMap
         }
 
         return _session.Document.ParagraphCount > 0;
+    }
+
+    private bool HasFields(RibbonContextSnapshot? context)
+    {
+        if (!HasParagraphs(context))
+        {
+            return false;
+        }
+
+        foreach (var (paragraph, _) in EnumerateBodyParagraphs())
+        {
+            if (HasFields(paragraph))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private void InsertTableOfContents(object? payload)
@@ -128,7 +154,8 @@ public sealed class EditorReferencesCommandMap
             new RunInline($"{label} "),
             new FieldStartInline(instruction)
             {
-                Definition = FieldInstructionParser.Parse(instruction)
+                Definition = FieldInstructionParser.Parse(instruction),
+                IsDirty = true
             },
             new FieldSeparatorInline(),
             new RunInline(index.ToString(CultureInfo.InvariantCulture)),
@@ -189,22 +216,20 @@ public sealed class EditorReferencesCommandMap
 
     private void InsertCitation(object? payload)
     {
-        var key = ResolveEntryText(payload, "Citation", _citationCounter++);
-        var instruction = $"CITATION \"{EscapeFieldText(key)}\"";
-        var startInline = new FieldStartInline(instruction)
+        if (payload is string key && !string.IsNullOrWhiteSpace(key))
         {
-            Definition = FieldInstructionParser.Parse(instruction)
-        };
+            InsertCitationWithKey(key.Trim());
+            return;
+        }
 
-        var inlines = new Inline[]
+        if (TryGetCitationSourceManager(out var manager))
         {
-            startInline,
-            new FieldSeparatorInline(),
-            new RunInline(key),
-            new FieldEndInline()
-        };
+            _ = InsertCitationWithPickerAsync(manager, payload);
+            return;
+        }
 
-        _session.InsertInlines(inlines);
+        var fallback = ResolveEntryText(payload, "Citation", _citationCounter++);
+        InsertCitationWithKey(fallback);
     }
 
     private void InsertBibliography()
@@ -212,14 +237,16 @@ public sealed class EditorReferencesCommandMap
         var instruction = "BIBLIOGRAPHY";
         var startInline = new FieldStartInline(instruction)
         {
-            Definition = FieldInstructionParser.Parse(instruction)
+            Definition = FieldInstructionParser.Parse(instruction),
+            IsDirty = true
         };
 
+        var display = BuildBibliographyDisplay();
         var inlines = new Inline[]
         {
             startInline,
             new FieldSeparatorInline(),
-            new RunInline("Bibliography"),
+            new RunInline(display),
             new FieldEndInline()
         };
 
@@ -228,7 +255,150 @@ public sealed class EditorReferencesCommandMap
 
     private void ManageSources()
     {
-        // Placeholder for future source management UI.
+        if (!TryGetCitationSourceManager(out var manager))
+        {
+            return;
+        }
+
+        _ = ManageSourcesAsync(manager);
+    }
+
+    private void InsertCitationWithKey(string key)
+    {
+        var instruction = $"CITATION \"{EscapeFieldText(key)}\"";
+        var startInline = new FieldStartInline(instruction)
+        {
+            Definition = FieldInstructionParser.Parse(instruction),
+            IsDirty = true
+        };
+
+        var display = BuildCitationDisplay(key);
+        var inlines = new Inline[]
+        {
+            startInline,
+            new FieldSeparatorInline(),
+            new RunInline(display),
+            new FieldEndInline()
+        };
+
+        _session.InsertInlines(inlines);
+    }
+
+    private async Task InsertCitationWithPickerAsync(ICitationSourceManager manager, object? payload)
+    {
+        try
+        {
+            var selected = await manager.PickSourceAsync(_session.Document.CitationSources);
+            if (!string.IsNullOrWhiteSpace(selected))
+            {
+                InsertCitationWithKey(selected.Trim());
+                return;
+            }
+
+            var fallback = ResolveEntryText(payload, "Citation", _citationCounter++);
+            InsertCitationWithKey(fallback);
+        }
+        catch (Exception)
+        {
+            // Swallow dialog exceptions to avoid unobserved task failures.
+            var fallback = ResolveEntryText(payload, "Citation", _citationCounter++);
+            InsertCitationWithKey(fallback);
+        }
+    }
+
+    private async Task ManageSourcesAsync(ICitationSourceManager manager)
+    {
+        try
+        {
+            var updated = await manager.EditSourcesAsync(_session.Document.CitationSources.Clone());
+            if (updated is null)
+            {
+                return;
+            }
+
+            var target = _session.Document.CitationSources;
+            target.Sources.Clear();
+            foreach (var source in updated.Sources)
+            {
+                target.Sources.Add(source.Clone());
+            }
+
+            target.EnsureUniqueTags();
+            UpdateFields(FieldUpdateScope.Document, pageNumbersOnly: false);
+        }
+        catch (Exception)
+        {
+            // Swallow dialog exceptions to avoid unobserved task failures.
+        }
+    }
+
+    private bool TryGetCitationSourceManager(out ICitationSourceManager manager)
+    {
+        return _services.TryGet(out manager);
+    }
+
+    private string BuildCitationDisplay(string key)
+    {
+        var source = _session.Document.CitationSources.FindByTag(key);
+        if (source is null)
+        {
+            return key;
+        }
+
+        var author = source.GetField("Author");
+        var year = source.GetField("Year");
+        var title = source.GetField("Title");
+        if (!string.IsNullOrWhiteSpace(author) && !string.IsNullOrWhiteSpace(year))
+        {
+            return string.Format(CultureInfo.CurrentCulture, "{0}, {1}", author, year);
+        }
+
+        if (!string.IsNullOrWhiteSpace(author) && !string.IsNullOrWhiteSpace(title))
+        {
+            return string.Format(CultureInfo.CurrentCulture, "{0}, {1}", author, title);
+        }
+
+        if (!string.IsNullOrWhiteSpace(title))
+        {
+            return title;
+        }
+
+        return key;
+    }
+
+    private string BuildBibliographyDisplay()
+    {
+        var sources = _session.Document.CitationSources.Sources;
+        if (sources.Count == 0)
+        {
+            return "Bibliography";
+        }
+
+        var entries = new List<string>(sources.Count);
+        foreach (var source in sources)
+        {
+            var author = source.GetField("Author");
+            var year = source.GetField("Year");
+            var title = source.GetField("Title");
+            if (!string.IsNullOrWhiteSpace(author) && !string.IsNullOrWhiteSpace(year))
+            {
+                entries.Add(string.Format(CultureInfo.CurrentCulture, "{0} ({1})", author, year));
+            }
+            else if (!string.IsNullOrWhiteSpace(author) && !string.IsNullOrWhiteSpace(title))
+            {
+                entries.Add(string.Format(CultureInfo.CurrentCulture, "{0}. {1}.", author, title));
+            }
+            else if (!string.IsNullOrWhiteSpace(title))
+            {
+                entries.Add(title);
+            }
+            else if (!string.IsNullOrWhiteSpace(source.Tag))
+            {
+                entries.Add(source.Tag);
+            }
+        }
+
+        return entries.Count == 0 ? "Bibliography" : string.Join("; ", entries);
     }
 
     private void SetCitationStyle(object? payload)
@@ -280,7 +450,8 @@ public sealed class EditorReferencesCommandMap
         var instruction = $"XE \"{EscapeFieldText(entry)}\"";
         var startInline = new FieldStartInline(instruction)
         {
-            Definition = FieldInstructionParser.Parse(instruction)
+            Definition = FieldInstructionParser.Parse(instruction),
+            IsDirty = true
         };
 
         var inlines = new Inline[]
@@ -321,7 +492,8 @@ public sealed class EditorReferencesCommandMap
         var instruction = $"TA \"{EscapeFieldText(entry)}\"";
         var startInline = new FieldStartInline(instruction)
         {
-            Definition = FieldInstructionParser.Parse(instruction)
+            Definition = FieldInstructionParser.Parse(instruction),
+            IsDirty = true
         };
 
         var inlines = new Inline[]
@@ -1786,6 +1958,434 @@ public sealed class EditorReferencesCommandMap
             yield return paragraph;
         }
     }
+
+    private void UpdateFields(FieldUpdateScope scope, bool pageNumbersOnly)
+    {
+        if (_session.Document.ParagraphCount == 0)
+        {
+            return;
+        }
+
+        var selection = _session.Selection.Normalize();
+        if (scope == FieldUpdateScope.Current && selection.IsEmpty)
+        {
+            if (TryUpdateFieldAtCaret(pageNumbersOnly))
+            {
+                _session.RefreshLayout();
+            }
+
+            return;
+        }
+
+        TextRange? range = scope == FieldUpdateScope.Document ? null : selection;
+        if (UpdateFieldsInDocument(range, pageNumbersOnly))
+        {
+            _session.RefreshLayout();
+        }
+    }
+
+    private bool UpdateFieldsInDocument(TextRange? range, bool pageNumbersOnly)
+    {
+        var updated = false;
+        foreach (var (paragraph, paragraphIndex) in EnumerateBodyParagraphs())
+        {
+            var spans = BuildFieldSpans(paragraph);
+            if (spans.Count == 0)
+            {
+                continue;
+            }
+
+            for (var i = spans.Count - 1; i >= 0; i--)
+            {
+                var span = spans[i];
+                if (range.HasValue && !IntersectsRange(paragraphIndex, span, range.Value))
+                {
+                    continue;
+                }
+
+                if (TryBuildFieldResult(span, paragraph, paragraphIndex, pageNumbersOnly, out var resultInline))
+                {
+                    ReplaceFieldResult(paragraph, span, resultInline);
+                    updated = true;
+                }
+            }
+        }
+
+        return updated;
+    }
+
+    private bool TryUpdateFieldAtCaret(bool pageNumbersOnly)
+    {
+        var caret = _session.Caret;
+        if (caret.ParagraphIndex < 0 || caret.ParagraphIndex >= _session.Document.ParagraphCount)
+        {
+            return false;
+        }
+
+        var paragraph = _session.Document.GetParagraph(caret.ParagraphIndex);
+        var spans = BuildFieldSpans(paragraph);
+        if (spans.Count == 0)
+        {
+            return false;
+        }
+
+        foreach (var span in spans)
+        {
+            if (caret.Offset >= span.StartOffset && caret.Offset <= span.EndOffset)
+            {
+                if (TryBuildFieldResult(span, paragraph, caret.ParagraphIndex, pageNumbersOnly, out var resultInline))
+                {
+                    ReplaceFieldResult(paragraph, span, resultInline);
+                    return true;
+                }
+
+                return false;
+            }
+        }
+
+        return false;
+    }
+
+    private void SetFieldLocks(bool locked)
+    {
+        if (_session.Document.ParagraphCount == 0)
+        {
+            return;
+        }
+
+        var selection = _session.Selection.Normalize();
+        var hasSelection = !selection.IsEmpty;
+        var applied = false;
+
+        foreach (var (paragraph, paragraphIndex) in EnumerateBodyParagraphs())
+        {
+            var spans = BuildFieldSpans(paragraph);
+            if (spans.Count == 0)
+            {
+                continue;
+            }
+
+            foreach (var span in spans)
+            {
+                if (hasSelection && !IntersectsRange(paragraphIndex, span, selection))
+                {
+                    continue;
+                }
+
+                span.Start.IsLocked = locked;
+                applied = true;
+            }
+        }
+
+        if (!applied && !hasSelection)
+        {
+            var caret = _session.Caret;
+            if (caret.ParagraphIndex >= 0 && caret.ParagraphIndex < _session.Document.ParagraphCount)
+            {
+                var paragraph = _session.Document.GetParagraph(caret.ParagraphIndex);
+                var spans = BuildFieldSpans(paragraph);
+                foreach (var span in spans)
+                {
+                    if (caret.Offset >= span.StartOffset && caret.Offset <= span.EndOffset)
+                    {
+                        span.Start.IsLocked = locked;
+                        applied = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (applied)
+        {
+            _session.RefreshLayout();
+        }
+    }
+
+    private bool TryBuildFieldResult(
+        FieldSpan span,
+        ParagraphBlock paragraph,
+        int paragraphIndex,
+        bool pageNumbersOnly,
+        out Inline? resultInline)
+    {
+        resultInline = null;
+        var fieldStart = span.Start;
+        if (fieldStart.IsLocked)
+        {
+            return false;
+        }
+
+        var definition = fieldStart.Definition ??= FieldInstructionParser.Parse(fieldStart.Instruction);
+        if (definition is null)
+        {
+            return false;
+        }
+
+        var kind = definition.Kind;
+        if (pageNumbersOnly && kind is not FieldKind.Page and not FieldKind.NumPages)
+        {
+            return false;
+        }
+
+        string? text = kind switch
+        {
+            FieldKind.Page => ResolveFieldPageNumber(paragraphIndex, span.StartOffset),
+            FieldKind.NumPages => _session.Layout.Pages.Count.ToString(CultureInfo.InvariantCulture),
+            FieldKind.Date => ResolveFieldDateTime(definition, false),
+            FieldKind.Time => ResolveFieldDateTime(definition, true),
+            FieldKind.Citation => ResolveCitationFieldText(definition),
+            FieldKind.Bibliography => BuildBibliographyDisplay(),
+            _ => null
+        };
+
+        if (text is null)
+        {
+            return false;
+        }
+
+        var (style, styleId) = ResolveFieldResultStyle(paragraph, span);
+        var run = new RunInline(text, style)
+        {
+            StyleId = styleId
+        };
+
+        fieldStart.IsDirty = false;
+        resultInline = run;
+        return true;
+    }
+
+    private string ResolveFieldPageNumber(int paragraphIndex, int startOffset)
+    {
+        var position = new TextPosition(paragraphIndex, startOffset);
+        var lineIndex = EditorSelectionService.FindLineIndexForPosition(_session.Layout, position, out _);
+        var pageIndex = _session.Layout.LineIndex.GetPageForLine(lineIndex);
+        if (pageIndex < 0)
+        {
+            pageIndex = 0;
+        }
+
+        return (pageIndex + 1).ToString(CultureInfo.InvariantCulture);
+    }
+
+    private static string ResolveFieldDateTime(FieldDefinition definition, bool timeOnly)
+    {
+        var format = ResolveFieldFormat(definition);
+        if (string.IsNullOrWhiteSpace(format))
+        {
+            format = timeOnly ? "t" : "d";
+        }
+
+        return DateTime.Now.ToString(format, CultureInfo.CurrentCulture);
+    }
+
+    private string? ResolveCitationFieldText(FieldDefinition definition)
+    {
+        if (definition.Arguments.Count == 0)
+        {
+            return null;
+        }
+
+        var tag = definition.Arguments[0].Value;
+        if (string.IsNullOrWhiteSpace(tag))
+        {
+            return null;
+        }
+
+        return BuildCitationDisplay(tag.Trim());
+    }
+
+    private static string? ResolveFieldFormat(FieldDefinition definition)
+    {
+        foreach (var fieldSwitch in definition.Switches)
+        {
+            if (string.Equals(fieldSwitch.Name, "\\@", StringComparison.OrdinalIgnoreCase))
+            {
+                return fieldSwitch.Value;
+            }
+        }
+
+        return null;
+    }
+
+    private static (TextStyleProperties? Style, string? StyleId) ResolveFieldResultStyle(ParagraphBlock paragraph, FieldSpan span)
+    {
+        var inlines = paragraph.Inlines;
+        var resultStart = span.SeparatorIndex >= 0 ? span.SeparatorIndex + 1 : span.StartIndex + 1;
+        var resultEnd = span.EndIndex;
+        for (var i = resultStart; i < resultEnd && i < inlines.Count; i++)
+        {
+            if (inlines[i] is RunInline run)
+            {
+                return (run.Style?.Clone(), run.StyleId);
+            }
+        }
+
+        return (null, null);
+    }
+
+    private static void ReplaceFieldResult(ParagraphBlock paragraph, FieldSpan span, Inline? resultInline)
+    {
+        var inlines = paragraph.Inlines;
+        var separatorIndex = span.SeparatorIndex;
+        var endIndex = span.EndIndex;
+        if (separatorIndex < 0)
+        {
+            separatorIndex = span.StartIndex + 1;
+            inlines.Insert(separatorIndex, new FieldSeparatorInline());
+            endIndex++;
+        }
+
+        var resultStart = separatorIndex + 1;
+        var removeCount = Math.Max(0, endIndex - resultStart);
+        if (removeCount > 0 && resultStart < inlines.Count)
+        {
+            inlines.RemoveRange(resultStart, Math.Min(removeCount, inlines.Count - resultStart));
+        }
+
+        if (resultInline is not null)
+        {
+            inlines.Insert(resultStart, resultInline);
+        }
+    }
+
+    private static bool IntersectsRange(int paragraphIndex, FieldSpan span, TextRange selection)
+    {
+        var fieldStart = new TextPosition(paragraphIndex, span.StartOffset);
+        var fieldEnd = new TextPosition(paragraphIndex, span.EndOffset);
+        var start = selection.Normalize().Start;
+        var end = selection.Normalize().End;
+
+        if (ComparePositions(fieldEnd, start) < 0)
+        {
+            return false;
+        }
+
+        if (ComparePositions(fieldStart, end) > 0)
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private static int ComparePositions(TextPosition left, TextPosition right)
+    {
+        var paragraphCompare = left.ParagraphIndex.CompareTo(right.ParagraphIndex);
+        if (paragraphCompare != 0)
+        {
+            return paragraphCompare;
+        }
+
+        return left.Offset.CompareTo(right.Offset);
+    }
+
+    private static bool HasFields(ParagraphBlock paragraph)
+    {
+        foreach (var inline in paragraph.Inlines)
+        {
+            if (inline is FieldStartInline)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static List<FieldSpan> BuildFieldSpans(ParagraphBlock paragraph)
+    {
+        var spans = new List<FieldSpan>();
+        if (paragraph.Inlines.Count == 0)
+        {
+            return spans;
+        }
+
+        var inlines = paragraph.Inlines;
+        var offsets = new int[inlines.Count];
+        var offset = 0;
+        for (var i = 0; i < inlines.Count; i++)
+        {
+            offsets[i] = offset;
+            offset += DocumentEditHelpers.GetInlineLength(inlines[i]);
+        }
+
+        for (var i = 0; i < inlines.Count; i++)
+        {
+            if (inlines[i] is not FieldStartInline start)
+            {
+                continue;
+            }
+
+            var separatorIndex = -1;
+            var endIndex = -1;
+            for (var j = i + 1; j < inlines.Count; j++)
+            {
+                if (inlines[j] is FieldSeparatorInline && separatorIndex < 0)
+                {
+                    separatorIndex = j;
+                    continue;
+                }
+
+                if (inlines[j] is FieldEndInline)
+                {
+                    endIndex = j;
+                    break;
+                }
+            }
+
+            if (endIndex <= i)
+            {
+                continue;
+            }
+
+            spans.Add(new FieldSpan(start, i, separatorIndex, endIndex, offsets[i], offsets[endIndex]));
+            i = endIndex;
+        }
+
+        return spans;
+    }
+
+    private IEnumerable<(ParagraphBlock Paragraph, int ParagraphIndex)> EnumerateBodyParagraphs()
+    {
+        var paragraphIndex = 0;
+        foreach (var block in _session.Document.Blocks)
+        {
+            switch (block)
+            {
+                case ParagraphBlock paragraph:
+                    yield return (paragraph, paragraphIndex++);
+                    break;
+                case TableBlock table:
+                    foreach (var row in table.Rows)
+                    {
+                        foreach (var cell in row.Cells)
+                        {
+                            foreach (var paragraph in cell.Paragraphs)
+                            {
+                                yield return (paragraph, paragraphIndex++);
+                            }
+                        }
+                    }
+
+                    break;
+            }
+        }
+    }
+
+    private enum FieldUpdateScope
+    {
+        Current,
+        Document
+    }
+
+    private readonly record struct FieldSpan(
+        FieldStartInline Start,
+        int StartIndex,
+        int SeparatorIndex,
+        int EndIndex,
+        int StartOffset,
+        int EndOffset);
 
     private enum NoteKind
     {

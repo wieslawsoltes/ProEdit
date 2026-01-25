@@ -1,3 +1,4 @@
+using System.Text;
 using Vibe.Office.Documents;
 using Vibe.Office.Editing;
 
@@ -20,6 +21,16 @@ public sealed class EditorReviewCommandMap
 
     public void Register()
     {
+        _router.RegisterAction(EditorReviewCommandIds.Proofing.SpellingGrammar, (_, __) => ShowNotImplemented("Spelling & Grammar", "Spelling and grammar checking is not available yet."), (context, _) => HasParagraphs(context), isUndoable: false);
+        _router.RegisterAction(EditorReviewCommandIds.Proofing.Thesaurus, (_, __) => ShowNotImplemented("Thesaurus", "Thesaurus lookup is not available yet."), (context, _) => HasParagraphs(context), isUndoable: false);
+        _router.RegisterAction(EditorReviewCommandIds.Proofing.WordCount, (_, __) => ShowWordCount(), (context, _) => HasParagraphs(context), isUndoable: false);
+
+        _router.RegisterAction(EditorReviewCommandIds.Speech.ReadAloud, (_, __) => ShowNotImplemented("Read Aloud", "Read Aloud is not available yet."), (context, _) => HasParagraphs(context), isUndoable: false);
+        _router.RegisterAction(EditorReviewCommandIds.Accessibility.CheckAccessibility, (_, __) => ShowNotImplemented("Accessibility", "Accessibility checks are not available yet."), (context, _) => HasParagraphs(context), isUndoable: false);
+
+        _router.RegisterAction(EditorReviewCommandIds.Language.Translate, (_, __) => ShowNotImplemented("Translate", "Translation is not available yet."), (context, _) => HasParagraphs(context), isUndoable: false);
+        _router.RegisterAction(EditorReviewCommandIds.Language.SetLanguage, (_, payload) => SetLanguage(payload), (context, _) => HasParagraphs(context));
+
         _router.RegisterAction(EditorReviewCommandIds.Comments.NewComment, (_, __) => InsertComment(), (context, _) => HasParagraphs(context));
         _router.RegisterAction(EditorReviewCommandIds.Comments.DeleteComment, (_, __) => DeleteComment(), (context, _) => HasComments(context));
         _router.RegisterAction(EditorReviewCommandIds.Comments.PreviousComment, (_, __) => NavigateComment(-1), (context, _) => HasComments(context));
@@ -31,8 +42,15 @@ public sealed class EditorReviewCommandMap
 
         _router.RegisterAction(EditorReviewCommandIds.Changes.Accept, (_, __) => ApplyRevision(true), (context, _) => HasRevisions(context));
         _router.RegisterAction(EditorReviewCommandIds.Changes.Reject, (_, __) => ApplyRevision(false), (context, _) => HasRevisions(context));
+        _router.RegisterAction(EditorReviewCommandIds.Changes.AcceptAll, (_, __) => ApplyAllRevisions(true), (context, _) => HasRevisions(context));
+        _router.RegisterAction(EditorReviewCommandIds.Changes.RejectAll, (_, __) => ApplyAllRevisions(false), (context, _) => HasRevisions(context));
         _router.RegisterAction(EditorReviewCommandIds.Changes.PreviousChange, (_, __) => NavigateRevision(-1), (context, _) => HasRevisions(context));
         _router.RegisterAction(EditorReviewCommandIds.Changes.NextChange, (_, __) => NavigateRevision(1), (context, _) => HasRevisions(context));
+
+        _router.RegisterAction(EditorReviewCommandIds.Compare.CompareDocuments, (_, __) => ShowNotImplemented("Compare Documents", "Document comparison is not available yet."), (context, _) => HasParagraphs(context), isUndoable: false);
+        _router.RegisterAction(EditorReviewCommandIds.Compare.Combine, (_, __) => ShowNotImplemented("Combine Documents", "Document combine is not available yet."), (context, _) => HasParagraphs(context), isUndoable: false);
+
+        _router.RegisterAction(EditorReviewCommandIds.Protect.RestrictEditing, (_, __) => ShowNotImplemented("Restrict Editing", "Restrict editing is not available yet."), (context, _) => HasParagraphs(context), isUndoable: false);
     }
 
     private bool HasParagraphs(RibbonContextSnapshot? context)
@@ -143,6 +161,167 @@ public sealed class EditorReviewCommandMap
         return false;
     }
 
+    private void ShowNotImplemented(string title, string message)
+    {
+        if (!TryGetDialogService(out var dialog))
+        {
+            return;
+        }
+
+        _ = dialog.ShowMessageAsync(title, message);
+    }
+
+    private void ShowWordCount()
+    {
+        if (!TryGetDialogService(out var dialog))
+        {
+            return;
+        }
+
+        var totals = new WordCountTotals();
+        AccumulateDocument(_session.Document, ref totals);
+        var message = BuildWordCountMessage(totals);
+        _ = dialog.ShowMessageAsync("Word Count", message);
+    }
+
+    private void SetLanguage(object? payload)
+    {
+        var language = payload as string;
+        if (string.IsNullOrWhiteSpace(language))
+        {
+            ShowNotImplemented("Language", "Provide a language code to update the document language.");
+            return;
+        }
+
+        _session.Document.DefaultTextStyle.Language = language.Trim();
+        _session.RefreshLayout();
+    }
+
+    private bool TryGetDialogService(out IEditorDialogService dialogService)
+    {
+        return _services.TryGet(out dialogService);
+    }
+
+    private static void AccumulateDocument(Document document, ref WordCountTotals totals)
+    {
+        AccumulateBlocks(document.Blocks, ref totals);
+
+        foreach (var footnote in document.Footnotes.Values)
+        {
+            AccumulateBlocks(footnote.Blocks, ref totals);
+        }
+
+        foreach (var endnote in document.Endnotes.Values)
+        {
+            AccumulateBlocks(endnote.Blocks, ref totals);
+        }
+    }
+
+    private static void AccumulateBlocks(IReadOnlyList<Block> blocks, ref WordCountTotals totals)
+    {
+        foreach (var block in blocks)
+        {
+            switch (block)
+            {
+                case ParagraphBlock paragraph:
+                    AccumulateParagraph(paragraph, ref totals);
+                    break;
+                case TableBlock table:
+                    foreach (var row in table.Rows)
+                    {
+                        foreach (var cell in row.Cells)
+                        {
+                            foreach (var paragraph in cell.Paragraphs)
+                            {
+                                AccumulateParagraph(paragraph, ref totals);
+                            }
+                        }
+                    }
+
+                    break;
+            }
+        }
+    }
+
+    private static void AccumulateParagraph(ParagraphBlock paragraph, ref WordCountTotals totals)
+    {
+        DocumentEditHelpers.EnsureParagraphInlines(paragraph);
+        var text = DocumentEditHelpers.GetParagraphText(paragraph);
+        AddText(text, ref totals);
+        totals.Paragraphs++;
+
+        foreach (var inline in paragraph.Inlines)
+        {
+            if (inline is ShapeInline shape && shape.TextBox is { } textBox)
+            {
+                AccumulateBlocks(textBox.Blocks, ref totals);
+            }
+        }
+
+        foreach (var floating in paragraph.FloatingObjects)
+        {
+            if (floating.Content is ShapeInline shape && shape.TextBox is { } textBox)
+            {
+                AccumulateBlocks(textBox.Blocks, ref totals);
+            }
+        }
+    }
+
+    private static void AddText(string text, ref WordCountTotals totals)
+    {
+        totals.Characters += text.Length;
+        totals.Words += CountWords(text.AsSpan());
+
+        foreach (var ch in text)
+        {
+            if (!char.IsWhiteSpace(ch))
+            {
+                totals.CharactersNoSpaces++;
+            }
+        }
+    }
+
+    private static int CountWords(ReadOnlySpan<char> text)
+    {
+        var count = 0;
+        var inWord = false;
+        for (var i = 0; i < text.Length; i++)
+        {
+            if (char.IsLetterOrDigit(text[i]))
+            {
+                if (!inWord)
+                {
+                    count++;
+                    inWord = true;
+                }
+            }
+            else
+            {
+                inWord = false;
+            }
+        }
+
+        return count;
+    }
+
+    private static string BuildWordCountMessage(WordCountTotals totals)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine($"Words: {totals.Words}");
+        builder.AppendLine($"Characters (with spaces): {totals.Characters}");
+        builder.AppendLine($"Characters (no spaces): {totals.CharactersNoSpaces}");
+        builder.AppendLine($"Paragraphs: {totals.Paragraphs}");
+        return builder.ToString().TrimEnd();
+    }
+
+    private struct WordCountTotals
+    {
+        public int Words;
+        public int Characters;
+        public int CharactersNoSpaces;
+        public int Paragraphs;
+    }
+
     private void InsertComment()
     {
         var range = ResolveCommentRange();
@@ -206,6 +385,40 @@ public sealed class EditorReviewCommandMap
         }
 
         ApplyInlineRevision(span.InlineSpan, accept);
+        _session.RefreshLayout();
+    }
+
+    private void ApplyAllRevisions(bool accept)
+    {
+        var inlineSpans = CollectInlineRevisionSpans();
+        var blockSpans = CollectBlockRevisionSpans();
+        if (inlineSpans.Count == 0 && blockSpans.Count == 0)
+        {
+            return;
+        }
+
+        inlineSpans.Sort((left, right) =>
+        {
+            var paragraphCompare = right.ParagraphIndex.CompareTo(left.ParagraphIndex);
+            if (paragraphCompare != 0)
+            {
+                return paragraphCompare;
+            }
+
+            return right.StartOffset.CompareTo(left.StartOffset);
+        });
+
+        foreach (var span in inlineSpans)
+        {
+            ApplyInlineRevision(span, accept);
+        }
+
+        blockSpans.Sort((left, right) => right.StartBlockIndex.CompareTo(left.StartBlockIndex));
+        foreach (var span in blockSpans)
+        {
+            ApplyBlockRevision(span, accept);
+        }
+
         _session.RefreshLayout();
     }
 

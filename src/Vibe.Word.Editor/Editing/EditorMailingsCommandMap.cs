@@ -330,7 +330,8 @@ public sealed class EditorMailingsCommandMap
     {
         var startInline = new FieldStartInline(instruction)
         {
-            Definition = FieldInstructionParser.Parse(instruction)
+            Definition = FieldInstructionParser.Parse(instruction),
+            IsDirty = true
         };
 
         var inlines = new Inline[]

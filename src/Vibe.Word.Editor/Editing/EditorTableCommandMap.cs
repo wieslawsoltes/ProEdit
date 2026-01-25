@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Linq;
 using Vibe.Office.Documents;
 using Vibe.Office.Editing;
@@ -38,11 +39,21 @@ public sealed class EditorTableCommandMap
         _router.RegisterAction(EditorTableCommandIds.Layout.DistributeColumns, (_, __) => DistributeColumns(), CanEditTable);
         _router.RegisterAction(EditorTableCommandIds.Layout.DistributeRows, (_, __) => DistributeRows(), CanEditTable);
         _router.RegisterAction(EditorTableCommandIds.Layout.ColumnWidthsSet, (_, payload) => SetColumnWidths(payload), CanEditTable);
+        _router.RegisterAction(EditorTableCommandIds.Layout.RowHeightSet, (_, payload) => SetRowHeight(payload), CanEditTable);
         _router.RegisterAction(EditorTableCommandIds.Layout.RepeatHeaderRows, (_, __) => ToggleRepeatHeaderRows(), CanEditTable);
+        _router.RegisterAction(EditorTableCommandIds.Layout.PropertiesApply, (_, payload) => ApplyTableProperties(payload), CanEditTable);
 
         _router.RegisterAction(EditorTableCommandIds.Alignment.AlignTop, (_, __) => ApplyVerticalAlignment(TableCellVerticalAlignment.Top), CanEditTable);
         _router.RegisterAction(EditorTableCommandIds.Alignment.AlignMiddle, (_, __) => ApplyVerticalAlignment(TableCellVerticalAlignment.Center), CanEditTable);
         _router.RegisterAction(EditorTableCommandIds.Alignment.AlignBottom, (_, __) => ApplyVerticalAlignment(TableCellVerticalAlignment.Bottom), CanEditTable);
+
+        _router.RegisterAction(EditorTableCommandIds.Design.ApplyStyle, (_, payload) => ApplyTableStyle(payload), CanEditTable);
+        _router.RegisterAction(EditorTableCommandIds.Design.ToggleHeaderRow, (_, payload) => ToggleTableLook(payload, look => look.FirstRow, (look, value) => look.FirstRow = value), CanEditTable);
+        _router.RegisterAction(EditorTableCommandIds.Design.ToggleTotalRow, (_, payload) => ToggleTableLook(payload, look => look.LastRow, (look, value) => look.LastRow = value), CanEditTable);
+        _router.RegisterAction(EditorTableCommandIds.Design.ToggleFirstColumn, (_, payload) => ToggleTableLook(payload, look => look.FirstColumn, (look, value) => look.FirstColumn = value), CanEditTable);
+        _router.RegisterAction(EditorTableCommandIds.Design.ToggleLastColumn, (_, payload) => ToggleTableLook(payload, look => look.LastColumn, (look, value) => look.LastColumn = value), CanEditTable);
+        _router.RegisterAction(EditorTableCommandIds.Design.ToggleBandedRows, (_, payload) => ToggleTableLook(payload, look => look.BandedRows, (look, value) => look.BandedRows = value), CanEditTable);
+        _router.RegisterAction(EditorTableCommandIds.Design.ToggleBandedColumns, (_, payload) => ToggleTableLook(payload, look => look.BandedColumns, (look, value) => look.BandedColumns = value), CanEditTable);
     }
 
     private bool CanEditTable(RibbonContextSnapshot? context, object? payload)
@@ -211,6 +222,34 @@ public sealed class EditorTableCommandMap
         _session.RefreshLayout();
     }
 
+    private void ApplyTableStyle(object? payload)
+    {
+        if (!TryGetTableContext(out var context))
+        {
+            return;
+        }
+
+        var styleId = payload as string;
+        context.Table.StyleId = string.IsNullOrWhiteSpace(styleId) ? null : styleId.Trim();
+        _session.RefreshLayout();
+    }
+
+    private void ToggleTableLook(object? payload, Func<TableLook, bool> selector, Action<TableLook, bool> setter)
+    {
+        if (!TryGetTableContext(out var context))
+        {
+            return;
+        }
+
+        var properties = context.Table.Properties;
+        var look = properties.Look ?? new TableLook();
+        var current = selector(look);
+        var next = payload is bool requested ? requested : !current;
+        setter(look, next);
+        properties.Look = look;
+        _session.RefreshLayout();
+    }
+
     private void ToggleRepeatHeaderRows()
     {
         if (!TryGetTableContext(out var context))
@@ -258,6 +297,94 @@ public sealed class EditorTableCommandMap
         }
 
         _session.RefreshLayout();
+    }
+
+    private void ApplyTableProperties(object? payload)
+    {
+        if (payload is not EditorTablePropertiesDialogOptions options)
+        {
+            return;
+        }
+
+        if (!TryGetTableContext(out var context))
+        {
+            return;
+        }
+
+        var table = context.Table;
+        var updated = false;
+
+        if (options.Alignment.HasValue)
+        {
+            table.Properties.Alignment = options.Alignment;
+            updated = true;
+        }
+
+        if (options.LayoutMode.HasValue)
+        {
+            table.Properties.LayoutMode = options.LayoutMode;
+            updated = true;
+        }
+
+        if (options.PreferredWidthUnit == TableWidthUnit.Auto)
+        {
+            table.Properties.Width = null;
+            table.Properties.WidthUnit = TableWidthUnit.Auto;
+            updated = true;
+        }
+        else if (options.PreferredWidth.HasValue)
+        {
+            table.Properties.Width = MathF.Max(0f, options.PreferredWidth.Value);
+            table.Properties.WidthUnit = options.PreferredWidthUnit ?? TableWidthUnit.Dxa;
+            updated = true;
+        }
+
+        if (options.Indent.HasValue)
+        {
+            table.Properties.Indent = MathF.Max(0f, options.Indent.Value);
+            table.Properties.IndentUnit = options.IndentUnit ?? TableWidthUnit.Dxa;
+            updated = true;
+        }
+
+        if (options.CellSpacing.HasValue)
+        {
+            table.Properties.CellSpacing = MathF.Max(0f, options.CellSpacing.Value);
+            table.Properties.CellSpacingUnit = options.CellSpacingUnit ?? TableWidthUnit.Dxa;
+            updated = true;
+        }
+
+        if (options.CellPadding.HasValue)
+        {
+            table.Properties.CellPadding = options.CellPadding;
+            updated = true;
+        }
+
+        var selectionRange = GetSelectionRangeOrCurrent(context);
+        if (options.RowHeight.HasValue
+            || options.RowHeightRule.HasValue
+            || options.CantSplit.HasValue
+            || options.RepeatHeaderRows.HasValue)
+        {
+            ApplyRowProperties(selectionRange, options);
+            updated = true;
+        }
+
+        if (options.ColumnWidth.HasValue)
+        {
+            ApplyColumnWidth(selectionRange, options.ColumnWidth.Value);
+            updated = true;
+        }
+
+        if (options.CellVerticalAlignment.HasValue)
+        {
+            ApplyCellVerticalAlignment(selectionRange, options.CellVerticalAlignment.Value);
+            updated = true;
+        }
+
+        if (updated)
+        {
+            _session.RefreshLayout();
+        }
     }
 
     private void MergeCells()
@@ -433,6 +560,31 @@ public sealed class EditorTableCommandMap
         _session.RefreshLayout();
     }
 
+    private void SetRowHeight(object? payload)
+    {
+        if (payload is not EditorTableRowHeightRequest request)
+        {
+            return;
+        }
+
+        if (!TryGetTableContext(out var context))
+        {
+            return;
+        }
+
+        var table = context.Table;
+        if (table.Rows.Count == 0)
+        {
+            return;
+        }
+
+        var rowIndex = Math.Clamp(request.RowIndex, 0, table.Rows.Count - 1);
+        var rowProperties = table.Rows[rowIndex].Properties;
+        rowProperties.Height = MathF.Max(0f, request.Height);
+        rowProperties.HeightRule = request.Rule;
+        _session.RefreshLayout();
+    }
+
     private void DistributeColumns()
     {
         if (!TryGetTableContext(out var context))
@@ -510,6 +662,12 @@ public sealed class EditorTableCommandMap
             return;
         }
 
+        ApplyCellVerticalAlignment(range, alignment);
+        _session.RefreshLayout();
+    }
+
+    private static void ApplyCellVerticalAlignment(TableSelectionRange range, TableCellVerticalAlignment alignment)
+    {
         for (var rowIndex = range.RowStart; rowIndex <= range.RowEnd; rowIndex++)
         {
             var row = range.Table.Rows[rowIndex];
@@ -523,8 +681,145 @@ public sealed class EditorTableCommandMap
                 placement.Cell.Properties.VerticalAlignment = alignment;
             }
         }
+    }
 
-        _session.RefreshLayout();
+    private TableSelectionRange GetSelectionRangeOrCurrent(TableContext context)
+    {
+        if (TryGetSelectionRange(out var range))
+        {
+            return ClampSelectionRange(range);
+        }
+
+        var rowIndex = Math.Clamp(context.RowIndex, 0, Math.Max(0, context.Table.Rows.Count - 1));
+        var columnCount = GetColumnCount(context.Table);
+        var columnIndex = Math.Clamp(context.ColumnIndex, 0, Math.Max(0, columnCount - 1));
+        return new TableSelectionRange(context.Table, context.BlockIndex, rowIndex, rowIndex, columnIndex, columnIndex);
+    }
+
+    private static TableSelectionRange ClampSelectionRange(TableSelectionRange range)
+    {
+        var rowCount = Math.Max(1, range.Table.Rows.Count);
+        var columnCount = Math.Max(1, GetColumnCount(range.Table));
+        var rowStart = Math.Clamp(range.RowStart, 0, rowCount - 1);
+        var rowEnd = Math.Clamp(range.RowEnd, 0, rowCount - 1);
+        if (rowEnd < rowStart)
+        {
+            (rowStart, rowEnd) = (rowEnd, rowStart);
+        }
+
+        var columnStart = Math.Clamp(range.ColumnStart, 0, columnCount - 1);
+        var columnEnd = Math.Clamp(range.ColumnEnd, 0, columnCount - 1);
+        if (columnEnd < columnStart)
+        {
+            (columnStart, columnEnd) = (columnEnd, columnStart);
+        }
+
+        return range with
+        {
+            RowStart = rowStart,
+            RowEnd = rowEnd,
+            ColumnStart = columnStart,
+            ColumnEnd = columnEnd
+        };
+    }
+
+    private static void ApplyRowProperties(TableSelectionRange range, EditorTablePropertiesDialogOptions options)
+    {
+        var rowStart = Math.Clamp(range.RowStart, 0, Math.Max(0, range.Table.Rows.Count - 1));
+        var rowEnd = Math.Clamp(range.RowEnd, 0, Math.Max(0, range.Table.Rows.Count - 1));
+        if (rowEnd < rowStart)
+        {
+            (rowStart, rowEnd) = (rowEnd, rowStart);
+        }
+
+        for (var rowIndex = rowStart; rowIndex <= rowEnd; rowIndex++)
+        {
+            var rowProperties = range.Table.Rows[rowIndex].Properties;
+            if (options.RowHeight.HasValue)
+            {
+                rowProperties.Height = MathF.Max(0f, options.RowHeight.Value);
+            }
+
+            if (options.RowHeightRule.HasValue)
+            {
+                rowProperties.HeightRule = options.RowHeightRule.Value;
+            }
+
+            if (options.CantSplit.HasValue)
+            {
+                rowProperties.CantSplit = options.CantSplit.Value;
+            }
+
+            if (options.RepeatHeaderRows.HasValue)
+            {
+                rowProperties.RepeatOnEachPage = options.RepeatHeaderRows.Value;
+            }
+        }
+    }
+
+    private void ApplyColumnWidth(TableSelectionRange range, float width)
+    {
+        var columnCount = GetColumnCount(range.Table);
+        if (columnCount <= 0)
+        {
+            return;
+        }
+
+        var columnStart = Math.Clamp(range.ColumnStart, 0, columnCount - 1);
+        var columnEnd = Math.Clamp(range.ColumnEnd, 0, columnCount - 1);
+        if (columnEnd < columnStart)
+        {
+            (columnStart, columnEnd) = (columnEnd, columnStart);
+        }
+
+        var normalizedWidth = MathF.Max(0f, width);
+        if (normalizedWidth <= 0f)
+        {
+            return;
+        }
+
+        var buffer = ArrayPool<float>.Shared.Rent(columnCount);
+        var span = buffer.AsSpan(0, columnCount);
+        try
+        {
+            if (TryGetTableLayout(range.Table, out var layout) && layout.ColumnWidths.Count > 0)
+            {
+                for (var i = 0; i < columnCount; i++)
+                {
+                    span[i] = i < layout.ColumnWidths.Count ? layout.ColumnWidths[i] : normalizedWidth;
+                }
+            }
+            else if (range.Table.Properties.ColumnWidths.Count > 0)
+            {
+                var fallback = range.Table.Properties.ColumnWidths[^1];
+                for (var i = 0; i < columnCount; i++)
+                {
+                    span[i] = i < range.Table.Properties.ColumnWidths.Count
+                        ? range.Table.Properties.ColumnWidths[i]
+                        : fallback;
+                }
+            }
+            else
+            {
+                span.Fill(normalizedWidth);
+            }
+
+            for (var i = columnStart; i <= columnEnd; i++)
+            {
+                span[i] = normalizedWidth;
+            }
+
+            range.Table.Properties.LayoutMode = TableLayoutMode.Fixed;
+            range.Table.Properties.ColumnWidths.Clear();
+            for (var i = 0; i < columnCount; i++)
+            {
+                range.Table.Properties.ColumnWidths.Add(MathF.Max(0f, span[i]));
+            }
+        }
+        finally
+        {
+            ArrayPool<float>.Shared.Return(buffer);
+        }
     }
 
     private static TableRow BuildRowFromTemplate(TableBlock table, TableRow templateRow, int insertIndex)

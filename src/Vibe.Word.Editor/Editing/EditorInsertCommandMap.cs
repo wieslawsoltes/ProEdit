@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using System.Threading.Tasks;
 using Vibe.Office.Documents;
 using Vibe.Office.Editing;
 using Vibe.Office.Primitives;
@@ -31,13 +32,15 @@ public sealed class EditorInsertCommandMap
 
     private readonly EditorCommandRouterAdapter _router;
     private readonly IEditorMutableSession _session;
+    private readonly EditorServices _services;
     private int _bookmarkCounter;
     private int _contentControlCounter;
 
-    public EditorInsertCommandMap(EditorCommandRouterAdapter router, IEditorMutableSession session)
+    public EditorInsertCommandMap(EditorCommandRouterAdapter router, IEditorMutableSession session, EditorServices services)
     {
         _router = router ?? throw new ArgumentNullException(nameof(router));
         _session = session ?? throw new ArgumentNullException(nameof(session));
+        _services = services ?? throw new ArgumentNullException(nameof(services));
         _bookmarkCounter = FindNextBookmarkId(session.Document);
         _contentControlCounter = FindNextContentControlId(session.Document);
     }
@@ -47,6 +50,8 @@ public sealed class EditorInsertCommandMap
         RegisterPagesCommands();
         RegisterTablesCommands();
         RegisterIllustrationsCommands();
+        RegisterAddInsCommands();
+        RegisterMediaCommands();
         RegisterLinksCommands();
         RegisterHeaderFooterCommands();
         RegisterTextCommands();
@@ -74,6 +79,17 @@ public sealed class EditorInsertCommandMap
         _router.RegisterAction(EditorInsertCommandIds.Illustrations.SmartArt, (_, payload) => InsertSmartArt(payload), (context, _) => HasParagraphs(context));
         _router.RegisterAction(EditorInsertCommandIds.Illustrations.Chart, (_, payload) => InsertChart(payload), (context, _) => HasParagraphs(context));
         _router.RegisterAction(EditorInsertCommandIds.Illustrations.Screenshot, (_, payload) => InsertScreenshot(payload), (context, _) => HasParagraphs(context));
+    }
+
+    private void RegisterAddInsCommands()
+    {
+        _router.RegisterAction(EditorInsertCommandIds.AddIns.GetAddIns, (_, __) => ShowAddIns("Get Add-ins"), (context, _) => HasParagraphs(context), isUndoable: false);
+        _router.RegisterAction(EditorInsertCommandIds.AddIns.MyAddIns, (_, __) => ShowAddIns("My Add-ins"), (context, _) => HasParagraphs(context), isUndoable: false);
+    }
+
+    private void RegisterMediaCommands()
+    {
+        _router.RegisterAction(EditorInsertCommandIds.Media.OnlineVideo, (_, __) => InsertOnlineVideo(), (context, _) => HasParagraphs(context));
     }
 
     private void RegisterLinksCommands()
@@ -107,6 +123,39 @@ public sealed class EditorInsertCommandMap
         _router.RegisterAction(EditorInsertCommandIds.Symbols.Symbol, (_, payload) => InsertSymbol(payload), (context, _) => HasParagraphs(context));
     }
 
+    private void ShowAddIns(string label)
+    {
+        if (!TryGetDialogService(out var dialog))
+        {
+            return;
+        }
+
+        _ = dialog.ShowMessageAsync("Add-ins", $"{label} is not available yet.");
+    }
+
+    private void InsertOnlineVideo()
+    {
+        _ = InsertOnlineVideoAsync();
+    }
+
+    private async Task InsertOnlineVideoAsync()
+    {
+        if (!TryGetDialogService(out var dialog))
+        {
+            InsertContentControlPlaceholder("Online Video", "OnlineVideo");
+            return;
+        }
+
+        var url = await dialog.PromptAsync("Online Video", "Video URL:", "https://");
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            return;
+        }
+
+        var trimmed = url.Trim();
+        InsertContentControlPlaceholder($"Online Video: {trimmed}", "OnlineVideo");
+    }
+
     private bool HasParagraphs(RibbonContextSnapshot? context)
     {
         if (context.HasValue && context.Value.Selection.Kind == EditorSelectionKind.FloatingObject)
@@ -115,6 +164,11 @@ public sealed class EditorInsertCommandMap
         }
 
         return _session.Document.ParagraphCount > 0;
+    }
+
+    private bool TryGetDialogService(out IEditorDialogService dialogService)
+    {
+        return _services.TryGet(out dialogService);
     }
 
     private void InsertCoverPage(object? payload)
@@ -141,6 +195,21 @@ public sealed class EditorInsertCommandMap
 
     private void InsertTable(object? payload)
     {
+        if (payload is EditorTableTemplateInsertRequest template)
+        {
+            var templateRows = Math.Clamp(template.Rows, 1, MaxTableRows);
+            var templateColumns = Math.Clamp(template.Columns, 1, MaxTableColumns);
+            var templateTable = BuildTable(templateRows, templateColumns);
+            if (!string.IsNullOrWhiteSpace(template.StyleId))
+            {
+                templateTable.StyleId = template.StyleId.Trim();
+            }
+
+            ApplyTableTemplateText(templateTable, templateRows, templateColumns, template.CellText);
+            _session.InsertBlock(templateTable);
+            return;
+        }
+
         var request = payload is EditorTableInsertRequest provided
             ? provided
             : new EditorTableInsertRequest(2, 2);
@@ -148,6 +217,49 @@ public sealed class EditorInsertCommandMap
         var columns = Math.Clamp(request.Columns, 1, MaxTableColumns);
         var table = BuildTable(rows, columns);
         _session.InsertBlock(table);
+    }
+
+    private static void ApplyTableTemplateText(
+        TableBlock table,
+        int rows,
+        int columns,
+        IReadOnlyList<string>? cellText)
+    {
+        if (cellText is null || cellText.Count == 0)
+        {
+            return;
+        }
+
+        var index = 0;
+        for (var rowIndex = 0; rowIndex < rows && rowIndex < table.Rows.Count; rowIndex++)
+        {
+            var row = table.Rows[rowIndex];
+            for (var columnIndex = 0; columnIndex < columns && columnIndex < row.Cells.Count; columnIndex++)
+            {
+                if (index >= cellText.Count)
+                {
+                    return;
+                }
+
+                var text = cellText[index++];
+                if (string.IsNullOrEmpty(text))
+                {
+                    continue;
+                }
+
+                var cell = row.Cells[columnIndex];
+                if (cell.Paragraphs.Count == 0)
+                {
+                    cell.Paragraphs.Add(new ParagraphBlock(text));
+                }
+                else
+                {
+                    var paragraph = cell.Paragraphs[0];
+                    paragraph.Text = text;
+                    paragraph.Inlines.Clear();
+                }
+            }
+        }
     }
 
     private void InsertPicture(object? payload)
@@ -179,7 +291,35 @@ public sealed class EditorInsertCommandMap
     private void InsertShape(object? payload)
     {
         var preset = payload as string;
-        _session.InsertInline(CreateDefaultShape("Shape", preset));
+        InsertFloatingShape(CreateDefaultShape("Shape", preset));
+    }
+
+    private void InsertFloatingShape(ShapeInline shape)
+    {
+        ArgumentNullException.ThrowIfNull(shape);
+
+        var paragraph = _session.Document.ParagraphCount > 0
+            ? _session.Document.GetParagraph(_session.Caret.ParagraphIndex)
+            : new ParagraphBlock();
+
+        var floating = new FloatingObject(shape);
+        floating.Anchor.HorizontalReference = FloatingHorizontalReference.Margin;
+        floating.Anchor.VerticalReference = FloatingVerticalReference.Margin;
+        floating.Anchor.HorizontalAlignment = FloatingHorizontalAlignment.Center;
+        floating.Anchor.VerticalAlignment = FloatingVerticalAlignment.Center;
+        floating.Anchor.WrapStyle = FloatingWrapStyle.None;
+        floating.Anchor.WrapSide = FloatingWrapSide.Both;
+        floating.Anchor.BehindText = false;
+        floating.Anchor.AnchorOffset = _session.Caret.Offset;
+
+        paragraph.FloatingObjects.Add(floating);
+        if (_session.Document.ParagraphCount == 0)
+        {
+            _session.Document.Blocks.Add(paragraph);
+        }
+
+        _session.RefreshLayout();
+        _session.TrySelectFirstFloatingObject();
     }
 
     private void InsertIcon(object? payload)
@@ -327,12 +467,26 @@ public sealed class EditorInsertCommandMap
 
     private void InsertHeader(object? payload)
     {
+        if (payload is EditorHeaderFooterUpdateRequest update)
+        {
+            var target = update.Target ?? _session.Document.Header;
+            UpdateHeaderFooter(target, update);
+            return;
+        }
+
         InsertHeaderFooter(_session.Document.Header, "Header", payload as string);
         _session.RefreshLayout();
     }
 
     private void InsertFooter(object? payload)
     {
+        if (payload is EditorHeaderFooterUpdateRequest update)
+        {
+            var target = update.Target ?? _session.Document.Footer;
+            UpdateHeaderFooter(target, update);
+            return;
+        }
+
         InsertHeaderFooter(_session.Document.Footer, "Footer", payload as string);
         _session.RefreshLayout();
     }
@@ -363,7 +517,7 @@ public sealed class EditorInsertCommandMap
         var textBox = new ShapeTextBox();
         textBox.Blocks.Add(new ParagraphBlock(text));
         var shape = new ShapeInline(DefaultTextBoxWidth, DefaultTextBoxHeight, CreateDefaultShapeProperties("roundrect"), textBox, "Text Box");
-        _session.InsertInline(shape);
+        InsertFloatingShape(shape);
     }
 
     private void InsertQuickParts(object? payload)
@@ -413,7 +567,7 @@ public sealed class EditorInsertCommandMap
         }
 
         var shape = new ShapeInline(DefaultTextBoxWidth, DefaultTextBoxHeight, properties, textBox, "WordArt");
-        _session.InsertInline(shape);
+        InsertFloatingShape(shape);
     }
 
     private void InsertDropCap(object? payload)
@@ -554,6 +708,101 @@ public sealed class EditorInsertCommandMap
         target.Blocks.Add(paragraph);
     }
 
+    private void UpdateHeaderFooter(HeaderFooter target, EditorHeaderFooterUpdateRequest request)
+    {
+        target.Blocks.Clear();
+        foreach (var block in request.Blocks)
+        {
+            target.Blocks.Add(DocumentClone.CloneBlock(block));
+        }
+
+        target.IsDefined = true;
+        if (request.SourceDocument is not null)
+        {
+            MergeListDefinitions(request.SourceDocument, _session.Document);
+            MergeFootnotes(request.SourceDocument.Footnotes, _session.Document.Footnotes);
+            MergeEndnotes(request.SourceDocument.Endnotes, _session.Document.Endnotes);
+            MergeComments(request.SourceDocument.Comments, _session.Document.Comments);
+        }
+
+        _session.RefreshLayout();
+    }
+
+    private static void MergeListDefinitions(Document source, Document target)
+    {
+        foreach (var pair in source.ListDefinitions)
+        {
+            if (!target.ListDefinitions.ContainsKey(pair.Key))
+            {
+                target.ListDefinitions[pair.Key] = pair.Value.Clone();
+            }
+        }
+    }
+
+    private static void MergeFootnotes(Dictionary<int, FootnoteDefinition> source, Dictionary<int, FootnoteDefinition> target)
+    {
+        foreach (var pair in source)
+        {
+            if (target.ContainsKey(pair.Key))
+            {
+                continue;
+            }
+
+            var clone = new FootnoteDefinition(pair.Key);
+            foreach (var block in pair.Value.Blocks)
+            {
+                clone.Blocks.Add(DocumentClone.CloneBlock(block));
+            }
+
+            target[pair.Key] = clone;
+        }
+    }
+
+    private static void MergeEndnotes(Dictionary<int, EndnoteDefinition> source, Dictionary<int, EndnoteDefinition> target)
+    {
+        foreach (var pair in source)
+        {
+            if (target.ContainsKey(pair.Key))
+            {
+                continue;
+            }
+
+            var clone = new EndnoteDefinition(pair.Key);
+            foreach (var block in pair.Value.Blocks)
+            {
+                clone.Blocks.Add(DocumentClone.CloneBlock(block));
+            }
+
+            target[pair.Key] = clone;
+        }
+    }
+
+    private static void MergeComments(Dictionary<int, CommentDefinition> source, Dictionary<int, CommentDefinition> target)
+    {
+        foreach (var pair in source)
+        {
+            if (target.ContainsKey(pair.Key))
+            {
+                continue;
+            }
+
+            var sourceComment = pair.Value;
+            var clone = new CommentDefinition(pair.Key)
+            {
+                Author = sourceComment.Author,
+                Initials = sourceComment.Initials,
+                Date = sourceComment.Date
+            };
+
+            foreach (var block in sourceComment.Blocks)
+            {
+                clone.Blocks.Add(DocumentClone.CloneBlock(block));
+            }
+
+            target[pair.Key] = clone;
+        }
+    }
+
     private void InsertCoverPagePlaceholder(string placeholder, string? template)
     {
         var tag = string.IsNullOrWhiteSpace(template) ? "CoverPage" : $"CoverPage:{template}";
@@ -606,7 +855,8 @@ public sealed class EditorInsertCommandMap
     {
         var start = new FieldStartInline(instruction)
         {
-            Definition = FieldInstructionParser.Parse(instruction)
+            Definition = FieldInstructionParser.Parse(instruction),
+            IsDirty = true
         };
         return new Inline[]
         {

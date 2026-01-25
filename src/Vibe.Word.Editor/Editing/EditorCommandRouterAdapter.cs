@@ -7,11 +7,16 @@ public sealed class EditorCommandRouterAdapter : IEditorCommandRouter
     private readonly Dictionary<string, CommandBinding> _bindings = new(StringComparer.OrdinalIgnoreCase);
     private readonly EditorCommandDispatcher _dispatcher;
     private readonly IEditorMutableSession _session;
+    private readonly IEditorCommandObserver? _observer;
 
-    public EditorCommandRouterAdapter(EditorCommandDispatcher dispatcher, IEditorMutableSession session)
+    public EditorCommandRouterAdapter(
+        EditorCommandDispatcher dispatcher,
+        IEditorMutableSession session,
+        IEditorCommandObserver? observer = null)
     {
         _dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
         _session = session ?? throw new ArgumentNullException(nameof(session));
+        _observer = observer;
     }
 
     public void Register<TCommand>(
@@ -82,7 +87,7 @@ public sealed class EditorCommandRouterAdapter : IEditorCommandRouter
         return binding.CanExecute?.Invoke(context, payload) ?? true;
     }
 
-    public ValueTask<bool> ExecuteAsync(string commandId, object? payload = null, RibbonContextSnapshot? context = null)
+    public ValueTask<bool> ExecuteAsync(string commandId, object? payload = null, RibbonContextSnapshot? context = null, bool recordHistory = true)
     {
         if (!CanExecute(commandId, payload, context))
         {
@@ -96,7 +101,8 @@ public sealed class EditorCommandRouterAdapter : IEditorCommandRouter
             return ValueTask.FromResult(false);
         }
 
-        _dispatcher.Dispatch(command, _session);
+        _dispatcher.Dispatch(command, _session, recordHistory);
+        _observer?.OnCommandExecuted(commandId, payload, recordHistory);
         return ValueTask.FromResult(true);
     }
 

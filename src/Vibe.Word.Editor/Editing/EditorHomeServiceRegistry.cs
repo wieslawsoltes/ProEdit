@@ -1,4 +1,7 @@
+using Vibe.Office.Documents;
 using Vibe.Office.Editing;
+using Vibe.Office.Macros;
+using Vibe.Office.Vba.Runtime;
 
 namespace Vibe.Word.Editor.Editing;
 
@@ -10,7 +13,8 @@ public static class EditorHomeServiceRegistry
         IEditorMutableSession session,
         IFontService? fontService = null,
         IClipboardService? clipboardService = null,
-        IEditorViewOptionsService? viewOptionsService = null)
+        IEditorViewOptionsService? viewOptionsService = null,
+        Func<Document>? documentFactory = null)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(commands);
@@ -23,6 +27,8 @@ public static class EditorHomeServiceRegistry
         var formattingState = new EditorFormattingStateAdapter(session);
         var paragraphState = new EditorParagraphServiceAdapter(session);
         var styleService = new EditorStyleServiceAdapter(session);
+        var tableStyleService = new EditorTableStyleServiceAdapter(session);
+        var tableSelectionProvider = new EditorTableSelectionSnapshotProvider(session);
         fontService ??= new EditorFontServiceAdapter(session);
         clipboardService ??= new EditorClipboardServiceAdapter(session);
         var formatPainter = new EditorFormatPainter(session, new EditorTextFormattingApplier(session, textNormalizer), formattingState);
@@ -30,7 +36,11 @@ public static class EditorHomeServiceRegistry
         var historySnapshotService = new EditorHistorySnapshotService(session, undoRedoService);
         var findReplaceService = new EditorFindReplaceService(session);
         var selectionTextService = new EditorSelectionTextServiceAdapter(session);
-        var commandRouter = new EditorCommandRouterAdapter(commands, session);
+        var vbaHost = new WordVbaHost(session, selectionTextService, documentFactory: documentFactory);
+        var vbaRuntime = new VbaRuntime(vbaHost);
+        vbaHost.SetRuntime(vbaRuntime);
+        var macroEngine = new MacroEngine(session.Document, vbaRuntime: vbaRuntime);
+        var commandRouter = new EditorCommandRouterAdapter(commands, session, macroEngine);
         commands.History = undoRedoService;
         var ribbonSnapshotProvider = new RibbonContextSnapshotBuilder(
             selectionState,
@@ -47,6 +57,8 @@ public static class EditorHomeServiceRegistry
         services.Register<IFormattingState>(formattingState);
         services.Register<IParagraphService>(paragraphState);
         services.Register<IStyleService>(styleService);
+        services.Register<ITableStyleService>(tableStyleService);
+        services.Register<ITableSelectionSnapshotProvider>(tableSelectionProvider);
         services.Register<IFontService>(fontService);
         services.Register<IClipboardService>(clipboardService);
         services.Register<IFormatPainterService>(formatPainter);
@@ -55,6 +67,9 @@ public static class EditorHomeServiceRegistry
         services.Register<IUndoRedoService>(undoRedoService);
         services.Register<IFindReplaceService>(findReplaceService);
         services.Register<ISelectionTextService>(selectionTextService);
+        services.Register<IVbaRuntime>(vbaRuntime);
+        services.Register<IMacroEngine>(macroEngine);
+        services.Register<IEditorCommandObserver>(macroEngine);
         if (viewOptionsService is not null)
         {
             services.Register<IEditorViewOptionsService>(viewOptionsService);
@@ -75,7 +90,7 @@ public static class EditorHomeServiceRegistry
             textNormalizer);
         commandMap.Register();
 
-        var insertCommandMap = new EditorInsertCommandMap(commandRouter, session);
+        var insertCommandMap = new EditorInsertCommandMap(commandRouter, session, services);
         insertCommandMap.Register();
 
         var tableCommandMap = new EditorTableCommandMap(commandRouter, session);
@@ -84,19 +99,19 @@ public static class EditorHomeServiceRegistry
         var layoutCommandMap = new EditorLayoutCommandMap(commandRouter, session);
         layoutCommandMap.Register();
 
-        var referencesCommandMap = new EditorReferencesCommandMap(commandRouter, session);
+        var referencesCommandMap = new EditorReferencesCommandMap(commandRouter, session, services);
         referencesCommandMap.Register();
 
         var reviewCommandMap = new EditorReviewCommandMap(commandRouter, session, services);
         reviewCommandMap.Register();
 
-        var designCommandMap = new EditorDesignCommandMap(commandRouter, session);
+        var designCommandMap = new EditorDesignCommandMap(commandRouter, session, services);
         designCommandMap.Register();
 
         var mailingsCommandMap = new EditorMailingsCommandMap(commandRouter, session, services);
         mailingsCommandMap.Register();
 
-        var drawCommandMap = new EditorDrawCommandMap(commandRouter, services);
+        var drawCommandMap = new EditorDrawCommandMap(commandRouter, session, services);
         drawCommandMap.Register();
 
         var viewCommandMap = new EditorViewCommandMap(commandRouter, services);

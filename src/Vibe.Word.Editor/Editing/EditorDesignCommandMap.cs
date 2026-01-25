@@ -9,11 +9,13 @@ public sealed class EditorDesignCommandMap
 {
     private readonly EditorCommandRouterAdapter _router;
     private readonly IEditorMutableSession _session;
+    private readonly EditorServices _services;
 
-    public EditorDesignCommandMap(EditorCommandRouterAdapter router, IEditorMutableSession session)
+    public EditorDesignCommandMap(EditorCommandRouterAdapter router, IEditorMutableSession session, EditorServices services)
     {
         _router = router ?? throw new ArgumentNullException(nameof(router));
         _session = session ?? throw new ArgumentNullException(nameof(session));
+        _services = services ?? throw new ArgumentNullException(nameof(services));
     }
 
     public void Register()
@@ -21,19 +23,27 @@ public sealed class EditorDesignCommandMap
         _router.RegisterAction(EditorDesignCommandIds.Themes.Theme, (_, payload) => ApplyTheme(payload));
         _router.RegisterAction(EditorDesignCommandIds.Themes.Colors, (_, payload) => ApplyThemeColors(payload));
         _router.RegisterAction(EditorDesignCommandIds.Themes.Fonts, (_, payload) => ApplyThemeFonts(payload));
-        _router.RegisterAction(EditorDesignCommandIds.Themes.Effects, (_, __) => { });
-        _router.RegisterAction(EditorDesignCommandIds.Themes.SetAsDefault, (_, __) => { });
+        _router.RegisterAction(EditorDesignCommandIds.Themes.Effects, (_, __) => ShowNotImplemented("Theme Effects", "Theme effects are not available yet."), isUndoable: false);
+        _router.RegisterAction(EditorDesignCommandIds.Themes.SetAsDefault, (_, __) => ShowNotImplemented("Set As Default", "Setting default themes is not available yet."), isUndoable: false);
 
         _router.RegisterAction(EditorDesignCommandIds.DocumentFormatting.StyleSet, (_, payload) => ApplyStyleSet(payload));
         _router.RegisterAction(EditorDesignCommandIds.DocumentFormatting.Colors, (_, payload) => ApplyThemeColors(payload));
         _router.RegisterAction(EditorDesignCommandIds.DocumentFormatting.Fonts, (_, payload) => ApplyThemeFonts(payload));
         _router.RegisterAction(EditorDesignCommandIds.DocumentFormatting.ParagraphSpacing, (_, payload) => ApplyParagraphSpacing(payload));
-        _router.RegisterAction(EditorDesignCommandIds.DocumentFormatting.Effects, (_, __) => { });
-        _router.RegisterAction(EditorDesignCommandIds.DocumentFormatting.SetAsDefault, (_, __) => { });
+        _router.RegisterAction(EditorDesignCommandIds.DocumentFormatting.Effects, (_, __) => ShowNotImplemented("Document Effects", "Document effects are not available yet."), isUndoable: false);
+        _router.RegisterAction(EditorDesignCommandIds.DocumentFormatting.SetAsDefault, (_, __) => ShowNotImplemented("Set As Default", "Setting default formatting is not available yet."), isUndoable: false);
 
         _router.RegisterAction(EditorDesignCommandIds.PageBackground.Watermark, (_, payload) => ToggleWatermark(payload));
         _router.RegisterAction(EditorDesignCommandIds.PageBackground.PageColor, (_, payload) => TogglePageColor(payload));
         _router.RegisterAction(EditorDesignCommandIds.PageBackground.PageBorders, (_, payload) => TogglePageBorders(payload));
+    }
+
+    private void ShowNotImplemented(string title, string message)
+    {
+        if (_services.TryGet<IEditorDialogService>(out var dialog))
+        {
+            _ = dialog.ShowMessageAsync(title, message);
+        }
     }
 
     private void ApplyTheme(object? payload)
