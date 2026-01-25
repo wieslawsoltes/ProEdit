@@ -47,4 +47,13 @@ public static class EditorReferencesCommandIds
         public const string MarkCitation = "refs.authorities.mark";
         public const string InsertTable = "refs.authorities.insert";
     }
+
+    public static class Fields
+    {
+        public const string UpdateCurrent = "refs.fields.updateCurrent";
+        public const string UpdateAll = "refs.fields.updateAll";
+        public const string UpdatePageNumbers = "refs.fields.updatePageNumbers";
+        public const string Lock = "refs.fields.lock";
+        public const string Unlock = "refs.fields.unlock";
+    }
 }

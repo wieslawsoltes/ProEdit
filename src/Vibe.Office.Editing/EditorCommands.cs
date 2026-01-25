@@ -48,14 +48,22 @@ public sealed class EditorCommandDispatcher
 
     public void Dispatch(IEditorCommand command, IEditorMutableSession session)
     {
+        Dispatch(command, session, recordHistory: true);
+    }
+
+    public void Dispatch(IEditorCommand command, IEditorMutableSession session, bool recordHistory)
+    {
         ArgumentNullException.ThrowIfNull(command);
         ArgumentNullException.ThrowIfNull(session);
 
-        var history = History;
-        if (history is not null && history.ShouldRecord(command))
+        if (recordHistory)
         {
-            history.ExecuteWithHistory(session, command, () => ExecuteCommand(command, session));
-            return;
+            var history = History;
+            if (history is not null && history.ShouldRecord(command))
+            {
+                history.ExecuteWithHistory(session, command, () => ExecuteCommand(command, session));
+                return;
+            }
         }
 
         ExecuteCommand(command, session);

@@ -44,6 +44,8 @@ public static class EditorReviewCommandIds
     {
         public const string Accept = "review.changes.accept";
         public const string Reject = "review.changes.reject";
+        public const string AcceptAll = "review.changes.acceptAll";
+        public const string RejectAll = "review.changes.rejectAll";
         public const string PreviousChange = "review.changes.previous";
         public const string NextChange = "review.changes.next";
     }

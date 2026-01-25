@@ -35,7 +35,9 @@ public static class EditorTableCommandIds
         public const string DistributeColumns = "table.layout.distribute.columns";
         public const string DistributeRows = "table.layout.distribute.rows";
         public const string ColumnWidthsSet = "table.layout.columns.set";
+        public const string RowHeightSet = "table.layout.rows.set";
         public const string RepeatHeaderRows = "table.layout.repeatHeaderRows";
+        public const string PropertiesApply = "table.layout.properties.apply";
     }
 
     public static class Alignment
@@ -43,5 +45,16 @@ public static class EditorTableCommandIds
         public const string AlignTop = "table.align.top";
         public const string AlignMiddle = "table.align.middle";
         public const string AlignBottom = "table.align.bottom";
+    }
+
+    public static class Design
+    {
+        public const string ApplyStyle = "table.design.applyStyle";
+        public const string ToggleHeaderRow = "table.design.look.headerRow.toggle";
+        public const string ToggleTotalRow = "table.design.look.totalRow.toggle";
+        public const string ToggleFirstColumn = "table.design.look.firstColumn.toggle";
+        public const string ToggleLastColumn = "table.design.look.lastColumn.toggle";
+        public const string ToggleBandedRows = "table.design.look.bandedRows.toggle";
+        public const string ToggleBandedColumns = "table.design.look.bandedColumns.toggle";
     }
 }

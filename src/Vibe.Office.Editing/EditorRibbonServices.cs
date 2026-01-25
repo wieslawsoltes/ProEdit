@@ -120,6 +120,30 @@ public interface IStyleService
     bool SetDefaultParagraphStyle(string styleId);
 }
 
+public readonly record struct EditorTableStyleInfo(string Id, string Name, bool IsDefault);
+
+public interface ITableStyleService
+{
+    IReadOnlyList<EditorTableStyleInfo> GetTableStyles();
+    string? GetCurrentTableStyleId();
+    string? GetDefaultTableStyleId();
+}
+
+public readonly record struct EditorTableSelectionSnapshot(
+    TableBlock Table,
+    int RowIndex,
+    int ColumnIndex,
+    int RowStart,
+    int RowEnd,
+    int ColumnStart,
+    int ColumnEnd,
+    TableLayout? Layout);
+
+public interface ITableSelectionSnapshotProvider
+{
+    bool TryGetSnapshot(out EditorTableSelectionSnapshot snapshot);
+}
+
 public readonly record struct EditorFontFamilyInfo(string Name, bool IsEmbedded);
 
 public interface IFontService
@@ -187,6 +211,21 @@ public interface IEditorViewOptionsService
     EditorViewMode ViewMode { get; set; }
 }
 
+public interface IEditorZoomService
+{
+    ValueTask OpenZoomDialogAsync();
+    void ZoomToPercent(float percent);
+    void ZoomToPageWidth();
+    void ZoomToWholePage();
+    void ZoomToMultiplePages(int pagesPerRow);
+    void ZoomToDefault();
+}
+
+public interface IInkReplayService
+{
+    ValueTask ReplaySelectedInkAsync();
+}
+
 public enum ReviewMarkupMode
 {
     All,
@@ -204,6 +243,42 @@ public interface IReviewPaneService
 public interface IMailMergeSourceManager
 {
     ValueTask<MailMergeData?> EditRecipientsAsync(MailMergeData? currentData);
+}
+
+public interface ICitationSourceManager
+{
+    ValueTask<CitationSourceCatalog?> EditSourcesAsync(CitationSourceCatalog? currentCatalog);
+    ValueTask<string?> PickSourceAsync(CitationSourceCatalog catalog);
+}
+
+public interface IEditorDialogService
+{
+    ValueTask ShowMessageAsync(string title, string message);
+    ValueTask<string?> PromptAsync(string title, string prompt, string? initialValue = null);
+}
+
+public interface IMacroManagerService
+{
+    ValueTask OpenMacroManagerAsync();
+    ValueTask ToggleRecordMacroAsync();
+    ValueTask OpenVbaEditorAsync();
+    ValueTask StartDebugAsync();
+}
+
+public enum EditorWindowCommand
+{
+    NewWindow,
+    ArrangeAll,
+    Split,
+    ViewSideBySide,
+    SynchronousScrolling,
+    ResetPosition,
+    SwitchWindows
+}
+
+public interface IEditorWindowService
+{
+    ValueTask ExecuteAsync(EditorWindowCommand command);
 }
 
 public interface IStylePaneService

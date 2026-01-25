@@ -17,6 +17,7 @@ public sealed class EditorCommandHistory : IEditorCommandHistory, IUndoRedoServi
 
     public bool CanUndo => _undo.Count > 0;
     public bool CanRedo => _redo.Count > 0;
+    public int Version { get; private set; }
 
     public bool ShouldRecord(IEditorCommand command)
     {
@@ -36,6 +37,7 @@ public sealed class EditorCommandHistory : IEditorCommandHistory, IUndoRedoServi
         var after = CaptureSnapshot(session);
         _undo.Push(new HistoryEntry(before, after));
         _redo.Clear();
+        Version++;
     }
 
     public ValueTask UndoAsync()
@@ -50,6 +52,7 @@ public sealed class EditorCommandHistory : IEditorCommandHistory, IUndoRedoServi
         RestoreSnapshot(entry.Before);
         _redo.Push(entry);
         _isRestoring = false;
+        Version++;
         return ValueTask.CompletedTask;
     }
 
@@ -65,7 +68,20 @@ public sealed class EditorCommandHistory : IEditorCommandHistory, IUndoRedoServi
         RestoreSnapshot(entry.After);
         _undo.Push(entry);
         _isRestoring = false;
+        Version++;
         return ValueTask.CompletedTask;
+    }
+
+    public void RecordSnapshot(EditorSessionSnapshot before, EditorSessionSnapshot after)
+    {
+        if (_isRestoring)
+        {
+            return;
+        }
+
+        _undo.Push(new HistoryEntry(before, after));
+        _redo.Clear();
+        Version++;
     }
 
     private EditorSessionSnapshot CaptureSnapshot(IEditorMutableSession session)

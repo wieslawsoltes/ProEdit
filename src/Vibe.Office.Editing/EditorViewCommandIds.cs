@@ -48,5 +48,7 @@ public static class EditorViewCommandIds
     {
         public const string Open = "view.macros.macros";
         public const string RecordMacro = "view.macros.record";
+        public const string VbaEditor = "view.macros.vbaEditor";
+        public const string Debug = "view.macros.debug";
     }
 }

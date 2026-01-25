@@ -4,6 +4,12 @@ namespace Vibe.Office.Editing;
 
 public readonly record struct EditorTableInsertRequest(int Rows, int Columns);
 
+public readonly record struct EditorTableTemplateInsertRequest(
+    int Rows,
+    int Columns,
+    string? StyleId = null,
+    IReadOnlyList<string>? CellText = null);
+
 public readonly record struct EditorImageInsertRequest(
     byte[] Data,
     float Width,
@@ -19,6 +25,8 @@ public readonly record struct EditorHyperlinkInsertRequest(
 public readonly record struct EditorBookmarkInsertRequest(string Name);
 
 public readonly record struct EditorPageNumberInsertRequest(bool InFooter, bool IncludeTotalPages);
+
+public readonly record struct EditorHeaderFooterUpdateRequest(IReadOnlyList<Block> Blocks, Document? SourceDocument = null, HeaderFooter? Target = null);
 
 public readonly record struct EditorChartInsertRequest(
     ChartType Type,
