@@ -6,9 +6,11 @@ internal static class GreedyLineBreaker
         string text,
         float firstLineWidth,
         float otherLineWidth,
-        Func<int, int, float> measureWidth)
+        Func<int, int, float> measureFirstLineWidth,
+        Func<int, int, float> measureOtherLineWidth)
     {
-        ArgumentNullException.ThrowIfNull(measureWidth);
+        ArgumentNullException.ThrowIfNull(measureFirstLineWidth);
+        ArgumentNullException.ThrowIfNull(measureOtherLineWidth);
 
         var start = 0;
         var isFirstLine = true;
@@ -25,7 +27,9 @@ internal static class GreedyLineBreaker
                     lastBreak = i;
                 }
 
-                var width = measureWidth(start, i - start + 1);
+                var width = isFirstLine
+                    ? measureFirstLineWidth(start, i - start + 1)
+                    : measureOtherLineWidth(start, i - start + 1);
                 if (width > maxWidth && i > start)
                 {
                     length = lastBreak >= start ? lastBreak - start : i - start;

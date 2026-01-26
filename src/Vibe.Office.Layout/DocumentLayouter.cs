@@ -2140,7 +2140,7 @@ public sealed class DocumentLayouter
             var baseWidth = MathF.Max(1f, columnWidth - plan.IndentLeft - plan.IndentRight - plan.ListIndent - plan.PrefixWidth);
             var measuredWidth = text.Length == 0
                 ? baseWidth
-                : MeasureInlineSpans(spans, 0, text.Length, plan.Properties.TabStops, settings.DefaultTabWidth, measurer, charGridSpacing);
+                : MeasureInlineSpans(spans, 0, text.Length, plan.Properties.TabStops, settings.DefaultTabWidth, measurer, charGridSpacing, plan.IndentLeft + plan.ListIndent + plan.FirstLineIndent + plan.PrefixWidth);
             var isDropCapFrame = plan.Properties.DropCap?.HasValues == true;
             var frameWidth = frame.Width ?? MathF.Min(columnWidth, MathF.Max(isDropCapFrame ? 1f : 120f, measuredWidth));
             if (frameWidth <= 0f)
@@ -2153,7 +2153,20 @@ public sealed class DocumentLayouter
             var lineCount = 1;
             if (text.Length > 0)
             {
-                lineCount = WrapParagraph(text, spans, frameWidth, frameWidth, plan.Properties, settings, measurer, charGridSpacing).Count();
+                var firstLineTabOffset = plan.IndentLeft + plan.ListIndent + plan.FirstLineIndent + plan.PrefixWidth;
+                var otherLineTabOffset = plan.IndentLeft + plan.ListIndent + plan.PrefixWidth;
+                lineCount = WrapParagraph(
+                        text,
+                        spans,
+                        frameWidth,
+                        frameWidth,
+                        plan.Properties,
+                        settings,
+                        measurer,
+                        charGridSpacing,
+                        firstLineTabOffset,
+                        otherLineTabOffset)
+                    .Count();
                 lineCount = Math.Max(1, lineCount);
             }
 
@@ -4519,8 +4532,20 @@ public sealed class DocumentLayouter
             var baseWidth = MathF.Max(1f, availableWidth - indentLeft - indentRight - listIndent - prefixWidth);
             var firstLineWidth = MathF.Max(1f, baseWidth - firstLineIndent);
             var otherLineWidth = MathF.Max(1f, baseWidth);
+            var firstLineTabOffset = indentLeft + listIndent + firstLineIndent + prefixWidth;
+            var otherLineTabOffset = indentLeft + listIndent + prefixWidth;
             var isFirstLine = true;
-            foreach (var line in WrapParagraph(text, spans, firstLineWidth, otherLineWidth, properties, settings, measurer, charGridSpacing))
+            foreach (var line in WrapParagraph(
+                         text,
+                         spans,
+                         firstLineWidth,
+                         otherLineWidth,
+                         properties,
+                         settings,
+                         measurer,
+                         charGridSpacing,
+                         firstLineTabOffset,
+                         otherLineTabOffset))
             {
                 var lineIndent = indentLeft + listIndent + (isFirstLine ? firstLineIndent : 0f);
                 var lineBaseX = lineIndent + prefixWidth;
@@ -4533,7 +4558,8 @@ public sealed class DocumentLayouter
                     measurer,
                     paragraphLineHeight,
                     paragraphAscent,
-                    charGridSpacing);
+                    charGridSpacing,
+                    lineBaseX);
                 lineLayout = ApplyLineSpacing(lineLayout, properties, docGrid);
                 if (line.HasHyphen && line.HyphenStyle is not null)
                 {
@@ -4605,7 +4631,9 @@ public sealed class DocumentLayouter
         ParagraphProperties properties,
         LayoutSettings settings,
         ITextMeasurer measurer,
-        float charGridSpacing)
+        float charGridSpacing,
+        float firstLineTabOffset,
+        float otherLineTabOffset)
     {
         return ParagraphLineBreaker.BreakParagraph(
             text,
@@ -4614,7 +4642,8 @@ public sealed class DocumentLayouter
             otherLineWidth,
             measurer,
             charGridSpacing,
-            (start, length) => MeasureInlineSpans(spans, start, length, properties.TabStops, settings.DefaultTabWidth, measurer, charGridSpacing));
+            (start, length) => MeasureInlineSpans(spans, start, length, properties.TabStops, settings.DefaultTabWidth, measurer, charGridSpacing, firstLineTabOffset),
+            (start, length) => MeasureInlineSpans(spans, start, length, properties.TabStops, settings.DefaultTabWidth, measurer, charGridSpacing, otherLineTabOffset));
     }
 
     private static int FindLineLength(string text, int start, float maxWidth, Func<int, int, float> measureWidth)
@@ -4676,6 +4705,8 @@ public sealed class DocumentLayouter
         var (lineHeightAdjusted, lineAscentAdjusted) = ApplyLineSpacing(lineHeight, ascent, properties, docGrid);
         var baseWidth = MathF.Max(1f, contentWidth - indentLeft - indentRight - listIndent - prefixWidth);
         var firstLineWidth = MathF.Max(1f, baseWidth - firstLineIndent);
+        var firstLineTabOffset = indentLeft + listIndent + firstLineIndent + prefixWidth;
+        var otherLineTabOffset = indentLeft + listIndent + prefixWidth;
         var dropCapOffset = dropCap.Kind == DropCapKind.Drop
             ? MathF.Max(0f, dropCap.Width + dropCap.Distance)
             : 0f;
@@ -4692,7 +4723,8 @@ public sealed class DocumentLayouter
                      dropCapLineWidth,
                      measurer,
                      charGridSpacing,
-                     (start, length) => MeasureInlineSpans(spans, start, length, properties.TabStops, settings.DefaultTabWidth, measurer, charGridSpacing)))
+                     (start, length) => MeasureInlineSpans(spans, start, length, properties.TabStops, settings.DefaultTabWidth, measurer, charGridSpacing, firstLineTabOffset),
+                     (start, length) => MeasureInlineSpans(spans, start, length, properties.TabStops, settings.DefaultTabWidth, measurer, charGridSpacing, otherLineTabOffset)))
         {
             dropCapBreaks.Add(line);
             if (dropCapBreaks.Count >= dropCap.Lines)
@@ -4714,7 +4746,8 @@ public sealed class DocumentLayouter
                 measurer,
                 lineHeight,
                 ascent,
-                charGridSpacing);
+                charGridSpacing,
+                i == 0 ? firstLineTabOffset : otherLineTabOffset);
             lineLayout = ApplyLineSpacing(lineLayout, properties, docGrid);
             if (line.HasHyphen && line.HyphenStyle is not null)
             {
@@ -4767,7 +4800,9 @@ public sealed class DocumentLayouter
                      properties,
                      settings,
                      measurer,
-                     charGridSpacing))
+                     charGridSpacing,
+                     otherLineTabOffset,
+                     otherLineTabOffset))
         {
             var lineLayout = BuildLineLayout(
                 remainingSpans,
@@ -4778,7 +4813,8 @@ public sealed class DocumentLayouter
                 measurer,
                 lineHeight,
                 ascent,
-                charGridSpacing);
+                charGridSpacing,
+                otherLineTabOffset);
             lineLayout = ApplyLineSpacing(lineLayout, properties, docGrid);
             if (line.HasHyphen && line.HyphenStyle is not null)
             {
@@ -4872,10 +4908,23 @@ public sealed class DocumentLayouter
             var baseRight = columnX + contentWidth - indentRight;
             var firstLineWidth = MathF.Max(1f, baseRight - (columnX + indentLeft + listIndent + firstLineIndent + prefixWidth));
             var otherLineWidth = MathF.Max(1f, baseRight - baseLeft);
+            var firstLineTabOffset = indentLeft + listIndent + firstLineIndent + prefixWidth;
+            var otherLineTabOffset = indentLeft + listIndent + prefixWidth;
             var isFirstLineLocal = true;
 
-            foreach (var line in WrapParagraph(text, spans, firstLineWidth, otherLineWidth, properties, settings, measurer, charGridSpacing))
+            foreach (var line in WrapParagraph(
+                         text,
+                         spans,
+                         firstLineWidth,
+                         otherLineWidth,
+                         properties,
+                         settings,
+                         measurer,
+                         charGridSpacing,
+                         firstLineTabOffset,
+                         otherLineTabOffset))
             {
+                var tabStopOffset = isFirstLineLocal ? firstLineTabOffset : otherLineTabOffset;
                 var lineLayout = BuildLineLayout(
                     spans,
                     line.Start,
@@ -4885,7 +4934,8 @@ public sealed class DocumentLayouter
                     measurer,
                     lineHeight,
                     ascent,
-                    charGridSpacing);
+                    charGridSpacing,
+                    tabStopOffset);
                 lineLayout = ApplyLineSpacing(lineLayout, properties, docGrid);
                 if (line.HasHyphen && line.HyphenStyle is not null)
                 {
@@ -4917,8 +4967,9 @@ public sealed class DocumentLayouter
             }
 
             var maxWidth = MathF.Max(1f, baseRight - baseLeft);
+            var tabStopOffset = lineIndent + prefixWidth;
             var length = FindLineLength(text, start, maxWidth,
-                (offset, runLength) => MeasureInlineSpans(spans, offset, runLength, properties.TabStops, settings.DefaultTabWidth, measurer, charGridSpacing));
+                (offset, runLength) => MeasureInlineSpans(spans, offset, runLength, properties.TabStops, settings.DefaultTabWidth, measurer, charGridSpacing, tabStopOffset));
             var textSlice = new TextSlice(text, start, length);
 
             var lineLayout = BuildLineLayout(
@@ -4930,7 +4981,8 @@ public sealed class DocumentLayouter
                 measurer,
                 lineHeight,
                 ascent,
-                charGridSpacing);
+                charGridSpacing,
+                tabStopOffset);
             lineLayout = ApplyLineSpacing(lineLayout, properties, docGrid);
             lines.Add(new ParagraphLine(start, length, textSlice, lineLayout, isFirstLine));
             lineTop += lineLayout.LineHeight;
@@ -5039,7 +5091,19 @@ public sealed class DocumentLayouter
             var baseWidth = MathF.Max(1f, contentWidth - indentLeft - indentRight - listIndent - prefixWidth);
             var firstLineWidth = MathF.Max(1f, baseWidth - firstLineIndent);
             var otherLineWidth = MathF.Max(1f, baseWidth);
-            var firstLine = WrapParagraph(text, spans, firstLineWidth, otherLineWidth, properties, settings, measurer, charGridSpacing)
+            var firstLineTabOffset = indentLeft + listIndent + firstLineIndent + prefixWidth;
+            var otherLineTabOffset = indentLeft + listIndent + prefixWidth;
+            var firstLine = WrapParagraph(
+                    text,
+                    spans,
+                    firstLineWidth,
+                    otherLineWidth,
+                    properties,
+                    settings,
+                    measurer,
+                    charGridSpacing,
+                    firstLineTabOffset,
+                    otherLineTabOffset)
                 .FirstOrDefault();
             if (firstLine.Length == 0)
             {
@@ -5056,7 +5120,8 @@ public sealed class DocumentLayouter
                 measurer,
                 paragraphLineHeight,
                 paragraphAscent,
-                charGridSpacing);
+                charGridSpacing,
+                firstLineTabOffset);
             lineLayout = ApplyLineSpacing(lineLayout, properties, docGrid);
             var lineExtent = isVertical ? lineLayout.Width : lineLayout.LineHeight;
             return spacingBefore + lineExtent;
@@ -5959,9 +6024,12 @@ public sealed class DocumentLayouter
 
             var (text, spans) = BuildInlineSpans(paragraph, paragraphStyle, styleResolver, pageNumberText, totalPagesText);
             var baseWidth = MathF.Max(1f, contentWidth - indentLeft - indentRight - listIndent - prefixWidth);
+            var firstLineIndent = properties.FirstLineIndent ?? 0f;
+            var firstLineTabOffset = indentLeft + listIndent + firstLineIndent + prefixWidth;
+            var otherLineTabOffset = indentLeft + listIndent + prefixWidth;
             var measuredWidth = text.Length == 0
                 ? baseWidth
-                : MeasureInlineSpans(spans, 0, text.Length, properties.TabStops, settings.DefaultTabWidth, measurer, charGridSpacing);
+                : MeasureInlineSpans(spans, 0, text.Length, properties.TabStops, settings.DefaultTabWidth, measurer, charGridSpacing, firstLineTabOffset);
             var isDropCapFrame = properties.DropCap?.HasValues == true;
             var frameWidth = frame.Width ?? MathF.Max(isDropCapFrame ? 1f : 120f, measuredWidth);
             if (frameWidth <= 0f)
@@ -5973,7 +6041,18 @@ public sealed class DocumentLayouter
             var lineCount = 1;
             if (text.Length > 0)
             {
-                lineCount = WrapParagraph(text, spans, frameWidth, frameWidth, properties, settings, measurer, charGridSpacing).Count();
+                lineCount = WrapParagraph(
+                        text,
+                        spans,
+                        frameWidth,
+                        frameWidth,
+                        properties,
+                        settings,
+                        measurer,
+                        charGridSpacing,
+                        firstLineTabOffset,
+                        otherLineTabOffset)
+                    .Count();
                 lineCount = Math.Max(1, lineCount);
             }
 
@@ -6279,8 +6358,20 @@ public sealed class DocumentLayouter
             var baseWidth = MathF.Max(1f, contentWidth - indentLeft - indentRight - listIndent - prefixWidth);
             var firstLineWidth = MathF.Max(1f, baseWidth - firstLineIndent);
             var otherLineWidth = MathF.Max(1f, baseWidth);
+            var firstLineTabOffset = indentLeft + listIndent + firstLineIndent + prefixWidth;
+            var otherLineTabOffset = indentLeft + listIndent + prefixWidth;
             var isFirstLine = true;
-            foreach (var line in WrapParagraph(text, spans, firstLineWidth, otherLineWidth, properties, settings, measurer, charGridSpacing))
+            foreach (var line in WrapParagraph(
+                         text,
+                         spans,
+                         firstLineWidth,
+                         otherLineWidth,
+                         properties,
+                         settings,
+                         measurer,
+                         charGridSpacing,
+                         firstLineTabOffset,
+                         otherLineTabOffset))
             {
                 var lineIndent = indentLeft + listIndent + (isFirstLine ? firstLineIndent : 0f);
                 var lineBaseX = lineIndent + prefixWidth;
@@ -6293,7 +6384,8 @@ public sealed class DocumentLayouter
                     measurer,
                     paragraphLineHeight,
                     paragraphAscent,
-                    charGridSpacing);
+                    charGridSpacing,
+                    lineBaseX);
                 lineLayout = ApplyLineSpacing(lineLayout, properties, docGrid);
                 if (line.HasHyphen && line.HyphenStyle is not null)
                 {
@@ -6954,7 +7046,8 @@ public sealed class DocumentLayouter
         IReadOnlyList<TabStopDefinition> tabStops,
         float defaultTabWidth,
         ITextMeasurer measurer,
-        float charGridSpacing)
+        float charGridSpacing,
+        float tabStopOffset)
     {
         if (length <= 0)
         {
@@ -6962,7 +7055,7 @@ public sealed class DocumentLayouter
         }
 
         var items = CollectLineItems(spans, start, length, measurer, charGridSpacing);
-        return MeasureLineItems(items, tabStops, defaultTabWidth, measurer, charGridSpacing);
+        return MeasureLineItems(items, tabStops, defaultTabWidth, measurer, charGridSpacing, tabStopOffset);
     }
 
     private static LineLayout BuildLineLayout(
@@ -6974,7 +7067,8 @@ public sealed class DocumentLayouter
         ITextMeasurer measurer,
         float defaultLineHeight,
         float defaultAscent,
-        float charGridSpacing)
+        float charGridSpacing,
+        float tabStopOffset)
     {
         var runs = new List<LayoutRun>();
         var images = new List<LayoutImage>();
@@ -7078,7 +7172,7 @@ public sealed class DocumentLayouter
                 }
                 case LineItemKind.Tab:
                 {
-                    var tabStop = ResolveNextTabStop(x, tabStops, defaultTabWidth);
+                    var tabStop = ResolveNextTabStop(x, tabStops, defaultTabWidth, tabStopOffset);
                     var nextTabIndex = FindNextTabIndex(items, i + 1);
                     var (fieldWidth, widthBeforeDecimal) = MeasureTabField(items, i + 1, nextTabIndex, measurer, charGridSpacing);
                     var tabWidth = ComputeTabWidth(tabStop, x, fieldWidth, widthBeforeDecimal);
@@ -7486,7 +7580,8 @@ public sealed class DocumentLayouter
         IReadOnlyList<TabStopDefinition> tabStops,
         float defaultTabWidth,
         ITextMeasurer measurer,
-        float charGridSpacing)
+        float charGridSpacing,
+        float tabStopOffset)
     {
         var x = 0f;
         for (var i = 0; i < items.Count; i++)
@@ -7504,7 +7599,7 @@ public sealed class DocumentLayouter
                     break;
                 case LineItemKind.Tab:
                 {
-                    var tabStop = ResolveNextTabStop(x, tabStops, defaultTabWidth);
+                    var tabStop = ResolveNextTabStop(x, tabStops, defaultTabWidth, tabStopOffset);
                     var nextTabIndex = FindNextTabIndex(items, i + 1);
                     var (fieldWidth, widthBeforeDecimal) = MeasureTabField(items, i + 1, nextTabIndex, measurer, charGridSpacing);
                     var tabWidth = ComputeTabWidth(tabStop, x, fieldWidth, widthBeforeDecimal);
@@ -7606,20 +7701,22 @@ public sealed class DocumentLayouter
     private static TabStopInfo ResolveNextTabStop(
         float currentX,
         IReadOnlyList<TabStopDefinition> tabStops,
-        float defaultTabWidth)
+        float defaultTabWidth,
+        float tabStopOffset)
     {
+        var absoluteX = currentX + tabStopOffset;
         for (var i = 0; i < tabStops.Count; i++)
         {
             var stop = tabStops[i];
-            if (stop.Position > currentX)
+            if (stop.Position > absoluteX)
             {
-                return new TabStopInfo(stop.Position, stop.Alignment, stop.Leader);
+                return new TabStopInfo(stop.Position - tabStopOffset, stop.Alignment, stop.Leader);
             }
         }
 
         var safeWidth = MathF.Max(1f, defaultTabWidth);
-        var next = MathF.Floor(currentX / safeWidth) * safeWidth + safeWidth;
-        return new TabStopInfo(next, TabAlignment.Left, TabLeader.None);
+        var next = MathF.Floor(absoluteX / safeWidth) * safeWidth + safeWidth;
+        return new TabStopInfo(next - tabStopOffset, TabAlignment.Left, TabLeader.None);
     }
 
     private static float ComputeTabWidth(TabStopInfo stop, float currentX, float fieldWidth, float widthBeforeDecimal)
