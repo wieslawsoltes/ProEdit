@@ -7402,7 +7402,7 @@ public sealed class DocumentLayouter
     private static bool ShouldSnapLinePitch(DocGridSettings docGrid)
     {
         return docGrid.LinePitch is > 0f
-               && (!docGrid.Type.HasValue || docGrid.Type.Value != DocGridType.Default);
+               && docGrid.Type is DocGridType.Lines or DocGridType.LinesAndChars or DocGridType.SnapToChars;
     }
 
     private static bool ShouldSnapCharacters(DocGridSettings docGrid)
