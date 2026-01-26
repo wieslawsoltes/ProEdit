@@ -61,7 +61,14 @@ public sealed class DocumentStyleResolver
 
     public TextStyle ResolveRunStyle(ParagraphBlock paragraph, RunInline run, TextStyle paragraphStyle)
     {
-        return ResolveRunStyle(run.StyleId, run.Style, paragraphStyle, run.Hyperlink is not null);
+        var isTocParagraph = IsTocParagraph(paragraph);
+        var styleId = run.StyleId;
+        if (isTocParagraph && string.Equals(styleId, "Hyperlink", StringComparison.OrdinalIgnoreCase))
+        {
+            styleId = null;
+        }
+
+        return ResolveRunStyle(styleId, run.Style, paragraphStyle, run.Hyperlink is not null && !isTocParagraph);
     }
 
     public TextStyle ResolveRunStyle(string? styleId, TextStyleProperties? runProperties, TextStyle paragraphStyle)
@@ -110,6 +117,16 @@ public sealed class DocumentStyleResolver
         style.ThemeColor = DocThemeColor.Hyperlink;
         style.ThemeTint = null;
         style.ThemeShade = null;
+    }
+
+    private static bool IsTocParagraph(ParagraphBlock paragraph)
+    {
+        if (paragraph.StyleId is null)
+        {
+            return false;
+        }
+
+        return paragraph.StyleId.StartsWith("TOC", StringComparison.OrdinalIgnoreCase);
     }
 
     public TableStyleDefinition? ResolveTableStyle(TableBlock table)
