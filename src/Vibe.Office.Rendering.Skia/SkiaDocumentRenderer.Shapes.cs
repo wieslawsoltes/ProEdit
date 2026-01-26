@@ -1038,7 +1038,7 @@ public sealed partial class SkiaDocumentRenderer
 
                 if (segment.Image is not null)
                 {
-                    DrawImage(canvas, segment.Image with { X = segment.X }, originX, baseline, lineAscent, options);
+                    DrawImage(canvas, segment.Image with { X = segment.X }, originX, baseline, lineHeight, lineAscent, options);
                 }
                 else if (segment.Shape is not null)
                 {
@@ -1268,7 +1268,7 @@ public sealed partial class SkiaDocumentRenderer
                 case ImageInline image:
                 {
                     var layoutImage = new LayoutImage(image, 0f, bounds.Width, bounds.Height, 1);
-                    DrawImage(canvas, layoutImage, bounds.X, bounds.Y + bounds.Height, 0f, options);
+                    DrawImage(canvas, layoutImage, bounds.X, bounds.Y + bounds.Height, 0f, 0f, options);
                     break;
                 }
                 case ShapeInline shape:

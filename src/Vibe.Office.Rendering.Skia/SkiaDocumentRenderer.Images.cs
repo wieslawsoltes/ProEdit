@@ -14,10 +14,23 @@ public sealed partial class SkiaDocumentRenderer
     private readonly Dictionary<SvgRasterKey, SKBitmap> _svgRasterCache = new();
     private readonly HashSet<Guid> _invalidSvgImages = new();
     private readonly Dictionary<Guid, SmartArtLayout> _smartArtLayoutCache = new();
-    private void DrawImage(SKCanvas canvas, LayoutImage image, float lineX, float baseline, float ascent, RenderOptions options)
+    private void DrawImage(SKCanvas canvas, LayoutImage image, float lineX, float baseline, float lineHeight, float ascent, RenderOptions options)
     {
         var x = lineX + image.X;
         var y = baseline - image.Height;
+        if (lineHeight > 0f && ascent > 0f)
+        {
+            var lineTop = baseline - ascent;
+            if (lineHeight > image.Height)
+            {
+                // Center inline images in the line box to match Word's leading behavior.
+                y = lineTop + (lineHeight - image.Height) * 0.5f;
+            }
+            else
+            {
+                y = lineTop;
+            }
+        }
         var dest = new SKRect(x, y, x + image.Width, y + image.Height);
         var effects = image.Image.Effects;
         if (effects?.HasValues == true)
