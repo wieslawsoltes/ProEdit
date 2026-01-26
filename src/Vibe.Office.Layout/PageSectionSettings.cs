@@ -117,11 +117,6 @@ public sealed record PageSectionSettings(
 
     public PageSectionSettings ResolveForPage(int pageIndex)
     {
-        if (!MirrorMargins && !GutterAtTop && MathF.Abs(Gutter) < 0.01f)
-        {
-            return this;
-        }
-
         var left = MarginLeft;
         var right = MarginRight;
         var top = MarginTop;

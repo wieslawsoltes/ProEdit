@@ -2096,25 +2096,25 @@ public sealed class DocxImporter
 
         var pageMargin = sectionProps.GetFirstChild<PageMargin>();
         var marginLeftTwips = TryParseTwips(pageMargin?.Left);
-        if (marginLeftTwips.HasValue)
+        if (marginLeftTwips.HasValue && marginLeftTwips.Value >= 0)
         {
             properties.MarginLeft = TwipsToDip(marginLeftTwips.Value);
         }
 
         var marginRightTwips = TryParseTwips(pageMargin?.Right);
-        if (marginRightTwips.HasValue)
+        if (marginRightTwips.HasValue && marginRightTwips.Value >= 0)
         {
             properties.MarginRight = TwipsToDip(marginRightTwips.Value);
         }
 
         var marginTopTwips = TryParseTwips(pageMargin?.Top);
-        if (marginTopTwips.HasValue)
+        if (marginTopTwips.HasValue && marginTopTwips.Value >= 0)
         {
             properties.MarginTop = TwipsToDip(marginTopTwips.Value);
         }
 
         var marginBottomTwips = TryParseTwips(pageMargin?.Bottom);
-        if (marginBottomTwips.HasValue)
+        if (marginBottomTwips.HasValue && marginBottomTwips.Value >= 0)
         {
             properties.MarginBottom = TwipsToDip(marginBottomTwips.Value);
         }
