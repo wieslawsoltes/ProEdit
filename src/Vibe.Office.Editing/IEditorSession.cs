@@ -16,6 +16,8 @@ public interface IEditorSession
     long DirtyVersion { get; }
 
     event EventHandler? Changed;
+
+    bool TryGetCaretPoint(out DocPoint point, out int lineIndex);
 }
 
 public interface IEditorMutableSession : IEditorSession

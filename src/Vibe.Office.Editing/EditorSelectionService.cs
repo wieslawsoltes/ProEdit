@@ -184,6 +184,28 @@ public sealed class EditorSelectionService
         return true;
     }
 
+    public bool TryGetCaretPoint(out DocPoint point, out int lineIndex)
+    {
+        point = default;
+        lineIndex = -1;
+        var layout = _layoutService.Layout;
+        if (layout.Lines.Count == 0)
+        {
+            return false;
+        }
+
+        lineIndex = FindLineIndexForCaret(out var line);
+        if (lineIndex < 0 || lineIndex >= layout.Lines.Count)
+        {
+            lineIndex = -1;
+            return false;
+        }
+
+        var caretPoint = GetCaretPoint(line);
+        point = new DocPoint(caretPoint.X, caretPoint.Y);
+        return true;
+    }
+
     public void SetCaret(TextPosition position, bool extendSelection)
     {
         MoveCaret(position, extendSelection);

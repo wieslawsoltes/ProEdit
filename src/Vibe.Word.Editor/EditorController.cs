@@ -44,6 +44,11 @@ public sealed class EditorController : IEditorMutableSession
         _layoutService.RefreshLayout(null);
     }
 
+    public bool TryGetCaretPoint(out DocPoint point, out int lineIndex)
+    {
+        return _selectionService.TryGetCaretPoint(out point, out lineIndex);
+    }
+
     public void InsertText(string text)
     {
         if (string.IsNullOrEmpty(text))
