@@ -55,6 +55,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
     private const float ShapeRotateHandleOffset = 18f;
     private const float ShapeMinSize = 8f;
     private const float ShapeRotateSnapDegrees = 15f;
+    private const int ResizeLayoutDebounceMs = 120;
 
     private static readonly IBrush CommentBalloonFillBrush = new SolidColorBrush(Color.Parse("#FFF7D6"));
     private static readonly IBrush CommentBalloonBorderBrush = new SolidColorBrush(Color.Parse("#D7C284"));
@@ -135,7 +136,9 @@ public sealed class DocumentView : Control, ILogicalScrollable
     private InkStrokeBuilder? _activeInk;
     private InkReplayState? _inkReplay;
     private DispatcherTimer? _inkReplayTimer;
+    private DispatcherTimer? _resizeLayoutTimer;
     private bool _isDrawing;
+    private bool _hasPendingLayoutSize;
     private EditorDrawTool _activeDrawTool;
     private HeaderFooterEditSession? _headerFooterSession;
     private HeaderFooterHit? _headerFooterHit;
@@ -183,6 +186,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
     private DocRect? _shapePreviewBounds;
     private bool _shapeLayoutRefreshPending;
     private bool _isPromotingInlineShape;
+    private Size _pendingLayoutSize;
 
     public DocumentView()
     {
@@ -411,16 +415,67 @@ public sealed class DocumentView : Control, ILogicalScrollable
 
         if (Bounds.Width > 0 && Bounds.Height > 0)
         {
-            _editor.UpdateLayout((float)Bounds.Width, (float)Bounds.Height);
-            if (_zoomMode != DocumentZoomMode.Custom)
-            {
-                ApplyZoomMode(_zoomMode, preserveCenter: false);
-                return;
-            }
-
+            var isInitialSize = _viewport.Width <= 0 || _viewport.Height <= 0;
             UpdateScrollMetrics();
-            UpdateHeaderFooterSessionLayout();
+            if (isInitialSize)
+            {
+                ApplyLayoutForSize(Bounds.Size);
+            }
+            else
+            {
+                ScheduleLayoutUpdate(Bounds.Size);
+            }
         }
+    }
+
+    private void ScheduleLayoutUpdate(Size size)
+    {
+        _pendingLayoutSize = size;
+        _hasPendingLayoutSize = true;
+        if (_resizeLayoutTimer is null)
+        {
+            _resizeLayoutTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(ResizeLayoutDebounceMs)
+            };
+            _resizeLayoutTimer.Tick += (_, _) => ApplyPendingLayout();
+        }
+
+        _resizeLayoutTimer.Stop();
+        _resizeLayoutTimer.Start();
+    }
+
+    private void ApplyPendingLayout()
+    {
+        if (!_hasPendingLayoutSize)
+        {
+            _resizeLayoutTimer?.Stop();
+            return;
+        }
+
+        _hasPendingLayoutSize = false;
+        _resizeLayoutTimer?.Stop();
+        ApplyLayoutForSize(_pendingLayoutSize);
+    }
+
+    private void ApplyLayoutForSize(Size size)
+    {
+        if (_isLoading)
+        {
+            return;
+        }
+
+        var width = MathF.Max(1f, (float)size.Width);
+        var height = MathF.Max(1f, (float)size.Height);
+        _editor.UpdateLayout(width, height);
+        if (_zoomMode != DocumentZoomMode.Custom)
+        {
+            ApplyZoomMode(_zoomMode, preserveCenter: false);
+            return;
+        }
+
+        UpdateScrollMetrics();
+        UpdateHeaderFooterSessionLayout();
     }
 
     protected override void OnTextInput(TextInputEventArgs e)
@@ -4864,6 +4919,9 @@ public sealed class DocumentView : Control, ILogicalScrollable
             var offsetDocX = (float)(_offset.X / _options.ZoomFactor);
             var offsetDocY = (float)(_offset.Y / _options.ZoomFactor);
             canvas.Translate(-offsetDocX, -offsetDocY);
+            var viewportWidth = MathF.Max(0f, (float)(_bounds.Width / _options.ZoomFactor));
+            var viewportHeight = MathF.Max(0f, (float)(_bounds.Height / _options.ZoomFactor));
+            _options.VisibleBounds = new DocRect(offsetDocX, offsetDocY, viewportWidth, viewportHeight);
 
             if (_options.HeaderFooterMode == HeaderFooterEditMode.None)
             {

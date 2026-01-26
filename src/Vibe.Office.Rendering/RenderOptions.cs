@@ -50,4 +50,5 @@ public sealed class RenderOptions
     public bool ShowHeaderFooterCaret { get; set; }
     public IReadOnlyList<int>? DirtyPages { get; set; }
     public long DirtyVersion { get; set; }
+    public DocRect? VisibleBounds { get; set; }
 }

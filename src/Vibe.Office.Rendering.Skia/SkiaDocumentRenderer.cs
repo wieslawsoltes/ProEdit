@@ -14,6 +14,8 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
     private DocumentLayout? _cachedLayout;
     private readonly Dictionary<int, SKPicture> _pageCache = new();
     private long _lastDirtyVersion = -1;
+    private HashSet<int>? _pendingDirtyPages;
+    private long _pendingDirtyVersion = -1;
     public ISkiaTypefaceResolver? TypefaceResolver { get; set; }
 
     public bool TryDrawCachedPage(SKCanvas canvas, DocumentLayout layout, int pageIndex)
@@ -268,11 +270,12 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             return result;
         }
 
+        var hasLineNumbers = layout.PageSections.Any(section => section.LineNumbering?.HasValues == true);
+        var lineNumbers = hasLineNumbers ? BuildLineNumbers() : Array.Empty<int?>();
         var lineNumberStyle = style.Clone();
         lineNumberStyle.FontSize = MathF.Max(8f, style.FontSize * 0.8f);
         lineNumberStyle.Color = options.TextColor;
         var lineNumberPaint = GetRunPaint(lineNumberStyle);
-        var lineNumbers = BuildLineNumbers();
 
         TextShapeInfo ShapeText(string text, TextStyle runStyle)
         {
@@ -1304,6 +1307,75 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             return elementBounds.Bottom > pageBounds.Y && elementBounds.Y < pageBounds.Bottom;
         }
 
+        static bool IntersectsBounds(DocRect bounds, DocRect viewport)
+        {
+            return bounds.Right > viewport.Left
+                   && bounds.Left < viewport.Right
+                   && bounds.Bottom > viewport.Top
+                   && bounds.Top < viewport.Bottom;
+        }
+
+        static bool TryGetVisiblePageRange(
+            IReadOnlyList<PageLayout> pages,
+            DocRect viewport,
+            PageFlowDirection flow,
+            out int startIndex,
+            out int endIndex)
+        {
+            startIndex = 0;
+            endIndex = -1;
+            if (pages.Count == 0)
+            {
+                return false;
+            }
+
+            var viewportStart = flow == PageFlowDirection.Horizontal ? viewport.Left : viewport.Top;
+            var viewportEnd = flow == PageFlowDirection.Horizontal ? viewport.Right : viewport.Bottom;
+            if (!float.IsFinite(viewportStart) || !float.IsFinite(viewportEnd))
+            {
+                return false;
+            }
+
+            var low = 0;
+            var high = pages.Count - 1;
+            var first = pages.Count;
+            while (low <= high)
+            {
+                var mid = low + ((high - low) / 2);
+                var boundEnd = flow == PageFlowDirection.Horizontal ? pages[mid].Bounds.Right : pages[mid].Bounds.Bottom;
+                if (boundEnd >= viewportStart)
+                {
+                    first = mid;
+                    high = mid - 1;
+                }
+                else
+                {
+                    low = mid + 1;
+                }
+            }
+
+            if (first >= pages.Count)
+            {
+                return false;
+            }
+
+            var last = first;
+            while (last < pages.Count)
+            {
+                var boundStart = flow == PageFlowDirection.Horizontal ? pages[last].Bounds.Left : pages[last].Bounds.Top;
+                if (boundStart > viewportEnd)
+                {
+                    break;
+                }
+
+                last++;
+            }
+
+            startIndex = first;
+            endIndex = Math.Max(first, last - 1);
+            return startIndex <= endIndex;
+        }
+
         static bool ShouldDrawPageBorder(PageBorders borders, bool isFirstPageOfSection)
         {
             return borders.Display switch
@@ -2155,6 +2227,19 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
         }
 
         var dirtyPages = options.DirtyPages;
+        var hasVisibleBounds = options.VisibleBounds.HasValue;
+        var visibleBounds = hasVisibleBounds ? options.VisibleBounds.GetValueOrDefault() : default;
+        var pageStart = 0;
+        var pageEnd = layout.Pages.Count - 1;
+        if (hasVisibleBounds && layout.Pages.Count > 0)
+        {
+            if (!TryGetVisiblePageRange(layout.Pages, visibleBounds, layout.Settings.PageFlow, out pageStart, out pageEnd))
+            {
+                pageStart = 0;
+                pageEnd = -1;
+            }
+        }
+
         if (!ReferenceEquals(layout, _cachedLayout))
         {
             if (dirtyPages is null)
@@ -2168,25 +2253,50 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
 
             _cachedLayout = layout;
             _lastDirtyVersion = -1;
+            _pendingDirtyPages?.Clear();
+            _pendingDirtyVersion = -1;
         }
 
         if (!options.UsePictureCache)
         {
             ClearPageCache();
             targetCanvas = canvas;
-            for (var pageIndex = 0; pageIndex < layout.Pages.Count; pageIndex++)
+            for (var pageIndex = pageStart; pageIndex <= pageEnd; pageIndex++)
             {
+                if (hasVisibleBounds && !IntersectsBounds(layout.Pages[pageIndex].Bounds, visibleBounds))
+                {
+                    continue;
+                }
+
                 RenderPage(pageIndex);
             }
         }
         else
         {
-            var applyDirtyPages = dirtyPages is { Count: > 0 } && options.DirtyVersion != _lastDirtyVersion;
-            HashSet<int>? dirtyPageSet = applyDirtyPages ? new HashSet<int>(dirtyPages!) : null;
-
-            for (var pageIndex = 0; pageIndex < layout.Pages.Count; pageIndex++)
+            if (dirtyPages is { Count: > 0 } && options.DirtyVersion != _pendingDirtyVersion)
             {
-                var needsRedraw = dirtyPageSet is not null && dirtyPageSet.Contains(pageIndex);
+                _pendingDirtyPages ??= new HashSet<int>();
+                _pendingDirtyPages.Clear();
+                for (var i = 0; i < dirtyPages.Count; i++)
+                {
+                    var pageIndex = dirtyPages[i];
+                    if ((uint)pageIndex < (uint)layout.Pages.Count)
+                    {
+                        _pendingDirtyPages.Add(pageIndex);
+                    }
+                }
+
+                _pendingDirtyVersion = options.DirtyVersion;
+            }
+
+            for (var pageIndex = pageStart; pageIndex <= pageEnd; pageIndex++)
+            {
+                if (hasVisibleBounds && !IntersectsBounds(layout.Pages[pageIndex].Bounds, visibleBounds))
+                {
+                    continue;
+                }
+
+                var needsRedraw = _pendingDirtyPages is not null && _pendingDirtyPages.Contains(pageIndex);
                 _pageCache.TryGetValue(pageIndex, out var picture);
                 if (needsRedraw || picture is null)
                 {
@@ -2200,6 +2310,10 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
 
                     picture = recorder.EndRecording();
                     _pageCache[pageIndex] = picture;
+                    if (needsRedraw)
+                    {
+                        _pendingDirtyPages!.Remove(pageIndex);
+                    }
                 }
 
                 if (picture is not null)
@@ -2208,9 +2322,9 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                 }
             }
 
-            if (applyDirtyPages)
+            if (_pendingDirtyPages is not null && _pendingDirtyPages.Count == 0 && _pendingDirtyVersion >= 0)
             {
-                _lastDirtyVersion = options.DirtyVersion;
+                _lastDirtyVersion = _pendingDirtyVersion;
             }
         }
 

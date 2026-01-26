@@ -22,12 +22,20 @@ public sealed class DocumentProperties
             return false;
         }
 
-        if (CoreProperties.TryGetValue(name, out value))
+        if (CoreProperties.TryGetValue(name, out var coreValue) && !string.IsNullOrEmpty(coreValue))
         {
+            value = coreValue;
             return true;
         }
 
-        return CustomProperties.TryGetValue(name, out value);
+        if (CustomProperties.TryGetValue(name, out var customValue) && !string.IsNullOrEmpty(customValue))
+        {
+            value = customValue;
+            return true;
+        }
+
+        value = string.Empty;
+        return false;
     }
 
     public void SetCoreProperty(string name, string? value)
