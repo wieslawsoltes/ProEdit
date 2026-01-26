@@ -4629,6 +4629,7 @@ public sealed class DocumentLayouter
         }
 
         var charGridSpacing = TextGridSnapping.GetCharacterSpacing(docGrid);
+        var (lineHeightAdjusted, lineAscentAdjusted) = ApplyLineSpacing(lineHeight, ascent, properties, docGrid);
         var baseWidth = MathF.Max(1f, contentWidth - indentLeft - indentRight - listIndent - prefixWidth);
         var firstLineWidth = MathF.Max(1f, baseWidth - firstLineIndent);
         var dropCapOffset = dropCap.Kind == DropCapKind.Drop
@@ -4674,6 +4675,11 @@ public sealed class DocumentLayouter
             if (line.HasHyphen && line.HyphenStyle is not null)
             {
                 lineLayout = AppendHyphenRun(lineLayout, line.HyphenStyle, line.HyphenBaselineOffset, measurer, charGridSpacing);
+            }
+
+            if (i == 0)
+            {
+                lineLayout = lineLayout with { LineHeight = lineHeightAdjusted, Ascent = lineAscentAdjusted };
             }
 
             if (i == 0 && dropCap.Distance > 0f)
@@ -5627,7 +5633,7 @@ public sealed class DocumentLayouter
 
         var baseStyle = dropSpan.Style;
         var dropStyle = baseStyle.Clone();
-        var (lineHeightAdjusted, _) = ApplyLineSpacing(lineHeight, ascent, properties, docGrid);
+        var (lineHeightAdjusted, lineAscentAdjusted) = ApplyLineSpacing(lineHeight, ascent, properties, docGrid);
         var targetHeight = MathF.Max(1f, lineHeightAdjusted * Math.Max(1, settings.Lines));
         var baseMetrics = measurer.MeasureText(dropText, baseStyle);
         if (baseMetrics.Height > 0.5f)
@@ -5641,6 +5647,8 @@ public sealed class DocumentLayouter
             }
         }
 
+        var dropMetrics = measurer.MeasureText(dropText, dropStyle);
+        var baselineOffset = dropMetrics.Ascent > 0f ? lineAscentAdjusted - dropMetrics.Ascent : 0f;
         var width = TextGridSnapping.MeasureText(dropText, dropStyle, measurer, TextGridSnapping.GetCharacterSpacing(docGrid));
         dropCap = new DropCapInfo(clusterLength, settings.Lines, width, settings.Distance ?? 0f, settings.Kind);
 
@@ -5650,7 +5658,7 @@ public sealed class DocumentLayouter
             var span = spans[i];
             if (i == spanIndex)
             {
-                dropCapSpans.Add(span with { Length = clusterLength, Text = dropText, Style = dropStyle, BaselineOffset = 0f });
+                dropCapSpans.Add(span with { Length = clusterLength, Text = dropText, Style = dropStyle, BaselineOffset = baselineOffset });
                 var remainingLength = span.Length - clusterLength;
                 if (remainingLength > 0)
                 {
