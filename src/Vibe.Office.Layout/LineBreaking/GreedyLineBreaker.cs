@@ -20,7 +20,7 @@ internal static class GreedyLineBreaker
             for (var i = start; i < text.Length; i++)
             {
                 var ch = text[i];
-                if (ch == ' ' || ch == '\t')
+                if (ch == ' ')
                 {
                     lastBreak = i;
                 }
