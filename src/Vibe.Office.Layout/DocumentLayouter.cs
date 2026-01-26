@@ -64,7 +64,12 @@ public sealed class DocumentLayouter
         IReadOnlyList<HeaderFooterLine> Lines,
         IReadOnlyList<TableLayout> Tables,
         float Height,
-        IReadOnlyDictionary<int, LineRange> ParagraphLineRanges);
+        IReadOnlyDictionary<int, LineRange> ParagraphLineRanges,
+        IReadOnlyList<HeaderFooterFrameLayout> FrameLayouts);
+
+    private readonly record struct HeaderFooterFrameLayout(
+        FloatingObject Floating,
+        HeaderFooterLine AnchorLine);
 
     public DocumentLayout Layout(Document document, LayoutSettings settings, ITextMeasurer measurer)
     {
@@ -2628,7 +2633,8 @@ public sealed class DocumentLayouter
                     section.DocGrid,
                     pageNumberText,
                     totalPagesText,
-                    includeTables: true);
+                    includeTables: true,
+                    handleFrameParagraphs: true);
                 var footerLayout = LayoutHeaderFooterBlocks(
                     footerBlocks,
                     document,
@@ -2643,7 +2649,8 @@ public sealed class DocumentLayouter
                     section.DocGrid,
                     pageNumberText,
                     totalPagesText,
-                    includeTables: true);
+                    includeTables: true,
+                    handleFrameParagraphs: true);
 
                 var headerTop = page.Bounds.Y + section.HeaderOffset;
                 var footerTop = page.Bounds.Bottom - section.FooterOffset - footerLayout.Height;
@@ -2663,15 +2670,41 @@ public sealed class DocumentLayouter
                     footerLayout.ParagraphLineRanges,
                     page,
                     section);
-                var floatingObjects = new List<FloatingLayoutObject>(headerFloatingObjects.Count + footerFloatingObjects.Count);
+                var headerFrameObjects = BuildHeaderFooterFrameObjects(
+                    headerLayout.FrameLayouts,
+                    page,
+                    section,
+                    page.Bounds.X + section.MarginLeft,
+                    headerTop);
+                var footerFrameObjects = BuildHeaderFooterFrameObjects(
+                    footerLayout.FrameLayouts,
+                    page,
+                    section,
+                    page.Bounds.X + section.MarginLeft,
+                    footerTop);
+                var floatingObjects = new List<FloatingLayoutObject>(
+                    headerFloatingObjects.Count
+                    + footerFloatingObjects.Count
+                    + headerFrameObjects.Count
+                    + footerFrameObjects.Count);
                 if (headerFloatingObjects.Count > 0)
                 {
                     floatingObjects.AddRange(headerFloatingObjects);
                 }
 
+                if (headerFrameObjects.Count > 0)
+                {
+                    floatingObjects.AddRange(headerFrameObjects);
+                }
+
                 if (footerFloatingObjects.Count > 0)
                 {
                     floatingObjects.AddRange(footerFloatingObjects);
+                }
+
+                if (footerFrameObjects.Count > 0)
+                {
+                    floatingObjects.AddRange(footerFrameObjects);
                 }
 
                 headerFooters.Add(new HeaderFooterLayout(page.Index, headerLines, footerLines, headerTables, footerTables, floatingObjects));
@@ -5833,7 +5866,8 @@ public sealed class DocumentLayouter
         DocGridSettings? docGrid,
         string? pageNumberText,
         string? totalPagesText,
-        bool includeTables)
+        bool includeTables,
+        bool handleFrameParagraphs)
     {
         if (blocks.Count == 0)
         {
@@ -5841,11 +5875,13 @@ public sealed class DocumentLayouter
                 new List<HeaderFooterLine>(),
                 new List<TableLayout>(),
                 0f,
-                new Dictionary<int, LineRange>());
+                new Dictionary<int, LineRange>(),
+                new List<HeaderFooterFrameLayout>());
         }
 
         var lines = new List<HeaderFooterLine>();
         var tables = new List<TableLayout>();
+        var frameLayouts = new List<HeaderFooterFrameLayout>();
         var paragraphLineRanges = new Dictionary<int, LineRange>();
         var charGridSpacing = TextGridSnapping.GetCharacterSpacing(docGrid);
         var y = 0f;
@@ -5894,6 +5930,87 @@ public sealed class DocumentLayouter
                 includeBottomSpacing: true,
                 continuesFromPrevious: false,
                 continuesOnNext: false);
+        }
+
+        bool TryHandleFrameParagraph(
+            ParagraphBlock paragraph,
+            ParagraphProperties properties,
+            TextStyle paragraphStyle,
+            float spacingBefore,
+            float indentLeft,
+            float indentRight,
+            float listIndent,
+            float prefixWidth,
+            float paragraphLineHeight,
+            float paragraphAscent,
+            int paragraphIndex,
+            float currentY)
+        {
+            if (!handleFrameParagraphs)
+            {
+                return false;
+            }
+
+            var frame = properties.Frame;
+            if (frame is null || !frame.HasValues)
+            {
+                return false;
+            }
+
+            var (text, spans) = BuildInlineSpans(paragraph, paragraphStyle, styleResolver, pageNumberText, totalPagesText);
+            var baseWidth = MathF.Max(1f, contentWidth - indentLeft - indentRight - listIndent - prefixWidth);
+            var measuredWidth = text.Length == 0
+                ? baseWidth
+                : MeasureInlineSpans(spans, 0, text.Length, properties.TabStops, settings.DefaultTabWidth, measurer, charGridSpacing);
+            var isDropCapFrame = properties.DropCap?.HasValues == true;
+            var frameWidth = frame.Width ?? MathF.Max(isDropCapFrame ? 1f : 120f, measuredWidth);
+            if (frameWidth <= 0f)
+            {
+                frameWidth = MathF.Max(isDropCapFrame ? 1f : 120f, baseWidth);
+            }
+
+            var (lineHeightAdjusted, lineAscentAdjusted) = ApplyLineSpacing(paragraphLineHeight, paragraphAscent, properties, docGrid);
+            var lineCount = 1;
+            if (text.Length > 0)
+            {
+                lineCount = WrapParagraph(text, spans, frameWidth, frameWidth, properties, settings, measurer, charGridSpacing).Count();
+                lineCount = Math.Max(1, lineCount);
+            }
+
+            var frameHeight = frame.Height ?? MathF.Max(lineHeightAdjusted, lineCount * lineHeightAdjusted);
+            if (frameHeight <= 0f)
+            {
+                frameHeight = MathF.Max(lineHeightAdjusted, paragraphLineHeight);
+            }
+
+            var shapeParagraph = BuildFrameParagraph(paragraph, properties);
+            var shape = BuildFrameShape(shapeParagraph, frameWidth, frameHeight);
+            var floating = new FloatingObject(shape);
+            ApplyFrameAnchor(frame, floating.Anchor);
+
+            var anchorLine = new HeaderFooterLine(
+                paragraphIndex,
+                0,
+                0,
+                indentLeft + listIndent + prefixWidth,
+                currentY + spacingBefore,
+                0f,
+                TextSlice.Empty,
+                null,
+                0f,
+                lineHeightAdjusted,
+                lineAscentAdjusted,
+                Array.Empty<LayoutRun>(),
+                Array.Empty<LayoutImage>(),
+                Array.Empty<LayoutShape>(),
+                Array.Empty<LayoutChart>(),
+                Array.Empty<LayoutEquation>(),
+                Array.Empty<LayoutRuby>(),
+                properties.TextDirection,
+                false);
+
+            frameLayouts.Add(new HeaderFooterFrameLayout(floating, anchorLine));
+            return true;
         }
 
         for (var blockIndex = 0; blockIndex < blocks.Count; blockIndex++)
@@ -5961,6 +6078,24 @@ public sealed class DocumentLayouter
             var prefix = listMarker?.Prefix;
             var listIndent = listMarker?.Indent ?? 0f;
             var prefixWidth = listMarker?.PrefixWidth ?? 0f;
+
+            if (TryHandleFrameParagraph(
+                    paragraph,
+                    properties,
+                    paragraphStyle,
+                    spacingBefore,
+                    indentLeft,
+                    indentRight,
+                    listIndent,
+                    prefixWidth,
+                    paragraphLineHeight,
+                    paragraphAscent,
+                    paragraphIndex,
+                    y))
+            {
+                paragraphIndex++;
+                continue;
+            }
 
             if (DocTextDirectionHelpers.IsVertical(properties.TextDirection))
             {
@@ -6216,7 +6351,7 @@ public sealed class DocumentLayouter
             paragraphIndex++;
         }
 
-        return new HeaderFooterLayoutResult(lines, tables, y, paragraphLineRanges);
+        return new HeaderFooterLayoutResult(lines, tables, y, paragraphLineRanges, frameLayouts);
     }
 
     private static List<HeaderFooterLine> OffsetHeaderFooterLines(IReadOnlyList<HeaderFooterLine> lines, float offsetX, float offsetY)
@@ -6246,6 +6381,40 @@ public sealed class DocumentLayouter
         foreach (var table in tables)
         {
             result.Add(OffsetTableLayout(table, offsetX, offsetY));
+        }
+
+        return result;
+    }
+
+    private static List<FloatingLayoutObject> BuildHeaderFooterFrameObjects(
+        IReadOnlyList<HeaderFooterFrameLayout> frames,
+        PageLayout page,
+        PageSectionSettings section,
+        float offsetX,
+        float offsetY)
+    {
+        if (frames.Count == 0)
+        {
+            return new List<FloatingLayoutObject>();
+        }
+
+        var result = new List<FloatingLayoutObject>(frames.Count);
+        foreach (var frame in frames)
+        {
+            var anchorLine = frame.AnchorLine with { X = frame.AnchorLine.X + offsetX, Y = frame.AnchorLine.Y + offsetY };
+            var (width, height) = ResolveFloatingSize(frame.Floating.Content);
+            if (width <= 0f || height <= 0f)
+            {
+                continue;
+            }
+
+            var baseX = ResolveAnchorX(frame.Floating.Anchor, anchorLine, page, section, width);
+            var baseY = ResolveAnchorY(frame.Floating.Anchor, anchorLine, page, height);
+            var x = baseX + frame.Floating.Anchor.OffsetX;
+            var y = baseY + frame.Floating.Anchor.OffsetY;
+            var bounds = new DocRect(x, y, width, height);
+            var wrapContour = CreateWrapContour(frame.Floating.Anchor, bounds);
+            result.Add(new FloatingLayoutObject(frame.Floating, anchorLine.ParagraphIndex, page.Index, bounds, wrapContour));
         }
 
         return result;
@@ -6509,7 +6678,8 @@ public sealed class DocumentLayouter
                 section.DocGrid,
                 pageNumberText,
                 totalPagesText,
-                includeTables: true);
+                includeTables: true,
+                handleFrameParagraphs: false);
 
             if (layout.Lines.Count == 0 && layout.Tables.Count == 0)
             {
