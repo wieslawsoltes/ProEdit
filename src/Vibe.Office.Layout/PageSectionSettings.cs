@@ -153,6 +153,26 @@ public sealed record PageSectionSettings(
             }
         }
 
+        if (left < 0f)
+        {
+            left = 0f;
+        }
+
+        if (right < 0f)
+        {
+            right = 0f;
+        }
+
+        if (top < 0f)
+        {
+            top = 0f;
+        }
+
+        if (bottom < 0f)
+        {
+            bottom = 0f;
+        }
+
         if (left == MarginLeft
             && right == MarginRight
             && top == MarginTop
