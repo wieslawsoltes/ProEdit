@@ -149,10 +149,62 @@ public sealed class DocumentLayouter
         var marginBottom = 0f;
         var paragraphIndex = 0;
         var blockStartIndex = 0;
+        var pendingParagraphSpacingAfter = 0f;
+        var hasPendingParagraphSpacing = false;
 
         IReadOnlyList<Block> blocks = document.Blocks.Count == 0
             ? new Block[] { new ParagraphBlock() }
             : document.Blocks;
+
+        void ClearPendingParagraphSpacing()
+        {
+            pendingParagraphSpacingAfter = 0f;
+            hasPendingParagraphSpacing = false;
+        }
+
+        void InitializePendingParagraphSpacing()
+        {
+            ClearPendingParagraphSpacing();
+            if (cursorY <= columnTop + 0.5f)
+            {
+                return;
+            }
+
+            if (blockStartIndex <= 0)
+            {
+                return;
+            }
+
+            if (blocks[blockStartIndex - 1] is not ParagraphBlock previousParagraph)
+            {
+                return;
+            }
+
+            var properties = styleResolver.ResolveParagraphProperties(previousParagraph);
+            var paragraphStyle = styleResolver.ResolveParagraphTextStyle(previousParagraph, style);
+            var lineHeightAdjusted = ResolveParagraphLineHeight(
+                paragraphStyle,
+                measurer,
+                spacingMetricsCache,
+                properties,
+                pageSettings.DocGrid);
+            var spacingAfter = ResolveParagraphSpacing(
+                properties.SpacingAfter,
+                properties.SpacingAfterLines,
+                properties.AutoSpacingAfter,
+                settings.ParagraphSpacing,
+                lineHeightAdjusted);
+            if (properties.ContextualSpacing == true
+                && blockStartIndex < blocks.Count
+                && blocks[blockStartIndex] is ParagraphBlock currentParagraph
+                && IsSameParagraphStyle(document, previousParagraph, currentParagraph))
+            {
+                spacingAfter = 0f;
+            }
+
+            pendingParagraphSpacingAfter = spacingAfter;
+            hasPendingParagraphSpacing = true;
+        }
 
         void UpdateColumnMetrics()
         {
@@ -223,6 +275,7 @@ public sealed class DocumentLayouter
 
         void StartNewPage(PageSectionSettings? newSection = null)
         {
+            ClearPendingParagraphSpacing();
             pageIndex++;
             if (settings.UsePagination)
             {
@@ -270,6 +323,7 @@ public sealed class DocumentLayouter
 
         void StartNewColumnOrPage()
         {
+            ClearPendingParagraphSpacing();
             if (columnCount > 1 && columnIndex + 1 < columnCount)
             {
                 columnIndex++;
@@ -737,6 +791,8 @@ public sealed class DocumentLayouter
                     wrapFloatingObjects.Add(floating);
                 }
             }
+
+            InitializePendingParagraphSpacing();
         }
 
         WrapBounds ResolveWrapBounds(float lineTop, float lineHeight, float baseLeft, float baseRight)
@@ -1898,6 +1954,7 @@ public sealed class DocumentLayouter
 
         void HandleSectionBreak(SectionBreakBlock sectionBreak, int __)
         {
+            ClearPendingParagraphSpacing();
             AddBreakMarker(BreakMarkerKind.Section, FormatSectionBreakLabel(sectionBreak.BreakType));
             var nextSectionIndex = sectionBreak.SectionIndex
                 ?? (currentSectionIndex + 1 < document.SectionCount ? currentSectionIndex + 1 : currentSectionIndex);
@@ -1914,6 +1971,7 @@ public sealed class DocumentLayouter
 
         void HandleAltChunk(AltChunkBlock altChunk, int __)
         {
+            ClearPendingParagraphSpacing();
             var label = ResolveAltChunkLabel(altChunk);
             if (string.IsNullOrWhiteSpace(label))
             {
@@ -2357,13 +2415,33 @@ public sealed class DocumentLayouter
             {
                 StartNewPage();
             }
-            paragraphSpacingBefore[paragraphIndex] = plan.SpacingBefore;
-            if (TryHandleFrameParagraph(plan))
+            if (cursorY <= columnTop + 0.5f)
             {
+                ClearPendingParagraphSpacing();
+            }
+
+            var layoutPlan = plan;
+            if (hasPendingParagraphSpacing && cursorY > columnTop + 0.5f)
+            {
+                var collapsedSpacing = MathF.Max(plan.SpacingBefore, pendingParagraphSpacingAfter);
+                var adjustedSpacing = MathF.Max(0f, collapsedSpacing - pendingParagraphSpacingAfter);
+                if (MathF.Abs(adjustedSpacing - plan.SpacingBefore) > 0.01f)
+                {
+                    layoutPlan = plan with { SpacingBefore = adjustedSpacing };
+                }
+            }
+
+            paragraphSpacingBefore[paragraphIndex] = plan.SpacingBefore;
+            if (TryHandleFrameParagraph(layoutPlan))
+            {
+                ClearPendingParagraphSpacing();
                 paragraphIndex++;
                 return;
             }
-            _ = LayoutParagraphWithReflow(plan);
+
+            _ = LayoutParagraphWithReflow(layoutPlan);
+            pendingParagraphSpacingAfter = plan.SpacingAfter;
+            hasPendingParagraphSpacing = true;
             paragraphIndex++;
         }
 
@@ -2499,6 +2577,7 @@ public sealed class DocumentLayouter
 
         void HandleTable(TableBlock table, int __)
         {
+            ClearPendingParagraphSpacing();
             if (TryHandleFloatingTable(table))
             {
                 return;
