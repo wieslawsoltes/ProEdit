@@ -175,11 +175,12 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             }
 
             var result = new int?[layout.Lines.Count];
-            var paragraphCount = document.ParagraphCount;
+            var paragraphs = layout.Paragraphs;
+            var paragraphCount = paragraphs.Count;
             var suppress = new bool[paragraphCount];
             for (var i = 0; i < paragraphCount; i++)
             {
-                var paragraph = document.GetParagraph(i);
+                var paragraph = paragraphs[i];
                 var properties = styleResolver.ResolveParagraphProperties(paragraph);
                 suppress[i] = properties.SuppressLineNumbers == true || properties.Frame?.HasValues == true;
             }
@@ -2172,7 +2173,12 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                     continue;
                 }
 
-                var paragraph = document.GetParagraph(paragraphIndex);
+                if ((uint)paragraphIndex >= (uint)layout.Paragraphs.Count)
+                {
+                    continue;
+                }
+
+                var paragraph = layout.Paragraphs[paragraphIndex];
                 var properties = styleResolver.ResolveParagraphProperties(paragraph);
                 var borders = properties.Borders;
                 var leftSpace = borders.Left is { IsVisible: true } leftBorder ? MathF.Max(0f, leftBorder.Spacing ?? 0f) : 0f;
@@ -2242,15 +2248,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
 
         if (!ReferenceEquals(layout, _cachedLayout))
         {
-            if (dirtyPages is null)
-            {
-                ClearPageCache();
-            }
-            else
-            {
-                TrimPageCache(layout.Pages.Count);
-            }
-
+            ClearPageCache();
             _cachedLayout = layout;
             _lastDirtyVersion = -1;
             _pendingDirtyPages?.Clear();

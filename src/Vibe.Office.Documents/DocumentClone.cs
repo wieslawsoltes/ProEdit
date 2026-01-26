@@ -16,6 +16,30 @@ public static class DocumentClone
         return clone;
     }
 
+    public static DocumentStyles CloneStyles(DocumentStyles source)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        var clone = new DocumentStyles();
+        CopyDocumentStyles(source, clone);
+        return clone;
+    }
+
+    public static DocumentFonts CloneFonts(DocumentFonts source)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        var clone = new DocumentFonts();
+        CopyDocumentFonts(source, clone);
+        return clone;
+    }
+
+    public static DocumentThemeColorMap CloneThemeColors(DocumentThemeColorMap source)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        var clone = new DocumentThemeColorMap();
+        CopyThemeColors(source, clone);
+        return clone;
+    }
+
     public static void Copy(Document source, Document target)
     {
         ArgumentNullException.ThrowIfNull(source);
@@ -711,7 +735,7 @@ public static class DocumentClone
         };
     }
 
-    private static MetadataContainer CloneMetadataContainer(MetadataContainer source)
+    public static MetadataContainer CloneMetadataContainer(MetadataContainer source)
     {
         var element = CloneMetadataElement(source.Element);
         var clone = new MetadataContainer(element);
@@ -739,7 +763,7 @@ public static class DocumentClone
         return clone;
     }
 
-    private static FloatingObject CloneFloatingObject(FloatingObject source)
+    public static FloatingObject CloneFloatingObject(FloatingObject source)
     {
         var clone = new FloatingObject(CloneInline(source.Content));
         CopyFloatingAnchor(source.Anchor, clone.Anchor);
@@ -773,21 +797,21 @@ public static class DocumentClone
         return new FloatingWrapPolygon(points);
     }
 
-    private static FootnoteDefinition CloneFootnoteDefinition(FootnoteDefinition source)
+    public static FootnoteDefinition CloneFootnoteDefinition(FootnoteDefinition source)
     {
         var clone = new FootnoteDefinition(source.Id);
         CopyBlocks(source.Blocks, clone.Blocks);
         return clone;
     }
 
-    private static EndnoteDefinition CloneEndnoteDefinition(EndnoteDefinition source)
+    public static EndnoteDefinition CloneEndnoteDefinition(EndnoteDefinition source)
     {
         var clone = new EndnoteDefinition(source.Id);
         CopyBlocks(source.Blocks, clone.Blocks);
         return clone;
     }
 
-    private static CommentDefinition CloneCommentDefinition(CommentDefinition source)
+    public static CommentDefinition CloneCommentDefinition(CommentDefinition source)
     {
         var clone = new CommentDefinition(source.Id)
         {

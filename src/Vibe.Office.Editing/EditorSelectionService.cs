@@ -11,6 +11,9 @@ public sealed class EditorSelectionService
     private readonly ITextMeasurer _measurer;
     private TextPosition _selectionAnchor;
     private readonly Dictionary<RunMetricsKey, RunMetrics> _runMetricsCache = new();
+    private DocumentLayout? _cachedLayout;
+    private int[][] _tablesByPage = Array.Empty<int[]>();
+    private int[] _verticalLineIndices = Array.Empty<int>();
 
     public TextPosition Caret { get; private set; }
     public TextRange Selection { get; private set; }
@@ -36,6 +39,7 @@ public sealed class EditorSelectionService
             return;
         }
 
+        var layout = _layoutService.Layout;
         if (Caret.Offset > 0)
         {
             SetCaret(new TextPosition(Caret.ParagraphIndex, Caret.Offset - 1), extendSelection);
@@ -44,7 +48,7 @@ public sealed class EditorSelectionService
 
         if (Caret.ParagraphIndex > 0)
         {
-            var previous = _document.GetParagraph(Caret.ParagraphIndex - 1);
+            var previous = GetParagraphAt(layout, Caret.ParagraphIndex - 1);
             SetCaret(new TextPosition(Caret.ParagraphIndex - 1, DocumentEditHelpers.GetParagraphLength(previous)), extendSelection);
         }
     }
@@ -57,14 +61,15 @@ public sealed class EditorSelectionService
             return;
         }
 
-        var paragraph = _document.GetParagraph(Caret.ParagraphIndex);
+        var layout = _layoutService.Layout;
+        var paragraph = GetParagraphAt(layout, Caret.ParagraphIndex);
         if (Caret.Offset < DocumentEditHelpers.GetParagraphLength(paragraph))
         {
             SetCaret(new TextPosition(Caret.ParagraphIndex, Caret.Offset + 1), extendSelection);
             return;
         }
 
-        if (Caret.ParagraphIndex < _document.ParagraphCount - 1)
+        if (Caret.ParagraphIndex < GetParagraphCount(layout) - 1)
         {
             SetCaret(new TextPosition(Caret.ParagraphIndex + 1, 0), extendSelection);
         }
@@ -102,8 +107,8 @@ public sealed class EditorSelectionService
         var currentIndex = FindLineIndexForCaret(out var currentLine);
         if (currentIndex >= layout.Lines.Count - 1)
         {
-            var lastParagraphIndex = _document.ParagraphCount - 1;
-            var lastParagraph = _document.GetParagraph(lastParagraphIndex);
+            var lastParagraphIndex = GetParagraphCount(layout) - 1;
+            var lastParagraph = GetParagraphAt(layout, lastParagraphIndex);
             SetCaret(new TextPosition(lastParagraphIndex, DocumentEditHelpers.GetParagraphLength(lastParagraph)), extendSelection);
             return;
         }
@@ -121,6 +126,8 @@ public sealed class EditorSelectionService
         {
             return;
         }
+
+        EnsureLayoutCaches(layout);
 
         if (TrySelectFloatingObject(x, y))
         {
@@ -218,12 +225,13 @@ public sealed class EditorSelectionService
 
     public EquationInline? GetEquationAtPosition(TextPosition position)
     {
-        if (position.ParagraphIndex < 0 || position.ParagraphIndex >= _document.ParagraphCount)
+        var layout = _layoutService.Layout;
+        if (position.ParagraphIndex < 0 || position.ParagraphIndex >= GetParagraphCount(layout))
         {
             return null;
         }
 
-        var paragraph = _document.GetParagraph(position.ParagraphIndex);
+        var paragraph = GetParagraphAt(layout, position.ParagraphIndex);
         return DocumentEditHelpers.FindEquationInline(paragraph, position.Offset);
     }
 
@@ -275,11 +283,159 @@ public sealed class EditorSelectionService
         SelectedFloatingObjectId = null;
     }
 
+    private void EnsureLayoutCaches(DocumentLayout layout)
+    {
+        if (ReferenceEquals(_cachedLayout, layout))
+        {
+            return;
+        }
+
+        _cachedLayout = layout;
+        _verticalLineIndices = BuildVerticalLineIndices(layout);
+        _tablesByPage = BuildTablesByPage(layout);
+    }
+
+    private static int[] BuildVerticalLineIndices(DocumentLayout layout)
+    {
+        if (layout.Lines.Count == 0)
+        {
+            return Array.Empty<int>();
+        }
+
+        var indices = new List<int>();
+        for (var i = 0; i < layout.Lines.Count; i++)
+        {
+            if (DocTextDirectionHelpers.IsVertical(layout.Lines[i].TextDirection))
+            {
+                indices.Add(i);
+            }
+        }
+
+        return indices.Count == 0 ? Array.Empty<int>() : indices.ToArray();
+    }
+
+    private static int[][] BuildTablesByPage(DocumentLayout layout)
+    {
+        var pageCount = layout.Pages.Count;
+        if (pageCount == 0 || layout.Tables.Count == 0)
+        {
+            return Array.Empty<int[]>();
+        }
+
+        var buckets = new List<int>[pageCount];
+        for (var i = 0; i < pageCount; i++)
+        {
+            buckets[i] = new List<int>();
+        }
+
+        var pageFlow = layout.Settings.PageFlow;
+        for (var i = 0; i < layout.Tables.Count; i++)
+        {
+            var bounds = layout.Tables[i].Bounds;
+            var centerX = bounds.Left + bounds.Width * 0.5f;
+            var centerY = bounds.Top + bounds.Height * 0.5f;
+            var pageIndex = FindPageIndexForPoint(layout.Pages, centerX, centerY, pageFlow);
+            if (pageIndex < 0 || pageIndex >= pageCount)
+            {
+                continue;
+            }
+
+            buckets[pageIndex].Add(i);
+        }
+
+        var result = new int[pageCount][];
+        for (var i = 0; i < pageCount; i++)
+        {
+            var list = buckets[i];
+            result[i] = list.Count == 0 ? Array.Empty<int>() : list.ToArray();
+        }
+
+        return result;
+    }
+
+    private static int FindPageIndexForPoint(IReadOnlyList<PageLayout> pages, float x, float y, PageFlowDirection flow)
+    {
+        if (pages.Count == 0)
+        {
+            return -1;
+        }
+
+        var axis = flow == PageFlowDirection.Horizontal ? x : y;
+        var index = FindPageIndexByAxis(pages, axis, flow);
+        if (index < 0 || index >= pages.Count)
+        {
+            return -1;
+        }
+
+        if (pages[index].Bounds.Contains(x, y))
+        {
+            return index;
+        }
+
+        if (index > 0 && pages[index - 1].Bounds.Contains(x, y))
+        {
+            return index - 1;
+        }
+
+        if (index + 1 < pages.Count && pages[index + 1].Bounds.Contains(x, y))
+        {
+            return index + 1;
+        }
+
+        return index;
+    }
+
+    private static int FindPageIndexByAxis(IReadOnlyList<PageLayout> pages, float value, PageFlowDirection flow)
+    {
+        var low = 0;
+        var high = pages.Count - 1;
+        while (low <= high)
+        {
+            var mid = low + (high - low) / 2;
+            var bounds = pages[mid].Bounds;
+            var start = flow == PageFlowDirection.Horizontal ? bounds.Left : bounds.Top;
+            var end = flow == PageFlowDirection.Horizontal ? bounds.Right : bounds.Bottom;
+            if (value < start)
+            {
+                high = mid - 1;
+            }
+            else if (value >= end)
+            {
+                low = mid + 1;
+            }
+            else
+            {
+                return mid;
+            }
+        }
+
+        return Math.Clamp(low, 0, pages.Count - 1);
+    }
+
     private bool TrySetCaretFromTable(float x, float y, bool extendSelection)
     {
         var layout = _layoutService.Layout;
-        foreach (var table in layout.Tables)
+        if (layout.Tables.Count == 0)
         {
+            return false;
+        }
+
+        EnsureLayoutCaches(layout);
+        if (_tablesByPage.Length == 0)
+        {
+            return false;
+        }
+
+        var pageIndex = FindPageIndexForPoint(layout.Pages, x, y, layout.Settings.PageFlow);
+        if (pageIndex < 0 || pageIndex >= _tablesByPage.Length)
+        {
+            return false;
+        }
+
+        var tableIndices = _tablesByPage[pageIndex];
+        for (var tableIndex = 0; tableIndex < tableIndices.Length; tableIndex++)
+        {
+            var table = layout.Tables[tableIndices[tableIndex]];
             if (!table.Bounds.Contains(x, y))
             {
                 continue;
@@ -425,15 +581,41 @@ public sealed class EditorSelectionService
         return null;
     }
 
-    private TextPosition ClampPosition(TextPosition position)
+    private int GetParagraphCount(DocumentLayout layout)
     {
-        if (_document.ParagraphCount == 0)
+        var count = layout.Paragraphs.Count;
+        return count == 0 ? _document.ParagraphCount : count;
+    }
+
+    private ParagraphBlock GetParagraphAt(DocumentLayout layout, int paragraphIndex)
+    {
+        var paragraphs = layout.Paragraphs;
+        if (paragraphIndex >= 0 && paragraphIndex < paragraphs.Count)
         {
-            _document.Blocks.Add(new ParagraphBlock());
+            return paragraphs[paragraphIndex];
         }
 
-        var paragraphIndex = Math.Clamp(position.ParagraphIndex, 0, _document.ParagraphCount - 1);
-        var paragraph = _document.GetParagraph(paragraphIndex);
+        return _document.GetParagraph(paragraphIndex);
+    }
+
+    private TextPosition ClampPosition(TextPosition position)
+    {
+        var layout = _layoutService.Layout;
+        var paragraphCount = layout.Paragraphs.Count;
+        if (paragraphCount == 0)
+        {
+            if (_document.ParagraphCount == 0)
+            {
+                _document.Blocks.Add(new ParagraphBlock());
+            }
+
+            paragraphCount = _document.ParagraphCount;
+        }
+
+        var paragraphIndex = Math.Clamp(position.ParagraphIndex, 0, paragraphCount - 1);
+        var paragraph = paragraphIndex < layout.Paragraphs.Count
+            ? layout.Paragraphs[paragraphIndex]
+            : _document.GetParagraph(paragraphIndex);
         var offset = Math.Clamp(position.Offset, 0, DocumentEditHelpers.GetParagraphLength(paragraph));
         return new TextPosition(paragraphIndex, offset);
     }
@@ -493,18 +675,17 @@ public sealed class EditorSelectionService
     private int FindLineIndexFromPoint(float x, float y, out LayoutLine line)
     {
         var layout = _layoutService.Layout;
-        for (var i = 0; i < layout.Lines.Count; i++)
+        EnsureLayoutCaches(layout);
+        var verticalLineIndices = _verticalLineIndices;
+        for (var i = 0; i < verticalLineIndices.Length; i++)
         {
-            var candidate = layout.Lines[i];
-            if (!DocTextDirectionHelpers.IsVertical(candidate.TextDirection))
-            {
-                continue;
-            }
+            var candidateIndex = verticalLineIndices[i];
+            var candidate = layout.Lines[candidateIndex];
 
             if (IsPointWithinLine(candidate.X, candidate.Y, candidate.TextDirection, candidate.Width, candidate.LineHeight, x, y))
             {
                 line = candidate;
-                return i;
+                return candidateIndex;
             }
         }
 

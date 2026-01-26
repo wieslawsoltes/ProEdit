@@ -156,13 +156,14 @@ internal sealed class EditorTextClipboard
     {
         var selection = range.Normalize();
         var fragment = new ClipboardFragment();
-        if (_session.Document.ParagraphCount == 0)
+        var paragraphs = GetParagraphs();
+        if (paragraphs.Count == 0)
         {
             return fragment;
         }
 
-        var startIndex = Math.Clamp(selection.Start.ParagraphIndex, 0, _session.Document.ParagraphCount - 1);
-        var endIndex = Math.Clamp(selection.End.ParagraphIndex, 0, _session.Document.ParagraphCount - 1);
+        var startIndex = Math.Clamp(selection.Start.ParagraphIndex, 0, paragraphs.Count - 1);
+        var endIndex = Math.Clamp(selection.End.ParagraphIndex, 0, paragraphs.Count - 1);
         if (startIndex > endIndex)
         {
             (startIndex, endIndex) = (endIndex, startIndex);
@@ -170,7 +171,7 @@ internal sealed class EditorTextClipboard
 
         for (var i = startIndex; i <= endIndex; i++)
         {
-            var paragraph = _session.Document.GetParagraph(i);
+            var paragraph = paragraphs[i];
             var paragraphLength = DocumentEditHelpers.GetParagraphLength(paragraph);
             var startOffset = i == startIndex ? selection.Start.Offset : 0;
             var endOffset = i == endIndex ? selection.End.Offset : paragraphLength;
@@ -296,24 +297,25 @@ internal sealed class EditorTextClipboard
     private string BuildSelectionText(TextRange range)
     {
         var selection = range.Normalize();
-        if (_session.Document.ParagraphCount == 0)
+        var paragraphs = GetParagraphs();
+        if (paragraphs.Count == 0)
         {
             return string.Empty;
         }
 
-        var startIndex = Math.Clamp(selection.Start.ParagraphIndex, 0, _session.Document.ParagraphCount - 1);
-        var endIndex = Math.Clamp(selection.End.ParagraphIndex, 0, _session.Document.ParagraphCount - 1);
+        var startIndex = Math.Clamp(selection.Start.ParagraphIndex, 0, paragraphs.Count - 1);
+        var endIndex = Math.Clamp(selection.End.ParagraphIndex, 0, paragraphs.Count - 1);
         if (startIndex > endIndex)
         {
             (startIndex, endIndex) = (endIndex, startIndex);
         }
 
-        var capacity = EstimateSelectionLength(selection, startIndex, endIndex);
+        var capacity = EstimateSelectionLength(paragraphs, selection, startIndex, endIndex);
         var builder = new StringBuilder(capacity);
 
         for (var i = startIndex; i <= endIndex; i++)
         {
-            var paragraph = _session.Document.GetParagraph(i);
+            var paragraph = paragraphs[i];
             var paragraphLength = DocumentEditHelpers.GetParagraphLength(paragraph);
             var startOffset = i == startIndex ? selection.Start.Offset : 0;
             var endOffset = i == endIndex ? selection.End.Offset : paragraphLength;
@@ -334,12 +336,12 @@ internal sealed class EditorTextClipboard
         return builder.ToString();
     }
 
-    private int EstimateSelectionLength(TextRange selection, int startIndex, int endIndex)
+    private int EstimateSelectionLength(IReadOnlyList<ParagraphBlock> paragraphs, TextRange selection, int startIndex, int endIndex)
     {
         var total = 0;
         for (var i = startIndex; i <= endIndex; i++)
         {
-            var paragraph = _session.Document.GetParagraph(i);
+            var paragraph = paragraphs[i];
             var paragraphLength = DocumentEditHelpers.GetParagraphLength(paragraph);
             var startOffset = i == startIndex ? selection.Start.Offset : 0;
             var endOffset = i == endIndex ? selection.End.Offset : paragraphLength;
@@ -358,6 +360,17 @@ internal sealed class EditorTextClipboard
         }
 
         return total;
+    }
+
+    private IReadOnlyList<ParagraphBlock> GetParagraphs()
+    {
+        var paragraphs = _session.Layout.Paragraphs;
+        if (paragraphs.Count > 0)
+        {
+            return paragraphs;
+        }
+
+        return DocumentEditHelpers.BuildParagraphList(_session.Document);
     }
 
     private static void AppendParagraphSlice(StringBuilder builder, ParagraphBlock paragraph, int startOffset, int endOffset)

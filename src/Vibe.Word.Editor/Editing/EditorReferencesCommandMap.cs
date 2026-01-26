@@ -1345,13 +1345,14 @@ public sealed class EditorReferencesCommandMap
     private string BuildSelectionText(TextRange range, int maxLength)
     {
         var selection = range.Normalize();
-        if (_session.Document.ParagraphCount == 0 || selection.IsEmpty)
+        var paragraphs = GetParagraphs();
+        if (paragraphs.Count == 0 || selection.IsEmpty)
         {
             return string.Empty;
         }
 
-        var startIndex = Math.Clamp(selection.Start.ParagraphIndex, 0, _session.Document.ParagraphCount - 1);
-        var endIndex = Math.Clamp(selection.End.ParagraphIndex, 0, _session.Document.ParagraphCount - 1);
+        var startIndex = Math.Clamp(selection.Start.ParagraphIndex, 0, paragraphs.Count - 1);
+        var endIndex = Math.Clamp(selection.End.ParagraphIndex, 0, paragraphs.Count - 1);
         if (startIndex > endIndex)
         {
             (startIndex, endIndex) = (endIndex, startIndex);
@@ -1360,7 +1361,7 @@ public sealed class EditorReferencesCommandMap
         var builder = new StringBuilder();
         for (var i = startIndex; i <= endIndex; i++)
         {
-            var paragraph = _session.Document.GetParagraph(i);
+            var paragraph = paragraphs[i];
             var paragraphLength = DocumentEditHelpers.GetParagraphLength(paragraph);
             var startOffset = i == startIndex ? selection.Start.Offset : 0;
             var endOffset = i == endIndex ? selection.End.Offset : paragraphLength;
@@ -1389,6 +1390,17 @@ public sealed class EditorReferencesCommandMap
         }
 
         return builder.ToString();
+    }
+
+    private IReadOnlyList<ParagraphBlock> GetParagraphs()
+    {
+        var paragraphs = _session.Layout.Paragraphs;
+        if (paragraphs.Count > 0)
+        {
+            return paragraphs;
+        }
+
+        return DocumentEditHelpers.BuildParagraphList(_session.Document);
     }
 
     private static void AppendParagraphSlice(StringBuilder builder, ParagraphBlock paragraph, int startOffset, int endOffset)

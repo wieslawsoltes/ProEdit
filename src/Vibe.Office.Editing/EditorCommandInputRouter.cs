@@ -6,20 +6,23 @@ public sealed class EditorCommandInputRouter : IEditorInputRouter
     private readonly IEditorMutableSession _session;
     private readonly IUndoRedoService? _undoRedo;
     private readonly IClipboardService? _clipboard;
-    private readonly ISelectionTextService? _selectionText;
+    private readonly EditorClipboardController? _clipboardController;
 
     public EditorCommandInputRouter(
         EditorCommandDispatcher dispatcher,
         IEditorMutableSession session,
         IUndoRedoService? undoRedo = null,
         IClipboardService? clipboard = null,
-        ISelectionTextService? selectionText = null)
+        ITableSelectionSnapshotProvider? tableSelectionProvider = null)
     {
         _dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
         _session = session ?? throw new ArgumentNullException(nameof(session));
         _undoRedo = undoRedo;
         _clipboard = clipboard;
-        _selectionText = selectionText;
+        if (clipboard is not null)
+        {
+            _clipboardController = new EditorClipboardController(session, clipboard, tableSelectionProvider);
+        }
     }
 
     public bool HandleTextInput(ReadOnlySpan<char> text, EditorModifiers modifiers)
@@ -87,7 +90,7 @@ public sealed class EditorCommandInputRouter : IEditorInputRouter
 
     private bool TryHandleClipboard(EditorKey key, EditorModifiers modifiers)
     {
-        if (_clipboard is null)
+        if (_clipboard is null || _clipboardController is null)
         {
             return false;
         }
@@ -118,19 +121,7 @@ public sealed class EditorCommandInputRouter : IEditorInputRouter
             return true;
         }
 
-        if (_selectionText is null)
-        {
-            return true;
-        }
-
-        if (_selectionText.TryGetSelectionText(out var text))
-        {
-            if (!string.IsNullOrEmpty(text))
-            {
-                _clipboard.SetText(text);
-            }
-        }
-
+        _clipboardController?.CopySelection();
         return true;
     }
 
@@ -141,16 +132,7 @@ public sealed class EditorCommandInputRouter : IEditorInputRouter
             return true;
         }
 
-        if (!CopySelection())
-        {
-            return true;
-        }
-
-        if (!_session.Selection.IsEmpty)
-        {
-            _dispatcher.Dispatch(new BackspaceCommand(), _session);
-        }
-
+        DispatchClipboardCommand(ClipboardCommandKind.Cut, ClipboardPasteMode.KeepSource);
         return true;
     }
 
@@ -161,56 +143,18 @@ public sealed class EditorCommandInputRouter : IEditorInputRouter
             return true;
         }
 
-        if (!_clipboard.TryGetText(out var text))
-        {
-            return true;
-        }
-
-        return PasteText(text.AsSpan());
+        DispatchClipboardCommand(ClipboardCommandKind.Paste, ClipboardPasteMode.KeepSource);
+        return true;
     }
 
-    private bool PasteText(ReadOnlySpan<char> text)
+    private void DispatchClipboardCommand(ClipboardCommandKind kind, ClipboardPasteMode mode)
     {
-        if (text.IsEmpty)
+        if (_clipboardController is null)
         {
-            return true;
+            return;
         }
 
-        var lineStart = 0;
-        for (var i = 0; i < text.Length; i++)
-        {
-            var value = text[i];
-            if (value != '\r' && value != '\n')
-            {
-                continue;
-            }
-
-            var segment = text.Slice(lineStart, i - lineStart);
-            if (!segment.IsEmpty)
-            {
-                _dispatcher.Dispatch(new InsertTextCommand(segment.ToString()), _session);
-            }
-
-            _dispatcher.Dispatch(new InsertParagraphBreakCommand(), _session);
-
-            if (value == '\r' && i + 1 < text.Length && text[i + 1] == '\n')
-            {
-                i++;
-            }
-
-            lineStart = i + 1;
-        }
-
-        if (lineStart <= text.Length - 1)
-        {
-            var tail = text.Slice(lineStart);
-            if (!tail.IsEmpty)
-            {
-                _dispatcher.Dispatch(new InsertTextCommand(tail.ToString()), _session);
-            }
-        }
-
-        return true;
+        _dispatcher.Dispatch(new ClipboardCommand(_clipboardController, kind, mode), _session);
     }
 
     private bool TryHandleUndoRedo(EditorKey key, EditorModifiers modifiers)
@@ -247,6 +191,41 @@ public sealed class EditorCommandInputRouter : IEditorInputRouter
         }
 
         return false;
+    }
+
+    private enum ClipboardCommandKind
+    {
+        Cut,
+        Paste
+    }
+
+    private sealed class ClipboardCommand : IEditorUndoableCommand
+    {
+        private readonly EditorClipboardController _controller;
+        private readonly ClipboardCommandKind _kind;
+        private readonly ClipboardPasteMode _mode;
+
+        public ClipboardCommand(EditorClipboardController controller, ClipboardCommandKind kind, ClipboardPasteMode mode)
+        {
+            _controller = controller ?? throw new ArgumentNullException(nameof(controller));
+            _kind = kind;
+            _mode = mode;
+        }
+
+        public bool IsUndoable => true;
+
+        public void Execute(IEditorMutableSession session)
+        {
+            switch (_kind)
+            {
+                case ClipboardCommandKind.Cut:
+                    _controller.CutSelection();
+                    break;
+                case ClipboardCommandKind.Paste:
+                    _controller.Paste(_mode);
+                    break;
+            }
+        }
     }
 
     public bool HandlePointer(in EditorPointerEvent pointerEvent)

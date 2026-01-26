@@ -161,6 +161,8 @@ public interface IClipboardService
     IReadOnlyList<string> SupportedFormats { get; }
     bool TryGetText(out string text);
     void SetText(string text);
+    bool TryGetContent(out ClipboardContent content);
+    void SetContent(ClipboardContent content);
 }
 
 public interface IFormatPainterService

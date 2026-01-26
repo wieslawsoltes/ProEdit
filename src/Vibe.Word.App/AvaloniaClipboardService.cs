@@ -12,6 +12,7 @@ public sealed class AvaloniaClipboardService : IClipboardService
     private readonly Func<bool>? _canPasteEvaluator;
     private readonly IReadOnlyList<string> _formats;
     private string? _lastText;
+    private ClipboardContent? _content;
 
     public AvaloniaClipboardService(
         Func<IClipboard?> clipboardProvider,
@@ -31,7 +32,7 @@ public sealed class AvaloniaClipboardService : IClipboardService
 
     public bool CanCut => _canCutEvaluator?.Invoke() ?? CanCopy;
 
-    public bool CanPaste => _canPasteEvaluator?.Invoke() ?? TryGetText(out _);
+    public bool CanPaste => _canPasteEvaluator?.Invoke() ?? TryGetText(out _) || _content is not null;
 
     public IReadOnlyList<string> SupportedFormats => _formats;
 
@@ -69,6 +70,7 @@ public sealed class AvaloniaClipboardService : IClipboardService
     {
         var clipboard = _clipboardProvider();
         _lastText = string.IsNullOrEmpty(text) ? null : text;
+        _content = null;
         if (clipboard is null)
         {
             return;
@@ -81,5 +83,22 @@ public sealed class AvaloniaClipboardService : IClipboardService
         catch
         {
         }
+    }
+
+    public bool TryGetContent(out ClipboardContent content)
+    {
+        if (_content is null)
+        {
+            content = ClipboardContent.Empty();
+            return false;
+        }
+
+        content = _content;
+        return true;
+    }
+
+    public void SetContent(ClipboardContent content)
+    {
+        _content = content ?? throw new ArgumentNullException(nameof(content));
     }
 }

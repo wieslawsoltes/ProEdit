@@ -9,6 +9,7 @@ public sealed class EditorClipboardServiceAdapter : IClipboardService
     private readonly Func<bool>? _canPasteEvaluator;
     private readonly IReadOnlyList<string> _formats;
     private string? _textBuffer;
+    private ClipboardContent? _content;
 
     public EditorClipboardServiceAdapter(
         IEditorSession session,
@@ -20,9 +21,9 @@ public sealed class EditorClipboardServiceAdapter : IClipboardService
         _formats = supportedFormats ?? DefaultFormats;
     }
 
-    public bool CanCopy => !_session.Selection.IsEmpty;
+    public bool CanCopy => !_session.Selection.IsEmpty || _session.SelectedFloatingObjectId.HasValue;
     public bool CanCut => CanCopy;
-    public bool CanPaste => _canPasteEvaluator?.Invoke() ?? !string.IsNullOrEmpty(_textBuffer);
+    public bool CanPaste => _canPasteEvaluator?.Invoke() ?? !string.IsNullOrEmpty(_textBuffer) || _content is not null;
     public IReadOnlyList<string> SupportedFormats => _formats;
 
     public bool TryGetText(out string text)
@@ -40,5 +41,23 @@ public sealed class EditorClipboardServiceAdapter : IClipboardService
     public void SetText(string text)
     {
         _textBuffer = string.IsNullOrEmpty(text) ? null : text;
+        _content = null;
+    }
+
+    public bool TryGetContent(out ClipboardContent content)
+    {
+        if (_content is null)
+        {
+            content = ClipboardContent.Empty();
+            return false;
+        }
+
+        content = _content;
+        return true;
+    }
+
+    public void SetContent(ClipboardContent content)
+    {
+        _content = content ?? throw new ArgumentNullException(nameof(content));
     }
 }

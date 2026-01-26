@@ -131,6 +131,11 @@ public sealed class DocumentView : Control, ILogicalScrollable
     private float _zoomFactor = 1f;
     private DocumentZoomMode _zoomMode = DocumentZoomMode.Custom;
     private int _multiplePagesPerRow = DefaultMultiplePages;
+    private DocumentLayout? _layoutMetricsLayout;
+    private bool _layoutContentBoundsValid;
+    private float _layoutContentMinX;
+    private float _layoutContentMaxX;
+    private float _layoutMaxPageWidth;
     private EquationInline? _selectedEquation;
     private long _renderVersion;
     private InkStrokeBuilder? _activeInk;
@@ -2078,6 +2083,11 @@ public sealed class DocumentView : Control, ILogicalScrollable
     private void UpdateCommentAnchors()
     {
         _commentAnchors.Clear();
+        if (_editor.Document.Comments.Count == 0)
+        {
+            return;
+        }
+
         var anchors = ReviewingHelpers.BuildCommentAnchors(_editor.Document);
         if (anchors.Count == 0 || _editor.Layout.Lines.Count == 0)
         {
@@ -2109,6 +2119,11 @@ public sealed class DocumentView : Control, ILogicalScrollable
     private void UpdateRevisionAnchors()
     {
         _revisionAnchors.Clear();
+        if (_editor.Document.Revisions.Timeline.Count == 0 && !_editor.Document.TrackChangesEnabled)
+        {
+            return;
+        }
+
         var anchors = ReviewingHelpers.BuildRevisionAnchors(_editor.Document);
         if (anchors.Count == 0 || _editor.Layout.Lines.Count == 0)
         {
@@ -3534,8 +3549,8 @@ public sealed class DocumentView : Control, ILogicalScrollable
     {
         return new AvaloniaClipboardService(
             () => TopLevel.GetTopLevel(this)?.Clipboard,
-            () => !session.Selection.IsEmpty,
-            () => !session.Selection.IsEmpty);
+            () => !session.Selection.IsEmpty || session.SelectedFloatingObjectId.HasValue,
+            () => !session.Selection.IsEmpty || session.SelectedFloatingObjectId.HasValue);
     }
 
     private IEditorViewOptionsService CreateViewOptionsService()
@@ -3547,8 +3562,8 @@ public sealed class DocumentView : Control, ILogicalScrollable
     {
         _kernel.Services.TryGet<IUndoRedoService>(out var undoRedo);
         _kernel.Services.TryGet<IClipboardService>(out var clipboard);
-        _kernel.Services.TryGet<ISelectionTextService>(out var selectionText);
-        var commandRouter = new EditorCommandInputRouter(_kernel.Commands, editor, undoRedo, clipboard, selectionText);
+        _kernel.Services.TryGet<ITableSelectionSnapshotProvider>(out var tableSelectionProvider);
+        var commandRouter = new EditorCommandInputRouter(_kernel.Commands, editor, undoRedo, clipboard, tableSelectionProvider);
         _inputAdapter = new AvaloniaEditorInputAdapter(commandRouter);
     }
 
@@ -3898,8 +3913,8 @@ public sealed class DocumentView : Control, ILogicalScrollable
         var history = undoRedo as EditorCommandHistory;
         services.Register<IEditorCommandRouter>(new HeaderFooterCommandRouter(router, MarkHeaderFooterDirty, history));
         var clipboard = services.GetRequired<IClipboardService>();
-        var selectionText = services.GetRequired<ISelectionTextService>();
-        var inputRouter = new EditorCommandInputRouter(dispatcher, editor, undoRedo, clipboard, selectionText);
+        var tableSelectionProvider = services.GetRequired<ITableSelectionSnapshotProvider>();
+        var inputRouter = new EditorCommandInputRouter(dispatcher, editor, undoRedo, clipboard, tableSelectionProvider);
         var inputAdapter = new AvaloniaEditorInputAdapter(inputRouter);
         session = new HeaderFooterEditSession(hit.Mode, hit.Target, document, editor, inputAdapter);
         return true;
@@ -4641,21 +4656,32 @@ public sealed class DocumentView : Control, ILogicalScrollable
         return contentLeft - centeredLeft;
     }
 
-    private bool TryGetContentHorizontalBounds(out float minX, out float maxX)
+    private void EnsureLayoutMetrics()
     {
-        var pages = _editor.Layout.Pages;
-        if (pages.Count == 0)
+        var layout = _editor.Layout;
+        if (ReferenceEquals(_layoutMetricsLayout, layout))
         {
-            minX = 0f;
-            maxX = 0f;
-            return false;
+            return;
         }
 
-        minX = pages[0].Bounds.Left;
-        maxX = pages[0].Bounds.Right;
-        for (var i = 1; i < pages.Count; i++)
+        _layoutMetricsLayout = layout;
+        _layoutContentBoundsValid = false;
+        _layoutContentMinX = 0f;
+        _layoutContentMaxX = 0f;
+        _layoutMaxPageWidth = 0f;
+
+        if (layout.Pages.Count == 0)
         {
-            var bounds = pages[i].Bounds;
+            return;
+        }
+
+        var bounds = layout.Pages[0].Bounds;
+        var minX = bounds.Left;
+        var maxX = bounds.Right;
+        var maxWidth = bounds.Width;
+        for (var i = 1; i < layout.Pages.Count; i++)
+        {
+            bounds = layout.Pages[i].Bounds;
             if (bounds.Left < minX)
             {
                 minX = bounds.Left;
@@ -4665,8 +4691,31 @@ public sealed class DocumentView : Control, ILogicalScrollable
             {
                 maxX = bounds.Right;
             }
+
+            if (bounds.Width > maxWidth)
+            {
+                maxWidth = bounds.Width;
+            }
         }
 
+        _layoutContentMinX = minX;
+        _layoutContentMaxX = maxX;
+        _layoutMaxPageWidth = maxWidth;
+        _layoutContentBoundsValid = true;
+    }
+
+    private bool TryGetContentHorizontalBounds(out float minX, out float maxX)
+    {
+        EnsureLayoutMetrics();
+        if (!_layoutContentBoundsValid)
+        {
+            minX = 0f;
+            maxX = 0f;
+            return false;
+        }
+
+        minX = _layoutContentMinX;
+        maxX = _layoutContentMaxX;
         return true;
     }
 
@@ -4776,19 +4825,19 @@ public sealed class DocumentView : Control, ILogicalScrollable
 
     private float ComputePageWidthZoom()
     {
-        if (_viewport.Width <= 0 || _editor.Layout.Pages.Count == 0)
+        if (_viewport.Width <= 0)
         {
             return _zoomFactor;
         }
 
-        var pageWidth = _editor.Layout.Pages.Max(page => page.Bounds.Width);
-        if (pageWidth <= 0f)
+        EnsureLayoutMetrics();
+        if (!_layoutContentBoundsValid || _layoutMaxPageWidth <= 0f)
         {
             return _zoomFactor;
         }
 
         var gap = _editor.Layout.Settings.PageGap;
-        var targetWidth = pageWidth + gap;
+        var targetWidth = _layoutMaxPageWidth + gap;
         var viewportWidth = (float)_viewport.Width;
         return viewportWidth / Math.Max(1f, targetWidth);
     }
@@ -4812,20 +4861,20 @@ public sealed class DocumentView : Control, ILogicalScrollable
 
     private float ComputeMultiplePagesZoom(int pagesPerRow)
     {
-        if (_viewport.Width <= 0 || _editor.Layout.Pages.Count == 0)
+        if (_viewport.Width <= 0)
         {
             return _zoomFactor;
         }
 
-        var pageWidth = _editor.Layout.Pages.Max(page => page.Bounds.Width);
-        if (pageWidth <= 0f)
+        EnsureLayoutMetrics();
+        if (!_layoutContentBoundsValid || _layoutMaxPageWidth <= 0f)
         {
             return _zoomFactor;
         }
 
         var gap = _editor.Layout.Settings.PageGap;
         var count = Math.Max(1, pagesPerRow);
-        var targetWidth = (pageWidth * count) + (gap * count);
+        var targetWidth = (_layoutMaxPageWidth * count) + (gap * count);
         var viewportWidth = (float)_viewport.Width;
         return viewportWidth / Math.Max(1f, targetWidth);
     }

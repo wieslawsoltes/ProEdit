@@ -1,8 +1,11 @@
+using Vibe.Office.Documents;
+
 namespace Vibe.Office.Layout;
 
 public sealed class DocumentLayout
 {
     public LayoutSettings Settings { get; }
+    public IReadOnlyList<ParagraphBlock> Paragraphs { get; }
     public IReadOnlyList<LayoutLine> Lines { get; }
     public IReadOnlyList<TableLayout> Tables { get; }
     public IReadOnlyList<PageLayout> Pages { get; }
@@ -22,6 +25,7 @@ public sealed class DocumentLayout
 
     public DocumentLayout(
         LayoutSettings settings,
+        IReadOnlyList<ParagraphBlock> paragraphs,
         IReadOnlyList<LayoutLine> lines,
         IReadOnlyList<TableLayout> tables,
         IReadOnlyList<PageLayout> pages,
@@ -40,6 +44,7 @@ public sealed class DocumentLayout
         float contentHeight)
     {
         Settings = settings;
+        Paragraphs = paragraphs;
         Lines = lines;
         Tables = tables;
         Pages = pages;

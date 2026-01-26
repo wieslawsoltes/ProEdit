@@ -47,7 +47,7 @@ public sealed class EditorHomeCommandMap
     private readonly EditorTextFormattingApplier _textFormatting;
     private readonly EditorParagraphApplier _paragraphFormatting;
     private readonly EditorTextTransformApplier _textTransform;
-    private readonly EditorTextClipboard? _textClipboard;
+    private readonly EditorClipboardController? _clipboardController;
     private readonly IFormatPainterService? _formatPainter;
     private readonly EditorServices _services;
     private readonly IFormattingState? _formattingState;
@@ -98,7 +98,13 @@ public sealed class EditorHomeCommandMap
         _textFormatting = new EditorTextFormattingApplier(_session, textNormalizer);
         _paragraphFormatting = new EditorParagraphApplier(_session);
         _textTransform = new EditorTextTransformApplier(_session);
-        _textClipboard = clipboardService is null ? null : new EditorTextClipboard(_session, clipboardService);
+        if (clipboardService is not null)
+        {
+            var tableSelectionProvider = services.TryGet<ITableSelectionSnapshotProvider>(out var provider)
+                ? provider
+                : null;
+            _clipboardController = new EditorClipboardController(_session, clipboardService, tableSelectionProvider);
+        }
         _formatPainter = formatPainter;
     }
 
@@ -115,7 +121,7 @@ public sealed class EditorHomeCommandMap
     {
         _router.RegisterAction(EditorHomeCommandIds.Clipboard.Copy, (_, __) => CopySelection(), (context, _) => CanCopy(context), isUndoable: false);
         _router.RegisterAction(EditorHomeCommandIds.Clipboard.Cut, (_, __) => CutSelection(), (context, _) => CanCut(context));
-        _router.RegisterAction(EditorHomeCommandIds.Clipboard.Paste, (_, __) => PasteClipboardMatchDestination(), (context, _) => CanPaste(context));
+        _router.RegisterAction(EditorHomeCommandIds.Clipboard.Paste, (_, __) => PasteClipboardKeepSource(), (context, _) => CanPaste(context));
         _router.RegisterAction(EditorHomeCommandIds.Clipboard.PasteKeepSource, (_, __) => PasteClipboardKeepSource(), (context, _) => CanPaste(context));
         _router.RegisterAction(EditorHomeCommandIds.Clipboard.PasteMatchDestination, (_, __) => PasteClipboardMatchDestination(), (context, _) => CanPaste(context));
         _router.RegisterAction(EditorHomeCommandIds.Clipboard.PasteTextOnly, (_, __) => PasteClipboardTextOnly(), (context, _) => CanPaste(context));
@@ -264,27 +270,27 @@ public sealed class EditorHomeCommandMap
 
     private void CopySelection()
     {
-        _textClipboard?.CopySelection();
+        _clipboardController?.CopySelection();
     }
 
     private void CutSelection()
     {
-        _textClipboard?.CutSelection();
+        _clipboardController?.CutSelection();
     }
 
     private void PasteClipboardKeepSource()
     {
-        _textClipboard?.PasteKeepSource();
+        _clipboardController?.Paste(ClipboardPasteMode.KeepSource);
     }
 
     private void PasteClipboardMatchDestination()
     {
-        _textClipboard?.PasteMatchDestination();
+        _clipboardController?.Paste(ClipboardPasteMode.MatchDestination);
     }
 
     private void PasteClipboardTextOnly()
     {
-        _textClipboard?.PasteTextOnly();
+        _clipboardController?.Paste(ClipboardPasteMode.TextOnly);
     }
 
     private void ToggleFormatPainter()

@@ -90,14 +90,14 @@ public sealed class DocumentLayouter
         DocumentLayout? previousLayout,
         int? dirtyParagraphIndex)
     {
-        var baseLayout = LayoutInternal(document, settings, measurer, previousLayout, dirtyParagraphIndex, null);
-        var fieldContext = FieldEvaluationContext.TryCreate(document, baseLayout);
+        var baseLayout = LayoutInternal(document, settings, measurer, previousLayout, dirtyParagraphIndex, null, out var scanState);
+        var fieldContext = FieldEvaluationContext.TryCreate(document, baseLayout, scanState);
         if (fieldContext is null)
         {
             return baseLayout;
         }
 
-        return LayoutInternal(document, settings, measurer, null, null, fieldContext);
+        return LayoutInternal(document, settings, measurer, null, null, fieldContext, out _);
     }
 
     private DocumentLayout LayoutInternal(
@@ -106,7 +106,8 @@ public sealed class DocumentLayouter
         ITextMeasurer measurer,
         DocumentLayout? previousLayout,
         int? dirtyParagraphIndex,
-        FieldEvaluationContext? fieldContext)
+        FieldEvaluationContext? fieldContext,
+        out ParagraphScanState scanState)
     {
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(settings);
@@ -132,9 +133,10 @@ public sealed class DocumentLayouter
         var styleResolver = new DocumentStyleResolver(document);
         var spacingMetricsCache = new Dictionary<TextStyleKey, TextMetrics>();
         var showRevisions = document.TrackChangesEnabled || document.Revisions.Timeline.Count > 0;
-        var scanState = new ParagraphScanState();
-        scanState.Scan(document, fieldContext);
-        var paragraphSectionIndices = BuildParagraphSectionIndices(document);
+        var scanStateLocal = new ParagraphScanState();
+        scanStateLocal.Scan(document, fieldContext);
+        scanState = scanStateLocal;
+        var (paragraphList, paragraphSectionIndices) = BuildParagraphMaps(document);
         var sectionSettingsByIndex = BuildSectionSettingsByIndex(document, settings);
         var footnotesByPage = new Dictionary<int, HashSet<int>>();
         var endnotesByPage = new Dictionary<int, HashSet<int>>();
@@ -424,7 +426,7 @@ public sealed class DocumentLayouter
                 return;
             }
 
-            if (!scanState.NoteReferencesByParagraph.TryGetValue(line.ParagraphIndex, out var references))
+            if (!scanStateLocal.NoteReferencesByParagraph.TryGetValue(line.ParagraphIndex, out var references))
             {
                 return;
             }
@@ -1657,6 +1659,21 @@ public sealed class DocumentLayouter
         void BalanceSectionColumns()
         {
             if (pages.Count == 0 || (lines.Count == 0 && tables.Count == 0))
+            {
+                return;
+            }
+
+            var hasMultipleColumns = false;
+            foreach (var section in sectionSettingsByIndex.Values)
+            {
+                if (section.ColumnCount > 1)
+                {
+                    hasMultipleColumns = true;
+                    break;
+                }
+            }
+
+            if (!hasMultipleColumns)
             {
                 return;
             }
@@ -2933,7 +2950,7 @@ public sealed class DocumentLayouter
 
         ApplyLayoutPasses(postLayoutPasses);
 
-        var commentHighlightsByParagraph = scanState.BuildCommentHighlights();
+        var commentHighlightsByParagraph = scanStateLocal.BuildCommentHighlights();
         var contentHeight = pages.Count == 0
             ? cursorY + marginBottom
             : pages.Last().Bounds.Bottom + settings.PageGap;
@@ -2946,6 +2963,7 @@ public sealed class DocumentLayouter
         }
         return new DocumentLayout(
             settings.Clone(),
+            paragraphList,
             lines,
             tables,
             pages,
@@ -2978,60 +2996,96 @@ public sealed class DocumentLayouter
             return result;
         }
 
-        var paragraphCount = document.ParagraphCount;
-        for (var paragraphIndex = 0; paragraphIndex < paragraphCount; paragraphIndex++)
+        var paragraphIndex = 0;
+        IReadOnlyList<Block> blocks = document.Blocks.Count == 0
+            ? new Block[] { new ParagraphBlock() }
+            : document.Blocks;
+
+        foreach (var block in blocks)
         {
-            var paragraph = document.GetParagraph(paragraphIndex);
-            if (paragraph.FloatingObjects.Count == 0)
+            switch (block)
             {
-                continue;
-            }
+                case ParagraphBlock paragraph:
+                    AppendFloatingObjects(paragraph, paragraphIndex, lines, pages, pageSections, paragraphLineRanges, lineIndex, result);
+                    paragraphIndex++;
+                    break;
+                case TableBlock table:
+                    foreach (var row in table.Rows)
+                    {
+                        foreach (var cell in row.Cells)
+                        {
+                            foreach (var paragraph in cell.Paragraphs)
+                            {
+                                AppendFloatingObjects(paragraph, paragraphIndex, lines, pages, pageSections, paragraphLineRanges, lineIndex, result);
+                                paragraphIndex++;
+                            }
+                        }
+                    }
 
-            if (!paragraphLineRanges.TryGetValue(paragraphIndex, out var range) || range.Count == 0)
-            {
-                continue;
-            }
-
-            var rangeStart = Math.Clamp(range.Start, 0, lines.Count - 1);
-            var rangeEnd = Math.Clamp(range.End, rangeStart + 1, lines.Count);
-            var pageIndex = lineIndex.GetPageForLine(rangeStart);
-            if (pageIndex < 0 || pageIndex >= pages.Count)
-            {
-                pageIndex = 0;
-            }
-
-            var page = pages[pageIndex];
-            var section = pageIndex < pageSections.Count ? pageSections[pageIndex] : PageSectionSettings.FromSettings(new LayoutSettings(), null, 0);
-
-            foreach (var floating in paragraph.FloatingObjects)
-            {
-                var anchorLineIndex = ResolveAnchorLineIndex(lines, rangeStart, rangeEnd, paragraphIndex, floating.Anchor.AnchorOffset);
-                var anchorLine = lines[Math.Clamp(anchorLineIndex, 0, lines.Count - 1)];
-                var anchorPageIndex = lineIndex.GetPageForLine(anchorLineIndex);
-                if (anchorPageIndex < 0 || anchorPageIndex >= pages.Count)
-                {
-                    anchorPageIndex = pageIndex;
-                }
-
-                var anchorPage = pages[anchorPageIndex];
-                var anchorSection = anchorPageIndex < pageSections.Count ? pageSections[anchorPageIndex] : section;
-                var (width, height) = ResolveFloatingSize(floating.Content);
-                if (width <= 0f || height <= 0f)
-                {
-                    continue;
-                }
-
-                var baseX = ResolveAnchorX(floating.Anchor, anchorLine, anchorPage, anchorSection, width);
-                var baseY = ResolveAnchorY(floating.Anchor, anchorLine, anchorPage, height);
-                var x = baseX + floating.Anchor.OffsetX;
-                var y = baseY + floating.Anchor.OffsetY;
-                var bounds = new Vibe.Office.Primitives.DocRect(x, y, width, height);
-                var wrapContour = CreateWrapContour(floating.Anchor, bounds);
-                result.Add(new FloatingLayoutObject(floating, paragraphIndex, anchorPageIndex, bounds, wrapContour));
+                    break;
             }
         }
 
         return result;
+    }
+
+    private static void AppendFloatingObjects(
+        ParagraphBlock paragraph,
+        int paragraphIndex,
+        IReadOnlyList<LayoutLine> lines,
+        IReadOnlyList<PageLayout> pages,
+        IReadOnlyList<PageSectionSettings> pageSections,
+        IReadOnlyDictionary<int, LineRange> paragraphLineRanges,
+        LineIndex lineIndex,
+        List<FloatingLayoutObject> result)
+    {
+        if (paragraph.FloatingObjects.Count == 0)
+        {
+            return;
+        }
+
+        if (!paragraphLineRanges.TryGetValue(paragraphIndex, out var range) || range.Count == 0)
+        {
+            return;
+        }
+
+        var rangeStart = Math.Clamp(range.Start, 0, lines.Count - 1);
+        var rangeEnd = Math.Clamp(range.End, rangeStart + 1, lines.Count);
+        var pageIndex = lineIndex.GetPageForLine(rangeStart);
+        if (pageIndex < 0 || pageIndex >= pages.Count)
+        {
+            pageIndex = 0;
+        }
+
+        var page = pages[pageIndex];
+        var section = pageIndex < pageSections.Count ? pageSections[pageIndex] : PageSectionSettings.FromSettings(new LayoutSettings(), null, 0);
+
+        foreach (var floating in paragraph.FloatingObjects)
+        {
+            var anchorLineIndex = ResolveAnchorLineIndex(lines, rangeStart, rangeEnd, paragraphIndex, floating.Anchor.AnchorOffset);
+            var anchorLine = lines[Math.Clamp(anchorLineIndex, 0, lines.Count - 1)];
+            var anchorPageIndex = lineIndex.GetPageForLine(anchorLineIndex);
+            if (anchorPageIndex < 0 || anchorPageIndex >= pages.Count)
+            {
+                anchorPageIndex = pageIndex;
+            }
+
+            var anchorPage = pages[anchorPageIndex];
+            var anchorSection = anchorPageIndex < pageSections.Count ? pageSections[anchorPageIndex] : section;
+            var (width, height) = ResolveFloatingSize(floating.Content);
+            if (width <= 0f || height <= 0f)
+            {
+                continue;
+            }
+
+            var baseX = ResolveAnchorX(floating.Anchor, anchorLine, anchorPage, anchorSection, width);
+            var baseY = ResolveAnchorY(floating.Anchor, anchorLine, anchorPage, height);
+            var x = baseX + floating.Anchor.OffsetX;
+            var y = baseY + floating.Anchor.OffsetY;
+            var bounds = new DocRect(x, y, width, height);
+            var wrapContour = CreateWrapContour(floating.Anchor, bounds);
+            result.Add(new FloatingLayoutObject(floating, paragraphIndex, anchorPageIndex, bounds, wrapContour));
+        }
     }
 
     private static int ResolveAnchorLineIndex(
@@ -9020,8 +9074,9 @@ public sealed class DocumentLayouter
         return result;
     }
 
-    private static Dictionary<int, int> BuildParagraphSectionIndices(Document document)
+    private static (List<ParagraphBlock> Paragraphs, Dictionary<int, int> SectionIndices) BuildParagraphMaps(Document document)
     {
+        var paragraphs = new List<ParagraphBlock>();
         var map = new Dictionary<int, int>();
         var currentSectionIndex = 0;
         var paragraphIndex = 0;
@@ -9033,7 +9088,8 @@ public sealed class DocumentLayouter
                 case SectionBreakBlock sectionBreak:
                     currentSectionIndex = sectionBreak.SectionIndex ?? currentSectionIndex;
                     break;
-                case ParagraphBlock:
+                case ParagraphBlock paragraph:
+                    paragraphs.Add(paragraph);
                     map[paragraphIndex++] = currentSectionIndex;
                     break;
                 case TableBlock table:
@@ -9041,8 +9097,9 @@ public sealed class DocumentLayouter
                     {
                         foreach (var cell in row.Cells)
                         {
-                            foreach (var _ in cell.Paragraphs)
+                            foreach (var paragraph in cell.Paragraphs)
                             {
+                                paragraphs.Add(paragraph);
                                 map[paragraphIndex++] = currentSectionIndex;
                             }
                         }
@@ -9052,7 +9109,7 @@ public sealed class DocumentLayouter
             }
         }
 
-        return map;
+        return (paragraphs, map);
     }
 
     private static float[] ResolveColumnWidths(
@@ -10285,10 +10342,8 @@ public sealed class DocumentLayouter
 
         public DateTimeOffset Now { get; }
 
-        public static FieldEvaluationContext? TryCreate(Document document, DocumentLayout layout)
+        public static FieldEvaluationContext? TryCreate(Document document, DocumentLayout layout, ParagraphScanState scanState)
         {
-            var scanState = new ParagraphScanState();
-            scanState.Scan(document, null);
             if (!scanState.HasFieldEvaluationCandidates)
             {
                 return null;
@@ -10593,6 +10648,7 @@ public sealed class DocumentLayouter
         public IReadOnlyDictionary<string, TextPosition> BookmarkStartPositions => _bookmarkStartPositions;
         public IReadOnlyDictionary<string, TextRange> BookmarkRanges => _bookmarkRanges;
         public bool HasFieldEvaluationCandidates { get; private set; }
+        public int? FirstFieldCandidateParagraphIndex { get; private set; }
 
         public void Scan(Document document, FieldEvaluationContext? fieldContext)
         {
@@ -10676,6 +10732,10 @@ public sealed class DocumentLayouter
             if (scan.HasFieldCandidates)
             {
                 HasFieldEvaluationCandidates = true;
+                if (!FirstFieldCandidateParagraphIndex.HasValue)
+                {
+                    FirstFieldCandidateParagraphIndex = paragraphIndex;
+                }
             }
 
             if (scan.BookmarkMarkers.Count > 0)

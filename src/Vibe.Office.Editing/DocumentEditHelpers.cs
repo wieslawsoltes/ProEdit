@@ -6,6 +6,37 @@ namespace Vibe.Office.Editing;
 
 public static class DocumentEditHelpers
 {
+    public static List<ParagraphBlock> BuildParagraphList(Document document)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+
+        var paragraphs = new List<ParagraphBlock>();
+        foreach (var block in document.Blocks)
+        {
+            switch (block)
+            {
+                case ParagraphBlock paragraph:
+                    paragraphs.Add(paragraph);
+                    break;
+                case TableBlock table:
+                    foreach (var row in table.Rows)
+                    {
+                        foreach (var cell in row.Cells)
+                        {
+                            foreach (var cellParagraph in cell.Paragraphs)
+                            {
+                                paragraphs.Add(cellParagraph);
+                            }
+                        }
+                    }
+
+                    break;
+            }
+        }
+
+        return paragraphs;
+    }
+
     public static int GetParagraphLength(ParagraphBlock paragraph)
     {
         if (paragraph.Inlines.Count == 0)
