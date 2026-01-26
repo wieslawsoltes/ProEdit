@@ -92,7 +92,8 @@ public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
         }
         var metrics = paint.FontMetrics;
         var ascent = -metrics.Ascent;
-        var descent = metrics.Descent;
+        var leading = MathF.Max(0f, metrics.Leading);
+        var descent = metrics.Descent + leading;
         var height = ascent + descent;
 
         return new TextMetrics(width, height, ascent, descent);
