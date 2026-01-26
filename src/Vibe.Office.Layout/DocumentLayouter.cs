@@ -2125,7 +2125,7 @@ public sealed class DocumentLayouter
         bool TryHandleFrameParagraph(ParagraphLayoutPlan plan)
         {
             var frame = plan.Properties.Frame;
-            if (frame is null || !frame.HasValues || plan.Properties.DropCap?.HasValues == true)
+            if (frame is null || !frame.HasValues)
             {
                 return false;
             }
@@ -2157,12 +2157,29 @@ public sealed class DocumentLayouter
                 frameHeight = MathF.Max(lineHeightAdjusted, paragraphLineHeight);
             }
 
-            var shape = BuildFrameShape(text, plan.Properties, frameWidth, frameHeight);
+            if (!frame.Height.HasValue
+                && plan.Properties.DropCap?.Lines is int dropCapLines
+                && dropCapLines > 0)
+            {
+                frameHeight = MathF.Max(frameHeight, dropCapLines * lineHeightAdjusted);
+            }
+
+            var shapeParagraph = BuildFrameParagraph(plan.Paragraph, plan.Properties);
+            var shape = BuildFrameShape(shapeParagraph, frameWidth, frameHeight);
             var floating = new FloatingObject(shape);
             ApplyFrameAnchor(frame, floating.Anchor);
 
+            var requiredHeight = MathF.Max(lineHeightAdjusted, frameHeight);
+            if (plan.KeepWithNext
+                && plan.NextBlockMinHeight > 0f
+                && cursorY + plan.SpacingBefore + requiredHeight + plan.NextBlockMinHeight > contentBottom
+                && cursorY > columnTop)
+            {
+                StartNewColumnOrPage();
+            }
+
             var anchorY = cursorY + plan.SpacingBefore;
-            if (anchorY + lineHeightAdjusted > contentBottom && cursorY > columnTop)
+            if (anchorY + requiredHeight > contentBottom && cursorY > columnTop)
             {
                 StartNewColumnOrPage();
                 anchorY = cursorY + plan.SpacingBefore;
@@ -6708,11 +6725,23 @@ public sealed class DocumentLayouter
         return upper ? result : result.ToLowerInvariant();
     }
 
-    private static ShapeInline BuildFrameShape(string text, ParagraphProperties properties, float width, float height)
+    private static ParagraphBlock BuildFrameParagraph(ParagraphBlock source, ParagraphProperties resolvedProperties)
+    {
+        var clone = (ParagraphBlock)DocumentClone.CloneBlock(source);
+        clone.Properties.DropCap = null;
+        clone.Properties.Frame = null;
+        clone.FloatingObjects.Clear();
+        if (resolvedProperties.Alignment.HasValue)
+        {
+            clone.Properties.Alignment = resolvedProperties.Alignment;
+        }
+
+        return clone;
+    }
+
+    private static ShapeInline BuildFrameShape(ParagraphBlock paragraph, float width, float height)
     {
         var textBox = new ShapeTextBox();
-        var paragraph = new ParagraphBlock(text);
-        paragraph.Properties.Alignment = properties.Alignment;
         textBox.Blocks.Add(paragraph);
 
         var shapeProperties = new ShapeProperties
