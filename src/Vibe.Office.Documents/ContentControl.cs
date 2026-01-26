@@ -10,6 +10,30 @@ public enum ContentControlKind
     Cell
 }
 
+public enum ContentControlDataType
+{
+    None,
+    CheckBox,
+    DropDownList,
+    ComboBox,
+    Date
+}
+
+public sealed class ContentControlListItem
+{
+    public string? Value { get; set; }
+    public string? DisplayText { get; set; }
+
+    public ContentControlListItem Clone()
+    {
+        return new ContentControlListItem
+        {
+            Value = Value,
+            DisplayText = DisplayText
+        };
+    }
+}
+
 public sealed class ContentControlProperties
 {
     public int? Id { get; set; }
@@ -21,10 +45,16 @@ public sealed class ContentControlProperties
     public string? PlaceholderText { get; set; }
     public bool? ShowingPlaceholder { get; set; }
     public ContentControlDataBinding? DataBinding { get; set; }
+    public ContentControlDataType DataType { get; set; }
+    public bool? IsChecked { get; set; }
+    public string? DateFormat { get; set; }
+    public string? FullDate { get; set; }
+    public string? SelectedValue { get; set; }
+    public List<ContentControlListItem> Items { get; } = new();
 
     public ContentControlProperties Clone()
     {
-        return new ContentControlProperties
+        var clone = new ContentControlProperties
         {
             Id = Id,
             Kind = Kind,
@@ -34,8 +64,20 @@ public sealed class ContentControlProperties
             Placeholder = Placeholder,
             PlaceholderText = PlaceholderText,
             ShowingPlaceholder = ShowingPlaceholder,
-            DataBinding = DataBinding?.Clone()
+            DataBinding = DataBinding?.Clone(),
+            DataType = DataType,
+            IsChecked = IsChecked,
+            DateFormat = DateFormat,
+            FullDate = FullDate,
+            SelectedValue = SelectedValue
         };
+
+        foreach (var item in Items)
+        {
+            clone.Items.Add(item.Clone());
+        }
+
+        return clone;
     }
 }
 

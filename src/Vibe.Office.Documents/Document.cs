@@ -1,3 +1,5 @@
+using System.Xml.Linq;
+
 namespace Vibe.Office.Documents;
 
 public sealed class Document
@@ -19,6 +21,8 @@ public sealed class Document
     public DocumentStyles Styles { get; } = new DocumentStyles();
     public DocumentFonts Fonts { get; } = new DocumentFonts();
     public DocumentThemeColorMap ThemeColors { get; } = new DocumentThemeColorMap();
+    public DocumentProperties Properties { get; } = new DocumentProperties();
+    public Dictionary<string, XDocument> CustomXmlParts { get; } = new(StringComparer.OrdinalIgnoreCase);
     public DocumentRevisions Revisions { get; } = new DocumentRevisions();
     public DocumentMacros Macros { get; } = new DocumentMacros();
     public Dictionary<int, ListDefinition> ListDefinitions { get; } = new();

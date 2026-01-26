@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Xml.Linq;
 using DocumentFormat.OpenXml;
+using DocumentFormat.OpenXml.CustomProperties;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using A = DocumentFormat.OpenXml.Drawing;
@@ -44,9 +45,11 @@ public sealed class DocxImporter
         var document = new VibeDocument();
         document.Blocks.Clear();
         document.Sections.Clear();
+        LoadDocumentProperties(wordDocument, document);
         LoadFonts(mainPart, document);
         LoadDocumentSettings(mainPart, document);
         LoadDocumentBackground(mainPart, document);
+        LoadCustomXmlParts(mainPart, document);
         DocumentDefaults.ApplyDefaultPageSetup(document.SectionProperties);
         document.Sections.Add(new DocumentSection(document.SectionProperties, document.Header, document.Footer, document.FirstHeader, document.FirstFooter, document.EvenHeader, document.EvenFooter));
 
@@ -507,6 +510,132 @@ public sealed class DocxImporter
         }
     }
 
+    private static void LoadDocumentProperties(WordprocessingDocument wordDocument, VibeDocument document)
+    {
+        var properties = wordDocument.PackageProperties;
+        if (properties is null)
+        {
+            return;
+        }
+
+        var culture = CultureInfo.CurrentCulture;
+        document.Properties.SetCoreProperty("Title", properties.Title);
+        document.Properties.SetCoreProperty("Subject", properties.Subject);
+        document.Properties.SetCoreProperty("Author", properties.Creator);
+        document.Properties.SetCoreProperty("Keywords", properties.Keywords);
+        document.Properties.SetCoreProperty("Comments", properties.Description);
+        document.Properties.SetCoreProperty("LastSavedBy", properties.LastModifiedBy);
+        document.Properties.SetCoreProperty("Last Saved By", properties.LastModifiedBy);
+        document.Properties.SetCoreProperty("Revision", properties.Revision);
+        document.Properties.SetCoreProperty("Revision Number", properties.Revision);
+        document.Properties.SetCoreProperty("Category", properties.Category);
+        document.Properties.SetCoreProperty("ContentStatus", properties.ContentStatus);
+        document.Properties.SetCoreProperty("Status", properties.ContentStatus);
+        document.Properties.SetCoreProperty("Identifier", properties.Identifier);
+        document.Properties.SetCoreProperty("Language", properties.Language);
+        document.Properties.SetCoreProperty("Version", properties.Version);
+
+        if (properties.LastPrinted.HasValue)
+        {
+            var formatted = properties.LastPrinted.Value.ToString("G", culture);
+            document.Properties.SetCoreProperty("LastPrinted", formatted);
+            document.Properties.SetCoreProperty("Last Printed", formatted);
+        }
+
+        if (properties.Created.HasValue)
+        {
+            var formatted = properties.Created.Value.ToString("G", culture);
+            document.Properties.SetCoreProperty("CreateDate", formatted);
+            document.Properties.SetCoreProperty("Creation Date", formatted);
+        }
+
+        if (properties.Modified.HasValue)
+        {
+            var formatted = properties.Modified.Value.ToString("G", culture);
+            document.Properties.SetCoreProperty("LastSaveTime", formatted);
+            document.Properties.SetCoreProperty("Last Save Time", formatted);
+        }
+
+        var customPart = wordDocument.CustomFilePropertiesPart;
+        if (customPart?.Properties is null)
+        {
+            return;
+        }
+
+        foreach (var property in customPart.Properties.Elements<CustomDocumentProperty>())
+        {
+            var name = property.Name?.Value;
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                continue;
+            }
+
+            var valueElement = property.ChildElements.FirstOrDefault();
+            if (valueElement is null)
+            {
+                continue;
+            }
+
+            var value = valueElement.InnerText;
+            if (string.IsNullOrEmpty(value))
+            {
+                continue;
+            }
+
+            document.Properties.SetCustomProperty(name, value);
+        }
+    }
+
+    private static void LoadCustomXmlParts(MainDocumentPart? mainPart, VibeDocument document)
+    {
+        if (mainPart is null)
+        {
+            return;
+        }
+
+        document.CustomXmlParts.Clear();
+        foreach (var part in mainPart.CustomXmlParts)
+        {
+            if (string.Equals(part.ContentType, DocxMacroSerializer.MacroCustomPartContentType, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var itemId = part.CustomXmlPropertiesPart?.DataStoreItem?.ItemId?.Value;
+            if (string.IsNullOrWhiteSpace(itemId))
+            {
+                continue;
+            }
+
+            try
+            {
+                using var stream = part.GetStream(FileMode.Open, FileAccess.Read);
+                var xml = XDocument.Load(stream);
+                document.CustomXmlParts[NormalizeStoreItemId(itemId)] = xml;
+            }
+            catch
+            {
+                continue;
+            }
+        }
+    }
+
+    private static string NormalizeStoreItemId(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        var trimmed = value.Trim();
+        if (trimmed.Length > 1 && trimmed[0] == '{' && trimmed[^1] == '}')
+        {
+            trimmed = trimmed.Substring(1, trimmed.Length - 2);
+        }
+
+        return trimmed;
+    }
+
     private static void LoadFonts(MainDocumentPart? mainPart, VibeDocument document)
     {
         if (mainPart is null)
@@ -959,7 +1088,106 @@ public sealed class DocxImporter
             };
         }
 
+        ParseStructuredContentControlProperties(properties, result);
+
         return result;
+    }
+
+    private static void ParseStructuredContentControlProperties(SdtProperties properties, ContentControlProperties result)
+    {
+        foreach (var child in properties.ChildElements)
+        {
+            if (child is null)
+            {
+                continue;
+            }
+
+            var localName = child.LocalName;
+            if (localName.Equals("checkBox", StringComparison.OrdinalIgnoreCase)
+                || localName.Equals("checkbox", StringComparison.OrdinalIgnoreCase))
+            {
+                ParseCheckBoxContentControl(child, result);
+            }
+            else if (localName.Equals("date", StringComparison.OrdinalIgnoreCase))
+            {
+                ParseDateContentControl(child, result);
+            }
+            else if (localName.Equals("dropDownList", StringComparison.OrdinalIgnoreCase))
+            {
+                ParseListContentControl(child, result, ContentControlDataType.DropDownList);
+            }
+            else if (localName.Equals("comboBox", StringComparison.OrdinalIgnoreCase))
+            {
+                ParseListContentControl(child, result, ContentControlDataType.ComboBox);
+            }
+        }
+    }
+
+    private static void ParseCheckBoxContentControl(OpenXmlElement element, ContentControlProperties result)
+    {
+        result.DataType = ContentControlDataType.CheckBox;
+        var checkedElement = element.ChildElements.FirstOrDefault(child => child.LocalName.Equals("checked", StringComparison.OrdinalIgnoreCase));
+        var isChecked = ReadOnOffAttribute(checkedElement);
+        if (isChecked.HasValue)
+        {
+            result.IsChecked = isChecked;
+        }
+    }
+
+    private static void ParseDateContentControl(OpenXmlElement element, ContentControlProperties result)
+    {
+        result.DataType = ContentControlDataType.Date;
+        result.FullDate = GetAttributeValue(element, "fullDate");
+        var formatElement = element.ChildElements.FirstOrDefault(child => child.LocalName.Equals("dateFormat", StringComparison.OrdinalIgnoreCase));
+        result.DateFormat = formatElement is not null ? GetAttributeValue(formatElement, "val") : null;
+    }
+
+    private static void ParseListContentControl(OpenXmlElement element, ContentControlProperties result, ContentControlDataType type)
+    {
+        result.DataType = type;
+        foreach (var child in element.ChildElements)
+        {
+            if (child.LocalName.Equals("listItem", StringComparison.OrdinalIgnoreCase))
+            {
+                var value = GetAttributeValue(child, "value");
+                var display = GetAttributeValue(child, "displayText") ?? value;
+                result.Items.Add(new ContentControlListItem
+                {
+                    Value = value,
+                    DisplayText = display
+                });
+            }
+            else if (child.LocalName.Equals("lastValue", StringComparison.OrdinalIgnoreCase))
+            {
+                result.SelectedValue = GetAttributeValue(child, "val") ?? GetAttributeValue(child, "value");
+            }
+        }
+    }
+
+    private static bool? ReadOnOffAttribute(OpenXmlElement? element)
+    {
+        if (element is null)
+        {
+            return null;
+        }
+
+        foreach (var attribute in element.GetAttributes())
+        {
+            if (attribute.LocalName.Equals("val", StringComparison.OrdinalIgnoreCase))
+            {
+                if (bool.TryParse(attribute.Value, out var parsed))
+                {
+                    return parsed;
+                }
+
+                if (int.TryParse(attribute.Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var numeric))
+                {
+                    return numeric != 0;
+                }
+            }
+        }
+
+        return null;
     }
 
     private static bool IsMetadataWrapper(OpenXmlElement element)

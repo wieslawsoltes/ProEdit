@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Xml.Linq;
 using Vibe.Office.Primitives;
 
 namespace Vibe.Office.Documents;
@@ -42,6 +43,8 @@ public static class DocumentClone
         CopyDocumentStyles(source.Styles, target.Styles);
         CopyDocumentFonts(source.Fonts, target.Fonts);
         CopyThemeColors(source.ThemeColors, target.ThemeColors);
+        CopyDocumentProperties(source.Properties, target.Properties);
+        CopyCustomXmlParts(source.CustomXmlParts, target.CustomXmlParts);
         CopyRevisions(source.Revisions, target.Revisions);
         CopyMacros(source.Macros, target.Macros);
 
@@ -60,6 +63,29 @@ public static class DocumentClone
         foreach (var citationSource in source.Sources)
         {
             target.Sources.Add(citationSource.Clone());
+        }
+    }
+
+    private static void CopyDocumentProperties(DocumentProperties source, DocumentProperties target)
+    {
+        target.Clear();
+        foreach (var pair in source.CoreProperties)
+        {
+            target.CoreProperties[pair.Key] = pair.Value;
+        }
+
+        foreach (var pair in source.CustomProperties)
+        {
+            target.CustomProperties[pair.Key] = pair.Value;
+        }
+    }
+
+    private static void CopyCustomXmlParts(Dictionary<string, XDocument> source, Dictionary<string, XDocument> target)
+    {
+        target.Clear();
+        foreach (var pair in source)
+        {
+            target[pair.Key] = new XDocument(pair.Value);
         }
     }
 
