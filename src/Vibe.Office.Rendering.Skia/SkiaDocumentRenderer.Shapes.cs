@@ -57,7 +57,7 @@ public sealed partial class SkiaDocumentRenderer
         var hasText = textBox is not null;
         if (!hasFill && !hasOutline)
         {
-            if (!hasText)
+            if (!hasText || kind == ShapeKind.Unknown)
             {
                 DrawShapePlaceholder(canvas, rect, options, "Shape");
             }
