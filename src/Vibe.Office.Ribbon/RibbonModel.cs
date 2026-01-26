@@ -6,6 +6,8 @@ namespace Vibe.Office.Ribbon;
 public sealed class RibbonModel : INotifyPropertyChanged
 {
     private RibbonTab? _selectedTab;
+    private RibbonTab? _lastNonContextualTab;
+    private HashSet<string> _activeContextualSetIds = new(StringComparer.OrdinalIgnoreCase);
 
     public RibbonModel(
         IEnumerable<RibbonTab> tabs,
@@ -32,6 +34,10 @@ public sealed class RibbonModel : INotifyPropertyChanged
             if (!ReferenceEquals(_selectedTab, value))
             {
                 _selectedTab = value;
+                if (value is { ContextualSet: null })
+                {
+                    _lastNonContextualTab = value;
+                }
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SelectedTab)));
             }
         }
@@ -79,9 +85,19 @@ public sealed class RibbonModel : INotifyPropertyChanged
 
     public void RefreshState()
     {
+        RibbonContextualTabSet? newlyActiveSet = null;
+        var nextActiveSetIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var contextualSet in ContextualSets)
         {
             contextualSet.RefreshState();
+            if (contextualSet.IsActive)
+            {
+                nextActiveSetIds.Add(contextualSet.Id);
+                if (newlyActiveSet is null && !_activeContextualSetIds.Contains(contextualSet.Id))
+                {
+                    newlyActiveSet = contextualSet;
+                }
+            }
         }
 
         foreach (var tab in Tabs)
@@ -97,9 +113,31 @@ public sealed class RibbonModel : INotifyPropertyChanged
             }
         }
 
+        if (newlyActiveSet is not null)
+        {
+            var contextualTab = Tabs.FirstOrDefault(tab =>
+                tab.IsVisible && tab.ContextualSetId == newlyActiveSet.Id);
+            if (contextualTab is not null)
+            {
+                SelectedTab = contextualTab;
+            }
+        }
+
+        if (SelectedTab is { ContextualSet: not null } selectedTab
+            && selectedTab.ContextualSet is { } selectedSet
+            && !selectedSet.IsActive)
+        {
+            if (_lastNonContextualTab is not null && _lastNonContextualTab.IsVisible)
+            {
+                SelectedTab = _lastNonContextualTab;
+            }
+        }
+
         if (SelectedTab is null || !SelectedTab.IsVisible)
         {
             SelectedTab = Tabs.FirstOrDefault(tab => tab.IsVisible) ?? Tabs.FirstOrDefault();
         }
+
+        _activeContextualSetIds = nextActiveSetIds;
     }
 }
