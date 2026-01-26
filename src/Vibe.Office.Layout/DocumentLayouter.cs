@@ -1,3 +1,5 @@
+using System.Xml;
+using System.Xml.XPath;
 using Vibe.Office.Documents;
 using Vibe.Office.Primitives;
 
@@ -73,12 +75,29 @@ public sealed class DocumentLayouter
 
     public DocumentLayout Layout(Document document, LayoutSettings settings, ITextMeasurer measurer)
     {
-        return LayoutInternal(document, settings, measurer, null, null);
+        return LayoutWithFieldEvaluation(document, settings, measurer, null, null);
     }
 
     public DocumentLayout Layout(Document document, LayoutSettings settings, ITextMeasurer measurer, DocumentLayout? previousLayout, int? dirtyParagraphIndex)
     {
-        return LayoutInternal(document, settings, measurer, previousLayout, dirtyParagraphIndex);
+        return LayoutWithFieldEvaluation(document, settings, measurer, previousLayout, dirtyParagraphIndex);
+    }
+
+    private DocumentLayout LayoutWithFieldEvaluation(
+        Document document,
+        LayoutSettings settings,
+        ITextMeasurer measurer,
+        DocumentLayout? previousLayout,
+        int? dirtyParagraphIndex)
+    {
+        var baseLayout = LayoutInternal(document, settings, measurer, previousLayout, dirtyParagraphIndex, null);
+        var fieldContext = FieldEvaluationContext.TryCreate(document, baseLayout);
+        if (fieldContext is null)
+        {
+            return baseLayout;
+        }
+
+        return LayoutInternal(document, settings, measurer, null, null, fieldContext);
     }
 
     private DocumentLayout LayoutInternal(
@@ -86,7 +105,8 @@ public sealed class DocumentLayouter
         LayoutSettings settings,
         ITextMeasurer measurer,
         DocumentLayout? previousLayout,
-        int? dirtyParagraphIndex)
+        int? dirtyParagraphIndex,
+        FieldEvaluationContext? fieldContext)
     {
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(settings);
@@ -111,12 +131,14 @@ public sealed class DocumentLayouter
         var listState = new ListNumberingState(document);
         var styleResolver = new DocumentStyleResolver(document);
         var spacingMetricsCache = new Dictionary<TextStyleKey, TextMetrics>();
+        var showRevisions = document.TrackChangesEnabled || document.Revisions.Timeline.Count > 0;
         var scanState = new ParagraphScanState();
-        scanState.Scan(document);
+        scanState.Scan(document, fieldContext);
         var paragraphSectionIndices = BuildParagraphSectionIndices(document);
         var sectionSettingsByIndex = BuildSectionSettingsByIndex(document, settings);
         var footnotesByPage = new Dictionary<int, HashSet<int>>();
         var endnotesByPage = new Dictionary<int, HashSet<int>>();
+        var blockRevisionStack = new List<RevisionInfo>();
 
         var currentSectionIndex = 0;
         var sectionSettings = sectionSettingsByIndex.TryGetValue(currentSectionIndex, out var initialSection)
@@ -993,8 +1015,9 @@ public sealed class DocumentLayouter
             float nextBlockMinHeight)
         {
             var paragraphLineStart = lines.Count;
+            var blockRevision = showRevisions && blockRevisionStack.Count > 0 ? blockRevisionStack[^1] : null;
             WrapResolver? wrapResolver = wrapFloatingObjects.Count == 0 ? null : ResolveWrapBounds;
-            var (text, spans) = BuildInlineSpans(paragraph, paragraphStyle, styleResolver);
+            var (text, spans) = BuildInlineSpans(paragraph, paragraphIndex, paragraphStyle, styleResolver, document, fieldContext, blockRevision, showRevisions);
             var charGridSpacing = TextGridSnapping.GetCharacterSpacing(pageSettings.DocGrid);
             var (paragraphLineHeight, paragraphAscent) = ResolveParagraphLineMetrics(paragraphStyle, measurer, spacingMetricsCache);
             var dropCapActive = false;
@@ -1969,6 +1992,40 @@ public sealed class DocumentLayouter
             ApplySectionBreak(sectionBreak.BreakType, nextSettings);
         }
 
+        void HandleRevisionStartBlock(RevisionStartBlock revisionStart, int __)
+        {
+            if (!showRevisions)
+            {
+                return;
+            }
+
+            blockRevisionStack.Add(revisionStart.Revision);
+        }
+
+        void HandleRevisionEndBlock(RevisionEndBlock revisionEnd, int __)
+        {
+            if (!showRevisions || blockRevisionStack.Count == 0)
+            {
+                return;
+            }
+
+            var index = blockRevisionStack.Count - 1;
+            if (revisionEnd.Id.HasValue)
+            {
+                for (var i = blockRevisionStack.Count - 1; i >= 0; i--)
+                {
+                    var candidate = blockRevisionStack[i];
+                    if (candidate.Id == revisionEnd.Id && candidate.Kind == revisionEnd.Kind)
+                    {
+                        index = i;
+                        break;
+                    }
+                }
+            }
+
+            blockRevisionStack.RemoveRange(index, blockRevisionStack.Count - index);
+        }
+
         void HandleAltChunk(AltChunkBlock altChunk, int __)
         {
             ClearPendingParagraphSpacing();
@@ -2057,7 +2114,7 @@ public sealed class DocumentLayouter
             var keepLinesTogether = properties.KeepLinesTogether == true;
             var widowControl = properties.WidowControl ?? true;
             var nextBlockMinHeight = keepWithNext
-                ? EstimateNextBlockMinHeight(blockIndex, blocks, document, styleResolver, settings, measurer, style, spacingMetricsCache, columnWidth, lineHeight, ascent, pageSettings.DocGrid)
+                ? EstimateNextBlockMinHeight(blockIndex, blocks, document, styleResolver, settings, measurer, style, spacingMetricsCache, columnWidth, lineHeight, ascent, pageSettings.DocGrid, fieldContext, showRevisions)
                 : 0f;
 
             var canReflow = paragraph.FloatingObjects.Count > 0;
@@ -2193,7 +2250,8 @@ public sealed class DocumentLayouter
                 return false;
             }
 
-            var (text, spans) = BuildInlineSpans(plan.Paragraph, plan.ParagraphStyle, styleResolver);
+            var blockRevision = showRevisions && blockRevisionStack.Count > 0 ? blockRevisionStack[^1] : null;
+            var (text, spans) = BuildInlineSpans(plan.Paragraph, paragraphIndex, plan.ParagraphStyle, styleResolver, document, fieldContext, blockRevision, showRevisions);
             var charGridSpacing = TextGridSnapping.GetCharacterSpacing(pageSettings.DocGrid);
             var baseWidth = MathF.Max(1f, columnWidth - plan.IndentLeft - plan.IndentRight - plan.ListIndent - plan.PrefixWidth);
             var measuredWidth = text.Length == 0
@@ -2309,6 +2367,7 @@ public sealed class DocumentLayouter
 
             var tableLook = ResolveTableLook(table.Properties.Look ?? tableStyle?.TableProperties.Look);
             var anchorParagraphIndex = paragraphIndex;
+            var blockRevision = showRevisions && blockRevisionStack.Count > 0 ? blockRevisionStack[^1] : null;
             var data = ComputeTableLayoutData(
                 table,
                 document,
@@ -2325,6 +2384,9 @@ public sealed class DocumentLayouter
                 lineHeight,
                 ascent,
                 pageSettings.DocGrid,
+                fieldContext,
+                blockRevision,
+                showRevisions,
                 ref paragraphIndex);
 
             var slices = new List<TableRowSlice>(data.RowHeights.Length);
@@ -2450,7 +2512,27 @@ public sealed class DocumentLayouter
             var tableStyle = styleResolver.ResolveTableStyle(table);
             var resolvedTableProperties = MergeTableProperties(tableStyle?.TableProperties, table.Properties);
             var tableLook = ResolveTableLook(table.Properties.Look ?? tableStyle?.TableProperties.Look);
-            var data = ComputeTableLayoutData(table, document, resolvedTableProperties, table.Properties, tableStyle, tableLook, columnWidth, settings, measurer, style, styleResolver, spacingMetricsCache, lineHeight, ascent, pageSettings.DocGrid, ref paragraphIndex);
+            var blockRevision = showRevisions && blockRevisionStack.Count > 0 ? blockRevisionStack[^1] : null;
+            var data = ComputeTableLayoutData(
+                table,
+                document,
+                resolvedTableProperties,
+                table.Properties,
+                tableStyle,
+                tableLook,
+                columnWidth,
+                settings,
+                measurer,
+                style,
+                styleResolver,
+                spacingMetricsCache,
+                lineHeight,
+                ascent,
+                pageSettings.DocGrid,
+                fieldContext,
+                blockRevision,
+                showRevisions,
+                ref paragraphIndex);
             return new TableLayoutPlan(table, resolvedTableProperties, data);
         }
 
@@ -2605,6 +2687,8 @@ public sealed class DocumentLayouter
                 LayoutBlockRule.For<PageBreakBlock>(HandlePageBreak),
                 LayoutBlockRule.For<ColumnBreakBlock>(HandleColumnBreak),
                 LayoutBlockRule.For<SectionBreakBlock>(HandleSectionBreak),
+                LayoutBlockRule.For<RevisionStartBlock>(HandleRevisionStartBlock),
+                LayoutBlockRule.For<RevisionEndBlock>(HandleRevisionEndBlock),
                 LayoutBlockRule.For<AltChunkBlock>(HandleAltChunk),
                 LayoutBlockRule.For<ParagraphBlock>(HandleParagraph),
                 LayoutBlockRule.For<TableBlock>(HandleTable)
@@ -2725,6 +2809,8 @@ public sealed class DocumentLayouter
                     section.DocGrid,
                     pageNumberText,
                     totalPagesText,
+                    fieldContext,
+                    showRevisions,
                     includeTables: true,
                     handleFrameParagraphs: true);
                 var footerLayout = LayoutHeaderFooterBlocks(
@@ -2741,6 +2827,8 @@ public sealed class DocumentLayouter
                     section.DocGrid,
                     pageNumberText,
                     totalPagesText,
+                    fieldContext,
+                    showRevisions,
                     includeTables: true,
                     handleFrameParagraphs: true);
 
@@ -2818,7 +2906,9 @@ public sealed class DocumentLayouter
                 styleResolver,
                 spacingMetricsCache,
                 lineHeight,
-                ascent);
+                ascent,
+                fieldContext,
+                showRevisions);
         }
 
         void ApplyLayoutPasses(LayoutPass[] passes)
@@ -3396,7 +3486,26 @@ public sealed class DocumentLayouter
         var resolvedTableProperties = MergeTableProperties(tableStyle?.TableProperties, table.Properties);
         var tableLook = ResolveTableLook(table.Properties.Look ?? tableStyle?.TableProperties.Look);
         var paragraphIndex = 0;
-        var data = ComputeTableLayoutData(table, document, resolvedTableProperties, table.Properties, tableStyle, tableLook, contentWidth, settings, measurer, style, styleResolver, spacingMetricsCache, lineHeight, ascent, docGrid, ref paragraphIndex);
+        var data = ComputeTableLayoutData(
+            table,
+            document,
+            resolvedTableProperties,
+            table.Properties,
+            tableStyle,
+            tableLook,
+            contentWidth,
+            settings,
+            measurer,
+            style,
+            styleResolver,
+            spacingMetricsCache,
+            lineHeight,
+            ascent,
+            docGrid,
+            null,
+            null,
+            false,
+            ref paragraphIndex);
         var slices = new List<TableRowSlice>(data.RowHeights.Length);
         for (var i = 0; i < data.RowHeights.Length; i++)
         {
@@ -3484,6 +3593,9 @@ public sealed class DocumentLayouter
         float lineHeight,
         float ascent,
         DocGridSettings? docGrid,
+        FieldEvaluationContext? fieldContext,
+        RevisionInfo? blockRevision,
+        bool showRevisions,
         ref int paragraphIndex)
     {
         var rows = table.Rows;
@@ -3589,7 +3701,23 @@ public sealed class DocumentLayouter
                 if (!placement.IsMergeContinuation)
                 {
                     var spanWidth = SumColumnsWithSpacing(columnWidths, placement.ColumnIndex, placement.ColumnSpan, cellSpacing);
-                    var cellLines = LayoutCellParagraphs(placement.Cell, document, spanWidth, placement.Padding, settings, measurer, style, styleResolver, spacingMetricsCache, lineHeight, ascent, docGrid, ref paragraphIndex);
+                    var cellLines = LayoutCellParagraphs(
+                        placement.Cell,
+                        document,
+                        spanWidth,
+                        placement.Padding,
+                        settings,
+                        measurer,
+                        style,
+                        styleResolver,
+                        spacingMetricsCache,
+                        lineHeight,
+                        ascent,
+                        docGrid,
+                        fieldContext,
+                        blockRevision,
+                        showRevisions,
+                        ref paragraphIndex);
                     placement.Lines = cellLines;
                     placement.ContentHeight = cellLines.Count == 0 ? 0f : cellLines.Last().Y + GetLineBlockHeight(cellLines.Last());
 
@@ -4361,6 +4489,9 @@ public sealed class DocumentLayouter
         float lineHeight,
         float ascent,
         DocGridSettings? docGrid,
+        FieldEvaluationContext? fieldContext,
+        RevisionInfo? blockRevision,
+        bool showRevisions,
         ref int paragraphIndex)
     {
         var availableWidth = MathF.Max(1f, columnWidth - padding.Horizontal);
@@ -4422,7 +4553,7 @@ public sealed class DocumentLayouter
 
             if (DocTextDirectionHelpers.IsVertical(textDirection))
             {
-                var (verticalText, verticalSpans) = BuildInlineSpans(paragraph, paragraphStyle, styleResolver);
+                var (verticalText, verticalSpans) = BuildInlineSpans(paragraph, currentParagraphIndex, paragraphStyle, styleResolver, document, fieldContext, blockRevision, showRevisions);
                 var (emptyLineHeight, emptyAscent) = ApplyLineSpacing(paragraphLineHeight, paragraphAscent, properties, docGrid);
                 if (string.IsNullOrEmpty(verticalText))
                 {
@@ -4564,7 +4695,7 @@ public sealed class DocumentLayouter
 
             y += spacingBefore;
 
-            var (text, spans) = BuildInlineSpans(paragraph, paragraphStyle, styleResolver);
+            var (text, spans) = BuildInlineSpans(paragraph, currentParagraphIndex, paragraphStyle, styleResolver, document, fieldContext, blockRevision, showRevisions);
             if (text.Length == 0)
             {
                 var lineX = indentLeft + listIndent + firstLineIndent + prefixWidth;
@@ -5117,7 +5248,9 @@ public sealed class DocumentLayouter
         float contentWidth,
         float lineHeight,
         float ascent,
-        DocGridSettings? docGrid)
+        DocGridSettings? docGrid,
+        FieldEvaluationContext? fieldContext,
+        bool showRevisions)
     {
         if (blockIndex + 1 >= blocks.Count)
         {
@@ -5160,7 +5293,7 @@ public sealed class DocumentLayouter
             var listIndent = nextParagraph.ListInfo is null ? 0f : settings.ListIndent * (nextParagraph.ListInfo.Level + 1);
             var prefixWidth = 0f;
 
-            var (text, spans) = BuildInlineSpans(nextParagraph, paragraphStyle, styleResolver);
+            var (text, spans) = BuildInlineSpans(nextParagraph, -1, paragraphStyle, styleResolver, document, fieldContext, null, showRevisions);
             if (string.IsNullOrEmpty(text))
             {
                 var (emptyLineHeight, _) = ApplyLineSpacing(paragraphLineHeight, paragraphAscent, properties, docGrid);
@@ -5212,7 +5345,26 @@ public sealed class DocumentLayouter
             var resolvedTableProperties = MergeTableProperties(tableStyle?.TableProperties, table.Properties);
             var tableLook = ResolveTableLook(table.Properties.Look ?? tableStyle?.TableProperties.Look);
             var paragraphIndex = 0;
-            var data = ComputeTableLayoutData(table, document, resolvedTableProperties, table.Properties, tableStyle, tableLook, contentWidth, settings, measurer, defaultStyle, styleResolver, spacingMetricsCache, lineHeight, ascent, docGrid, ref paragraphIndex);
+            var data = ComputeTableLayoutData(
+                table,
+                document,
+                resolvedTableProperties,
+                table.Properties,
+                tableStyle,
+                tableLook,
+                contentWidth,
+                settings,
+                measurer,
+                defaultStyle,
+                styleResolver,
+                spacingMetricsCache,
+                lineHeight,
+                ascent,
+                docGrid,
+                fieldContext,
+                null,
+                showRevisions,
+                ref paragraphIndex);
             if (data.RowHeights.Length == 0)
             {
                 return lineHeight;
@@ -5236,14 +5388,64 @@ public sealed class DocumentLayouter
 
     private static (string Text, List<InlineSpan> Spans) BuildInlineSpans(
         ParagraphBlock paragraph,
+        int paragraphIndex,
         TextStyle paragraphStyle,
         DocumentStyleResolver styleResolver,
+        Document document,
+        FieldEvaluationContext? fieldContext,
+        RevisionInfo? blockRevision,
+        bool showRevisions,
         string? pageNumberText = null,
         string? totalPagesText = null)
     {
         var spansList = new List<InlineSpan>();
         var builder = new System.Text.StringBuilder();
         var contentControls = new List<ContentControlState>();
+        var fieldStack = new List<FieldEvaluationState>();
+        var revisionStack = new List<RevisionInfo>();
+        if (showRevisions && blockRevision is not null)
+        {
+            revisionStack.Add(blockRevision);
+        }
+
+        RevisionInfo? CurrentRevision()
+        {
+            return showRevisions && revisionStack.Count > 0 ? revisionStack[^1] : null;
+        }
+
+        void PushRevision(RevisionInfo revision)
+        {
+            if (!showRevisions)
+            {
+                return;
+            }
+
+            revisionStack.Add(revision);
+        }
+
+        void PopRevision(RevisionKind kind, int? id)
+        {
+            if (!showRevisions || revisionStack.Count == 0)
+            {
+                return;
+            }
+
+            var index = revisionStack.Count - 1;
+            if (id.HasValue)
+            {
+                for (var i = revisionStack.Count - 1; i >= 0; i--)
+                {
+                    var candidate = revisionStack[i];
+                    if (candidate.Id == id && candidate.Kind == kind)
+                    {
+                        index = i;
+                        break;
+                    }
+                }
+            }
+
+            revisionStack.RemoveRange(index, revisionStack.Count - index);
+        }
 
         void AppendText(string text, TextStyle style)
         {
@@ -5252,7 +5454,7 @@ public sealed class DocumentLayouter
                 return;
             }
 
-            var (effectiveStyle, baselineOffset) = PrepareRunStyle(style);
+            var (effectiveStyle, baselineOffset) = PrepareRunStyle(style, CurrentRevision());
             AppendTextSpans(builder, spansList, text, effectiveStyle, baselineOffset);
         }
 
@@ -5280,6 +5482,81 @@ public sealed class DocumentLayouter
             MarkContent();
         }
 
+        bool TryEnsureFieldEvaluation(TextStyle style)
+        {
+            if (fieldStack.Count == 0)
+            {
+                return false;
+            }
+
+            if (IsInSuppressedFieldResult())
+            {
+                return true;
+            }
+
+            var state = fieldStack[^1];
+            if (!state.InResult)
+            {
+                return false;
+            }
+
+            if (!state.Attempted)
+            {
+                state.Attempted = true;
+                if (TryResolveFieldText(
+                        state.Start,
+                        state.Definition,
+                        fieldContext,
+                        new TextPosition(paragraphIndex, builder.Length),
+                        pageNumberText,
+                        totalPagesText,
+                        out var fieldText))
+                {
+                    AppendContent(fieldText, style);
+                    state.SuppressResult = true;
+                }
+
+                fieldStack[^1] = state;
+            }
+
+            return state.SuppressResult;
+        }
+
+        void FinalizeFieldEvaluation(ref FieldEvaluationState state)
+        {
+            if (!state.InResult || state.Attempted)
+            {
+                return;
+            }
+
+            state.Attempted = true;
+            if (TryResolveFieldText(
+                    state.Start,
+                    state.Definition,
+                    fieldContext,
+                    new TextPosition(paragraphIndex, builder.Length),
+                    pageNumberText,
+                    totalPagesText,
+                    out var fieldText))
+            {
+                AppendContent(fieldText, paragraphStyle);
+                state.SuppressResult = true;
+            }
+        }
+
+        bool IsInSuppressedFieldResult()
+        {
+            foreach (var state in fieldStack)
+            {
+                if (state.InResult && state.SuppressResult)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         if (paragraph.Inlines.Count == 0)
         {
             AppendText(paragraph.Text ?? string.Empty, paragraphStyle);
@@ -5292,13 +5569,18 @@ public sealed class DocumentLayouter
             {
                 case RunInline runInline:
                 {
+                    var runStyle = styleResolver.ResolveRunStyle(paragraph, runInline, paragraphStyle);
+                    if (TryEnsureFieldEvaluation(runStyle))
+                    {
+                        break;
+                    }
+
                     var text = runInline.GetText();
                     if (text.Length == 0)
                     {
                         break;
                     }
 
-                    var runStyle = styleResolver.ResolveRunStyle(paragraph, runInline, paragraphStyle);
                     AppendContent(text, runStyle);
                     break;
                 }
@@ -5312,6 +5594,11 @@ public sealed class DocumentLayouter
 
                     var baseStyle = styleResolver.ResolveRunStyle(rubyInline.BaseStyleId, rubyInline.BaseStyle, paragraphStyle);
                     var rubyStyle = styleResolver.ResolveRunStyle(rubyInline.RubyStyleId, rubyInline.RubyStyle, baseStyle);
+                    if (TryEnsureFieldEvaluation(baseStyle))
+                    {
+                        break;
+                    }
+
                     var rubyScale = rubyInline.RubyScale > 0f ? rubyInline.RubyScale : 0.5f;
                     if (rubyScale != 1f)
                     {
@@ -5322,8 +5609,8 @@ public sealed class DocumentLayouter
                         }
                     }
 
-                    var (effectiveBaseStyle, baselineOffset) = PrepareRunStyle(baseStyle);
-                    var (effectiveRubyStyle, _) = PrepareRunStyle(rubyStyle);
+                    var (effectiveBaseStyle, baselineOffset) = PrepareRunStyle(baseStyle, CurrentRevision());
+                    var (effectiveRubyStyle, _) = PrepareRunStyle(rubyStyle, CurrentRevision());
                     var start = builder.Length;
                     builder.Append(baseText);
                     spansList.Add(new InlineSpan(start, baseText.Length, baseText, effectiveBaseStyle, null, null, null, null, rubyInline, effectiveRubyStyle, baselineOffset));
@@ -5332,6 +5619,11 @@ public sealed class DocumentLayouter
                 }
                 case ImageInline imageInline:
                 {
+                    if (TryEnsureFieldEvaluation(paragraphStyle))
+                    {
+                        break;
+                    }
+
                     var start = builder.Length;
                     builder.Append(DocumentConstants.ObjectReplacementChar);
                     spansList.Add(new InlineSpan(start, 1, string.Empty, paragraphStyle, imageInline, null, null, null, null, null, 0f));
@@ -5340,6 +5632,11 @@ public sealed class DocumentLayouter
                 }
                 case ShapeInline shapeInline:
                 {
+                    if (TryEnsureFieldEvaluation(paragraphStyle))
+                    {
+                        break;
+                    }
+
                     var start = builder.Length;
                     builder.Append(DocumentConstants.ObjectReplacementChar);
                     spansList.Add(new InlineSpan(start, 1, string.Empty, paragraphStyle, null, shapeInline, null, null, null, null, 0f));
@@ -5348,6 +5645,11 @@ public sealed class DocumentLayouter
                 }
                 case ChartInline chartInline:
                 {
+                    if (TryEnsureFieldEvaluation(paragraphStyle))
+                    {
+                        break;
+                    }
+
                     var start = builder.Length;
                     builder.Append(DocumentConstants.ObjectReplacementChar);
                     spansList.Add(new InlineSpan(start, 1, string.Empty, paragraphStyle, null, null, chartInline, null, null, null, 0f));
@@ -5356,6 +5658,11 @@ public sealed class DocumentLayouter
                 }
                 case EquationInline equationInline:
                 {
+                    if (TryEnsureFieldEvaluation(paragraphStyle))
+                    {
+                        break;
+                    }
+
                     var start = builder.Length;
                     builder.Append(DocumentConstants.ObjectReplacementChar);
                     var equationStyle = styleResolver.ResolveRunStyle(equationInline.StyleId, equationInline.Style, paragraphStyle);
@@ -5365,30 +5672,63 @@ public sealed class DocumentLayouter
                 }
                 case PageNumberInline pageNumberInline:
                 {
+                    var pageStyle = pageNumberInline.Style ?? paragraphStyle;
+                    if (TryEnsureFieldEvaluation(pageStyle))
+                    {
+                        break;
+                    }
+
                     var text = pageNumberText ?? string.Empty;
+                    if (text.Length == 0 && fieldContext is not null)
+                    {
+                        if (fieldContext.TryGetPageNumberText(new TextPosition(paragraphIndex, builder.Length), out var resolved))
+                        {
+                            text = resolved;
+                        }
+                    }
+
                     if (text.Length == 0)
                     {
                         break;
                     }
 
-                    AppendContent(text, pageNumberInline.Style?.Clone() ?? paragraphStyle);
+                    AppendContent(text, pageStyle);
                     break;
                 }
                 case TotalPagesInline totalPagesInline:
                 {
+                    var totalStyle = totalPagesInline.Style ?? paragraphStyle;
+                    if (TryEnsureFieldEvaluation(totalStyle))
+                    {
+                        break;
+                    }
+
                     var text = totalPagesText ?? string.Empty;
+                    if (text.Length == 0 && fieldContext is not null)
+                    {
+                        if (fieldContext.TryGetTotalPagesText(new TextPosition(paragraphIndex, builder.Length), out var resolved))
+                        {
+                            text = resolved;
+                        }
+                    }
+
                     if (text.Length == 0)
                     {
                         break;
                     }
 
-                    AppendContent(text, totalPagesInline.Style?.Clone() ?? paragraphStyle);
+                    AppendContent(text, totalStyle);
                     break;
                 }
                 case FootnoteReferenceInline footnoteReference:
                 {
                     var text = footnoteReference.Id.ToString(System.Globalization.CultureInfo.InvariantCulture);
                     var refStyle = styleResolver.ResolveRunStyle(footnoteReference.StyleId, footnoteReference.Style, paragraphStyle);
+                    if (TryEnsureFieldEvaluation(refStyle))
+                    {
+                        break;
+                    }
+
                     refStyle.VerticalPosition = DocVerticalPosition.Superscript;
                     AppendContent(text, refStyle);
                     break;
@@ -5397,6 +5737,11 @@ public sealed class DocumentLayouter
                 {
                     var text = endnoteReference.Id.ToString(System.Globalization.CultureInfo.InvariantCulture);
                     var refStyle = styleResolver.ResolveRunStyle(endnoteReference.StyleId, endnoteReference.Style, paragraphStyle);
+                    if (TryEnsureFieldEvaluation(refStyle))
+                    {
+                        break;
+                    }
+
                     refStyle.VerticalPosition = DocVerticalPosition.Superscript;
                     AppendContent(text, refStyle);
                     break;
@@ -5405,21 +5750,84 @@ public sealed class DocumentLayouter
                 {
                     var text = commentReference.Id.ToString(System.Globalization.CultureInfo.InvariantCulture);
                     var refStyle = styleResolver.ResolveRunStyle(commentReference.StyleId, commentReference.Style, paragraphStyle);
+                    if (TryEnsureFieldEvaluation(refStyle))
+                    {
+                        break;
+                    }
+
                     refStyle.VerticalPosition = DocVerticalPosition.Superscript;
                     AppendContent(text, refStyle);
                     break;
                 }
                 case ContentControlStartInline controlStart:
                 {
+                    if (TryEnsureFieldEvaluation(paragraphStyle))
+                    {
+                        break;
+                    }
+
                     var placeholderText = ResolvePlaceholderText(controlStart.Properties);
-                    contentControls.Add(new ContentControlState(controlStart.Properties, paragraphStyle, placeholderText));
+                    var boundValue = ResolveContentControlValue(controlStart.Properties, document);
+                    contentControls.Add(new ContentControlState(controlStart.Properties, paragraphStyle, placeholderText, boundValue));
                     break;
                 }
                 case MetadataStartInline:
                 case MetadataEndInline:
+                {
+                    if (TryEnsureFieldEvaluation(paragraphStyle))
+                    {
+                        break;
+                    }
+
                     break;
+                }
+                case RevisionStartInline revisionStart:
+                {
+                    if (TryEnsureFieldEvaluation(paragraphStyle))
+                    {
+                        break;
+                    }
+
+                    PushRevision(revisionStart.Revision);
+                    break;
+                }
+                case RevisionEndInline revisionEnd:
+                {
+                    if (TryEnsureFieldEvaluation(paragraphStyle))
+                    {
+                        break;
+                    }
+
+                    PopRevision(revisionEnd.Kind, revisionEnd.Id);
+                    break;
+                }
+                case RevisionRangeStartInline revisionRangeStart:
+                {
+                    if (TryEnsureFieldEvaluation(paragraphStyle))
+                    {
+                        break;
+                    }
+
+                    PushRevision(revisionRangeStart.Revision);
+                    break;
+                }
+                case RevisionRangeEndInline revisionRangeEnd:
+                {
+                    if (TryEnsureFieldEvaluation(paragraphStyle))
+                    {
+                        break;
+                    }
+
+                    PopRevision(revisionRangeEnd.Kind, revisionRangeEnd.Id);
+                    break;
+                }
                 case ContentControlEndInline:
                 {
+                    if (TryEnsureFieldEvaluation(paragraphStyle))
+                    {
+                        break;
+                    }
+
                     if (contentControls.Count == 0)
                     {
                         break;
@@ -5427,7 +5835,12 @@ public sealed class DocumentLayouter
 
                     var state = contentControls[^1];
                     contentControls.RemoveAt(contentControls.Count - 1);
-                    if (!state.HasContent && state.ShouldShowPlaceholder && !string.IsNullOrWhiteSpace(state.PlaceholderText))
+                    if (!state.HasContent && !string.IsNullOrWhiteSpace(state.BoundValue))
+                    {
+                        AppendText(state.BoundValue, state.ValueStyle);
+                        MarkContent();
+                    }
+                    else if (!state.HasContent && state.ShouldShowPlaceholder && !string.IsNullOrWhiteSpace(state.PlaceholderText))
                     {
                         AppendText(state.PlaceholderText, state.PlaceholderStyle);
                         MarkContent();
@@ -5435,13 +5848,44 @@ public sealed class DocumentLayouter
 
                     break;
                 }
-                case FieldStartInline:
+                case FieldStartInline fieldStart:
+                {
+                    TryEnsureFieldEvaluation(paragraphStyle);
+
+                    var definition = fieldStart.Definition ?? FieldInstructionParser.Parse(fieldStart.Instruction);
+                    fieldStart.Definition = definition;
+                    fieldStack.Add(new FieldEvaluationState(fieldStart, definition));
+                    break;
+                }
                 case FieldSeparatorInline:
+                {
+                    if (fieldStack.Count == 0)
+                    {
+                        break;
+                    }
+
+                    var state = fieldStack[^1];
+                    state.InResult = true;
+                    fieldStack[^1] = state;
+                    break;
+                }
                 case FieldEndInline:
+                {
+                    if (fieldStack.Count == 0)
+                    {
+                        break;
+                    }
+
+                    var state = fieldStack[^1];
+                    FinalizeFieldEvaluation(ref state);
+                    fieldStack.RemoveAt(fieldStack.Count - 1);
+                    break;
+                }
                 case BookmarkStartInline:
                 case BookmarkEndInline:
                 case CommentRangeStartInline:
                 case CommentRangeEndInline:
+                    TryEnsureFieldEvaluation(paragraphStyle);
                     break;
             }
         }
@@ -5461,8 +5905,10 @@ public sealed class DocumentLayouter
     private const float SmallCapsScale = 0.8f;
     private static readonly MathLayoutEngine SharedMathLayoutEngine = new MathLayoutEngine();
     private static readonly DocColor PlaceholderColor = new DocColor(150, 150, 150);
+    private static readonly DocColor RevisionInsertColor = new DocColor(0, 102, 204);
+    private static readonly DocColor RevisionDeleteColor = new DocColor(192, 0, 0);
 
-    private static (TextStyle Style, float BaselineOffset) PrepareRunStyle(TextStyle style)
+    private static (TextStyle Style, float BaselineOffset) PrepareRunStyle(TextStyle style, RevisionInfo? revision)
     {
         var effective = style.Clone();
         var baselineOffset = 0f;
@@ -5491,7 +5937,31 @@ public sealed class DocumentLayouter
         }
 
         effective.VerticalPosition = DocVerticalPosition.Normal;
+        if (revision is not null)
+        {
+            ApplyRevisionStyle(effective, revision.Kind);
+        }
+
         return (effective, baselineOffset);
+    }
+
+    private static void ApplyRevisionStyle(TextStyle style, RevisionKind kind)
+    {
+        switch (kind)
+        {
+            case RevisionKind.Insert:
+            case RevisionKind.MoveTo:
+                style.Color = RevisionInsertColor;
+                style.Underline = true;
+                style.UnderlineStyle = DocUnderlineStyle.Single;
+                style.UnderlineColor = RevisionInsertColor;
+                break;
+            case RevisionKind.Delete:
+            case RevisionKind.MoveFrom:
+                style.Color = RevisionDeleteColor;
+                style.Strikethrough = true;
+                break;
+        }
     }
 
     private static TextStyle CreatePlaceholderStyle(TextStyle paragraphStyle)
@@ -5525,6 +5995,381 @@ public sealed class DocumentLayouter
         }
 
         return "Content Control";
+    }
+
+    private static string? ResolveContentControlValue(ContentControlProperties properties, Document document)
+    {
+        if (TryResolveContentControlBinding(properties.DataBinding, document, out var bindingValue))
+        {
+            return bindingValue;
+        }
+
+        if (TryResolveStructuredContentControlValue(properties, out var structuredValue))
+        {
+            return structuredValue;
+        }
+
+        return null;
+    }
+
+    private static bool TryResolveStructuredContentControlValue(ContentControlProperties properties, out string value)
+    {
+        value = string.Empty;
+        switch (properties.DataType)
+        {
+            case ContentControlDataType.CheckBox:
+                if (properties.IsChecked.HasValue)
+                {
+                    value = properties.IsChecked.Value ? "[x]" : "[ ]";
+                    return true;
+                }
+
+                break;
+            case ContentControlDataType.Date:
+            {
+                if (string.IsNullOrWhiteSpace(properties.FullDate))
+                {
+                    break;
+                }
+
+                if (!DateTimeOffset.TryParse(properties.FullDate, out var parsed))
+                {
+                    break;
+                }
+
+                var culture = System.Globalization.CultureInfo.CurrentCulture;
+                if (!string.IsNullOrWhiteSpace(properties.DateFormat))
+                {
+                    try
+                    {
+                        value = parsed.ToString(properties.DateFormat, culture);
+                        return true;
+                    }
+                    catch
+                    {
+                    }
+                }
+
+                value = parsed.ToString("d", culture);
+                return true;
+            }
+            case ContentControlDataType.DropDownList:
+            case ContentControlDataType.ComboBox:
+            {
+                if (!string.IsNullOrWhiteSpace(properties.SelectedValue))
+                {
+                    foreach (var item in properties.Items)
+                    {
+                        if (string.Equals(item.Value, properties.SelectedValue, StringComparison.OrdinalIgnoreCase))
+                        {
+                            value = item.DisplayText ?? item.Value ?? properties.SelectedValue;
+                            return true;
+                        }
+                    }
+
+                    value = properties.SelectedValue;
+                    return true;
+                }
+
+                foreach (var item in properties.Items)
+                {
+                    if (string.IsNullOrWhiteSpace(item.DisplayText) && string.IsNullOrWhiteSpace(item.Value))
+                    {
+                        continue;
+                    }
+
+                    value = item.DisplayText ?? item.Value ?? string.Empty;
+                    return !string.IsNullOrWhiteSpace(value);
+                }
+
+                break;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool TryResolveContentControlBinding(ContentControlDataBinding? binding, Document document, out string value)
+    {
+        value = string.Empty;
+        if (binding is null)
+        {
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(binding.StoreItemId)
+            || string.IsNullOrWhiteSpace(binding.XPath))
+        {
+            return false;
+        }
+
+        var key = NormalizeStoreItemId(binding.StoreItemId);
+        if (!document.CustomXmlParts.TryGetValue(key, out var xml))
+        {
+            return false;
+        }
+
+        try
+        {
+            var manager = new XmlNamespaceManager(new NameTable());
+            ApplyPrefixMappings(manager, binding.PrefixMappings);
+            var result = xml.XPathEvaluate(binding.XPath, manager);
+            switch (result)
+            {
+                case string stringResult:
+                    value = stringResult;
+                    return !string.IsNullOrWhiteSpace(value);
+                case bool boolResult:
+                    value = boolResult ? "true" : "false";
+                    return true;
+                case double doubleResult:
+                    value = doubleResult.ToString(System.Globalization.CultureInfo.CurrentCulture);
+                    return true;
+                case IEnumerable<object> enumerableResult:
+                    foreach (var item in enumerableResult)
+                    {
+                        if (TryResolveXPathValue(item, out value))
+                        {
+                            return true;
+                        }
+                    }
+
+                    break;
+                case System.Collections.IEnumerable enumerable:
+                    foreach (var item in enumerable)
+                    {
+                        if (TryResolveXPathValue(item, out value))
+                        {
+                            return true;
+                        }
+                    }
+
+                    break;
+            }
+        }
+        catch
+        {
+            return false;
+        }
+
+        return false;
+    }
+
+    private static bool TryResolveXPathValue(object? item, out string value)
+    {
+        value = string.Empty;
+        switch (item)
+        {
+            case null:
+                return false;
+            case string text:
+                value = text;
+                return !string.IsNullOrWhiteSpace(value);
+            case System.Xml.Linq.XElement element:
+                value = element.Value;
+                return !string.IsNullOrWhiteSpace(value);
+            case System.Xml.Linq.XAttribute attribute:
+                value = attribute.Value;
+                return !string.IsNullOrWhiteSpace(value);
+            case System.Xml.XPath.XPathNavigator navigator:
+                value = navigator.Value;
+                return !string.IsNullOrWhiteSpace(value);
+            default:
+                value = item.ToString() ?? string.Empty;
+                return !string.IsNullOrWhiteSpace(value);
+        }
+    }
+
+    private static void ApplyPrefixMappings(XmlNamespaceManager manager, string? mappings)
+    {
+        if (string.IsNullOrWhiteSpace(mappings))
+        {
+            return;
+        }
+
+        var entries = mappings.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+        foreach (var entry in entries)
+        {
+            var trimmed = entry.Trim();
+            if (!trimmed.StartsWith("xmlns", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var parts = trimmed.Split(new[] { '=' }, 2);
+            if (parts.Length != 2)
+            {
+                continue;
+            }
+
+            var prefixPart = parts[0];
+            var prefixIndex = prefixPart.IndexOf(':');
+            if (prefixIndex < 0 || prefixIndex + 1 >= prefixPart.Length)
+            {
+                continue;
+            }
+
+            var prefix = prefixPart.Substring(prefixIndex + 1);
+            var uri = parts[1].Trim().Trim('"', '\'');
+            if (prefix.Length == 0 || uri.Length == 0)
+            {
+                continue;
+            }
+
+            manager.AddNamespace(prefix, uri);
+        }
+    }
+
+    private static string NormalizeStoreItemId(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        var trimmed = value.Trim();
+        if (trimmed.Length > 1 && trimmed[0] == '{' && trimmed[^1] == '}')
+        {
+            trimmed = trimmed.Substring(1, trimmed.Length - 2);
+        }
+
+        return trimmed;
+    }
+
+    private static bool IsFieldEvaluationCandidate(FieldDefinition? definition)
+    {
+        if (definition is null)
+        {
+            return false;
+        }
+
+        return definition.Kind switch
+        {
+            FieldKind.Page => true,
+            FieldKind.NumPages => true,
+            FieldKind.Date => true,
+            FieldKind.Time => true,
+            FieldKind.DocProperty => true,
+            FieldKind.Ref => true,
+            _ => false
+        };
+    }
+
+    private static bool TryResolveFieldText(
+        FieldStartInline start,
+        FieldDefinition? definition,
+        FieldEvaluationContext? fieldContext,
+        TextPosition position,
+        string? pageNumberText,
+        string? totalPagesText,
+        out string text)
+    {
+        text = string.Empty;
+        if (fieldContext is null || definition is null || start.IsLocked)
+        {
+            return false;
+        }
+
+        switch (definition.Kind)
+        {
+            case FieldKind.Page:
+                if (!string.IsNullOrEmpty(pageNumberText))
+                {
+                    text = pageNumberText;
+                    return true;
+                }
+
+                return fieldContext.TryGetPageNumberText(position, out text);
+            case FieldKind.NumPages:
+                if (!string.IsNullOrEmpty(totalPagesText))
+                {
+                    text = totalPagesText;
+                    return true;
+                }
+
+                return fieldContext.TryGetTotalPagesText(position, out text);
+            case FieldKind.Date:
+                return TryFormatDateTimeField(definition, fieldContext.Now, false, out text);
+            case FieldKind.Time:
+                return TryFormatDateTimeField(definition, fieldContext.Now, true, out text);
+            case FieldKind.Ref:
+            {
+                var target = GetFirstFieldArgument(definition);
+                if (string.IsNullOrWhiteSpace(target))
+                {
+                    return false;
+                }
+
+                if (definition.Name.Equals("PAGEREF", StringComparison.OrdinalIgnoreCase))
+                {
+                    return fieldContext.TryGetBookmarkPageText(target, out text);
+                }
+
+                return fieldContext.TryGetBookmarkText(target, out text);
+            }
+            case FieldKind.DocProperty:
+            {
+                var name = GetFirstFieldArgument(definition);
+                if (string.IsNullOrWhiteSpace(name))
+                {
+                    return false;
+                }
+
+                return fieldContext.TryGetDocProperty(name, out text);
+            }
+        }
+
+        return false;
+    }
+
+    private static bool TryFormatDateTimeField(FieldDefinition definition, DateTimeOffset now, bool isTime, out string text)
+    {
+        text = string.Empty;
+        var format = GetFieldSwitch(definition, "\\@");
+        var culture = System.Globalization.CultureInfo.CurrentCulture;
+        var value = now.LocalDateTime;
+
+        if (!string.IsNullOrWhiteSpace(format))
+        {
+            try
+            {
+                text = value.ToString(format, culture);
+                return true;
+            }
+            catch
+            {
+            }
+        }
+
+        text = isTime ? value.ToString("T", culture) : value.ToString("d", culture);
+        return true;
+    }
+
+    private static string? GetFirstFieldArgument(FieldDefinition definition)
+    {
+        return definition.Arguments.Count > 0 ? definition.Arguments[0].Value : null;
+    }
+
+    private static string? GetFieldSwitch(FieldDefinition definition, string name)
+    {
+        foreach (var fieldSwitch in definition.Switches)
+        {
+            var switchName = fieldSwitch.Name;
+            if (switchName.Equals(name, StringComparison.OrdinalIgnoreCase))
+            {
+                return fieldSwitch.Value;
+            }
+
+            if (switchName.Length > 0 && switchName[0] == '\\' && name.Length > 0 && name[0] != '\\')
+            {
+                if (switchName.Substring(1).Equals(name, StringComparison.OrdinalIgnoreCase))
+                {
+                    return fieldSwitch.Value;
+                }
+            }
+        }
+
+        return null;
     }
 
     private static bool ResolveLineIsRtl(ParagraphProperties properties, TextSlice textSlice)
@@ -5899,14 +6744,31 @@ public sealed class DocumentLayouter
 
     private sealed record CommentMarker(int Offset, int Id, bool IsStart);
 
+    private sealed record BookmarkMarker(int Offset, int Id, string Name, bool IsStart);
+
+    private readonly record struct BookmarkRangeState(string Name, TextPosition Start);
+
     private sealed record CommentRange(int Id, TextRange Range);
 
-    private sealed record InlineScanResult(int TextLength, List<NoteReference> NoteReferences, List<CommentMarker> CommentMarkers);
+    private sealed record InlineScanResult(
+        int TextLength,
+        List<NoteReference> NoteReferences,
+        List<CommentMarker> CommentMarkers,
+        List<BookmarkMarker> BookmarkMarkers,
+        bool HasFieldCandidates);
 
-    private static InlineScanResult ScanParagraphInlines(ParagraphBlock paragraph, string? pageNumberText = null, string? totalPagesText = null)
+    private static InlineScanResult ScanParagraphInlines(
+        ParagraphBlock paragraph,
+        int paragraphIndex,
+        FieldEvaluationContext? fieldContext,
+        string? pageNumberText = null,
+        string? totalPagesText = null)
     {
         var noteReferences = new List<NoteReference>();
         var commentMarkers = new List<CommentMarker>();
+        var bookmarkMarkers = new List<BookmarkMarker>();
+        var fieldStack = new List<FieldEvaluationState>();
+        var hasFieldCandidates = false;
         var length = 0;
 
         void AppendLength(string text)
@@ -5922,42 +6784,162 @@ public sealed class DocumentLayouter
         if (paragraph.Inlines.Count == 0)
         {
             length = paragraph.Text?.Length ?? 0;
-            return new InlineScanResult(length, noteReferences, commentMarkers);
+            return new InlineScanResult(length, noteReferences, commentMarkers, bookmarkMarkers, hasFieldCandidates);
         }
 
         foreach (var inline in paragraph.Inlines)
         {
             switch (inline)
             {
+                case FieldStartInline fieldStart:
+                {
+                    TryEnsureFieldEvaluation();
+
+                    var definition = fieldStart.Definition ?? FieldInstructionParser.Parse(fieldStart.Instruction);
+                    if (IsFieldEvaluationCandidate(definition))
+                    {
+                        hasFieldCandidates = true;
+                    }
+
+                    fieldStack.Add(new FieldEvaluationState(fieldStart, definition));
+                    break;
+                }
+                case FieldSeparatorInline:
+                {
+                    if (fieldStack.Count == 0)
+                    {
+                        break;
+                    }
+
+                    var state = fieldStack[^1];
+                    state.InResult = true;
+                    fieldStack[^1] = state;
+                    break;
+                }
+                case FieldEndInline:
+                {
+                    if (fieldStack.Count == 0)
+                    {
+                        break;
+                    }
+
+                    var state = fieldStack[^1];
+                    if (!state.Attempted)
+                    {
+                        state.Attempted = true;
+                        if (TryResolveFieldText(
+                                state.Start,
+                                state.Definition,
+                                fieldContext,
+                                new TextPosition(paragraphIndex, length),
+                                pageNumberText,
+                                totalPagesText,
+                                out var fieldText))
+                        {
+                            AppendLength(fieldText);
+                        }
+                    }
+
+                    fieldStack.RemoveAt(fieldStack.Count - 1);
+                    break;
+                }
                 case RunInline runInline:
+                {
+                    if (TryEnsureFieldEvaluation())
+                    {
+                        break;
+                    }
+
                     AppendLength(runInline.GetText());
                     break;
+                }
                 case RubyInline rubyInline:
+                {
+                    if (TryEnsureFieldEvaluation())
+                    {
+                        break;
+                    }
+
                     AppendLength(rubyInline.BaseText);
                     break;
+                }
                 case ImageInline:
+                {
+                    if (TryEnsureFieldEvaluation())
+                    {
+                        break;
+                    }
+
                     length += 1;
                     break;
+                }
                 case ChartInline:
+                {
+                    if (TryEnsureFieldEvaluation())
+                    {
+                        break;
+                    }
+
                     length += 1;
                     break;
+                }
                 case EquationInline:
+                {
+                    if (TryEnsureFieldEvaluation())
+                    {
+                        break;
+                    }
+
                     length += 1;
                     break;
+                }
                 case PageNumberInline:
                 {
+                    if (TryEnsureFieldEvaluation())
+                    {
+                        break;
+                    }
+
+                    hasFieldCandidates = true;
                     var text = pageNumberText ?? string.Empty;
+                    if (text.Length == 0 && fieldContext is not null)
+                    {
+                        if (fieldContext.TryGetPageNumberText(new TextPosition(paragraphIndex, length), out var resolved))
+                        {
+                            text = resolved;
+                        }
+                    }
+
                     AppendLength(text);
                     break;
                 }
                 case TotalPagesInline:
                 {
+                    if (TryEnsureFieldEvaluation())
+                    {
+                        break;
+                    }
+
+                    hasFieldCandidates = true;
                     var text = totalPagesText ?? string.Empty;
+                    if (text.Length == 0 && fieldContext is not null)
+                    {
+                        if (fieldContext.TryGetTotalPagesText(new TextPosition(paragraphIndex, length), out var resolved))
+                        {
+                            text = resolved;
+                        }
+                    }
+
                     AppendLength(text);
                     break;
                 }
                 case FootnoteReferenceInline footnoteReference:
                 {
+                    if (TryEnsureFieldEvaluation())
+                    {
+                        break;
+                    }
+
                     var text = footnoteReference.Id.ToString(System.Globalization.CultureInfo.InvariantCulture);
                     noteReferences.Add(new NoteReference(length, text.Length, footnoteReference.Id, NoteKind.Footnote));
                     AppendLength(text);
@@ -5965,6 +6947,11 @@ public sealed class DocumentLayouter
                 }
                 case EndnoteReferenceInline endnoteReference:
                 {
+                    if (TryEnsureFieldEvaluation())
+                    {
+                        break;
+                    }
+
                     var text = endnoteReference.Id.ToString(System.Globalization.CultureInfo.InvariantCulture);
                     noteReferences.Add(new NoteReference(length, text.Length, endnoteReference.Id, NoteKind.Endnote));
                     AppendLength(text);
@@ -5972,18 +6959,52 @@ public sealed class DocumentLayouter
                 }
                 case CommentReferenceInline commentReference:
                 {
+                    if (TryEnsureFieldEvaluation())
+                    {
+                        break;
+                    }
+
                     var text = commentReference.Id.ToString(System.Globalization.CultureInfo.InvariantCulture);
                     AppendLength(text);
                     break;
                 }
+                case BookmarkStartInline bookmarkStart:
+                    if (!TryEnsureFieldEvaluation() && !string.IsNullOrWhiteSpace(bookmarkStart.Name))
+                    {
+                        bookmarkMarkers.Add(new BookmarkMarker(length, bookmarkStart.Id, bookmarkStart.Name, true));
+                    }
+
+                    break;
+                case BookmarkEndInline bookmarkEnd:
+                    if (!TryEnsureFieldEvaluation())
+                    {
+                        bookmarkMarkers.Add(new BookmarkMarker(length, bookmarkEnd.Id, string.Empty, false));
+                    }
+
+                    break;
                 case CommentRangeStartInline commentStart:
-                    commentMarkers.Add(new CommentMarker(length, commentStart.Id, true));
+                    if (!TryEnsureFieldEvaluation())
+                    {
+                        commentMarkers.Add(new CommentMarker(length, commentStart.Id, true));
+                    }
+
                     break;
                 case CommentRangeEndInline commentEnd:
-                    commentMarkers.Add(new CommentMarker(length, commentEnd.Id, false));
+                    if (!TryEnsureFieldEvaluation())
+                    {
+                        commentMarkers.Add(new CommentMarker(length, commentEnd.Id, false));
+                    }
+
+                    break;
+                case RevisionStartInline:
+                case RevisionEndInline:
+                case RevisionRangeStartInline:
+                case RevisionRangeEndInline:
+                    TryEnsureFieldEvaluation();
                     break;
                 case MetadataStartInline:
                 case MetadataEndInline:
+                    TryEnsureFieldEvaluation();
                     break;
             }
         }
@@ -5993,7 +7014,60 @@ public sealed class DocumentLayouter
             length = paragraph.Text?.Length ?? 0;
         }
 
-        return new InlineScanResult(length, noteReferences, commentMarkers);
+        return new InlineScanResult(length, noteReferences, commentMarkers, bookmarkMarkers, hasFieldCandidates);
+
+        bool TryEnsureFieldEvaluation()
+        {
+            if (fieldStack.Count == 0)
+            {
+                return false;
+            }
+
+            if (IsInSuppressedFieldResult())
+            {
+                return true;
+            }
+
+            var state = fieldStack[^1];
+            if (!state.InResult)
+            {
+                return false;
+            }
+
+            if (!state.Attempted)
+            {
+                state.Attempted = true;
+                if (TryResolveFieldText(
+                        state.Start,
+                        state.Definition,
+                        fieldContext,
+                        new TextPosition(paragraphIndex, length),
+                        pageNumberText,
+                        totalPagesText,
+                        out var fieldText))
+                {
+                    AppendLength(fieldText);
+                    state.SuppressResult = true;
+                }
+
+                fieldStack[^1] = state;
+            }
+
+            return state.SuppressResult;
+        }
+
+        bool IsInSuppressedFieldResult()
+        {
+            foreach (var state in fieldStack)
+            {
+                if (state.InResult && state.SuppressResult)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
     }
 
     private static HeaderFooterLayoutResult LayoutHeaderFooterBlocks(
@@ -6010,6 +7084,8 @@ public sealed class DocumentLayouter
         DocGridSettings? docGrid,
         string? pageNumberText,
         string? totalPagesText,
+        FieldEvaluationContext? fieldContext,
+        bool showRevisions,
         bool includeTables,
         bool handleFrameParagraphs)
     {
@@ -6053,6 +7129,9 @@ public sealed class DocumentLayouter
                 lineHeight,
                 ascent,
                 docGrid,
+                fieldContext,
+                null,
+                showRevisions,
                 ref index);
 
             var slices = new List<TableRowSlice>(data.RowHeights.Length);
@@ -6101,7 +7180,7 @@ public sealed class DocumentLayouter
                 return false;
             }
 
-            var (text, spans) = BuildInlineSpans(paragraph, paragraphStyle, styleResolver, pageNumberText, totalPagesText);
+            var (text, spans) = BuildInlineSpans(paragraph, -1, paragraphStyle, styleResolver, document, fieldContext, null, showRevisions, pageNumberText, totalPagesText);
             var baseWidth = MathF.Max(1f, contentWidth - indentLeft - indentRight - listIndent - prefixWidth);
             var firstLineIndent = properties.FirstLineIndent ?? 0f;
             var firstLineTabOffset = indentLeft + listIndent + firstLineIndent + prefixWidth;
@@ -6257,7 +7336,7 @@ public sealed class DocumentLayouter
 
             if (DocTextDirectionHelpers.IsVertical(properties.TextDirection))
             {
-                var (verticalText, verticalSpans) = BuildInlineSpans(paragraph, paragraphStyle, styleResolver, pageNumberText, totalPagesText);
+                var (verticalText, verticalSpans) = BuildInlineSpans(paragraph, -1, paragraphStyle, styleResolver, document, fieldContext, null, showRevisions, pageNumberText, totalPagesText);
                 var (emptyLineHeight, emptyAscent) = ApplyLineSpacing(paragraphLineHeight, paragraphAscent, properties, docGrid);
                 if (string.IsNullOrEmpty(verticalText))
                 {
@@ -6393,7 +7472,7 @@ public sealed class DocumentLayouter
 
             y += spacingBefore;
 
-            var (text, spans) = BuildInlineSpans(paragraph, paragraphStyle, styleResolver, pageNumberText, totalPagesText);
+            var (text, spans) = BuildInlineSpans(paragraph, -1, paragraphStyle, styleResolver, document, fieldContext, null, showRevisions, pageNumberText, totalPagesText);
             if (text.Length == 0)
             {
                 var lineX = indentLeft + listIndent + firstLineIndent + prefixWidth;
@@ -6775,7 +7854,9 @@ public sealed class DocumentLayouter
         DocumentStyleResolver styleResolver,
         Dictionary<TextStyleKey, TextMetrics> spacingMetricsCache,
         float lineHeight,
-        float ascent)
+        float ascent,
+        FieldEvaluationContext? fieldContext,
+        bool showRevisions)
     {
         var footnoteLayouts = new List<FootnoteLayout>();
         if (pages.Count == 0 || (footnotesByPage.Count == 0 && endnotesByPage.Count == 0))
@@ -6849,6 +7930,8 @@ public sealed class DocumentLayouter
                 section.DocGrid,
                 pageNumberText,
                 totalPagesText,
+                fieldContext,
+                showRevisions,
                 includeTables: true,
                 handleFrameParagraphs: false);
 
@@ -9145,15 +10228,355 @@ public sealed class DocumentLayouter
         public ContentControlProperties Properties { get; }
         public string PlaceholderText { get; }
         public TextStyle PlaceholderStyle { get; }
+        public TextStyle ValueStyle { get; }
+        public string? BoundValue { get; }
         public bool ShouldShowPlaceholder { get; }
         public bool HasContent { get; set; }
 
-        public ContentControlState(ContentControlProperties properties, TextStyle paragraphStyle, string placeholderText)
+        public ContentControlState(ContentControlProperties properties, TextStyle paragraphStyle, string placeholderText, string? boundValue)
         {
             Properties = properties;
             PlaceholderText = placeholderText;
             PlaceholderStyle = CreatePlaceholderStyle(paragraphStyle);
+            ValueStyle = paragraphStyle;
+            BoundValue = boundValue;
             ShouldShowPlaceholder = properties.ShowingPlaceholder != false;
+        }
+    }
+
+    private sealed class FieldEvaluationState
+    {
+        public FieldStartInline Start { get; }
+        public FieldDefinition? Definition { get; }
+        public bool InResult { get; set; }
+        public bool Attempted { get; set; }
+        public bool SuppressResult { get; set; }
+
+        public FieldEvaluationState(FieldStartInline start, FieldDefinition? definition)
+        {
+            Start = start;
+            Definition = definition;
+        }
+    }
+
+    private sealed class FieldEvaluationContext
+    {
+        private readonly Document _document;
+        private readonly DocumentLayout _layout;
+        private readonly IReadOnlyDictionary<string, TextPosition> _bookmarkPositions;
+        private readonly IReadOnlyDictionary<string, TextRange> _bookmarkRanges;
+        private readonly string[] _pageNumberTexts;
+        private readonly string[] _totalPagesTexts;
+
+        private FieldEvaluationContext(
+            Document document,
+            DocumentLayout layout,
+            IReadOnlyDictionary<string, TextPosition> bookmarkPositions,
+            IReadOnlyDictionary<string, TextRange> bookmarkRanges)
+        {
+            _document = document;
+            _layout = layout;
+            _bookmarkPositions = bookmarkPositions;
+            _bookmarkRanges = bookmarkRanges;
+            _pageNumberTexts = BuildPageNumberTexts(layout.Pages, layout.PageSections);
+            _totalPagesTexts = BuildTotalPagesTexts(layout.Pages, layout.PageSections, Math.Max(1, layout.Pages.Count));
+            Now = DateTimeOffset.Now;
+        }
+
+        public DateTimeOffset Now { get; }
+
+        public static FieldEvaluationContext? TryCreate(Document document, DocumentLayout layout)
+        {
+            var scanState = new ParagraphScanState();
+            scanState.Scan(document, null);
+            if (!scanState.HasFieldEvaluationCandidates)
+            {
+                return null;
+            }
+
+            return new FieldEvaluationContext(document, layout, scanState.BookmarkStartPositions, scanState.BookmarkRanges);
+        }
+
+        public bool TryGetPageNumberText(TextPosition position, out string text)
+        {
+            if (TryGetPageIndex(position, out var pageIndex)
+                && pageIndex >= 0
+                && pageIndex < _pageNumberTexts.Length)
+            {
+                text = _pageNumberTexts[pageIndex];
+                return !string.IsNullOrEmpty(text);
+            }
+
+            text = string.Empty;
+            return false;
+        }
+
+        public bool TryGetTotalPagesText(TextPosition position, out string text)
+        {
+            if (TryGetPageIndex(position, out var pageIndex)
+                && pageIndex >= 0
+                && pageIndex < _totalPagesTexts.Length)
+            {
+                text = _totalPagesTexts[pageIndex];
+                return !string.IsNullOrEmpty(text);
+            }
+
+            text = string.Empty;
+            return false;
+        }
+
+        public bool TryGetBookmarkPageText(string name, out string text)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                text = string.Empty;
+                return false;
+            }
+
+            if (!_bookmarkPositions.TryGetValue(name, out var position))
+            {
+                text = string.Empty;
+                return false;
+            }
+
+            return TryGetPageNumberText(position, out text);
+        }
+
+        public bool TryGetBookmarkText(string name, out string text)
+        {
+            text = string.Empty;
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                return false;
+            }
+
+            if (!_bookmarkRanges.TryGetValue(name, out var range))
+            {
+                return false;
+            }
+
+            range = range.Normalize();
+            if (range.Start.ParagraphIndex < 0 || range.End.ParagraphIndex < 0)
+            {
+                return false;
+            }
+
+            var builder = new System.Text.StringBuilder();
+            for (var paragraphIndex = range.Start.ParagraphIndex; paragraphIndex <= range.End.ParagraphIndex; paragraphIndex++)
+            {
+                if (!TryGetParagraphText(paragraphIndex, out var paragraphText))
+                {
+                    continue;
+                }
+
+                var startOffset = paragraphIndex == range.Start.ParagraphIndex ? range.Start.Offset : 0;
+                var endOffset = paragraphIndex == range.End.ParagraphIndex ? range.End.Offset : paragraphText.Length;
+                startOffset = Math.Clamp(startOffset, 0, paragraphText.Length);
+                endOffset = Math.Clamp(endOffset, startOffset, paragraphText.Length);
+                if (endOffset <= startOffset)
+                {
+                    continue;
+                }
+
+                if (builder.Length > 0)
+                {
+                    builder.Append(' ');
+                }
+
+                builder.Append(paragraphText, startOffset, endOffset - startOffset);
+            }
+
+            text = builder.ToString();
+            return text.Length > 0;
+        }
+
+        public bool TryGetDocProperty(string name, out string text)
+        {
+            if (_document.Properties.TryGetValue(name, out text))
+            {
+                return !string.IsNullOrEmpty(text);
+            }
+
+            text = string.Empty;
+            return false;
+        }
+
+        private bool TryGetPageIndex(TextPosition position, out int pageIndex)
+        {
+            pageIndex = -1;
+            if (position.ParagraphIndex < 0)
+            {
+                return false;
+            }
+
+            if (!_layout.ParagraphLineRanges.TryGetValue(position.ParagraphIndex, out var range))
+            {
+                return false;
+            }
+
+            if (_layout.Lines.Count == 0)
+            {
+                return false;
+            }
+
+            var start = Math.Clamp(range.Start, 0, _layout.Lines.Count - 1);
+            var end = Math.Clamp(range.End, start, _layout.Lines.Count);
+            for (var i = start; i < end; i++)
+            {
+                var line = _layout.Lines[i];
+                var lineEnd = line.StartOffset + line.Length;
+                if (position.Offset >= line.StartOffset && position.Offset <= lineEnd)
+                {
+                    pageIndex = _layout.LineIndex.GetPageForLine(i);
+                    return pageIndex >= 0;
+                }
+            }
+
+            if (start < end)
+            {
+                pageIndex = _layout.LineIndex.GetPageForLine(start);
+                return pageIndex >= 0;
+            }
+
+            return false;
+        }
+
+        private bool TryGetParagraphText(int paragraphIndex, out string text)
+        {
+            if (paragraphIndex < 0)
+            {
+                text = string.Empty;
+                return false;
+            }
+
+            if (_layout.ParagraphLineRanges.TryGetValue(paragraphIndex, out var range)
+                && range.Count > 0
+                && _layout.Lines.Count > 0)
+            {
+                var lineIndex = Math.Clamp(range.Start, 0, _layout.Lines.Count - 1);
+                var source = _layout.Lines[lineIndex].TextSlice.Source;
+                if (!string.IsNullOrEmpty(source))
+                {
+                    text = source;
+                    return true;
+                }
+            }
+
+            if (TryGetParagraphByIndex(paragraphIndex, out var paragraph))
+            {
+                text = BuildParagraphText(paragraph, paragraphIndex);
+                return !string.IsNullOrEmpty(text);
+            }
+
+            text = string.Empty;
+            return false;
+        }
+
+        private bool TryGetParagraphByIndex(int paragraphIndex, out ParagraphBlock paragraph)
+        {
+            paragraph = null!;
+            var index = 0;
+            foreach (var block in _document.Blocks)
+            {
+                if (block is ParagraphBlock paragraphBlock)
+                {
+                    if (index == paragraphIndex)
+                    {
+                        paragraph = paragraphBlock;
+                        return true;
+                    }
+
+                    index++;
+                    continue;
+                }
+
+                if (block is not TableBlock table)
+                {
+                    continue;
+                }
+
+                foreach (var row in table.Rows)
+                {
+                    foreach (var cell in row.Cells)
+                    {
+                        foreach (var cellParagraph in cell.Paragraphs)
+                        {
+                            if (index == paragraphIndex)
+                            {
+                                paragraph = cellParagraph;
+                                return true;
+                            }
+
+                            index++;
+                        }
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        private string BuildParagraphText(ParagraphBlock paragraph, int paragraphIndex)
+        {
+            if (paragraph.Inlines.Count == 0)
+            {
+                return paragraph.Text ?? string.Empty;
+            }
+
+            var builder = new System.Text.StringBuilder();
+            foreach (var inline in paragraph.Inlines)
+            {
+                switch (inline)
+                {
+                    case RunInline runInline:
+                        builder.Append(runInline.GetText());
+                        break;
+                    case RubyInline rubyInline:
+                        builder.Append(rubyInline.BaseText);
+                        break;
+                    case PageNumberInline:
+                    {
+                        if (TryGetPageNumberText(new TextPosition(paragraphIndex, builder.Length), out var pageText))
+                        {
+                            builder.Append(pageText);
+                        }
+
+                        break;
+                    }
+                    case TotalPagesInline:
+                    {
+                        if (TryGetTotalPagesText(new TextPosition(paragraphIndex, builder.Length), out var totalText))
+                        {
+                            builder.Append(totalText);
+                        }
+
+                        break;
+                    }
+                    case FootnoteReferenceInline footnote:
+                        builder.Append(footnote.Id.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                        break;
+                    case EndnoteReferenceInline endnote:
+                        builder.Append(endnote.Id.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                        break;
+                    case CommentReferenceInline comment:
+                        builder.Append(comment.Id.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                        break;
+                    case ImageInline:
+                    case ShapeInline:
+                    case ChartInline:
+                    case EquationInline:
+                    case TableInline:
+                        builder.Append(DocumentConstants.ObjectReplacementChar);
+                        break;
+                }
+            }
+
+            if (builder.Length == 0)
+            {
+                builder.Append(paragraph.Text ?? string.Empty);
+            }
+
+            return builder.ToString();
         }
     }
 
@@ -9162,10 +10585,16 @@ public sealed class DocumentLayouter
         private readonly Dictionary<int, TextPosition> _openCommentStarts = new();
         private readonly List<CommentRange> _commentRanges = new();
         private readonly Dictionary<int, int> _paragraphLengths = new();
+        private readonly Dictionary<string, TextPosition> _bookmarkStartPositions = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<int, BookmarkRangeState> _openBookmarkRanges = new();
+        private readonly Dictionary<string, TextRange> _bookmarkRanges = new(StringComparer.OrdinalIgnoreCase);
 
         public Dictionary<int, List<NoteReference>> NoteReferencesByParagraph { get; } = new();
+        public IReadOnlyDictionary<string, TextPosition> BookmarkStartPositions => _bookmarkStartPositions;
+        public IReadOnlyDictionary<string, TextRange> BookmarkRanges => _bookmarkRanges;
+        public bool HasFieldEvaluationCandidates { get; private set; }
 
-        public void Scan(Document document)
+        public void Scan(Document document, FieldEvaluationContext? fieldContext)
         {
             var paragraphIndex = 0;
             foreach (var block in document.Blocks)
@@ -9173,7 +10602,7 @@ public sealed class DocumentLayouter
                 switch (block)
                 {
                     case ParagraphBlock paragraph:
-                        RegisterParagraph(paragraphIndex++, paragraph);
+                        RegisterParagraph(paragraphIndex++, paragraph, fieldContext);
                         break;
                     case TableBlock table:
                         foreach (var row in table.Rows)
@@ -9182,7 +10611,7 @@ public sealed class DocumentLayouter
                             {
                                 foreach (var paragraph in cell.Paragraphs)
                                 {
-                                    RegisterParagraph(paragraphIndex++, paragraph);
+                                    RegisterParagraph(paragraphIndex++, paragraph, fieldContext);
                                 }
                             }
                         }
@@ -9235,15 +10664,52 @@ public sealed class DocumentLayouter
                 static item => (IReadOnlyList<CommentHighlightSpan>)item.Value);
         }
 
-        private void RegisterParagraph(int paragraphIndex, ParagraphBlock paragraph)
+        private void RegisterParagraph(int paragraphIndex, ParagraphBlock paragraph, FieldEvaluationContext? fieldContext)
         {
-            var scan = ScanParagraphInlines(paragraph);
+            var scan = ScanParagraphInlines(paragraph, paragraphIndex, fieldContext);
             if (scan.NoteReferences.Count > 0)
             {
                 NoteReferencesByParagraph[paragraphIndex] = scan.NoteReferences;
             }
 
             _paragraphLengths[paragraphIndex] = scan.TextLength;
+            if (scan.HasFieldCandidates)
+            {
+                HasFieldEvaluationCandidates = true;
+            }
+
+            if (scan.BookmarkMarkers.Count > 0)
+            {
+                foreach (var marker in scan.BookmarkMarkers)
+                {
+                    var position = new TextPosition(paragraphIndex, marker.Offset);
+                    if (marker.IsStart)
+                    {
+                        if (string.IsNullOrWhiteSpace(marker.Name))
+                        {
+                            continue;
+                        }
+
+                        if (!_bookmarkStartPositions.ContainsKey(marker.Name))
+                        {
+                            _bookmarkStartPositions[marker.Name] = position;
+                        }
+
+                        _openBookmarkRanges[marker.Id] = new BookmarkRangeState(marker.Name, position);
+                        continue;
+                    }
+
+                    if (_openBookmarkRanges.TryGetValue(marker.Id, out var state))
+                    {
+                        _openBookmarkRanges.Remove(marker.Id);
+                        if (!string.IsNullOrWhiteSpace(state.Name) && !_bookmarkRanges.ContainsKey(state.Name))
+                        {
+                            _bookmarkRanges[state.Name] = new TextRange(state.Start, position);
+                        }
+                    }
+                }
+            }
+
             if (scan.CommentMarkers.Count == 0)
             {
                 return;
