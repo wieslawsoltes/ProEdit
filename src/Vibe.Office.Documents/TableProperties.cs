@@ -17,6 +17,7 @@ public sealed class TableProperties
     public TableBorders Borders { get; } = new TableBorders();
     public DocColor? ShadingColor { get; set; }
     public TableLook? Look { get; set; }
+    public FloatingAnchor? FloatingAnchor { get; set; }
 
     public TableProperties Clone()
     {
@@ -32,7 +33,8 @@ public sealed class TableProperties
             CellSpacingUnit = CellSpacingUnit,
             CellPadding = CellPadding,
             ShadingColor = ShadingColor,
-            Look = Look?.Clone()
+            Look = Look?.Clone(),
+            FloatingAnchor = FloatingAnchor is null ? null : CloneFloatingAnchor(FloatingAnchor)
         };
         clone.ColumnWidths.AddRange(ColumnWidths);
         clone.Borders.Top = Borders.Top?.Clone();
@@ -42,6 +44,36 @@ public sealed class TableProperties
         clone.Borders.InsideHorizontal = Borders.InsideHorizontal?.Clone();
         clone.Borders.InsideVertical = Borders.InsideVertical?.Clone();
         return clone;
+    }
+
+    private static FloatingAnchor CloneFloatingAnchor(FloatingAnchor source)
+    {
+        return new FloatingAnchor
+        {
+            HorizontalReference = source.HorizontalReference,
+            VerticalReference = source.VerticalReference,
+            HorizontalAlignment = source.HorizontalAlignment,
+            VerticalAlignment = source.VerticalAlignment,
+            OffsetX = source.OffsetX,
+            OffsetY = source.OffsetY,
+            WrapStyle = source.WrapStyle,
+            WrapSide = source.WrapSide,
+            WrapPolygon = CloneWrapPolygon(source.WrapPolygon),
+            BehindText = source.BehindText,
+            Distance = source.Distance,
+            AnchorOffset = source.AnchorOffset
+        };
+    }
+
+    private static FloatingWrapPolygon? CloneWrapPolygon(FloatingWrapPolygon? polygon)
+    {
+        if (polygon is null)
+        {
+            return null;
+        }
+
+        var points = polygon.Points.ToArray();
+        return new FloatingWrapPolygon(points);
     }
 }
 

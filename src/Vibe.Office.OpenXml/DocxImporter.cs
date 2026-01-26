@@ -4350,6 +4350,12 @@ public sealed class DocxImporter
                 BandedColumns = !noVerticalBand
             };
         }
+
+        var tablePosition = props.GetFirstChild<TablePositionProperties>();
+        if (tablePosition is not null)
+        {
+            properties.FloatingAnchor = BuildTableFloatingAnchor(tablePosition, properties.Alignment);
+        }
     }
 
     private static void ApplyTableWidth(TableWidth tableWidth, Vibe.Office.Documents.TableProperties properties)
@@ -5530,6 +5536,84 @@ public sealed class DocxImporter
         }
 
         return FloatingWrapStyle.None;
+    }
+
+    private static FloatingAnchor BuildTableFloatingAnchor(
+        TablePositionProperties position,
+        Vibe.Office.Documents.TableAlignment? alignment)
+    {
+        var horizontalReference = position.HorizontalAnchor?.Value is { } hAnchor
+            ? MapFrameHorizontalReference(hAnchor)
+            : FloatingHorizontalReference.Column;
+        var verticalReference = position.VerticalAnchor?.Value is { } vAnchor
+            ? MapFrameVerticalReference(vAnchor)
+            : FloatingVerticalReference.Paragraph;
+        var horizontalAlignment = position.TablePositionXAlignment?.Value is { } xAlignment
+            ? MapFrameHorizontalAlignment(xAlignment)
+            : FloatingHorizontalAlignment.None;
+        var verticalAlignment = position.TablePositionYAlignment?.Value is { } yAlignment
+            ? MapFrameVerticalAlignment(yAlignment)
+            : FloatingVerticalAlignment.None;
+
+        var left = position.LeftFromText?.Value is short leftValue ? TwipsToDip(leftValue) : 0f;
+        var top = position.TopFromText?.Value is short topValue ? TwipsToDip(topValue) : 0f;
+        var right = position.RightFromText?.Value is short rightValue ? TwipsToDip(rightValue) : 0f;
+        var bottom = position.BottomFromText?.Value is short bottomValue ? TwipsToDip(bottomValue) : 0f;
+
+        var anchor = new FloatingAnchor
+        {
+            HorizontalReference = horizontalReference,
+            VerticalReference = verticalReference,
+            HorizontalAlignment = horizontalAlignment,
+            VerticalAlignment = verticalAlignment,
+            OffsetX = position.TablePositionX?.Value is { } x ? TwipsToDip(x) : 0f,
+            OffsetY = position.TablePositionY?.Value is { } y ? TwipsToDip(y) : 0f,
+            WrapStyle = FloatingWrapStyle.Square,
+            WrapSide = ResolveTableWrapSide(position, alignment, horizontalAlignment),
+            Distance = new DocThickness(left, top, right, bottom)
+        };
+
+        return anchor;
+    }
+
+    private static FloatingWrapSide ResolveTableWrapSide(
+        TablePositionProperties position,
+        Vibe.Office.Documents.TableAlignment? alignment,
+        FloatingHorizontalAlignment horizontalAlignment)
+    {
+        var hasLeft = position.LeftFromText?.Value is not null;
+        var hasRight = position.RightFromText?.Value is not null;
+        if (hasRight && !hasLeft)
+        {
+            return FloatingWrapSide.Right;
+        }
+
+        if (hasLeft && !hasRight)
+        {
+            return FloatingWrapSide.Left;
+        }
+
+        if (horizontalAlignment is FloatingHorizontalAlignment.Left or FloatingHorizontalAlignment.Inside)
+        {
+            return FloatingWrapSide.Right;
+        }
+
+        if (horizontalAlignment is FloatingHorizontalAlignment.Right or FloatingHorizontalAlignment.Outside)
+        {
+            return FloatingWrapSide.Left;
+        }
+
+        if (alignment == Vibe.Office.Documents.TableAlignment.Left)
+        {
+            return FloatingWrapSide.Right;
+        }
+
+        if (alignment == Vibe.Office.Documents.TableAlignment.Right)
+        {
+            return FloatingWrapSide.Left;
+        }
+
+        return FloatingWrapSide.Both;
     }
 
     private static EastAsianLayoutProperties? ParseEastAsianLayout(EastAsianLayout layout)

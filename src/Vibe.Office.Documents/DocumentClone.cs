@@ -353,6 +353,7 @@ public static class DocumentClone
             RevisionEndInline revisionEnd => new RevisionEndInline(revisionEnd.Kind, revisionEnd.Id),
             RevisionRangeStartInline revisionRangeStart => new RevisionRangeStartInline(revisionRangeStart.Revision.Clone()),
             RevisionRangeEndInline revisionRangeEnd => new RevisionRangeEndInline(revisionRangeEnd.Kind, revisionRangeEnd.Id),
+            TableInline => new TableInline(),
             _ => throw new NotSupportedException($"Unsupported inline type: {inline.GetType().Name}")
         };
         clone.Hyperlink = CloneHyperlink(inline.Hyperlink);

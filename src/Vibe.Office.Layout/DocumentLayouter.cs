@@ -2210,6 +2210,117 @@ public sealed class DocumentLayouter
             return true;
         }
 
+        bool TryHandleFloatingTable(TableBlock table)
+        {
+            var tableStyle = styleResolver.ResolveTableStyle(table);
+            var resolvedTableProperties = MergeTableProperties(tableStyle?.TableProperties, table.Properties);
+            var floatingAnchor = resolvedTableProperties.FloatingAnchor;
+            if (floatingAnchor is null)
+            {
+                return false;
+            }
+
+            var tableLook = ResolveTableLook(table.Properties.Look ?? tableStyle?.TableProperties.Look);
+            var anchorParagraphIndex = paragraphIndex;
+            var data = ComputeTableLayoutData(
+                table,
+                document,
+                resolvedTableProperties,
+                table.Properties,
+                tableStyle,
+                tableLook,
+                columnWidth,
+                settings,
+                measurer,
+                style,
+                styleResolver,
+                spacingMetricsCache,
+                lineHeight,
+                ascent,
+                pageSettings.DocGrid,
+                ref paragraphIndex);
+
+            var slices = new List<TableRowSlice>(data.RowHeights.Length);
+            for (var i = 0; i < data.RowHeights.Length; i++)
+            {
+                slices.Add(new TableRowSlice(i, 0f, data.RowHeights[i]));
+            }
+
+            var baseLayout = BuildTableLayout(
+                table,
+                resolvedTableProperties,
+                data,
+                0f,
+                0f,
+                slices,
+                settings,
+                includeTopSpacing: true,
+                includeBottomSpacing: true,
+                continuesFromPrevious: false,
+                continuesOnNext: false);
+
+            var tableWidth = baseLayout.Bounds.Width;
+            var tableHeight = baseLayout.Bounds.Height;
+            var anchorPageIndex = Math.Clamp(pageIndex, 0, pages.Count - 1);
+            var anchorPage = pages[anchorPageIndex];
+            var anchorSection = anchorPageIndex < pageSections.Count ? pageSections[anchorPageIndex] : sectionSettings;
+            var anchorLine = new LayoutLine(
+                anchorParagraphIndex,
+                0,
+                0,
+                columnX,
+                cursorY,
+                columnWidth,
+                TextSlice.Empty,
+                null,
+                0f,
+                lineHeight,
+                ascent,
+                Array.Empty<LayoutRun>(),
+                Array.Empty<LayoutImage>(),
+                Array.Empty<LayoutShape>(),
+                Array.Empty<LayoutChart>(),
+                Array.Empty<LayoutEquation>(),
+                Array.Empty<LayoutRuby>(),
+                null,
+                false,
+                false);
+
+            var baseX = ResolveAnchorX(floatingAnchor, anchorLine, anchorPage, anchorSection, tableWidth);
+            var baseY = ResolveAnchorY(floatingAnchor, anchorLine, anchorPage, tableHeight);
+            var x = baseX + floatingAnchor.OffsetX;
+            var y = baseY + floatingAnchor.OffsetY;
+
+            if (y + tableHeight > contentBottom && cursorY > columnTop)
+            {
+                StartNewColumnOrPage();
+                anchorPageIndex = Math.Clamp(pageIndex, 0, pages.Count - 1);
+                anchorPage = pages[anchorPageIndex];
+                anchorSection = anchorPageIndex < pageSections.Count ? pageSections[anchorPageIndex] : sectionSettings;
+                anchorLine = anchorLine with { X = columnX, Y = cursorY, Width = columnWidth };
+                baseX = ResolveAnchorX(floatingAnchor, anchorLine, anchorPage, anchorSection, tableWidth);
+                baseY = ResolveAnchorY(floatingAnchor, anchorLine, anchorPage, tableHeight);
+                x = baseX + floatingAnchor.OffsetX;
+                y = baseY + floatingAnchor.OffsetY;
+            }
+
+            var tableLayout = OffsetTableLayout(baseLayout, x - baseLayout.Bounds.X, y - baseLayout.Bounds.Y);
+            tables.Add(tableLayout);
+            AddTableLines(tableLayout);
+
+            var floating = new FloatingObject(new TableInline());
+            ApplyFloatingAnchor(floatingAnchor, floating.Anchor);
+            var wrapContour = CreateWrapContour(floating.Anchor, tableLayout.Bounds);
+            var layoutObject = new FloatingLayoutObject(floating, anchorParagraphIndex, anchorPageIndex, tableLayout.Bounds, wrapContour);
+            extraFloatingObjects.Add(layoutObject);
+            if (floating.Anchor.WrapStyle != FloatingWrapStyle.None)
+            {
+                wrapFloatingObjects.Add(layoutObject);
+            }
+
+            return true;
+        }
+
         void HandleParagraph(ParagraphBlock paragraph, int blockIndex)
         {
             var plan = BuildParagraphPlan(paragraph, blockIndex);
@@ -2359,6 +2470,11 @@ public sealed class DocumentLayouter
 
         void HandleTable(TableBlock table, int __)
         {
+            if (TryHandleFloatingTable(table))
+            {
+                return;
+            }
+
             var plan = BuildTablePlan(table);
             LayoutTablePlan(plan);
         }
@@ -6614,6 +6730,22 @@ public sealed class DocumentLayouter
         anchor.Distance = new DocThickness(hSpace, vSpace, hSpace, vSpace);
     }
 
+    private static void ApplyFloatingAnchor(FloatingAnchor source, FloatingAnchor target)
+    {
+        target.HorizontalReference = source.HorizontalReference;
+        target.VerticalReference = source.VerticalReference;
+        target.HorizontalAlignment = source.HorizontalAlignment;
+        target.VerticalAlignment = source.VerticalAlignment;
+        target.OffsetX = source.OffsetX;
+        target.OffsetY = source.OffsetY;
+        target.WrapStyle = source.WrapStyle;
+        target.WrapSide = source.WrapSide;
+        target.WrapPolygon = CloneWrapPolygon(source.WrapPolygon);
+        target.BehindText = source.BehindText;
+        target.Distance = source.Distance;
+        target.AnchorOffset = source.AnchorOffset;
+    }
+
     private static float MeasureInlineSpans(
         IReadOnlyList<InlineSpan> spans,
         int start,
@@ -7940,7 +8072,42 @@ public sealed class DocumentLayouter
             target.Look = source.Look.Clone();
         }
 
+        if (source.FloatingAnchor is not null)
+        {
+            target.FloatingAnchor = CloneFloatingAnchor(source.FloatingAnchor);
+        }
+
         ApplyTableBorders(target.Borders, source.Borders);
+    }
+
+    private static FloatingAnchor CloneFloatingAnchor(FloatingAnchor source)
+    {
+        return new FloatingAnchor
+        {
+            HorizontalReference = source.HorizontalReference,
+            VerticalReference = source.VerticalReference,
+            HorizontalAlignment = source.HorizontalAlignment,
+            VerticalAlignment = source.VerticalAlignment,
+            OffsetX = source.OffsetX,
+            OffsetY = source.OffsetY,
+            WrapStyle = source.WrapStyle,
+            WrapSide = source.WrapSide,
+            WrapPolygon = CloneWrapPolygon(source.WrapPolygon),
+            BehindText = source.BehindText,
+            Distance = source.Distance,
+            AnchorOffset = source.AnchorOffset
+        };
+    }
+
+    private static FloatingWrapPolygon? CloneWrapPolygon(FloatingWrapPolygon? polygon)
+    {
+        if (polygon is null)
+        {
+            return null;
+        }
+
+        var points = polygon.Points.ToArray();
+        return new FloatingWrapPolygon(points);
     }
 
     private static DocThickness ResolvePadding(DocThickness? padding, DocThickness fallback)
