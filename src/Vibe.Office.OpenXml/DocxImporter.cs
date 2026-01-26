@@ -4333,14 +4333,21 @@ public sealed class DocxImporter
         var look = props.GetFirstChild<DocumentFormat.OpenXml.Wordprocessing.TableLook>();
         if (look is not null)
         {
+            var hasLookFlags = TryParseTableLookFlags(look, out var lookFlags);
+            var firstRow = look.FirstRow?.Value ?? (hasLookFlags && (lookFlags & TableLookFlags.FirstRow) != 0);
+            var lastRow = look.LastRow?.Value ?? (hasLookFlags && (lookFlags & TableLookFlags.LastRow) != 0);
+            var firstColumn = look.FirstColumn?.Value ?? (hasLookFlags && (lookFlags & TableLookFlags.FirstColumn) != 0);
+            var lastColumn = look.LastColumn?.Value ?? (hasLookFlags && (lookFlags & TableLookFlags.LastColumn) != 0);
+            var noHorizontalBand = look.NoHorizontalBand?.Value ?? (hasLookFlags && (lookFlags & TableLookFlags.NoHorizontalBand) != 0);
+            var noVerticalBand = look.NoVerticalBand?.Value ?? (hasLookFlags && (lookFlags & TableLookFlags.NoVerticalBand) != 0);
             properties.Look = new Vibe.Office.Documents.TableLook
             {
-                FirstRow = look.FirstRow?.Value ?? false,
-                LastRow = look.LastRow?.Value ?? false,
-                FirstColumn = look.FirstColumn?.Value ?? false,
-                LastColumn = look.LastColumn?.Value ?? false,
-                BandedRows = !(look.NoHorizontalBand?.Value ?? false),
-                BandedColumns = !(look.NoVerticalBand?.Value ?? false)
+                FirstRow = firstRow,
+                LastRow = lastRow,
+                FirstColumn = firstColumn,
+                LastColumn = lastColumn,
+                BandedRows = !noHorizontalBand,
+                BandedColumns = !noVerticalBand
             };
         }
     }
@@ -4826,6 +4833,36 @@ public sealed class DocxImporter
         }
 
         return parsed / 50f;
+    }
+
+    private static bool TryParseTableLookFlags(DocumentFormat.OpenXml.Wordprocessing.TableLook look, out TableLookFlags flags)
+    {
+        flags = TableLookFlags.None;
+        var raw = look.Val?.InnerText;
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return false;
+        }
+
+        if (!long.TryParse(raw, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var parsed))
+        {
+            return false;
+        }
+
+        flags = (TableLookFlags)parsed;
+        return true;
+    }
+
+    [Flags]
+    private enum TableLookFlags
+    {
+        None = 0,
+        FirstRow = 0x0020,
+        LastRow = 0x0040,
+        FirstColumn = 0x0080,
+        LastColumn = 0x0100,
+        NoHorizontalBand = 0x0200,
+        NoVerticalBand = 0x0400
     }
 
     private static BorderLine? ParseBorderLine(BorderType? border, DocumentThemeColorMap? themeColors = null)
