@@ -2136,10 +2136,11 @@ public sealed class DocumentLayouter
             var measuredWidth = text.Length == 0
                 ? baseWidth
                 : MeasureInlineSpans(spans, 0, text.Length, plan.Properties.TabStops, settings.DefaultTabWidth, measurer, charGridSpacing);
-            var frameWidth = frame.Width ?? MathF.Min(columnWidth, MathF.Max(120f, measuredWidth));
+            var isDropCapFrame = plan.Properties.DropCap?.HasValues == true;
+            var frameWidth = frame.Width ?? MathF.Min(columnWidth, MathF.Max(isDropCapFrame ? 1f : 120f, measuredWidth));
             if (frameWidth <= 0f)
             {
-                frameWidth = MathF.Max(120f, baseWidth);
+                frameWidth = MathF.Max(isDropCapFrame ? 1f : 120f, baseWidth);
             }
 
             var (paragraphLineHeight, paragraphAscent) = ResolveParagraphLineMetrics(plan.ParagraphStyle, measurer, spacingMetricsCache);
@@ -2155,13 +2156,6 @@ public sealed class DocumentLayouter
             if (frameHeight <= 0f)
             {
                 frameHeight = MathF.Max(lineHeightAdjusted, paragraphLineHeight);
-            }
-
-            if (!frame.Height.HasValue
-                && plan.Properties.DropCap?.Lines is int dropCapLines
-                && dropCapLines > 0)
-            {
-                frameHeight = MathF.Max(frameHeight, dropCapLines * lineHeightAdjusted);
             }
 
             var shapeParagraph = BuildFrameParagraph(plan.Paragraph, plan.Properties);
