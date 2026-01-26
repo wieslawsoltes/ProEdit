@@ -303,14 +303,34 @@ public sealed class EditorInsertCommandMap
             : new ParagraphBlock();
 
         var floating = new FloatingObject(shape);
-        floating.Anchor.HorizontalReference = FloatingHorizontalReference.Margin;
-        floating.Anchor.VerticalReference = FloatingVerticalReference.Margin;
-        floating.Anchor.HorizontalAlignment = FloatingHorizontalAlignment.Center;
-        floating.Anchor.VerticalAlignment = FloatingVerticalAlignment.Center;
-        floating.Anchor.WrapStyle = FloatingWrapStyle.None;
-        floating.Anchor.WrapSide = FloatingWrapSide.Both;
-        floating.Anchor.BehindText = false;
-        floating.Anchor.AnchorOffset = _session.Caret.Offset;
+        var anchor = floating.Anchor;
+        anchor.HorizontalReference = FloatingHorizontalReference.Margin;
+        anchor.VerticalReference = FloatingVerticalReference.Paragraph;
+        anchor.HorizontalAlignment = FloatingHorizontalAlignment.None;
+        anchor.VerticalAlignment = FloatingVerticalAlignment.None;
+        anchor.WrapStyle = FloatingWrapStyle.None;
+        anchor.WrapSide = FloatingWrapSide.Both;
+        anchor.BehindText = false;
+        anchor.AnchorOffset = _session.Caret.Offset;
+        if (_session.TryGetCaretPoint(out var caretPoint, out var lineIndex))
+        {
+            var layout = _session.Layout;
+            if ((uint)lineIndex < (uint)layout.Lines.Count)
+            {
+                var line = layout.Lines[lineIndex];
+                var pageIndex = layout.LineIndex.GetPageForLine(lineIndex);
+                if ((uint)pageIndex < (uint)layout.Pages.Count)
+                {
+                    anchor.OffsetX = caretPoint.X - layout.Pages[pageIndex].ContentBounds.X;
+                }
+                else
+                {
+                    anchor.OffsetX = caretPoint.X - line.X;
+                }
+
+                anchor.OffsetY = caretPoint.Y - line.Y;
+            }
+        }
 
         paragraph.FloatingObjects.Add(floating);
         if (_session.Document.ParagraphCount == 0)
