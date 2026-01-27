@@ -2923,6 +2923,78 @@ public partial class MainWindow : Window
                 launcher: paragraphLauncher);
         }
 
+        bool CanCreateStyle()
+        {
+            return canInteract()
+                && _editorView is not null
+                && _editorView.TryGetService<IStyleManagerService>(out _);
+        }
+
+        async Task OpenCreateStyleDialogAsync()
+        {
+            if (!canInteract() || _editorView is null)
+            {
+                return;
+            }
+
+            if (!_editorView.TryGetService<IStyleManagerService>(out var styleService))
+            {
+                return;
+            }
+
+            _editorView.TryGetService<IFontService>(out var fontService);
+            var dialog = new StyleEditorDialog(
+                new StyleEditorState(EditorStyleType.Paragraph, string.Empty, null, null, false, false, null, null, null, null, null),
+                styleService,
+                fontService);
+            var result = await dialog.ShowDialog<StyleEditorResult?>(this);
+            if (result is not StyleEditorResult created)
+            {
+                return;
+            }
+
+            var options = new EditorStyleCreateOptions(
+                created.Type,
+                created.Name,
+                created.BasedOnId,
+                created.NextStyleId,
+                created.QuickStyle,
+                created.AutoRedefine,
+                created.RunProperties,
+                created.ParagraphProperties,
+                created.TableProperties,
+                created.TableCellProperties,
+                created.StyleId);
+
+            if (styleService.CreateStyle(options))
+            {
+                RefreshStyleGalleryItems();
+                _ribbon?.RefreshState();
+            }
+        }
+
+        RibbonMenu BuildStylesPopupMenu()
+        {
+            return new RibbonMenu(new IRibbonMenuEntry[]
+            {
+                new RibbonMenuItem(
+                    "styles-popup-create",
+                    "Create a Style",
+                    CreateAsyncCommand(OpenCreateStyleDialogAsync, CanCreateStyle),
+                    iconKey: "RibbonIcon.New"),
+                new RibbonMenuItem(
+                    "styles-popup-clear",
+                    "Clear Formatting",
+                    CreateEditorCommand(EditorHomeCommandIds.Font.ClearFormatting),
+                    iconKey: "RibbonIcon.ClearFormatting"),
+                new RibbonMenuItem(
+                    "styles-popup-apply",
+                    "Apply Styles...",
+                    CreateEditorCommand(EditorHomeCommandIds.Styles.OpenPane),
+                    iconKey: "RibbonIcon.Styles")
+            });
+        }
+
         RibbonGroup BuildStylesGroup()
         {
             var stylesGallery = new RibbonGallery(
@@ -2934,7 +3006,12 @@ public partial class MainWindow : Window
                 showDropDown: true,
                 keyTip: "SG",
                 iconKey: "RibbonIcon.Styles",
-                size: RibbonControlSize.Large);
+                size: RibbonControlSize.Large,
+                popupColumns: 5,
+                popupMinWidth: 560,
+                popupMaxHeight: 320,
+                popupItemMinWidth: 110,
+                popupMenu: BuildStylesPopupMenu());
 
             var stylesLauncher = new RibbonGroupLauncher(
                 "styles-launcher",
