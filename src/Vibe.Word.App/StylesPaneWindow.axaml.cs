@@ -12,36 +12,37 @@ namespace Vibe.Word.App;
 
 public partial class StylesPaneWindow : Window
 {
-    private IStyleService? _styleService;
+    private static StylePaneOptions _sharedOptions = new();
+
+    private IStyleManagerService? _styleService;
+    private IFontService? _fontService;
+    private Action? _openManageDialog;
     private TextBlock? _paneTitle;
     private ListBox? _stylesList;
     private TextBox? _searchBox;
     private ComboBox? _filterCombo;
+    private ComboBox? _typeCombo;
     private TextBlock? _previewText;
     private TextBlock? _detailsText;
     private TextBlock? _directFormattingText;
-    private Border? _managePanel;
-    private TextBox? _styleNameBox;
-    private ComboBox? _basedOnCombo;
-    private ComboBox? _nextStyleCombo;
-    private Button? _setDefaultButton;
-    private Button? _updateStyleButton;
-    private IReadOnlyList<EditorParagraphStyleInfo> _allStyles = Array.Empty<EditorParagraphStyleInfo>();
-    private HashSet<string> _stylesInUse = new(StringComparer.OrdinalIgnoreCase);
+    private Border? _previewPanel;
+    private IReadOnlyList<EditorStyleInfo> _allStyles = Array.Empty<EditorStyleInfo>();
     private Dictionary<string, string> _styleNames = new(StringComparer.OrdinalIgnoreCase);
-    private bool _manageMode;
+    private StylePaneOptions _options = new();
 
     public StylesPaneWindow()
     {
         InitializeComponent();
+        _options = _sharedOptions.Clone();
         InitializeControls();
         Activated += (_, _) => RefreshStyles();
     }
 
-    public StylesPaneWindow(IStyleService styleService)
+    public StylesPaneWindow(IStyleManagerService styleService, IFontService? fontService = null, Action? openManageDialog = null)
         : this()
     {
-        SetService(styleService);
+        _openManageDialog = openManageDialog;
+        SetServices(styleService, fontService);
     }
 
     private void InitializeControls()
@@ -50,15 +51,11 @@ public partial class StylesPaneWindow : Window
         _stylesList = this.FindControl<ListBox>("StylesList");
         _searchBox = this.FindControl<TextBox>("StyleSearchBox");
         _filterCombo = this.FindControl<ComboBox>("StyleFilterCombo");
+        _typeCombo = this.FindControl<ComboBox>("StyleTypeCombo");
         _previewText = this.FindControl<TextBlock>("StylePreviewText");
         _detailsText = this.FindControl<TextBlock>("StyleDetailsText");
         _directFormattingText = this.FindControl<TextBlock>("StyleDirectFormattingText");
-        _managePanel = this.FindControl<Border>("StyleManagePanel");
-        _styleNameBox = this.FindControl<TextBox>("StyleNameBox");
-        _basedOnCombo = this.FindControl<ComboBox>("StyleBasedOnCombo");
-        _nextStyleCombo = this.FindControl<ComboBox>("StyleNextCombo");
-        _setDefaultButton = this.FindControl<Button>("SetDefaultButton");
-        _updateStyleButton = this.FindControl<Button>("UpdateStyleButton");
+        _previewPanel = this.FindControl<Border>("StylePreviewPanel");
 
         if (this.FindControl<Button>("ApplyButton") is { } applyButton)
         {
@@ -68,6 +65,31 @@ public partial class StylesPaneWindow : Window
         if (this.FindControl<Button>("CloseButton") is { } closeButton)
         {
             closeButton.Click += (_, _) => Close();
+        }
+
+        if (this.FindControl<Button>("NewStyleButton") is { } newStyleButton)
+        {
+            newStyleButton.Click += OnNewStyleClick;
+        }
+
+        if (this.FindControl<Button>("InspectorButton") is { } inspectorButton)
+        {
+            inspectorButton.Click += OnInspectorClick;
+        }
+
+        if (this.FindControl<Button>("ManageButton") is { } manageButton)
+        {
+            manageButton.Click += OnManageClick;
+        }
+
+        if (this.FindControl<Button>("OrganizerButton") is { } organizerButton)
+        {
+            organizerButton.Click += OnOrganizerClick;
+        }
+
+        if (this.FindControl<Button>("OptionsButton") is { } optionsButton)
+        {
+            optionsButton.Click += OnOptionsClick;
         }
 
         if (_stylesList is not null)
@@ -87,40 +109,26 @@ public partial class StylesPaneWindow : Window
             _filterCombo.SelectionChanged += (_, _) => RefreshStyles();
             if (_filterCombo.SelectedIndex < 0)
             {
-                _filterCombo.SelectedIndex = 0;
+                _filterCombo.SelectedIndex = (int)_options.FilterMode;
             }
         }
 
-        if (_setDefaultButton is not null)
+        if (_typeCombo is not null)
         {
-            _setDefaultButton.Click += OnSetDefaultClick;
+            _typeCombo.SelectionChanged += (_, _) => RefreshStyles();
+            if (_typeCombo.SelectedIndex < 0)
+            {
+                _typeCombo.SelectedIndex = (int)_options.TypeFilter;
+            }
         }
 
-        if (_updateStyleButton is not null)
-        {
-            _updateStyleButton.Click += OnUpdateStyleClick;
-        }
+        ApplyOptions();
     }
 
-    public void SetMode(bool manageMode)
-    {
-        _manageMode = manageMode;
-        var title = manageMode ? "Manage Styles" : "Styles";
-        Title = title;
-        if (_paneTitle is not null)
-        {
-            _paneTitle.Text = title;
-        }
-
-        if (_managePanel is not null)
-        {
-            _managePanel.IsVisible = manageMode;
-        }
-    }
-
-    public void SetService(IStyleService styleService)
+    public void SetServices(IStyleManagerService styleService, IFontService? fontService)
     {
         _styleService = styleService ?? throw new ArgumentNullException(nameof(styleService));
+        _fontService = fontService;
         RefreshStyles();
     }
 
@@ -131,20 +139,50 @@ public partial class StylesPaneWindow : Window
             return;
         }
 
-        var selectedId = _stylesList.SelectedItem is EditorParagraphStyleInfo selected
+        var selectedId = _stylesList.SelectedItem is EditorStyleInfo selected
             ? selected.Id
             : null;
 
-        _allStyles = _styleService.GetParagraphStyles();
-        _stylesInUse = new HashSet<string>(_styleService.GetParagraphStylesInUse(), StringComparer.OrdinalIgnoreCase);
+        if (_filterCombo is not null)
+        {
+            _options.FilterMode = _filterCombo.SelectedIndex >= 0
+                ? (StylePaneFilterMode)_filterCombo.SelectedIndex
+                : StylePaneFilterMode.All;
+        }
+
+        if (_typeCombo is not null)
+        {
+            _options.TypeFilter = _typeCombo.SelectedIndex >= 0
+                ? (StylePaneTypeFilter)_typeCombo.SelectedIndex
+                : StylePaneTypeFilter.All;
+        }
+
+        _allStyles = _styleService.GetStyles();
         _styleNames = BuildStyleNameMap(_allStyles);
 
         var search = _searchBox?.Text;
-        var filterInUse = _filterCombo?.SelectedIndex == 1;
-        var filtered = new List<EditorParagraphStyleInfo>(_allStyles.Count);
+        var filtered = new List<EditorStyleInfo>(_allStyles.Count);
         foreach (var style in _allStyles)
         {
-            if (filterInUse && !_stylesInUse.Contains(style.Id))
+            if (!_options.Includes(style.Type))
+            {
+                continue;
+            }
+
+            if (!_options.ShowHidden)
+            {
+                if (style.IsHidden && !(style.IsInUse && style.UnhideWhenUsed))
+                {
+                    continue;
+                }
+
+                if (style.IsSemiHidden && !style.IsInUse)
+                {
+                    continue;
+                }
+            }
+
+            if (!MatchesFilter(style, _options.FilterMode))
             {
                 continue;
             }
@@ -158,6 +196,7 @@ public partial class StylesPaneWindow : Window
             filtered.Add(style);
         }
 
+        SortStyles(filtered, _options.SortMode);
         _stylesList.ItemsSource = filtered;
 
         if (!string.IsNullOrWhiteSpace(selectedId))
@@ -175,6 +214,7 @@ public partial class StylesPaneWindow : Window
         }
 
         UpdateStyleDetails();
+        ApplyOptions();
     }
 
     private void OnApplyClick(object? sender, RoutedEventArgs e)
@@ -205,12 +245,12 @@ public partial class StylesPaneWindow : Window
 
     private void ApplySelectedStyle()
     {
-        if (_styleService is null || _stylesList?.SelectedItem is not EditorParagraphStyleInfo style)
+        if (_styleService is null || _stylesList?.SelectedItem is not EditorStyleInfo style)
         {
             return;
         }
 
-        _styleService.ApplyParagraphStyle(style.Id);
+        _styleService.ApplyStyle(style.Type, style.Id);
     }
 
     private void UpdateStyleDetails()
@@ -220,22 +260,28 @@ public partial class StylesPaneWindow : Window
             return;
         }
 
-        if (_stylesList?.SelectedItem is not EditorParagraphStyleInfo style)
+        if (_stylesList?.SelectedItem is not EditorStyleInfo style)
         {
             ApplyPreviewStyle(null);
             SetDetailsText(string.Empty, string.Empty);
-            SetManageControls(null, false);
             return;
         }
 
-        var definition = _styleService.GetParagraphStyle(style.Id);
-        var preview = _styleService.GetParagraphStylePreview(style.Id);
-        ApplyPreviewStyle(preview);
+        var definition = GetStyleDefinition(style);
+        var preview = _styleService.GetStylePreview(style.Type, style.Id);
+        ApplyPreviewStyle(preview, style.Type == EditorStyleType.Table);
 
         var basedOnName = ResolveStyleName(definition?.BasedOnId);
         var nextName = ResolveStyleName(definition?.NextStyleId);
-        var inUse = _stylesInUse.Contains(style.Id);
-        var detailText = $"Based on: {basedOnName}\nNext style: {nextName}\nDefault: {(style.IsDefault ? "Yes" : "No")}  In use: {(inUse ? "Yes" : "No")}";
+        var detailText = string.Join(
+            "\n",
+            $"Type: {style.Type}",
+            $"Based on: {basedOnName}",
+            $"Next style: {nextName}",
+            $"Default: {(style.IsDefault ? "Yes" : "No")}",
+            $"In use: {(style.IsInUse ? "Yes" : "No")}",
+            $"Quick style: {(style.IsQuickStyle ? "Yes" : "No")}",
+            $"Hidden: {(style.IsHidden ? "Yes" : "No")}");
 
         var directFormatting = _styleService.GetDirectFormattingInfo();
         var directParts = new List<string>(2);
@@ -254,7 +300,6 @@ public partial class StylesPaneWindow : Window
             : $"Direct formatting: {string.Join(", ", directParts)}";
 
         SetDetailsText(detailText, directText);
-        SetManageControls(definition, style.IsDefault);
     }
 
     private void SetDetailsText(string details, string direct)
@@ -270,143 +315,158 @@ public partial class StylesPaneWindow : Window
         }
     }
 
-    private void SetManageControls(ParagraphStyleDefinition? definition, bool isDefault)
+    private async void OnNewStyleClick(object? sender, RoutedEventArgs e)
     {
-        if (!_manageMode || _styleService is null || definition is null)
-        {
-            SetManageEnabled(false);
-            return;
-        }
-
-        var isLocked = definition.Locked == true;
-        SetManageEnabled(!isLocked);
-
-        if (_styleNameBox is not null)
-        {
-            _styleNameBox.Text = definition.Name ?? definition.Id;
-        }
-
-        if (_basedOnCombo is not null)
-        {
-            _basedOnCombo.ItemsSource = BuildStyleComboItems();
-            SelectStyleComboItem(_basedOnCombo, definition.BasedOnId);
-        }
-
-        if (_nextStyleCombo is not null)
-        {
-            _nextStyleCombo.ItemsSource = BuildStyleComboItems();
-            SelectStyleComboItem(_nextStyleCombo, definition.NextStyleId);
-        }
-
-        if (_setDefaultButton is not null)
-        {
-            _setDefaultButton.IsEnabled = !isLocked && !isDefault;
-        }
-    }
-
-    private void SetManageEnabled(bool enabled)
-    {
-        if (_styleNameBox is not null)
-        {
-            _styleNameBox.IsEnabled = enabled;
-        }
-
-        if (_basedOnCombo is not null)
-        {
-            _basedOnCombo.IsEnabled = enabled;
-        }
-
-        if (_nextStyleCombo is not null)
-        {
-            _nextStyleCombo.IsEnabled = enabled;
-        }
-
-        if (_updateStyleButton is not null)
-        {
-            _updateStyleButton.IsEnabled = enabled;
-        }
-    }
-
-    private void OnUpdateStyleClick(object? sender, RoutedEventArgs e)
-    {
-        if (_styleService is null || _stylesList?.SelectedItem is not EditorParagraphStyleInfo style)
+        if (_styleService is null)
         {
             return;
         }
 
-        var name = _styleNameBox?.Text ?? string.Empty;
-        var basedOnId = (_basedOnCombo?.SelectedItem as StyleComboItem)?.Id;
-        var nextStyleId = (_nextStyleCombo?.SelectedItem as StyleComboItem)?.Id;
-
-        var changed = false;
-        if (!string.IsNullOrWhiteSpace(name))
+        var dialog = new StyleEditorDialog(
+            new StyleEditorState(EditorStyleType.Paragraph, string.Empty, null, null, false, false, null, null, null, null, null),
+            _styleService,
+            _fontService);
+        var result = await dialog.ShowDialog<StyleEditorResult?>(this);
+        if (result is not StyleEditorResult created)
         {
-            changed |= _styleService.RenameParagraphStyle(style.Id, name);
+            return;
         }
 
-        changed |= _styleService.SetParagraphStyleBasedOn(style.Id, basedOnId);
-        changed |= _styleService.SetParagraphStyleNext(style.Id, nextStyleId);
+        var options = new EditorStyleCreateOptions(
+            created.Type,
+            created.Name,
+            created.BasedOnId,
+            created.NextStyleId,
+            created.QuickStyle,
+            created.AutoRedefine,
+            created.RunProperties,
+            created.ParagraphProperties,
+            created.TableProperties,
+            created.TableCellProperties,
+            created.StyleId);
 
-        if (changed)
+        if (_styleService.CreateStyle(options))
         {
             RefreshStyles();
         }
     }
 
-    private void OnSetDefaultClick(object? sender, RoutedEventArgs e)
+    private void OnInspectorClick(object? sender, RoutedEventArgs e)
     {
-        if (_styleService is null || _stylesList?.SelectedItem is not EditorParagraphStyleInfo style)
+        if (_styleService is null)
         {
             return;
         }
 
-        if (_styleService.SetDefaultParagraphStyle(style.Id))
+        var dialog = new StyleInspectorDialog(_styleService);
+        dialog.ShowDialog(this);
+    }
+
+    private void OnManageClick(object? sender, RoutedEventArgs e)
+    {
+        if (_openManageDialog is not null)
         {
-            RefreshStyles();
+            _openManageDialog.Invoke();
+            return;
+        }
+
+        if (_styleService is null)
+        {
+            return;
+        }
+
+        var dialog = new ManageStylesDialog(_styleService, _fontService);
+        dialog.ShowDialog(this);
+    }
+
+    private void OnOrganizerClick(object? sender, RoutedEventArgs e)
+    {
+        if (_styleService is null)
+        {
+            return;
+        }
+
+        var dialog = new StyleOrganizerDialog(_styleService);
+        dialog.ShowDialog(this);
+    }
+
+    private async void OnOptionsClick(object? sender, RoutedEventArgs e)
+    {
+        var dialog = new StylePaneOptionsDialog(_options);
+        var result = await dialog.ShowDialog<StylePaneOptions?>(this);
+        if (result is null)
+        {
+            return;
+        }
+
+        _options = result;
+        _sharedOptions = result.Clone();
+        SyncFilterControls();
+        ApplyOptions();
+        RefreshStyles();
+    }
+
+    private void ApplyOptions()
+    {
+        if (_previewPanel is not null)
+        {
+            _previewPanel.IsVisible = _options.ShowPreview;
         }
     }
 
-    private List<StyleComboItem> BuildStyleComboItems()
+    private void SyncFilterControls()
     {
-        var items = new List<StyleComboItem>(_allStyles.Count + 1)
+        if (_filterCombo is not null)
         {
-            new StyleComboItem(null, "None")
+            _filterCombo.SelectedIndex = (int)_options.FilterMode;
+        }
+
+        if (_typeCombo is not null)
+        {
+            _typeCombo.SelectedIndex = (int)_options.TypeFilter;
+        }
+    }
+
+    private StyleDefinitionInfo? GetStyleDefinition(EditorStyleInfo style)
+    {
+        return style.Type switch
+        {
+            EditorStyleType.Paragraph => Wrap(_styleService?.GetParagraphStyleDefinition(style.Id)),
+            EditorStyleType.Character => Wrap(_styleService?.GetCharacterStyleDefinition(style.Id)),
+            EditorStyleType.Table => Wrap(_styleService?.GetTableStyleDefinition(style.Id)),
+            _ => null
         };
-
-        foreach (var style in _allStyles)
-        {
-            items.Add(new StyleComboItem(style.Id, style.Name));
-        }
-
-        return items;
     }
 
-    private static void SelectStyleComboItem(ComboBox combo, string? styleId)
+    private static StyleDefinitionInfo? Wrap(ParagraphStyleDefinition? definition)
     {
-        if (combo.ItemsSource is not IEnumerable<StyleComboItem> items)
-        {
-            return;
-        }
-
-        foreach (var item in items)
-        {
-            if (string.Equals(item.Id, styleId, StringComparison.OrdinalIgnoreCase))
-            {
-                combo.SelectedItem = item;
-                return;
-            }
-        }
-
-        combo.SelectedIndex = 0;
+        return definition is null
+            ? null
+            : new StyleDefinitionInfo(definition.BasedOnId, definition.NextStyleId);
     }
 
-    private void ApplyPreviewStyle(TextStyle? style)
+    private static StyleDefinitionInfo? Wrap(CharacterStyleDefinition? definition)
+    {
+        return definition is null
+            ? null
+            : new StyleDefinitionInfo(definition.BasedOnId, definition.NextStyleId);
+    }
+
+    private static StyleDefinitionInfo? Wrap(TableStyleDefinition? definition)
+    {
+        return definition is null
+            ? null
+            : new StyleDefinitionInfo(definition.BasedOnId, definition.NextStyleId);
+    }
+
+    private void ApplyPreviewStyle(TextStyle? style, bool isTable = false)
     {
         if (_previewText is null)
         {
             return;
         }
 
+        _previewText.Text = isTable ? "Table" : "AaBbCcDd";
         if (style is null)
         {
             _previewText.FontFamily = FontFamily.Default;
@@ -469,7 +529,7 @@ public partial class StylesPaneWindow : Window
         return styleId;
     }
 
-    private static Dictionary<string, string> BuildStyleNameMap(IReadOnlyList<EditorParagraphStyleInfo> styles)
+    private static Dictionary<string, string> BuildStyleNameMap(IReadOnlyList<EditorStyleInfo> styles)
     {
         var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var style in styles)
@@ -480,8 +540,34 @@ public partial class StylesPaneWindow : Window
         return map;
     }
 
-    private sealed record StyleComboItem(string? Id, string Name)
+    private static bool MatchesFilter(EditorStyleInfo style, StylePaneFilterMode filter)
     {
-        public override string ToString() => Name;
+        return filter switch
+        {
+            StylePaneFilterMode.InUse => style.IsInUse,
+            StylePaneFilterMode.QuickStyles => style.IsQuickStyle,
+            StylePaneFilterMode.Recommended => style.UiPriority.HasValue || style.IsQuickStyle,
+            _ => true
+        };
     }
+
+    private static void SortStyles(List<EditorStyleInfo> styles, StylePaneSortMode mode)
+    {
+        styles.Sort((left, right) => CompareStyleInfo(left, right, mode));
+    }
+
+    private static int CompareStyleInfo(EditorStyleInfo left, EditorStyleInfo right, StylePaneSortMode mode)
+    {
+        var leftPriority = left.UiPriority ?? int.MaxValue;
+        var rightPriority = right.UiPriority ?? int.MaxValue;
+        return mode switch
+        {
+            StylePaneSortMode.ByPriority => leftPriority != rightPriority
+                ? leftPriority.CompareTo(rightPriority)
+                : string.Compare(left.Name, right.Name, StringComparison.OrdinalIgnoreCase),
+            _ => string.Compare(left.Name, right.Name, StringComparison.OrdinalIgnoreCase)
+        };
+    }
+
+    private readonly record struct StyleDefinitionInfo(string? BasedOnId, string? NextStyleId);
 }

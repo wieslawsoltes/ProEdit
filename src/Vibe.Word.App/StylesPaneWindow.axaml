@@ -2,13 +2,13 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:editing="clr-namespace:Vibe.Office.Editing;assembly=Vibe.Office.Editing"
         x:Class="Vibe.Word.App.StylesPaneWindow"
-        Width="320"
-        Height="420"
-        MinWidth="260"
-        MinHeight="300"
+        Width="360"
+        Height="520"
+        MinWidth="300"
+        MinHeight="360"
         Title="Styles">
   <Grid Margin="12"
-        RowDefinitions="Auto,*,Auto,Auto,Auto">
+        RowDefinitions="Auto,Auto,*,Auto,Auto">
     <StackPanel Grid.Row="0"
                 Spacing="6"
                 Margin="0,0,0,8">
@@ -16,32 +16,50 @@
                  Text="Styles"
                  FontSize="14"
                  FontWeight="SemiBold" />
+    </StackPanel>
+
+    <StackPanel Grid.Row="1"
+                Spacing="6"
+                Margin="0,0,0,8">
+      <TextBox x:Name="StyleSearchBox"
+               Watermark="Search styles" />
       <DockPanel>
-        <TextBox x:Name="StyleSearchBox"
-                 Watermark="Search styles"
-                 Width="180" />
         <ComboBox x:Name="StyleFilterCombo"
-                  DockPanel.Dock="Right"
-                  Width="110"
-                  Margin="8,0,0,0">
+                  Width="150">
           <ComboBoxItem Content="All Styles" />
           <ComboBoxItem Content="In Use" />
+          <ComboBoxItem Content="Quick Styles" />
+          <ComboBoxItem Content="Recommended" />
+        </ComboBox>
+        <ComboBox x:Name="StyleTypeCombo"
+                  DockPanel.Dock="Right"
+                  Width="150"
+                  Margin="8,0,0,0">
+          <ComboBoxItem Content="All Types" />
+          <ComboBoxItem Content="Paragraph" />
+          <ComboBoxItem Content="Character" />
+          <ComboBoxItem Content="Table" />
         </ComboBox>
       </DockPanel>
     </StackPanel>
 
     <ListBox x:Name="StylesList"
-             Grid.Row="1"
+             Grid.Row="2"
              MinHeight="180">
       <ListBox.ItemTemplate>
-        <DataTemplate x:DataType="editing:EditorParagraphStyleInfo">
-          <TextBlock Text="{Binding Name}" />
+        <DataTemplate x:DataType="editing:EditorStyleInfo">
+          <StackPanel Spacing="2">
+            <TextBlock Text="{Binding Name}" />
+            <TextBlock Text="{Binding Type}"
+                       FontSize="11"
+                       Foreground="#666666" />
+          </StackPanel>
         </DataTemplate>
       </ListBox.ItemTemplate>
     </ListBox>
 
     <Border x:Name="StylePreviewPanel"
-            Grid.Row="2"
+            Grid.Row="3"
             BorderBrush="#DDDDDD"
             BorderThickness="1"
             Padding="8"
@@ -55,53 +73,21 @@
       </StackPanel>
     </Border>
 
-    <Border x:Name="StyleManagePanel"
-            Grid.Row="3"
-            BorderBrush="#DDDDDD"
-            BorderThickness="1"
-            Padding="8"
-            Margin="0,8,0,0"
-            IsVisible="False">
-      <StackPanel Spacing="6">
-        <TextBlock Text="Style settings"
-                   FontWeight="SemiBold" />
-        <StackPanel Orientation="Horizontal"
-                    Spacing="6">
-          <TextBlock Text="Name"
-                     Width="70" />
-          <TextBox x:Name="StyleNameBox"
-                   Width="200" />
-        </StackPanel>
-        <StackPanel Orientation="Horizontal"
-                    Spacing="6">
-          <TextBlock Text="Based on"
-                     Width="70" />
-          <ComboBox x:Name="StyleBasedOnCombo"
-                    Width="200" />
-        </StackPanel>
-        <StackPanel Orientation="Horizontal"
-                    Spacing="6">
-          <TextBlock Text="Next style"
-                     Width="70" />
-          <ComboBox x:Name="StyleNextCombo"
-                    Width="200" />
-        </StackPanel>
-        <StackPanel Orientation="Horizontal"
-                    Spacing="8"
-                    HorizontalAlignment="Right">
-          <Button x:Name="SetDefaultButton"
-                  Content="Set Default" />
-          <Button x:Name="UpdateStyleButton"
-                  Content="Update" />
-        </StackPanel>
-      </StackPanel>
-    </Border>
-
     <StackPanel Grid.Row="4"
                 Orientation="Horizontal"
                 HorizontalAlignment="Right"
-                Spacing="8"
-                Margin="0,8,0,0">
+                Margin="0,8,0,0"
+                Spacing="6">
+      <Button x:Name="NewStyleButton"
+              Content="New Style" />
+      <Button x:Name="InspectorButton"
+              Content="Style Inspector" />
+      <Button x:Name="ManageButton"
+              Content="Manage Styles" />
+      <Button x:Name="OrganizerButton"
+              Content="Organizer" />
+      <Button x:Name="OptionsButton"
+              Content="Options" />
       <Button x:Name="ApplyButton"
               Content="Apply" />
       <Button x:Name="CloseButton"

@@ -1,0 +1,69 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Vibe.Word.App.StyleInspectorDialog"
+        Width="420"
+        Height="420"
+        WindowStartupLocation="CenterOwner"
+        Title="Style Inspector">
+  <ScrollViewer>
+    <StackPanel Margin="12"
+                Spacing="12">
+      <Border BorderBrush="#D0D0D0"
+              BorderThickness="1"
+              CornerRadius="4"
+              Padding="8">
+        <StackPanel Spacing="4">
+          <TextBlock Text="Paragraph style"
+                     FontWeight="SemiBold" />
+          <TextBlock x:Name="ParagraphStyleName" />
+          <TextBlock x:Name="ParagraphStyleChain"
+                     FontSize="11"
+                     Foreground="#666666" />
+          <TextBlock x:Name="ParagraphDirectFormatting"
+                     FontSize="11"
+                     Foreground="#666666" />
+        </StackPanel>
+      </Border>
+
+      <Border BorderBrush="#D0D0D0"
+              BorderThickness="1"
+              CornerRadius="4"
+              Padding="8">
+        <StackPanel Spacing="4">
+          <TextBlock Text="Character style"
+                     FontWeight="SemiBold" />
+          <TextBlock x:Name="CharacterStyleName" />
+          <TextBlock x:Name="CharacterStyleChain"
+                     FontSize="11"
+                     Foreground="#666666" />
+          <TextBlock x:Name="CharacterDirectFormatting"
+                     FontSize="11"
+                     Foreground="#666666" />
+        </StackPanel>
+      </Border>
+
+      <Border BorderBrush="#D0D0D0"
+              BorderThickness="1"
+              CornerRadius="4"
+              Padding="8">
+        <StackPanel Spacing="4">
+          <TextBlock Text="Table style"
+                     FontWeight="SemiBold" />
+          <TextBlock x:Name="TableStyleName" />
+          <TextBlock x:Name="TableStyleChain"
+                     FontSize="11"
+                     Foreground="#666666" />
+        </StackPanel>
+      </Border>
+
+      <StackPanel Orientation="Horizontal"
+                  HorizontalAlignment="Right"
+                  Spacing="8">
+        <Button x:Name="ClearFormattingButton"
+                Content="Clear Direct Formatting" />
+        <Button x:Name="CloseButton"
+                Content="Close" />
+      </StackPanel>
+    </StackPanel>
+  </ScrollViewer>
+</Window>

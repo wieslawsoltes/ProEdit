@@ -7,6 +7,7 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 using Vibe.Office.Documents;
 using Vibe.Office.Editing;
 using Vibe.Office.Layout;
@@ -64,6 +65,8 @@ public partial class MainWindow : Window
     private string? _currentPath;
     private DocumentLayout? _navigationLayout;
     private Document? _navigationDocument;
+    private IStyleManagerService? _styleManagerService;
+    private bool _pendingStyleGalleryRefresh;
     private bool _isLoading;
     private bool _suppressQuickAccessSave;
     private bool _suppressZoomUpdate;
@@ -281,12 +284,15 @@ public partial class MainWindow : Window
 
         _editorView.RegisterService<IStylePaneService>(new StylesPaneService(
             this,
-            () => _editorView.TryGetService<IStyleService>(out var service) ? service : null));
+            () => _editorView.TryGetService<IStyleManagerService>(out var service) ? service : null,
+            () => _editorView.TryGetService<IFontService>(out var fontService) ? fontService : null));
 
         _editorView.RegisterService<IReviewPaneService>(new MainWindowReviewPaneService(
             _editorView,
             _reviewPane,
             RefreshReviewPaneItems));
+
+        AttachStyleManagerEvents();
     }
 
         if (_ribbon is not null)
@@ -339,6 +345,7 @@ public partial class MainWindow : Window
             _editorView?.LoadDocument(document);
             _currentPath = path;
             RefreshStyleGalleryItems();
+            AttachStyleManagerEvents();
             _ribbon?.RefreshState();
             RefreshNavigationPaneItems(force: true);
             UpdateOpenAuxiliaryWindows();
@@ -387,6 +394,7 @@ public partial class MainWindow : Window
         var document = DocumentTemplates.CreateDefaultDocument();
         await _editorView.LoadDocumentAsync(document);
         RefreshStyleGalleryItems();
+        AttachStyleManagerEvents();
         _ribbon?.RefreshState();
     }
 
@@ -6624,6 +6632,61 @@ public partial class MainWindow : Window
         }
     }
 
+    private void AttachStyleManagerEvents()
+    {
+        if (_editorView is null)
+        {
+            DetachStyleManagerEvents();
+            return;
+        }
+
+        if (!_editorView.TryGetService<IStyleManagerService>(out var styleManager))
+        {
+            DetachStyleManagerEvents();
+            return;
+        }
+
+        if (ReferenceEquals(_styleManagerService, styleManager))
+        {
+            return;
+        }
+
+        if (_styleManagerService is not null)
+        {
+            _styleManagerService.StylesChanged -= OnStylesChanged;
+        }
+
+        _styleManagerService = styleManager;
+        _styleManagerService.StylesChanged += OnStylesChanged;
+    }
+
+    private void DetachStyleManagerEvents()
+    {
+        if (_styleManagerService is null)
+        {
+            return;
+        }
+
+        _styleManagerService.StylesChanged -= OnStylesChanged;
+        _styleManagerService = null;
+    }
+
+    private void OnStylesChanged(object? sender, EventArgs e)
+    {
+        if (_pendingStyleGalleryRefresh)
+        {
+            return;
+        }
+
+        _pendingStyleGalleryRefresh = true;
+        Dispatcher.UIThread.Post(() =>
+        {
+            _pendingStyleGalleryRefresh = false;
+            RefreshStyleGalleryItems();
+            _ribbon?.RefreshState();
+        });
+    }
+
     private async void OnQuickAccessCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         if (_suppressQuickAccessSave || _ribbon?.Model is null)
@@ -7056,6 +7119,7 @@ public partial class MainWindow : Window
         if (loaded)
         {
             RefreshStyleGalleryItems();
+            AttachStyleManagerEvents();
             _ribbon?.RefreshState();
             UpdateOpenAuxiliaryWindows();
         }

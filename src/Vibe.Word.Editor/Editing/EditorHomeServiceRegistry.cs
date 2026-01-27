@@ -57,6 +57,7 @@ public static class EditorHomeServiceRegistry
         services.Register<IFormattingState>(formattingState);
         services.Register<IParagraphService>(paragraphState);
         services.Register<IStyleService>(styleService);
+        services.Register<IStyleManagerService>(styleService);
         services.Register<ITableStyleService>(tableStyleService);
         services.Register<ITableSelectionSnapshotProvider>(tableSelectionProvider);
         services.Register<IFontService>(fontService);
