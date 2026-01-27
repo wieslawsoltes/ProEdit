@@ -983,11 +983,12 @@ public sealed class DocumentLayouter
             return true;
         }
 
+        var paragraphCountMatches = previousLayout is null || previousLayout.Paragraphs.Count == paragraphList.Count;
         var reusedPrefix = previousLayout is not null
             && dirtyParagraphIndex.HasValue
             && TryReusePrefix(previousLayout, dirtyParagraphIndex.Value);
 
-        var allowSuffixReuse = reusedPrefix;
+        var allowSuffixReuse = reusedPrefix && paragraphCountMatches;
         var flowMatchesPrevious = allowSuffixReuse;
         var stopLayout = false;
 

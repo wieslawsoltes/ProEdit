@@ -123,9 +123,12 @@ public sealed class EditorController : IEditorMutableSession
         var location = Document.GetParagraphLocation(Caret.ParagraphIndex);
         var paragraph = location.Paragraph;
         var offset = Caret.Offset;
+        var paragraphLength = DocumentEditHelpers.GetParagraphLength(paragraph);
+        var newStyleId = ResolveNextParagraphStyleId(paragraph, offset >= paragraphLength);
+        var moveCaretToNextParagraph = offset > 0 || paragraphLength == 0;
         var newParagraph = new ParagraphBlock(string.Empty, paragraph.ListInfo?.Clone())
         {
-            StyleId = paragraph.StyleId
+            StyleId = newStyleId
         };
         CopyParagraphProperties(paragraph.Properties, newParagraph.Properties);
 
@@ -151,8 +154,38 @@ public sealed class EditorController : IEditorMutableSession
         SplitFloatingAnchors(paragraph, newParagraph, offset);
         Document.InsertParagraphAfter(location, newParagraph);
 
-        _selectionService.SetCaret(new TextPosition(Caret.ParagraphIndex + 1, 0), false);
         Reflow(dirtyParagraphIndex);
+        var targetIndex = moveCaretToNextParagraph ? Caret.ParagraphIndex + 1 : Caret.ParagraphIndex;
+        _selectionService.SetCaret(new TextPosition(targetIndex, 0), false);
+    }
+
+    private string? ResolveNextParagraphStyleId(ParagraphBlock paragraph, bool isAtEnd)
+    {
+        if (!isAtEnd)
+        {
+            return paragraph.StyleId;
+        }
+
+        var currentStyleId = paragraph.StyleId ?? Document.Styles.DefaultParagraphStyleId;
+        if (string.IsNullOrWhiteSpace(currentStyleId))
+        {
+            return paragraph.StyleId;
+        }
+
+        if (!Document.Styles.ParagraphStyles.TryGetValue(currentStyleId, out var style))
+        {
+            return paragraph.StyleId;
+        }
+
+        var nextStyleId = style.NextStyleId;
+        if (string.IsNullOrWhiteSpace(nextStyleId))
+        {
+            return paragraph.StyleId;
+        }
+
+        return Document.Styles.ParagraphStyles.ContainsKey(nextStyleId)
+            ? nextStyleId
+            : paragraph.StyleId;
     }
 
     public void InsertInline(Inline inline)
@@ -202,8 +235,8 @@ public sealed class EditorController : IEditorMutableSession
             var newParagraph = new ParagraphBlock();
             Document.Blocks.Insert(insertIndex, block);
             Document.Blocks.Insert(insertIndex + 1, newParagraph);
-            _selectionService.SetCaret(new TextPosition(FindParagraphIndex(newParagraph), 0), false);
             Reflow(dirtyParagraphIndex);
+            _selectionService.SetCaret(new TextPosition(FindParagraphIndex(newParagraph), 0), false);
             return;
         }
 
@@ -239,8 +272,8 @@ public sealed class EditorController : IEditorMutableSession
         Document.Blocks.Insert(blockInsertIndex, block);
         Document.Blocks.Insert(blockInsertIndex + 1, nextParagraph);
 
-        _selectionService.SetCaret(new TextPosition(FindParagraphIndex(nextParagraph), 0), false);
         Reflow(dirtyParagraphIndex);
+        _selectionService.SetCaret(new TextPosition(FindParagraphIndex(nextParagraph), 0), false);
     }
 
     public void Backspace()
