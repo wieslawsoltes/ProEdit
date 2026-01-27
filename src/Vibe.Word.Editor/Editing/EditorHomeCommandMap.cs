@@ -235,7 +235,7 @@ public sealed class EditorHomeCommandMap
             return false;
         }
 
-        return _session.Document.ParagraphCount > 0;
+        return _session.GetParagraphCountFast() > 0;
     }
 
     private bool HasParagraphs(RibbonContextSnapshot? context)
@@ -245,7 +245,7 @@ public sealed class EditorHomeCommandMap
             return false;
         }
 
-        return _session.Document.ParagraphCount > 0;
+        return _session.GetParagraphCountFast() > 0;
     }
 
     private bool CanCopy(RibbonContextSnapshot? context)

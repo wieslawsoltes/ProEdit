@@ -42,7 +42,8 @@ public sealed class EditorFormattingStateAdapter : IFormattingState
         var textEmboss = new EditorValueAccumulator<bool>();
         var textImprint = new EditorValueAccumulator<bool>();
 
-        if (_session.Document.ParagraphCount == 0)
+        var paragraphCount = _session.GetParagraphCountFast();
+        if (paragraphCount == 0)
         {
             return new EditorFormattingSnapshot(
                 fontFamily.Build(),
@@ -69,8 +70,8 @@ public sealed class EditorFormattingStateAdapter : IFormattingState
 
         if (selection.IsEmpty)
         {
-            var paragraphIndex = Math.Clamp(selection.Start.ParagraphIndex, 0, _session.Document.ParagraphCount - 1);
-            var paragraph = _session.Document.GetParagraph(paragraphIndex);
+            var paragraphIndex = Math.Clamp(selection.Start.ParagraphIndex, 0, paragraphCount - 1);
+            var paragraph = _session.GetParagraphFast(paragraphIndex);
             var style = ResolveStyleAtCaret(paragraph, selection.Start.Offset);
             Accumulate(
                 style,
@@ -97,8 +98,8 @@ public sealed class EditorFormattingStateAdapter : IFormattingState
         }
         else
         {
-            var startIndex = Math.Clamp(selection.Start.ParagraphIndex, 0, _session.Document.ParagraphCount - 1);
-            var endIndex = Math.Clamp(selection.End.ParagraphIndex, 0, _session.Document.ParagraphCount - 1);
+            var startIndex = Math.Clamp(selection.Start.ParagraphIndex, 0, paragraphCount - 1);
+            var endIndex = Math.Clamp(selection.End.ParagraphIndex, 0, paragraphCount - 1);
             if (startIndex > endIndex)
             {
                 (startIndex, endIndex) = (endIndex, startIndex);
@@ -106,7 +107,7 @@ public sealed class EditorFormattingStateAdapter : IFormattingState
 
             for (var i = startIndex; i <= endIndex; i++)
             {
-                var paragraph = _session.Document.GetParagraph(i);
+                var paragraph = _session.GetParagraphFast(i);
                 var paragraphLength = DocumentEditHelpers.GetParagraphLength(paragraph);
                 var startOffset = i == startIndex ? selection.Start.Offset : 0;
                 var endOffset = i == endIndex ? selection.End.Offset : paragraphLength;

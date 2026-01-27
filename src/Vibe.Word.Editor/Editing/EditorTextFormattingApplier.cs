@@ -27,7 +27,8 @@ internal sealed class EditorTextFormattingApplier
 
     private bool ApplyInternal(Action<TextStyleProperties> apply, bool clearFormatting)
     {
-        if (_session.Document.ParagraphCount == 0)
+        var paragraphCount = _session.GetParagraphCountFast();
+        if (paragraphCount == 0)
         {
             return false;
         }
@@ -47,8 +48,9 @@ internal sealed class EditorTextFormattingApplier
 
     private bool ApplyToCaret(TextPosition caret, Action<TextStyleProperties> apply, bool clearFormatting)
     {
-        var paragraphIndex = Math.Clamp(caret.ParagraphIndex, 0, _session.Document.ParagraphCount - 1);
-        var paragraph = _session.Document.GetParagraph(paragraphIndex);
+        var paragraphCount = _session.GetParagraphCountFast();
+        var paragraphIndex = Math.Clamp(caret.ParagraphIndex, 0, paragraphCount - 1);
+        var paragraph = _session.GetParagraphFast(paragraphIndex);
         EnsureParagraphInlines(paragraph);
         if (paragraph.Inlines.Count == 0)
         {
@@ -97,8 +99,9 @@ internal sealed class EditorTextFormattingApplier
 
     private bool ApplyToRange(TextRange range, Action<TextStyleProperties> apply, bool clearFormatting)
     {
-        var startIndex = Math.Clamp(range.Start.ParagraphIndex, 0, _session.Document.ParagraphCount - 1);
-        var endIndex = Math.Clamp(range.End.ParagraphIndex, 0, _session.Document.ParagraphCount - 1);
+        var paragraphCount = _session.GetParagraphCountFast();
+        var startIndex = Math.Clamp(range.Start.ParagraphIndex, 0, paragraphCount - 1);
+        var endIndex = Math.Clamp(range.End.ParagraphIndex, 0, paragraphCount - 1);
         if (startIndex > endIndex)
         {
             (startIndex, endIndex) = (endIndex, startIndex);
@@ -107,7 +110,7 @@ internal sealed class EditorTextFormattingApplier
         var changed = false;
         for (var i = startIndex; i <= endIndex; i++)
         {
-            var paragraph = _session.Document.GetParagraph(i);
+            var paragraph = _session.GetParagraphFast(i);
             var paragraphLength = DocumentEditHelpers.GetParagraphLength(paragraph);
             var startOffset = i == startIndex ? range.Start.Offset : 0;
             var endOffset = i == endIndex ? range.End.Offset : paragraphLength;

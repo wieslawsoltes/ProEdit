@@ -24,12 +24,24 @@ public sealed class EditorSelectionStateAdapter : ISelectionState
 
         var isInTable = false;
         var isInList = false;
-        if (_session.Document.ParagraphCount > 0)
+        var paragraphCount = _session.GetParagraphCountFast();
+        if (paragraphCount > 0)
         {
-            var paragraphIndex = Math.Clamp(caret.ParagraphIndex, 0, _session.Document.ParagraphCount - 1);
-            var location = _session.Document.GetParagraphLocation(paragraphIndex);
-            isInTable = location.IsInTable;
-            isInList = location.Paragraph.ListInfo?.Kind != ListKind.None;
+            var paragraphIndex = Math.Clamp(caret.ParagraphIndex, 0, paragraphCount - 1);
+            var paragraph = _session.GetParagraphFast(paragraphIndex);
+            isInList = paragraph.ListInfo?.Kind != ListKind.None;
+
+            if (_session.TryGetParagraphLineRangeFast(paragraphIndex, out var range) && range.Count > 0)
+            {
+                var layout = _session.Layout;
+                var lineIndex = Math.Clamp(range.Start, 0, layout.Lines.Count - 1);
+                isInTable = layout.Lines.Count > 0 && layout.Lines[lineIndex].IsInTable;
+            }
+            else
+            {
+                var location = _session.Document.GetParagraphLocation(paragraphIndex);
+                isInTable = location.IsInTable;
+            }
         }
 
         return new EditorSelectionSnapshot(

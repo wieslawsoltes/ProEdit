@@ -416,10 +416,10 @@ public sealed class DocumentLayouter
         {
             lines.Add(line);
             linePageIndices.Add(pageIndex);
-            RegisterNoteReferences(line);
+            RegisterNoteReferences(line, pageIndex);
         }
 
-        void RegisterNoteReferences(LayoutLine line)
+        void RegisterNoteReferences(LayoutLine line, int linePageIndex)
         {
             if (line.ParagraphIndex < 0)
             {
@@ -440,10 +440,10 @@ public sealed class DocumentLayouter
                 }
 
                 var map = reference.Kind == NoteKind.Footnote ? footnotesByPage : endnotesByPage;
-                if (!map.TryGetValue(pageIndex, out var set))
+                if (!map.TryGetValue(linePageIndex, out var set))
                 {
                     set = new HashSet<int>();
-                    map[pageIndex] = set;
+                    map[linePageIndex] = set;
                 }
 
                 set.Add(reference.Id);
@@ -650,8 +650,11 @@ public sealed class DocumentLayouter
 
             for (var i = 0; i < startLineIndex; i++)
             {
-                lines.Add(previous.Lines[i]);
-                linePageIndices.Add(previous.LineIndex.GetPageForLine(i));
+                var line = previous.Lines[i];
+                var previousPageIndex = previous.LineIndex.GetPageForLine(i);
+                lines.Add(line);
+                linePageIndices.Add(previousPageIndex);
+                RegisterNoteReferences(line, previousPageIndex);
             }
 
             foreach (var pair in previous.ParagraphLineRanges)
@@ -659,6 +662,17 @@ public sealed class DocumentLayouter
                 if (pair.Key < startParagraphIndex)
                 {
                     paragraphLineRanges[pair.Key] = pair.Value;
+                }
+            }
+
+            if (previous.ParagraphSpacingBefore.Count > 0)
+            {
+                foreach (var pair in previous.ParagraphSpacingBefore)
+                {
+                    if (pair.Key < startParagraphIndex)
+                    {
+                        paragraphSpacingBefore[pair.Key] = pair.Value;
+                    }
                 }
             }
 
@@ -797,9 +811,185 @@ public sealed class DocumentLayouter
             return -1;
         }
 
+        const float flowEpsilon = 0.01f;
+
+        bool ParagraphFlowMatches(DocumentLayout previous, LineRange previousRange, LineRange currentRange)
+        {
+            if (previousRange.Count != currentRange.Count || previousRange.Start != currentRange.Start)
+            {
+                return false;
+            }
+
+            if (currentRange.Count == 0)
+            {
+                return true;
+            }
+
+            var start = currentRange.Start;
+            var end = start + currentRange.Count;
+            if (start < 0 || end > lines.Count || end > previous.Lines.Count)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < currentRange.Count; i++)
+            {
+                var newLine = lines[start + i];
+                var previousLine = previous.Lines[previousRange.Start + i];
+                if (MathF.Abs(newLine.Y - previousLine.Y) > flowEpsilon)
+                {
+                    return false;
+                }
+
+                if (MathF.Abs(newLine.LineHeight - previousLine.LineHeight) > flowEpsilon)
+                {
+                    return false;
+                }
+
+                if (newLine.IsInTable != previousLine.IsInTable)
+                {
+                    return false;
+                }
+
+                var newPage = linePageIndices[start + i];
+                var previousPage = previous.LineIndex.GetPageForLine(previousRange.Start + i);
+                if (newPage != previousPage)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        static int GetTableMinParagraphIndex(TableLayout table)
+        {
+            var min = int.MaxValue;
+            foreach (var cell in table.Cells)
+            {
+                foreach (var line in cell.Lines)
+                {
+                    if (line.ParagraphIndex >= 0 && line.ParagraphIndex < min)
+                    {
+                        min = line.ParagraphIndex;
+                    }
+                }
+            }
+
+            return min == int.MaxValue ? -1 : min;
+        }
+
+        void AppendTablesFromPrevious(IReadOnlyList<TableLayout> sourceTables, int startParagraphIndex)
+        {
+            foreach (var table in sourceTables)
+            {
+                var minParagraphIndex = GetTableMinParagraphIndex(table);
+                if (minParagraphIndex >= startParagraphIndex)
+                {
+                    tables.Add(table);
+                }
+            }
+        }
+
+        void AppendExtraFloatingObjectsFromPrevious(IReadOnlyList<FloatingLayoutObject> sourceFloating, int startParagraphIndex)
+        {
+            foreach (var floating in sourceFloating)
+            {
+                if (floating.ParagraphIndex < startParagraphIndex)
+                {
+                    continue;
+                }
+
+                extraFloatingObjects.Add(floating);
+            }
+        }
+
+        bool TryAppendSuffix(DocumentLayout previous, int startParagraphIndex, int startLineIndex)
+        {
+            if (startLineIndex < 0 || startLineIndex > previous.Lines.Count)
+            {
+                return false;
+            }
+
+            if (lines.Count != startLineIndex)
+            {
+                return false;
+            }
+
+            if (pages.Count == 0 || pageIndex < 0 || pageIndex >= pages.Count)
+            {
+                return false;
+            }
+
+            if (pageSections.Count != pages.Count)
+            {
+                return false;
+            }
+
+            if (pages.Count != pageIndex + 1)
+            {
+                return false;
+            }
+
+            var expectedPageIndex = previous.LineIndex.GetPageForLine(startLineIndex);
+            if (expectedPageIndex != pageIndex)
+            {
+                return false;
+            }
+
+            for (var i = startLineIndex; i < previous.Lines.Count; i++)
+            {
+                var line = previous.Lines[i];
+                var previousPageIndex = previous.LineIndex.GetPageForLine(i);
+                lines.Add(line);
+                linePageIndices.Add(previousPageIndex);
+                RegisterNoteReferences(line, previousPageIndex);
+            }
+
+            for (var i = pageIndex + 1; i < previous.Pages.Count; i++)
+            {
+                pages.Add(previous.Pages[i]);
+            }
+
+            for (var i = pageIndex + 1; i < previous.PageSections.Count; i++)
+            {
+                pageSections.Add(previous.PageSections[i]);
+            }
+
+            AppendTablesFromPrevious(previous.Tables, startParagraphIndex);
+            AppendExtraFloatingObjectsFromPrevious(previous.ExtraFloatingObjects, startParagraphIndex);
+
+            foreach (var pair in previous.ParagraphLineRanges)
+            {
+                if (pair.Key >= startParagraphIndex)
+                {
+                    paragraphLineRanges[pair.Key] = pair.Value;
+                }
+            }
+
+            if (previous.ParagraphSpacingBefore.Count > 0)
+            {
+                foreach (var pair in previous.ParagraphSpacingBefore)
+                {
+                    if (pair.Key >= startParagraphIndex)
+                    {
+                        paragraphSpacingBefore[pair.Key] = pair.Value;
+                    }
+                }
+            }
+
+            breakMarkers.Clear();
+            breakMarkers.AddRange(previous.BreakMarkers);
+            return true;
+        }
+
         var reusedPrefix = previousLayout is not null
             && dirtyParagraphIndex.HasValue
             && TryReusePrefix(previousLayout, dirtyParagraphIndex.Value);
+
+        var allowSuffixReuse = reusedPrefix;
+        var flowMatchesPrevious = allowSuffixReuse;
+        var stopLayout = false;
 
         if (!reusedPrefix)
         {
@@ -808,6 +998,17 @@ public sealed class DocumentLayouter
         }
         else
         {
+            if (previousLayout!.ExtraFloatingObjects.Count > 0)
+            {
+                foreach (var floating in previousLayout.ExtraFloatingObjects)
+                {
+                    if (floating.ParagraphIndex < paragraphIndex)
+                    {
+                        extraFloatingObjects.Add(floating);
+                    }
+                }
+            }
+
             foreach (var floating in previousLayout!.FloatingObjects)
             {
                 if (floating.ParagraphIndex < paragraphIndex)
@@ -911,6 +1112,77 @@ public sealed class DocumentLayouter
             }
 
             return new WrapBounds(left, right, blockBottom);
+        }
+
+        bool TryReuseSuffixAfterParagraph(int paragraphIndex, ParagraphLayoutPlan plan, LineRange lineRange)
+        {
+            if (!allowSuffixReuse || previousLayout is null)
+            {
+                return false;
+            }
+
+            if (!flowMatchesPrevious)
+            {
+                return false;
+            }
+
+            if (plan.CanReflow)
+            {
+                flowMatchesPrevious = false;
+                return false;
+            }
+
+            if (!previousLayout.ParagraphLineRanges.TryGetValue(paragraphIndex, out var previousRange) || previousRange.Count == 0)
+            {
+                flowMatchesPrevious = false;
+                return false;
+            }
+
+            if (!ParagraphFlowMatches(previousLayout, previousRange, lineRange))
+            {
+                flowMatchesPrevious = false;
+                return false;
+            }
+
+            var nextParagraphIndex = paragraphIndex + 1;
+            if (nextParagraphIndex >= paragraphList.Count)
+            {
+                return false;
+            }
+
+            if (!previousLayout.ParagraphLineRanges.TryGetValue(nextParagraphIndex, out var nextRange) || nextRange.Count == 0)
+            {
+                return false;
+            }
+
+            if (lines.Count != nextRange.Start)
+            {
+                flowMatchesPrevious = false;
+                return false;
+            }
+
+            var nextPageIndex = previousLayout.LineIndex.GetPageForLine(nextRange.Start);
+            if (nextPageIndex != pageIndex)
+            {
+                flowMatchesPrevious = false;
+                return false;
+            }
+
+            var nextLine = previousLayout.Lines[nextRange.Start];
+            if (ResolveColumnIndex(nextLine.X) != columnIndex)
+            {
+                flowMatchesPrevious = false;
+                return false;
+            }
+
+            if (!TryAppendSuffix(previousLayout, nextParagraphIndex, nextRange.Start))
+            {
+                flowMatchesPrevious = false;
+                return false;
+            }
+
+            stopLayout = true;
+            return true;
         }
 
         float ApplyTopBottomWrap(float lineTop, float lineHeight)
@@ -2518,10 +2790,13 @@ public sealed class DocumentLayouter
                 return;
             }
 
-            _ = LayoutParagraphWithReflow(layoutPlan);
+            var currentParagraphIndex = paragraphIndex;
+            var lineRange = LayoutParagraphWithReflow(layoutPlan);
             pendingParagraphSpacingAfter = plan.SpacingAfter;
             hasPendingParagraphSpacing = true;
             paragraphIndex++;
+
+            _ = TryReuseSuffixAfterParagraph(currentParagraphIndex, plan, lineRange);
         }
 
         TableLayoutPlan BuildTablePlan(TableBlock table)
@@ -2676,6 +2951,11 @@ public sealed class DocumentLayouter
 
         void HandleTable(TableBlock table, int __)
         {
+            if (allowSuffixReuse)
+            {
+                flowMatchesPrevious = false;
+            }
+
             ClearPendingParagraphSpacing();
             if (TryHandleFloatingTable(table))
             {
@@ -2717,6 +2997,10 @@ public sealed class DocumentLayouter
         for (var blockIndex = blockStartIndex; blockIndex < blocks.Count; blockIndex++)
         {
             ApplyBlockRules(blockRules, blocks[blockIndex], blockIndex);
+            if (stopLayout)
+            {
+                break;
+            }
         }
 
         IReadOnlyList<FootnoteLayout> footnotes = Array.Empty<FootnoteLayout>();
@@ -2970,6 +3254,7 @@ public sealed class DocumentLayouter
             headerFooters,
             footnotes,
             floatingObjects,
+            extraFloatingObjects,
             pageSections,
             sectionSettingsByIndex,
             breakMarkers,
@@ -2977,6 +3262,7 @@ public sealed class DocumentLayouter
             paragraphLineRanges,
             paragraphSectionIndices,
             commentHighlightsByParagraph,
+            paragraphSpacingBefore,
             lineHeight,
             ascent,
             contentHeight);

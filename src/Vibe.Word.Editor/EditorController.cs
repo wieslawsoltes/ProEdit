@@ -59,7 +59,7 @@ public sealed class EditorController : IEditorMutableSession
         var dirtyParagraphIndex = GetDirtyParagraphIndex();
         DeleteSelectionIfAny();
 
-        var paragraph = Document.GetParagraph(Caret.ParagraphIndex);
+        var paragraph = this.GetParagraphFast(Caret.ParagraphIndex);
         InsertTextAtPosition(paragraph, Caret.Offset, text);
         _selectionService.SetCaret(new TextPosition(Caret.ParagraphIndex, Caret.Offset + text.Length), false);
         Reflow(dirtyParagraphIndex);
@@ -82,7 +82,7 @@ public sealed class EditorController : IEditorMutableSession
         var dirtyParagraphIndex = GetDirtyParagraphIndex();
         DeleteSelectionIfAny();
 
-        var paragraph = Document.GetParagraph(Caret.ParagraphIndex);
+        var paragraph = this.GetParagraphFast(Caret.ParagraphIndex);
         if (style is null && styleId is null)
         {
             EnsureParagraphInlines(paragraph);
@@ -162,7 +162,7 @@ public sealed class EditorController : IEditorMutableSession
         var dirtyParagraphIndex = GetDirtyParagraphIndex();
         DeleteSelectionIfAny();
 
-        var paragraph = Document.GetParagraph(Caret.ParagraphIndex);
+        var paragraph = this.GetParagraphFast(Caret.ParagraphIndex);
         var offset = Caret.Offset;
         InsertInlineAtPosition(paragraph, offset, inline);
         var length = DocumentEditHelpers.GetInlineLength(inline);
@@ -180,7 +180,7 @@ public sealed class EditorController : IEditorMutableSession
         var dirtyParagraphIndex = GetDirtyParagraphIndex();
         DeleteSelectionIfAny();
 
-        var paragraph = Document.GetParagraph(Caret.ParagraphIndex);
+        var paragraph = this.GetParagraphFast(Caret.ParagraphIndex);
         var offset = Caret.Offset;
         var totalLength = GetInlineRangeLength(inlines);
         InsertInlineRangeAtPosition(paragraph, offset, inlines, totalLength);
@@ -254,7 +254,7 @@ public sealed class EditorController : IEditorMutableSession
 
         if (Caret.Offset > 0)
         {
-            var paragraph = Document.GetParagraph(Caret.ParagraphIndex);
+            var paragraph = this.GetParagraphFast(Caret.ParagraphIndex);
             DeleteRangeInParagraph(paragraph, Caret.Offset - 1, Caret.Offset);
             _selectionService.SetCaret(new TextPosition(Caret.ParagraphIndex, Caret.Offset - 1), false);
             Reflow(dirtyParagraphIndex);
@@ -299,7 +299,7 @@ public sealed class EditorController : IEditorMutableSession
             return;
         }
 
-        if (Caret.ParagraphIndex < Document.ParagraphCount - 1)
+        if (Caret.ParagraphIndex < this.GetParagraphCountFast() - 1)
         {
             var nextLocation = Document.GetParagraphLocation(Caret.ParagraphIndex + 1);
             if (!currentLocation.IsSameContainer(nextLocation))
@@ -718,7 +718,7 @@ public sealed class EditorController : IEditorMutableSession
             }
         }
 
-        return Math.Clamp(Caret.ParagraphIndex, 0, Math.Max(0, Document.ParagraphCount - 1));
+        return Math.Clamp(Caret.ParagraphIndex, 0, Math.Max(0, this.GetParagraphCountFast() - 1));
     }
 
     private static void SplitInlinesAtOffset(ParagraphBlock paragraph, int offset, out List<Inline> before, out List<Inline> after)

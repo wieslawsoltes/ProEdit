@@ -12,6 +12,7 @@ public sealed class DocumentLayout
     public IReadOnlyList<HeaderFooterLayout> HeaderFooters { get; }
     public IReadOnlyList<FootnoteLayout> Footnotes { get; }
     public IReadOnlyList<FloatingLayoutObject> FloatingObjects { get; }
+    public IReadOnlyList<FloatingLayoutObject> ExtraFloatingObjects { get; }
     public IReadOnlyList<PageSectionSettings> PageSections { get; }
     public IReadOnlyDictionary<int, PageSectionSettings> SectionSettings { get; }
     public IReadOnlyList<BreakMarker> BreakMarkers { get; }
@@ -19,6 +20,7 @@ public sealed class DocumentLayout
     public IReadOnlyDictionary<int, LineRange> ParagraphLineRanges { get; }
     public IReadOnlyDictionary<int, int> ParagraphSectionIndices { get; }
     public IReadOnlyDictionary<int, IReadOnlyList<CommentHighlightSpan>> CommentHighlightsByParagraph { get; }
+    public IReadOnlyDictionary<int, float> ParagraphSpacingBefore { get; }
     public float LineHeight { get; }
     public float Ascent { get; }
     public float ContentHeight { get; }
@@ -32,6 +34,7 @@ public sealed class DocumentLayout
         IReadOnlyList<HeaderFooterLayout> headerFooters,
         IReadOnlyList<FootnoteLayout> footnotes,
         IReadOnlyList<FloatingLayoutObject> floatingObjects,
+        IReadOnlyList<FloatingLayoutObject> extraFloatingObjects,
         IReadOnlyList<PageSectionSettings> pageSections,
         IReadOnlyDictionary<int, PageSectionSettings> sectionSettings,
         IReadOnlyList<BreakMarker> breakMarkers,
@@ -39,6 +42,7 @@ public sealed class DocumentLayout
         IReadOnlyDictionary<int, LineRange> paragraphLineRanges,
         IReadOnlyDictionary<int, int> paragraphSectionIndices,
         IReadOnlyDictionary<int, IReadOnlyList<CommentHighlightSpan>> commentHighlightsByParagraph,
+        IReadOnlyDictionary<int, float> paragraphSpacingBefore,
         float lineHeight,
         float ascent,
         float contentHeight)
@@ -51,6 +55,7 @@ public sealed class DocumentLayout
         HeaderFooters = headerFooters;
         Footnotes = footnotes;
         FloatingObjects = floatingObjects;
+        ExtraFloatingObjects = extraFloatingObjects;
         PageSections = pageSections;
         SectionSettings = sectionSettings;
         BreakMarkers = breakMarkers;
@@ -58,6 +63,7 @@ public sealed class DocumentLayout
         ParagraphLineRanges = paragraphLineRanges;
         ParagraphSectionIndices = paragraphSectionIndices;
         CommentHighlightsByParagraph = commentHighlightsByParagraph;
+        ParagraphSpacingBefore = paragraphSpacingBefore;
         LineHeight = lineHeight;
         Ascent = ascent;
         ContentHeight = contentHeight;

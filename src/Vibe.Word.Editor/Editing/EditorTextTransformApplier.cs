@@ -18,14 +18,15 @@ internal sealed class EditorTextTransformApplier
     public bool Apply(TextRange range, Func<ReadOnlySpan<char>, string> transform)
     {
         ArgumentNullException.ThrowIfNull(transform);
-        if (_session.Document.ParagraphCount == 0)
+        var paragraphCount = _session.GetParagraphCountFast();
+        if (paragraphCount == 0)
         {
             return false;
         }
 
         var selection = range.Normalize();
-        var startIndex = Math.Clamp(selection.Start.ParagraphIndex, 0, _session.Document.ParagraphCount - 1);
-        var endIndex = Math.Clamp(selection.End.ParagraphIndex, 0, _session.Document.ParagraphCount - 1);
+        var startIndex = Math.Clamp(selection.Start.ParagraphIndex, 0, paragraphCount - 1);
+        var endIndex = Math.Clamp(selection.End.ParagraphIndex, 0, paragraphCount - 1);
         if (startIndex > endIndex)
         {
             (startIndex, endIndex) = (endIndex, startIndex);
@@ -34,7 +35,7 @@ internal sealed class EditorTextTransformApplier
         var changed = false;
         for (var i = startIndex; i <= endIndex; i++)
         {
-            var paragraph = _session.Document.GetParagraph(i);
+            var paragraph = _session.GetParagraphFast(i);
             var paragraphLength = DocumentEditHelpers.GetParagraphLength(paragraph);
             var startOffset = i == startIndex ? selection.Start.Offset : 0;
             var endOffset = i == endIndex ? selection.End.Offset : paragraphLength;

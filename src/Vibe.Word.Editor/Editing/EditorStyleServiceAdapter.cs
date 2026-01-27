@@ -36,13 +36,14 @@ public sealed class EditorStyleServiceAdapter : IStyleService
     public EditorValue<string> GetCurrentParagraphStyleId()
     {
         var selection = _session.Selection.Normalize();
-        if (_session.Document.ParagraphCount == 0)
+        var paragraphCount = _session.GetParagraphCountFast();
+        if (paragraphCount == 0)
         {
             return EditorValue<string>.Missing();
         }
 
-        var startIndex = Math.Clamp(selection.Start.ParagraphIndex, 0, _session.Document.ParagraphCount - 1);
-        var endIndex = Math.Clamp(selection.End.ParagraphIndex, 0, _session.Document.ParagraphCount - 1);
+        var startIndex = Math.Clamp(selection.Start.ParagraphIndex, 0, paragraphCount - 1);
+        var endIndex = Math.Clamp(selection.End.ParagraphIndex, 0, paragraphCount - 1);
         if (startIndex > endIndex)
         {
             (startIndex, endIndex) = (endIndex, startIndex);
@@ -52,7 +53,7 @@ public sealed class EditorStyleServiceAdapter : IStyleService
         var defaultId = _session.Document.Styles.DefaultParagraphStyleId;
         for (var i = startIndex; i <= endIndex; i++)
         {
-            var paragraph = _session.Document.GetParagraph(i);
+            var paragraph = _session.GetParagraphFast(i);
             var styleId = paragraph.StyleId ?? defaultId;
             styleIds.Add(styleId);
         }
@@ -97,10 +98,10 @@ public sealed class EditorStyleServiceAdapter : IStyleService
             used.Add(defaultId);
         }
 
-        var count = _session.Document.ParagraphCount;
+        var count = _session.GetParagraphCountFast();
         for (var i = 0; i < count; i++)
         {
-            var paragraph = _session.Document.GetParagraph(i);
+            var paragraph = _session.GetParagraphFast(i);
             var styleId = paragraph.StyleId ?? defaultId;
             if (!string.IsNullOrWhiteSpace(styleId))
             {
@@ -114,13 +115,14 @@ public sealed class EditorStyleServiceAdapter : IStyleService
     public EditorDirectFormattingInfo GetDirectFormattingInfo()
     {
         var selection = _session.Selection.Normalize();
-        if (_session.Document.ParagraphCount == 0)
+        var paragraphCount = _session.GetParagraphCountFast();
+        if (paragraphCount == 0)
         {
             return new EditorDirectFormattingInfo(false, false);
         }
 
-        var startIndex = Math.Clamp(selection.Start.ParagraphIndex, 0, _session.Document.ParagraphCount - 1);
-        var endIndex = Math.Clamp(selection.End.ParagraphIndex, 0, _session.Document.ParagraphCount - 1);
+        var startIndex = Math.Clamp(selection.Start.ParagraphIndex, 0, paragraphCount - 1);
+        var endIndex = Math.Clamp(selection.End.ParagraphIndex, 0, paragraphCount - 1);
         if (startIndex > endIndex)
         {
             (startIndex, endIndex) = (endIndex, startIndex);
@@ -130,7 +132,7 @@ public sealed class EditorStyleServiceAdapter : IStyleService
         var hasCharacterFormatting = false;
         for (var i = startIndex; i <= endIndex; i++)
         {
-            var paragraph = _session.Document.GetParagraph(i);
+            var paragraph = _session.GetParagraphFast(i);
             if (HasParagraphFormatting(paragraph.Properties))
             {
                 hasParagraphFormatting = true;
@@ -170,13 +172,14 @@ public sealed class EditorStyleServiceAdapter : IStyleService
         }
 
         var selection = _session.Selection.Normalize();
-        if (_session.Document.ParagraphCount == 0)
+        var paragraphCount = _session.GetParagraphCountFast();
+        if (paragraphCount == 0)
         {
             return false;
         }
 
-        var startIndex = Math.Clamp(selection.Start.ParagraphIndex, 0, _session.Document.ParagraphCount - 1);
-        var endIndex = Math.Clamp(selection.End.ParagraphIndex, 0, _session.Document.ParagraphCount - 1);
+        var startIndex = Math.Clamp(selection.Start.ParagraphIndex, 0, paragraphCount - 1);
+        var endIndex = Math.Clamp(selection.End.ParagraphIndex, 0, paragraphCount - 1);
         if (startIndex > endIndex)
         {
             (startIndex, endIndex) = (endIndex, startIndex);
@@ -185,7 +188,7 @@ public sealed class EditorStyleServiceAdapter : IStyleService
         var updated = false;
         for (var i = startIndex; i <= endIndex; i++)
         {
-            var paragraph = _session.Document.GetParagraph(i);
+            var paragraph = _session.GetParagraphFast(i);
             if (string.Equals(paragraph.StyleId, styleId, StringComparison.OrdinalIgnoreCase))
             {
                 continue;

@@ -38,7 +38,8 @@ public sealed class EditorParagraphServiceAdapter : IParagraphService
         var bidi = new NullableEditorValueAccumulator<bool>();
         var textDirection = new NullableEditorValueAccumulator<DocTextDirection>();
 
-        if (_session.Document.ParagraphCount == 0)
+        var paragraphCount = _session.GetParagraphCountFast();
+        if (paragraphCount == 0)
         {
             return new EditorParagraphSnapshot(
                 alignment.Build(),
@@ -63,8 +64,8 @@ public sealed class EditorParagraphServiceAdapter : IParagraphService
         }
 
         var selection = _session.Selection.Normalize();
-        var startIndex = Math.Clamp(selection.Start.ParagraphIndex, 0, _session.Document.ParagraphCount - 1);
-        var endIndex = Math.Clamp(selection.End.ParagraphIndex, 0, _session.Document.ParagraphCount - 1);
+        var startIndex = Math.Clamp(selection.Start.ParagraphIndex, 0, paragraphCount - 1);
+        var endIndex = Math.Clamp(selection.End.ParagraphIndex, 0, paragraphCount - 1);
         if (startIndex > endIndex)
         {
             (startIndex, endIndex) = (endIndex, startIndex);
@@ -72,7 +73,7 @@ public sealed class EditorParagraphServiceAdapter : IParagraphService
 
         for (var i = startIndex; i <= endIndex; i++)
         {
-            var paragraph = _session.Document.GetParagraph(i);
+            var paragraph = _session.GetParagraphFast(i);
             var resolved = _resolver.ResolveParagraphProperties(paragraph);
 
             alignment.Add(resolved.Alignment ?? ParagraphAlignment.Left);
