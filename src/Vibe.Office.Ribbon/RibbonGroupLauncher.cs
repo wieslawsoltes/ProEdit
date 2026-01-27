@@ -22,7 +22,9 @@ public sealed class RibbonGroupLauncher : RibbonStateNode
         Label = label ?? throw new ArgumentNullException(nameof(label));
         KeyTip = keyTip;
         IconKey = iconKey;
-        ToolTip = toolTip ?? BuildToolTip(Label, KeyTip);
+        ToolTipDescription = NormalizeToolTipDescription(toolTip);
+        ToolTipShortcut = BuildToolTipShortcut(keyTip);
+        ToolTip = ToolTipDescription ?? Label;
     }
 
     public string Id { get; }
@@ -30,6 +32,12 @@ public sealed class RibbonGroupLauncher : RibbonStateNode
     public string? KeyTip { get; }
     public string? IconKey { get; }
     public string ToolTip { get; }
+    public string? ToolTipDescription { get; }
+    public string? ToolTipShortcut { get; }
+    public object ToolTipContent =>
+        string.IsNullOrWhiteSpace(ToolTipDescription) && string.IsNullOrWhiteSpace(ToolTipShortcut)
+            ? ToolTip
+            : this;
     public IRibbonCommand Command => _command;
 
     public ValueTask ExecuteAsync()
@@ -52,13 +60,23 @@ public sealed class RibbonGroupLauncher : RibbonStateNode
         return command is null ? null : new Func<bool>(command.CanExecute);
     }
 
-    private static string BuildToolTip(string label, string? keyTip)
+    private static string? BuildToolTipShortcut(string? keyTip)
     {
         if (string.IsNullOrWhiteSpace(keyTip))
         {
-            return label;
+            return null;
         }
 
-        return $"{label} (KeyTip: {keyTip})";
+        return $"KeyTip: {keyTip}";
+    }
+
+    private static string? NormalizeToolTipDescription(string? toolTipDescription)
+    {
+        if (string.IsNullOrWhiteSpace(toolTipDescription))
+        {
+            return null;
+        }
+
+        return toolTipDescription;
     }
 }

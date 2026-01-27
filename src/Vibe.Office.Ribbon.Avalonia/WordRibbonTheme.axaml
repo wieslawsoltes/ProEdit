@@ -1,0 +1,167 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ribbon="clr-namespace:Vibe.Office.Ribbon;assembly=Vibe.Office.Ribbon"
+        xmlns:local="clr-namespace:Vibe.Office.Ribbon.Avalonia;assembly=Vibe.Office.Ribbon.Avalonia">
+  <Styles.Resources>
+    <ResourceDictionary>
+      <local:RibbonStringNotEmptyConverter x:Key="RibbonStringNotEmptyConverter" />
+
+      <Color x:Key="RibbonSurfaceColor">#EEF1F5</Color>
+      <SolidColorBrush x:Key="RibbonSurfaceBrush" Color="{StaticResource RibbonSurfaceColor}" />
+
+      <Color x:Key="RibbonTabStripColor">#F3F5F9</Color>
+      <Color x:Key="RibbonContentColor">#FFFFFF</Color>
+      <Color x:Key="RibbonBorderColor">#D3D7DE</Color>
+      <Color x:Key="RibbonTabStripBorderColor">#D4D8DE</Color>
+      <Color x:Key="RibbonAccentColor">#0078D4</Color>
+      <Color x:Key="RibbonGroupColor">#FFFFFF</Color>
+      <Color x:Key="RibbonGroupBorderColor">#DADFE6</Color>
+
+      <SolidColorBrush x:Key="RibbonTabStripBrush" Color="{StaticResource RibbonTabStripColor}" />
+      <SolidColorBrush x:Key="RibbonContentBrush" Color="{StaticResource RibbonContentColor}" />
+      <SolidColorBrush x:Key="RibbonBorderBrush" Color="{StaticResource RibbonBorderColor}" />
+      <SolidColorBrush x:Key="RibbonTabStripBorderBrush" Color="{StaticResource RibbonTabStripBorderColor}" />
+      <SolidColorBrush x:Key="RibbonAccentBrush" Color="{StaticResource RibbonAccentColor}" />
+      <SolidColorBrush x:Key="RibbonGroupBrush" Color="{StaticResource RibbonGroupColor}" />
+      <SolidColorBrush x:Key="RibbonGroupBorderBrush" Color="{StaticResource RibbonGroupBorderColor}" />
+      <SolidColorBrush x:Key="RibbonTabForegroundBrush" Color="#3A3A3A" />
+      <SolidColorBrush x:Key="RibbonTabForegroundSelectedBrush" Color="#1B1B1B" />
+      <SolidColorBrush x:Key="RibbonTabForegroundDisabledBrush" Color="#9B9B9B" />
+
+      <SolidColorBrush x:Key="RibbonButtonBackgroundBrush" Color="Transparent" />
+      <SolidColorBrush x:Key="RibbonButtonBorderBrush" Color="Transparent" />
+      <SolidColorBrush x:Key="RibbonButtonForegroundBrush" Color="#2B2B2B" />
+      <SolidColorBrush x:Key="RibbonButtonBackgroundPointerOverBrush" Color="#EAF2FF" />
+      <SolidColorBrush x:Key="RibbonButtonBorderPointerOverBrush" Color="#A8C6F0" />
+      <SolidColorBrush x:Key="RibbonButtonBackgroundPressedBrush" Color="#DCEBFF" />
+      <SolidColorBrush x:Key="RibbonButtonBorderPressedBrush" Color="#8CB4E6" />
+      <SolidColorBrush x:Key="RibbonButtonBackgroundCheckedBrush" Color="#DCEBFF" />
+      <SolidColorBrush x:Key="RibbonButtonBorderCheckedBrush" Color="#8CB4E6" />
+      <SolidColorBrush x:Key="RibbonButtonBackgroundDisabledBrush" Color="Transparent" />
+      <SolidColorBrush x:Key="RibbonButtonBorderDisabledBrush" Color="#D5DAE2" />
+      <SolidColorBrush x:Key="RibbonButtonForegroundDisabledBrush" Color="#9A9A9A" />
+      <SolidColorBrush x:Key="RibbonFocusBorderBrush" Color="#5B9DD9" />
+
+      <SolidColorBrush x:Key="RibbonQatBackgroundBrush" Color="{StaticResource RibbonTabStripColor}" />
+      <SolidColorBrush x:Key="RibbonQatBorderBrush" Color="{StaticResource RibbonBorderColor}" />
+      <Thickness x:Key="RibbonQatPadding">8,2</Thickness>
+      <x:Double x:Key="RibbonQatMinHeight">22</x:Double>
+      <x:Double x:Key="RibbonQatButtonMinHeight">20</x:Double>
+      <Thickness x:Key="RibbonQatButtonPadding">6,2</Thickness>
+      <x:Double x:Key="RibbonQatFontSize">11</x:Double>
+
+      <Thickness x:Key="RibbonComboPadding">6,2</Thickness>
+      <CornerRadius x:Key="RibbonComboCornerRadius">3</CornerRadius>
+      <Thickness x:Key="RibbonComboBorderPadding">1</Thickness>
+      <x:Double x:Key="RibbonComboFontSize">11</x:Double>
+
+      <CornerRadius x:Key="RibbonSpinnerCornerRadius">3</CornerRadius>
+      <Thickness x:Key="RibbonSpinnerTextPadding">6,2</Thickness>
+      <x:Double x:Key="RibbonSpinnerArrowWidth">16</x:Double>
+      <x:Double x:Key="RibbonSpinnerArrowFontSize">10</x:Double>
+      <x:Double x:Key="RibbonSpinnerArrowMinHeight">10</x:Double>
+
+      <SolidColorBrush x:Key="RibbonToolTipBackgroundBrush" Color="#FFFFFF" />
+      <SolidColorBrush x:Key="RibbonToolTipBorderBrush" Color="#D0D4DB" />
+      <SolidColorBrush x:Key="RibbonToolTipTitleForegroundBrush" Color="#1B1B1B" />
+      <SolidColorBrush x:Key="RibbonToolTipBodyForegroundBrush" Color="#3A3A3A" />
+      <SolidColorBrush x:Key="RibbonToolTipShortcutForegroundBrush" Color="#5A5A5A" />
+      <Thickness x:Key="RibbonToolTipPadding">8,6</Thickness>
+      <CornerRadius x:Key="RibbonToolTipCornerRadius">4</CornerRadius>
+      <x:Double x:Key="RibbonToolTipTitleFontSize">12</x:Double>
+      <x:Double x:Key="RibbonToolTipBodyFontSize">11</x:Double>
+      <x:Double x:Key="RibbonToolTipShortcutFontSize">10</x:Double>
+      <x:Double x:Key="RibbonToolTipMaxWidth">280</x:Double>
+
+      <SolidColorBrush x:Key="RibbonKeyTipBackgroundBrush" Color="#FFF4CE" />
+      <SolidColorBrush x:Key="RibbonKeyTipBorderBrush" Color="#D3A400" />
+      <SolidColorBrush x:Key="RibbonKeyTipForegroundBrush" Color="#1B1B1B" />
+      <Thickness x:Key="RibbonKeyTipPadding">4,2</Thickness>
+      <CornerRadius x:Key="RibbonKeyTipCornerRadius">3</CornerRadius>
+      <x:Double x:Key="RibbonKeyTipFontSize">10</x:Double>
+      <FontWeight x:Key="RibbonKeyTipFontWeight">SemiBold</FontWeight>
+
+      <x:Double x:Key="RibbonButtonLargeIconSize">28</x:Double>
+      <x:Double x:Key="RibbonButtonMediumIconSize">20</x:Double>
+      <x:Double x:Key="RibbonButtonSmallIconSize">16</x:Double>
+      <x:Double x:Key="RibbonButtonLargeIconFontSize">18</x:Double>
+      <x:Double x:Key="RibbonButtonMediumIconFontSize">16</x:Double>
+      <x:Double x:Key="RibbonButtonSmallIconFontSize">14</x:Double>
+      <x:Double x:Key="RibbonButtonLargeRowSpacing">2</x:Double>
+      <x:Double x:Key="RibbonButtonSmallRowSpacing">0</x:Double>
+      <x:Double x:Key="RibbonButtonLargeColumnSpacing">4</x:Double>
+      <x:Double x:Key="RibbonButtonMediumColumnSpacing">6</x:Double>
+      <x:Double x:Key="RibbonButtonSmallColumnSpacing">6</x:Double>
+      <Thickness x:Key="RibbonButtonLargePadding">8,6</Thickness>
+      <Thickness x:Key="RibbonButtonMediumPadding">8,4</Thickness>
+      <Thickness x:Key="RibbonButtonSmallPadding">6,2</Thickness>
+      <x:Double x:Key="RibbonButtonLargeMinWidth">88</x:Double>
+      <x:Double x:Key="RibbonButtonMediumMinWidth">76</x:Double>
+      <x:Double x:Key="RibbonButtonSmallMinWidth">64</x:Double>
+      <x:Double x:Key="RibbonButtonLargeMinHeight">80</x:Double>
+      <x:Double x:Key="RibbonButtonMediumMinHeight">52</x:Double>
+      <x:Double x:Key="RibbonButtonSmallMinHeight">24</x:Double>
+      <x:Double x:Key="RibbonButtonLargeFontSize">12</x:Double>
+      <x:Double x:Key="RibbonButtonMediumFontSize">12</x:Double>
+      <x:Double x:Key="RibbonButtonSmallFontSize">11</x:Double>
+      <x:Double x:Key="RibbonButtonArrowWidth">18</x:Double>
+
+      <x:Double x:Key="RibbonGroupRowHeight">24</x:Double>
+      <x:Double x:Key="RibbonGroupRowSpacing">4</x:Double>
+      <x:Double x:Key="RibbonGroupColumnSpacing">8</x:Double>
+      <x:Double x:Key="RibbonGroupColumnWidth">0</x:Double>
+      <x:Double x:Key="RibbonGroupColumnMinWidth">84</x:Double>
+      <x:Double x:Key="RibbonGroupColumnMaxWidth">200</x:Double>
+      <x:Double x:Key="RibbonGroupMinColumnHeight">84</x:Double>
+      <x:Double x:Key="RibbonGroupMinWidthLarge">112</x:Double>
+      <x:Double x:Key="RibbonGroupMinWidthMedium">104</x:Double>
+      <x:Double x:Key="RibbonGroupMinWidthSmall">92</x:Double>
+      <x:Double x:Key="RibbonGroupMinHeight">100</x:Double>
+      <x:Double x:Key="RibbonGroupHeaderMinHeight">18</x:Double>
+      <x:Double x:Key="RibbonGroupHeaderFontSize">10</x:Double>
+
+      <Thickness x:Key="RibbonGroupPadding">4,2,6,2</Thickness>
+      <Thickness x:Key="RibbonGroupHeaderPadding">0,2,0,2</Thickness>
+      <Thickness x:Key="RibbonGroupBorderThickness">0,0,1,0</Thickness>
+
+      <SolidColorBrush x:Key="RibbonGroupHeaderForegroundBrush" Color="#5A5A5A" />
+      <CornerRadius x:Key="RibbonGroupPopupCornerRadius">6</CornerRadius>
+      <Thickness x:Key="RibbonGroupPopupPadding">6</Thickness>
+
+      <CornerRadius x:Key="RibbonGroupCollapsedCornerRadius">6</CornerRadius>
+      <Thickness x:Key="RibbonGroupCollapsedPadding">8,6</Thickness>
+      <x:Double x:Key="RibbonGroupCollapsedMinWidth">72</x:Double>
+      <x:Double x:Key="RibbonGroupCollapsedMinHeight">72</x:Double>
+      <x:Double x:Key="RibbonGroupCollapsedLabelFontSize">11</x:Double>
+
+      <x:Double x:Key="RibbonGalleryTileWidth">104</x:Double>
+      <x:Double x:Key="RibbonGalleryTileMinHeight">72</x:Double>
+      <x:Double x:Key="RibbonGalleryPreviewMaxWidth">96</x:Double>
+      <x:Double x:Key="RibbonGalleryLabelFontSize">10</x:Double>
+      <x:Double x:Key="RibbonGalleryPreviewLabelSpacing">2</x:Double>
+      <Thickness x:Key="RibbonGalleryItemPadding">4</Thickness>
+      <Thickness x:Key="RibbonGalleryItemMargin">2</Thickness>
+      <CornerRadius x:Key="RibbonGalleryItemCornerRadius">3</CornerRadius>
+      <SolidColorBrush x:Key="RibbonGalleryLabelForegroundBrush" Color="#4A4A4A" />
+      <Thickness x:Key="RibbonGalleryPopupItemPadding">6,4</Thickness>
+      <Thickness x:Key="RibbonGalleryPopupItemMargin">2</Thickness>
+      <Thickness x:Key="RibbonGalleryPopupPadding">2</Thickness>
+      <x:Double x:Key="RibbonGalleryPopupMinWidth">240</x:Double>
+      <x:Double x:Key="RibbonGalleryPopupMaxHeight">320</x:Double>
+
+      <x:Double x:Key="RibbonContextualBandHeight">16</x:Double>
+      <CornerRadius x:Key="RibbonContextualBandCornerRadius">3,3,0,0</CornerRadius>
+      <Thickness x:Key="RibbonContextualBandPadding">6,0</Thickness>
+      <x:Double x:Key="RibbonContextualBandFontSize">10</x:Double>
+      <FontWeight x:Key="RibbonContextualBandFontWeight">SemiBold</FontWeight>
+      <SolidColorBrush x:Key="RibbonContextualBandForegroundBrush" Color="#FFFFFF" />
+
+      <SolidColorBrush x:Key="RibbonContextualAccent.Table" Color="#2E7D32" />
+      <SolidColorBrush x:Key="RibbonContextualAccent.Equation" Color="#7B3F96" />
+      <SolidColorBrush x:Key="RibbonContextualAccent.Text" Color="#E67E22" />
+
+      <x:Double x:Key="RibbonOverflowCollapseThreshold">6</x:Double>
+      <x:Double x:Key="RibbonOverflowExpandThreshold">32</x:Double>
+    </ResourceDictionary>
+  </Styles.Resources>
+</Styles>

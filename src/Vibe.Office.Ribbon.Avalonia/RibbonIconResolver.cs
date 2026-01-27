@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Controls;
 
 namespace Vibe.Office.Ribbon.Avalonia;
 
@@ -11,7 +12,7 @@ internal static class RibbonIconResolver
             return null;
         }
 
-        if (Application.Current?.Resources.TryGetResource(iconKey, null, out var resource) == true)
+        if (Application.Current?.TryFindResource(iconKey, out var resource) == true)
         {
             return resource as string;
         }

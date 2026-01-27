@@ -13,7 +13,8 @@ public abstract class RibbonControlBase : RibbonStateNode, IRibbonControl
         bool isEnabled = true,
         bool isVisible = true,
         Func<bool>? isEnabledEvaluator = null,
-        Func<bool>? isVisibleEvaluator = null)
+        Func<bool>? isVisibleEvaluator = null,
+        string? toolTipDescription = null)
         : base(isEnabled, isVisible, isEnabledEvaluator, isVisibleEvaluator)
     {
         Id = id ?? throw new ArgumentNullException(nameof(id));
@@ -22,7 +23,9 @@ public abstract class RibbonControlBase : RibbonStateNode, IRibbonControl
         IconKey = iconKey;
         Size = size;
         _layoutSize = size;
-        ToolTip = BuildToolTip(Label, KeyTip);
+        ToolTipDescription = NormalizeToolTipDescription(toolTipDescription);
+        ToolTipShortcut = BuildToolTipShortcut(keyTip);
+        ToolTip = ToolTipDescription ?? Label;
     }
 
     public string Id { get; }
@@ -31,6 +34,12 @@ public abstract class RibbonControlBase : RibbonStateNode, IRibbonControl
     public string? IconKey { get; }
     public RibbonControlSize Size { get; }
     public string ToolTip { get; }
+    public string? ToolTipDescription { get; }
+    public string? ToolTipShortcut { get; }
+    public object ToolTipContent =>
+        string.IsNullOrWhiteSpace(ToolTipDescription) && string.IsNullOrWhiteSpace(ToolTipShortcut)
+            ? ToolTip
+            : this;
     public RibbonControlSize LayoutSize
     {
         get => _layoutSize;
@@ -42,13 +51,23 @@ public abstract class RibbonControlBase : RibbonStateNode, IRibbonControl
         LayoutSize = size;
     }
 
-    private static string BuildToolTip(string label, string? keyTip)
+    private static string? BuildToolTipShortcut(string? keyTip)
     {
         if (string.IsNullOrWhiteSpace(keyTip))
         {
-            return label;
+            return null;
         }
 
-        return $"{label} (KeyTip: {keyTip})";
+        return $"KeyTip: {keyTip}";
+    }
+
+    private static string? NormalizeToolTipDescription(string? toolTipDescription)
+    {
+        if (string.IsNullOrWhiteSpace(toolTipDescription))
+        {
+            return null;
+        }
+
+        return toolTipDescription;
     }
 }

@@ -13,7 +13,8 @@ public sealed class RibbonSplitButton : RibbonControlBase
         bool isVisible = true,
         Func<bool>? canExecute = null,
         Func<bool>? isVisibleEvaluator = null,
-        RibbonControlSize size = RibbonControlSize.Medium)
+        RibbonControlSize size = RibbonControlSize.Medium,
+        string? toolTipDescription = null)
         : base(
             id,
             label,
@@ -23,7 +24,8 @@ public sealed class RibbonSplitButton : RibbonControlBase
             isEnabled,
             isVisible,
             canExecute ?? (primaryCommand is null ? null : () => primaryCommand.CanExecute()),
-            isVisibleEvaluator)
+            isVisibleEvaluator,
+            toolTipDescription)
     {
         PrimaryCommand = primaryCommand;
         Menu = menu ?? throw new ArgumentNullException(nameof(menu));

@@ -22,10 +22,11 @@ public sealed class RibbonGallery : RibbonControlBase
         Func<bool>? isVisibleEvaluator = null,
         RibbonControlSize size = RibbonControlSize.Medium,
         int popupColumns = 1,
-        double popupMinWidth = 220,
-        double popupMaxHeight = 260,
+        double popupMinWidth = 240,
+        double popupMaxHeight = 320,
         double popupItemMinWidth = 200,
-        RibbonMenu? popupMenu = null)
+        RibbonMenu? popupMenu = null,
+        string? toolTipDescription = null)
         : base(
             id,
             label,
@@ -35,7 +36,8 @@ public sealed class RibbonGallery : RibbonControlBase
             isEnabled,
             isVisible,
             canExecute,
-            isVisibleEvaluator)
+            isVisibleEvaluator,
+            toolTipDescription)
     {
         Items = items ?? throw new ArgumentNullException(nameof(items));
         _selectedItemEvaluator = selectedItemEvaluator;

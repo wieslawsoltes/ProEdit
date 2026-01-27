@@ -20,7 +20,8 @@ public sealed class RibbonColorSplitButton : RibbonControlBase
         bool isVisible = true,
         Func<bool>? canExecute = null,
         Func<bool>? isVisibleEvaluator = null,
-        RibbonControlSize size = RibbonControlSize.Medium)
+        RibbonControlSize size = RibbonControlSize.Medium,
+        string? toolTipDescription = null)
         : base(
             id,
             label,
@@ -30,7 +31,8 @@ public sealed class RibbonColorSplitButton : RibbonControlBase
             isEnabled,
             isVisible,
             canExecute ?? (primaryCommand is null ? null : () => primaryCommand.CanExecute()),
-            isVisibleEvaluator)
+            isVisibleEvaluator,
+            toolTipDescription)
     {
         PrimaryCommand = primaryCommand;
         Palette = palette ?? throw new ArgumentNullException(nameof(palette));

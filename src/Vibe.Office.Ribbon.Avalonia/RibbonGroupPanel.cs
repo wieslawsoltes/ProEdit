@@ -10,25 +10,25 @@ public sealed class RibbonGroupPanel : Panel
 {
     private LayoutResult _lastLayout = LayoutResult.Empty;
     public static readonly StyledProperty<double> RowSpacingProperty =
-        AvaloniaProperty.Register<RibbonGroupPanel, double>(nameof(RowSpacing), 2d);
+        AvaloniaProperty.Register<RibbonGroupPanel, double>(nameof(RowSpacing), 4d);
 
     public static readonly StyledProperty<double> ColumnSpacingProperty =
-        AvaloniaProperty.Register<RibbonGroupPanel, double>(nameof(ColumnSpacing), 6d);
+        AvaloniaProperty.Register<RibbonGroupPanel, double>(nameof(ColumnSpacing), 8d);
 
     public static readonly StyledProperty<double> RowHeightProperty =
-        AvaloniaProperty.Register<RibbonGroupPanel, double>(nameof(RowHeight), 26d);
+        AvaloniaProperty.Register<RibbonGroupPanel, double>(nameof(RowHeight), 24d);
 
     public static readonly StyledProperty<double> ColumnWidthProperty =
         AvaloniaProperty.Register<RibbonGroupPanel, double>(nameof(ColumnWidth), 0d);
 
     public static readonly StyledProperty<double> ColumnMinWidthProperty =
-        AvaloniaProperty.Register<RibbonGroupPanel, double>(nameof(ColumnMinWidth), 72d);
+        AvaloniaProperty.Register<RibbonGroupPanel, double>(nameof(ColumnMinWidth), 84d);
 
     public static readonly StyledProperty<double> ColumnMaxWidthProperty =
-        AvaloniaProperty.Register<RibbonGroupPanel, double>(nameof(ColumnMaxWidth), 160d);
+        AvaloniaProperty.Register<RibbonGroupPanel, double>(nameof(ColumnMaxWidth), 200d);
 
     public static readonly StyledProperty<double> MinColumnHeightProperty =
-        AvaloniaProperty.Register<RibbonGroupPanel, double>(nameof(MinColumnHeight), 82d);
+        AvaloniaProperty.Register<RibbonGroupPanel, double>(nameof(MinColumnHeight), 84d);
 
     public static readonly AttachedProperty<RibbonControlSize> ItemSizeProperty =
         AvaloniaProperty.RegisterAttached<RibbonGroupPanel, Control, RibbonControlSize>(

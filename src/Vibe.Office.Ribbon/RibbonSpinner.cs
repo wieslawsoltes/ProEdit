@@ -23,7 +23,8 @@ public sealed class RibbonSpinner : RibbonControlBase
         bool isVisible = true,
         Func<bool>? canExecute = null,
         Func<bool>? isVisibleEvaluator = null,
-        RibbonControlSize size = RibbonControlSize.Medium)
+        RibbonControlSize size = RibbonControlSize.Medium,
+        string? toolTipDescription = null)
         : base(
             id,
             label,
@@ -33,7 +34,8 @@ public sealed class RibbonSpinner : RibbonControlBase
             isEnabled,
             isVisible,
             canExecute,
-            isVisibleEvaluator)
+            isVisibleEvaluator,
+            toolTipDescription)
     {
         Step = step > 0d ? step : 1d;
         Minimum = minimum;

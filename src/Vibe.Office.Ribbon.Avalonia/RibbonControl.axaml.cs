@@ -32,10 +32,28 @@ public partial class RibbonControl : UserControl
     public static readonly StyledProperty<RibbonModel?> ModelProperty =
         AvaloniaProperty.Register<RibbonControl, RibbonModel?>(nameof(Model));
 
+    public static readonly StyledProperty<double> OverflowCollapseThresholdProperty =
+        AvaloniaProperty.Register<RibbonControl, double>(nameof(OverflowCollapseThreshold), 6d);
+
+    public static readonly StyledProperty<double> OverflowExpandThresholdProperty =
+        AvaloniaProperty.Register<RibbonControl, double>(nameof(OverflowExpandThreshold), 32d);
+
     public RibbonModel? Model
     {
         get => GetValue(ModelProperty);
         set => SetValue(ModelProperty, value);
+    }
+
+    public double OverflowCollapseThreshold
+    {
+        get => GetValue(OverflowCollapseThresholdProperty);
+        set => SetValue(OverflowCollapseThresholdProperty, value);
+    }
+
+    public double OverflowExpandThreshold
+    {
+        get => GetValue(OverflowExpandThresholdProperty);
+        set => SetValue(OverflowExpandThresholdProperty, value);
     }
 
     public RibbonControl()
@@ -303,15 +321,6 @@ public partial class RibbonControl : UserControl
         }
     }
 
-    private async void OnRibbonGroupLauncherClick(object? sender, RoutedEventArgs e)
-    {
-        if (sender is Button { DataContext: RibbonGroupLauncher launcher })
-        {
-            await launcher.ExecuteAsync();
-            RefreshState();
-        }
-    }
-
     private async void OnRibbonColorSplitPrimaryClick(object? sender, RoutedEventArgs e)
     {
         if (sender is Button { DataContext: RibbonColorSplitButton button })
@@ -346,7 +355,7 @@ public partial class RibbonControl : UserControl
                         IsEnabled = item.IsEnabled,
                         DataContext = item
                     };
-                    ToolTip.SetTip(menuItem, item.ToolTip);
+                    ToolTip.SetTip(menuItem, item.ToolTipContent);
                     var iconText = RibbonIconResolver.ResolveText(item.IconKey);
                     if (!string.IsNullOrWhiteSpace(iconText))
                     {
@@ -370,7 +379,7 @@ public partial class RibbonControl : UserControl
                         ToggleType = MenuItemToggleType.CheckBox,
                         IsChecked = toggle.IsChecked
                     };
-                    ToolTip.SetTip(toggleItem, toggle.ToolTip);
+                    ToolTip.SetTip(toggleItem, toggle.ToolTipContent);
                     var toggleIcon = RibbonIconResolver.ResolveText(toggle.IconKey);
                     if (!string.IsNullOrWhiteSpace(toggleIcon))
                     {
@@ -928,12 +937,38 @@ public partial class RibbonControl : UserControl
             }
 
             var extentWidth = _groupScrollViewer.Extent.Width;
+            var (collapseThreshold, expandThreshold) = ResolveOverflowThresholds(
+                OverflowCollapseThreshold,
+                OverflowExpandThreshold,
+                viewportWidth);
+            _overflowController.CollapseThreshold = collapseThreshold;
+            _overflowController.ExpandThreshold = expandThreshold;
             _overflowController.UpdateLayout(tab.Groups, viewportWidth, extentWidth);
         }
         finally
         {
             _isUpdatingGroupLayout = false;
         }
+    }
+
+    private static (double CollapseThreshold, double ExpandThreshold) ResolveOverflowThresholds(
+        double collapseBase,
+        double expandBase,
+        double viewportWidth)
+    {
+        var collapseThreshold = Math.Max(0, collapseBase);
+        var expandThreshold = Math.Max(0, expandBase);
+        var scale = Math.Clamp(viewportWidth / 720d, 0.6d, 1d);
+
+        collapseThreshold = Math.Max(2d, collapseThreshold * scale);
+        expandThreshold = Math.Max(16d, expandThreshold * scale);
+
+        if (expandThreshold < collapseThreshold + 4d)
+        {
+            expandThreshold = collapseThreshold + 4d;
+        }
+
+        return (collapseThreshold, expandThreshold);
     }
 
     private void ToggleKeyTips()

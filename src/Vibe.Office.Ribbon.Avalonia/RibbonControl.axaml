@@ -6,38 +6,10 @@
              x:Class="Vibe.Office.Ribbon.Avalonia.RibbonControl"
              FontFamily="Segoe UI, SF Pro Text, Helvetica, Arial"
              FontSize="12"
+             OverflowCollapseThreshold="{DynamicResource RibbonOverflowCollapseThreshold}"
+             OverflowExpandThreshold="{DynamicResource RibbonOverflowExpandThreshold}"
              Focusable="True">
   <UserControl.Resources>
-    <Color x:Key="RibbonTabStripColor">#EEF1F5</Color>
-    <Color x:Key="RibbonContentColor">#FFFFFF</Color>
-    <Color x:Key="RibbonBorderColor">#D3D7DE</Color>
-    <Color x:Key="RibbonAccentColor">#0078D4</Color>
-    <Color x:Key="RibbonGroupColor">#FFFFFF</Color>
-    <Color x:Key="RibbonGroupBorderColor">#DADFE6</Color>
-
-    <SolidColorBrush x:Key="RibbonTabStripBrush" Color="{StaticResource RibbonTabStripColor}" />
-    <SolidColorBrush x:Key="RibbonContentBrush" Color="{StaticResource RibbonContentColor}" />
-    <SolidColorBrush x:Key="RibbonBorderBrush" Color="{StaticResource RibbonBorderColor}" />
-    <SolidColorBrush x:Key="RibbonAccentBrush" Color="{StaticResource RibbonAccentColor}" />
-    <SolidColorBrush x:Key="RibbonGroupBrush" Color="{StaticResource RibbonGroupColor}" />
-    <SolidColorBrush x:Key="RibbonGroupBorderBrush" Color="{StaticResource RibbonGroupBorderColor}" />
-    <SolidColorBrush x:Key="RibbonTabForegroundBrush" Color="#3A3A3A" />
-    <SolidColorBrush x:Key="RibbonTabForegroundSelectedBrush" Color="{StaticResource RibbonAccentColor}" />
-    <SolidColorBrush x:Key="RibbonTabForegroundDisabledBrush" Color="#9B9B9B" />
-
-    <SolidColorBrush x:Key="RibbonButtonBackgroundBrush" Color="Transparent" />
-    <SolidColorBrush x:Key="RibbonButtonBorderBrush" Color="Transparent" />
-    <SolidColorBrush x:Key="RibbonButtonForegroundBrush" Color="#2B2B2B" />
-    <SolidColorBrush x:Key="RibbonButtonBackgroundPointerOverBrush" Color="#EAF2FF" />
-    <SolidColorBrush x:Key="RibbonButtonBorderPointerOverBrush" Color="#A8C6F0" />
-    <SolidColorBrush x:Key="RibbonButtonBackgroundPressedBrush" Color="#DCEBFF" />
-    <SolidColorBrush x:Key="RibbonButtonBorderPressedBrush" Color="#8CB4E6" />
-    <SolidColorBrush x:Key="RibbonButtonBackgroundCheckedBrush" Color="#DCEBFF" />
-    <SolidColorBrush x:Key="RibbonButtonBorderCheckedBrush" Color="#8CB4E6" />
-    <SolidColorBrush x:Key="RibbonButtonBackgroundDisabledBrush" Color="Transparent" />
-    <SolidColorBrush x:Key="RibbonButtonBorderDisabledBrush" Color="#D5DAE2" />
-    <SolidColorBrush x:Key="RibbonButtonForegroundDisabledBrush" Color="#9A9A9A" />
-
     <local:RibbonSizeConverter x:Key="RibbonSizeConverter" />
     <local:RibbonIconConverter x:Key="RibbonIconConverter" />
     <local:RibbonColorBrushConverter x:Key="RibbonColorBrushConverter" />
@@ -48,6 +20,14 @@
     <local:RibbonUnderlineConverter x:Key="RibbonUnderlineConverter" />
     <local:RibbonParagraphSpacingConverter x:Key="RibbonParagraphSpacingConverter" />
     <local:RibbonLineHeightConverter x:Key="RibbonLineHeightConverter" />
+    <local:RibbonContextualAccentConverter x:Key="RibbonContextualAccentConverter" />
+
+    <DataTemplate x:Key="RibbonGroupHeaderTemplate">
+      <TextBlock Classes="ribbon-group-header"
+                 Text="{Binding}"
+                 HorizontalAlignment="Center"
+                 VerticalAlignment="Center" />
+    </DataTemplate>
 
     <ControlTheme x:Key="RibbonMenuScrollViewerHorizontal" TargetType="ScrollViewer">
       <Setter Property="Background" Value="Transparent" />
@@ -190,9 +170,9 @@
     </DataTemplate>
 
     <DataTemplate x:Key="RibbonGalleryItemTemplate">
-      <Grid Width="104">
+      <Grid Width="{DynamicResource RibbonGalleryTileWidth}">
         <StackPanel Orientation="Vertical"
-                    Spacing="2"
+                    Spacing="{DynamicResource RibbonGalleryPreviewLabelSpacing}"
                     HorizontalAlignment="Center"
                     IsVisible="{Binding HasPreview}">
           <Border Background="{Binding PreviewBackground, Converter={StaticResource RibbonColorBrushConverter}}"
@@ -211,19 +191,20 @@
                          LineHeight="{Binding PreviewLineHeight, Converter={StaticResource RibbonLineHeightConverter}}"
                          TextAlignment="Center"
                          TextTrimming="CharacterEllipsis"
-                         MaxWidth="96" />
+                         MaxWidth="{DynamicResource RibbonGalleryPreviewMaxWidth}" />
             </Border>
           </Border>
           <TextBlock Text="{Binding Label}"
-                     FontSize="10"
+                     FontSize="{DynamicResource RibbonGalleryLabelFontSize}"
+                     Foreground="{DynamicResource RibbonGalleryLabelForegroundBrush}"
                      TextAlignment="Center"
                      TextWrapping="Wrap"
                      TextTrimming="CharacterEllipsis"
-                     MaxWidth="96" />
+                     MaxWidth="{DynamicResource RibbonGalleryPreviewMaxWidth}" />
         </StackPanel>
 
         <StackPanel Orientation="Vertical"
-                    Spacing="2"
+                    Spacing="{DynamicResource RibbonGalleryPreviewLabelSpacing}"
                     HorizontalAlignment="Center"
                     IsVisible="{Binding HasPreview, Converter={StaticResource RibbonBooleanNegateConverter}}">
           <TextBlock Text="{Binding IconKey, Converter={StaticResource RibbonIconConverter}}"
@@ -232,11 +213,12 @@
                      HorizontalAlignment="Center"
                      IsVisible="{Binding IconKey, Converter={StaticResource RibbonIconConverter}, ConverterParameter=HasValue}" />
           <TextBlock Text="{Binding Label}"
-                     FontSize="10"
+                     FontSize="{DynamicResource RibbonGalleryLabelFontSize}"
+                     Foreground="{DynamicResource RibbonGalleryLabelForegroundBrush}"
                      TextAlignment="Center"
                      TextWrapping="Wrap"
                      TextTrimming="CharacterEllipsis"
-                     MaxWidth="96" />
+                     MaxWidth="{DynamicResource RibbonGalleryPreviewMaxWidth}" />
         </StackPanel>
       </Grid>
     </DataTemplate>
@@ -252,8 +234,9 @@
             <DockPanel>
               <Border DockPanel.Dock="Top"
                       Background="{DynamicResource RibbonTabStripBrush}"
-                      BorderThickness="0"
-                      Padding="8,3">
+                      BorderBrush="{DynamicResource RibbonTabStripBorderBrush}"
+                      BorderThickness="0,0,0,1"
+                      Padding="8,4,8,3">
                 <ItemsPresenter Name="PART_ItemsPresenter"
                                 ItemsPanel="{TemplateBinding ItemsPanel}" />
               </Border>
@@ -281,15 +264,24 @@
       <Setter Property="FontWeight" Value="Normal" />
       <Setter Property="Foreground" Value="{DynamicResource RibbonTabForegroundBrush}" />
       <Setter Property="Background" Value="Transparent" />
-      <Setter Property="Padding" Value="12,4" />
-      <Setter Property="Margin" Value="0,0,8,0" />
+      <Setter Property="Padding" Value="11,4" />
+      <Setter Property="Margin" Value="0,0,6,0" />
       <Setter Property="MinHeight" Value="28" />
+      <Setter Property="AutomationProperties.Name" Value="{Binding Header}" />
       <Setter Property="Template">
         <ControlTemplate>
           <Border Name="PART_TabRoot"
                   Background="{TemplateBinding Background}"
+                  BorderBrush="Transparent"
+                  BorderThickness="1"
                   CornerRadius="0"
                   Padding="{TemplateBinding Padding}">
+            <Border.Transitions>
+              <Transitions>
+                <BrushTransition Property="Background" Duration="0:0:0.08" />
+                <BrushTransition Property="BorderBrush" Duration="0:0:0.08" />
+              </Transitions>
+            </Border.Transitions>
             <Grid>
               <ContentPresenter Name="PART_TabHeader"
                                 Content="{TemplateBinding Header}"
@@ -297,7 +289,7 @@
                                 HorizontalAlignment="Center"
                                 VerticalAlignment="Center" />
               <Border Name="PART_TabUnderline"
-                      Background="{DynamicResource RibbonAccentBrush}"
+                      Background="{Binding ContextualSet.AccentKey, Converter={StaticResource RibbonContextualAccentConverter}}"
                       Height="2"
                       VerticalAlignment="Bottom"
                       IsVisible="False" />
@@ -306,8 +298,11 @@
         </ControlTemplate>
       </Setter>
 
+      <Style Selector="^:focus /template/ Border#PART_TabRoot">
+        <Setter Property="BorderBrush" Value="{DynamicResource RibbonFocusBorderBrush}" />
+      </Style>
       <Style Selector="^:pointerover /template/ Border#PART_TabRoot">
-        <Setter Property="Background" Value="#E6EBF3" />
+        <Setter Property="Background" Value="#E9EDF4" />
       </Style>
       <Style Selector="^:selected /template/ Border#PART_TabRoot">
         <Setter Property="Background" Value="Transparent" />
@@ -340,6 +335,12 @@
                   BorderBrush="{TemplateBinding BorderBrush}"
                   BorderThickness="{TemplateBinding BorderThickness}"
                   CornerRadius="{TemplateBinding CornerRadius}">
+            <Border.Transitions>
+              <Transitions>
+                <BrushTransition Property="Background" Duration="0:0:0.08" />
+                <BrushTransition Property="BorderBrush" Duration="0:0:0.08" />
+              </Transitions>
+            </Border.Transitions>
             <ContentPresenter Name="PART_ButtonContent"
                               Content="{TemplateBinding Content}"
                               ContentTemplate="{TemplateBinding ContentTemplate}"
@@ -350,6 +351,9 @@
         </ControlTemplate>
       </Setter>
 
+      <Style Selector="^:focus /template/ Border#PART_ButtonRoot">
+        <Setter Property="BorderBrush" Value="{DynamicResource RibbonFocusBorderBrush}" />
+      </Style>
       <Style Selector="^:pointerover /template/ Border#PART_ButtonRoot">
         <Setter Property="Background" Value="{DynamicResource RibbonButtonBackgroundPointerOverBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource RibbonButtonBorderPointerOverBrush}" />
@@ -383,6 +387,12 @@
                   BorderBrush="{TemplateBinding BorderBrush}"
                   BorderThickness="{TemplateBinding BorderThickness}"
                   CornerRadius="{TemplateBinding CornerRadius}">
+            <Border.Transitions>
+              <Transitions>
+                <BrushTransition Property="Background" Duration="0:0:0.08" />
+                <BrushTransition Property="BorderBrush" Duration="0:0:0.08" />
+              </Transitions>
+            </Border.Transitions>
             <ContentPresenter Name="PART_ToggleContent"
                               Content="{TemplateBinding Content}"
                               ContentTemplate="{TemplateBinding ContentTemplate}"
@@ -393,6 +403,9 @@
         </ControlTemplate>
       </Setter>
 
+      <Style Selector="^:focus /template/ Border#PART_ToggleRoot">
+        <Setter Property="BorderBrush" Value="{DynamicResource RibbonFocusBorderBrush}" />
+      </Style>
       <Style Selector="^:pointerover /template/ Border#PART_ToggleRoot">
         <Setter Property="Background" Value="{DynamicResource RibbonButtonBackgroundPointerOverBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource RibbonButtonBorderPointerOverBrush}" />
@@ -414,11 +427,71 @@
       </Style>
     </ControlTheme>
 
+    <ControlTheme x:Key="RibbonGroupContainerTheme" TargetType="local:RibbonGroupContainer">
+      <Setter Property="Background" Value="{DynamicResource RibbonContentBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource RibbonGroupBorderBrush}" />
+      <Setter Property="BorderThickness" Value="{DynamicResource RibbonGroupBorderThickness}" />
+      <Setter Property="CornerRadius" Value="0" />
+      <Setter Property="Padding" Value="{DynamicResource RibbonGroupPadding}" />
+      <Setter Property="MinWidth" Value="{DynamicResource RibbonGroupMinWidthLarge}" />
+      <Setter Property="MinHeight" Value="{DynamicResource RibbonGroupMinHeight}" />
+      <Setter Property="HeaderTemplate" Value="{StaticResource RibbonGroupHeaderTemplate}" />
+      <Setter Property="ItemsPanel">
+        <ItemsPanelTemplate>
+          <local:RibbonGroupPanel RowSpacing="{DynamicResource RibbonGroupRowSpacing}"
+                                  ColumnSpacing="{DynamicResource RibbonGroupColumnSpacing}"
+                                  RowHeight="{DynamicResource RibbonGroupRowHeight}"
+                                  ColumnWidth="{DynamicResource RibbonGroupColumnWidth}"
+                                  ColumnMinWidth="{DynamicResource RibbonGroupColumnMinWidth}"
+                                  ColumnMaxWidth="{DynamicResource RibbonGroupColumnMaxWidth}"
+                                  MinColumnHeight="{DynamicResource RibbonGroupMinColumnHeight}" />
+        </ItemsPanelTemplate>
+      </Setter>
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Background="{TemplateBinding Background}"
+                  BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}"
+                  CornerRadius="{TemplateBinding CornerRadius}"
+                  Padding="{TemplateBinding Padding}">
+            <Grid RowDefinitions="*,Auto">
+              <ItemsPresenter Name="PART_ItemsPresenter"
+                              ItemsPanel="{TemplateBinding ItemsPanel}"
+                              Grid.Row="0" />
+              <Border Grid.Row="1"
+                      MinHeight="{DynamicResource RibbonGroupHeaderMinHeight}"
+                      Padding="{DynamicResource RibbonGroupHeaderPadding}">
+                <Grid ColumnDefinitions="*,Auto"
+                      VerticalAlignment="Center">
+                  <ContentPresenter Name="PART_HeaderPresenter"
+                                    Content="{TemplateBinding Header}"
+                                    ContentTemplate="{TemplateBinding HeaderTemplate}"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center" />
+                  <Button x:Name="PART_LauncherButton"
+                          Classes="ribbon-group-launcher"
+                          IsVisible="{TemplateBinding HasLauncher}"
+                          IsEnabled="{Binding Launcher.IsEnabled, RelativeSource={RelativeSource TemplatedParent}}"
+                          ToolTip.Tip="{Binding Launcher.ToolTipContent, RelativeSource={RelativeSource TemplatedParent}}"
+                          AutomationProperties.Name="{Binding Launcher.Label, RelativeSource={RelativeSource TemplatedParent}}"
+                          Margin="4,0,0,0">
+                    <TextBlock Text="{TemplateBinding LauncherIconText}"
+                               FontFamily="Segoe UI Emoji, Apple Color Emoji, Noto Color Emoji"
+                               FontSize="10" />
+                  </Button>
+                </Grid>
+              </Border>
+            </Grid>
+          </Border>
+        </ControlTemplate>
+      </Setter>
+    </ControlTheme>
+
     <ControlTheme x:Key="RibbonGalleryItemTheme" TargetType="ListBoxItem">
-      <Setter Property="Padding" Value="4" />
-      <Setter Property="Margin" Value="2" />
-      <Setter Property="MinWidth" Value="104" />
-      <Setter Property="MinHeight" Value="70" />
+      <Setter Property="Padding" Value="{DynamicResource RibbonGalleryItemPadding}" />
+      <Setter Property="Margin" Value="{DynamicResource RibbonGalleryItemMargin}" />
+      <Setter Property="MinWidth" Value="{DynamicResource RibbonGalleryTileWidth}" />
+      <Setter Property="MinHeight" Value="{DynamicResource RibbonGalleryTileMinHeight}" />
       <Setter Property="HorizontalContentAlignment" Value="Center" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
       <Setter Property="Background" Value="Transparent" />
@@ -430,8 +503,14 @@
                   Background="{TemplateBinding Background}"
                   BorderBrush="{TemplateBinding BorderBrush}"
                   BorderThickness="{TemplateBinding BorderThickness}"
-                  CornerRadius="3"
+                  CornerRadius="{DynamicResource RibbonGalleryItemCornerRadius}"
                   ClipToBounds="True">
+            <Border.Transitions>
+              <Transitions>
+                <BrushTransition Property="Background" Duration="0:0:0.08" />
+                <BrushTransition Property="BorderBrush" Duration="0:0:0.08" />
+              </Transitions>
+            </Border.Transitions>
             <ContentPresenter Padding="{TemplateBinding Padding}"
                               Content="{TemplateBinding Content}"
                               ContentTemplate="{TemplateBinding ContentTemplate}"
@@ -441,6 +520,9 @@
         </ControlTemplate>
       </Setter>
 
+      <Style Selector="^:focus /template/ Border#PART_GalleryItemRoot">
+        <Setter Property="BorderBrush" Value="{DynamicResource RibbonFocusBorderBrush}" />
+      </Style>
       <Style Selector="^:pointerover /template/ Border#PART_GalleryItemRoot">
         <Setter Property="Background" Value="{DynamicResource RibbonButtonBackgroundPointerOverBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource RibbonButtonBorderPointerOverBrush}" />
@@ -455,8 +537,8 @@
       </Style>
     </ControlTheme>
     <ControlTheme x:Key="RibbonGalleryPopupItemTheme" TargetType="ListBoxItem">
-      <Setter Property="Padding" Value="6,4" />
-      <Setter Property="Margin" Value="2" />
+      <Setter Property="Padding" Value="{DynamicResource RibbonGalleryPopupItemPadding}" />
+      <Setter Property="Margin" Value="{DynamicResource RibbonGalleryPopupItemMargin}" />
       <Setter Property="MinWidth" Value="{Binding DataContext.PopupItemMinWidth, RelativeSource={RelativeSource AncestorType=ListBox}}" />
       <Setter Property="HorizontalContentAlignment" Value="Center" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
@@ -469,8 +551,14 @@
                   Background="{TemplateBinding Background}"
                   BorderBrush="{TemplateBinding BorderBrush}"
                   BorderThickness="{TemplateBinding BorderThickness}"
-                  CornerRadius="3"
+                  CornerRadius="{DynamicResource RibbonGalleryItemCornerRadius}"
                   ClipToBounds="True">
+            <Border.Transitions>
+              <Transitions>
+                <BrushTransition Property="Background" Duration="0:0:0.08" />
+                <BrushTransition Property="BorderBrush" Duration="0:0:0.08" />
+              </Transitions>
+            </Border.Transitions>
             <ContentPresenter Padding="{TemplateBinding Padding}"
                               Content="{TemplateBinding Content}"
                               ContentTemplate="{TemplateBinding ContentTemplate}"
@@ -480,6 +568,9 @@
         </ControlTemplate>
       </Setter>
 
+      <Style Selector="^:focus /template/ Border#PART_GalleryItemRoot">
+        <Setter Property="BorderBrush" Value="{DynamicResource RibbonFocusBorderBrush}" />
+      </Style>
       <Style Selector="^:pointerover /template/ Border#PART_GalleryItemRoot">
         <Setter Property="Background" Value="{DynamicResource RibbonButtonBackgroundPointerOverBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource RibbonButtonBorderPointerOverBrush}" />
@@ -497,51 +588,37 @@
 
   <UserControl.Styles>
     <Style Selector="Border.ribbon-qat">
-      <Setter Property="Background" Value="{DynamicResource RibbonTabStripBrush}" />
-      <Setter Property="BorderBrush" Value="{DynamicResource RibbonBorderBrush}" />
+      <Setter Property="Background" Value="{DynamicResource RibbonQatBackgroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource RibbonQatBorderBrush}" />
       <Setter Property="BorderThickness" Value="0" />
-      <Setter Property="Padding" Value="8,2" />
-      <Setter Property="MinHeight" Value="24" />
+      <Setter Property="Padding" Value="{DynamicResource RibbonQatPadding}" />
+      <Setter Property="MinHeight" Value="{DynamicResource RibbonQatMinHeight}" />
     </Style>
 
     <Style Selector="Border.ribbon-qat Button">
       <Setter Property="Theme" Value="{StaticResource RibbonButtonTheme}" />
       <Setter Property="MinWidth" Value="0" />
-      <Setter Property="MinHeight" Value="22" />
-      <Setter Property="Padding" Value="6,2" />
-      <Setter Property="FontSize" Value="11" />
+      <Setter Property="MinHeight" Value="{DynamicResource RibbonQatButtonMinHeight}" />
+      <Setter Property="Padding" Value="{DynamicResource RibbonQatButtonPadding}" />
+      <Setter Property="FontSize" Value="{DynamicResource RibbonQatFontSize}" />
     </Style>
     <Style Selector="Border.ribbon-qat ToggleButton">
       <Setter Property="Theme" Value="{StaticResource RibbonToggleButtonTheme}" />
       <Setter Property="MinWidth" Value="0" />
-      <Setter Property="MinHeight" Value="22" />
-      <Setter Property="Padding" Value="6,2" />
-      <Setter Property="FontSize" Value="11" />
+      <Setter Property="MinHeight" Value="{DynamicResource RibbonQatButtonMinHeight}" />
+      <Setter Property="Padding" Value="{DynamicResource RibbonQatButtonPadding}" />
+      <Setter Property="FontSize" Value="{DynamicResource RibbonQatFontSize}" />
     </Style>
 
-    <Style Selector="Border.ribbon-group">
-      <Setter Property="Background" Value="{DynamicResource RibbonContentBrush}" />
-      <Setter Property="BorderBrush" Value="{DynamicResource RibbonGroupBorderBrush}" />
-      <Setter Property="BorderThickness" Value="0,0,1,0" />
-      <Setter Property="CornerRadius" Value="0" />
-      <Setter Property="Padding" Value="4,2,8,2" />
+    <Style Selector="local|RibbonGroupContainer">
+      <Setter Property="Theme" Value="{StaticResource RibbonGroupContainerTheme}" />
       <Setter Property="Margin" Value="0,2,0,2" />
-      <Setter Property="MinWidth" Value="104" />
-      <Setter Property="MinHeight" Value="92" />
     </Style>
-    <Style Selector="Border.ribbon-group[Tag=Medium]">
-      <Setter Property="MinWidth" Value="96" />
+    <Style Selector="local|RibbonGroupContainer[Tag=Medium]">
+      <Setter Property="MinWidth" Value="{DynamicResource RibbonGroupMinWidthMedium}" />
     </Style>
-    <Style Selector="Border.ribbon-group[Tag=Small]">
-      <Setter Property="MinWidth" Value="84" />
-      <Setter Property="Padding" Value="4,2,8,2" />
-    </Style>
-    <Style Selector="Border.ribbon-group-header">
-      <Setter Property="Background" Value="{DynamicResource RibbonContentBrush}" />
-      <Setter Property="BorderBrush" Value="{DynamicResource RibbonGroupBorderBrush}" />
-      <Setter Property="BorderThickness" Value="0" />
-      <Setter Property="Padding" Value="0,2,0,2" />
-      <Setter Property="MinHeight" Value="18" />
+    <Style Selector="local|RibbonGroupContainer[Tag=Small]">
+      <Setter Property="MinWidth" Value="{DynamicResource RibbonGroupMinWidthSmall}" />
     </Style>
     <Style Selector="Button.ribbon-group-launcher">
       <Setter Property="Theme" Value="{StaticResource RibbonButtonTheme}" />
@@ -558,10 +635,10 @@
       <Setter Property="Background" Value="{DynamicResource RibbonContentBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource RibbonGroupBorderBrush}" />
       <Setter Property="BorderThickness" Value="1" />
-      <Setter Property="CornerRadius" Value="6" />
-      <Setter Property="Padding" Value="8,6" />
-      <Setter Property="MinWidth" Value="72" />
-      <Setter Property="MinHeight" Value="72" />
+      <Setter Property="CornerRadius" Value="{DynamicResource RibbonGroupCollapsedCornerRadius}" />
+      <Setter Property="Padding" Value="{DynamicResource RibbonGroupCollapsedPadding}" />
+      <Setter Property="MinWidth" Value="{DynamicResource RibbonGroupCollapsedMinWidth}" />
+      <Setter Property="MinHeight" Value="{DynamicResource RibbonGroupCollapsedMinHeight}" />
       <Setter Property="HorizontalContentAlignment" Value="Center" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
@@ -569,51 +646,62 @@
       <Setter Property="Background" Value="{DynamicResource RibbonContentBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource RibbonGroupBorderBrush}" />
       <Setter Property="BorderThickness" Value="1" />
-      <Setter Property="CornerRadius" Value="6" />
-      <Setter Property="Padding" Value="6" />
+      <Setter Property="CornerRadius" Value="{DynamicResource RibbonGroupPopupCornerRadius}" />
+      <Setter Property="Padding" Value="{DynamicResource RibbonGroupPopupPadding}" />
       <Setter Property="BoxShadow" Value="0 6 18 0 #26000000" />
     </Style>
     <Style Selector="TextBlock.ribbon-group-header">
-      <Setter Property="FontSize" Value="10" />
+      <Setter Property="FontSize" Value="{DynamicResource RibbonGroupHeaderFontSize}" />
       <Setter Property="FontWeight" Value="Normal" />
-      <Setter Property="Foreground" Value="#585858" />
+      <Setter Property="Foreground" Value="{DynamicResource RibbonGroupHeaderForegroundBrush}" />
       <Setter Property="HorizontalAlignment" Value="Center" />
       <Setter Property="VerticalAlignment" Value="Center" />
       <Setter Property="Margin" Value="0" />
     </Style>
+    <Style Selector="Border.ribbon-contextual-band">
+      <Setter Property="Background" Value="{Binding ContextualSet.AccentKey, Converter={StaticResource RibbonContextualAccentConverter}}" />
+      <Setter Property="MinHeight" Value="{DynamicResource RibbonContextualBandHeight}" />
+      <Setter Property="CornerRadius" Value="{DynamicResource RibbonContextualBandCornerRadius}" />
+      <Setter Property="Padding" Value="{DynamicResource RibbonContextualBandPadding}" />
+    </Style>
     <Style Selector="TextBlock.ribbon-context-header">
-      <Setter Property="FontSize" Value="10" />
-      <Setter Property="Foreground" Value="{DynamicResource RibbonAccentBrush}" />
+      <Setter Property="FontSize" Value="{DynamicResource RibbonContextualBandFontSize}" />
+      <Setter Property="FontWeight" Value="{DynamicResource RibbonContextualBandFontWeight}" />
+      <Setter Property="Foreground" Value="{DynamicResource RibbonContextualBandForegroundBrush}" />
       <Setter Property="HorizontalAlignment" Value="Center" />
     </Style>
     <Style Selector="Border.ribbon-keytip">
-      <Setter Property="Background" Value="#FFF4CE" />
-      <Setter Property="BorderBrush" Value="#D3A400" />
+      <Setter Property="Background" Value="{DynamicResource RibbonKeyTipBackgroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource RibbonKeyTipBorderBrush}" />
       <Setter Property="BorderThickness" Value="1" />
-      <Setter Property="CornerRadius" Value="3" />
-      <Setter Property="Padding" Value="4,2" />
+      <Setter Property="CornerRadius" Value="{DynamicResource RibbonKeyTipCornerRadius}" />
+      <Setter Property="Padding" Value="{DynamicResource RibbonKeyTipPadding}" />
       <Setter Property="BoxShadow" Value="0 2 8 0 #26000000" />
     </Style>
     <Style Selector="TextBlock.ribbon-keytip-text">
-      <Setter Property="FontSize" Value="10" />
-      <Setter Property="FontWeight" Value="SemiBold" />
-      <Setter Property="Foreground" Value="#1B1B1B" />
+      <Setter Property="FontSize" Value="{DynamicResource RibbonKeyTipFontSize}" />
+      <Setter Property="FontWeight" Value="{DynamicResource RibbonKeyTipFontWeight}" />
+      <Setter Property="Foreground" Value="{DynamicResource RibbonKeyTipForegroundBrush}" />
     </Style>
 
     <Style Selector="Border.ribbon-combo">
       <Setter Property="Background" Value="{DynamicResource RibbonContentBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource RibbonGroupBorderBrush}" />
       <Setter Property="BorderThickness" Value="1" />
-      <Setter Property="CornerRadius" Value="3" />
-      <Setter Property="Padding" Value="1" />
+      <Setter Property="CornerRadius" Value="{DynamicResource RibbonComboCornerRadius}" />
+      <Setter Property="Padding" Value="{DynamicResource RibbonComboBorderPadding}" />
+    </Style>
+    <Style Selector="Border.ribbon-combo:focus-within">
+      <Setter Property="BorderBrush" Value="{DynamicResource RibbonFocusBorderBrush}" />
     </Style>
     <Style Selector="ComboBox.ribbon-combo">
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="BorderThickness" Value="0" />
-      <Setter Property="Padding" Value="6,2" />
-      <Setter Property="MinHeight" Value="24" />
+      <Setter Property="Padding" Value="{DynamicResource RibbonComboPadding}" />
+      <Setter Property="MinHeight" Value="{DynamicResource RibbonGroupRowHeight}" />
       <Setter Property="VerticalAlignment" Value="Center" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="FontSize" Value="{DynamicResource RibbonComboFontSize}" />
     </Style>
     <Style Selector="Border.ribbon-gallery">
       <Setter Property="Background" Value="{DynamicResource RibbonContentBrush}" />
@@ -621,6 +709,9 @@
       <Setter Property="BorderThickness" Value="1" />
       <Setter Property="CornerRadius" Value="3" />
       <Setter Property="Padding" Value="2" />
+    </Style>
+    <Style Selector="Border.ribbon-gallery:focus-within">
+      <Setter Property="BorderBrush" Value="{DynamicResource RibbonFocusBorderBrush}" />
     </Style>
     <Style Selector="ListBox.ribbon-gallery">
       <Setter Property="Background" Value="Transparent" />
@@ -636,7 +727,7 @@
       <Setter Property="Margin" Value="-1,0,0,0" />
       <Setter Property="Padding" Value="0" />
       <Setter Property="MinWidth" Value="18" />
-      <Setter Property="MinHeight" Value="24" />
+      <Setter Property="MinHeight" Value="{DynamicResource RibbonGroupRowHeight}" />
       <Setter Property="HorizontalContentAlignment" Value="Center" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
@@ -651,8 +742,9 @@
     <Style Selector="ListBox.ribbon-gallery-popup">
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="BorderThickness" Value="0" />
-      <Setter Property="MinWidth" Value="220" />
-      <Setter Property="MaxHeight" Value="260" />
+      <Setter Property="Padding" Value="{DynamicResource RibbonGalleryPopupPadding}" />
+      <Setter Property="MinWidth" Value="{DynamicResource RibbonGalleryPopupMinWidth}" />
+      <Setter Property="MaxHeight" Value="{DynamicResource RibbonGalleryPopupMaxHeight}" />
     </Style>
     <Style Selector="Border.ribbon-gallery-footer">
       <Setter Property="BorderBrush" Value="{DynamicResource RibbonGroupBorderBrush}" />
@@ -672,20 +764,23 @@
       <Setter Property="Background" Value="{DynamicResource RibbonContentBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource RibbonGroupBorderBrush}" />
       <Setter Property="BorderThickness" Value="1" />
-      <Setter Property="CornerRadius" Value="3" />
+      <Setter Property="CornerRadius" Value="{DynamicResource RibbonSpinnerCornerRadius}" />
+    </Style>
+    <Style Selector="Border.ribbon-spinner:focus-within">
+      <Setter Property="BorderBrush" Value="{DynamicResource RibbonFocusBorderBrush}" />
     </Style>
     <Style Selector="TextBox.ribbon-spinner">
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="BorderThickness" Value="0" />
-      <Setter Property="Padding" Value="6,2" />
-      <Setter Property="MinHeight" Value="24" />
+      <Setter Property="Padding" Value="{DynamicResource RibbonSpinnerTextPadding}" />
+      <Setter Property="MinHeight" Value="{DynamicResource RibbonGroupRowHeight}" />
       <Setter Property="HorizontalContentAlignment" Value="Left" />
     </Style>
     <Style Selector="Button.ribbon-spinner-arrow">
       <Setter Property="Padding" Value="0" />
-      <Setter Property="Width" Value="16" />
-      <Setter Property="MinHeight" Value="10" />
-      <Setter Property="FontSize" Value="10" />
+      <Setter Property="Width" Value="{DynamicResource RibbonSpinnerArrowWidth}" />
+      <Setter Property="MinHeight" Value="{DynamicResource RibbonSpinnerArrowMinHeight}" />
+      <Setter Property="FontSize" Value="{DynamicResource RibbonSpinnerArrowFontSize}" />
       <Setter Property="HorizontalContentAlignment" Value="Center" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
@@ -699,7 +794,7 @@
       <Setter Property="Margin" Value="0" />
     </Style>
     <Style Selector="Control.ribbon-control">
-      <Setter Property="ToolTip.Tip" Value="{Binding ToolTip}" />
+      <Setter Property="ToolTip.Tip" Value="{Binding ToolTipContent}" />
       <Setter Property="AutomationProperties.Name" Value="{Binding Label}" />
     </Style>
     <Style Selector="Button.ribbon-split-primary /template/ Border#PART_ButtonRoot">
@@ -716,7 +811,7 @@
       <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
     <Style Selector="Button.ribbon-split-arrow /template/ Border#PART_ButtonRoot">
-      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="BorderThickness" Value="1,0,0,0" />
       <Setter Property="CornerRadius" Value="0,3,3,0" />
     </Style>
 
@@ -728,7 +823,7 @@
 
   <UserControl.DataTemplates>
     <DataTemplate DataType="ribbon:RibbonMenuItem">
-      <Button Classes="ribbon-gallery-action"
+      <Button Classes="ribbon-gallery-action ribbon-control"
               IsEnabled="{Binding IsEnabled}"
               IsVisible="{Binding IsVisible}"
               Click="OnRibbonGalleryPopupMenuItemClick">
@@ -1066,10 +1161,12 @@
           </TabControl.ItemsPanel>
           <TabControl.ItemTemplate>
             <DataTemplate>
-              <StackPanel>
-                <TextBlock Classes="ribbon-context-header"
-                           Text="{Binding ContextualHeader}"
-                           IsVisible="{Binding HasContextualSet}" />
+              <StackPanel Spacing="0">
+                <Border Classes="ribbon-contextual-band"
+                        IsVisible="{Binding HasContextualSet}">
+                  <TextBlock Classes="ribbon-context-header"
+                             Text="{Binding ContextualHeader}" />
+                </Border>
                 <TextBlock Text="{Binding Header}" />
               </StackPanel>
             </DataTemplate>
@@ -1090,50 +1187,11 @@
                     <DataTemplate>
                       <Grid IsVisible="{Binding IsVisible}"
                             IsEnabled="{Binding IsEnabled}">
-                        <Border Classes="ribbon-group"
-                                Tag="{Binding SizeMode}"
-                                IsVisible="{Binding IsCollapsed, Converter={StaticResource RibbonBooleanNegateConverter}}">
-                          <Grid RowDefinitions="*,Auto">
-                            <ItemsControl ItemsSource="{Binding Controls}"
-                                          Grid.Row="0"
-                                          HorizontalAlignment="Stretch"
-                                          VerticalAlignment="Stretch">
-                              <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                  <local:RibbonGroupPanel RowSpacing="2"
-                                                          ColumnSpacing="6"
-                                                          RowHeight="26"
-                                                          ColumnWidth="0"
-                                                          ColumnMinWidth="80"
-                                                          ColumnMaxWidth="200"
-                                                          MinColumnHeight="84" />
-                                </ItemsPanelTemplate>
-                              </ItemsControl.ItemsPanel>
-                            </ItemsControl>
-                            <Border Classes="ribbon-group-header"
-                                    Grid.Row="1">
-                              <Grid x:Name="GroupHeaderRoot"
-                                    ColumnDefinitions="*,Auto"
-                                    VerticalAlignment="Center">
-                                <TextBlock Classes="ribbon-group-header"
-                                           Text="{Binding Header}"
-                                           Grid.Column="0" />
-                                <Button Classes="ribbon-group-launcher ribbon-control"
-                                        Grid.Column="1"
-                                        DataContext="{Binding Launcher}"
-                                        IsVisible="{Binding DataContext.HasLauncher, ElementName=GroupHeaderRoot}"
-                                        IsEnabled="{Binding IsEnabled}"
-                                        Margin="4,0,0,0"
-                                        Click="OnRibbonGroupLauncherClick">
-                                  <TextBlock Text="{Binding IconKey, Converter={StaticResource RibbonIconConverter}}"
-                                             FontFamily="Segoe UI Emoji, Apple Color Emoji, Noto Color Emoji"
-                                             FontSize="10"
-                                             IsVisible="{Binding IconKey, Converter={StaticResource RibbonIconConverter}, ConverterParameter=HasValue}" />
-                                </Button>
-                              </Grid>
-                            </Border>
-                          </Grid>
-                        </Border>
+                        <local:RibbonGroupContainer Tag="{Binding SizeMode}"
+                                                    Header="{Binding Header}"
+                                                    ItemsSource="{Binding Controls}"
+                                                    Launcher="{Binding Launcher}"
+                                                    IsVisible="{Binding IsCollapsed, Converter={StaticResource RibbonBooleanNegateConverter}}" />
 
                         <ToggleButton x:Name="CollapsedToggle"
                                       Classes="ribbon-group-collapsed ribbon-control"
@@ -1145,6 +1203,7 @@
                                       HorizontalAlignment="Center">
                             <TextBlock Text="{Binding Label}"
                                        FontWeight="SemiBold"
+                                       FontSize="{DynamicResource RibbonGroupCollapsedLabelFontSize}"
                                        HorizontalAlignment="Center" />
                             <TextBlock Text="{DynamicResource RibbonIcon.Dropdown}"
                                        FontFamily="Segoe UI Emoji, Apple Color Emoji, Noto Color Emoji"
@@ -1159,46 +1218,13 @@
                                IsLightDismissEnabled="True"
                                Closed="OnCollapsedGroupPopupClosed">
                           <Border Classes="ribbon-group-popup">
-                            <Grid RowDefinitions="*,Auto">
-                              <ItemsControl ItemsSource="{Binding Controls}"
-                                            Grid.Row="0"
-                                            HorizontalAlignment="Stretch"
-                                            VerticalAlignment="Stretch">
-                                <ItemsControl.ItemsPanel>
-                                  <ItemsPanelTemplate>
-                                    <local:RibbonGroupPanel RowSpacing="2"
-                                                            ColumnSpacing="6"
-                                                            RowHeight="26"
-                                                            ColumnWidth="0"
-                                                            ColumnMinWidth="80"
-                                                            ColumnMaxWidth="200"
-                                                            MinColumnHeight="84" />
-                                  </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                              </ItemsControl>
-                              <Border Classes="ribbon-group-header"
-                                      Grid.Row="1">
-                                <Grid x:Name="PopupGroupHeaderRoot"
-                                      ColumnDefinitions="*,Auto"
-                                      VerticalAlignment="Center">
-                                  <TextBlock Classes="ribbon-group-header"
-                                             Text="{Binding Header}"
-                                             Grid.Column="0" />
-                                  <Button Classes="ribbon-group-launcher ribbon-control"
-                                          Grid.Column="1"
-                                          DataContext="{Binding Launcher}"
-                                          IsVisible="{Binding DataContext.HasLauncher, ElementName=PopupGroupHeaderRoot}"
-                                          IsEnabled="{Binding IsEnabled}"
-                                          Margin="4,0,0,0"
-                                          Click="OnRibbonGroupLauncherClick">
-                                    <TextBlock Text="{Binding IconKey, Converter={StaticResource RibbonIconConverter}}"
-                                               FontFamily="Segoe UI Emoji, Apple Color Emoji, Noto Color Emoji"
-                                               FontSize="10"
-                                               IsVisible="{Binding IconKey, Converter={StaticResource RibbonIconConverter}, ConverterParameter=HasValue}" />
-                                  </Button>
-                                </Grid>
-                              </Border>
-                            </Grid>
+                            <local:RibbonGroupContainer Tag="{Binding SizeMode}"
+                                                        Header="{Binding Header}"
+                                                        ItemsSource="{Binding Controls}"
+                                                        Launcher="{Binding Launcher}"
+                                                        Margin="0"
+                                                        Padding="0"
+                                                        BorderThickness="0" />
                           </Border>
                         </Popup>
                       </Grid>

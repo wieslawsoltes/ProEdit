@@ -23,47 +23,49 @@ public sealed class RibbonSizeConverter : IValueConverter
         {
             "IconSize" => size switch
             {
-                RibbonControlSize.Large => 28d,
-                RibbonControlSize.Medium => 20d,
-                _ => 16d
+                RibbonControlSize.Large => GetResource("RibbonButtonLargeIconSize", 28d),
+                RibbonControlSize.Medium => GetResource("RibbonButtonMediumIconSize", 20d),
+                _ => GetResource("RibbonButtonSmallIconSize", 16d)
             },
             "IconFontSize" => size switch
             {
-                RibbonControlSize.Large => 18d,
-                RibbonControlSize.Medium => 16d,
-                _ => 14d
+                RibbonControlSize.Large => GetResource("RibbonButtonLargeIconFontSize", 18d),
+                RibbonControlSize.Medium => GetResource("RibbonButtonMediumIconFontSize", 16d),
+                _ => GetResource("RibbonButtonSmallIconFontSize", 14d)
             },
-            "RowSpacing" => size == RibbonControlSize.Large ? 4d : 0d,
+            "RowSpacing" => size == RibbonControlSize.Large
+                ? GetResource("RibbonButtonLargeRowSpacing", 2d)
+                : GetResource("RibbonButtonSmallRowSpacing", 0d),
             "ColumnSpacing" => size switch
             {
-                RibbonControlSize.Large => 4d,
-                RibbonControlSize.Medium => 6d,
-                _ => 4d
+                RibbonControlSize.Large => GetResource("RibbonButtonLargeColumnSpacing", 4d),
+                RibbonControlSize.Medium => GetResource("RibbonButtonMediumColumnSpacing", 6d),
+                _ => GetResource("RibbonButtonSmallColumnSpacing", 6d)
             },
             "Padding" => size switch
             {
-                RibbonControlSize.Large => new Thickness(8, 6),
-                RibbonControlSize.Medium => new Thickness(8, 4),
-                _ => new Thickness(6, 2)
+                RibbonControlSize.Large => GetResource("RibbonButtonLargePadding", new Thickness(8, 6)),
+                RibbonControlSize.Medium => GetResource("RibbonButtonMediumPadding", new Thickness(8, 4)),
+                _ => GetResource("RibbonButtonSmallPadding", new Thickness(6, 2))
             },
             "MinWidth" => size switch
             {
-                RibbonControlSize.Large => 88d,
-                RibbonControlSize.Medium => 76d,
-                _ => 64d
+                RibbonControlSize.Large => GetResource("RibbonButtonLargeMinWidth", 88d),
+                RibbonControlSize.Medium => GetResource("RibbonButtonMediumMinWidth", 76d),
+                _ => GetResource("RibbonButtonSmallMinWidth", 64d)
             },
             "MinHeight" => size switch
             {
-                RibbonControlSize.Large => 80d,
-                RibbonControlSize.Medium => 52d,
-                _ => 26d
+                RibbonControlSize.Large => GetResource("RibbonButtonLargeMinHeight", 80d),
+                RibbonControlSize.Medium => GetResource("RibbonButtonMediumMinHeight", 52d),
+                _ => GetResource("RibbonButtonSmallMinHeight", 24d)
             },
-            "ArrowWidth" => 22d,
+            "ArrowWidth" => GetResource("RibbonButtonArrowWidth", 18d),
             "FontSize" => size switch
             {
-                RibbonControlSize.Large => 12d,
-                RibbonControlSize.Medium => 12d,
-                _ => 11d
+                RibbonControlSize.Large => GetResource("RibbonButtonLargeFontSize", 12d),
+                RibbonControlSize.Medium => GetResource("RibbonButtonMediumFontSize", 12d),
+                _ => GetResource("RibbonButtonSmallFontSize", 11d)
             },
             "ContentVerticalAlignment" => size == RibbonControlSize.Large
                 ? VerticalAlignment.Top
@@ -93,5 +95,15 @@ public sealed class RibbonSizeConverter : IValueConverter
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         throw new NotSupportedException();
+    }
+
+    private static T GetResource<T>(string key, T fallback)
+    {
+        if (Application.Current?.TryFindResource(key, out var resource) == true && resource is T typed)
+        {
+            return typed;
+        }
+
+        return fallback;
     }
 }

@@ -2,12 +2,14 @@ namespace Vibe.Office.Ribbon;
 
 public sealed class RibbonGroupOverflowController
 {
-    private readonly double _expandThreshold;
-
-    public RibbonGroupOverflowController(double expandThreshold = 24d)
+    public RibbonGroupOverflowController(double collapseThreshold = 6d, double expandThreshold = 32d)
     {
-        _expandThreshold = expandThreshold;
+        CollapseThreshold = collapseThreshold;
+        ExpandThreshold = expandThreshold;
     }
+
+    public double CollapseThreshold { get; set; }
+    public double ExpandThreshold { get; set; }
 
     public bool UpdateLayout(IReadOnlyList<RibbonGroup> groups, double availableWidth, double contentWidth)
     {
@@ -21,7 +23,10 @@ public sealed class RibbonGroupOverflowController
             return false;
         }
 
-        if (contentWidth > availableWidth + 1)
+        var collapseThreshold = Math.Max(0, CollapseThreshold);
+        var expandThreshold = Math.Max(0, ExpandThreshold);
+
+        if (contentWidth > availableWidth + collapseThreshold)
         {
             if (ShrinkGroups(groups))
             {
@@ -31,7 +36,7 @@ public sealed class RibbonGroupOverflowController
             return CollapseGroups(groups);
         }
 
-        if (contentWidth < availableWidth - _expandThreshold)
+        if (contentWidth < availableWidth - expandThreshold)
         {
             if (ExpandCollapsedGroups(groups))
             {

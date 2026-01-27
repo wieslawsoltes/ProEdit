@@ -1,17 +1,19 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ribbon="clr-namespace:Vibe.Office.Ribbon;assembly=Vibe.Office.Ribbon"
+             xmlns:local="clr-namespace:Vibe.Office.Ribbon.Avalonia;assembly=Vibe.Office.Ribbon.Avalonia"
              x:Class="Vibe.Word.App.App"
              RequestedThemeVariant="Default">
              <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
 
     <Application.Styles>
         <FluentTheme />
+        <StyleInclude Source="avares://Vibe.Office.Ribbon.Avalonia/WordRibbonTheme.axaml" />
     </Application.Styles>
 
     <Application.Resources>
         <ResourceDictionary>
-            <Color x:Key="RibbonSurfaceColor">#EEF1F5</Color>
-            <SolidColorBrush x:Key="RibbonSurfaceBrush" Color="{StaticResource RibbonSurfaceColor}" />
+            <local:RibbonStringNotEmptyConverter x:Key="RibbonStringNotEmptyConverter" />
             <x:String x:Key="RibbonIcon.New">📄➕</x:String>
             <x:String x:Key="RibbonIcon.Open">📂</x:String>
             <x:String x:Key="RibbonIcon.Save">💾</x:String>
@@ -129,4 +131,64 @@
             <x:String x:Key="RibbonIcon.Window">🪟</x:String>
         </ResourceDictionary>
     </Application.Resources>
+
+    <Application.DataTemplates>
+        <DataTemplate DataType="ribbon:RibbonControlBase">
+            <Border Background="{DynamicResource RibbonToolTipBackgroundBrush}"
+                    BorderBrush="{DynamicResource RibbonToolTipBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="{DynamicResource RibbonToolTipCornerRadius}"
+                    Padding="{DynamicResource RibbonToolTipPadding}"
+                    MaxWidth="{DynamicResource RibbonToolTipMaxWidth}">
+                <Grid RowDefinitions="Auto,Auto,Auto"
+                      RowSpacing="4">
+                    <TextBlock Text="{Binding Label}"
+                               FontSize="{DynamicResource RibbonToolTipTitleFontSize}"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource RibbonToolTipTitleForegroundBrush}" />
+                    <TextBlock Text="{Binding ToolTipDescription}"
+                               Grid.Row="1"
+                               FontSize="{DynamicResource RibbonToolTipBodyFontSize}"
+                               Foreground="{DynamicResource RibbonToolTipBodyForegroundBrush}"
+                               TextWrapping="Wrap"
+                               IsVisible="{Binding ToolTipDescription, Converter={StaticResource RibbonStringNotEmptyConverter}}" />
+                    <TextBlock Text="{Binding ToolTipShortcut}"
+                               Grid.Row="2"
+                               FontSize="{DynamicResource RibbonToolTipShortcutFontSize}"
+                               Foreground="{DynamicResource RibbonToolTipShortcutForegroundBrush}"
+                               HorizontalAlignment="Right"
+                               IsVisible="{Binding ToolTipShortcut, Converter={StaticResource RibbonStringNotEmptyConverter}}" />
+                </Grid>
+            </Border>
+        </DataTemplate>
+
+        <DataTemplate DataType="ribbon:RibbonGroupLauncher">
+            <Border Background="{DynamicResource RibbonToolTipBackgroundBrush}"
+                    BorderBrush="{DynamicResource RibbonToolTipBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="{DynamicResource RibbonToolTipCornerRadius}"
+                    Padding="{DynamicResource RibbonToolTipPadding}"
+                    MaxWidth="{DynamicResource RibbonToolTipMaxWidth}">
+                <Grid RowDefinitions="Auto,Auto,Auto"
+                      RowSpacing="4">
+                    <TextBlock Text="{Binding Label}"
+                               FontSize="{DynamicResource RibbonToolTipTitleFontSize}"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource RibbonToolTipTitleForegroundBrush}" />
+                    <TextBlock Text="{Binding ToolTipDescription}"
+                               Grid.Row="1"
+                               FontSize="{DynamicResource RibbonToolTipBodyFontSize}"
+                               Foreground="{DynamicResource RibbonToolTipBodyForegroundBrush}"
+                               TextWrapping="Wrap"
+                               IsVisible="{Binding ToolTipDescription, Converter={StaticResource RibbonStringNotEmptyConverter}}" />
+                    <TextBlock Text="{Binding ToolTipShortcut}"
+                               Grid.Row="2"
+                               FontSize="{DynamicResource RibbonToolTipShortcutFontSize}"
+                               Foreground="{DynamicResource RibbonToolTipShortcutForegroundBrush}"
+                               HorizontalAlignment="Right"
+                               IsVisible="{Binding ToolTipShortcut, Converter={StaticResource RibbonStringNotEmptyConverter}}" />
+                </Grid>
+            </Border>
+        </DataTemplate>
+    </Application.DataTemplates>
 </Application>
