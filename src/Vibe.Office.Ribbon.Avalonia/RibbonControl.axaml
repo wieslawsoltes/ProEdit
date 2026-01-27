@@ -457,8 +457,8 @@
     <ControlTheme x:Key="RibbonGalleryPopupItemTheme" TargetType="ListBoxItem">
       <Setter Property="Padding" Value="6,4" />
       <Setter Property="Margin" Value="2" />
-      <Setter Property="MinWidth" Value="200" />
-      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="MinWidth" Value="{Binding DataContext.PopupItemMinWidth, RelativeSource={RelativeSource AncestorType=ListBox}}" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="BorderBrush" Value="Transparent" />
@@ -654,6 +654,20 @@
       <Setter Property="MinWidth" Value="220" />
       <Setter Property="MaxHeight" Value="260" />
     </Style>
+    <Style Selector="Border.ribbon-gallery-footer">
+      <Setter Property="BorderBrush" Value="{DynamicResource RibbonGroupBorderBrush}" />
+      <Setter Property="BorderThickness" Value="0,1,0,0" />
+      <Setter Property="Margin" Value="0,4,0,0" />
+      <Setter Property="Padding" Value="4,6,4,4" />
+    </Style>
+    <Style Selector="Button.ribbon-gallery-action">
+      <Setter Property="Theme" Value="{StaticResource RibbonButtonTheme}" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="6,4" />
+      <Setter Property="MinHeight" Value="24" />
+      <Setter Property="HorizontalContentAlignment" Value="Left" />
+    </Style>
     <Style Selector="Border.ribbon-spinner">
       <Setter Property="Background" Value="{DynamicResource RibbonContentBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource RibbonGroupBorderBrush}" />
@@ -713,6 +727,29 @@
   </UserControl.Styles>
 
   <UserControl.DataTemplates>
+    <DataTemplate DataType="ribbon:RibbonMenuItem">
+      <Button Classes="ribbon-gallery-action"
+              IsEnabled="{Binding IsEnabled}"
+              IsVisible="{Binding IsVisible}"
+              Click="OnRibbonGalleryPopupMenuItemClick">
+        <StackPanel Orientation="Horizontal"
+                    Spacing="8"
+                    VerticalAlignment="Center">
+          <TextBlock Text="{Binding IconKey, Converter={StaticResource RibbonIconConverter}}"
+                     FontFamily="Segoe UI Emoji, Apple Color Emoji, Noto Color Emoji"
+                     FontSize="14"
+                     VerticalAlignment="Center"
+                     IsVisible="{Binding IconKey, Converter={StaticResource RibbonIconConverter}, ConverterParameter=HasValue}" />
+          <TextBlock Text="{Binding Label}"
+                     VerticalAlignment="Center" />
+        </StackPanel>
+      </Button>
+    </DataTemplate>
+    <DataTemplate DataType="ribbon:RibbonMenuSeparator">
+      <Border Height="1"
+              Margin="4,6"
+              Background="{DynamicResource RibbonGroupBorderBrush}" />
+    </DataTemplate>
     <DataTemplate DataType="ribbon:RibbonButton">
       <Button Classes="ribbon-button ribbon-control"
               local:RibbonGroupPanel.ItemSize="{Binding LayoutSize}"
@@ -925,27 +962,43 @@
                Placement="BottomEdgeAlignedLeft"
                IsOpen="{Binding IsChecked, ElementName=GalleryDropDownToggle}"
                IsLightDismissEnabled="True">
-          <Border Classes="ribbon-gallery-popup">
-            <ListBox Classes="ribbon-gallery-popup"
-                     ItemsSource="{Binding Items}"
-                     SelectedItem="{Binding SelectedItem}"
-                     ItemContainerTheme="{StaticResource RibbonGalleryPopupItemTheme}"
-                     SelectionChanged="OnRibbonGalleryPopupSelectionChanged"
-                     ScrollViewer.VerticalScrollBarVisibility="Auto"
-                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                     Tag="{Binding ElementName=GalleryDropDownToggle}">
-              <ListBox.ItemsPanel>
-                <ItemsPanelTemplate>
-                  <VirtualizingStackPanel Orientation="Vertical" />
-                </ItemsPanelTemplate>
-              </ListBox.ItemsPanel>
-              <ListBox.ItemTemplate>
-                <DataTemplate>
-                  <ContentPresenter Content="{Binding}"
-                                    ContentTemplate="{StaticResource RibbonGalleryItemTemplate}" />
-                </DataTemplate>
-              </ListBox.ItemTemplate>
-            </ListBox>
+          <Border Classes="ribbon-gallery-popup"
+                  MinWidth="{Binding PopupMinWidth}">
+            <Grid RowDefinitions="Auto,Auto">
+              <ListBox Classes="ribbon-gallery-popup"
+                       ItemsSource="{Binding Items}"
+                       SelectedItem="{Binding SelectedItem}"
+                       ItemContainerTheme="{StaticResource RibbonGalleryPopupItemTheme}"
+                       SelectionChanged="OnRibbonGalleryPopupSelectionChanged"
+                       ScrollViewer.VerticalScrollBarVisibility="Auto"
+                       ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                       MaxHeight="{Binding PopupMaxHeight}"
+                       Tag="{Binding ElementName=GalleryDropDownToggle}">
+                <ListBox.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <UniformGrid Columns="{Binding PopupColumns}" />
+                  </ItemsPanelTemplate>
+                </ListBox.ItemsPanel>
+                <ListBox.ItemTemplate>
+                  <DataTemplate>
+                    <ContentPresenter Content="{Binding}"
+                                      ContentTemplate="{StaticResource RibbonGalleryItemTemplate}" />
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+              <Border Grid.Row="1"
+                      Classes="ribbon-gallery-footer"
+                      IsVisible="{Binding HasPopupMenu}">
+                <ItemsControl ItemsSource="{Binding PopupMenu.Items}">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <StackPanel Orientation="Vertical"
+                                  Spacing="2" />
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                </ItemsControl>
+              </Border>
+            </Grid>
           </Border>
         </Popup>
       </Grid>

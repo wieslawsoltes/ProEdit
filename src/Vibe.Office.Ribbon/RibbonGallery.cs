@@ -20,7 +20,12 @@ public sealed class RibbonGallery : RibbonControlBase
         bool isVisible = true,
         Func<bool>? canExecute = null,
         Func<bool>? isVisibleEvaluator = null,
-        RibbonControlSize size = RibbonControlSize.Medium)
+        RibbonControlSize size = RibbonControlSize.Medium,
+        int popupColumns = 1,
+        double popupMinWidth = 220,
+        double popupMaxHeight = 260,
+        double popupItemMinWidth = 200,
+        RibbonMenu? popupMenu = null)
         : base(
             id,
             label,
@@ -37,10 +42,21 @@ public sealed class RibbonGallery : RibbonControlBase
         _selectionHandler = selectionHandler;
         _selectedItem = _selectedItemEvaluator?.Invoke() ?? selectedItem;
         ShowDropDown = showDropDown;
+        PopupColumns = Math.Max(1, popupColumns);
+        PopupMinWidth = Math.Max(0, popupMinWidth);
+        PopupMaxHeight = Math.Max(0, popupMaxHeight);
+        PopupItemMinWidth = Math.Max(0, popupItemMinWidth);
+        PopupMenu = popupMenu;
     }
 
     public IReadOnlyList<RibbonGalleryItem> Items { get; }
     public bool ShowDropDown { get; }
+    public int PopupColumns { get; }
+    public double PopupMinWidth { get; }
+    public double PopupMaxHeight { get; }
+    public double PopupItemMinWidth { get; }
+    public RibbonMenu? PopupMenu { get; }
+    public bool HasPopupMenu => PopupMenu is not null && PopupMenu.Items.Count > 0;
 
     public RibbonGalleryItem? SelectedItem
     {
@@ -77,6 +93,17 @@ public sealed class RibbonGallery : RibbonControlBase
             if (item is IRibbonStateful stateful)
             {
                 stateful.RefreshState();
+            }
+        }
+
+        if (PopupMenu is not null)
+        {
+            foreach (var entry in PopupMenu.Items)
+            {
+                if (entry is IRibbonStateful stateful)
+                {
+                    stateful.RefreshState();
+                }
             }
         }
 

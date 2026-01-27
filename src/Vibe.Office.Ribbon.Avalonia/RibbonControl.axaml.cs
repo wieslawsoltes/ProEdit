@@ -277,6 +277,32 @@ public partial class RibbonControl : UserControl
         RefreshState();
     }
 
+    private async void OnRibbonGalleryPopupMenuItemClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { DataContext: RibbonMenuItem item } button)
+        {
+            return;
+        }
+
+        if (_stateUpdateDepth > 0)
+        {
+            return;
+        }
+
+        await item.ExecuteAsync();
+        CloseGalleryPopup(button);
+        RefreshState();
+    }
+
+    private static void CloseGalleryPopup(Control control)
+    {
+        var popup = control.GetVisualAncestors().OfType<Popup>().FirstOrDefault();
+        if (popup?.PlacementTarget is ToggleButton toggle)
+        {
+            toggle.IsChecked = false;
+        }
+    }
+
     private async void OnRibbonGroupLauncherClick(object? sender, RoutedEventArgs e)
     {
         if (sender is Button { DataContext: RibbonGroupLauncher launcher })
