@@ -13,13 +13,14 @@ public sealed class ClipboardContent
 {
     public ClipboardContentKind Kind { get; }
     public ClipboardDocumentFragment? Fragment { get; }
-    public FloatingObject? FloatingObject { get; }
+    public IReadOnlyList<FloatingObject>? FloatingObjects { get; }
+    public FloatingObject? FloatingObject => FloatingObjects is { Count: > 0 } ? FloatingObjects[0] : null;
 
-    private ClipboardContent(ClipboardContentKind kind, ClipboardDocumentFragment? fragment, FloatingObject? floatingObject)
+    private ClipboardContent(ClipboardContentKind kind, ClipboardDocumentFragment? fragment, IReadOnlyList<FloatingObject>? floatingObjects)
     {
         Kind = kind;
         Fragment = fragment;
-        FloatingObject = floatingObject;
+        FloatingObjects = floatingObjects;
     }
 
     public static ClipboardContent Empty() => new ClipboardContent(ClipboardContentKind.None, null, null);
@@ -33,7 +34,13 @@ public sealed class ClipboardContent
     public static ClipboardContent FromFloatingObject(FloatingObject floating)
     {
         ArgumentNullException.ThrowIfNull(floating);
-        return new ClipboardContent(ClipboardContentKind.FloatingObject, null, floating);
+        return FromFloatingObjects(new[] { floating });
+    }
+
+    public static ClipboardContent FromFloatingObjects(IReadOnlyList<FloatingObject> floatingObjects)
+    {
+        ArgumentNullException.ThrowIfNull(floatingObjects);
+        return new ClipboardContent(ClipboardContentKind.FloatingObject, null, floatingObjects);
     }
 }
 

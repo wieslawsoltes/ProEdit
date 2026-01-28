@@ -110,17 +110,25 @@ public sealed class SetCaretFromPointCommand : IEditorCommand
 {
     public float X { get; }
     public float Y { get; }
-    public bool ExtendSelection { get; }
+    public SelectionUpdateMode Mode { get; }
+    public bool ExtendSelection => Mode.HasFlag(SelectionUpdateMode.Extend);
 
     public SetCaretFromPointCommand(float x, float y, bool extendSelection)
     {
+        Mode = extendSelection ? SelectionUpdateMode.Extend : SelectionUpdateMode.Replace;
         X = x;
         Y = y;
-        ExtendSelection = extendSelection;
+    }
+
+    public SetCaretFromPointCommand(float x, float y, SelectionUpdateMode mode)
+    {
+        Mode = mode;
+        X = x;
+        Y = y;
     }
 
     public void Execute(IEditorMutableSession session)
     {
-        session.SetCaretFromPoint(X, Y, ExtendSelection);
+        session.SetCaretFromPoint(X, Y, Mode);
     }
 }

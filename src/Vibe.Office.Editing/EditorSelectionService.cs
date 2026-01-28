@@ -14,10 +14,16 @@ public sealed class EditorSelectionService
     private DocumentLayout? _cachedLayout;
     private int[][] _tablesByPage = Array.Empty<int[]>();
     private int[] _verticalLineIndices = Array.Empty<int>();
+    private readonly List<TextRange> _selectionRanges = new();
+    private readonly List<TableSelectionRange> _tableSelections = new();
+    private readonly List<Guid> _selectedFloatingObjectIds = new();
 
     public TextPosition Caret { get; private set; }
     public TextRange Selection { get; private set; }
-    public Guid? SelectedFloatingObjectId { get; private set; }
+    public IReadOnlyList<TextRange> SelectionRanges => _selectionRanges;
+    public IReadOnlyList<TableSelectionRange> TableSelections => _tableSelections;
+    public Guid? SelectedFloatingObjectId => _selectedFloatingObjectIds.Count > 0 ? _selectedFloatingObjectIds[0] : null;
+    public IReadOnlyList<Guid> SelectedFloatingObjectIds => _selectedFloatingObjectIds;
 
     public event EventHandler<SelectionChangedEventArgs>? SelectionChanged;
 
@@ -29,35 +35,39 @@ public sealed class EditorSelectionService
         Caret = new TextPosition(0, 0);
         _selectionAnchor = Caret;
         Selection = new TextRange(Caret, Caret);
+        _selectionRanges.Add(Selection);
+        UpdateTableSelections();
     }
 
     public void MoveLeft(bool extendSelection)
     {
+        var mode = extendSelection ? SelectionUpdateMode.Extend : SelectionUpdateMode.Replace;
         if (!extendSelection && !Selection.IsEmpty)
         {
-            SetCaret(Selection.Normalize().Start, false);
+            SetCaret(Selection.Normalize().Start, SelectionUpdateMode.Replace);
             return;
         }
 
         var layout = _layoutService.Layout;
         if (Caret.Offset > 0)
         {
-            SetCaret(new TextPosition(Caret.ParagraphIndex, Caret.Offset - 1), extendSelection);
+            SetCaret(new TextPosition(Caret.ParagraphIndex, Caret.Offset - 1), mode);
             return;
         }
 
         if (Caret.ParagraphIndex > 0)
         {
             var previous = GetParagraphAt(layout, Caret.ParagraphIndex - 1);
-            SetCaret(new TextPosition(Caret.ParagraphIndex - 1, DocumentEditHelpers.GetParagraphLength(previous)), extendSelection);
+            SetCaret(new TextPosition(Caret.ParagraphIndex - 1, DocumentEditHelpers.GetParagraphLength(previous)), mode);
         }
     }
 
     public void MoveRight(bool extendSelection)
     {
+        var mode = extendSelection ? SelectionUpdateMode.Extend : SelectionUpdateMode.Replace;
         if (!extendSelection && !Selection.IsEmpty)
         {
-            SetCaret(Selection.Normalize().End, false);
+            SetCaret(Selection.Normalize().End, SelectionUpdateMode.Replace);
             return;
         }
 
@@ -65,18 +75,19 @@ public sealed class EditorSelectionService
         var paragraph = GetParagraphAt(layout, Caret.ParagraphIndex);
         if (Caret.Offset < DocumentEditHelpers.GetParagraphLength(paragraph))
         {
-            SetCaret(new TextPosition(Caret.ParagraphIndex, Caret.Offset + 1), extendSelection);
+            SetCaret(new TextPosition(Caret.ParagraphIndex, Caret.Offset + 1), mode);
             return;
         }
 
         if (Caret.ParagraphIndex < GetParagraphCount(layout) - 1)
         {
-            SetCaret(new TextPosition(Caret.ParagraphIndex + 1, 0), extendSelection);
+            SetCaret(new TextPosition(Caret.ParagraphIndex + 1, 0), mode);
         }
     }
 
     public void MoveUp(bool extendSelection)
     {
+        var mode = extendSelection ? SelectionUpdateMode.Extend : SelectionUpdateMode.Replace;
         var layout = _layoutService.Layout;
         if (layout.Lines.Count == 0)
         {
@@ -86,18 +97,19 @@ public sealed class EditorSelectionService
         var currentIndex = FindLineIndexForCaret(out var currentLine);
         if (currentIndex <= 0)
         {
-            SetCaret(new TextPosition(0, 0), extendSelection);
+            SetCaret(new TextPosition(0, 0), mode);
             return;
         }
 
         var targetLine = layout.Lines[currentIndex - 1];
         var caretPoint = GetCaretPoint(currentLine);
         var offset = GetOffsetFromLine(targetLine, caretPoint.X, caretPoint.Y);
-        SetCaret(new TextPosition(targetLine.ParagraphIndex, offset), extendSelection);
+        SetCaret(new TextPosition(targetLine.ParagraphIndex, offset), mode);
     }
 
     public void MoveDown(bool extendSelection)
     {
+        var mode = extendSelection ? SelectionUpdateMode.Extend : SelectionUpdateMode.Replace;
         var layout = _layoutService.Layout;
         if (layout.Lines.Count == 0)
         {
@@ -109,17 +121,23 @@ public sealed class EditorSelectionService
         {
             var lastParagraphIndex = GetParagraphCount(layout) - 1;
             var lastParagraph = GetParagraphAt(layout, lastParagraphIndex);
-            SetCaret(new TextPosition(lastParagraphIndex, DocumentEditHelpers.GetParagraphLength(lastParagraph)), extendSelection);
+            SetCaret(new TextPosition(lastParagraphIndex, DocumentEditHelpers.GetParagraphLength(lastParagraph)), mode);
             return;
         }
 
         var targetLine = layout.Lines[currentIndex + 1];
         var caretPoint = GetCaretPoint(currentLine);
         var offset = GetOffsetFromLine(targetLine, caretPoint.X, caretPoint.Y);
-        SetCaret(new TextPosition(targetLine.ParagraphIndex, offset), extendSelection);
+        SetCaret(new TextPosition(targetLine.ParagraphIndex, offset), mode);
     }
 
     public void SetCaretFromPoint(float x, float y, bool extendSelection)
+    {
+        var mode = extendSelection ? SelectionUpdateMode.Extend : SelectionUpdateMode.Replace;
+        SetCaretFromPoint(x, y, mode);
+    }
+
+    public void SetCaretFromPoint(float x, float y, SelectionUpdateMode mode)
     {
         var layout = _layoutService.Layout;
         if (layout.Lines.Count == 0)
@@ -129,13 +147,13 @@ public sealed class EditorSelectionService
 
         EnsureLayoutCaches(layout);
 
-        if (TrySelectFloatingObject(x, y))
+        if (TrySelectFloatingObject(x, y, mode))
         {
             return;
         }
 
         ClearFloatingSelection();
-        if (TrySetCaretFromTable(x, y, extendSelection))
+        if (TrySetCaretFromTable(x, y, mode))
         {
             return;
         }
@@ -152,7 +170,7 @@ public sealed class EditorSelectionService
         }
 
         var offset = GetOffsetFromLine(line, x, y);
-        SetCaret(new TextPosition(line.ParagraphIndex, offset), extendSelection);
+        SetCaret(new TextPosition(line.ParagraphIndex, offset), mode);
     }
 
     public bool TrySelectFloatingObject(Guid id)
@@ -171,7 +189,7 @@ public sealed class EditorSelectionService
                 continue;
             }
 
-            SetFloatingSelection(floating.Object.Id, floating.PageIndex);
+            SetFloatingSelection(floating.Object.Id, floating.PageIndex, SelectionUpdateMode.Replace);
             return true;
         }
 
@@ -187,7 +205,7 @@ public sealed class EditorSelectionService
         }
 
         var floating = layout.FloatingObjects[^1];
-        SetFloatingSelection(floating.Object.Id, floating.PageIndex);
+        SetFloatingSelection(floating.Object.Id, floating.PageIndex, SelectionUpdateMode.Replace);
         return true;
     }
 
@@ -215,7 +233,56 @@ public sealed class EditorSelectionService
 
     public void SetCaret(TextPosition position, bool extendSelection)
     {
-        MoveCaret(position, extendSelection);
+        var mode = extendSelection ? SelectionUpdateMode.Extend : SelectionUpdateMode.Replace;
+        MoveCaret(position, mode);
+    }
+
+    public void SetCaret(TextPosition position, SelectionUpdateMode mode)
+    {
+        MoveCaret(position, mode);
+    }
+
+    public void SetSelection(TextRange selection, SelectionUpdateMode mode)
+    {
+        var previousRanges = CaptureSelectionRanges();
+        var previousFloating = CaptureFloatingSelection();
+        var add = mode.HasFlag(SelectionUpdateMode.Add);
+        var extend = mode.HasFlag(SelectionUpdateMode.Extend);
+
+        if (!add && !extend)
+        {
+            _selectionRanges.Clear();
+        }
+
+        if (_selectedFloatingObjectIds.Count > 0)
+        {
+            _selectedFloatingObjectIds.Clear();
+        }
+
+        _selectionAnchor = selection.Start;
+        Selection = selection;
+        Caret = selection.End;
+
+        if (add && !extend)
+        {
+            _selectionRanges.Insert(0, Selection);
+        }
+        else if (_selectionRanges.Count == 0)
+        {
+            _selectionRanges.Add(Selection);
+        }
+        else
+        {
+            _selectionRanges[0] = Selection;
+        }
+
+        UpdateTableSelections();
+
+        var dirty = new HashSet<int>();
+        AddDirtyPagesForRanges(dirty, previousRanges);
+        AddDirtyPagesForRanges(dirty, _selectionRanges);
+        AddDirtyPagesForFloatingSelection(dirty, previousFloating);
+        RaiseSelectionChanged(dirty);
     }
 
     public EquationInline? GetEquationAtCaret()
@@ -235,7 +302,7 @@ public sealed class EditorSelectionService
         return DocumentEditHelpers.FindEquationInline(paragraph, position.Offset);
     }
 
-    private bool TrySelectFloatingObject(float x, float y)
+    private bool TrySelectFloatingObject(float x, float y, SelectionUpdateMode mode)
     {
         var layout = _layoutService.Layout;
         if (layout.FloatingObjects.Count == 0)
@@ -251,25 +318,41 @@ public sealed class EditorSelectionService
                 continue;
             }
 
-            SetFloatingSelection(floating.Object.Id, floating.PageIndex);
+            SetFloatingSelection(floating.Object.Id, floating.PageIndex, mode);
             return true;
         }
 
         return false;
     }
 
-    private void SetFloatingSelection(Guid id, int pageIndex)
+    private void SetFloatingSelection(Guid id, int pageIndex, SelectionUpdateMode mode)
     {
-        if (SelectedFloatingObjectId == id)
+        var previousRanges = CaptureSelectionRanges();
+        var previousFloating = CaptureFloatingSelection();
+        var add = mode.HasFlag(SelectionUpdateMode.Add);
+
+        if (!add)
         {
-            return;
+            _selectedFloatingObjectIds.Clear();
         }
 
-        var previousSelection = Selection;
-        SelectedFloatingObjectId = id;
-        Selection = new TextRange(Caret, Caret);
+        if (!_selectedFloatingObjectIds.Contains(id))
+        {
+            _selectedFloatingObjectIds.Insert(0, id);
+        }
 
-        var dirty = new HashSet<int>(_layoutService.ComputeDirtyPagesForSelection(previousSelection, Selection));
+        _selectionAnchor = Caret;
+        Selection = new TextRange(Caret, Caret);
+        _selectionRanges.Clear();
+        _selectionRanges.Add(Selection);
+
+        UpdateTableSelections();
+
+        var dirty = new HashSet<int>();
+        AddDirtyPagesForRanges(dirty, previousRanges);
+        AddDirtyPagesForRanges(dirty, _selectionRanges);
+        AddDirtyPagesForFloatingSelection(dirty, previousFloating);
+        AddDirtyPagesForFloatingSelection(dirty, _selectedFloatingObjectIds);
         if (pageIndex >= 0)
         {
             dirty.Add(pageIndex);
@@ -280,7 +363,7 @@ public sealed class EditorSelectionService
 
     private void ClearFloatingSelection()
     {
-        SelectedFloatingObjectId = null;
+        _selectedFloatingObjectIds.Clear();
     }
 
     private void EnsureLayoutCaches(DocumentLayout layout)
@@ -412,7 +495,7 @@ public sealed class EditorSelectionService
         return Math.Clamp(low, 0, pages.Count - 1);
     }
 
-    private bool TrySetCaretFromTable(float x, float y, bool extendSelection)
+    private bool TrySetCaretFromTable(float x, float y, SelectionUpdateMode mode)
     {
         var layout = _layoutService.Layout;
         if (layout.Tables.Count == 0)
@@ -455,7 +538,7 @@ public sealed class EditorSelectionService
                 }
 
                 var offset = GetOffsetFromLine(line, x, y);
-                SetCaret(new TextPosition(line.ParagraphIndex, offset), extendSelection);
+                SetCaret(new TextPosition(line.ParagraphIndex, offset), mode);
                 return true;
             }
         }
@@ -537,33 +620,52 @@ public sealed class EditorSelectionService
         return line.StartOffset + line.Length;
     }
 
-    private void MoveCaret(TextPosition position, bool extendSelection)
+    private void MoveCaret(TextPosition position, SelectionUpdateMode mode)
     {
-        var previousSelection = Selection;
-        var previousFloating = SelectedFloatingObjectId;
+        var previousRanges = CaptureSelectionRanges();
+        var previousFloating = CaptureFloatingSelection();
         var clamped = ClampPosition(position);
-        if (previousFloating.HasValue)
-        {
-            SelectedFloatingObjectId = null;
-        }
+        var add = mode.HasFlag(SelectionUpdateMode.Add);
+        var extend = mode.HasFlag(SelectionUpdateMode.Extend);
 
-        Caret = clamped;
-        if (!extendSelection)
+        if (!extend)
         {
             _selectionAnchor = clamped;
         }
 
-        Selection = new TextRange(_selectionAnchor, clamped);
-        var dirty = new HashSet<int>(_layoutService.ComputeDirtyPagesForSelection(previousSelection, Selection));
-        if (previousFloating.HasValue)
+        if (!add && !extend)
         {
-            var pageIndex = ResolveFloatingPageIndex(previousFloating.Value);
-            if (pageIndex.HasValue)
-            {
-                dirty.Add(pageIndex.Value);
-            }
+            _selectionRanges.Clear();
         }
 
+        if (_selectedFloatingObjectIds.Count > 0)
+        {
+            _selectedFloatingObjectIds.Clear();
+        }
+
+        Caret = clamped;
+        Selection = new TextRange(_selectionAnchor, clamped);
+
+        if (add && !extend)
+        {
+            _selectionRanges.Insert(0, Selection);
+        }
+        else if (_selectionRanges.Count == 0)
+        {
+            _selectionRanges.Add(Selection);
+        }
+        else
+        {
+            _selectionRanges[0] = Selection;
+        }
+
+        UpdateTableSelections();
+
+        var dirty = new HashSet<int>();
+        AddDirtyPagesForRanges(dirty, previousRanges);
+        AddDirtyPagesForRanges(dirty, _selectionRanges);
+        AddDirtyPagesForFloatingSelection(dirty, previousFloating);
+        AddDirtyPagesForFloatingSelection(dirty, _selectedFloatingObjectIds);
         RaiseSelectionChanged(dirty);
     }
 
@@ -1544,6 +1646,179 @@ public sealed class EditorSelectionService
 
             return _clusterPositions[low] <= x ? low : Math.Max(0, low - 1);
         }
+    }
+
+    private TextRange[] CaptureSelectionRanges()
+    {
+        if (_selectionRanges.Count == 0)
+        {
+            return Array.Empty<TextRange>();
+        }
+
+        var ranges = new TextRange[_selectionRanges.Count];
+        _selectionRanges.CopyTo(ranges, 0);
+        return ranges;
+    }
+
+    private Guid[] CaptureFloatingSelection()
+    {
+        if (_selectedFloatingObjectIds.Count == 0)
+        {
+            return Array.Empty<Guid>();
+        }
+
+        var ids = new Guid[_selectedFloatingObjectIds.Count];
+        _selectedFloatingObjectIds.CopyTo(ids, 0);
+        return ids;
+    }
+
+    private void UpdateTableSelections()
+    {
+        _tableSelections.Clear();
+        if (_selectionRanges.Count == 0 || _document.ParagraphCount == 0)
+        {
+            return;
+        }
+
+        for (var i = 0; i < _selectionRanges.Count; i++)
+        {
+            var selection = _selectionRanges[i].Normalize();
+            var startIndex = Math.Clamp(selection.Start.ParagraphIndex, 0, _document.ParagraphCount - 1);
+            var endIndex = Math.Clamp(selection.End.ParagraphIndex, 0, _document.ParagraphCount - 1);
+            if (startIndex > endIndex)
+            {
+                (startIndex, endIndex) = (endIndex, startIndex);
+            }
+
+            var startLocation = _document.GetParagraphLocation(startIndex);
+            var endLocation = _document.GetParagraphLocation(endIndex);
+            if (!startLocation.IsInTable || !endLocation.IsInTable || startLocation.Table is null || endLocation.Table is null)
+            {
+                continue;
+            }
+
+            if (!ReferenceEquals(startLocation.Table, endLocation.Table))
+            {
+                continue;
+            }
+
+            var rowStart = Math.Min(startLocation.RowIndex, endLocation.RowIndex);
+            var rowEnd = Math.Max(startLocation.RowIndex, endLocation.RowIndex);
+            var columnStart = Math.Min(startLocation.ColumnIndex, endLocation.ColumnIndex);
+            var columnEnd = Math.Max(startLocation.ColumnIndex, endLocation.ColumnIndex);
+            var range = new TableSelectionRange(startLocation.Table, rowStart, rowEnd, columnStart, columnEnd).Normalize();
+
+            if (!ContainsTableSelection(range))
+            {
+                _tableSelections.Add(range);
+            }
+        }
+    }
+
+    private bool ContainsTableSelection(TableSelectionRange range)
+    {
+        for (var i = 0; i < _tableSelections.Count; i++)
+        {
+            var existing = _tableSelections[i];
+            if (ReferenceEquals(existing.Table, range.Table)
+                && existing.RowStart == range.RowStart
+                && existing.RowEnd == range.RowEnd
+                && existing.ColumnStart == range.ColumnStart
+                && existing.ColumnEnd == range.ColumnEnd)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private void AddDirtyPagesForRanges(HashSet<int> dirty, IReadOnlyList<TextRange> ranges)
+    {
+        if (ranges.Count == 0)
+        {
+            return;
+        }
+
+        for (var i = 0; i < ranges.Count; i++)
+        {
+            AddDirtyPagesForRange(dirty, ranges[i]);
+        }
+    }
+
+    private void AddDirtyPagesForFloatingSelection(HashSet<int> dirty, IReadOnlyList<Guid> ids)
+    {
+        if (ids.Count == 0)
+        {
+            return;
+        }
+
+        var layout = _layoutService.Layout;
+        if (layout.FloatingObjects.Count == 0)
+        {
+            return;
+        }
+
+        for (var i = 0; i < layout.FloatingObjects.Count; i++)
+        {
+            var floating = layout.FloatingObjects[i];
+            if (!ContainsFloatingId(ids, floating.Object.Id))
+            {
+                continue;
+            }
+
+            if (floating.PageIndex >= 0)
+            {
+                dirty.Add(floating.PageIndex);
+            }
+        }
+    }
+
+    private static bool ContainsFloatingId(IReadOnlyList<Guid> ids, Guid id)
+    {
+        for (var i = 0; i < ids.Count; i++)
+        {
+            if (ids[i] == id)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private void AddDirtyPagesForRange(HashSet<int> dirty, TextRange range)
+    {
+        var layout = _layoutService.Layout;
+        if (layout.Pages.Count == 0)
+        {
+            return;
+        }
+
+        var normalized = range.Normalize();
+        var startPage = GetPageForPosition(layout, normalized.Start);
+        var endPage = GetPageForPosition(layout, normalized.End);
+        if (startPage > endPage)
+        {
+            (startPage, endPage) = (endPage, startPage);
+        }
+
+        for (var pageIndex = startPage; pageIndex <= endPage; pageIndex++)
+        {
+            dirty.Add(pageIndex);
+        }
+    }
+
+    private static int GetPageForPosition(DocumentLayout layout, TextPosition position)
+    {
+        if (layout.Lines.Count == 0)
+        {
+            return 0;
+        }
+
+        var lineIndex = FindLineIndexForPosition(layout, position, out _);
+        var pageIndex = layout.LineIndex.GetPageForLine(lineIndex);
+        return pageIndex < 0 ? 0 : pageIndex;
     }
 
     private void RaiseSelectionChanged(HashSet<int> dirtyPages)

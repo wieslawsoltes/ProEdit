@@ -11,7 +11,10 @@ public interface IEditorSession
     DocumentLayout Layout { get; }
     TextPosition Caret { get; }
     TextRange Selection { get; }
+    IReadOnlyList<TextRange> SelectionRanges { get; }
+    IReadOnlyList<TableSelectionRange> TableSelections { get; }
     Guid? SelectedFloatingObjectId { get; }
+    IReadOnlyList<Guid> SelectedFloatingObjectIds { get; }
     IReadOnlyList<int> DirtyPages { get; }
     long DirtyVersion { get; }
 
@@ -41,6 +44,8 @@ public interface IEditorMutableSession : IEditorSession
     void MoveDown(bool extendSelection);
 
     void SetCaretFromPoint(float x, float y, bool extendSelection);
+    void SetCaretFromPoint(float x, float y, SelectionUpdateMode mode);
     void SetSelection(TextRange selection);
+    void SetSelection(TextRange selection, SelectionUpdateMode mode);
     bool TrySelectFirstFloatingObject();
 }

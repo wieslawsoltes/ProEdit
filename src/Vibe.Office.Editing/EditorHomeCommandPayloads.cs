@@ -52,7 +52,8 @@ public readonly record struct EditorFontDialogOptions(
     bool? TextImprint,
     float? LetterSpacing,
     float? HorizontalScale,
-    float? BaselineOffset);
+    float? BaselineOffset,
+    TextOpenTypeFeatures? OpenTypeFeatures);
 
 public readonly record struct EditorParagraphDialogOptions(
     ParagraphAlignment? Alignment,

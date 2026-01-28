@@ -72,6 +72,11 @@ public sealed class TextContainerNormalizer : ITextContainerNormalizer
             EnsureBlocksInlines(endnote.Blocks);
         }
 
+        EnsureBlocksInlines(document.FootnoteSeparators.SeparatorBlocks);
+        EnsureBlocksInlines(document.FootnoteSeparators.ContinuationSeparatorBlocks);
+        EnsureBlocksInlines(document.EndnoteSeparators.SeparatorBlocks);
+        EnsureBlocksInlines(document.EndnoteSeparators.ContinuationSeparatorBlocks);
+
         foreach (var comment in document.Comments.Values)
         {
             EnsureBlocksInlines(comment.Blocks);

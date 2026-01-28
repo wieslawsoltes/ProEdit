@@ -52,9 +52,9 @@ public sealed class EditorClipboardController
             return false;
         }
 
-        if (_session.SelectedFloatingObjectId.HasValue)
+        if (HasSelectedFloatingObjects())
         {
-            if (DeleteSelectedFloatingObject())
+            if (DeleteSelectedFloatingObjects())
             {
                 _session.RefreshLayout();
             }
@@ -62,9 +62,10 @@ public sealed class EditorClipboardController
             return true;
         }
 
-        if (!_session.Selection.IsEmpty)
+        var selectionRanges = GetNormalizedSelectionRanges();
+        if (selectionRanges.Length > 0)
         {
-            _session.Backspace();
+            DeleteSelectionRanges(selectionRanges);
         }
 
         return true;
@@ -90,39 +91,73 @@ public sealed class EditorClipboardController
 
     private ClipboardContent? BuildClipboardContent()
     {
-        if (_session.SelectedFloatingObjectId.HasValue
-            && TryCloneSelectedFloatingObject(out var floating))
+        if (HasSelectedFloatingObjects()
+            && TryCloneSelectedFloatingObjects(out var floatingObjects))
         {
-            return ClipboardContent.FromFloatingObject(floating);
+            return ClipboardContent.FromFloatingObjects(floatingObjects);
         }
 
-        if (_tableSelectionProvider is not null
+        var selectionRanges = GetNormalizedSelectionRanges();
+        if (selectionRanges.Length == 0)
+        {
+            return null;
+        }
+
+        if (selectionRanges.Length == 1
+            && _tableSelectionProvider is not null
             && _tableSelectionProvider.TryGetSnapshot(out var tableSnapshot))
         {
             var tableFragment = BuildTableFragment(tableSnapshot);
             return ClipboardContent.FromFragment(tableFragment);
         }
 
-        var selection = _session.Selection;
-        if (selection.IsEmpty)
-        {
-            return null;
-        }
-
-        var fragment = BuildSelectionFragment(selection);
+        var fragment = selectionRanges.Length == 1
+            ? BuildSelectionFragment(selectionRanges[0])
+            : BuildSelectionFragment(selectionRanges);
         return ClipboardContent.FromFragment(fragment);
     }
 
     private ClipboardDocumentFragment BuildSelectionFragment(TextRange range)
     {
         var fragment = new ClipboardDocumentFragment();
-        var selection = range.Normalize();
         var paragraphs = GetParagraphs();
         if (paragraphs.Count == 0)
         {
             return fragment;
         }
 
+        AppendSelectionBlocks(fragment.Blocks, paragraphs, range);
+
+        PopulateResources(_session.Document, fragment);
+        return fragment;
+    }
+
+    private ClipboardDocumentFragment BuildSelectionFragment(IReadOnlyList<TextRange> ranges)
+    {
+        var fragment = new ClipboardDocumentFragment();
+        if (ranges.Count == 0)
+        {
+            return fragment;
+        }
+
+        var paragraphs = GetParagraphs();
+        if (paragraphs.Count == 0)
+        {
+            return fragment;
+        }
+
+        for (var i = 0; i < ranges.Count; i++)
+        {
+            AppendSelectionBlocks(fragment.Blocks, paragraphs, ranges[i]);
+        }
+
+        PopulateResources(_session.Document, fragment);
+        return fragment;
+    }
+
+    private void AppendSelectionBlocks(List<Block> target, IReadOnlyList<ParagraphBlock> paragraphs, TextRange range)
+    {
+        var selection = range.Normalize();
         var startIndex = Math.Clamp(selection.Start.ParagraphIndex, 0, paragraphs.Count - 1);
         var endIndex = Math.Clamp(selection.End.ParagraphIndex, 0, paragraphs.Count - 1);
         if (startIndex > endIndex)
@@ -142,16 +177,13 @@ public sealed class EditorClipboardController
 
             if (startOffset <= 0 && endOffset >= paragraphLength)
             {
-                fragment.Blocks.Add(DocumentClone.CloneBlock(paragraph));
+                target.Add(DocumentClone.CloneBlock(paragraph));
                 continue;
             }
 
             var sliced = BuildParagraphFragment(paragraph, startOffset, endOffset);
-            fragment.Blocks.Add(sliced);
+            target.Add(sliced);
         }
-
-        PopulateResources(_session.Document, fragment);
-        return fragment;
     }
 
     private ClipboardDocumentFragment BuildTableFragment(EditorTableSelectionSnapshot snapshot)
@@ -168,12 +200,14 @@ public sealed class EditorClipboardController
         switch (content.Kind)
         {
             case ClipboardContentKind.FloatingObject:
-                if (content.FloatingObject is null)
+                if (content.FloatingObjects is null || content.FloatingObjects.Count == 0)
                 {
                     return false;
                 }
 
-                return PasteFloatingObject(content.FloatingObject);
+                return content.FloatingObjects.Count == 1
+                    ? PasteFloatingObject(content.FloatingObjects[0])
+                    : PasteFloatingObjects(content.FloatingObjects);
             case ClipboardContentKind.Blocks:
                 if (content.Fragment is null || content.Fragment.Blocks.Count == 0)
                 {
@@ -209,6 +243,39 @@ public sealed class EditorClipboardController
         return true;
     }
 
+    private bool PasteFloatingObjects(IReadOnlyList<FloatingObject> floatingObjects)
+    {
+        if (floatingObjects.Count == 0)
+        {
+            return false;
+        }
+
+        var document = _session.Document;
+        if (document.ParagraphCount == 0)
+        {
+            document.Blocks.Add(new ParagraphBlock());
+        }
+
+        if (!_session.Selection.IsEmpty)
+        {
+            _session.Backspace();
+        }
+
+        var paragraphIndex = Math.Clamp(_session.Caret.ParagraphIndex, 0, Math.Max(0, document.ParagraphCount - 1));
+        var paragraph = document.GetParagraph(paragraphIndex);
+        var offset = Math.Clamp(_session.Caret.Offset, 0, DocumentEditHelpers.GetParagraphLength(paragraph));
+
+        for (var i = 0; i < floatingObjects.Count; i++)
+        {
+            var clone = DocumentClone.CloneFloatingObject(floatingObjects[i]);
+            clone.Anchor.AnchorOffset = offset;
+            paragraph.FloatingObjects.Add(clone);
+        }
+
+        _session.RefreshLayout();
+        return true;
+    }
+
     private bool PasteBlocks(ClipboardDocumentFragment fragment, ClipboardPasteMode mode)
     {
         var blocks = CloneBlocks(fragment.Blocks);
@@ -217,7 +284,17 @@ public sealed class EditorClipboardController
             return false;
         }
 
-        ApplyResources(fragment.Resources, _session.Document, blocks, mode);
+        if (mode == ClipboardPasteMode.MatchDestination)
+        {
+            var destination = ResolveDestinationFormatting();
+            ApplyMatchDestinationFormatting(blocks, destination);
+            ApplyResourcesMatchDestination(fragment.Resources, _session.Document, blocks, destination);
+        }
+        else
+        {
+            ApplyResources(fragment.Resources, _session.Document, blocks, mode);
+        }
+
         InsertBlocksAtCaret(blocks);
         return true;
     }
@@ -878,12 +955,6 @@ public sealed class EditorClipboardController
         IReadOnlyList<Block> blocks,
         ClipboardPasteMode mode)
     {
-        if (mode == ClipboardPasteMode.MatchDestination)
-        {
-            StripStyleReferences(blocks);
-            return;
-        }
-
         MergeStyles(resources.Styles, target.Styles);
         MergeFonts(resources.Fonts, target.Fonts);
         MergeThemeColors(resources.ThemeColors, target.ThemeColors);
@@ -898,6 +969,228 @@ public sealed class EditorClipboardController
             RemapIds(blocks, listIdMap, footnoteMap, endnoteMap, commentMap);
         }
     }
+
+    private static void ApplyResourcesMatchDestination(
+        ClipboardResourceSet resources,
+        Document target,
+        IReadOnlyList<Block> blocks,
+        MatchDestinationFormatting destination)
+    {
+        var listIdMap = destination.ListInfo is null
+            ? MergeListDefinitions(resources.ListDefinitions, target.ListDefinitions)
+            : new Dictionary<int, int>();
+        var footnoteMap = MergeNotes(resources.Footnotes, target.Footnotes);
+        var endnoteMap = MergeNotes(resources.Endnotes, target.Endnotes);
+        var commentMap = MergeNotes(resources.Comments, target.Comments);
+
+        if (listIdMap.Count > 0 || footnoteMap.Count > 0 || endnoteMap.Count > 0 || commentMap.Count > 0)
+        {
+            RemapIds(blocks, listIdMap, footnoteMap, endnoteMap, commentMap);
+        }
+    }
+
+    private MatchDestinationFormatting ResolveDestinationFormatting()
+    {
+        var document = _session.Document;
+        var paragraphStyleId = document.Styles.DefaultParagraphStyleId;
+        var characterStyleId = document.Styles.DefaultCharacterStyleId;
+        var tableStyleId = document.Styles.DefaultTableStyleId;
+        ListInfo? listInfo = null;
+
+        if (document.ParagraphCount > 0)
+        {
+            var paragraphIndex = Math.Clamp(_session.Caret.ParagraphIndex, 0, Math.Max(0, document.ParagraphCount - 1));
+            var location = document.GetParagraphLocation(paragraphIndex);
+            var paragraph = location.Paragraph;
+
+            if (!string.IsNullOrWhiteSpace(paragraph.StyleId)
+                && document.Styles.ParagraphStyles.ContainsKey(paragraph.StyleId))
+            {
+                paragraphStyleId = paragraph.StyleId;
+            }
+
+            listInfo = paragraph.ListInfo?.Clone();
+            characterStyleId = ResolveRunStyleIdAtCaret(paragraph, _session.Caret.Offset, characterStyleId, document);
+
+            if (location.Table is { } table)
+            {
+                if (!string.IsNullOrWhiteSpace(table.StyleId)
+                    && document.Styles.TableStyles.ContainsKey(table.StyleId))
+                {
+                    tableStyleId = table.StyleId;
+                }
+            }
+        }
+
+        return new MatchDestinationFormatting(paragraphStyleId, characterStyleId, listInfo, tableStyleId);
+    }
+
+    private static void ApplyMatchDestinationFormatting(IReadOnlyList<Block> blocks, MatchDestinationFormatting destination)
+    {
+        var applyListOverride = destination.ListInfo is not null;
+        foreach (var block in blocks)
+        {
+            switch (block)
+            {
+                case ParagraphBlock paragraph:
+                    ApplyMatchDestinationToParagraph(paragraph, destination, applyListOverride);
+                    break;
+                case TableBlock table:
+                    table.StyleId = destination.TableStyleId;
+                    foreach (var row in table.Rows)
+                    {
+                        foreach (var cell in row.Cells)
+                        {
+                            foreach (var paragraph in cell.Paragraphs)
+                            {
+                                ApplyMatchDestinationToParagraph(paragraph, destination, applyListOverride);
+                            }
+                        }
+                    }
+
+                    break;
+            }
+        }
+    }
+
+    private static void ApplyMatchDestinationToParagraph(
+        ParagraphBlock paragraph,
+        MatchDestinationFormatting destination,
+        bool applyListOverride)
+    {
+        paragraph.StyleId = destination.ParagraphStyleId;
+
+        if (applyListOverride && destination.ListInfo is not null)
+        {
+            var sourceLevel = paragraph.ListInfo?.Level ?? 0;
+            var mergedLevel = Math.Max(0, destination.ListInfo.Level + sourceLevel);
+            paragraph.ListInfo = CloneListInfoWithLevel(destination.ListInfo, mergedLevel);
+        }
+
+        if (paragraph.Inlines.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var inline in paragraph.Inlines)
+        {
+            switch (inline)
+            {
+                case RunInline run:
+                    run.StyleId = destination.CharacterStyleId;
+                    run.Style = NormalizeTextStyleForMatchDestination(run.Style);
+                    break;
+                case EquationInline equation:
+                    equation.StyleId = null;
+                    equation.Style = NormalizeTextStyleForMatchDestination(equation.Style);
+                    break;
+                case RubyInline ruby:
+                    ruby.BaseStyleId = null;
+                    ruby.RubyStyleId = null;
+                    ruby.BaseStyle = NormalizeTextStyleForMatchDestination(ruby.BaseStyle);
+                    ruby.RubyStyle = NormalizeTextStyleForMatchDestination(ruby.RubyStyle);
+                    break;
+                case FootnoteReferenceInline footnote:
+                    footnote.StyleId = destination.CharacterStyleId;
+                    footnote.Style = NormalizeTextStyleForMatchDestination(footnote.Style);
+                    break;
+                case EndnoteReferenceInline endnote:
+                    endnote.StyleId = destination.CharacterStyleId;
+                    endnote.Style = NormalizeTextStyleForMatchDestination(endnote.Style);
+                    break;
+                case CommentReferenceInline comment:
+                    comment.StyleId = destination.CharacterStyleId;
+                    comment.Style = NormalizeTextStyleForMatchDestination(comment.Style);
+                    break;
+            }
+        }
+    }
+
+    private static TextStyleProperties? NormalizeTextStyleForMatchDestination(TextStyleProperties? style)
+    {
+        if (style is null)
+        {
+            return null;
+        }
+
+        style.FontFamily = null;
+        style.FontFamilyAscii = null;
+        style.FontFamilyHighAnsi = null;
+        style.FontFamilyEastAsia = null;
+        style.FontFamilyComplexScript = null;
+        style.FontSize = null;
+        style.FontSizeComplexScript = null;
+        style.ThemeFontAscii = null;
+        style.ThemeFontHighAnsi = null;
+        style.ThemeFontEastAsia = null;
+        style.ThemeFontComplexScript = null;
+
+        return style.HasValues ? style : null;
+    }
+
+    private static string? ResolveRunStyleIdAtCaret(
+        ParagraphBlock paragraph,
+        int offset,
+        string? defaultId,
+        Document document)
+    {
+        if (paragraph.Inlines.Count == 0)
+        {
+            return ResolveCharacterStyleIdOrDefault(defaultId, document);
+        }
+
+        var position = 0;
+        RunInline? lastRun = null;
+        foreach (var inline in paragraph.Inlines)
+        {
+            var length = DocumentEditHelpers.GetInlineLength(inline);
+            if (inline is RunInline run)
+            {
+                if (offset >= position && offset < position + length)
+                {
+                    return ResolveCharacterStyleIdOrDefault(run.StyleId ?? defaultId, document);
+                }
+
+                lastRun = run;
+            }
+
+            position += length;
+        }
+
+        return ResolveCharacterStyleIdOrDefault(lastRun?.StyleId ?? defaultId, document);
+    }
+
+    private static string? ResolveCharacterStyleIdOrDefault(string? styleId, Document document)
+    {
+        if (string.IsNullOrWhiteSpace(styleId))
+        {
+            return document.Styles.DefaultCharacterStyleId;
+        }
+
+        return document.Styles.CharacterStyles.ContainsKey(styleId) ? styleId : document.Styles.DefaultCharacterStyleId;
+    }
+
+    private static ListInfo CloneListInfoWithLevel(ListInfo source, int level)
+    {
+        var clone = new ListInfo(source.Kind, level, source.ListId)
+        {
+            NumberFormat = source.NumberFormat,
+            LevelText = source.LevelText,
+            BulletSymbol = source.BulletSymbol,
+            StartAt = source.StartAt,
+            LeftIndent = source.LeftIndent,
+            HangingIndent = source.HangingIndent,
+            TabStop = source.TabStop
+        };
+
+        return clone;
+    }
+
+    private readonly record struct MatchDestinationFormatting(
+        string? ParagraphStyleId,
+        string? CharacterStyleId,
+        ListInfo? ListInfo,
+        string? TableStyleId);
 
     private static void MergeStyles(DocumentStyles source, DocumentStyles target)
     {
@@ -1609,53 +1902,30 @@ public sealed class EditorClipboardController
         target.Borders.Right = source.Borders.Right?.Clone();
     }
 
-    private bool TryCloneSelectedFloatingObject(out FloatingObject floating)
+    private bool HasSelectedFloatingObjects()
     {
-        floating = null!;
-        var selectedId = _session.SelectedFloatingObjectId;
-        if (!selectedId.HasValue)
-        {
-            return false;
-        }
-
-        var paragraphCount = _session.Document.ParagraphCount;
-        for (var i = 0; i < paragraphCount; i++)
-        {
-            var paragraph = _session.Document.GetParagraph(i);
-            foreach (var candidate in paragraph.FloatingObjects)
-            {
-                if (candidate.Id == selectedId.Value)
-                {
-                    floating = DocumentClone.CloneFloatingObject(candidate);
-                    return true;
-                }
-            }
-        }
-
-        return false;
+        return GetSelectedFloatingIds().Count > 0;
     }
 
-    private bool DeleteSelectedFloatingObject()
+    private IReadOnlyList<Guid> GetSelectedFloatingIds()
     {
-        var selectedId = _session.SelectedFloatingObjectId;
-        if (!selectedId.HasValue)
+        var ids = _session.SelectedFloatingObjectIds;
+        if (ids.Count > 0)
         {
-            return false;
+            return ids;
         }
 
-        var paragraphCount = _session.Document.ParagraphCount;
-        for (var i = 0; i < paragraphCount; i++)
-        {
-            var paragraph = _session.Document.GetParagraph(i);
-            for (var j = paragraph.FloatingObjects.Count - 1; j >= 0; j--)
-            {
-                if (paragraph.FloatingObjects[j].Id != selectedId.Value)
-                {
-                    continue;
-                }
+        return _session.SelectedFloatingObjectId.HasValue
+            ? new[] { _session.SelectedFloatingObjectId.Value }
+            : Array.Empty<Guid>();
+    }
 
-                paragraph.FloatingObjects.RemoveAt(j);
-                _session.SetSelection(new TextRange(_session.Caret, _session.Caret));
+    private static bool ContainsFloatingId(IReadOnlyList<Guid> ids, Guid id)
+    {
+        for (var i = 0; i < ids.Count; i++)
+        {
+            if (ids[i] == id)
+            {
                 return true;
             }
         }
@@ -1663,12 +1933,155 @@ public sealed class EditorClipboardController
         return false;
     }
 
+    private TextRange[] GetNormalizedSelectionRanges()
+    {
+        var ranges = _session.SelectionRanges;
+        if (ranges.Count == 0)
+        {
+            return Array.Empty<TextRange>();
+        }
+
+        var list = new List<TextRange>(ranges.Count);
+        for (var i = 0; i < ranges.Count; i++)
+        {
+            var normalized = ranges[i].Normalize();
+            if (!normalized.IsEmpty)
+            {
+                list.Add(normalized);
+            }
+        }
+
+        if (list.Count == 0)
+        {
+            return Array.Empty<TextRange>();
+        }
+
+        list.Sort(CompareRanges);
+
+        var merged = new List<TextRange>(list.Count);
+        var current = list[0];
+        for (var i = 1; i < list.Count; i++)
+        {
+            var candidate = list[i];
+            if (candidate.Start <= current.End)
+            {
+                var end = candidate.End >= current.End ? candidate.End : current.End;
+                current = new TextRange(current.Start, end);
+                continue;
+            }
+
+            merged.Add(current);
+            current = candidate;
+        }
+
+        merged.Add(current);
+        return merged.ToArray();
+    }
+
+    private static int CompareRanges(TextRange left, TextRange right)
+    {
+        var startCompare = left.Start.CompareTo(right.Start);
+        if (startCompare != 0)
+        {
+            return startCompare;
+        }
+
+        return left.End.CompareTo(right.End);
+    }
+
+    private void DeleteSelectionRanges(IReadOnlyList<TextRange> ranges)
+    {
+        for (var i = ranges.Count - 1; i >= 0; i--)
+        {
+            var range = ranges[i];
+            if (range.IsEmpty)
+            {
+                continue;
+            }
+
+            _session.SetSelection(range);
+            _session.Backspace();
+        }
+    }
+
+    private bool TryCloneSelectedFloatingObjects(out List<FloatingObject> floatingObjects)
+    {
+        floatingObjects = new List<FloatingObject>();
+        var selectedIds = GetSelectedFloatingIds();
+        if (selectedIds.Count == 0)
+        {
+            return false;
+        }
+
+        var lookup = new Dictionary<Guid, FloatingObject>();
+        var paragraphCount = _session.Document.ParagraphCount;
+        for (var i = 0; i < paragraphCount; i++)
+        {
+            var paragraph = _session.Document.GetParagraph(i);
+            foreach (var candidate in paragraph.FloatingObjects)
+            {
+                if (!ContainsFloatingId(selectedIds, candidate.Id))
+                {
+                    continue;
+                }
+
+                lookup[candidate.Id] = DocumentClone.CloneFloatingObject(candidate);
+            }
+        }
+
+        for (var i = 0; i < selectedIds.Count; i++)
+        {
+            if (lookup.TryGetValue(selectedIds[i], out var clone))
+            {
+                floatingObjects.Add(clone);
+            }
+        }
+
+        return floatingObjects.Count > 0;
+    }
+
+    private bool DeleteSelectedFloatingObjects()
+    {
+        var selectedIds = GetSelectedFloatingIds();
+        if (selectedIds.Count == 0)
+        {
+            return false;
+        }
+
+        var removed = false;
+        var paragraphCount = _session.Document.ParagraphCount;
+        for (var i = 0; i < paragraphCount; i++)
+        {
+            var paragraph = _session.Document.GetParagraph(i);
+            for (var j = paragraph.FloatingObjects.Count - 1; j >= 0; j--)
+            {
+                if (!ContainsFloatingId(selectedIds, paragraph.FloatingObjects[j].Id))
+                {
+                    continue;
+                }
+
+                paragraph.FloatingObjects.RemoveAt(j);
+                removed = true;
+            }
+        }
+
+        if (removed)
+        {
+            _session.SetSelection(new TextRange(_session.Caret, _session.Caret));
+        }
+
+        return removed;
+    }
+
     private string BuildPlainText(ClipboardContent content)
     {
         switch (content.Kind)
         {
             case ClipboardContentKind.FloatingObject:
-                return DocumentConstants.ObjectReplacementChar.ToString();
+                var floatingCount = content.FloatingObjects?.Count ?? (content.FloatingObject is null ? 0 : 1);
+                return floatingCount <= 0
+                    ? string.Empty
+                    : new string(DocumentConstants.ObjectReplacementChar, floatingCount);
             case ClipboardContentKind.Blocks:
                 if (content.Fragment is null)
                 {

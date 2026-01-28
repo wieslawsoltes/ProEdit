@@ -68,7 +68,12 @@ public readonly record struct EditorFormattingSnapshot(
     EditorValue<bool> TextOutline,
     EditorValue<bool> TextShadow,
     EditorValue<bool> TextEmboss,
-    EditorValue<bool> TextImprint);
+    EditorValue<bool> TextImprint,
+    EditorValue<DocLigatureOptions> Ligatures,
+    EditorValue<bool> ContextualAlternates,
+    EditorValue<DocNumberForm> NumberForm,
+    EditorValue<DocNumberSpacing> NumberSpacing,
+    EditorValue<uint> StylisticSets);
 
 public interface IFormattingState
 {

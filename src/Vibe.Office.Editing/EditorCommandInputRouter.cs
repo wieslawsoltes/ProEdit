@@ -232,17 +232,29 @@ public sealed class EditorCommandInputRouter : IEditorInputRouter
     {
         if (pointerEvent.Kind == EditorPointerKind.Down)
         {
-            var extend = (pointerEvent.Modifiers & EditorModifiers.Shift) != 0;
-            _dispatcher.Dispatch(new SetCaretFromPointCommand(pointerEvent.X, pointerEvent.Y, extend), _session);
+            var mode = ResolveSelectionMode(pointerEvent.Modifiers);
+            _dispatcher.Dispatch(new SetCaretFromPointCommand(pointerEvent.X, pointerEvent.Y, mode), _session);
             return true;
         }
 
         if (pointerEvent.Kind == EditorPointerKind.Move && pointerEvent.Button == EditorPointerButton.Primary)
         {
-            _dispatcher.Dispatch(new SetCaretFromPointCommand(pointerEvent.X, pointerEvent.Y, true), _session);
+            _dispatcher.Dispatch(new SetCaretFromPointCommand(pointerEvent.X, pointerEvent.Y, SelectionUpdateMode.Extend), _session);
             return true;
         }
 
         return false;
+    }
+
+    private static SelectionUpdateMode ResolveSelectionMode(EditorModifiers modifiers)
+    {
+        var add = (modifiers & (EditorModifiers.Control | EditorModifiers.Meta)) != 0;
+        if (add)
+        {
+            return SelectionUpdateMode.Add;
+        }
+
+        var extend = (modifiers & EditorModifiers.Shift) != 0;
+        return extend ? SelectionUpdateMode.Extend : SelectionUpdateMode.Replace;
     }
 }

@@ -90,6 +90,6 @@ public sealed class SetCaretFromPointCommandHandler : EditorCommandHandler<SetCa
 {
     public override void Handle(IEditorMutableSession session, SetCaretFromPointCommand command)
     {
-        session.SetCaretFromPoint(command.X, command.Y, command.ExtendSelection);
+        session.SetCaretFromPoint(command.X, command.Y, command.Mode);
     }
 }

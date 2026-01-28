@@ -36,6 +36,7 @@ public readonly record struct EditorStyleCreateOptions(
     string Name,
     string? BasedOnId,
     string? NextStyleId,
+    string? LinkedStyleId,
     bool QuickStyle,
     bool AutoRedefine,
     TextStyleProperties? RunProperties,
