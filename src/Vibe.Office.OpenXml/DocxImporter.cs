@@ -12,6 +12,7 @@ using A = DocumentFormat.OpenXml.Drawing;
 using C = DocumentFormat.OpenXml.Drawing.Charts;
 using DW = DocumentFormat.OpenXml.Drawing.Wordprocessing;
 using Wps = DocumentFormat.OpenXml.Office2010.Word.DrawingShape;
+using W14 = DocumentFormat.OpenXml.Office2010.Word;
 using OpenXmlTableBorders = DocumentFormat.OpenXml.Wordprocessing.TableBorders;
 using OpenXmlTableCellBorders = DocumentFormat.OpenXml.Wordprocessing.TableCellBorders;
 using OpenXmlParagraphBorders = DocumentFormat.OpenXml.Wordprocessing.ParagraphBorders;
@@ -39,6 +40,19 @@ public sealed class DocxImporter
         }
 
         using var wordDocument = WordprocessingDocument.Open(filePath, false);
+        return LoadDocument(wordDocument);
+    }
+
+    public VibeDocument Load(Stream stream)
+    {
+        ArgumentNullException.ThrowIfNull(stream);
+
+        using var wordDocument = WordprocessingDocument.Open(stream, false);
+        return LoadDocument(wordDocument);
+    }
+
+    private VibeDocument LoadDocument(WordprocessingDocument wordDocument)
+    {
         var mainPart = wordDocument.MainDocumentPart;
         var body = mainPart?.Document?.Body;
 
@@ -165,6 +179,7 @@ public sealed class DocxImporter
         LoadMacros(mainPart, document);
         LoadBibliography(mainPart, document);
         return document;
+    
     }
 
     private static ParagraphBlock ParseParagraph(
@@ -493,6 +508,26 @@ public sealed class DocxImporter
         {
             document.TrackChangesEnabled = trackRevisions.Value;
         }
+
+        LoadCompatibilitySettings(settings, document);
+    }
+
+    private static void LoadCompatibilitySettings(Settings settings, VibeDocument document)
+    {
+        var compat = settings.GetFirstChild<Compatibility>();
+        if (compat is null)
+        {
+            return;
+        }
+
+        var target = document.Compatibility;
+        target.SuppressSpacingAtTopOfPage = ReadOnOff(compat.GetFirstChild<SuppressSpacingAtTopOfPage>());
+        target.SuppressSpacingBeforeAfterPageBreak = ReadOnOff(compat.GetFirstChild<SuppressSpacingBeforeAfterPageBreak>());
+        target.UseWord97LineBreakRules = ReadOnOff(compat.GetFirstChild<UseWord97LineBreakRules>());
+        target.WrapTrailSpaces = ReadOnOff(compat.GetFirstChild<WrapTrailSpaces>());
+        target.DoNotUseEastAsianBreakRules = ReadOnOff(compat.GetFirstChild<DoNotUseEastAsianBreakRules>());
+        target.UseAltKinsokuLineBreakRules = ReadOnOff(compat.GetFirstChild<UseAltKinsokuLineBreakRules>());
+        target.DoNotWrapTextWithPunctuation = ReadOnOff(compat.GetFirstChild<DoNotWrapTextWithPunctuation>());
     }
 
     private static void LoadDocumentBackground(MainDocumentPart? mainPart, VibeDocument document)
@@ -903,6 +938,10 @@ public sealed class DocxImporter
         document.Footnotes.Clear();
         document.Endnotes.Clear();
         document.Comments.Clear();
+        document.FootnoteSeparators.SeparatorBlocks.Clear();
+        document.FootnoteSeparators.ContinuationSeparatorBlocks.Clear();
+        document.EndnoteSeparators.SeparatorBlocks.Clear();
+        document.EndnoteSeparators.ContinuationSeparatorBlocks.Clear();
 
         if (mainPart.FootnotesPart?.Footnotes is { } footnotes)
         {
@@ -913,6 +952,19 @@ public sealed class DocxImporter
             {
                 var idValue = footnote.Id?.Value;
                 var id = idValue.HasValue ? (int)idValue.Value : -1;
+                if (id == -1 || id == 0)
+                {
+                    var separatorBlocks = id == -1
+                        ? document.FootnoteSeparators.SeparatorBlocks
+                        : document.FootnoteSeparators.ContinuationSeparatorBlocks;
+                    foreach (var block in ParseHeaderFooter(footnote, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, document.Revisions, placeholderResolver))
+                    {
+                        separatorBlocks.Add(block);
+                    }
+
+                    continue;
+                }
+
                 if (id < 0)
                 {
                     continue;
@@ -937,6 +989,19 @@ public sealed class DocxImporter
             {
                 var idValue = endnote.Id?.Value;
                 var id = idValue.HasValue ? (int)idValue.Value : -1;
+                if (id == -1 || id == 0)
+                {
+                    var separatorBlocks = id == -1
+                        ? document.EndnoteSeparators.SeparatorBlocks
+                        : document.EndnoteSeparators.ContinuationSeparatorBlocks;
+                    foreach (var block in ParseHeaderFooter(endnote, listResolver, imageResolver, chartResolver, hyperlinkResolver, styleResolver, document.Revisions, placeholderResolver))
+                    {
+                        separatorBlocks.Add(block);
+                    }
+
+                    continue;
+                }
+
                 if (id < 0)
                 {
                     continue;
@@ -2562,6 +2627,74 @@ public sealed class DocxImporter
             properties.PageNumbering = settings;
         }
 
+        var footnoteProps = sectionProps.GetFirstChild<FootnoteProperties>();
+        if (footnoteProps is not null)
+        {
+            var settings = new FootnoteSettings();
+            var start = footnoteProps.GetFirstChild<NumberingStart>()?.Val?.Value;
+            if (start.HasValue)
+            {
+                settings.Start = start.Value;
+            }
+
+            var restart = footnoteProps.GetFirstChild<NumberingRestart>()?.Val?.Value;
+            if (restart.HasValue)
+            {
+                settings.Restart = MapNoteNumberRestart(restart.Value);
+            }
+
+            var format = footnoteProps.GetFirstChild<NumberingFormat>()?.Val?.Value;
+            if (format.HasValue)
+            {
+                settings.Format = MapNoteNumberFormat(format.Value);
+            }
+
+            var position = footnoteProps.GetFirstChild<DocumentFormat.OpenXml.Wordprocessing.FootnotePosition>()?.Val?.Value;
+            if (position.HasValue)
+            {
+                settings.Position = MapFootnotePosition(position.Value);
+            }
+
+            if (settings.HasValues)
+            {
+                properties.Footnotes = settings;
+            }
+        }
+
+        var endnoteProps = sectionProps.GetFirstChild<EndnoteProperties>();
+        if (endnoteProps is not null)
+        {
+            var settings = new EndnoteSettings();
+            var start = endnoteProps.GetFirstChild<NumberingStart>()?.Val?.Value;
+            if (start.HasValue)
+            {
+                settings.Start = start.Value;
+            }
+
+            var restart = endnoteProps.GetFirstChild<NumberingRestart>()?.Val?.Value;
+            if (restart.HasValue)
+            {
+                settings.Restart = MapNoteNumberRestart(restart.Value);
+            }
+
+            var format = endnoteProps.GetFirstChild<NumberingFormat>()?.Val?.Value;
+            if (format.HasValue)
+            {
+                settings.Format = MapNoteNumberFormat(format.Value);
+            }
+
+            var position = endnoteProps.GetFirstChild<DocumentFormat.OpenXml.Wordprocessing.EndnotePosition>()?.Val?.Value;
+            if (position.HasValue)
+            {
+                settings.Position = MapEndnotePosition(position.Value);
+            }
+
+            if (settings.HasValues)
+            {
+                properties.Endnotes = settings;
+            }
+        }
+
         return properties;
     }
 
@@ -2845,6 +2978,8 @@ public sealed class DocxImporter
                         BasedOnId = definition.BasedOnId,
                         NextStyleId = definition.NextStyleId,
                         LinkedStyleId = definition.LinkedStyleId,
+                        ListId = definition.ParagraphProperties?.GetFirstChild<NumberingProperties>()?.NumberingId?.Val?.Value,
+                        ListLevel = definition.ParagraphProperties?.GetFirstChild<NumberingProperties>()?.NumberingLevelReference?.Val?.Value,
                         UiPriority = definition.UiPriority,
                         QuickStyle = definition.QuickStyle,
                         SemiHidden = definition.SemiHidden,
@@ -4138,6 +4273,8 @@ public sealed class DocxImporter
             style.Effects ??= new TextEffects();
             style.Effects.ApplyOverrides(effects);
         }
+
+        ApplyOpenTypeFeatures(style, properties);
     }
 
     private static void ApplyRunStyleProperties(OpenXmlElement? properties, TextStyleProperties style)
@@ -4413,6 +4550,202 @@ public sealed class DocxImporter
             style.Effects ??= new TextEffects();
             style.Effects.ApplyOverrides(effects);
         }
+
+        ApplyOpenTypeFeatures(style, properties);
+    }
+
+    private static void ApplyOpenTypeFeatures(TextStyle style, OpenXmlElement properties)
+    {
+        var features = ExtractOpenTypeFeatures(properties);
+        if (features is null)
+        {
+            return;
+        }
+
+        style.OpenTypeFeatures ??= new TextOpenTypeFeatures();
+        style.OpenTypeFeatures.ApplyOverrides(features);
+    }
+
+    private static void ApplyOpenTypeFeatures(TextStyleProperties style, OpenXmlElement properties)
+    {
+        var features = ExtractOpenTypeFeatures(properties);
+        if (features is null)
+        {
+            return;
+        }
+
+        style.OpenTypeFeatures ??= new TextOpenTypeFeatures();
+        style.OpenTypeFeatures.ApplyOverrides(features);
+    }
+
+    private static TextOpenTypeFeatures? ExtractOpenTypeFeatures(OpenXmlElement properties)
+    {
+        TextOpenTypeFeatures? features = null;
+
+        TextOpenTypeFeatures EnsureFeatures()
+        {
+            features ??= new TextOpenTypeFeatures();
+            return features;
+        }
+
+        var ligatures = properties.GetFirstChild<W14.Ligatures>();
+        if (ligatures?.Val?.Value is W14.LigaturesValues ligatureValue)
+        {
+            EnsureFeatures().Ligatures = MapLigatures(ligatureValue);
+        }
+
+        var contextual = properties.GetFirstChild<W14.ContextualAlternatives>();
+        if (contextual is not null)
+        {
+            var value = contextual.Val?.Value;
+            var enabled = value != W14.OnOffValues.False && value != W14.OnOffValues.Zero;
+            EnsureFeatures().ContextualAlternates = enabled;
+        }
+
+        var numberingFormat = properties.GetFirstChild<W14.NumberingFormat>();
+        if (numberingFormat?.Val?.Value is W14.NumberFormValues numberForm)
+        {
+            EnsureFeatures().NumberForm = MapNumberForm(numberForm);
+        }
+
+        var numberSpacing = properties.GetFirstChild<W14.NumberSpacing>();
+        if (numberSpacing?.Val?.Value is W14.NumberSpacingValues spacing)
+        {
+            EnsureFeatures().NumberSpacing = MapNumberSpacing(spacing);
+        }
+
+        var stylisticSets = properties.GetFirstChild<W14.StylisticSets>();
+        if (stylisticSets is not null)
+        {
+            uint mask = 0;
+            foreach (var child in stylisticSets.ChildElements)
+            {
+                if (!string.Equals(child.LocalName, "stylisticSet", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                var value = GetAttributeValue(child, "val", child.NamespaceUri);
+                if (int.TryParse(value, out var setIndex) && setIndex is >= 1 and <= 20)
+                {
+                    mask |= 1u << (setIndex - 1);
+                }
+            }
+
+            EnsureFeatures().StylisticSets = mask;
+        }
+
+        return features?.HasValues == true ? features : null;
+    }
+
+    private static DocLigatureOptions MapLigatures(W14.LigaturesValues value)
+    {
+        if (value == W14.LigaturesValues.None)
+        {
+            return DocLigatureOptions.None;
+        }
+
+        if (value == W14.LigaturesValues.Standard)
+        {
+            return DocLigatureOptions.Standard;
+        }
+
+        if (value == W14.LigaturesValues.Contextual)
+        {
+            return DocLigatureOptions.Contextual;
+        }
+
+        if (value == W14.LigaturesValues.Discretional)
+        {
+            return DocLigatureOptions.Discretional;
+        }
+
+        if (value == W14.LigaturesValues.Historical)
+        {
+            return DocLigatureOptions.Historical;
+        }
+
+        if (value == W14.LigaturesValues.StandardContextual)
+        {
+            return DocLigatureOptions.Standard | DocLigatureOptions.Contextual;
+        }
+
+        if (value == W14.LigaturesValues.StandardHistorical)
+        {
+            return DocLigatureOptions.Standard | DocLigatureOptions.Historical;
+        }
+
+        if (value == W14.LigaturesValues.ContextualHistorical)
+        {
+            return DocLigatureOptions.Contextual | DocLigatureOptions.Historical;
+        }
+
+        if (value == W14.LigaturesValues.StandardDiscretional)
+        {
+            return DocLigatureOptions.Standard | DocLigatureOptions.Discretional;
+        }
+
+        if (value == W14.LigaturesValues.ContextualDiscretional)
+        {
+            return DocLigatureOptions.Contextual | DocLigatureOptions.Discretional;
+        }
+
+        if (value == W14.LigaturesValues.HistoricalDiscretional)
+        {
+            return DocLigatureOptions.Historical | DocLigatureOptions.Discretional;
+        }
+
+        if (value == W14.LigaturesValues.StandardContextualHistorical)
+        {
+            return DocLigatureOptions.Standard | DocLigatureOptions.Contextual | DocLigatureOptions.Historical;
+        }
+
+        if (value == W14.LigaturesValues.StandardContextualDiscretional)
+        {
+            return DocLigatureOptions.Standard | DocLigatureOptions.Contextual | DocLigatureOptions.Discretional;
+        }
+
+        if (value == W14.LigaturesValues.StandardHistoricalDiscretional)
+        {
+            return DocLigatureOptions.Standard | DocLigatureOptions.Historical | DocLigatureOptions.Discretional;
+        }
+
+        if (value == W14.LigaturesValues.ContextualHistoricalDiscretional)
+        {
+            return DocLigatureOptions.Contextual | DocLigatureOptions.Historical | DocLigatureOptions.Discretional;
+        }
+
+        return DocLigatureOptions.Standard | DocLigatureOptions.Contextual | DocLigatureOptions.Discretional | DocLigatureOptions.Historical;
+    }
+
+    private static DocNumberForm MapNumberForm(W14.NumberFormValues value)
+    {
+        if (value == W14.NumberFormValues.Lining)
+        {
+            return DocNumberForm.Lining;
+        }
+
+        if (value == W14.NumberFormValues.OldStyle)
+        {
+            return DocNumberForm.OldStyle;
+        }
+
+        return DocNumberForm.Default;
+    }
+
+    private static DocNumberSpacing MapNumberSpacing(W14.NumberSpacingValues value)
+    {
+        if (value == W14.NumberSpacingValues.Proportional)
+        {
+            return DocNumberSpacing.Proportional;
+        }
+
+        if (value == W14.NumberSpacingValues.Tabular)
+        {
+            return DocNumberSpacing.Tabular;
+        }
+
+        return DocNumberSpacing.Default;
     }
 
     private static TextEffects? ParseTextEffects(OpenXmlElement properties)
@@ -4584,6 +4917,13 @@ public sealed class DocxImporter
         {
             properties.FloatingAnchor = BuildTableFloatingAnchor(tablePosition, properties.Alignment);
         }
+
+        var overlap = props.GetFirstChild<TableOverlap>();
+        if (overlap?.Val?.Value is TableOverlapValues overlapValue
+            && properties.FloatingAnchor is not null)
+        {
+            properties.FloatingAnchor.AllowOverlap = overlapValue != TableOverlapValues.Never;
+        }
     }
 
     private static void ApplyTableWidth(TableWidth tableWidth, Vibe.Office.Documents.TableProperties properties)
@@ -4616,6 +4956,35 @@ public sealed class DocxImporter
                 properties.Width = percent.Value;
                 properties.WidthUnit = Vibe.Office.Documents.TableWidthUnit.Pct;
             }
+        }
+    }
+
+    private static void ApplyTableCellWidth(TableCellWidth cellWidth, Vibe.Office.Documents.TableCellProperties properties)
+    {
+        var widthType = cellWidth.Type?.Value;
+        if (widthType == TableWidthUnitValues.Auto)
+        {
+            properties.PreferredWidth = null;
+            properties.PreferredWidthUnit = Vibe.Office.Documents.TableWidthUnit.Auto;
+            return;
+        }
+
+        if (widthType == TableWidthUnitValues.Pct)
+        {
+            var percent = TryParseTablePercentage(cellWidth.Width);
+            if (percent.HasValue)
+            {
+                properties.PreferredWidth = percent.Value;
+                properties.PreferredWidthUnit = Vibe.Office.Documents.TableWidthUnit.Pct;
+                return;
+            }
+        }
+
+        var widthTwips = TryParseTwips(cellWidth.Width);
+        if (widthTwips.HasValue)
+        {
+            properties.PreferredWidth = TwipsToDip(widthTwips.Value);
+            properties.PreferredWidthUnit = Vibe.Office.Documents.TableWidthUnit.Dxa;
         }
     }
 
@@ -4793,6 +5162,12 @@ public sealed class DocxImporter
             properties.Borders.Bottom = ParseBorderLine(borders.BottomBorder, themeColors);
             properties.Borders.Left = ParseBorderLine(borders.LeftBorder, themeColors);
             properties.Borders.Right = ParseBorderLine(borders.RightBorder, themeColors);
+        }
+
+        var cellWidth = props.GetFirstChild<TableCellWidth>();
+        if (cellWidth is not null)
+        {
+            ApplyTableCellWidth(cellWidth, properties);
         }
 
         var margin = props.GetFirstChild<TableCellMargin>();
@@ -5654,6 +6029,79 @@ public sealed class DocxImporter
         }
 
         return PageNumberFormat.Decimal;
+    }
+
+    private static readonly NumberFormatValues SymbolNumberFormat = new("symbol");
+
+    private static NoteNumberFormat MapNoteNumberFormat(NumberFormatValues value)
+    {
+        if (value == NumberFormatValues.UpperRoman)
+        {
+            return NoteNumberFormat.UpperRoman;
+        }
+
+        if (value == NumberFormatValues.LowerRoman)
+        {
+            return NoteNumberFormat.LowerRoman;
+        }
+
+        if (value == NumberFormatValues.UpperLetter)
+        {
+            return NoteNumberFormat.UpperLetter;
+        }
+
+        if (value == NumberFormatValues.LowerLetter)
+        {
+            return NoteNumberFormat.LowerLetter;
+        }
+
+        if (IsSymbolNumberFormat(value))
+        {
+            return NoteNumberFormat.Symbol;
+        }
+
+        return NoteNumberFormat.Decimal;
+    }
+
+    private static bool IsSymbolNumberFormat(NumberFormatValues value)
+    {
+        return value == SymbolNumberFormat
+            || string.Equals(value.ToString(), "symbol", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static NoteNumberRestart MapNoteNumberRestart(RestartNumberValues value)
+    {
+        if (value == RestartNumberValues.EachSection)
+        {
+            return NoteNumberRestart.EachSection;
+        }
+
+        if (value == RestartNumberValues.EachPage)
+        {
+            return NoteNumberRestart.EachPage;
+        }
+
+        return NoteNumberRestart.Continuous;
+    }
+
+    private static Vibe.Office.Documents.FootnotePosition MapFootnotePosition(FootnotePositionValues value)
+    {
+        if (value == FootnotePositionValues.BeneathText)
+        {
+            return Vibe.Office.Documents.FootnotePosition.BeneathText;
+        }
+
+        return Vibe.Office.Documents.FootnotePosition.PageBottom;
+    }
+
+    private static Vibe.Office.Documents.EndnotePosition MapEndnotePosition(EndnotePositionValues value)
+    {
+        if (value == EndnotePositionValues.SectionEnd)
+        {
+            return Vibe.Office.Documents.EndnotePosition.EndOfSection;
+        }
+
+        return Vibe.Office.Documents.EndnotePosition.EndOfDocument;
     }
 
     private static FloatingHorizontalReference MapFrameHorizontalReference(HorizontalAnchorValues value)
@@ -6620,6 +7068,12 @@ public sealed class DocxImporter
             target.Effects ??= new TextEffects();
             target.Effects.ApplyOverrides(overrides.Effects);
         }
+
+        if (overrides.OpenTypeFeatures?.HasValues == true)
+        {
+            target.OpenTypeFeatures ??= new TextOpenTypeFeatures();
+            target.OpenTypeFeatures.ApplyOverrides(overrides.OpenTypeFeatures);
+        }
     }
 
     private static string CollectMathText(OpenXmlElement element)
@@ -7037,6 +7491,8 @@ public sealed class DocxImporter
             && int.TryParse(zIndexValue, NumberStyles.Integer, CultureInfo.InvariantCulture, out var zIndex))
         {
             target.BehindText = zIndex < 0;
+            var abs = zIndex == int.MinValue ? int.MaxValue : Math.Abs(zIndex);
+            target.ZOrder = (uint)abs;
         }
 
         var hasDistance = false;
@@ -7430,6 +7886,11 @@ public sealed class DocxImporter
     private static void ApplyAnchorProperties(DW.Anchor anchor, FloatingAnchor target)
     {
         target.BehindText = anchor.BehindDoc?.Value ?? false;
+        target.AllowOverlap = anchor.AllowOverlap?.Value ?? true;
+        if (anchor.RelativeHeight?.Value is uint relativeHeight)
+        {
+            target.ZOrder = relativeHeight;
+        }
 
         var distance = target.Distance;
         var left = anchor.DistanceFromLeft?.Value;

@@ -17,6 +17,7 @@ using DW = DocumentFormat.OpenXml.Drawing.Wordprocessing;
 using M = DocumentFormat.OpenXml.Math;
 using PIC = DocumentFormat.OpenXml.Drawing.Pictures;
 using Wps = DocumentFormat.OpenXml.Office2010.Word.DrawingShape;
+using W14 = DocumentFormat.OpenXml.Office2010.Word;
 using Vibe.Office.Documents;
 using Vibe.Office.Primitives;
 using VibeDocument = Vibe.Office.Documents.Document;
@@ -28,6 +29,7 @@ public sealed class DocxExporter
     private const string RelationshipNamespace = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
     private const string WordprocessingNamespace = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
     private const string VmlNamespace = "urn:schemas-microsoft-com:vml";
+    private const string Word2010Namespace = "http://schemas.microsoft.com/office/word/2010/wordml";
     private const string OfficeNamespace = "urn:schemas-microsoft-com:office:office";
     private const string DiagramNamespace = "http://schemas.openxmlformats.org/drawingml/2006/diagram";
     private const string AltChunkRelationshipType = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/aFChunk";
@@ -56,6 +58,25 @@ public sealed class DocxExporter
 
         var documentType = ResolveDocumentType(filePath, document.Macros);
         using var wordDocument = WordprocessingDocument.Create(filePath, documentType);
+        SaveDocument(document, wordDocument);
+    }
+
+    public void Save(VibeDocument document, Stream stream)
+    {
+        if (document is null)
+        {
+            throw new ArgumentNullException(nameof(document));
+        }
+
+        ArgumentNullException.ThrowIfNull(stream);
+
+        var documentType = ResolveDocumentType(document.Macros);
+        using var wordDocument = WordprocessingDocument.Create(stream, documentType);
+        SaveDocument(document, wordDocument);
+    }
+
+    private void SaveDocument(VibeDocument document, WordprocessingDocument wordDocument)
+    {
         var mainPart = wordDocument.AddMainDocumentPart();
         mainPart.Document = new DocumentFormat.OpenXml.Wordprocessing.Document(new Body());
         var body = mainPart.Document.Body!;
@@ -343,6 +364,12 @@ public sealed class DocxExporter
         var extension = Path.GetExtension(filePath);
         var isMacroEnabled = extension.Equals(".docm", StringComparison.OrdinalIgnoreCase)
             || macros.VbaProject is { Length: > 0 };
+        return isMacroEnabled ? WordprocessingDocumentType.MacroEnabledDocument : WordprocessingDocumentType.Document;
+    }
+
+    private static WordprocessingDocumentType ResolveDocumentType(DocumentMacros macros)
+    {
+        var isMacroEnabled = macros.VbaProject is { Length: > 0 };
         return isMacroEnabled ? WordprocessingDocumentType.MacroEnabledDocument : WordprocessingDocumentType.Document;
     }
 
@@ -1226,7 +1253,11 @@ public sealed class DocxExporter
 
     private static void EnsureDocumentSettings(MainDocumentPart mainPart, VibeDocument document, bool includeEvenHeaders)
     {
-        if (!document.MirrorMargins && !document.GutterAtTop && !includeEvenHeaders && !document.TrackChangesEnabled)
+        if (!document.MirrorMargins
+            && !document.GutterAtTop
+            && !includeEvenHeaders
+            && !document.TrackChangesEnabled
+            && !document.Compatibility.HasValues)
         {
             return;
         }
@@ -1254,7 +1285,35 @@ public sealed class DocxExporter
             settings.AppendChild(new TrackRevisions());
         }
 
+        if (document.Compatibility.HasValues)
+        {
+            var compat = new Compatibility();
+            AppendCompatibilitySetting(compat, document.Compatibility.SuppressSpacingAtTopOfPage, static value => new SuppressSpacingAtTopOfPage { Val = value });
+            AppendCompatibilitySetting(compat, document.Compatibility.SuppressSpacingBeforeAfterPageBreak, static value => new SuppressSpacingBeforeAfterPageBreak { Val = value });
+            AppendCompatibilitySetting(compat, document.Compatibility.UseWord97LineBreakRules, static value => new UseWord97LineBreakRules { Val = value });
+            AppendCompatibilitySetting(compat, document.Compatibility.WrapTrailSpaces, static value => new WrapTrailSpaces { Val = value });
+            AppendCompatibilitySetting(compat, document.Compatibility.DoNotUseEastAsianBreakRules, static value => new DoNotUseEastAsianBreakRules { Val = value });
+            AppendCompatibilitySetting(compat, document.Compatibility.UseAltKinsokuLineBreakRules, static value => new UseAltKinsokuLineBreakRules { Val = value });
+            AppendCompatibilitySetting(compat, document.Compatibility.DoNotWrapTextWithPunctuation, static value => new DoNotWrapTextWithPunctuation { Val = value });
+
+            if (compat.ChildElements.Count > 0)
+            {
+                settings.AppendChild(compat);
+            }
+        }
+
         settingsPart.Settings = settings;
+    }
+
+    private static void AppendCompatibilitySetting<T>(Compatibility compat, bool? value, Func<bool, T> factory)
+        where T : OpenXmlElement
+    {
+        if (!value.HasValue)
+        {
+            return;
+        }
+
+        compat.AppendChild(factory(value.Value));
     }
 
     private static void ApplyDocumentBackground(DocumentFormat.OpenXml.Wordprocessing.Document documentXml, VibeDocument document)
@@ -1517,6 +1576,14 @@ public sealed class DocxExporter
             style.CustomStyle);
 
         var paragraphProperties = BuildStyleParagraphProperties(style.ParagraphProperties);
+        if (style.ListId.HasValue)
+        {
+            paragraphProperties ??= new StyleParagraphProperties();
+            paragraphProperties.NumberingProperties = new NumberingProperties(
+                new NumberingLevelReference { Val = style.ListLevel ?? 0 },
+                new NumberingId { Val = style.ListId.Value });
+        }
+
         if (paragraphProperties is not null)
         {
             element.AppendChild(paragraphProperties);
@@ -2783,14 +2850,39 @@ public sealed class DocxExporter
         DocumentFonts fonts)
     {
         var footnotes = new Footnotes();
-        footnotes.AppendChild(CreateSeparatorFootnote(-1, false));
-        footnotes.AppendChild(CreateSeparatorFootnote(0, true));
-
         var imageWriter = new ImageWriter(footnotesPart);
         var chartWriter = new ChartWriter(footnotesPart);
         var hyperlinkWriter = new HyperlinkWriter(footnotesPart);
         var embeddedObjectWriter = new EmbeddedObjectWriter(footnotesPart);
         var altChunkWriter = new AltChunkWriter(footnotesPart);
+        footnotes.AppendChild(BuildSeparatorFootnote(
+            -1,
+            false,
+            document.FootnoteSeparators.SeparatorBlocks,
+            document,
+            spacingResolver,
+            numberingContext,
+            imageWriter,
+            chartWriter,
+            hyperlinkWriter,
+            embeddedObjectWriter,
+            altChunkWriter,
+            placeholderWriter,
+            fonts));
+        footnotes.AppendChild(BuildSeparatorFootnote(
+            0,
+            true,
+            document.FootnoteSeparators.ContinuationSeparatorBlocks,
+            document,
+            spacingResolver,
+            numberingContext,
+            imageWriter,
+            chartWriter,
+            hyperlinkWriter,
+            embeddedObjectWriter,
+            altChunkWriter,
+            placeholderWriter,
+            fonts));
         foreach (var definition in document.Footnotes.Values.OrderBy(item => item.Id))
         {
             var footnote = new Footnote { Id = definition.Id };
@@ -2815,14 +2907,37 @@ public sealed class DocxExporter
         DocumentFonts fonts)
     {
         var endnotes = new Endnotes();
-        endnotes.AppendChild(CreateEndnoteSeparator(-1));
-        endnotes.AppendChild(CreateEndnoteSeparator(0));
-
         var imageWriter = new ImageWriter(endnotesPart);
         var chartWriter = new ChartWriter(endnotesPart);
         var hyperlinkWriter = new HyperlinkWriter(endnotesPart);
         var embeddedObjectWriter = new EmbeddedObjectWriter(endnotesPart);
         var altChunkWriter = new AltChunkWriter(endnotesPart);
+        endnotes.AppendChild(BuildSeparatorEndnote(
+            -1,
+            document.EndnoteSeparators.SeparatorBlocks,
+            document,
+            spacingResolver,
+            numberingContext,
+            imageWriter,
+            chartWriter,
+            hyperlinkWriter,
+            embeddedObjectWriter,
+            altChunkWriter,
+            placeholderWriter,
+            fonts));
+        endnotes.AppendChild(BuildSeparatorEndnote(
+            0,
+            document.EndnoteSeparators.ContinuationSeparatorBlocks,
+            document,
+            spacingResolver,
+            numberingContext,
+            imageWriter,
+            chartWriter,
+            hyperlinkWriter,
+            embeddedObjectWriter,
+            altChunkWriter,
+            placeholderWriter,
+            fonts));
         foreach (var definition in document.Endnotes.Values.OrderBy(item => item.Id))
         {
             var endnote = new Endnote { Id = definition.Id };
@@ -2894,12 +3009,71 @@ public sealed class DocxExporter
         return footnote;
     }
 
+    private static Footnote BuildSeparatorFootnote(
+        int id,
+        bool continuation,
+        IReadOnlyList<Block> blocks,
+        VibeDocument document,
+        ParagraphContextualSpacingResolver spacingResolver,
+        NumberingContext numberingContext,
+        ImageWriter imageWriter,
+        ChartWriter chartWriter,
+        HyperlinkWriter hyperlinkWriter,
+        EmbeddedObjectWriter embeddedObjectWriter,
+        AltChunkWriter altChunkWriter,
+        ContentControlPlaceholderWriter? placeholderWriter,
+        DocumentFonts fonts)
+    {
+        if (blocks.Count == 0)
+        {
+            return CreateSeparatorFootnote(id, continuation);
+        }
+
+        var footnote = new Footnote { Id = id };
+        AppendBlocks(footnote, blocks, document, spacingResolver, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts);
+        if (!footnote.ChildElements.Any())
+        {
+            footnote.AppendChild(new Paragraph(new Run(new Text(string.Empty))));
+        }
+
+        return footnote;
+    }
+
     private static Endnote CreateEndnoteSeparator(int id)
     {
         var endnote = new Endnote { Id = id };
         var paragraph = new Paragraph();
         paragraph.AppendChild(new Run(new SeparatorMark()));
         endnote.AppendChild(paragraph);
+        return endnote;
+    }
+
+    private static Endnote BuildSeparatorEndnote(
+        int id,
+        IReadOnlyList<Block> blocks,
+        VibeDocument document,
+        ParagraphContextualSpacingResolver spacingResolver,
+        NumberingContext numberingContext,
+        ImageWriter imageWriter,
+        ChartWriter chartWriter,
+        HyperlinkWriter hyperlinkWriter,
+        EmbeddedObjectWriter embeddedObjectWriter,
+        AltChunkWriter altChunkWriter,
+        ContentControlPlaceholderWriter? placeholderWriter,
+        DocumentFonts fonts)
+    {
+        if (blocks.Count == 0)
+        {
+            return CreateEndnoteSeparator(id);
+        }
+
+        var endnote = new Endnote { Id = id };
+        AppendBlocks(endnote, blocks, document, spacingResolver, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts);
+        if (!endnote.ChildElements.Any())
+        {
+            endnote.AppendChild(new Paragraph(new Run(new Text(string.Empty))));
+        }
+
         return endnote;
     }
 
@@ -3328,18 +3502,40 @@ public sealed class DocxExporter
                 case FieldStartInline fieldStart:
                 {
                     var fieldInlines = new List<Inline>();
+                    var depth = 0;
                     index++;
                     while (index < inlines.Count)
                     {
                         var item = inlines[index];
+                        if (item is FieldStartInline)
+                        {
+                            depth++;
+                            fieldInlines.Add(item);
+                            index++;
+                            continue;
+                        }
+
                         if (item is FieldSeparatorInline)
                         {
+                            if (depth > 0)
+                            {
+                                fieldInlines.Add(item);
+                            }
+
                             index++;
                             continue;
                         }
 
                         if (item is FieldEndInline)
                         {
+                            if (depth > 0)
+                            {
+                                depth--;
+                                fieldInlines.Add(item);
+                                index++;
+                                continue;
+                            }
+
                             index++;
                             break;
                         }
@@ -4592,6 +4788,7 @@ public sealed class DocxExporter
             props.EastAsianLayout = eastAsianLayout;
         }
 
+        AppendOpenTypeFeatures(props, style.OpenTypeFeatures);
         AppendTextEffects(props, style.Effects);
 
         return props;
@@ -4743,6 +4940,7 @@ public sealed class DocxExporter
             props.EastAsianLayout = eastAsianLayout;
         }
 
+        AppendOpenTypeFeatures(props, style.OpenTypeFeatures);
         AppendTextEffects(props, style.Effects);
 
         return props;
@@ -4886,6 +5084,7 @@ public sealed class DocxExporter
             props.EastAsianLayout = eastAsianLayout;
         }
 
+        AppendOpenTypeFeatures(props, style.OpenTypeFeatures);
         AppendTextEffects(props, style.Effects);
 
         return props;
@@ -5023,6 +5222,7 @@ public sealed class DocxExporter
             props.EastAsianLayout = eastAsianLayout;
         }
 
+        AppendOpenTypeFeatures(props, style.OpenTypeFeatures);
         AppendTextEffects(props, style.Effects);
 
         return props;
@@ -5408,6 +5608,7 @@ public sealed class DocxExporter
                || !string.IsNullOrWhiteSpace(style.LanguageEastAsia)
                || !string.IsNullOrWhiteSpace(style.LanguageBidi)
                || (style.EastAsianLayout?.HasValues ?? false)
+               || (style.OpenTypeFeatures?.HasValues ?? false)
                || (style.Effects?.HasValues ?? false);
     }
 
@@ -5479,6 +5680,103 @@ public sealed class DocxExporter
         {
             props.AppendChild(new Imprint { Val = effects.Imprint.Value });
         }
+    }
+
+    private static void AppendOpenTypeFeatures(OpenXmlCompositeElement props, TextOpenTypeFeatures? features)
+    {
+        if (features is null || !features.HasValues)
+        {
+            return;
+        }
+
+        if (features.Ligatures.HasValue)
+        {
+            props.AppendChild(new W14.Ligatures { Val = MapLigaturesValue(features.Ligatures.Value) });
+        }
+
+        if (features.ContextualAlternates.HasValue)
+        {
+            props.AppendChild(new W14.ContextualAlternatives
+            {
+                Val = features.ContextualAlternates.Value ? W14.OnOffValues.True : W14.OnOffValues.False
+            });
+        }
+
+        if (features.NumberForm.HasValue)
+        {
+            props.AppendChild(new W14.NumberingFormat { Val = MapNumberFormValue(features.NumberForm.Value) });
+        }
+
+        if (features.NumberSpacing.HasValue)
+        {
+            props.AppendChild(new W14.NumberSpacing { Val = MapNumberSpacingValue(features.NumberSpacing.Value) });
+        }
+
+        if (features.StylisticSets.HasValue)
+        {
+            var sets = features.StylisticSets.Value;
+            var stylisticSets = new W14.StylisticSets();
+            for (var setIndex = 1; setIndex <= 20; setIndex++)
+            {
+                if ((sets & (1u << (setIndex - 1))) == 0)
+                {
+                    continue;
+                }
+
+                var element = new OpenXmlUnknownElement(
+                    $"<w14:stylisticSet w14:val=\"{setIndex}\" xmlns:w14=\"{Word2010Namespace}\" />");
+                stylisticSets.AppendChild(element);
+            }
+
+            if (stylisticSets.ChildElements.Count > 0 || sets == 0u)
+            {
+                props.AppendChild(stylisticSets);
+            }
+        }
+    }
+
+    private static W14.LigaturesValues MapLigaturesValue(DocLigatureOptions options)
+    {
+        return options switch
+        {
+            DocLigatureOptions.None => W14.LigaturesValues.None,
+            DocLigatureOptions.Standard => W14.LigaturesValues.Standard,
+            DocLigatureOptions.Contextual => W14.LigaturesValues.Contextual,
+            DocLigatureOptions.Discretional => W14.LigaturesValues.Discretional,
+            DocLigatureOptions.Historical => W14.LigaturesValues.Historical,
+            DocLigatureOptions.Standard | DocLigatureOptions.Contextual => W14.LigaturesValues.StandardContextual,
+            DocLigatureOptions.Standard | DocLigatureOptions.Historical => W14.LigaturesValues.StandardHistorical,
+            DocLigatureOptions.Contextual | DocLigatureOptions.Historical => W14.LigaturesValues.ContextualHistorical,
+            DocLigatureOptions.Standard | DocLigatureOptions.Discretional => W14.LigaturesValues.StandardDiscretional,
+            DocLigatureOptions.Contextual | DocLigatureOptions.Discretional => W14.LigaturesValues.ContextualDiscretional,
+            DocLigatureOptions.Historical | DocLigatureOptions.Discretional => W14.LigaturesValues.HistoricalDiscretional,
+            DocLigatureOptions.Standard | DocLigatureOptions.Contextual | DocLigatureOptions.Historical => W14.LigaturesValues.StandardContextualHistorical,
+            DocLigatureOptions.Standard | DocLigatureOptions.Contextual | DocLigatureOptions.Discretional => W14.LigaturesValues.StandardContextualDiscretional,
+            DocLigatureOptions.Standard | DocLigatureOptions.Historical | DocLigatureOptions.Discretional => W14.LigaturesValues.StandardHistoricalDiscretional,
+            DocLigatureOptions.Contextual | DocLigatureOptions.Historical | DocLigatureOptions.Discretional => W14.LigaturesValues.ContextualHistoricalDiscretional,
+            DocLigatureOptions.Standard | DocLigatureOptions.Contextual | DocLigatureOptions.Discretional | DocLigatureOptions.Historical => W14.LigaturesValues.All,
+            _ => W14.LigaturesValues.None
+        };
+    }
+
+    private static W14.NumberFormValues MapNumberFormValue(DocNumberForm form)
+    {
+        return form switch
+        {
+            DocNumberForm.Lining => W14.NumberFormValues.Lining,
+            DocNumberForm.OldStyle => W14.NumberFormValues.OldStyle,
+            _ => W14.NumberFormValues.Default
+        };
+    }
+
+    private static W14.NumberSpacingValues MapNumberSpacingValue(DocNumberSpacing spacing)
+    {
+        return spacing switch
+        {
+            DocNumberSpacing.Proportional => W14.NumberSpacingValues.Proportional,
+            DocNumberSpacing.Tabular => W14.NumberSpacingValues.Tabular,
+            _ => W14.NumberSpacingValues.Default
+        };
     }
 
     private static bool HasParagraphStyleProperties(ParagraphStyleProperties properties)
@@ -5847,6 +6145,45 @@ public sealed class DocxExporter
             PageNumberFormat.LowerLetter => NumberFormatValues.LowerLetter,
             _ => NumberFormatValues.Decimal
         };
+    }
+
+    private static readonly NumberFormatValues SymbolNumberFormat = new("symbol");
+
+    private static NumberFormatValues MapNoteNumberFormat(NoteNumberFormat format)
+    {
+        return format switch
+        {
+            NoteNumberFormat.UpperRoman => NumberFormatValues.UpperRoman,
+            NoteNumberFormat.LowerRoman => NumberFormatValues.LowerRoman,
+            NoteNumberFormat.UpperLetter => NumberFormatValues.UpperLetter,
+            NoteNumberFormat.LowerLetter => NumberFormatValues.LowerLetter,
+            NoteNumberFormat.Symbol => SymbolNumberFormat,
+            _ => NumberFormatValues.Decimal
+        };
+    }
+
+    private static RestartNumberValues MapNoteNumberRestart(NoteNumberRestart restart)
+    {
+        return restart switch
+        {
+            NoteNumberRestart.EachSection => RestartNumberValues.EachSection,
+            NoteNumberRestart.EachPage => RestartNumberValues.EachPage,
+            _ => RestartNumberValues.Continuous
+        };
+    }
+
+    private static FootnotePositionValues MapFootnotePosition(Vibe.Office.Documents.FootnotePosition position)
+    {
+        return position == Vibe.Office.Documents.FootnotePosition.BeneathText
+            ? FootnotePositionValues.BeneathText
+            : FootnotePositionValues.PageBottom;
+    }
+
+    private static EndnotePositionValues MapEndnotePosition(Vibe.Office.Documents.EndnotePosition position)
+    {
+        return position == Vibe.Office.Documents.EndnotePosition.EndOfSection
+            ? EndnotePositionValues.SectionEnd
+            : EndnotePositionValues.DocumentEnd;
     }
 
     private static HorizontalAnchorValues MapFrameHorizontalReference(FloatingHorizontalReference reference)
@@ -6306,6 +6643,64 @@ public sealed class DocxExporter
                 pageNumbers.Format = MapPageNumberFormat(properties.PageNumbering.Format.Value);
             }
         }
+
+        if (properties.Footnotes?.HasValues == true)
+        {
+            var footnoteProps = target.GetFirstChild<FootnoteProperties>() ?? target.AppendChild(new FootnoteProperties());
+            if (properties.Footnotes.Start.HasValue)
+            {
+                var start = footnoteProps.GetFirstChild<NumberingStart>() ?? footnoteProps.AppendChild(new NumberingStart());
+                start.Val = (ushort)properties.Footnotes.Start.Value;
+            }
+
+            if (properties.Footnotes.Restart.HasValue)
+            {
+                var restart = footnoteProps.GetFirstChild<NumberingRestart>() ?? footnoteProps.AppendChild(new NumberingRestart());
+                restart.Val = MapNoteNumberRestart(properties.Footnotes.Restart.Value);
+            }
+
+            if (properties.Footnotes.Format.HasValue)
+            {
+                var format = footnoteProps.GetFirstChild<NumberingFormat>() ?? footnoteProps.AppendChild(new NumberingFormat());
+                format.Val = MapNoteNumberFormat(properties.Footnotes.Format.Value);
+            }
+
+            if (properties.Footnotes.Position.HasValue)
+            {
+                var position = footnoteProps.GetFirstChild<DocumentFormat.OpenXml.Wordprocessing.FootnotePosition>()
+                    ?? footnoteProps.AppendChild(new DocumentFormat.OpenXml.Wordprocessing.FootnotePosition());
+                position.Val = MapFootnotePosition(properties.Footnotes.Position.Value);
+            }
+        }
+
+        if (properties.Endnotes?.HasValues == true)
+        {
+            var endnoteProps = target.GetFirstChild<EndnoteProperties>() ?? target.AppendChild(new EndnoteProperties());
+            if (properties.Endnotes.Start.HasValue)
+            {
+                var start = endnoteProps.GetFirstChild<NumberingStart>() ?? endnoteProps.AppendChild(new NumberingStart());
+                start.Val = (ushort)properties.Endnotes.Start.Value;
+            }
+
+            if (properties.Endnotes.Restart.HasValue)
+            {
+                var restart = endnoteProps.GetFirstChild<NumberingRestart>() ?? endnoteProps.AppendChild(new NumberingRestart());
+                restart.Val = MapNoteNumberRestart(properties.Endnotes.Restart.Value);
+            }
+
+            if (properties.Endnotes.Format.HasValue)
+            {
+                var format = endnoteProps.GetFirstChild<NumberingFormat>() ?? endnoteProps.AppendChild(new NumberingFormat());
+                format.Val = MapNoteNumberFormat(properties.Endnotes.Format.Value);
+            }
+
+            if (properties.Endnotes.Position.HasValue)
+            {
+                var position = endnoteProps.GetFirstChild<DocumentFormat.OpenXml.Wordprocessing.EndnotePosition>()
+                    ?? endnoteProps.AppendChild(new DocumentFormat.OpenXml.Wordprocessing.EndnotePosition());
+                position.Val = MapEndnotePosition(properties.Endnotes.Position.Value);
+            }
+        }
     }
 
     private static DocumentFormat.OpenXml.Wordprocessing.TableProperties? BuildTableProperties(Vibe.Office.Documents.TableProperties properties, string? styleId)
@@ -6377,7 +6772,76 @@ public sealed class DocxExporter
             };
         }
 
+        if (properties.FloatingAnchor is not null)
+        {
+            props.TablePositionProperties = BuildTablePositionProperties(properties.FloatingAnchor);
+            if (!properties.FloatingAnchor.AllowOverlap)
+            {
+                props.TableOverlap = new TableOverlap { Val = TableOverlapValues.Never };
+            }
+        }
+
         return props.ChildElements.Count > 0 ? props : null;
+    }
+
+    private static TablePositionProperties BuildTablePositionProperties(FloatingAnchor anchor)
+    {
+        var position = new TablePositionProperties
+        {
+            HorizontalAnchor = MapFrameHorizontalReference(anchor.HorizontalReference),
+            VerticalAnchor = MapFrameVerticalReference(anchor.VerticalReference)
+        };
+
+        if (anchor.HorizontalAlignment != FloatingHorizontalAlignment.None)
+        {
+            position.TablePositionXAlignment = MapFrameHorizontalAlignment(anchor.HorizontalAlignment);
+        }
+
+        if (anchor.VerticalAlignment != FloatingVerticalAlignment.None)
+        {
+            position.TablePositionYAlignment = MapFrameVerticalAlignment(anchor.VerticalAlignment);
+        }
+
+        if (anchor.OffsetX != 0f)
+        {
+            position.TablePositionX = DipToTwipsInt32(anchor.OffsetX);
+        }
+
+        if (anchor.OffsetY != 0f)
+        {
+            position.TablePositionY = DipToTwipsInt32(anchor.OffsetY);
+        }
+
+        var distance = anchor.Distance;
+        var setLeft = anchor.WrapSide != FloatingWrapSide.Right;
+        var setRight = anchor.WrapSide != FloatingWrapSide.Left;
+        if (anchor.WrapSide == FloatingWrapSide.Largest)
+        {
+            setLeft = true;
+            setRight = true;
+        }
+
+        if (setLeft)
+        {
+            position.LeftFromText = DipToTwipsInt16(distance.Left);
+        }
+
+        if (setRight)
+        {
+            position.RightFromText = DipToTwipsInt16(distance.Right);
+        }
+
+        if (distance.Top != 0f)
+        {
+            position.TopFromText = DipToTwipsInt16(distance.Top);
+        }
+
+        if (distance.Bottom != 0f)
+        {
+            position.BottomFromText = DipToTwipsInt16(distance.Bottom);
+        }
+
+        return position;
     }
 
     private static TableWidth? BuildTableWidth(float? width, TableWidthUnit? unit)
@@ -6396,6 +6860,27 @@ public sealed class DocxExporter
                 : null,
             TableWidthUnit.Pct => width.HasValue
                 ? new TableWidth { Width = PercentToTableWidth(width.Value), Type = TableWidthUnitValues.Pct }
+                : null,
+            _ => null
+        };
+    }
+
+    private static TableCellWidth? BuildTableCellWidth(float? width, TableWidthUnit? unit)
+    {
+        if (!unit.HasValue && !width.HasValue)
+        {
+            return null;
+        }
+
+        var resolvedUnit = unit ?? TableWidthUnit.Dxa;
+        return resolvedUnit switch
+        {
+            TableWidthUnit.Auto => new TableCellWidth { Width = "0", Type = TableWidthUnitValues.Auto },
+            TableWidthUnit.Dxa => width.HasValue
+                ? new TableCellWidth { Width = DipToTwips(width.Value), Type = TableWidthUnitValues.Dxa }
+                : null,
+            TableWidthUnit.Pct => width.HasValue
+                ? new TableCellWidth { Width = PercentToTableWidth(width.Value), Type = TableWidthUnitValues.Pct }
                 : null,
             _ => null
         };
@@ -6490,6 +6975,12 @@ public sealed class DocxExporter
         if (cellMargin is not null)
         {
             cellProps.TableCellMargin = cellMargin;
+        }
+
+        var cellWidth = BuildTableCellWidth(properties.PreferredWidth, properties.PreferredWidthUnit);
+        if (cellWidth is not null)
+        {
+            cellProps.TableCellWidth = cellWidth;
         }
 
         if (properties.VerticalAlignment.HasValue && properties.VerticalAlignment != Vibe.Office.Documents.TableCellVerticalAlignment.Top)
@@ -6636,6 +7127,8 @@ public sealed class DocxExporter
                || properties.ShadingColor.HasValue
                || properties.VerticalAlignment.HasValue
                || properties.TextDirection.HasValue
+               || properties.PreferredWidth.HasValue
+               || properties.PreferredWidthUnit.HasValue
                || HasTableCellBorders(properties.Borders);
     }
 
@@ -7417,9 +7910,9 @@ public sealed class DocxExporter
             DistanceFromRight = DipToEmuUInt32(anchor.Distance.Right),
             BehindDoc = anchor.BehindText,
             LayoutInCell = true,
-            AllowOverlap = true,
+            AllowOverlap = anchor.AllowOverlap,
             SimplePos = false,
-            RelativeHeight = 0U
+            RelativeHeight = anchor.ZOrder
         };
     }
 
