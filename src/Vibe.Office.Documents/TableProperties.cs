@@ -60,6 +60,8 @@ public sealed class TableProperties
             WrapSide = source.WrapSide,
             WrapPolygon = CloneWrapPolygon(source.WrapPolygon),
             BehindText = source.BehindText,
+            AllowOverlap = source.AllowOverlap,
+            ZOrder = source.ZOrder,
             Distance = source.Distance,
             AnchorOffset = source.AnchorOffset
         };

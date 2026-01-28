@@ -68,6 +68,7 @@ public static class DocumentClone
         CopyDocumentFonts(source.Fonts, target.Fonts);
         CopyThemeColors(source.ThemeColors, target.ThemeColors);
         CopyDocumentProperties(source.Properties, target.Properties);
+        CopyCompatibilitySettings(source.Compatibility, target.Compatibility);
         CopyCustomXmlParts(source.CustomXmlParts, target.CustomXmlParts);
         CopyRevisions(source.Revisions, target.Revisions);
         CopyMacros(source.Macros, target.Macros);
@@ -75,6 +76,8 @@ public static class DocumentClone
         CopyListDefinitions(source.ListDefinitions, target.ListDefinitions);
         CopyNotes(source.Footnotes, target.Footnotes, CloneFootnoteDefinition);
         CopyNotes(source.Endnotes, target.Endnotes, CloneEndnoteDefinition);
+        CopyNoteSeparators(source.FootnoteSeparators, target.FootnoteSeparators);
+        CopyNoteSeparators(source.EndnoteSeparators, target.EndnoteSeparators);
         CopyNotes(source.Comments, target.Comments, CloneCommentDefinition);
 
         CopyBlocks(source.Blocks, target.Blocks);
@@ -102,6 +105,17 @@ public static class DocumentClone
         {
             target.CustomProperties[pair.Key] = pair.Value;
         }
+    }
+
+    private static void CopyCompatibilitySettings(DocumentCompatibilitySettings source, DocumentCompatibilitySettings target)
+    {
+        target.SuppressSpacingAtTopOfPage = source.SuppressSpacingAtTopOfPage;
+        target.SuppressSpacingBeforeAfterPageBreak = source.SuppressSpacingBeforeAfterPageBreak;
+        target.UseWord97LineBreakRules = source.UseWord97LineBreakRules;
+        target.WrapTrailSpaces = source.WrapTrailSpaces;
+        target.DoNotUseEastAsianBreakRules = source.DoNotUseEastAsianBreakRules;
+        target.UseAltKinsokuLineBreakRules = source.UseAltKinsokuLineBreakRules;
+        target.DoNotWrapTextWithPunctuation = source.DoNotWrapTextWithPunctuation;
     }
 
     private static void CopyCustomXmlParts(Dictionary<string, XDocument> source, Dictionary<string, XDocument> target)
@@ -782,6 +796,8 @@ public static class DocumentClone
         target.WrapSide = source.WrapSide;
         target.WrapPolygon = CloneWrapPolygon(source.WrapPolygon);
         target.BehindText = source.BehindText;
+        target.AllowOverlap = source.AllowOverlap;
+        target.ZOrder = source.ZOrder;
         target.Distance = source.Distance;
         target.AnchorOffset = source.AnchorOffset;
     }
@@ -831,6 +847,14 @@ public static class DocumentClone
         {
             target[pair.Key] = clone(pair.Value);
         }
+    }
+
+    private static void CopyNoteSeparators(NoteSeparatorDefinition source, NoteSeparatorDefinition target)
+    {
+        target.SeparatorBlocks.Clear();
+        target.ContinuationSeparatorBlocks.Clear();
+        CopyBlocks(source.SeparatorBlocks, target.SeparatorBlocks);
+        CopyBlocks(source.ContinuationSeparatorBlocks, target.ContinuationSeparatorBlocks);
     }
 
     private static void CopyListDefinitions(Dictionary<int, ListDefinition> source, Dictionary<int, ListDefinition> target)
@@ -918,6 +942,8 @@ public static class DocumentClone
             BasedOnId = source.BasedOnId,
             NextStyleId = source.NextStyleId,
             LinkedStyleId = source.LinkedStyleId,
+            ListId = source.ListId,
+            ListLevel = source.ListLevel,
             UiPriority = source.UiPriority,
             QuickStyle = source.QuickStyle,
             SemiHidden = source.SemiHidden,
@@ -1051,6 +1077,7 @@ public static class DocumentClone
         target.LanguageEastAsia = source.LanguageEastAsia;
         target.LanguageBidi = source.LanguageBidi;
         target.EastAsianLayout = source.EastAsianLayout?.Clone();
+        target.OpenTypeFeatures = source.OpenTypeFeatures?.Clone();
         target.Effects = source.Effects?.Clone();
     }
 
@@ -1093,6 +1120,7 @@ public static class DocumentClone
         target.LanguageEastAsia = source.LanguageEastAsia;
         target.LanguageBidi = source.LanguageBidi;
         target.EastAsianLayout = source.EastAsianLayout?.Clone();
+        target.OpenTypeFeatures = source.OpenTypeFeatures?.Clone();
         target.Effects = source.Effects?.Clone();
     }
 
@@ -1196,6 +1224,8 @@ public static class DocumentClone
         target.PageBorders = source.PageBorders?.Clone();
         target.LineNumbering = source.LineNumbering?.Clone();
         target.PageNumbering = source.PageNumbering?.Clone();
+        target.Footnotes = source.Footnotes?.Clone();
+        target.Endnotes = source.Endnotes?.Clone();
     }
 
     private static void CopyTableProperties(TableProperties source, TableProperties target)
@@ -1238,6 +1268,8 @@ public static class DocumentClone
         target.ShadingColor = source.ShadingColor;
         target.VerticalAlignment = source.VerticalAlignment;
         target.TextDirection = source.TextDirection;
+        target.PreferredWidth = source.PreferredWidth;
+        target.PreferredWidthUnit = source.PreferredWidthUnit;
         target.Borders.Top = source.Borders.Top?.Clone();
         target.Borders.Bottom = source.Borders.Bottom?.Clone();
         target.Borders.Left = source.Borders.Left?.Clone();

@@ -41,6 +41,7 @@ public sealed class TextStyleProperties
     public string? LanguageEastAsia { get; set; }
     public string? LanguageBidi { get; set; }
     public EastAsianLayoutProperties? EastAsianLayout { get; set; }
+    public TextOpenTypeFeatures? OpenTypeFeatures { get; set; }
     public TextEffects? Effects { get; set; }
 
     public bool HasValues => !string.IsNullOrWhiteSpace(FontFamily)
@@ -80,6 +81,7 @@ public sealed class TextStyleProperties
                              || !string.IsNullOrWhiteSpace(LanguageEastAsia)
                              || !string.IsNullOrWhiteSpace(LanguageBidi)
                              || (EastAsianLayout?.HasValues ?? false)
+                             || (OpenTypeFeatures?.HasValues ?? false)
                              || (Effects?.HasValues ?? false);
 
     public TextStyleProperties Clone()
@@ -123,6 +125,7 @@ public sealed class TextStyleProperties
             LanguageEastAsia = LanguageEastAsia,
             LanguageBidi = LanguageBidi,
             EastAsianLayout = EastAsianLayout?.Clone(),
+            OpenTypeFeatures = OpenTypeFeatures?.Clone(),
             Effects = Effects?.Clone()
         };
     }
@@ -171,6 +174,7 @@ public sealed class TextStyleProperties
                && string.Equals(LanguageEastAsia, other.LanguageEastAsia, StringComparison.Ordinal)
                && string.Equals(LanguageBidi, other.LanguageBidi, StringComparison.Ordinal)
                && Equals(EastAsianLayout, other.EastAsianLayout)
+               && Equals(OpenTypeFeatures, other.OpenTypeFeatures)
                && Equals(Effects, other.Effects);
     }
 
@@ -356,6 +360,12 @@ public sealed class TextStyleProperties
         if (EastAsianLayout?.HasValues == true)
         {
             style.EastAsianLayout = EastAsianLayout.Clone();
+        }
+
+        if (OpenTypeFeatures?.HasValues == true)
+        {
+            style.OpenTypeFeatures ??= new TextOpenTypeFeatures();
+            style.OpenTypeFeatures.ApplyOverrides(OpenTypeFeatures);
         }
 
         if (Effects?.HasValues == true)

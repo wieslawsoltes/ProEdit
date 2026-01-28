@@ -26,6 +26,8 @@ public sealed class FloatingAnchor
     public FloatingWrapSide WrapSide { get; set; } = FloatingWrapSide.Both;
     public FloatingWrapPolygon? WrapPolygon { get; set; }
     public bool BehindText { get; set; }
+    public bool AllowOverlap { get; set; } = true;
+    public uint ZOrder { get; set; }
     public DocThickness Distance { get; set; } = DocThickness.Uniform(0f);
     public int? AnchorOffset { get; set; }
 }

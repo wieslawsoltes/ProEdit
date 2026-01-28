@@ -3,8 +3,8 @@ namespace Vibe.Office.Documents;
 public sealed class ChartInline : Inline
 {
     public Guid Id { get; } = Guid.NewGuid();
-    public float Width { get; }
-    public float Height { get; }
+    public float Width { get; set; }
+    public float Height { get; set; }
     public ChartModel? Model { get; }
     public byte[]? PartData { get; }
     public string? Name { get; set; }

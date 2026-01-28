@@ -22,12 +22,15 @@ public sealed class Document
     public DocumentFonts Fonts { get; } = new DocumentFonts();
     public DocumentThemeColorMap ThemeColors { get; } = new DocumentThemeColorMap();
     public DocumentProperties Properties { get; } = new DocumentProperties();
+    public DocumentCompatibilitySettings Compatibility { get; } = new DocumentCompatibilitySettings();
     public Dictionary<string, XDocument> CustomXmlParts { get; } = new(StringComparer.OrdinalIgnoreCase);
     public DocumentRevisions Revisions { get; } = new DocumentRevisions();
     public DocumentMacros Macros { get; } = new DocumentMacros();
     public Dictionary<int, ListDefinition> ListDefinitions { get; } = new();
     public Dictionary<int, FootnoteDefinition> Footnotes { get; } = new();
     public Dictionary<int, EndnoteDefinition> Endnotes { get; } = new();
+    public NoteSeparatorDefinition FootnoteSeparators { get; } = new NoteSeparatorDefinition();
+    public NoteSeparatorDefinition EndnoteSeparators { get; } = new NoteSeparatorDefinition();
     public Dictionary<int, CommentDefinition> Comments { get; } = new();
     public bool TrackChangesEnabled { get; set; }
     public string? CitationStyle { get; set; }

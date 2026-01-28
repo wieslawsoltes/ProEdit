@@ -53,6 +53,7 @@ public sealed class TextStyle
     public string? LanguageEastAsia { get; set; }
     public string? LanguageBidi { get; set; }
     public EastAsianLayoutProperties? EastAsianLayout { get; set; }
+    public TextOpenTypeFeatures? OpenTypeFeatures { get; set; }
     public TextEffects? Effects { get; set; }
 
     public TextStyle Clone()
@@ -96,6 +97,7 @@ public sealed class TextStyle
             LanguageEastAsia = LanguageEastAsia,
             LanguageBidi = LanguageBidi,
             EastAsianLayout = EastAsianLayout?.Clone(),
+            OpenTypeFeatures = OpenTypeFeatures?.Clone(),
             Effects = Effects?.Clone()
         };
     }

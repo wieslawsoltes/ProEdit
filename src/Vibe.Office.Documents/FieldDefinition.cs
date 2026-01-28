@@ -15,7 +15,11 @@ public enum FieldKind
     Ref,
     DocProperty,
     Citation,
-    Bibliography
+    Bibliography,
+    Toc,
+    Seq,
+    TocEntry,
+    IndexEntry
 }
 
 public readonly record struct FieldArgument(string Value);
@@ -136,6 +140,10 @@ public static class FieldInstructionParser
             "DOCPROPERTY" => FieldKind.DocProperty,
             "CITATION" => FieldKind.Citation,
             "BIBLIOGRAPHY" => FieldKind.Bibliography,
+            "TOC" => FieldKind.Toc,
+            "SEQ" => FieldKind.Seq,
+            "TC" => FieldKind.TocEntry,
+            "XE" => FieldKind.IndexEntry,
             _ => FieldKind.Unknown
         };
     }

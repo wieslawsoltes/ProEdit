@@ -7,6 +7,8 @@ public sealed class ParagraphStyleDefinition
     public string? BasedOnId { get; set; }
     public string? NextStyleId { get; set; }
     public string? LinkedStyleId { get; set; }
+    public int? ListId { get; set; }
+    public int? ListLevel { get; set; }
     public int? UiPriority { get; set; }
     public bool? QuickStyle { get; set; }
     public bool? SemiHidden { get; set; }

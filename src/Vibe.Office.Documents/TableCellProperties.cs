@@ -9,6 +9,8 @@ public sealed class TableCellProperties
     public TableCellBorders Borders { get; } = new TableCellBorders();
     public TableCellVerticalAlignment? VerticalAlignment { get; set; }
     public DocTextDirection? TextDirection { get; set; }
+    public float? PreferredWidth { get; set; }
+    public TableWidthUnit? PreferredWidthUnit { get; set; }
 
     public TableCellProperties Clone()
     {
@@ -18,6 +20,8 @@ public sealed class TableCellProperties
             ShadingColor = ShadingColor,
             VerticalAlignment = VerticalAlignment,
             TextDirection = TextDirection,
+            PreferredWidth = PreferredWidth,
+            PreferredWidthUnit = PreferredWidthUnit,
             Borders =
             {
                 Top = Borders.Top?.Clone(),

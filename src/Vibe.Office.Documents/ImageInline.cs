@@ -4,8 +4,8 @@ public sealed class ImageInline : Inline
 {
     public Guid Id { get; } = Guid.NewGuid();
     public byte[] Data { get; }
-    public float Width { get; }
-    public float Height { get; }
+    public float Width { get; set; }
+    public float Height { get; set; }
     public string ContentType { get; }
     public EmbeddedObjectInfo? EmbeddedObject { get; set; }
     public DiagramInfo? Diagram { get; set; }

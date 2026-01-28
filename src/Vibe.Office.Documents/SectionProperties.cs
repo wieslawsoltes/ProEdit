@@ -26,6 +26,8 @@ public sealed class SectionProperties
     public PageBorders? PageBorders { get; set; }
     public LineNumberingSettings? LineNumbering { get; set; }
     public PageNumberingSettings? PageNumbering { get; set; }
+    public FootnoteSettings? Footnotes { get; set; }
+    public EndnoteSettings? Endnotes { get; set; }
 
     public bool HasValues =>
         PageWidth.HasValue
@@ -49,7 +51,9 @@ public sealed class SectionProperties
         || PageBackgroundColor.HasValue
         || (PageBorders?.HasAny ?? false)
         || (LineNumbering?.HasValues ?? false)
-        || (PageNumbering?.HasValues ?? false);
+        || (PageNumbering?.HasValues ?? false)
+        || (Footnotes?.HasValues ?? false)
+        || (Endnotes?.HasValues ?? false);
 
     public SectionProperties Clone()
     {
@@ -72,7 +76,9 @@ public sealed class SectionProperties
             ColumnSeparator = ColumnSeparator,
             DocGrid = DocGrid?.Clone(),
             LineNumbering = LineNumbering?.Clone(),
-            PageNumbering = PageNumbering?.Clone()
+            PageNumbering = PageNumbering?.Clone(),
+            Footnotes = Footnotes?.Clone(),
+            Endnotes = Endnotes?.Clone()
         };
 
         if (ColumnWidths.Count > 0)
@@ -103,6 +109,16 @@ public sealed class SectionProperties
         if (PageNumbering is not null)
         {
             clone.PageNumbering = PageNumbering.Clone();
+        }
+
+        if (Footnotes is not null)
+        {
+            clone.Footnotes = Footnotes.Clone();
+        }
+
+        if (Endnotes is not null)
+        {
+            clone.Endnotes = Endnotes.Clone();
         }
 
         return clone;
