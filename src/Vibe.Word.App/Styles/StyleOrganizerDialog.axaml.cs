@@ -254,6 +254,7 @@ public partial class StyleOrganizerDialog : Window
                 definition.Name ?? definition.Id,
                 definition.BasedOnId,
                 definition.NextStyleId,
+                definition.LinkedStyleId,
                 definition.QuickStyle == true,
                 definition.AutoRedefine == true,
                 definition.RunProperties.Clone(),
@@ -285,6 +286,7 @@ public partial class StyleOrganizerDialog : Window
                 definition.Name ?? definition.Id,
                 definition.BasedOnId,
                 definition.NextStyleId,
+                definition.LinkedStyleId,
                 definition.QuickStyle == true,
                 definition.AutoRedefine == true,
                 definition.RunProperties.Clone(),
@@ -316,6 +318,7 @@ public partial class StyleOrganizerDialog : Window
                 definition.Name ?? definition.Id,
                 definition.BasedOnId,
                 definition.NextStyleId,
+                definition.LinkedStyleId,
                 definition.QuickStyle == true,
                 definition.AutoRedefine == true,
                 null,
@@ -854,6 +857,8 @@ public partial class StyleOrganizerDialog : Window
             WrapSide = source.WrapSide,
             WrapPolygon = source.WrapPolygon is null ? null : new FloatingWrapPolygon(source.WrapPolygon.Points.ToArray()),
             BehindText = source.BehindText,
+            AllowOverlap = source.AllowOverlap,
+            ZOrder = source.ZOrder,
             Distance = source.Distance,
             AnchorOffset = source.AnchorOffset
         };
@@ -943,6 +948,7 @@ public partial class StyleOrganizerDialog : Window
         target.LanguageEastAsia = source.LanguageEastAsia;
         target.LanguageBidi = source.LanguageBidi;
         target.EastAsianLayout = source.EastAsianLayout?.Clone();
+        target.OpenTypeFeatures = source.OpenTypeFeatures?.Clone();
         target.Effects = source.Effects?.Clone();
     }
 

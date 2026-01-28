@@ -290,7 +290,8 @@ public partial class MainWindow : Window
         _editorView.RegisterService<IReviewPaneService>(new MainWindowReviewPaneService(
             _editorView,
             _reviewPane,
-            RefreshReviewPaneItems));
+            RefreshReviewPaneItems,
+            SetReviewPaneVisible));
 
         AttachStyleManagerEvents();
     }
@@ -1539,6 +1540,11 @@ public partial class MainWindow : Window
             bool? textShadow = null;
             bool? textEmboss = null;
             bool? textImprint = null;
+            DocLigatureOptions? ligatures = null;
+            bool? contextualAlternates = null;
+            DocNumberForm? numberForm = null;
+            DocNumberSpacing? numberSpacing = null;
+            uint? stylisticSets = null;
 
             if (TryGetSnapshot(out var snapshot))
             {
@@ -1635,6 +1641,31 @@ public partial class MainWindow : Window
                 {
                     textImprint = resolvedImprint;
                 }
+
+                if (TryGetValue(snapshot.Formatting.Ligatures, out var resolvedLigatures))
+                {
+                    ligatures = resolvedLigatures;
+                }
+
+                if (TryGetValue(snapshot.Formatting.ContextualAlternates, out var resolvedContextualAlternates))
+                {
+                    contextualAlternates = resolvedContextualAlternates;
+                }
+
+                if (TryGetValue(snapshot.Formatting.NumberForm, out var resolvedNumberForm))
+                {
+                    numberForm = resolvedNumberForm;
+                }
+
+                if (TryGetValue(snapshot.Formatting.NumberSpacing, out var resolvedNumberSpacing))
+                {
+                    numberSpacing = resolvedNumberSpacing;
+                }
+
+                if (TryGetValue(snapshot.Formatting.StylisticSets, out var resolvedStylisticSets))
+                {
+                    stylisticSets = resolvedStylisticSets;
+                }
             }
 
             return new FontDialogState(
@@ -1655,7 +1686,12 @@ public partial class MainWindow : Window
                 textImprint,
                 characterScalePercent,
                 characterSpacingPoints,
-                characterPositionPoints);
+                characterPositionPoints,
+                ligatures,
+                contextualAlternates,
+                numberForm,
+                numberSpacing,
+                stylisticSets);
         }
 
         static float ResolveSpacingPoints(EditorValue<float> value)
@@ -2944,7 +2980,7 @@ public partial class MainWindow : Window
 
             _editorView.TryGetService<IFontService>(out var fontService);
             var dialog = new StyleEditorDialog(
-                new StyleEditorState(EditorStyleType.Paragraph, string.Empty, null, null, false, false, null, null, null, null, null),
+                new StyleEditorState(EditorStyleType.Paragraph, string.Empty, null, null, null, false, false, null, null, null, null, null),
                 styleService,
                 fontService);
             var result = await dialog.ShowDialog<StyleEditorResult?>(this);
@@ -2958,6 +2994,7 @@ public partial class MainWindow : Window
                 created.Name,
                 created.BasedOnId,
                 created.NextStyleId,
+                created.LinkedStyleId,
                 created.QuickStyle,
                 created.AutoRedefine,
                 created.RunProperties,
@@ -6569,6 +6606,7 @@ public partial class MainWindow : Window
                 () => _editorView?.SelectedEquation is not null,
                 RefreshEquationLayoutAsync,
                 canInteract),
+            new HeaderFooterRibbonExtension(canInteract),
             new TableRibbonExtension(OpenTablePropertiesDialogAsync)
         };
 
@@ -6600,9 +6638,14 @@ public partial class MainWindow : Window
     {
         var list = new List<RibbonGalleryItem>();
         IStyleService? styleService = null;
+        IStyleManagerService? styleManager = null;
         if (_editorView is not null && _editorView.TryGetService<IStyleService>(out var resolvedService))
         {
             styleService = resolvedService;
+        }
+        if (_editorView is not null && _editorView.TryGetService<IStyleManagerService>(out var resolvedManager))
+        {
+            styleManager = resolvedManager;
         }
 
         static string? ResolveFontFamily(TextStyleProperties properties)
@@ -6628,15 +6671,15 @@ public partial class MainWindow : Window
             return null;
         }
 
-        RibbonTextPreview BuildPreview(EditorParagraphStyleInfo info)
+        RibbonTextPreview BuildPreview(string styleId, string name)
         {
-            var previewText = string.IsNullOrWhiteSpace(info.Name) ? info.Id : info.Name;
+            var previewText = string.IsNullOrWhiteSpace(name) ? styleId : name;
             if (styleService is null)
             {
                 return new RibbonTextPreview(previewText);
             }
 
-            var definition = styleService.GetParagraphStyle(info.Id);
+            var definition = styleService.GetParagraphStyle(styleId);
             if (definition is null)
             {
                 return new RibbonTextPreview(previewText);
@@ -6676,11 +6719,34 @@ public partial class MainWindow : Window
                 spacing);
         }
 
-        if (TryGetRibbonSnapshot(out var snapshot))
+        if (styleManager is not null)
+        {
+            var paragraphStyles = styleManager.GetStyles(EditorStyleType.Paragraph);
+            var quickStyles = new List<EditorStyleInfo>(paragraphStyles.Count);
+            foreach (var style in paragraphStyles)
+            {
+                if (style.IsQuickStyle)
+                {
+                    quickStyles.Add(style);
+                }
+            }
+
+            if (quickStyles.Count == 0)
+            {
+                quickStyles.AddRange(paragraphStyles);
+            }
+
+            quickStyles.Sort(CompareQuickStyleInfo);
+            foreach (var style in quickStyles)
+            {
+                list.Add(new RibbonGalleryItem(style.Id, style.Name, BuildPreview(style.Id, style.Name)));
+            }
+        }
+        else if (TryGetRibbonSnapshot(out var snapshot))
         {
             foreach (var style in snapshot.ParagraphStyles)
             {
-                list.Add(new RibbonGalleryItem(style.Id, style.Name, BuildPreview(style)));
+                list.Add(new RibbonGalleryItem(style.Id, style.Name, BuildPreview(style.Id, style.Name)));
             }
         }
 
@@ -6694,6 +6760,18 @@ public partial class MainWindow : Window
         }
 
         return list;
+    }
+
+    private static int CompareQuickStyleInfo(EditorStyleInfo left, EditorStyleInfo right)
+    {
+        var leftPriority = left.UiPriority ?? int.MaxValue;
+        var rightPriority = right.UiPriority ?? int.MaxValue;
+        if (leftPriority != rightPriority)
+        {
+            return leftPriority.CompareTo(rightPriority);
+        }
+
+        return string.Compare(left.Name, right.Name, StringComparison.OrdinalIgnoreCase);
     }
 
     private void RefreshStyleGalleryItems()
@@ -7434,7 +7512,10 @@ public partial class MainWindow : Window
         }
 
         var document = _editorView.Document;
-        var selectedCommentId = (_reviewCommentsList?.SelectedItem as ReviewCommentItem)?.Id;
+        var caret = _editorView.Caret;
+        var layout = _editorView.Layout;
+        var caretCommentId = ResolveCommentSelectionId(document, layout, caret);
+        var selectedCommentId = caretCommentId ?? (_reviewCommentsList?.SelectedItem as ReviewCommentItem)?.Id;
         var selectedRevision = _reviewChangesList?.SelectedItem as ReviewRevisionItem;
 
         var commentAnchors = ReviewingHelpers.BuildCommentAnchors(document);
@@ -7468,6 +7549,7 @@ public partial class MainWindow : Window
 
         var revisionAnchors = ReviewingHelpers.BuildRevisionAnchors(document);
         revisionAnchors.Sort(CompareRevisionAnchors);
+        var caretRevisionAnchor = ResolveRevisionAnchorAtCaret(revisionAnchors, caret);
         _reviewRevisionItems.Clear();
         foreach (var anchor in revisionAnchors)
         {
@@ -7478,11 +7560,96 @@ public partial class MainWindow : Window
 
         if (_reviewChangesList is not null)
         {
-            _reviewChangesList.SelectedItem = FindReviewRevisionItem(selectedRevision);
+            var revisionSelection = caretRevisionAnchor.HasValue
+                ? FindReviewRevisionItem(caretRevisionAnchor.Value)
+                : null;
+            revisionSelection ??= FindReviewRevisionItem(selectedRevision);
+            _reviewChangesList.SelectedItem = revisionSelection;
         }
 
         _suppressReviewSelection = false;
         UpdateReviewCommentEditor(_reviewCommentsList?.SelectedItem as ReviewCommentItem, force: false);
+        UpdateReviewPaneButtonState();
+    }
+
+    private static int? ResolveCommentSelectionId(Document document, DocumentLayout layout, TextPosition caret)
+    {
+        if (layout.CommentHighlightsByParagraph.TryGetValue(caret.ParagraphIndex, out var spans))
+        {
+            foreach (var span in spans)
+            {
+                if (caret.Offset >= span.StartOffset && caret.Offset <= span.EndOffset)
+                {
+                    return span.Id;
+                }
+            }
+        }
+
+        if (TryGetInlineAtPosition(document, caret, out var inline))
+        {
+            return inline switch
+            {
+                CommentRangeStartInline start => start.Id,
+                CommentRangeEndInline end => end.Id,
+                CommentReferenceInline reference => reference.Id,
+                _ => null
+            };
+        }
+
+        return null;
+    }
+
+    private static ReviewRevisionAnchor? ResolveRevisionAnchorAtCaret(
+        IReadOnlyList<ReviewRevisionAnchor> anchors,
+        TextPosition caret)
+    {
+        foreach (var anchor in anchors)
+        {
+            if (anchor.Anchor.Equals(caret))
+            {
+                return anchor;
+            }
+        }
+
+        return null;
+    }
+
+    private static bool TryGetInlineAtPosition(Document document, TextPosition position, out Inline inline)
+    {
+        inline = null!;
+        if (position.ParagraphIndex < 0 || position.ParagraphIndex >= document.ParagraphCount)
+        {
+            return false;
+        }
+
+        var paragraph = document.GetParagraph(position.ParagraphIndex);
+        if (paragraph.Inlines.Count == 0)
+        {
+            return false;
+        }
+
+        var offset = Math.Clamp(position.Offset, 0, DocumentEditHelpers.GetParagraphLength(paragraph));
+        var current = 0;
+        foreach (var item in paragraph.Inlines)
+        {
+            var length = DocumentEditHelpers.GetInlineLength(item);
+            var end = current + length;
+            if (length == 0 && offset == current)
+            {
+                inline = item;
+                return true;
+            }
+
+            if (offset < end)
+            {
+                inline = item;
+                return true;
+            }
+
+            current = end;
+        }
+
+        return false;
     }
 
     private ReviewCommentItem? FindReviewCommentItem(int? id)
@@ -7513,6 +7680,21 @@ public partial class MainWindow : Window
         foreach (var item in _reviewRevisionItems)
         {
             if (item.Kind == selected.Kind && item.Id == selected.Id && item.Anchor.Equals(selected.Anchor))
+            {
+                return item;
+            }
+        }
+
+        return null;
+    }
+
+    private ReviewRevisionItem? FindReviewRevisionItem(ReviewRevisionAnchor anchor)
+    {
+        foreach (var item in _reviewRevisionItems)
+        {
+            if (item.Kind == anchor.Revision.Kind
+                && item.Id == anchor.Revision.Id
+                && item.Anchor.Equals(anchor.Anchor))
             {
                 return item;
             }
@@ -7624,6 +7806,41 @@ public partial class MainWindow : Window
         _reviewCommentEditor.IsEnabled = true;
     }
 
+    private void UpdateReviewPaneButtonState()
+    {
+        var hasCommentSelection = _reviewCommentsList?.SelectedItem is ReviewCommentItem;
+        if (_reviewCommentApplyButton is not null)
+        {
+            _reviewCommentApplyButton.IsEnabled = hasCommentSelection;
+        }
+
+        if (_reviewCommentDeleteButton is not null)
+        {
+            _reviewCommentDeleteButton.IsEnabled = hasCommentSelection;
+        }
+
+        var hasRevisions = _reviewRevisionItems.Count > 0;
+        if (_reviewChangeAcceptButton is not null)
+        {
+            _reviewChangeAcceptButton.IsEnabled = hasRevisions;
+        }
+
+        if (_reviewChangeRejectButton is not null)
+        {
+            _reviewChangeRejectButton.IsEnabled = hasRevisions;
+        }
+
+        if (_reviewChangePreviousButton is not null)
+        {
+            _reviewChangePreviousButton.IsEnabled = hasRevisions;
+        }
+
+        if (_reviewChangeNextButton is not null)
+        {
+            _reviewChangeNextButton.IsEnabled = hasRevisions;
+        }
+    }
+
     private void OnReviewCommentSelectionChanged(object? sender, Avalonia.Controls.SelectionChangedEventArgs e)
     {
         if (_suppressReviewSelection)
@@ -7635,10 +7852,12 @@ public partial class MainWindow : Window
         {
             _editorView?.GoToPosition(item.Anchor, ensureVisible: true);
             UpdateReviewCommentEditor(item, force: true);
+            UpdateReviewPaneButtonState();
             return;
         }
 
         UpdateReviewCommentEditor(null, force: true);
+        UpdateReviewPaneButtonState();
     }
 
     private void OnReviewChangeSelectionChanged(object? sender, Avalonia.Controls.SelectionChangedEventArgs e)
@@ -7648,6 +7867,16 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (_reviewChangesList?.SelectedItem is ReviewRevisionItem item)
+        {
+            _editorView?.GoToPosition(item.Anchor, ensureVisible: true);
+        }
+
+        UpdateReviewPaneButtonState();
+    }
+
+    private void EnsureReviewChangeCaret()
+    {
         if (_reviewChangesList?.SelectedItem is ReviewRevisionItem item)
         {
             _editorView?.GoToPosition(item.Anchor, ensureVisible: true);
@@ -7689,21 +7918,25 @@ public partial class MainWindow : Window
 
     private async void OnReviewChangeAcceptClicked(object? sender, RoutedEventArgs e)
     {
+        EnsureReviewChangeCaret();
         await ExecuteEditorCommandFromPaneAsync(EditorReviewCommandIds.Changes.Accept);
     }
 
     private async void OnReviewChangeRejectClicked(object? sender, RoutedEventArgs e)
     {
+        EnsureReviewChangeCaret();
         await ExecuteEditorCommandFromPaneAsync(EditorReviewCommandIds.Changes.Reject);
     }
 
     private async void OnReviewChangePreviousClicked(object? sender, RoutedEventArgs e)
     {
+        EnsureReviewChangeCaret();
         await ExecuteEditorCommandFromPaneAsync(EditorReviewCommandIds.Changes.PreviousChange);
     }
 
     private async void OnReviewChangeNextClicked(object? sender, RoutedEventArgs e)
     {
+        EnsureReviewChangeCaret();
         await ExecuteEditorCommandFromPaneAsync(EditorReviewCommandIds.Changes.NextChange);
     }
 

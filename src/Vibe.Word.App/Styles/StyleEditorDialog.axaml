@@ -41,6 +41,13 @@
           <ComboBox x:Name="NextStyleCombo"
                     Width="280" />
         </StackPanel>
+        <StackPanel Orientation="Horizontal"
+                    Spacing="8">
+          <TextBlock Text="Linked style:"
+                     Width="120" />
+          <ComboBox x:Name="LinkedStyleCombo"
+                    Width="280" />
+        </StackPanel>
 
         <StackPanel Orientation="Horizontal"
                     Spacing="8">

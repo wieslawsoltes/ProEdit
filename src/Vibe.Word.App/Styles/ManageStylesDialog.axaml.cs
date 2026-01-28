@@ -20,6 +20,7 @@ public partial class ManageStylesDialog : Window
     private TextBlock? _styleTypeText;
     private ComboBox? _basedOnCombo;
     private ComboBox? _nextStyleCombo;
+    private ComboBox? _linkedStyleCombo;
     private TextBox? _priorityBox;
     private CheckBox? _quickStyleCheckBox;
     private CheckBox? _hiddenCheckBox;
@@ -55,6 +56,7 @@ public partial class ManageStylesDialog : Window
         _styleTypeText = this.FindControl<TextBlock>("StyleTypeText");
         _basedOnCombo = this.FindControl<ComboBox>("StyleBasedOnCombo");
         _nextStyleCombo = this.FindControl<ComboBox>("StyleNextCombo");
+        _linkedStyleCombo = this.FindControl<ComboBox>("StyleLinkedCombo");
         _priorityBox = this.FindControl<TextBox>("PriorityBox");
         _quickStyleCheckBox = this.FindControl<CheckBox>("QuickStyleCheckBox");
         _hiddenCheckBox = this.FindControl<CheckBox>("HiddenCheckBox");
@@ -213,6 +215,12 @@ public partial class ManageStylesDialog : Window
             SelectStyleComboItem(_nextStyleCombo, definition?.NextStyleId);
         }
 
+        if (_linkedStyleCombo is not null)
+        {
+            _linkedStyleCombo.ItemsSource = BuildLinkedStyleComboItems(style.Type, style.Id);
+            SelectStyleComboItem(_linkedStyleCombo, definition?.LinkedStyleId);
+        }
+
         if (_priorityBox is not null)
         {
             _priorityBox.Text = definition?.UiPriority?.ToString(CultureInfo.InvariantCulture);
@@ -274,6 +282,11 @@ public partial class ManageStylesDialog : Window
         if (_priorityBox is not null)
         {
             _priorityBox.IsEnabled = enabled;
+        }
+
+        if (_linkedStyleCombo is not null)
+        {
+            _linkedStyleCombo.IsEnabled = enabled;
         }
 
         if (_quickStyleCheckBox is not null)
@@ -340,6 +353,7 @@ public partial class ManageStylesDialog : Window
         var name = _styleNameBox?.Text ?? string.Empty;
         var basedOnId = (_basedOnCombo?.SelectedItem as StyleComboItem)?.Id;
         var nextStyleId = (_nextStyleCombo?.SelectedItem as StyleComboItem)?.Id;
+        var linkedStyleId = (_linkedStyleCombo?.SelectedItem as StyleComboItem)?.Id;
         var quickStyle = _quickStyleCheckBox?.IsChecked;
         var hidden = _hiddenCheckBox?.IsChecked;
         var semiHidden = _semiHiddenCheckBox?.IsChecked;
@@ -356,6 +370,7 @@ public partial class ManageStylesDialog : Window
 
         changed |= _styleService.SetStyleBasedOn(style.Type, style.Id, basedOnId);
         changed |= _styleService.SetStyleNext(style.Type, style.Id, nextStyleId);
+        changed |= _styleService.SetStyleLinkedStyle(style.Type, style.Id, linkedStyleId);
         changed |= _styleService.SetStyleQuickStyle(style.Type, style.Id, quickStyle);
         changed |= _styleService.SetStyleHidden(style.Type, style.Id, hidden);
         changed |= _styleService.SetStyleSemiHidden(style.Type, style.Id, semiHidden);
@@ -396,7 +411,7 @@ public partial class ManageStylesDialog : Window
             return;
         }
 
-        var state = new StyleEditorState(EditorStyleType.Paragraph, string.Empty, null, null, false, false, null, null, null, null, null);
+        var state = new StyleEditorState(EditorStyleType.Paragraph, string.Empty, null, null, null, false, false, null, null, null, null, null);
         var dialog = new StyleEditorDialog(state, _styleService, _fontService);
         var result = await dialog.ShowDialog<StyleEditorResult?>(this);
         if (result is not StyleEditorResult created)
@@ -409,6 +424,7 @@ public partial class ManageStylesDialog : Window
             created.Name,
             created.BasedOnId,
             created.NextStyleId,
+            created.LinkedStyleId,
             created.QuickStyle,
             created.AutoRedefine,
             created.RunProperties,
@@ -428,6 +444,7 @@ public partial class ManageStylesDialog : Window
         _styleService?.RenameStyle(type, styleId, result.Name);
         _styleService?.SetStyleBasedOn(type, styleId, result.BasedOnId);
         _styleService?.SetStyleNext(type, styleId, result.NextStyleId);
+        _styleService?.SetStyleLinkedStyle(type, styleId, result.LinkedStyleId);
         _styleService?.SetStyleQuickStyle(type, styleId, result.QuickStyle);
         _styleService?.SetStyleAutoRedefine(type, styleId, result.AutoRedefine);
 
@@ -472,6 +489,7 @@ public partial class ManageStylesDialog : Window
                 definition.Name,
                 definition.BasedOnId,
                 definition.NextStyleId,
+                definition.LinkedStyleId,
                 definition.QuickStyle,
                 definition.Hidden,
                 definition.SemiHidden,
@@ -494,6 +512,7 @@ public partial class ManageStylesDialog : Window
                 definition.Name,
                 definition.BasedOnId,
                 definition.NextStyleId,
+                definition.LinkedStyleId,
                 definition.QuickStyle,
                 definition.Hidden,
                 definition.SemiHidden,
@@ -516,6 +535,7 @@ public partial class ManageStylesDialog : Window
                 definition.Name,
                 definition.BasedOnId,
                 definition.NextStyleId,
+                definition.LinkedStyleId,
                 definition.QuickStyle,
                 definition.Hidden,
                 definition.SemiHidden,
@@ -537,6 +557,7 @@ public partial class ManageStylesDialog : Window
             definition?.Name ?? info.Name,
             definition?.BasedOnId,
             definition?.NextStyleId,
+            definition?.LinkedStyleId,
             definition?.QuickStyle,
             definition?.AutoRedefine,
             definition?.RunProperties,
@@ -557,6 +578,28 @@ public partial class ManageStylesDialog : Window
             }
 
             if (string.Equals(style.Id, currentStyleId, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            items.Add(new StyleComboItem(style.Id, style.Name));
+        }
+
+        return items;
+    }
+
+    private List<StyleComboItem> BuildLinkedStyleComboItems(EditorStyleType type, string currentStyleId)
+    {
+        var linkedType = ResolveLinkedStyleType(type);
+        var items = new List<StyleComboItem> { new StyleComboItem(null, "None") };
+        foreach (var style in _allStyles)
+        {
+            if (style.Type != linkedType)
+            {
+                continue;
+            }
+
+            if (style.Type == type && string.Equals(style.Id, currentStyleId, StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }
@@ -609,6 +652,16 @@ public partial class ManageStylesDialog : Window
             : (int?)null;
     }
 
+    private static EditorStyleType ResolveLinkedStyleType(EditorStyleType type)
+    {
+        return type switch
+        {
+            EditorStyleType.Paragraph => EditorStyleType.Character,
+            EditorStyleType.Character => EditorStyleType.Paragraph,
+            _ => type
+        };
+    }
+
     private sealed record StyleComboItem(string? Id, string Name)
     {
         public override string ToString() => Name;
@@ -619,6 +672,7 @@ public partial class ManageStylesDialog : Window
         string? Name,
         string? BasedOnId,
         string? NextStyleId,
+        string? LinkedStyleId,
         bool? QuickStyle,
         bool? Hidden,
         bool? SemiHidden,

@@ -14,6 +14,7 @@ public readonly record struct StyleEditorState(
     string Name,
     string? BasedOnId,
     string? NextStyleId,
+    string? LinkedStyleId,
     bool? QuickStyle,
     bool? AutoRedefine,
     TextStyleProperties? RunProperties,
@@ -27,6 +28,7 @@ public readonly record struct StyleEditorResult(
     string Name,
     string? BasedOnId,
     string? NextStyleId,
+    string? LinkedStyleId,
     bool QuickStyle,
     bool AutoRedefine,
     TextStyleProperties? RunProperties,
@@ -47,6 +49,7 @@ public partial class StyleEditorDialog : Window
     private readonly ComboBox _styleTypeCombo;
     private readonly ComboBox _basedOnCombo;
     private readonly ComboBox _nextStyleCombo;
+    private readonly ComboBox _linkedStyleCombo;
     private readonly CheckBox _quickStyleCheckBox;
     private readonly CheckBox _autoRedefineCheckBox;
     private readonly Button _fontButton;
@@ -67,6 +70,7 @@ public partial class StyleEditorDialog : Window
         _styleTypeCombo = this.FindControl<ComboBox>("StyleTypeCombo")!;
         _basedOnCombo = this.FindControl<ComboBox>("BasedOnCombo")!;
         _nextStyleCombo = this.FindControl<ComboBox>("NextStyleCombo")!;
+        _linkedStyleCombo = this.FindControl<ComboBox>("LinkedStyleCombo")!;
         _quickStyleCheckBox = this.FindControl<CheckBox>("QuickStyleCheckBox")!;
         _autoRedefineCheckBox = this.FindControl<CheckBox>("AutoRedefineCheckBox")!;
         _fontButton = this.FindControl<Button>("FontButton")!;
@@ -106,6 +110,7 @@ public partial class StyleEditorDialog : Window
         UpdateStyleTypeControls();
         SelectStyleComboItem(_basedOnCombo, state.BasedOnId);
         SelectStyleComboItem(_nextStyleCombo, state.NextStyleId);
+        SelectStyleComboItem(_linkedStyleCombo, state.LinkedStyleId);
     }
 
     private void UpdateStyleTypeControls()
@@ -113,6 +118,7 @@ public partial class StyleEditorDialog : Window
         var type = GetSelectedType();
         _basedOnCombo.ItemsSource = BuildStyleComboItems(type, _styleId);
         _nextStyleCombo.ItemsSource = BuildStyleComboItems(type, _styleId);
+        _linkedStyleCombo.ItemsSource = BuildLinkedStyleComboItems(type, _styleId);
 
         _fontButton.IsEnabled = type != EditorStyleType.Table;
         _paragraphButton.IsEnabled = type == EditorStyleType.Paragraph;
@@ -171,11 +177,13 @@ public partial class StyleEditorDialog : Window
         var type = GetSelectedType();
         var basedOnId = (_basedOnCombo.SelectedItem as StyleComboItem)?.Id;
         var nextStyleId = (_nextStyleCombo.SelectedItem as StyleComboItem)?.Id;
+        var linkedStyleId = (_linkedStyleCombo.SelectedItem as StyleComboItem)?.Id;
         var result = new StyleEditorResult(
             type,
             name,
             basedOnId,
             nextStyleId,
+            linkedStyleId,
             _quickStyleCheckBox.IsChecked == true,
             _autoRedefineCheckBox.IsChecked == true,
             type == EditorStyleType.Table ? null : _runProperties?.Clone(),
@@ -226,7 +234,12 @@ public partial class StyleEditorDialog : Window
             effects?.Imprint,
             properties?.HorizontalScale is null ? null : properties.HorizontalScale.Value * 100f,
             properties?.LetterSpacing is null ? null : DipToPoints(properties.LetterSpacing.Value),
-            properties?.BaselineOffset is null ? null : DipToPoints(properties.BaselineOffset.Value));
+            properties?.BaselineOffset is null ? null : DipToPoints(properties.BaselineOffset.Value),
+            properties?.OpenTypeFeatures?.Ligatures,
+            properties?.OpenTypeFeatures?.ContextualAlternates,
+            properties?.OpenTypeFeatures?.NumberForm,
+            properties?.OpenTypeFeatures?.NumberSpacing,
+            properties?.OpenTypeFeatures?.StylisticSets);
     }
 
     private static ParagraphDialogState BuildParagraphDialogState(ParagraphStyleProperties? properties)
@@ -374,6 +387,12 @@ public partial class StyleEditorDialog : Window
         if (options.BaselineOffset.HasValue)
         {
             style.BaselineOffset = options.BaselineOffset.Value;
+        }
+
+        if (options.OpenTypeFeatures?.HasValues == true)
+        {
+            style.OpenTypeFeatures ??= new TextOpenTypeFeatures();
+            style.OpenTypeFeatures.ApplyOverrides(options.OpenTypeFeatures);
         }
 
         ApplyTextEffectsFromOptions(style, options);
@@ -544,6 +563,25 @@ public partial class StyleEditorDialog : Window
         return items;
     }
 
+    private List<StyleComboItem> BuildLinkedStyleComboItems(EditorStyleType type, string? currentStyleId)
+    {
+        var linkedType = ResolveLinkedStyleType(type);
+        var items = new List<StyleComboItem> { new StyleComboItem(null, "None") };
+        foreach (var style in _styleService.GetStyles(linkedType))
+        {
+            if (!string.IsNullOrWhiteSpace(currentStyleId)
+                && linkedType == type
+                && string.Equals(style.Id, currentStyleId, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            items.Add(new StyleComboItem(style.Id, style.Name));
+        }
+
+        return items;
+    }
+
     private static void SelectStyleComboItem(ComboBox combo, string? styleId)
     {
         if (combo.ItemsSource is not IEnumerable<StyleComboItem> items)
@@ -561,6 +599,16 @@ public partial class StyleEditorDialog : Window
         }
 
         combo.SelectedIndex = 0;
+    }
+
+    private static EditorStyleType ResolveLinkedStyleType(EditorStyleType type)
+    {
+        return type switch
+        {
+            EditorStyleType.Paragraph => EditorStyleType.Character,
+            EditorStyleType.Character => EditorStyleType.Paragraph,
+            _ => type
+        };
     }
 
     private static ParagraphSpecialIndentKind? ResolveSpecialIndent(float? firstLineIndent, out float? byPoints)

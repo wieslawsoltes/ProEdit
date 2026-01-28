@@ -52,6 +52,182 @@ internal sealed class EquationRibbonExtension : IRibbonExtension
     }
 }
 
+internal sealed class HeaderFooterRibbonExtension : IRibbonExtension
+{
+    private readonly Func<bool>? _canExecute;
+
+    public HeaderFooterRibbonExtension(Func<bool>? canExecute = null)
+    {
+        _canExecute = canExecute;
+    }
+
+    public void Build(RibbonModelBuilder builder, RibbonExtensionContext context)
+    {
+        if (!context.TryGetService<IHeaderFooterEditService>(out var headerFooterService))
+        {
+            return;
+        }
+
+        bool CanExecute()
+        {
+            return (_canExecute?.Invoke() ?? true) && headerFooterService.IsEditing;
+        }
+
+        bool CanGoPrevious()
+        {
+            return CanExecute() && headerFooterService.SectionIndex > 0;
+        }
+
+        bool CanGoNext()
+        {
+            return CanExecute() && headerFooterService.SectionIndex < Math.Max(0, headerFooterService.SectionCount - 1);
+        }
+
+        var contextualSet = new RibbonContextualTabSet(
+            "header-footer-tools",
+            "Header & Footer Tools",
+            () => headerFooterService.IsEditing,
+            accentKey: "Text");
+        builder.AddContextualSet(contextualSet);
+
+        RibbonCommand CreateCommand(Action action, Func<bool>? canExecute = null)
+        {
+            return new RibbonCommand(action, canExecute ?? CanExecute);
+        }
+
+        var previousSectionButton = new RibbonButton(
+            "header-footer-previous-section",
+            "Previous Section",
+            CreateCommand(headerFooterService.GoToPreviousSection, CanGoPrevious),
+            iconKey: "RibbonIcon.Layout",
+            size: RibbonControlSize.Small);
+
+        var nextSectionButton = new RibbonButton(
+            "header-footer-next-section",
+            "Next Section",
+            CreateCommand(headerFooterService.GoToNextSection, CanGoNext),
+            iconKey: "RibbonIcon.Layout",
+            size: RibbonControlSize.Small);
+
+        var goToHeaderButton = new RibbonButton(
+            "header-footer-go-header",
+            "Go to Header",
+            CreateCommand(headerFooterService.BeginHeader),
+            iconKey: "RibbonIcon.Header",
+            size: RibbonControlSize.Medium);
+
+        var goToFooterButton = new RibbonButton(
+            "header-footer-go-footer",
+            "Go to Footer",
+            CreateCommand(headerFooterService.BeginFooter),
+            iconKey: "RibbonIcon.Footer",
+            size: RibbonControlSize.Medium);
+
+        var closeButton = new RibbonButton(
+            "header-footer-close",
+            "Close Header and Footer",
+            CreateCommand(headerFooterService.Close),
+            iconKey: "RibbonIcon.Check",
+            size: RibbonControlSize.Small);
+
+        var navigationGroup = new RibbonGroup(
+            "header-footer-navigation",
+            "Navigation",
+            new IRibbonControl[]
+            {
+                previousSectionButton,
+                nextSectionButton,
+                goToHeaderButton,
+                goToFooterButton,
+                closeButton
+            },
+            keyTip: "HN");
+
+        var differentFirstToggle = new RibbonToggleButton(
+            "header-footer-different-first",
+            "Different First Page",
+            () => headerFooterService.DifferentFirstPage,
+            toggleHandler: isChecked =>
+            {
+                headerFooterService.DifferentFirstPage = isChecked;
+                return ValueTask.CompletedTask;
+            },
+            iconKey: "RibbonIcon.BlankPage",
+            size: RibbonControlSize.Small,
+            canExecute: CanExecute);
+
+        var differentOddEvenToggle = new RibbonToggleButton(
+            "header-footer-different-odd-even",
+            "Different Odd & Even",
+            () => headerFooterService.DifferentOddEven,
+            toggleHandler: isChecked =>
+            {
+                headerFooterService.DifferentOddEven = isChecked;
+                return ValueTask.CompletedTask;
+            },
+            iconKey: "RibbonIcon.PageNumber",
+            size: RibbonControlSize.Small,
+            canExecute: CanExecute);
+
+        var optionsGroup = new RibbonGroup(
+            "header-footer-options",
+            "Options",
+            new IRibbonControl[]
+            {
+                differentFirstToggle,
+                differentOddEvenToggle
+            },
+            keyTip: "HO");
+
+        var variantMenu = new RibbonMenu(new IRibbonMenuEntry[]
+        {
+            new RibbonMenuToggleItem(
+                "header-footer-variant-default",
+                "Default",
+                () => headerFooterService.Variant == HeaderFooterVariant.Default,
+                new RibbonCommand(() => headerFooterService.SetVariant(HeaderFooterVariant.Default), CanExecute),
+                iconKey: "RibbonIcon.Header"),
+            new RibbonMenuToggleItem(
+                "header-footer-variant-first",
+                "First Page",
+                () => headerFooterService.Variant == HeaderFooterVariant.First,
+                new RibbonCommand(() => headerFooterService.SetVariant(HeaderFooterVariant.First), CanExecute),
+                iconKey: "RibbonIcon.BlankPage"),
+            new RibbonMenuToggleItem(
+                "header-footer-variant-even",
+                "Even Pages",
+                () => headerFooterService.Variant == HeaderFooterVariant.Even,
+                new RibbonCommand(() => headerFooterService.SetVariant(HeaderFooterVariant.Even), CanExecute),
+                iconKey: "RibbonIcon.PageNumber")
+        });
+
+        var variantButton = new RibbonDropdownButton(
+            "header-footer-variant",
+            "Header Type",
+            variantMenu,
+            iconKey: "RibbonIcon.Header",
+            size: RibbonControlSize.Medium,
+            canExecute: CanExecute);
+
+        var variantGroup = new RibbonGroup(
+            "header-footer-variant-group",
+            "Type",
+            new IRibbonControl[]
+            {
+                variantButton
+            },
+            keyTip: "HT");
+
+        builder.AddTab("header-footer-design", "Design", keyTip: "HF", contextualSet: contextualSet)
+            .AddGroups(new[]
+            {
+                navigationGroup,
+                optionsGroup,
+                variantGroup
+            });
+    }
+}
+
 internal sealed class TableRibbonExtension : IRibbonExtension
 {
     private readonly Func<ValueTask>? _openPropertiesDialog;

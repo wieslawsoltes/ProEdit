@@ -55,7 +55,14 @@ public sealed class DocumentView : Control, ILogicalScrollable
     private const float ShapeRotateHandleOffset = 18f;
     private const float ShapeMinSize = 8f;
     private const float ShapeRotateSnapDegrees = 15f;
+    private const float InlineDragThreshold = 4f;
     private const int ResizeLayoutDebounceMs = 120;
+    private enum FieldUpdateTrigger
+    {
+        Open,
+        Print,
+        Manual
+    }
 
     private static readonly IBrush CommentBalloonFillBrush = new SolidColorBrush(Color.Parse("#FFF7D6"));
     private static readonly IBrush CommentBalloonBorderBrush = new SolidColorBrush(Color.Parse("#D7C284"));
@@ -190,6 +197,25 @@ public sealed class DocumentView : Control, ILogicalScrollable
     private bool _shapeDirty;
     private DocRect? _shapePreviewBounds;
     private bool _shapeLayoutRefreshPending;
+    private bool _isInlineObjectEditing;
+    private InlineObjectDragMode _inlineObjectDragMode;
+    private ShapeHandleInfo? _activeInlineHandle;
+    private ShapeHandleInfo? _hoverInlineHandle;
+    private InlineObjectSelectionInfo? _inlineSelection;
+    private InlineObjectSelectionInfo? _inlineEditSelection;
+    private DocPoint _inlineStartPoint;
+    private DocPoint _inlineStartCenter;
+    private DocRect _inlineStartBounds;
+    private float _inlineStartRotation;
+    private float _inlineStartPointerAngle;
+    private float _inlineStartAspectRatio;
+    private EditorSessionSnapshot? _inlineSnapshot;
+    private bool _inlineDirty;
+    private DocRect? _inlinePreviewBounds;
+    private bool _inlineLayoutRefreshPending;
+    private Point _inlineDragStartView;
+    private bool _inlineDragActive;
+    private TextRange _inlineDragRange;
     private bool _isPromotingInlineShape;
     private Size _pendingLayoutSize;
 
@@ -200,6 +226,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
         _renderOptions.SvgRasterizationScale = _zoomFactor;
         _defaultCommentHighlightColor = _renderOptions.CommentHighlightColor;
         _kernel.AddModule(new BasicEditingModule());
+        _kernel.Services.Register<IHeaderFooterEditService>(new HeaderFooterEditService(this));
         _editor = CreateEditor(DocumentTemplates.CreateDefaultDocument());
         ApplyEditorState();
         UpdateSurfaceColor(SurfaceColor);
@@ -222,6 +249,9 @@ public sealed class DocumentView : Control, ILogicalScrollable
     public EquationInline? SelectedEquation => _selectedEquation;
     public bool IsHeaderFooterEditing => _headerFooterSession is not null;
     public HeaderFooterEditMode HeaderFooterMode => _headerFooterSession?.Mode ?? HeaderFooterEditMode.None;
+    public int HeaderFooterSectionIndex => ResolveHeaderFooterSectionIndex();
+    public HeaderFooterVariant HeaderFooterVariant => _headerFooterSession?.Target.Variant ?? HeaderFooterVariant.Default;
+    public bool HeaderFooterDifferentFirstPage => ResolveHeaderFooterDifferentFirstPage();
 
     public event EventHandler<EquationInline?>? SelectedEquationChanged;
     public event EventHandler? EditorStateChanged;
@@ -522,6 +552,13 @@ public sealed class DocumentView : Control, ILogicalScrollable
             return;
         }
 
+        if (e.Key == Key.F9 && e.KeyModifiers == KeyModifiers.None)
+        {
+            TriggerFieldUpdate(FieldUpdateTrigger.Manual, recordHistory: true);
+            e.Handled = true;
+            return;
+        }
+
         if (_headerFooterSession is not null)
         {
             if (e.Key == Key.Escape)
@@ -607,7 +644,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
                 return;
             }
 
-            if (TryHandleShapePointerPressed(e))
+            if (TryHandleShapePointerPressed(e) || TryHandleInlineObjectPointerPressed(e))
             {
                 return;
             }
@@ -627,6 +664,11 @@ public sealed class DocumentView : Control, ILogicalScrollable
         base.OnPointerMoved(e);
         if (_isLoading)
         {
+            return;
+        }
+        if (_isInlineObjectEditing)
+        {
+            HandleInlineObjectPointerMoved(e);
             return;
         }
         if (_isShapeEditing)
@@ -683,6 +725,12 @@ public sealed class DocumentView : Control, ILogicalScrollable
         base.OnPointerReleased(e);
         if (_isLoading)
         {
+            return;
+        }
+
+        if (_isInlineObjectEditing)
+        {
+            EndInlineObjectEdit(e);
             return;
         }
 
@@ -1123,7 +1171,14 @@ public sealed class DocumentView : Control, ILogicalScrollable
                 }
 
                 var keepAspect = modifiers.HasFlag(KeyModifiers.Shift);
-                var newBounds = ComputeResizedBounds(_shapeStartBounds, _shapeStartCenter, _shapeStartRotation, _activeShapeHandle.Value.Kind, docPoint, keepAspect);
+                var newBounds = ComputeResizedBounds(
+                    _shapeStartBounds,
+                    _shapeStartCenter,
+                    _shapeStartRotation,
+                    _activeShapeHandle.Value.Kind,
+                    docPoint,
+                    _shapeStartAspectRatio,
+                    keepAspect);
                 _shapeInline.Width = newBounds.Width;
                 _shapeInline.Height = newBounds.Height;
                 _shapeFloating.Anchor.OffsetX = _shapeStartOffsetX + (newBounds.X - _shapeStartBounds.X);
@@ -1231,6 +1286,343 @@ public sealed class DocumentView : Control, ILogicalScrollable
         _editor.RefreshLayout();
     }
 
+    private bool TryHandleInlineObjectPointerPressed(PointerPressedEventArgs e)
+    {
+        if (_isPictureCropMode)
+        {
+            return false;
+        }
+
+        var point = e.GetCurrentPoint(this);
+        if (!point.Properties.IsLeftButtonPressed)
+        {
+            return false;
+        }
+
+        var docPoint = GetDocumentPoint(point.Position);
+        if (TryGetInlineObjectHandleAtPoint(docPoint, out var handle))
+        {
+            if (!TryResolveInlineSelection(out var selection))
+            {
+                return false;
+            }
+
+            var mode = handle.Kind == ShapeHandleKind.Rotate ? InlineObjectDragMode.Rotate : InlineObjectDragMode.Resize;
+            BeginInlineObjectEdit(mode, handle, selection, docPoint, point.Position);
+            e.Pointer.Capture(this);
+            e.Handled = true;
+            return true;
+        }
+
+        if (TryGetInlineObjectAtPoint(docPoint, out var hit))
+        {
+            SelectInlineObject(hit);
+            BeginInlineObjectMove(hit, point.Position);
+            e.Pointer.Capture(this);
+            e.Handled = true;
+            return true;
+        }
+
+        return false;
+    }
+
+    private void BeginInlineObjectEdit(
+        InlineObjectDragMode mode,
+        ShapeHandleInfo handle,
+        InlineObjectSelectionInfo selection,
+        DocPoint startPoint,
+        Point startView)
+    {
+        _inlineSnapshot = null;
+        if (_kernel.Services.TryGet<IEditorHistorySnapshotService>(out var history))
+        {
+            _inlineSnapshot = history.CaptureSnapshot();
+        }
+
+        _isInlineObjectEditing = true;
+        _inlineObjectDragMode = mode;
+        _activeInlineHandle = handle;
+        _hoverInlineHandle = handle;
+        _inlineEditSelection = selection;
+        _inlineStartPoint = startPoint;
+        _inlineStartBounds = selection.Bounds;
+        _inlineStartCenter = new DocPoint(
+            _inlineStartBounds.X + _inlineStartBounds.Width * 0.5f,
+            _inlineStartBounds.Y + _inlineStartBounds.Height * 0.5f);
+        _inlineStartRotation = selection.Rotation;
+        _inlineStartPointerAngle = GetAngleDegrees(_inlineStartCenter, startPoint);
+        _inlineStartAspectRatio = selection.Bounds.Height > 0f ? selection.Bounds.Width / selection.Bounds.Height : 1f;
+        _inlinePreviewBounds = null;
+        _inlineDirty = false;
+        _inlineLayoutRefreshPending = false;
+        _inlineDragStartView = startView;
+        _inlineDragActive = false;
+        _inlineDragRange = default;
+
+        switch (mode)
+        {
+            case InlineObjectDragMode.Resize:
+                UpdatePointerCursor(GetShapeCursor(handle.Kind));
+                break;
+            case InlineObjectDragMode.Rotate:
+                UpdatePointerCursor(ShapeRotateCursor);
+                break;
+            case InlineObjectDragMode.Move:
+                UpdatePointerCursor(ShapeMoveCursor);
+                break;
+        }
+    }
+
+    private void BeginInlineObjectMove(InlineObjectHitInfo hit, Point startView)
+    {
+        _isInlineObjectEditing = true;
+        _inlineObjectDragMode = InlineObjectDragMode.Move;
+        _activeInlineHandle = null;
+        _hoverInlineHandle = null;
+        _inlineEditSelection = hit.Selection;
+        _inlineStartPoint = default;
+        _inlineStartCenter = default;
+        _inlineStartBounds = default;
+        _inlineStartRotation = 0f;
+        _inlineStartPointerAngle = 0f;
+        _inlineStartAspectRatio = 0f;
+        _inlineSnapshot = null;
+        _inlineDirty = false;
+        _inlinePreviewBounds = null;
+        _inlineLayoutRefreshPending = false;
+        _inlineDragStartView = startView;
+        _inlineDragActive = false;
+        var start = new TextPosition(hit.Selection.ParagraphIndex, hit.Offset);
+        var end = new TextPosition(hit.Selection.ParagraphIndex, hit.Offset + hit.Length);
+        _inlineDragRange = new TextRange(start, end);
+        UpdatePointerCursor(ShapeMoveCursor);
+    }
+
+    private void HandleInlineObjectPointerMoved(PointerEventArgs e)
+    {
+        if (!_isInlineObjectEditing || !_inlineEditSelection.HasValue)
+        {
+            return;
+        }
+
+        var point = e.GetCurrentPoint(this);
+        var docPoint = GetDocumentPoint(point.Position);
+        var selection = _inlineEditSelection.Value;
+        switch (_inlineObjectDragMode)
+        {
+            case InlineObjectDragMode.Move:
+            {
+                var delta = point.Position - _inlineDragStartView;
+                if (!_inlineDragActive)
+                {
+                    if (Math.Abs(delta.X) < InlineDragThreshold && Math.Abs(delta.Y) < InlineDragThreshold)
+                    {
+                        e.Handled = true;
+                        return;
+                    }
+
+                    _inlineDragActive = true;
+                    if (_kernel.Services.TryGet<IEditorHistorySnapshotService>(out var history))
+                    {
+                        _inlineSnapshot = history.CaptureSnapshot();
+                    }
+                }
+
+                _editor.SetCaretFromPoint(docPoint.X, docPoint.Y, false);
+                InvalidateVisual();
+                break;
+            }
+            case InlineObjectDragMode.Resize:
+            {
+                if (!_activeInlineHandle.HasValue)
+                {
+                    return;
+                }
+
+                var keepAspect = e.KeyModifiers.HasFlag(KeyModifiers.Shift);
+                var newBounds = ComputeResizedBounds(
+                    _inlineStartBounds,
+                    _inlineStartCenter,
+                    _inlineStartRotation,
+                    _activeInlineHandle.Value.Kind,
+                    docPoint,
+                    _inlineStartAspectRatio,
+                    keepAspect);
+                if (TryApplyInlineObjectSize(selection.Inline, newBounds.Width, newBounds.Height))
+                {
+                    _inlinePreviewBounds = newBounds;
+                    _inlineDirty = true;
+                    RequestInlineLayoutRefresh();
+                    UpdateDirtyPages(GetAllPages());
+                    InvalidateVisual();
+                }
+
+                break;
+            }
+            case InlineObjectDragMode.Rotate:
+            {
+                if (selection.Inline is not ShapeInline shape)
+                {
+                    return;
+                }
+
+                var angle = GetAngleDegrees(_inlineStartCenter, docPoint);
+                var deltaAngle = NormalizeAngleDelta(angle - _inlineStartPointerAngle);
+                var rotation = NormalizeRotation(_inlineStartRotation + deltaAngle);
+                if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
+                {
+                    rotation = SnapRotation(rotation, ShapeRotateSnapDegrees);
+                }
+
+                var objectRotation = NormalizeRotation(rotation - selection.BaseRotation);
+                if (MathF.Abs(objectRotation - shape.Properties.Rotation) < 0.01f)
+                {
+                    break;
+                }
+
+                shape.Properties.Rotation = objectRotation;
+                _inlineDirty = true;
+                RequestInlineLayoutRefresh();
+                UpdateDirtyPages(GetAllPages());
+                InvalidateVisual();
+                break;
+            }
+        }
+
+        e.Handled = true;
+    }
+
+    private void EndInlineObjectEdit(PointerReleasedEventArgs e)
+    {
+        _isInlineObjectEditing = false;
+        e.Pointer.Capture(null);
+        e.Handled = true;
+
+        if (_inlineObjectDragMode == InlineObjectDragMode.Move)
+        {
+            if (_inlineDragActive)
+            {
+                CommitInlineObjectMove();
+            }
+
+            ResetInlineObjectEditState();
+            UpdatePointerCursor(null);
+            InvalidateVisual();
+            return;
+        }
+
+        if (_inlineDirty && _inlineSnapshot.HasValue
+            && _kernel.Services.TryGet<IEditorHistorySnapshotService>(out var history))
+        {
+            history.RecordSnapshot(_inlineSnapshot.Value);
+        }
+
+        if (_inlineDirty || _inlineLayoutRefreshPending)
+        {
+            FlushInlineLayoutRefresh();
+        }
+
+        ResetInlineObjectEditState();
+        UpdatePointerCursor(null);
+        InvalidateVisual();
+    }
+
+    private void CommitInlineObjectMove()
+    {
+        if (!_inlineEditSelection.HasValue)
+        {
+            return;
+        }
+
+        var selection = _inlineEditSelection.Value;
+        var range = _inlineDragRange.Normalize();
+        if (range.IsEmpty)
+        {
+            return;
+        }
+
+        var dropPosition = _editor.Caret;
+        if (dropPosition >= range.Start && dropPosition <= range.End)
+        {
+            SelectInlineObject(new InlineObjectHitInfo(selection, range.Start.Offset, range.End.Offset - range.Start.Offset));
+            return;
+        }
+
+        var inline = selection.Inline;
+        var inlineLength = Math.Max(1, DocumentEditHelpers.GetInlineLength(inline));
+        var targetParagraphIndex = Math.Clamp(dropPosition.ParagraphIndex, 0, Math.Max(0, _editor.Document.ParagraphCount - 1));
+        var targetOffset = Math.Max(0, dropPosition.Offset);
+        if (targetParagraphIndex == range.Start.ParagraphIndex && targetOffset > range.Start.Offset)
+        {
+            targetOffset = Math.Max(range.Start.Offset, targetOffset - inlineLength);
+        }
+
+        var target = new TextPosition(targetParagraphIndex, targetOffset);
+        _editor.SetSelection(range, SelectionUpdateMode.Replace);
+        _editor.DeleteForward();
+        _editor.SetSelection(new TextRange(target, target));
+        _editor.InsertInline(inline);
+        _editor.SetSelection(new TextRange(target, new TextPosition(targetParagraphIndex, targetOffset + inlineLength)));
+
+        _inlineDirty = true;
+        UpdateInlineObjectSelection();
+        UpdateDirtyPages(GetAllPages());
+        InvalidateVisual();
+
+        if (_inlineSnapshot.HasValue
+            && _kernel.Services.TryGet<IEditorHistorySnapshotService>(out var history))
+        {
+            history.RecordSnapshot(_inlineSnapshot.Value);
+        }
+    }
+
+    private void ResetInlineObjectEditState()
+    {
+        _inlineObjectDragMode = InlineObjectDragMode.None;
+        _activeInlineHandle = null;
+        _hoverInlineHandle = null;
+        _inlineEditSelection = null;
+        _inlineStartPoint = default;
+        _inlineStartCenter = default;
+        _inlineStartBounds = default;
+        _inlineStartRotation = 0f;
+        _inlineStartPointerAngle = 0f;
+        _inlineStartAspectRatio = 0f;
+        _inlineSnapshot = null;
+        _inlineDirty = false;
+        _inlinePreviewBounds = null;
+        _inlineLayoutRefreshPending = false;
+        _inlineDragStartView = default;
+        _inlineDragActive = false;
+        _inlineDragRange = default;
+    }
+
+    private void RequestInlineLayoutRefresh()
+    {
+        if (_inlineLayoutRefreshPending)
+        {
+            return;
+        }
+
+        _inlineLayoutRefreshPending = true;
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (!_inlineLayoutRefreshPending)
+            {
+                return;
+            }
+
+            _inlineLayoutRefreshPending = false;
+            _editor.RefreshLayout();
+        }, DispatcherPriority.Render);
+    }
+
+    private void FlushInlineLayoutRefresh()
+    {
+        _inlineLayoutRefreshPending = false;
+        _editor.RefreshLayout();
+    }
+
     private static float GetAngleDegrees(DocPoint center, DocPoint point)
     {
         var radians = MathF.Atan2(point.Y - center.Y, point.X - center.X);
@@ -1274,6 +1666,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
         float rotationDegrees,
         ShapeHandleKind kind,
         DocPoint point,
+        float aspectRatio,
         bool keepAspect)
     {
         var halfWidth = start.Width * 0.5f;
@@ -1311,16 +1704,15 @@ public sealed class DocumentView : Control, ILogicalScrollable
             newHalfHeight = MathF.Max(minHalfHeight, localY);
         }
 
-        if (keepAspect && IsCornerHandle(kind) && _shapeStartAspectRatio > 0f)
+        if (keepAspect && IsCornerHandle(kind) && aspectRatio > 0f)
         {
-            var ratio = _shapeStartAspectRatio;
-            if (newHalfWidth / newHalfHeight > ratio)
+            if (newHalfWidth / newHalfHeight > aspectRatio)
             {
-                newHalfWidth = newHalfHeight * ratio;
+                newHalfWidth = newHalfHeight * aspectRatio;
             }
             else
             {
-                newHalfHeight = newHalfWidth / ratio;
+                newHalfHeight = newHalfWidth / aspectRatio;
             }
         }
 
@@ -1398,6 +1790,12 @@ public sealed class DocumentView : Control, ILogicalScrollable
                 InvalidateVisual();
             }
 
+            if (_hoverInlineHandle.HasValue)
+            {
+                _hoverInlineHandle = null;
+                InvalidateVisual();
+            }
+
             _hoverTableResizeHandle = null;
             UpdatePointerCursor(GetShapeCursor(shapeHandle.Kind));
             return;
@@ -1409,7 +1807,32 @@ public sealed class DocumentView : Control, ILogicalScrollable
             InvalidateVisual();
         }
 
+        if (!_isPictureCropMode && TryGetInlineObjectHandleAtPoint(docPoint, out var inlineHandle))
+        {
+            if (!_hoverInlineHandle.HasValue || _hoverInlineHandle.Value.Kind != inlineHandle.Kind)
+            {
+                _hoverInlineHandle = inlineHandle;
+                InvalidateVisual();
+            }
+
+            _hoverTableResizeHandle = null;
+            UpdatePointerCursor(GetShapeCursor(inlineHandle.Kind));
+            return;
+        }
+
+        if (_hoverInlineHandle.HasValue)
+        {
+            _hoverInlineHandle = null;
+            InvalidateVisual();
+        }
+
         if (!_isPictureCropMode && TryGetSelectedShapeBounds(out var shapeBounds) && shapeBounds.Contains(docPoint.X, docPoint.Y))
+        {
+            UpdatePointerCursor(ShapeMoveCursor);
+            return;
+        }
+
+        if (!_isPictureCropMode && TryGetSelectedInlineObjectBounds(out var inlineBounds) && inlineBounds.Contains(docPoint.X, docPoint.Y))
         {
             UpdatePointerCursor(ShapeMoveCursor);
             return;
@@ -1565,6 +1988,29 @@ public sealed class DocumentView : Control, ILogicalScrollable
         _ = router.ExecuteAsync(commandId, payload, null, recordHistory).GetAwaiter().GetResult();
     }
 
+    private void TriggerFieldUpdate(FieldUpdateTrigger trigger, bool recordHistory)
+    {
+        if (!TryGetService<IEditorCommandRouter>(out var router))
+        {
+            return;
+        }
+
+        var commandId = trigger switch
+        {
+            FieldUpdateTrigger.Open => EditorReferencesCommandIds.Fields.UpdateAll,
+            FieldUpdateTrigger.Print => EditorReferencesCommandIds.Fields.UpdateAll,
+            FieldUpdateTrigger.Manual => EditorReferencesCommandIds.Fields.UpdateCurrent,
+            _ => EditorReferencesCommandIds.Fields.UpdateAll
+        };
+
+        if (!router.CanExecute(commandId))
+        {
+            return;
+        }
+
+        _ = router.ExecuteAsync(commandId, payload: null, context: null, recordHistory: recordHistory).GetAwaiter().GetResult();
+    }
+
     public override void Render(DrawingContext context)
     {
         base.Render(context);
@@ -1575,6 +2021,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
         DrawTableResizeHandles(context, effectiveOffset);
         DrawPictureCropOverlay(context, effectiveOffset);
         DrawShapeSelectionOverlay(context, effectiveOffset);
+        DrawInlineObjectSelectionOverlay(context, effectiveOffset);
         DrawCommentBalloons(context, effectiveOffset);
         DrawRevisionBalloons(context, effectiveOffset);
         DrawInkPreview(context, effectiveOffset);
@@ -1590,6 +2037,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
         _editor = CreateEditor(document);
         _editor.UpdateLayout((float)Bounds.Width, (float)Bounds.Height);
         ApplyEditorState();
+        TriggerFieldUpdate(FieldUpdateTrigger.Open, recordHistory: false);
     }
 
     public async Task LoadDocumentAsync(Document document)
@@ -1622,6 +2070,12 @@ public sealed class DocumentView : Control, ILogicalScrollable
             documentFactory: DocumentTemplates.CreateDefaultDocument);
         ConfigureInputPipeline(editor);
         ApplyEditorState();
+        TriggerFieldUpdate(FieldUpdateTrigger.Open, recordHistory: false);
+    }
+
+    public void UpdateFieldsForPrint()
+    {
+        TriggerFieldUpdate(FieldUpdateTrigger.Print, recordHistory: false);
     }
 
     public void RefreshLayout()
@@ -2433,34 +2887,39 @@ public sealed class DocumentView : Control, ILogicalScrollable
 
     private void DrawTableSelectionOverlay(DrawingContext context, Vector effectiveOffset)
     {
-        if (!TryGetTableSelectionRange(out var range))
+        var selections = _editor.TableSelections;
+        if (selections.Count == 0)
         {
             return;
         }
 
-        if (!TryGetTableLayouts(range.Table, out var layouts))
+        for (var selectionIndex = 0; selectionIndex < selections.Count; selectionIndex++)
         {
-            return;
-        }
-
-        foreach (var layout in layouts)
-        {
-            if (layout.Cells.Count == 0 || layout.Rows <= 0)
+            var range = selections[selectionIndex].Normalize();
+            if (!TryGetTableLayouts(range.Table, out var layouts))
             {
                 continue;
             }
 
-            var rowMap = BuildTableRowIndexMap(layout);
-            foreach (var cell in layout.Cells)
+            foreach (var layout in layouts)
             {
-                if (!IsCellInSelection(cell, range, rowMap))
+                if (layout.Cells.Count == 0 || layout.Rows <= 0)
                 {
                     continue;
                 }
 
-                var rect = DocRectToViewRect(cell.Bounds, effectiveOffset);
-                context.FillRectangle(TableSelectionFillBrush, rect);
-                context.DrawRectangle(TableSelectionBorderPen, rect);
+                var rowMap = BuildTableRowIndexMap(layout);
+                foreach (var cell in layout.Cells)
+                {
+                    if (!IsCellInSelection(cell, range, rowMap))
+                    {
+                        continue;
+                    }
+
+                    var rect = DocRectToViewRect(cell.Bounds, effectiveOffset);
+                    context.FillRectangle(TableSelectionFillBrush, rect);
+                    context.DrawRectangle(TableSelectionBorderPen, rect);
+                }
             }
         }
     }
@@ -2580,10 +3039,52 @@ public sealed class DocumentView : Control, ILogicalScrollable
         }
     }
 
+    private void DrawInlineObjectSelectionOverlay(DrawingContext context, Vector effectiveOffset)
+    {
+        if (_headerFooterSession is not null || _isPictureCropMode)
+        {
+            return;
+        }
+
+        if (!TryBuildInlineObjectHandles(out var handles, out var geometry, out var showRotate))
+        {
+            return;
+        }
+
+        var topLeft = DocToView(geometry.TopLeft, effectiveOffset);
+        var topRight = DocToView(geometry.TopRight, effectiveOffset);
+        var bottomRight = DocToView(geometry.BottomRight, effectiveOffset);
+        var bottomLeft = DocToView(geometry.BottomLeft, effectiveOffset);
+        context.DrawLine(ShapeSelectionBorderPen, topLeft, topRight);
+        context.DrawLine(ShapeSelectionBorderPen, topRight, bottomRight);
+        context.DrawLine(ShapeSelectionBorderPen, bottomRight, bottomLeft);
+        context.DrawLine(ShapeSelectionBorderPen, bottomLeft, topLeft);
+
+        var active = _activeInlineHandle;
+        var hover = _hoverInlineHandle;
+        foreach (var handle in handles)
+        {
+            var rect = DocRectToViewRect(handle.Bounds, effectiveOffset);
+            var isActive = active.HasValue && handle.Kind == active.Value.Kind;
+            var isHover = !isActive && hover.HasValue && handle.Kind == hover.Value.Kind;
+            var fill = isActive || isHover ? TableResizeHandleActiveFillBrush : ShapeHandleFillBrush;
+            var pen = isActive || isHover ? TableResizeHandleActiveBorderPen : ShapeHandleBorderPen;
+            context.FillRectangle(fill, rect);
+            context.DrawRectangle(pen, rect);
+        }
+
+        if (showRotate && (geometry.RotateHandle.X != 0f || geometry.RotateHandle.Y != 0f))
+        {
+            var start = DocToView(geometry.TopCenter, effectiveOffset);
+            var end = DocToView(geometry.RotateHandle, effectiveOffset);
+            context.DrawLine(ShapeSelectionBorderPen, start, end);
+        }
+    }
+
     private bool TryBuildTableResizeHandles(out List<TableResizeHandle> handles)
     {
         handles = new List<TableResizeHandle>();
-        if (!TryGetTableSelectionRange(out var range))
+        if (!TryGetPrimaryTableSelectionRange(out var range))
         {
             return false;
         }
@@ -2719,10 +3220,71 @@ public sealed class DocumentView : Control, ILogicalScrollable
         return true;
     }
 
+    private bool TryBuildInlineObjectHandles(out List<ShapeHandleInfo> handles, out ShapeSelectionGeometry geometry, out bool showRotate)
+    {
+        handles = new List<ShapeHandleInfo>();
+        geometry = default;
+        showRotate = false;
+        if (!TryResolveInlineSelection(out var selection))
+        {
+            return false;
+        }
+
+        var bounds = selection.Bounds;
+        if (bounds.Width <= 0f || bounds.Height <= 0f)
+        {
+            return false;
+        }
+
+        var size = ShapeHandleSize / MathF.Max(0.1f, _zoomFactor);
+        var half = size * 0.5f;
+        var rotateOffset = selection.SupportsRotate
+            ? ShapeRotateHandleOffset / MathF.Max(0.1f, _zoomFactor)
+            : 0f;
+        geometry = BuildShapeSelectionGeometry(bounds, selection.Rotation, rotateOffset);
+
+        handles.Add(new ShapeHandleInfo(ShapeHandleKind.TopLeft, new DocRect(geometry.TopLeft.X - half, geometry.TopLeft.Y - half, size, size)));
+        handles.Add(new ShapeHandleInfo(ShapeHandleKind.Top, new DocRect(geometry.TopCenter.X - half, geometry.TopCenter.Y - half, size, size)));
+        handles.Add(new ShapeHandleInfo(ShapeHandleKind.TopRight, new DocRect(geometry.TopRight.X - half, geometry.TopRight.Y - half, size, size)));
+        handles.Add(new ShapeHandleInfo(ShapeHandleKind.Right, new DocRect(geometry.RightCenter.X - half, geometry.RightCenter.Y - half, size, size)));
+        handles.Add(new ShapeHandleInfo(ShapeHandleKind.BottomRight, new DocRect(geometry.BottomRight.X - half, geometry.BottomRight.Y - half, size, size)));
+        handles.Add(new ShapeHandleInfo(ShapeHandleKind.Bottom, new DocRect(geometry.BottomCenter.X - half, geometry.BottomCenter.Y - half, size, size)));
+        handles.Add(new ShapeHandleInfo(ShapeHandleKind.BottomLeft, new DocRect(geometry.BottomLeft.X - half, geometry.BottomLeft.Y - half, size, size)));
+        handles.Add(new ShapeHandleInfo(ShapeHandleKind.Left, new DocRect(geometry.LeftCenter.X - half, geometry.LeftCenter.Y - half, size, size)));
+
+        showRotate = selection.SupportsRotate;
+        if (showRotate)
+        {
+            handles.Add(new ShapeHandleInfo(ShapeHandleKind.Rotate, new DocRect(geometry.RotateHandle.X - half, geometry.RotateHandle.Y - half, size, size)));
+        }
+
+        return true;
+    }
+
     private bool TryGetShapeHandleAtPoint(DocPoint point, out ShapeHandleInfo handle)
     {
         handle = default;
         if (!TryBuildShapeHandles(out var handles, out _))
+        {
+            return false;
+        }
+
+        foreach (var candidate in handles)
+        {
+            if (candidate.Bounds.Contains(point.X, point.Y))
+            {
+                handle = candidate;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool TryGetInlineObjectHandleAtPoint(DocPoint point, out ShapeHandleInfo handle)
+    {
+        handle = default;
+        if (!TryBuildInlineObjectHandles(out var handles, out _, out _))
         {
             return false;
         }
@@ -2816,34 +3378,16 @@ public sealed class DocumentView : Control, ILogicalScrollable
         return map;
     }
 
-    private bool TryGetTableSelectionRange(out TableSelectionRange range)
+    private bool TryGetPrimaryTableSelectionRange(out TableSelectionRange range)
     {
         range = default;
-        if (_editor.Document.ParagraphCount == 0)
+        var selections = _editor.TableSelections;
+        if (selections.Count == 0)
         {
             return false;
         }
 
-        var selection = _editor.Selection.Normalize();
-        var startIndex = Math.Clamp(selection.Start.ParagraphIndex, 0, _editor.Document.ParagraphCount - 1);
-        var endIndex = Math.Clamp(selection.End.ParagraphIndex, 0, _editor.Document.ParagraphCount - 1);
-        var startLocation = _editor.Document.GetParagraphLocation(startIndex);
-        var endLocation = _editor.Document.GetParagraphLocation(endIndex);
-        if (!startLocation.IsInTable || !endLocation.IsInTable || startLocation.Table is null || endLocation.Table is null)
-        {
-            return false;
-        }
-
-        if (!ReferenceEquals(startLocation.Table, endLocation.Table))
-        {
-            return false;
-        }
-
-        var rowStart = Math.Min(startLocation.RowIndex, endLocation.RowIndex);
-        var rowEnd = Math.Max(startLocation.RowIndex, endLocation.RowIndex);
-        var columnStart = Math.Min(startLocation.ColumnIndex, endLocation.ColumnIndex);
-        var columnEnd = Math.Max(startLocation.ColumnIndex, endLocation.ColumnIndex);
-        range = new TableSelectionRange(startLocation.Table, rowStart, rowEnd, columnStart, columnEnd);
+        range = selections[0].Normalize();
         return true;
     }
 
@@ -2905,6 +3449,11 @@ public sealed class DocumentView : Control, ILogicalScrollable
     {
         layoutObject = null!;
         image = null!;
+        if (_editor.SelectedFloatingObjectIds.Count > 1)
+        {
+            return false;
+        }
+
         var selectedId = _editor.SelectedFloatingObjectId;
         if (!selectedId.HasValue)
         {
@@ -2926,6 +3475,91 @@ public sealed class DocumentView : Control, ILogicalScrollable
             }
 
             return false;
+        }
+
+        return false;
+    }
+
+    private bool TryGetInlineObjectAtPoint(DocPoint point, out InlineObjectHitInfo hit)
+    {
+        hit = default;
+        var layout = _editor.Layout;
+        if (layout.Lines.Count == 0)
+        {
+            return false;
+        }
+
+        var lineIndex = layout.LineIndex.FindLineAtY(point.Y);
+        if (lineIndex < 0 || lineIndex >= layout.Lines.Count)
+        {
+            return false;
+        }
+
+        var line = layout.Lines[lineIndex];
+        var paragraphIndex = line.ParagraphIndex;
+        if (paragraphIndex < 0 || paragraphIndex >= _editor.Document.ParagraphCount)
+        {
+            return false;
+        }
+
+        var paragraph = _editor.Document.GetParagraph(paragraphIndex);
+        var pageIndex = layout.LineIndex.GetPageForLine(lineIndex);
+
+        bool TryBuildHit(
+            InlineObjectKind kind,
+            Inline inline,
+            float x,
+            float width,
+            float height,
+            float rotation,
+            bool supportsRotate,
+            out InlineObjectHitInfo info)
+        {
+            info = default;
+            if (!TryFindInlineIndex(paragraph, inline, out var inlineIndex, out var inlineStart, out var inlineLength))
+            {
+                return false;
+            }
+
+            var bounds = ComputeInlineObjectSelectionBounds(line, x, width, height, rotation, out var totalRotation);
+            var hitBounds = MathF.Abs(totalRotation) < 0.01f ? bounds : ComputeRotatedBounds(bounds, totalRotation);
+            if (!hitBounds.Contains(point.X, point.Y))
+            {
+                return false;
+            }
+
+            var baseRotation = totalRotation - rotation;
+            var selection = new InlineObjectSelectionInfo(kind, inline, paragraphIndex, inlineIndex, bounds, totalRotation, baseRotation, supportsRotate, pageIndex);
+            info = new InlineObjectHitInfo(selection, inlineStart, inlineLength);
+            return true;
+        }
+
+        for (var i = line.Shapes.Count - 1; i >= 0; i--)
+        {
+            var layoutShape = line.Shapes[i];
+            var shape = layoutShape.Shape;
+            if (TryBuildHit(InlineObjectKind.Shape, shape, layoutShape.X, layoutShape.Width, layoutShape.Height, shape.Properties.Rotation, true, out hit))
+            {
+                return true;
+            }
+        }
+
+        for (var i = line.Images.Count - 1; i >= 0; i--)
+        {
+            var layoutImage = line.Images[i];
+            if (TryBuildHit(InlineObjectKind.Image, layoutImage.Image, layoutImage.X, layoutImage.Width, layoutImage.Height, 0f, false, out hit))
+            {
+                return true;
+            }
+        }
+
+        for (var i = line.Charts.Count - 1; i >= 0; i--)
+        {
+            var layoutChart = line.Charts[i];
+            if (TryBuildHit(InlineObjectKind.Chart, layoutChart.Chart, layoutChart.X, layoutChart.Width, layoutChart.Height, 0f, false, out hit))
+            {
+                return true;
+            }
         }
 
         return false;
@@ -2976,6 +3610,100 @@ public sealed class DocumentView : Control, ILogicalScrollable
         return false;
     }
 
+    private static bool TryGetInlineAtOffset(
+        ParagraphBlock paragraph,
+        int offset,
+        out Inline inline,
+        out int inlineIndex,
+        out int inlineStart,
+        out int inlineLength)
+    {
+        inline = null!;
+        inlineIndex = -1;
+        inlineStart = 0;
+        inlineLength = 0;
+        if (paragraph.Inlines.Count == 0)
+        {
+            return false;
+        }
+
+        var position = 0;
+        for (var i = 0; i < paragraph.Inlines.Count; i++)
+        {
+            var current = paragraph.Inlines[i];
+            var length = DocumentEditHelpers.GetInlineLength(current);
+            if (offset >= position && offset < position + length)
+            {
+                inline = current;
+                inlineIndex = i;
+                inlineStart = position;
+                inlineLength = length;
+                return true;
+            }
+
+            position += length;
+        }
+
+        return false;
+    }
+
+    private static bool TryFindInlineIndex(
+        ParagraphBlock paragraph,
+        Inline inline,
+        out int inlineIndex,
+        out int inlineStart,
+        out int inlineLength)
+    {
+        inlineIndex = -1;
+        inlineStart = 0;
+        inlineLength = 0;
+        if (paragraph.Inlines.Count == 0)
+        {
+            return false;
+        }
+
+        var position = 0;
+        for (var i = 0; i < paragraph.Inlines.Count; i++)
+        {
+            var current = paragraph.Inlines[i];
+            var length = DocumentEditHelpers.GetInlineLength(current);
+            if (ReferenceEquals(current, inline))
+            {
+                inlineIndex = i;
+                inlineStart = position;
+                inlineLength = length;
+                return true;
+            }
+
+            position += length;
+        }
+
+        return false;
+    }
+
+    private static bool TryApplyInlineObjectSize(Inline inline, float width, float height)
+    {
+        var clampedWidth = MathF.Max(ShapeMinSize, width);
+        var clampedHeight = MathF.Max(ShapeMinSize, height);
+        switch (inline)
+        {
+            case ImageInline image:
+                image.Width = clampedWidth;
+                image.Height = clampedHeight;
+                return true;
+            case ShapeInline shape:
+                shape.Width = clampedWidth;
+                shape.Height = clampedHeight;
+                return true;
+            case ChartInline chart:
+                chart.Width = clampedWidth;
+                chart.Height = clampedHeight;
+                return true;
+            default:
+                return false;
+        }
+    }
+
     private bool TryGetInlineShapeLayout(ShapeInline shape, int paragraphIndex, out DocRect bounds, out int pageIndex)
     {
         bounds = default;
@@ -3004,6 +3732,79 @@ public sealed class DocumentView : Control, ILogicalScrollable
                 bounds = ComputeInlineShapeBounds(line, layoutShape, out _);
                 pageIndex = layout.LineIndex.GetPageForLine(i);
                 return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool TryGetInlineObjectLayout(
+        Inline inline,
+        int paragraphIndex,
+        out DocRect bounds,
+        out float rotation,
+        out bool supportsRotate,
+        out int pageIndex)
+    {
+        bounds = default;
+        rotation = 0f;
+        pageIndex = -1;
+        supportsRotate = inline is ShapeInline;
+        var layout = _editor.Layout;
+        if (layout.Lines.Count == 0)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < layout.Lines.Count; i++)
+        {
+            var line = layout.Lines[i];
+            if (line.ParagraphIndex != paragraphIndex)
+            {
+                continue;
+            }
+
+            if (inline is ImageInline image)
+            {
+                foreach (var layoutImage in line.Images)
+                {
+                    if (!ReferenceEquals(layoutImage.Image, image))
+                    {
+                        continue;
+                    }
+
+                    bounds = ComputeInlineObjectSelectionBounds(line, layoutImage.X, layoutImage.Width, layoutImage.Height, 0f, out rotation);
+                    pageIndex = layout.LineIndex.GetPageForLine(i);
+                    return true;
+                }
+            }
+            else if (inline is ShapeInline shape)
+            {
+                foreach (var layoutShape in line.Shapes)
+                {
+                    if (!ReferenceEquals(layoutShape.Shape, shape))
+                    {
+                        continue;
+                    }
+
+                    bounds = ComputeInlineObjectSelectionBounds(line, layoutShape.X, layoutShape.Width, layoutShape.Height, shape.Properties.Rotation, out rotation);
+                    pageIndex = layout.LineIndex.GetPageForLine(i);
+                    return true;
+                }
+            }
+            else if (inline is ChartInline chart)
+            {
+                foreach (var layoutChart in line.Charts)
+                {
+                    if (!ReferenceEquals(layoutChart.Chart, chart))
+                    {
+                        continue;
+                    }
+
+                    bounds = ComputeInlineObjectSelectionBounds(line, layoutChart.X, layoutChart.Width, layoutChart.Height, 0f, out rotation);
+                    pageIndex = layout.LineIndex.GetPageForLine(i);
+                    return true;
+                }
             }
         }
 
@@ -3041,6 +3842,51 @@ public sealed class DocumentView : Control, ILogicalScrollable
         var maxX = MathF.Max(MathF.Max(p1.X, p2.X), MathF.Max(p3.X, p4.X));
         var minY = MathF.Min(MathF.Min(p1.Y, p2.Y), MathF.Min(p3.Y, p4.Y));
         var maxY = MathF.Max(MathF.Max(p1.Y, p2.Y), MathF.Max(p3.Y, p4.Y));
+        return new DocRect(minX, minY, MathF.Max(0f, maxX - minX), MathF.Max(0f, maxY - minY));
+    }
+
+    private static DocRect ComputeInlineObjectSelectionBounds(
+        LayoutLine line,
+        float x,
+        float width,
+        float height,
+        float objectRotation,
+        out float totalRotation)
+    {
+        width = MathF.Max(0f, width);
+        height = MathF.Max(0f, height);
+        if (!DocTextDirectionHelpers.IsVertical(line.TextDirection))
+        {
+            totalRotation = objectRotation;
+            var baseline = line.Y + line.Ascent;
+            return new DocRect(line.X + x, baseline - height, width, height);
+        }
+
+        var baseRotation = DocTextDirectionHelpers.GetRotationDegrees(line.TextDirection!.Value);
+        totalRotation = baseRotation + objectRotation;
+        var centerLocalX = x + width * 0.5f;
+        var centerLocalY = line.Ascent - height * 0.5f;
+
+        var radians = baseRotation * (MathF.PI / 180f);
+        var cos = MathF.Cos(radians);
+        var sin = MathF.Sin(radians);
+        var centerWorld = RotatePoint(centerLocalX, centerLocalY, cos, sin, line.X, line.Y);
+
+        return new DocRect(centerWorld.X - width * 0.5f, centerWorld.Y - height * 0.5f, width, height);
+    }
+
+    private static DocRect ComputeRotatedBounds(DocRect bounds, float rotationDegrees)
+    {
+        if (MathF.Abs(rotationDegrees) < 0.01f)
+        {
+            return bounds;
+        }
+
+        var geometry = BuildShapeSelectionGeometry(bounds, rotationDegrees, 0f);
+        var minX = MathF.Min(MathF.Min(geometry.TopLeft.X, geometry.TopRight.X), MathF.Min(geometry.BottomLeft.X, geometry.BottomRight.X));
+        var maxX = MathF.Max(MathF.Max(geometry.TopLeft.X, geometry.TopRight.X), MathF.Max(geometry.BottomLeft.X, geometry.BottomRight.X));
+        var minY = MathF.Min(MathF.Min(geometry.TopLeft.Y, geometry.TopRight.Y), MathF.Min(geometry.BottomLeft.Y, geometry.BottomRight.Y));
+        var maxY = MathF.Max(MathF.Max(geometry.TopLeft.Y, geometry.TopRight.Y), MathF.Max(geometry.BottomLeft.Y, geometry.BottomRight.Y));
         return new DocRect(minX, minY, MathF.Max(0f, maxX - minX), MathF.Max(0f, maxY - minY));
     }
 
@@ -3152,6 +3998,11 @@ public sealed class DocumentView : Control, ILogicalScrollable
         layoutObject = null!;
         floating = null!;
         shape = null!;
+        if (_editor.SelectedFloatingObjectIds.Count > 1)
+        {
+            return false;
+        }
+
         var selectedId = _editor.SelectedFloatingObjectId;
         if (!selectedId.HasValue)
         {
@@ -3197,10 +4048,135 @@ public sealed class DocumentView : Control, ILogicalScrollable
         return true;
     }
 
+    private bool TryResolveInlineSelection(out InlineObjectSelectionInfo selection)
+    {
+        if (_isInlineObjectEditing && _inlineEditSelection.HasValue && _inlineObjectDragMode != InlineObjectDragMode.Move)
+        {
+            selection = _inlineEditSelection.Value;
+            if (selection.Inline is ShapeInline shape)
+            {
+                selection = selection with { Rotation = selection.BaseRotation + shape.Properties.Rotation };
+            }
+
+            if (_inlinePreviewBounds.HasValue)
+            {
+                selection = selection with { Bounds = _inlinePreviewBounds.Value };
+            }
+
+            return true;
+        }
+
+        if (_inlineSelection.HasValue)
+        {
+            selection = _inlineSelection.Value;
+            return true;
+        }
+
+        return TryComputeInlineSelection(out selection);
+    }
+
+    private bool TryComputeInlineSelection(out InlineObjectSelectionInfo selection)
+    {
+        selection = default;
+        if (_editor.SelectedFloatingObjectIds.Count > 0 || _editor.SelectedFloatingObjectId.HasValue)
+        {
+            return false;
+        }
+
+        var ranges = _editor.SelectionRanges;
+        if (ranges.Count != 1)
+        {
+            return false;
+        }
+
+        var range = ranges[0].Normalize();
+        if (range.IsEmpty || range.Start.ParagraphIndex != range.End.ParagraphIndex)
+        {
+            return false;
+        }
+
+        var paragraphIndex = range.Start.ParagraphIndex;
+        if (paragraphIndex < 0 || paragraphIndex >= _editor.Document.ParagraphCount)
+        {
+            return false;
+        }
+
+        var paragraph = _editor.Document.GetParagraph(paragraphIndex);
+        if (!TryGetInlineAtOffset(paragraph, range.Start.Offset, out var inline, out var inlineIndex, out var inlineStart, out var inlineLength))
+        {
+            return false;
+        }
+
+        if (inlineStart != range.Start.Offset || inlineLength != range.End.Offset - range.Start.Offset)
+        {
+            return false;
+        }
+
+        return TryBuildInlineSelectionInfo(inline, paragraphIndex, inlineIndex, out selection);
+    }
+
+    private bool TryBuildInlineSelectionInfo(Inline inline, int paragraphIndex, int inlineIndex, out InlineObjectSelectionInfo selection)
+    {
+        selection = default;
+        if (inline is not ImageInline && inline is not ShapeInline && inline is not ChartInline)
+        {
+            return false;
+        }
+
+        if (!TryGetInlineObjectLayout(inline, paragraphIndex, out var bounds, out var rotation, out var supportsRotate, out var pageIndex))
+        {
+            return false;
+        }
+
+        var kind = inline switch
+        {
+            ImageInline => InlineObjectKind.Image,
+            ShapeInline => InlineObjectKind.Shape,
+            ChartInline => InlineObjectKind.Chart,
+            _ => InlineObjectKind.Image
+        };
+
+        var objectRotation = inline is ShapeInline shape ? shape.Properties.Rotation : 0f;
+        var baseRotation = rotation - objectRotation;
+        selection = new InlineObjectSelectionInfo(kind, inline, paragraphIndex, inlineIndex, bounds, rotation, baseRotation, supportsRotate, pageIndex);
+        return true;
+    }
+
+    private void SelectInlineObject(InlineObjectHitInfo hit)
+    {
+        var start = new TextPosition(hit.Selection.ParagraphIndex, hit.Offset);
+        var end = new TextPosition(hit.Selection.ParagraphIndex, hit.Offset + hit.Length);
+        _editor.SetSelection(new TextRange(start, end), SelectionUpdateMode.Replace);
+        _inlineSelection = hit.Selection;
+    }
+
     private bool TryGetSelectedShapeBounds(out DocRect bounds)
     {
         bounds = default;
         if (!TryResolveShapeSelection(out var selection))
+        {
+            return false;
+        }
+
+        if (MathF.Abs(selection.Rotation) < 0.01f)
+        {
+            bounds = selection.Bounds;
+            return true;
+        }
+
+        var geometry = BuildShapeSelectionGeometry(selection.Bounds, selection.Rotation, 0f);
+        var minX = MathF.Min(MathF.Min(geometry.TopLeft.X, geometry.TopRight.X), MathF.Min(geometry.BottomLeft.X, geometry.BottomRight.X));
+        var maxX = MathF.Max(MathF.Max(geometry.TopLeft.X, geometry.TopRight.X), MathF.Max(geometry.BottomLeft.X, geometry.BottomRight.X));
+        var minY = MathF.Min(MathF.Min(geometry.TopLeft.Y, geometry.TopRight.Y), MathF.Min(geometry.BottomLeft.Y, geometry.BottomRight.Y));
+        var maxY = MathF.Max(MathF.Max(geometry.TopLeft.Y, geometry.TopRight.Y), MathF.Max(geometry.BottomLeft.Y, geometry.BottomRight.Y));
+        bounds = new DocRect(minX, minY, MathF.Max(0f, maxX - minX), MathF.Max(0f, maxY - minY));
+        return true;
+    }
+
+    private bool TryGetSelectedInlineObjectBounds(out DocRect bounds)
+    {
+        bounds = default;
+        if (!TryResolveInlineSelection(out var selection))
         {
             return false;
         }
@@ -3442,13 +4418,6 @@ public sealed class DocumentView : Control, ILogicalScrollable
         }
     }
 
-    private enum HeaderFooterVariant
-    {
-        Default,
-        First,
-        Even
-    }
-
     private readonly record struct HeaderFooterTarget(
         int SectionIndex,
         HeaderFooterVariant Variant,
@@ -3549,8 +4518,27 @@ public sealed class DocumentView : Control, ILogicalScrollable
     {
         return new AvaloniaClipboardService(
             () => TopLevel.GetTopLevel(this)?.Clipboard,
-            () => !session.Selection.IsEmpty || session.SelectedFloatingObjectId.HasValue,
-            () => !session.Selection.IsEmpty || session.SelectedFloatingObjectId.HasValue);
+            () => HasCopySelection(session),
+            () => HasCopySelection(session));
+    }
+
+    private static bool HasCopySelection(IEditorSession session)
+    {
+        if (session.SelectedFloatingObjectIds.Count > 0 || session.SelectedFloatingObjectId.HasValue)
+        {
+            return true;
+        }
+
+        var ranges = session.SelectionRanges;
+        for (var i = 0; i < ranges.Count; i++)
+        {
+            if (!ranges[i].IsEmpty)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private IEditorViewOptionsService CreateViewOptionsService()
@@ -3592,7 +4580,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
         UpdateScrollMetrics();
         UpdateSelectedEquation();
         UpdatePictureCropState();
-        AutoPromoteInlineShapeIfSelected();
+        UpdateInlineObjectSelection();
         UpdateHeaderFooterSessionLayout();
         UpdateCommentAnchors();
         UpdateRevisionAnchors();
@@ -3606,7 +4594,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
         UpdateDirtyPages(_editor.DirtyPages);
         UpdateSelectedEquation();
         UpdatePictureCropState();
-        AutoPromoteInlineShapeIfSelected();
+        UpdateInlineObjectSelection();
         UpdateHeaderFooterSessionLayout();
         UpdateCommentAnchors();
         UpdateRevisionAnchors();
@@ -3755,6 +4743,34 @@ public sealed class DocumentView : Control, ILogicalScrollable
         SetPictureCropMode(false);
     }
 
+    private void UpdateInlineObjectSelection()
+    {
+        if (_headerFooterSession is not null)
+        {
+            ClearInlineObjectSelection();
+            return;
+        }
+
+        if (TryComputeInlineSelection(out var selection))
+        {
+            _inlineSelection = selection;
+            return;
+        }
+
+        ClearInlineObjectSelection();
+    }
+
+    private void ClearInlineObjectSelection()
+    {
+        if (_inlineSelection is null && !_hoverInlineHandle.HasValue)
+        {
+            return;
+        }
+
+        _inlineSelection = null;
+        _hoverInlineHandle = null;
+    }
+
     private void AutoPromoteInlineShapeIfSelected()
     {
         if (_isPromotingInlineShape || _isShapeEditing || _headerFooterSession is not null)
@@ -3762,7 +4778,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
             return;
         }
 
-        if (!_editor.Selection.IsEmpty || _editor.SelectedFloatingObjectId.HasValue)
+        if (HasAnySelection())
         {
             return;
         }
@@ -3778,6 +4794,25 @@ public sealed class DocumentView : Control, ILogicalScrollable
         }
 
         PromoteInlineShapeToFloating(paragraphIndex, inlineIndex, shape, bounds, pageIndex);
+    }
+
+    private bool HasAnySelection()
+    {
+        if (_editor.SelectedFloatingObjectIds.Count > 0 || _editor.SelectedFloatingObjectId.HasValue)
+        {
+            return true;
+        }
+
+        var ranges = _editor.SelectionRanges;
+        for (var i = 0; i < ranges.Count; i++)
+        {
+            if (!ranges[i].IsEmpty)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private void UpdateHeaderFooterRenderOptions()
@@ -3814,6 +4849,137 @@ public sealed class DocumentView : Control, ILogicalScrollable
         }
 
         BeginHeaderFooterEdit(hit);
+    }
+
+    public void SetHeaderFooterDifferentFirstPage(bool value)
+    {
+        var sectionIndex = ResolveHeaderFooterSectionIndex();
+        var section = _editor.Document.GetSection(sectionIndex);
+        if (section.Properties.DifferentFirstPageHeaderFooter == value)
+        {
+            return;
+        }
+
+        section.Properties.DifferentFirstPageHeaderFooter = value;
+        HeaderFooterVariant? variantOverride = null;
+        if (_headerFooterSession is not null)
+        {
+            if (!value && _headerFooterSession.Target.Variant == HeaderFooterVariant.First)
+            {
+                variantOverride = HeaderFooterVariant.Default;
+            }
+            else if (value && _headerFooterSession.Target.Variant == HeaderFooterVariant.Default)
+            {
+                var pageIndex = ResolveHeaderFooterActivePageIndex();
+                if (IsFirstPageOfSection(pageIndex, sectionIndex))
+                {
+                    variantOverride = HeaderFooterVariant.First;
+                }
+            }
+        }
+
+        ApplyHeaderFooterSettingChange(sectionIndex, variantOverride);
+    }
+
+    public void SetHeaderFooterDifferentOddEven(bool value)
+    {
+        var document = _editor.Document;
+        if (document.EvenAndOddHeaders == value)
+        {
+            return;
+        }
+
+        document.EvenAndOddHeaders = value;
+        HeaderFooterVariant? variantOverride = null;
+        if (_headerFooterSession is not null)
+        {
+            if (!value && _headerFooterSession.Target.Variant == HeaderFooterVariant.Even)
+            {
+                variantOverride = HeaderFooterVariant.Default;
+            }
+            else if (value && _headerFooterSession.Target.Variant == HeaderFooterVariant.Default)
+            {
+                var sectionIndex = ResolveHeaderFooterSectionIndex();
+                var pageIndex = ResolveHeaderFooterActivePageIndex();
+                if (IsPageInSection(pageIndex, sectionIndex) && IsEvenPage(pageIndex))
+                {
+                    variantOverride = HeaderFooterVariant.Even;
+                }
+            }
+        }
+
+        ApplyHeaderFooterSettingChange(ResolveHeaderFooterSectionIndex(), variantOverride);
+    }
+
+    public void SetHeaderFooterVariant(HeaderFooterVariant variant)
+    {
+        if (_headerFooterSession is null)
+        {
+            return;
+        }
+
+        var sectionIndex = ResolveHeaderFooterSectionIndex();
+        var settingsChanged = false;
+        if (variant == HeaderFooterVariant.First)
+        {
+            var section = _editor.Document.GetSection(sectionIndex);
+            if (section.Properties.DifferentFirstPageHeaderFooter != true)
+            {
+                section.Properties.DifferentFirstPageHeaderFooter = true;
+                settingsChanged = true;
+            }
+        }
+        else if (variant == HeaderFooterVariant.Even)
+        {
+            if (!_editor.Document.EvenAndOddHeaders)
+            {
+                _editor.Document.EvenAndOddHeaders = true;
+                settingsChanged = true;
+            }
+        }
+
+        if (settingsChanged)
+        {
+            _editor.RefreshLayout();
+        }
+
+        var pageIndex = ResolveHeaderFooterPageIndexForVariant(sectionIndex, variant);
+        if (!TryBuildHeaderFooterHit(pageIndex, _headerFooterSession.Mode, variant, out var hit))
+        {
+            return;
+        }
+
+        BeginHeaderFooterEdit(hit);
+        Offset = BuildHeaderFooterScrollOffset(hit);
+    }
+
+    public void NavigateHeaderFooterSection(int delta)
+    {
+        if (_headerFooterSession is null || delta == 0)
+        {
+            return;
+        }
+
+        var currentSection = ResolveHeaderFooterSectionIndex();
+        var targetSection = Math.Clamp(currentSection + delta, 0, Math.Max(0, _editor.Document.SectionCount - 1));
+        if (targetSection == currentSection)
+        {
+            return;
+        }
+
+        var variant = _headerFooterSession.Target.Variant;
+        if (!TryResolveHeaderFooterPageIndex(targetSection, variant, out var pageIndex))
+        {
+            return;
+        }
+
+        if (!TryBuildHeaderFooterHit(pageIndex, _headerFooterSession.Mode, variant, out var hit))
+        {
+            return;
+        }
+
+        BeginHeaderFooterEdit(hit);
+        Offset = BuildHeaderFooterScrollOffset(hit);
     }
 
     private bool BeginHeaderFooterEdit(HeaderFooterHit hit)
@@ -3940,6 +5106,32 @@ public sealed class DocumentView : Control, ILogicalScrollable
             ? EditorInsertCommandIds.HeaderFooter.Footer
             : EditorInsertCommandIds.HeaderFooter.Header;
         _ = router.ExecuteAsync(commandId, request, recordHistory: false);
+    }
+
+    private void ApplyHeaderFooterSettingChange(int sectionIndex, HeaderFooterVariant? variantOverride)
+    {
+        _editor.RefreshLayout();
+        if (_headerFooterSession is null)
+        {
+            UpdateDirtyPages(GetAllPages());
+            InvalidateVisual();
+            EditorStateChanged?.Invoke(this, EventArgs.Empty);
+            return;
+        }
+
+        var variant = variantOverride ?? _headerFooterSession.Target.Variant;
+        var pageIndex = ResolveHeaderFooterPageIndexForVariant(sectionIndex, variant);
+        if (TryBuildHeaderFooterHit(pageIndex, _headerFooterSession.Mode, variant, out var hit))
+        {
+            BeginHeaderFooterEdit(hit);
+            Offset = BuildHeaderFooterScrollOffset(hit);
+            return;
+        }
+
+        UpdateHeaderFooterSessionLayout();
+        UpdateDirtyPages(GetAllPages());
+        InvalidateVisual();
+        EditorStateChanged?.Invoke(this, EventArgs.Empty);
     }
 
     private void MarkHeaderFooterDirty()
@@ -4104,6 +5296,15 @@ public sealed class DocumentView : Control, ILogicalScrollable
 
     private bool TryBuildHeaderFooterHit(int pageIndex, HeaderFooterEditMode mode, out HeaderFooterHit hit)
     {
+        return TryBuildHeaderFooterHit(pageIndex, mode, null, out hit);
+    }
+
+    private bool TryBuildHeaderFooterHit(
+        int pageIndex,
+        HeaderFooterEditMode mode,
+        HeaderFooterVariant? variantOverride,
+        out HeaderFooterHit hit)
+    {
         hit = default;
         var layout = _editor.Layout;
         if (mode == HeaderFooterEditMode.None || pageIndex < 0 || pageIndex >= layout.Pages.Count)
@@ -4116,7 +5317,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
             return false;
         }
 
-        if (!TryResolveHeaderFooterTarget(pageIndex, mode, out var target))
+        if (!TryResolveHeaderFooterTarget(pageIndex, mode, variantOverride, out var target))
         {
             return false;
         }
@@ -4224,6 +5425,15 @@ public sealed class DocumentView : Control, ILogicalScrollable
 
     private bool TryResolveHeaderFooterTarget(int pageIndex, HeaderFooterEditMode mode, out HeaderFooterTarget target)
     {
+        return TryResolveHeaderFooterTarget(pageIndex, mode, null, out target);
+    }
+
+    private bool TryResolveHeaderFooterTarget(
+        int pageIndex,
+        HeaderFooterEditMode mode,
+        HeaderFooterVariant? variantOverride,
+        out HeaderFooterTarget target)
+    {
         target = default;
         var layout = _editor.Layout;
         if (mode == HeaderFooterEditMode.None
@@ -4285,14 +5495,17 @@ public sealed class DocumentView : Control, ILogicalScrollable
             var isFirstPageOfSection = i == 0 || layout.PageSections[i - 1].SectionIndex != sectionSettings.SectionIndex;
             var pageNumber = layout.Pages[i].Index + 1;
             var isEvenPage = pageNumber % 2 == 0;
-            var variant = HeaderFooterVariant.Default;
-            if (isFirstPageOfSection && sectionInfo.Properties.DifferentFirstPageHeaderFooter == true)
+            var variant = variantOverride ?? HeaderFooterVariant.Default;
+            if (!variantOverride.HasValue)
             {
-                variant = HeaderFooterVariant.First;
-            }
-            else if (document.EvenAndOddHeaders && isEvenPage)
-            {
-                variant = HeaderFooterVariant.Even;
+                if (isFirstPageOfSection && sectionInfo.Properties.DifferentFirstPageHeaderFooter == true)
+                {
+                    variant = HeaderFooterVariant.First;
+                }
+                else if (document.EvenAndOddHeaders && isEvenPage)
+                {
+                    variant = HeaderFooterVariant.Even;
+                }
             }
 
             HeaderFooter container;
@@ -4459,6 +5672,165 @@ public sealed class DocumentView : Control, ILogicalScrollable
         var lineIndex = EditorSelectionService.FindLineIndexForPosition(layout, _editor.Caret, out _);
         var pageIndex = layout.LineIndex.GetPageForLine(lineIndex);
         return pageIndex < 0 ? 0 : pageIndex;
+    }
+
+    private int ResolveHeaderFooterActivePageIndex()
+    {
+        if (_headerFooterHit.HasValue)
+        {
+            return _headerFooterHit.Value.PageIndex;
+        }
+
+        return ResolveHeaderFooterPageIndex();
+    }
+
+    private int ResolveHeaderFooterSectionIndex()
+    {
+        var layout = _editor.Layout;
+        if (layout.PageSections.Count == 0)
+        {
+            return 0;
+        }
+
+        var pageIndex = ResolveHeaderFooterActivePageIndex();
+        if (pageIndex < 0 || pageIndex >= layout.PageSections.Count)
+        {
+            return 0;
+        }
+
+        return layout.PageSections[pageIndex].SectionIndex;
+    }
+
+    private bool ResolveHeaderFooterDifferentFirstPage()
+    {
+        var section = _editor.Document.GetSection(ResolveHeaderFooterSectionIndex());
+        return section.Properties.DifferentFirstPageHeaderFooter == true;
+    }
+
+    private int ResolveHeaderFooterPageIndexForVariant(int sectionIndex, HeaderFooterVariant variant)
+    {
+        var layout = _editor.Layout;
+        if (layout.Pages.Count == 0 || layout.PageSections.Count == 0)
+        {
+            return 0;
+        }
+
+        var currentPageIndex = ResolveHeaderFooterActivePageIndex();
+        if (IsPageInSection(currentPageIndex, sectionIndex))
+        {
+            if (variant == HeaderFooterVariant.Default)
+            {
+                return currentPageIndex;
+            }
+
+            if (variant == HeaderFooterVariant.First && IsFirstPageOfSection(currentPageIndex, sectionIndex))
+            {
+                return currentPageIndex;
+            }
+
+            if (variant == HeaderFooterVariant.Even && IsEvenPage(currentPageIndex))
+            {
+                return currentPageIndex;
+            }
+        }
+
+        if (TryResolveHeaderFooterPageIndex(sectionIndex, variant, out var pageIndex))
+        {
+            return pageIndex;
+        }
+
+        var maxIndex = Math.Min(layout.Pages.Count, layout.PageSections.Count) - 1;
+        return Math.Clamp(currentPageIndex, 0, Math.Max(0, maxIndex));
+    }
+
+    private bool TryResolveHeaderFooterPageIndex(int sectionIndex, HeaderFooterVariant variant, out int pageIndex)
+    {
+        pageIndex = -1;
+        var layout = _editor.Layout;
+        var maxCount = Math.Min(layout.Pages.Count, layout.PageSections.Count);
+        if (maxCount == 0)
+        {
+            return false;
+        }
+
+        var firstIndex = -1;
+        var evenIndex = -1;
+        for (var i = 0; i < maxCount; i++)
+        {
+            var section = layout.PageSections[i];
+            if (section.SectionIndex != sectionIndex)
+            {
+                if (firstIndex >= 0)
+                {
+                    break;
+                }
+
+                continue;
+            }
+
+            if (firstIndex < 0)
+            {
+                firstIndex = i;
+            }
+
+            if (variant == HeaderFooterVariant.Even && evenIndex < 0)
+            {
+                var pageNumber = layout.Pages[i].Index + 1;
+                if (pageNumber % 2 == 0)
+                {
+                    evenIndex = i;
+                    break;
+                }
+            }
+        }
+
+        if (firstIndex < 0)
+        {
+            return false;
+        }
+
+        if (variant == HeaderFooterVariant.Even && evenIndex >= 0)
+        {
+            pageIndex = evenIndex;
+            return true;
+        }
+
+        pageIndex = firstIndex;
+        return true;
+    }
+
+    private bool IsPageInSection(int pageIndex, int sectionIndex)
+    {
+        var layout = _editor.Layout;
+        if (pageIndex < 0 || pageIndex >= layout.PageSections.Count)
+        {
+            return false;
+        }
+
+        return layout.PageSections[pageIndex].SectionIndex == sectionIndex;
+    }
+
+    private bool IsFirstPageOfSection(int pageIndex, int sectionIndex)
+    {
+        var layout = _editor.Layout;
+        if (!IsPageInSection(pageIndex, sectionIndex))
+        {
+            return false;
+        }
+
+        return pageIndex == 0 || layout.PageSections[pageIndex - 1].SectionIndex != sectionIndex;
+    }
+
+    private bool IsEvenPage(int pageIndex)
+    {
+        var layout = _editor.Layout;
+        if (pageIndex < 0 || pageIndex >= layout.Pages.Count)
+        {
+            return false;
+        }
+
+        var pageNumber = layout.Pages[pageIndex].Index + 1;
+        return pageNumber % 2 == 0;
     }
 
     private static int FindPageIndex(IReadOnlyList<PageLayout> pages, float x, float y)
@@ -4976,16 +6348,19 @@ public sealed class DocumentView : Control, ILogicalScrollable
             {
                 _options.Caret = _editor.Caret;
                 _options.Selection = _editor.Selection.IsEmpty ? null : _editor.Selection;
+                _options.SelectionRanges = _editor.SelectionRanges;
                 _options.ShowCaret = true;
             }
             else
             {
                 _options.Caret = _editor.Caret;
                 _options.Selection = null;
+                _options.SelectionRanges = null;
                 _options.ShowCaret = false;
             }
 
             _options.SelectedFloatingObjectId = _editor.SelectedFloatingObjectId;
+            _options.SelectedFloatingObjectIds = _editor.SelectedFloatingObjectIds;
 
             _renderer.Render(canvas, _editor.Document, _editor.Layout, _options);
 
@@ -5014,12 +6389,33 @@ public sealed class DocumentView : Control, ILogicalScrollable
         float Position,
         TableLayout Layout);
 
-    private readonly record struct TableSelectionRange(
-        TableBlock Table,
-        int RowStart,
-        int RowEnd,
-        int ColumnStart,
-        int ColumnEnd);
+    private enum InlineObjectKind
+    {
+        Image,
+        Shape,
+        Chart
+    }
+
+    private enum InlineObjectDragMode
+    {
+        None,
+        Move,
+        Resize,
+        Rotate
+    }
+
+    private readonly record struct InlineObjectSelectionInfo(
+        InlineObjectKind Kind,
+        Inline Inline,
+        int ParagraphIndex,
+        int InlineIndex,
+        DocRect Bounds,
+        float Rotation,
+        float BaseRotation,
+        bool SupportsRotate,
+        int PageIndex);
+
+    private readonly record struct InlineObjectHitInfo(InlineObjectSelectionInfo Selection, int Offset, int Length);
 
     private enum ShapeDragMode
     {

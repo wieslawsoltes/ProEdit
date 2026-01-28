@@ -171,6 +171,119 @@ internal static class DocumentTemplates
         title.ParagraphProperties.SpacingAfter = PointsToDips(8f);
         AddParagraphStyle(title);
 
+        var tocHeading = new ParagraphStyleDefinition("TOCHeading")
+        {
+            Name = "TOC Heading",
+            BasedOnId = "Normal",
+            NextStyleId = "Normal"
+        };
+        ApplyMajorFont(tocHeading.RunProperties, 16f);
+        tocHeading.RunProperties.ThemeColor = DocThemeColor.Accent1;
+        tocHeading.ParagraphProperties.SpacingBefore = PointsToDips(12f);
+        tocHeading.ParagraphProperties.SpacingAfter = PointsToDips(4f);
+        tocHeading.ParagraphProperties.KeepWithNext = true;
+        AddParagraphStyle(tocHeading);
+
+        var tocIndentStep = PointsToDips(18f);
+        for (var level = 1; level <= 9; level++)
+        {
+            var toc = new ParagraphStyleDefinition($"TOC{level}")
+            {
+                Name = $"TOC {level}",
+                BasedOnId = "Normal",
+                NextStyleId = "Normal"
+            };
+            ApplyMinorFont(toc.RunProperties, 11f);
+            toc.ParagraphProperties.LineSpacing = SingleLineSpacingTwips;
+            toc.ParagraphProperties.LineSpacingRule = DocLineSpacingRule.Auto;
+            toc.ParagraphProperties.SpacingBefore = 0f;
+            toc.ParagraphProperties.SpacingAfter = 0f;
+            if (level > 1)
+            {
+                toc.ParagraphProperties.IndentLeft = tocIndentStep * (level - 1);
+            }
+
+            AddParagraphStyle(toc);
+        }
+
+        var tofHeading = new ParagraphStyleDefinition("TOFHeading")
+        {
+            Name = "Table of Figures Heading",
+            BasedOnId = "Normal",
+            NextStyleId = "Normal"
+        };
+        ApplyMajorFont(tofHeading.RunProperties, 16f);
+        tofHeading.RunProperties.ThemeColor = DocThemeColor.Accent1;
+        tofHeading.ParagraphProperties.SpacingBefore = PointsToDips(12f);
+        tofHeading.ParagraphProperties.SpacingAfter = PointsToDips(4f);
+        tofHeading.ParagraphProperties.KeepWithNext = true;
+        AddParagraphStyle(tofHeading);
+
+        var tofEntry = new ParagraphStyleDefinition("TOF")
+        {
+            Name = "Table of Figures",
+            BasedOnId = "Normal",
+            NextStyleId = "Normal"
+        };
+        ApplyMinorFont(tofEntry.RunProperties, 11f);
+        tofEntry.ParagraphProperties.LineSpacing = SingleLineSpacingTwips;
+        tofEntry.ParagraphProperties.LineSpacingRule = DocLineSpacingRule.Auto;
+        tofEntry.ParagraphProperties.SpacingBefore = 0f;
+        tofEntry.ParagraphProperties.SpacingAfter = 0f;
+        AddParagraphStyle(tofEntry);
+
+        var indexHeading = new ParagraphStyleDefinition("IndexHeading")
+        {
+            Name = "Index Heading",
+            BasedOnId = "Normal",
+            NextStyleId = "Normal"
+        };
+        ApplyMajorFont(indexHeading.RunProperties, 16f);
+        indexHeading.RunProperties.ThemeColor = DocThemeColor.Accent1;
+        indexHeading.ParagraphProperties.SpacingBefore = PointsToDips(12f);
+        indexHeading.ParagraphProperties.SpacingAfter = PointsToDips(4f);
+        indexHeading.ParagraphProperties.KeepWithNext = true;
+        AddParagraphStyle(indexHeading);
+
+        var indexEntry = new ParagraphStyleDefinition("Index1")
+        {
+            Name = "Index 1",
+            BasedOnId = "Normal",
+            NextStyleId = "Normal"
+        };
+        ApplyMinorFont(indexEntry.RunProperties, 11f);
+        indexEntry.ParagraphProperties.LineSpacing = SingleLineSpacingTwips;
+        indexEntry.ParagraphProperties.LineSpacingRule = DocLineSpacingRule.Auto;
+        indexEntry.ParagraphProperties.SpacingBefore = 0f;
+        indexEntry.ParagraphProperties.SpacingAfter = 0f;
+        AddParagraphStyle(indexEntry);
+
+        var authoritiesHeading = new ParagraphStyleDefinition("TOAHeading")
+        {
+            Name = "Table of Authorities Heading",
+            BasedOnId = "Normal",
+            NextStyleId = "Normal"
+        };
+        ApplyMajorFont(authoritiesHeading.RunProperties, 16f);
+        authoritiesHeading.RunProperties.ThemeColor = DocThemeColor.Accent1;
+        authoritiesHeading.ParagraphProperties.SpacingBefore = PointsToDips(12f);
+        authoritiesHeading.ParagraphProperties.SpacingAfter = PointsToDips(4f);
+        authoritiesHeading.ParagraphProperties.KeepWithNext = true;
+        AddParagraphStyle(authoritiesHeading);
+
+        var authoritiesEntry = new ParagraphStyleDefinition("TOA")
+        {
+            Name = "Table of Authorities",
+            BasedOnId = "Normal",
+            NextStyleId = "Normal"
+        };
+        ApplyMinorFont(authoritiesEntry.RunProperties, 11f);
+        authoritiesEntry.ParagraphProperties.LineSpacing = SingleLineSpacingTwips;
+        authoritiesEntry.ParagraphProperties.LineSpacingRule = DocLineSpacingRule.Auto;
+        authoritiesEntry.ParagraphProperties.SpacingBefore = 0f;
+        authoritiesEntry.ParagraphProperties.SpacingAfter = 0f;
+        AddParagraphStyle(authoritiesEntry);
+
         var tableNormal = new TableStyleDefinition("TableNormal")
         {
             Name = "Normal Table",

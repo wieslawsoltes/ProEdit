@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
+using Avalonia.Threading;
 using Vibe.Office.Documents;
 using Vibe.Office.Editing;
 using Vibe.Office.Primitives;
@@ -127,9 +128,25 @@ public partial class StylesPaneWindow : Window
 
     public void SetServices(IStyleManagerService styleService, IFontService? fontService)
     {
+        if (_styleService is not null)
+        {
+            _styleService.StylesChanged -= OnStylesChanged;
+        }
+
         _styleService = styleService ?? throw new ArgumentNullException(nameof(styleService));
+        _styleService.StylesChanged += OnStylesChanged;
         _fontService = fontService;
         RefreshStyles();
+    }
+
+    protected override void OnClosed(EventArgs e)
+    {
+        if (_styleService is not null)
+        {
+            _styleService.StylesChanged -= OnStylesChanged;
+        }
+
+        base.OnClosed(e);
     }
 
     private void RefreshStyles()
@@ -215,6 +232,11 @@ public partial class StylesPaneWindow : Window
 
         UpdateStyleDetails();
         ApplyOptions();
+    }
+
+    private void OnStylesChanged(object? sender, EventArgs e)
+    {
+        Dispatcher.UIThread.Post(RefreshStyles);
     }
 
     private void OnApplyClick(object? sender, RoutedEventArgs e)
@@ -323,7 +345,7 @@ public partial class StylesPaneWindow : Window
         }
 
         var dialog = new StyleEditorDialog(
-            new StyleEditorState(EditorStyleType.Paragraph, string.Empty, null, null, false, false, null, null, null, null, null),
+            new StyleEditorState(EditorStyleType.Paragraph, string.Empty, null, null, null, false, false, null, null, null, null, null),
             _styleService,
             _fontService);
         var result = await dialog.ShowDialog<StyleEditorResult?>(this);
@@ -337,6 +359,7 @@ public partial class StylesPaneWindow : Window
             created.Name,
             created.BasedOnId,
             created.NextStyleId,
+            created.LinkedStyleId,
             created.QuickStyle,
             created.AutoRedefine,
             created.RunProperties,

@@ -80,6 +80,13 @@
           </StackPanel>
           <StackPanel Orientation="Horizontal"
                       Spacing="6">
+            <TextBlock Text="Linked style"
+                       Width="100" />
+            <ComboBox x:Name="StyleLinkedCombo"
+                      Width="220" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal"
+                      Spacing="6">
             <TextBlock Text="Priority"
                        Width="100" />
             <TextBox x:Name="PriorityBox"

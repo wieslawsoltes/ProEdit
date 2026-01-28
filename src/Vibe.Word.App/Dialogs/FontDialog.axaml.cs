@@ -29,7 +29,12 @@ public readonly record struct FontDialogState(
     bool? TextImprint,
     float? CharacterScalePercent,
     float? CharacterSpacingPoints,
-    float? CharacterPositionPoints);
+    float? CharacterPositionPoints,
+    DocLigatureOptions? Ligatures,
+    bool? ContextualAlternates,
+    DocNumberForm? NumberForm,
+    DocNumberSpacing? NumberSpacing,
+    uint? StylisticSets);
 
 public partial class FontDialog : Window
 {
@@ -53,6 +58,13 @@ public partial class FontDialog : Window
     private readonly TextBox _characterSpacingByTextBox;
     private readonly ComboBox _characterPositionCombo;
     private readonly TextBox _characterPositionByTextBox;
+    private readonly ComboBox _ligaturesCombo;
+    private readonly CheckBox _contextualAlternatesCheckBox;
+    private readonly ComboBox _numberFormCombo;
+    private readonly ComboBox _numberSpacingCombo;
+    private readonly ComboBox _stylisticSetsModeCombo;
+    private readonly CheckBox[] _stylisticSets;
+    private readonly Panel _stylisticSetsPanel;
     private readonly TextBlock _previewText;
     private readonly TextBlock? _previewTextAdvanced;
 
@@ -112,6 +124,43 @@ public partial class FontDialog : Window
         new CharacterPositionOption("Lowered", CharacterPositionKind.Lowered)
     };
 
+    private static readonly IReadOnlyList<LigatureOption> LigatureOptions = new[]
+    {
+        new LigatureOption("Not set", null),
+        new LigatureOption("None", DocLigatureOptions.None),
+        new LigatureOption("Standard", DocLigatureOptions.Standard),
+        new LigatureOption("Contextual", DocLigatureOptions.Contextual),
+        new LigatureOption("Discretional", DocLigatureOptions.Discretional),
+        new LigatureOption("Historical", DocLigatureOptions.Historical),
+        new LigatureOption("Standard + Contextual", DocLigatureOptions.Standard | DocLigatureOptions.Contextual),
+        new LigatureOption("Standard + Discretional", DocLigatureOptions.Standard | DocLigatureOptions.Discretional),
+        new LigatureOption("Standard + Contextual + Historical", DocLigatureOptions.Standard | DocLigatureOptions.Contextual | DocLigatureOptions.Historical),
+        new LigatureOption("All", DocLigatureOptions.Standard | DocLigatureOptions.Contextual | DocLigatureOptions.Discretional | DocLigatureOptions.Historical)
+    };
+
+    private static readonly IReadOnlyList<NumberFormOption> NumberFormOptions = new[]
+    {
+        new NumberFormOption("Not set", null),
+        new NumberFormOption("Default", DocNumberForm.Default),
+        new NumberFormOption("Lining", DocNumberForm.Lining),
+        new NumberFormOption("Old-style", DocNumberForm.OldStyle)
+    };
+
+    private static readonly IReadOnlyList<NumberSpacingOption> NumberSpacingOptions = new[]
+    {
+        new NumberSpacingOption("Not set", null),
+        new NumberSpacingOption("Default", DocNumberSpacing.Default),
+        new NumberSpacingOption("Proportional", DocNumberSpacing.Proportional),
+        new NumberSpacingOption("Tabular", DocNumberSpacing.Tabular)
+    };
+
+    private static readonly IReadOnlyList<StylisticSetsModeOption> StylisticSetsModeOptions = new[]
+    {
+        new StylisticSetsModeOption("Use defaults", StylisticSetsMode.Default),
+        new StylisticSetsModeOption("None", StylisticSetsMode.None),
+        new StylisticSetsModeOption("Custom", StylisticSetsMode.Custom)
+    };
+
     private static readonly IReadOnlyList<ScaleOption> ScaleOptions = new[]
     {
         new ScaleOption("50%", 50f),
@@ -151,6 +200,13 @@ public partial class FontDialog : Window
         _characterSpacingByTextBox = this.FindControl<TextBox>("CharacterSpacingByTextBox")!;
         _characterPositionCombo = this.FindControl<ComboBox>("CharacterPositionCombo")!;
         _characterPositionByTextBox = this.FindControl<TextBox>("CharacterPositionByTextBox")!;
+        _ligaturesCombo = this.FindControl<ComboBox>("LigaturesCombo")!;
+        _contextualAlternatesCheckBox = this.FindControl<CheckBox>("ContextualAlternatesCheckBox")!;
+        _numberFormCombo = this.FindControl<ComboBox>("NumberFormCombo")!;
+        _numberSpacingCombo = this.FindControl<ComboBox>("NumberSpacingCombo")!;
+        _stylisticSetsModeCombo = this.FindControl<ComboBox>("StylisticSetsModeCombo")!;
+        _stylisticSetsPanel = this.FindControl<Panel>("StylisticSetsPanel")!;
+        _stylisticSets = BuildStylisticSets();
         _previewText = this.FindControl<TextBlock>("PreviewText")!;
         _previewTextAdvanced = this.FindControl<TextBlock>("PreviewTextAdvanced");
 
@@ -164,6 +220,10 @@ public partial class FontDialog : Window
         _characterScaleCombo.ItemsSource = ScaleOptions;
         _characterSpacingCombo.ItemsSource = CharacterSpacingOptions;
         _characterPositionCombo.ItemsSource = CharacterPositionOptions;
+        _ligaturesCombo.ItemsSource = LigatureOptions;
+        _numberFormCombo.ItemsSource = NumberFormOptions;
+        _numberSpacingCombo.ItemsSource = NumberSpacingOptions;
+        _stylisticSetsModeCombo.ItemsSource = StylisticSetsModeOptions;
 
         SetState(state);
 
@@ -201,8 +261,14 @@ public partial class FontDialog : Window
         SetCharacterScaleSelection(state.CharacterScalePercent);
         SetCharacterSpacingSelection(state.CharacterSpacingPoints);
         SetCharacterPositionSelection(state.CharacterPositionPoints);
+        SetLigatureSelection(state.Ligatures);
+        _contextualAlternatesCheckBox.IsChecked = state.ContextualAlternates;
+        SetNumberFormSelection(state.NumberForm);
+        SetNumberSpacingSelection(state.NumberSpacing);
+        SetStylisticSetsSelection(state.StylisticSets);
         UpdateCharacterSpacingState();
         UpdateCharacterPositionState();
+        UpdateStylisticSetsState();
         UpdatePreview();
     }
 
@@ -222,6 +288,7 @@ public partial class FontDialog : Window
 
     private void OnSelectionChanged(object? sender, Avalonia.Controls.SelectionChangedEventArgs e)
     {
+        UpdateStylisticSetsState();
         UpdatePreview();
     }
 
@@ -281,6 +348,7 @@ public partial class FontDialog : Window
 
         var letterSpacing = ResolveLetterSpacing();
         var baselineOffset = ResolveBaselineOffset();
+        var openTypeFeatures = BuildOpenTypeFeatures();
 
         return new EditorFontDialogOptions(
             fontFamily,
@@ -300,7 +368,8 @@ public partial class FontDialog : Window
             _imprintCheckBox.IsChecked,
             letterSpacing,
             characterScale,
-            baselineOffset);
+            baselineOffset,
+            openTypeFeatures);
     }
 
     private void UpdatePreview()
@@ -594,6 +663,81 @@ public partial class FontDialog : Window
         _characterPositionByTextBox.IsEnabled = kind is CharacterPositionKind.Raised or CharacterPositionKind.Lowered;
     }
 
+    private void SetLigatureSelection(DocLigatureOptions? value)
+    {
+        SetOptionSelection(_ligaturesCombo, LigatureOptions, value);
+    }
+
+    private void SetNumberFormSelection(DocNumberForm? value)
+    {
+        SetOptionSelection(_numberFormCombo, NumberFormOptions, value);
+    }
+
+    private void SetNumberSpacingSelection(DocNumberSpacing? value)
+    {
+        SetOptionSelection(_numberSpacingCombo, NumberSpacingOptions, value);
+    }
+
+    private void SetStylisticSetsSelection(uint? sets)
+    {
+        if (!sets.HasValue)
+        {
+            _stylisticSetsModeCombo.SelectedItem = StylisticSetsModeOptions[0];
+            SetStylisticSetsIndeterminate();
+            return;
+        }
+
+        if (sets.Value == 0u)
+        {
+            _stylisticSetsModeCombo.SelectedItem = StylisticSetsModeOptions[1];
+            SetStylisticSetsChecked(false);
+            return;
+        }
+
+        _stylisticSetsModeCombo.SelectedItem = StylisticSetsModeOptions[2];
+        for (var i = 0; i < _stylisticSets.Length; i++)
+        {
+            var bit = 1u << i;
+            _stylisticSets[i].IsChecked = (sets.Value & bit) != 0u;
+        }
+    }
+
+    private void SetStylisticSetsChecked(bool value)
+    {
+        for (var i = 0; i < _stylisticSets.Length; i++)
+        {
+            _stylisticSets[i].IsChecked = value;
+        }
+    }
+
+    private void SetStylisticSetsIndeterminate()
+    {
+        for (var i = 0; i < _stylisticSets.Length; i++)
+        {
+            _stylisticSets[i].IsChecked = null;
+        }
+    }
+
+    private void UpdateStylisticSetsState()
+    {
+        var mode = (_stylisticSetsModeCombo.SelectedItem as StylisticSetsModeOption)?.Mode ?? StylisticSetsMode.Default;
+        var enable = mode == StylisticSetsMode.Custom;
+        _stylisticSetsPanel.IsEnabled = enable;
+        if (enable)
+        {
+            return;
+        }
+
+        if (mode == StylisticSetsMode.None)
+        {
+            SetStylisticSetsChecked(false);
+        }
+        else if (mode == StylisticSetsMode.Default)
+        {
+            SetStylisticSetsIndeterminate();
+        }
+    }
+
     private float? ResolveLetterSpacing()
     {
         if (_characterSpacingCombo.SelectedItem is not CharacterSpacingOption spacingOption)
@@ -700,6 +844,33 @@ public partial class FontDialog : Window
         public override string ToString() => Label;
     }
 
+    private sealed record LigatureOption(string Label, DocLigatureOptions? Options)
+    {
+        public override string ToString() => Label;
+    }
+
+    private sealed record NumberFormOption(string Label, DocNumberForm? Form)
+    {
+        public override string ToString() => Label;
+    }
+
+    private sealed record NumberSpacingOption(string Label, DocNumberSpacing? Spacing)
+    {
+        public override string ToString() => Label;
+    }
+
+    private enum StylisticSetsMode
+    {
+        Default,
+        None,
+        Custom
+    }
+
+    private sealed record StylisticSetsModeOption(string Label, StylisticSetsMode Mode)
+    {
+        public override string ToString() => Label;
+    }
+
     private enum CharacterSpacingKind
     {
         Normal,
@@ -732,5 +903,144 @@ public partial class FontDialog : Window
     private sealed record ScaleOption(string Label, float Percent)
     {
         public override string ToString() => Label;
+    }
+
+    private static void SetOptionSelection<TOption, TValue>(
+        ComboBox combo,
+        IReadOnlyList<TOption> options,
+        TValue? value)
+        where TValue : struct
+        where TOption : class
+    {
+        if (!value.HasValue)
+        {
+            combo.SelectedItem = options[0];
+            return;
+        }
+
+        foreach (var option in options)
+        {
+            switch (option)
+            {
+                case LigatureOption ligatureOption when typeof(TValue) == typeof(DocLigatureOptions)
+                                                     && ligatureOption.Options.HasValue
+                                                     && EqualityComparer<TValue>.Default.Equals(
+                                                         value.Value,
+                                                         (TValue)(object)ligatureOption.Options.Value):
+                    combo.SelectedItem = option;
+                    return;
+                case NumberFormOption numberFormOption when typeof(TValue) == typeof(DocNumberForm)
+                                                        && numberFormOption.Form.HasValue
+                                                        && EqualityComparer<TValue>.Default.Equals(
+                                                            value.Value,
+                                                            (TValue)(object)numberFormOption.Form.Value):
+                    combo.SelectedItem = option;
+                    return;
+                case NumberSpacingOption numberSpacingOption when typeof(TValue) == typeof(DocNumberSpacing)
+                                                              && numberSpacingOption.Spacing.HasValue
+                                                              && EqualityComparer<TValue>.Default.Equals(
+                                                                  value.Value,
+                                                                  (TValue)(object)numberSpacingOption.Spacing.Value):
+                    combo.SelectedItem = option;
+                    return;
+            }
+        }
+
+        combo.SelectedItem = options[0];
+    }
+
+    private CheckBox[] BuildStylisticSets()
+    {
+        return new[]
+        {
+            this.FindControl<CheckBox>("StylisticSet01CheckBox")!,
+            this.FindControl<CheckBox>("StylisticSet02CheckBox")!,
+            this.FindControl<CheckBox>("StylisticSet03CheckBox")!,
+            this.FindControl<CheckBox>("StylisticSet04CheckBox")!,
+            this.FindControl<CheckBox>("StylisticSet05CheckBox")!,
+            this.FindControl<CheckBox>("StylisticSet06CheckBox")!,
+            this.FindControl<CheckBox>("StylisticSet07CheckBox")!,
+            this.FindControl<CheckBox>("StylisticSet08CheckBox")!,
+            this.FindControl<CheckBox>("StylisticSet09CheckBox")!,
+            this.FindControl<CheckBox>("StylisticSet10CheckBox")!,
+            this.FindControl<CheckBox>("StylisticSet11CheckBox")!,
+            this.FindControl<CheckBox>("StylisticSet12CheckBox")!,
+            this.FindControl<CheckBox>("StylisticSet13CheckBox")!,
+            this.FindControl<CheckBox>("StylisticSet14CheckBox")!,
+            this.FindControl<CheckBox>("StylisticSet15CheckBox")!,
+            this.FindControl<CheckBox>("StylisticSet16CheckBox")!,
+            this.FindControl<CheckBox>("StylisticSet17CheckBox")!,
+            this.FindControl<CheckBox>("StylisticSet18CheckBox")!,
+            this.FindControl<CheckBox>("StylisticSet19CheckBox")!,
+            this.FindControl<CheckBox>("StylisticSet20CheckBox")!
+        };
+    }
+
+    private TextOpenTypeFeatures? BuildOpenTypeFeatures()
+    {
+        TextOpenTypeFeatures? features = null;
+
+        if (_ligaturesCombo.SelectedItem is LigatureOption ligatureOption && ligatureOption.Options.HasValue)
+        {
+            features ??= new TextOpenTypeFeatures();
+            features.Ligatures = ligatureOption.Options.Value;
+        }
+
+        if (_contextualAlternatesCheckBox.IsChecked.HasValue)
+        {
+            features ??= new TextOpenTypeFeatures();
+            features.ContextualAlternates = _contextualAlternatesCheckBox.IsChecked.Value;
+        }
+
+        if (_numberFormCombo.SelectedItem is NumberFormOption numberFormOption && numberFormOption.Form.HasValue)
+        {
+            features ??= new TextOpenTypeFeatures();
+            features.NumberForm = numberFormOption.Form.Value;
+        }
+
+        if (_numberSpacingCombo.SelectedItem is NumberSpacingOption numberSpacingOption && numberSpacingOption.Spacing.HasValue)
+        {
+            features ??= new TextOpenTypeFeatures();
+            features.NumberSpacing = numberSpacingOption.Spacing.Value;
+        }
+
+        var stylisticSets = ResolveStylisticSets();
+        if (stylisticSets.HasValue)
+        {
+            features ??= new TextOpenTypeFeatures();
+            features.StylisticSets = stylisticSets.Value;
+        }
+
+        return features;
+    }
+
+    private uint? ResolveStylisticSets()
+    {
+        if (_stylisticSetsModeCombo.SelectedItem is not StylisticSetsModeOption modeOption)
+        {
+            return null;
+        }
+
+        return modeOption.Mode switch
+        {
+            StylisticSetsMode.Default => null,
+            StylisticSetsMode.None => 0u,
+            StylisticSetsMode.Custom => BuildStylisticSetMask(),
+            _ => null
+        };
+    }
+
+    private uint BuildStylisticSetMask()
+    {
+        var mask = 0u;
+        for (var i = 0; i < _stylisticSets.Length; i++)
+        {
+            if (_stylisticSets[i].IsChecked == true)
+            {
+                mask |= 1u << i;
+            }
+        }
+
+        return mask;
     }
 }
