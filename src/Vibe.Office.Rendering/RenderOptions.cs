@@ -41,9 +41,11 @@ public sealed class RenderOptions
     public ISvgRasterizer? SvgRasterizer { get; set; }
 
     public TextRange? Selection { get; set; }
+    public IReadOnlyList<TextRange>? SelectionRanges { get; set; }
     public TextPosition Caret { get; set; }
     public bool ShowCaret { get; set; } = true;
     public Guid? SelectedFloatingObjectId { get; set; }
+    public IReadOnlyList<Guid>? SelectedFloatingObjectIds { get; set; }
     public HeaderFooterEditMode HeaderFooterMode { get; set; }
     public TextRange? HeaderFooterSelection { get; set; }
     public TextPosition HeaderFooterCaret { get; set; }

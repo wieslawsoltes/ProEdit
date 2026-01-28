@@ -706,13 +706,25 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             IsAntialias = true
         };
 
-        var selection = options.Selection?.Normalize();
+        var selectionRanges = BuildSelectionRanges(options);
+        var hasSelection = selectionRanges.Length > 0;
         var headerFooterSelection = options.HeaderFooterSelection?.Normalize();
         var headerFooterMode = options.HeaderFooterMode;
         var headerFooterCaret = options.HeaderFooterCaret;
         var showHeaderFooterCaret = options.ShowHeaderFooterCaret;
         var commentHighlightsByParagraph = layout.CommentHighlightsByParagraph;
         var footnoteMap = layout.Footnotes.ToDictionary(footnote => footnote.PageIndex);
+        var endnoteMap = layout.Endnotes.ToDictionary(endnote => endnote.PageIndex);
+        var emptySelectionRanges = Array.Empty<TextRange>();
+        var headerFooterSelectionRanges = headerFooterSelection.HasValue
+            ? new[] { headerFooterSelection.Value }
+            : emptySelectionRanges;
+        var floatingSelectionIds = BuildFloatingSelectionIds(options);
+        HashSet<Guid>? floatingSelectionSet = null;
+        if (floatingSelectionIds.Length > 0)
+        {
+            floatingSelectionSet = new HashSet<Guid>(floatingSelectionIds);
+        }
 
         using var footnoteSeparatorPaint = new SKPaint
         {
@@ -896,29 +908,25 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                         continue;
                     }
 
-                    if (run.TabLeader != TabLeader.None && segment.Width > 0f)
+                    if (run.TabLeader != TabLeader.None && segment.Width > 0f
+                        && TryGetTabLeaderPattern(run.TabLeader, out var pattern))
                     {
-                        var leaderChar = run.TabLeader switch
+                        var paint = GetRunPaint(run.Style);
+                        var patternWidth = GetRunMetrics(pattern, run.Style, run.LetterSpacing, gridSpacing).Width;
+                        if (patternWidth > 0f)
                         {
-                            TabLeader.Dot => '.',
-                            TabLeader.Hyphen => '-',
-                            TabLeader.Underscore => '_',
-                            _ => '\0'
-                        };
-
-                        if (leaderChar != '\0')
-                        {
-                            var paint = GetRunPaint(run.Style);
-                            var glyphWidth = MeasureChar(paint, leaderChar);
-                            if (glyphWidth > 0f)
+                            var inset = MathF.Min(patternWidth * 0.5f, segment.Width * 0.25f);
+                            var leaderWidth = segment.Width - inset * 2f;
+                            if (leaderWidth > 0.1f)
                             {
-                                var count = Math.Max(1, (int)MathF.Ceiling(segment.Width / glyphWidth));
-                                var text = new string(leaderChar, count);
-                                var startX = originX + segment.X;
-                                var clipRect = new SKRect(startX, originY, startX + segment.Width, originY + lineHeight);
+                                var count = Math.Max(1, (int)MathF.Ceiling(leaderWidth / patternWidth));
+                                var text = RepeatPattern(pattern, count);
+                                var startX = originX + segment.X + inset;
+                                var clipRect = new SKRect(startX, originY, startX + leaderWidth, originY + lineHeight);
+                                var shaper = SkiaTextMeasurer.ShouldApplyKerning(run.Style) ? GetRunShaper(run.Style) : null;
                                 targetCanvas.Save();
                                 targetCanvas.ClipRect(clipRect);
-                                targetCanvas.DrawText(text, startX, baseline, paint);
+                                DrawTextWithSpacing(targetCanvas, text, startX, baseline, paint, shaper, run.LetterSpacing, gridSpacing, run.Style);
                                 targetCanvas.Restore();
                             }
                         }
@@ -1402,7 +1410,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
 
         void DrawFloatingSelection(int pageIndex)
         {
-            if (!options.SelectedFloatingObjectId.HasValue || layout.FloatingObjects.Count == 0)
+            if (floatingSelectionSet is null || floatingSelectionSet.Count == 0 || layout.FloatingObjects.Count == 0)
             {
                 return;
             }
@@ -1414,7 +1422,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                     continue;
                 }
 
-                if (floating.Object.Id != options.SelectedFloatingObjectId.Value)
+                if (!floatingSelectionSet.Contains(floating.Object.Id))
                 {
                     continue;
                 }
@@ -1422,7 +1430,6 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                 var bounds = floating.Bounds;
                 var selectionRect = new SKRect(bounds.X, bounds.Y, bounds.Right, bounds.Bottom);
                 targetCanvas.DrawRect(selectionRect, floatingSelectionPaint);
-                break;
             }
         }
 
@@ -1592,7 +1599,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
 
             void DrawTableLayouts(
                 IReadOnlyList<TableLayout> tables,
-                TextRange? selectionRange,
+                IReadOnlyList<TextRange> selectionRanges,
                 bool drawSelection,
                 TextPosition caretPosition,
                 bool drawCaret,
@@ -1760,12 +1767,20 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                                 var lineGridSpacing = ResolveLineGridSpacing(line.ParagraphIndex, pageIndex);
                                 DrawCommentHighlights(line.ParagraphIndex, line.StartOffset, line.Length, line.X, line.Y, line.LineHeight, line.TextDirection, line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, lineGridSpacing);
                                 DrawLineHighlights(line.X, line.Y, line.LineHeight, line.TextDirection, line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, lineGridSpacing);
-                                if (drawSelection && selectionRange.HasValue
-                                    && TryGetSelectionSpan(selectionRange.Value, line.ParagraphIndex, line.StartOffset, line.Length, out var startOffset, out var endOffset))
+                                if (drawSelection && selectionRanges.Count > 0)
                                 {
-                                    var selectionX1 = MeasureLineOffset(line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, startOffset - line.StartOffset, lineGridSpacing, GetRunMetrics);
-                                    var selectionX2 = MeasureLineOffset(line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, endOffset - line.StartOffset, lineGridSpacing, GetRunMetrics);
-                                    DrawLineRangeRect(line.X, line.Y, line.LineHeight, line.TextDirection, selectionX1, selectionX2, selectionPaint);
+                                    for (var selectionIndex = 0; selectionIndex < selectionRanges.Count; selectionIndex++)
+                                    {
+                                        var selectionRange = selectionRanges[selectionIndex];
+                                        if (!TryGetSelectionSpan(selectionRange, line.ParagraphIndex, line.StartOffset, line.Length, out var startOffset, out var endOffset))
+                                        {
+                                            continue;
+                                        }
+
+                                        var selectionX1 = MeasureLineOffset(line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, startOffset - line.StartOffset, lineGridSpacing, GetRunMetrics);
+                                        var selectionX2 = MeasureLineOffset(line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, endOffset - line.StartOffset, lineGridSpacing, GetRunMetrics);
+                                        DrawLineRangeRect(line.X, line.Y, line.LineHeight, line.TextDirection, selectionX1, selectionX2, selectionPaint);
+                                    }
                                 }
 
                                 DrawLineContent(line.X, line.Y, line.LineHeight, line.Ascent, line.Prefix, line.PrefixWidth, line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, line.Rubies, line.TextDirection, lineGridSpacing);
@@ -1874,12 +1889,12 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
 
                 var drawHeaderCaret = drawHeaderSelection && showHeaderFooterCaret;
                 var drawFooterCaret = drawFooterSelection && showHeaderFooterCaret;
-                DrawTableLayouts(headerFooter.HeaderTables, headerFooterSelection, drawHeaderSelection, headerFooterCaret, drawHeaderCaret, ref headerCaretDrawn);
-                DrawTableLayouts(headerFooter.FooterTables, headerFooterSelection, drawFooterSelection, headerFooterCaret, drawFooterCaret, ref footerCaretDrawn);
+                DrawTableLayouts(headerFooter.HeaderTables, headerFooterSelectionRanges, drawHeaderSelection, headerFooterCaret, drawHeaderCaret, ref headerCaretDrawn);
+                DrawTableLayouts(headerFooter.FooterTables, headerFooterSelectionRanges, drawFooterSelection, headerFooterCaret, drawFooterCaret, ref footerCaretDrawn);
             }
 
             var caretDrawn = false;
-            DrawTableLayouts(layout.Tables, selection, selection.HasValue, options.Caret, options.ShowCaret, ref caretDrawn);
+            DrawTableLayouts(layout.Tables, selectionRanges, hasSelection, options.Caret, options.ShowCaret, ref caretDrawn);
 
             var lineRange = layout.LineIndex.GetLineRangeForPage(pageIndex);
             var lineStart = Math.Clamp(lineRange.Start, 0, layout.Lines.Count);
@@ -1908,11 +1923,20 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                 {
                     DrawCommentHighlights(line.ParagraphIndex, line.StartOffset, line.Length, line.X, line.Y, line.LineHeight, line.TextDirection, line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, lineGridSpacing);
                     DrawLineHighlights(line.X, line.Y, line.LineHeight, line.TextDirection, line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, lineGridSpacing);
-                    if (selection.HasValue && TryGetSelectionSpan(selection.Value, line, out var startOffset, out var endOffset))
+                    if (hasSelection)
                     {
-                        var selectionX1 = MeasureLineOffset(line, startOffset - line.StartOffset, lineGridSpacing, GetRunMetrics);
-                        var selectionX2 = MeasureLineOffset(line, endOffset - line.StartOffset, lineGridSpacing, GetRunMetrics);
-                        DrawLineRangeRect(line.X, line.Y, line.LineHeight, line.TextDirection, selectionX1, selectionX2, selectionPaint);
+                        for (var selectionIndex = 0; selectionIndex < selectionRanges.Length; selectionIndex++)
+                        {
+                            var selectionRange = selectionRanges[selectionIndex];
+                            if (!TryGetSelectionSpan(selectionRange, line, out var startOffset, out var endOffset))
+                            {
+                                continue;
+                            }
+
+                            var selectionX1 = MeasureLineOffset(line, startOffset - line.StartOffset, lineGridSpacing, GetRunMetrics);
+                            var selectionX2 = MeasureLineOffset(line, endOffset - line.StartOffset, lineGridSpacing, GetRunMetrics);
+                            DrawLineRangeRect(line.X, line.Y, line.LineHeight, line.TextDirection, selectionX1, selectionX2, selectionPaint);
+                        }
                     }
                 }
 
@@ -1947,6 +1971,25 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
 
             DrawBreakMarkers(pageIndex);
 
+            if (endnoteMap.TryGetValue(pageIndex, out var endnoteLayout))
+            {
+                var separator = endnoteLayout.SeparatorBounds;
+                if (separator.Width > 0f)
+                {
+                    targetCanvas.DrawLine(separator.Left, separator.Top, separator.Right, separator.Top, footnoteSeparatorPaint);
+                }
+
+                var endnoteCaretDrawn = false;
+                DrawTableLayouts(endnoteLayout.Tables, emptySelectionRanges, false, default, false, ref endnoteCaretDrawn);
+
+                foreach (var line in endnoteLayout.Lines)
+                {
+                    DrawLineHighlights(line.X, line.Y, line.LineHeight, line.TextDirection, line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, pageGridSpacing);
+                    DrawLineContent(line.X, line.Y, line.LineHeight, line.Ascent, line.Prefix, line.PrefixWidth, line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, line.Rubies, line.TextDirection, pageGridSpacing);
+                    DrawLineInvisibles(line.X, line.Y, line.LineHeight, line.Ascent, line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, line.TextDirection, pageGridSpacing, false, 0f);
+                }
+            }
+
             if (footnoteMap.TryGetValue(pageIndex, out var footnoteLayout))
             {
                 var separator = footnoteLayout.SeparatorBounds;
@@ -1956,7 +1999,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                 }
 
                 var footnoteCaretDrawn = false;
-                DrawTableLayouts(footnoteLayout.Tables, null, false, default, false, ref footnoteCaretDrawn);
+                DrawTableLayouts(footnoteLayout.Tables, emptySelectionRanges, false, default, false, ref footnoteCaretDrawn);
 
                 foreach (var line in footnoteLayout.Lines)
                 {
@@ -2567,6 +2610,53 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
         return TryGetSelectionSpan(selection, line.ParagraphIndex, line.StartOffset, line.Length, out startOffset, out endOffset);
     }
 
+    private static TextRange[] BuildSelectionRanges(RenderOptions options)
+    {
+        if (options.SelectionRanges is { Count: > 0 } ranges)
+        {
+            var list = new List<TextRange>(ranges.Count);
+            for (var i = 0; i < ranges.Count; i++)
+            {
+                var normalized = ranges[i].Normalize();
+                if (!normalized.IsEmpty)
+                {
+                    list.Add(normalized);
+                }
+            }
+
+            return list.Count == 0 ? Array.Empty<TextRange>() : list.ToArray();
+        }
+
+        if (options.Selection.HasValue)
+        {
+            var normalized = options.Selection.Value.Normalize();
+            return normalized.IsEmpty ? Array.Empty<TextRange>() : new[] { normalized };
+        }
+
+        return Array.Empty<TextRange>();
+    }
+
+    private static Guid[] BuildFloatingSelectionIds(RenderOptions options)
+    {
+        if (options.SelectedFloatingObjectIds is { Count: > 0 } ids)
+        {
+            var result = new Guid[ids.Count];
+            for (var i = 0; i < ids.Count; i++)
+            {
+                result[i] = ids[i];
+            }
+
+            return result;
+        }
+
+        if (options.SelectedFloatingObjectId.HasValue)
+        {
+            return new[] { options.SelectedFloatingObjectId.Value };
+        }
+
+        return Array.Empty<Guid>();
+    }
+
     private static bool TryGetSelectionSpan(TextRange selection, int paragraphIndex, int lineStartOffset, int lineLength, out int startOffset, out int endOffset)
     {
         startOffset = 0;
@@ -2643,6 +2733,50 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
         }
 
         return width;
+    }
+
+    private static bool TryGetTabLeaderPattern(TabLeader leader, out string pattern)
+    {
+        switch (leader)
+        {
+            case TabLeader.Dot:
+                pattern = ". ";
+                return true;
+            case TabLeader.Hyphen:
+                pattern = "- ";
+                return true;
+            case TabLeader.Underscore:
+                pattern = "_";
+                return true;
+            default:
+                pattern = string.Empty;
+                return false;
+        }
+    }
+
+    private static string RepeatPattern(string pattern, int count)
+    {
+        if (count <= 1)
+        {
+            return count <= 0 ? string.Empty : pattern;
+        }
+
+        if (string.IsNullOrEmpty(pattern))
+        {
+            return string.Empty;
+        }
+
+        var totalLength = pattern.Length * count;
+        return string.Create(totalLength, pattern, static (span, value) =>
+        {
+            var offset = 0;
+            var patternSpan = value.AsSpan();
+            while (offset < span.Length)
+            {
+                patternSpan.CopyTo(span.Slice(offset));
+                offset += patternSpan.Length;
+            }
+        });
     }
 
     private static float SnapToGridForward(float value, float spacing)
@@ -2801,6 +2935,13 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
         {
             if (MathF.Abs(letterSpacing) <= 0.001f)
             {
+                if (shaper is not null
+                    && SkiaTextMeasurer.HasOpenTypeFeatures(style)
+                    && TryDrawTextWithFeatures(canvas, text, x, baseline, paint, measurePaint, style))
+                {
+                    return;
+                }
+
                 if (shaper is null)
                 {
                     canvas.DrawText(text, x, baseline, paint);
@@ -2819,6 +2960,34 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
         }
 
         DrawTextWithGridSpacing(canvas, text, x, baseline, paint, measurePaint, shaper, letterSpacing, gridSpacing, style);
+    }
+
+    private static bool TryDrawTextWithFeatures(
+        SKCanvas canvas,
+        string text,
+        float x,
+        float baseline,
+        SKPaint paint,
+        SKPaint measurePaint,
+        TextStyle style)
+    {
+        var applyKerning = SkiaTextMeasurer.ShouldApplyKerning(style);
+        if (!SkiaTextMeasurer.TryGetHarfBuzzGlyphRun(text.AsSpan(), style, measurePaint, applyKerning, out var run))
+        {
+            return false;
+        }
+
+        using var font = measurePaint.ToFont();
+        using var blobBuilder = new SKTextBlobBuilder();
+        blobBuilder.AddPositionedRun(run.Glyphs, font, run.Positions);
+        using var blob = blobBuilder.Build();
+        if (blob is null)
+        {
+            return false;
+        }
+
+        canvas.DrawText(blob, x, baseline, paint);
+        return true;
     }
 
     private static void DrawTextWithEffects(
@@ -2999,6 +3168,77 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             return;
         }
 
+        if (shaper is not null && SkiaTextMeasurer.HasOpenTypeFeatures(style))
+        {
+            var applyKerning = SkiaTextMeasurer.ShouldApplyKerning(style);
+            if (SkiaTextMeasurer.TryGetHarfBuzzGlyphRun(text.AsSpan(), style, measurePaint, applyKerning, out var run))
+            {
+                var shapeInfo = run.ShapeInfo;
+                if (shapeInfo.ClusterOffsets.Length > 0)
+                {
+                    var orderByCluster = new int[text.Length];
+                    Array.Fill(orderByCluster, -1);
+                    for (var i = 0; i < shapeInfo.ClusterOffsets.Length; i++)
+                    {
+                        var clusterIndex = shapeInfo.ClusterOffsets[i];
+                        if ((uint)clusterIndex < (uint)orderByCluster.Length)
+                        {
+                            orderByCluster[clusterIndex] = i;
+                        }
+                    }
+
+                    var clusterCount = shapeInfo.ClusterOffsets.Length;
+                    var originalPositions = new float[clusterCount];
+                    var snappedPositions = new float[clusterCount];
+                    var originalTotal = 0f;
+                    var snappedTotal = 0f;
+                    var applySpacing = MathF.Abs(letterSpacing) > 0.001f;
+                    for (var i = 0; i < clusterCount; i++)
+                    {
+                        originalPositions[i] = originalTotal;
+                        snappedPositions[i] = snappedTotal;
+                        var advance = i < shapeInfo.ClusterAdvances.Length ? shapeInfo.ClusterAdvances[i] : 0f;
+                        if (applySpacing && i < clusterCount - 1)
+                        {
+                            advance += letterSpacing;
+                        }
+
+                        originalTotal += advance;
+                        snappedTotal = SnapToGridForward(snappedTotal + advance, gridSpacing);
+                    }
+
+                    var glyphCount = run.Glyphs.Length;
+                    if (glyphCount > 0)
+                    {
+                        var positions = new SKPoint[glyphCount];
+                        for (var i = 0; i < glyphCount; i++)
+                        {
+                            var clusterIndex = (int)run.Clusters[i];
+                            var order = (uint)clusterIndex < (uint)orderByCluster.Length ? orderByCluster[clusterIndex] : -1;
+                            if (order < 0)
+                            {
+                                order = 0;
+                            }
+
+                            var delta = snappedPositions[order] - originalPositions[order];
+                            var point = run.Positions[i];
+                            positions[i] = new SKPoint(point.X + delta, point.Y);
+                        }
+
+                        using var font = measurePaint.ToFont();
+                        using var blobBuilder = new SKTextBlobBuilder();
+                        blobBuilder.AddPositionedRun(run.Glyphs, font, positions);
+                        using var blob = blobBuilder.Build();
+                        if (blob is not null)
+                        {
+                            canvas.DrawText(blob, x, baseline, paint);
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+
         if (shaper is null)
         {
             DrawTextWithGridSpacingFallback(canvas, text, x, baseline, paint, measurePaint, letterSpacing, gridSpacing);
@@ -3153,6 +3393,56 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
         if (string.IsNullOrEmpty(text))
         {
             return;
+        }
+
+        if (shaper is not null && SkiaTextMeasurer.HasOpenTypeFeatures(style))
+        {
+            var applyKerning = SkiaTextMeasurer.ShouldApplyKerning(style);
+            if (SkiaTextMeasurer.TryGetHarfBuzzGlyphRun(text.AsSpan(), style, measurePaint, applyKerning, out var run))
+            {
+                var shapeInfo = run.ShapeInfo;
+                if (shapeInfo.ClusterOffsets.Length > 0)
+                {
+                    var orderByCluster = new int[text.Length];
+                    Array.Fill(orderByCluster, -1);
+                    for (var i = 0; i < shapeInfo.ClusterOffsets.Length; i++)
+                    {
+                        var clusterIndex = shapeInfo.ClusterOffsets[i];
+                        if ((uint)clusterIndex < (uint)orderByCluster.Length)
+                        {
+                            orderByCluster[clusterIndex] = i;
+                        }
+                    }
+
+                    var glyphCount = run.Glyphs.Length;
+                    if (glyphCount > 0)
+                    {
+                        var positions = new SKPoint[glyphCount];
+                        for (var i = 0; i < glyphCount; i++)
+                        {
+                            var clusterIndex = (int)run.Clusters[i];
+                            var order = (uint)clusterIndex < (uint)orderByCluster.Length ? orderByCluster[clusterIndex] : -1;
+                            if (order < 0)
+                            {
+                                order = 0;
+                            }
+
+                            var point = run.Positions[i];
+                            positions[i] = new SKPoint(point.X + (letterSpacing * order), point.Y);
+                        }
+
+                        using var font = measurePaint.ToFont();
+                        using var blobBuilder = new SKTextBlobBuilder();
+                        blobBuilder.AddPositionedRun(run.Glyphs, font, positions);
+                        using var blob = blobBuilder.Build();
+                        if (blob is not null)
+                        {
+                            canvas.DrawText(blob, x, baseline, paint);
+                            return;
+                        }
+                    }
+                }
+            }
         }
 
         if (shaper is null)
@@ -4077,6 +4367,16 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
         private readonly string _languageEastAsia;
         private readonly string _languageBidi;
         private readonly float _horizontalScale;
+        private readonly bool _hasLigatures;
+        private readonly DocLigatureOptions _ligatures;
+        private readonly bool _hasContextualAlternates;
+        private readonly bool _contextualAlternates;
+        private readonly bool _hasNumberForm;
+        private readonly DocNumberForm _numberForm;
+        private readonly bool _hasNumberSpacing;
+        private readonly DocNumberSpacing _numberSpacing;
+        private readonly bool _hasStylisticSets;
+        private readonly uint _stylisticSets;
 
         public TextStyleKey(TextStyle style)
         {
@@ -4093,6 +4393,21 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             _languageEastAsia = style.LanguageEastAsia ?? string.Empty;
             _languageBidi = style.LanguageBidi ?? string.Empty;
             _horizontalScale = style.HorizontalScale;
+
+            var features = style.OpenTypeFeatures;
+            if (features is not null)
+            {
+                _hasLigatures = features.Ligatures.HasValue;
+                _ligatures = features.Ligatures ?? DocLigatureOptions.None;
+                _hasContextualAlternates = features.ContextualAlternates.HasValue;
+                _contextualAlternates = features.ContextualAlternates ?? false;
+                _hasNumberForm = features.NumberForm.HasValue;
+                _numberForm = features.NumberForm ?? DocNumberForm.Default;
+                _hasNumberSpacing = features.NumberSpacing.HasValue;
+                _numberSpacing = features.NumberSpacing ?? DocNumberSpacing.Default;
+                _hasStylisticSets = features.StylisticSets.HasValue;
+                _stylisticSets = features.StylisticSets ?? 0u;
+            }
         }
 
         public bool Equals(TextStyleKey other)
@@ -4109,7 +4424,17 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                 && _language == other._language
                 && _languageEastAsia == other._languageEastAsia
                 && _languageBidi == other._languageBidi
-                && _horizontalScale.Equals(other._horizontalScale);
+                && _horizontalScale.Equals(other._horizontalScale)
+                && _hasLigatures == other._hasLigatures
+                && (!_hasLigatures || _ligatures == other._ligatures)
+                && _hasContextualAlternates == other._hasContextualAlternates
+                && (!_hasContextualAlternates || _contextualAlternates == other._contextualAlternates)
+                && _hasNumberForm == other._hasNumberForm
+                && (!_hasNumberForm || _numberForm == other._numberForm)
+                && _hasNumberSpacing == other._hasNumberSpacing
+                && (!_hasNumberSpacing || _numberSpacing == other._numberSpacing)
+                && _hasStylisticSets == other._hasStylisticSets
+                && (!_hasStylisticSets || _stylisticSets == other._stylisticSets);
         }
 
         public override bool Equals(object? obj) => obj is TextStyleKey other && Equals(other);
@@ -4127,7 +4452,10 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             hash = HashCode.Combine(hash, _language);
             hash = HashCode.Combine(hash, _languageEastAsia);
             hash = HashCode.Combine(hash, _languageBidi);
-            return HashCode.Combine(hash, _horizontalScale);
+            hash = HashCode.Combine(hash, _horizontalScale);
+            hash = HashCode.Combine(hash, _hasLigatures ? (int)_ligatures : 0, _hasContextualAlternates ? (_contextualAlternates ? 1 : 0) : 0);
+            hash = HashCode.Combine(hash, _hasNumberForm ? (int)_numberForm : 0, _hasNumberSpacing ? (int)_numberSpacing : 0);
+            return HashCode.Combine(hash, _hasStylisticSets ? (int)_stylisticSets : 0);
         }
     }
 

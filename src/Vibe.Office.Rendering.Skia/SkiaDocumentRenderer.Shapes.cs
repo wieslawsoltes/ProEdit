@@ -955,29 +955,25 @@ public sealed partial class SkiaDocumentRenderer
                         continue;
                     }
 
-                    if (run.TabLeader != TabLeader.None && segment.Width > 0f)
+                    if (run.TabLeader != TabLeader.None && segment.Width > 0f
+                        && TryGetTabLeaderPattern(run.TabLeader, out var pattern))
                     {
-                        var leaderChar = run.TabLeader switch
+                        var paint = GetRunPaint(run.Style);
+                        var patternWidth = GetRunMetrics(pattern, run.Style, run.LetterSpacing, gridSpacing).Width;
+                        if (patternWidth > 0f)
                         {
-                            TabLeader.Dot => '.',
-                            TabLeader.Hyphen => '-',
-                            TabLeader.Underscore => '_',
-                            _ => '\0'
-                        };
-
-                        if (leaderChar != '\0')
-                        {
-                            var paint = GetRunPaint(run.Style);
-                            var glyphWidth = MeasureChar(paint, leaderChar);
-                            if (glyphWidth > 0f)
+                            var inset = MathF.Min(patternWidth * 0.5f, segment.Width * 0.25f);
+                            var leaderWidth = segment.Width - inset * 2f;
+                            if (leaderWidth > 0.1f)
                             {
-                                var count = Math.Max(1, (int)MathF.Ceiling(segment.Width / glyphWidth));
-                                var text = new string(leaderChar, count);
-                                var startX = originX + segment.X;
-                                var clipRect = new SKRect(startX, originY, startX + segment.Width, originY + lineHeight);
+                                var count = Math.Max(1, (int)MathF.Ceiling(leaderWidth / patternWidth));
+                                var text = RepeatPattern(pattern, count);
+                                var startX = originX + segment.X + inset;
+                                var clipRect = new SKRect(startX, originY, startX + leaderWidth, originY + lineHeight);
+                                var shaper = SkiaTextMeasurer.ShouldApplyKerning(run.Style) ? GetRunShaper(run.Style) : null;
                                 canvas.Save();
                                 canvas.ClipRect(clipRect);
-                                canvas.DrawText(text, startX, baseline, paint);
+                                DrawTextWithSpacing(canvas, text, startX, baseline, paint, shaper, run.LetterSpacing, gridSpacing, run.Style);
                                 canvas.Restore();
                             }
                         }
@@ -1596,6 +1592,7 @@ public sealed partial class SkiaDocumentRenderer
         target.LanguageEastAsia = source.LanguageEastAsia;
         target.LanguageBidi = source.LanguageBidi;
         target.EastAsianLayout = source.EastAsianLayout?.Clone();
+        target.OpenTypeFeatures = source.OpenTypeFeatures?.Clone();
         target.Effects = source.Effects?.Clone();
     }
 
