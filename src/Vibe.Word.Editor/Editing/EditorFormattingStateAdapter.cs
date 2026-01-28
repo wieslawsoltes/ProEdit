@@ -41,6 +41,11 @@ public sealed class EditorFormattingStateAdapter : IFormattingState
         var textShadow = new EditorValueAccumulator<bool>();
         var textEmboss = new EditorValueAccumulator<bool>();
         var textImprint = new EditorValueAccumulator<bool>();
+        var ligatures = new NullableEditorValueAccumulator<DocLigatureOptions>();
+        var contextualAlternates = new NullableEditorValueAccumulator<bool>();
+        var numberForm = new NullableEditorValueAccumulator<DocNumberForm>();
+        var numberSpacing = new NullableEditorValueAccumulator<DocNumberSpacing>();
+        var stylisticSets = new NullableEditorValueAccumulator<uint>();
 
         var paragraphCount = _session.GetParagraphCountFast();
         if (paragraphCount == 0)
@@ -65,7 +70,12 @@ public sealed class EditorFormattingStateAdapter : IFormattingState
                 textOutline.Build(),
                 textShadow.Build(),
                 textEmboss.Build(),
-                textImprint.Build());
+                textImprint.Build(),
+                ligatures.Build(),
+                contextualAlternates.Build(),
+                numberForm.Build(),
+                numberSpacing.Build(),
+                stylisticSets.Build());
         }
 
         if (selection.IsEmpty)
@@ -94,7 +104,12 @@ public sealed class EditorFormattingStateAdapter : IFormattingState
                 ref textOutline,
                 ref textShadow,
                 ref textEmboss,
-                ref textImprint);
+                ref textImprint,
+                ref ligatures,
+                ref contextualAlternates,
+                ref numberForm,
+                ref numberSpacing,
+                ref stylisticSets);
         }
         else
         {
@@ -134,7 +149,12 @@ public sealed class EditorFormattingStateAdapter : IFormattingState
                     ref textOutline,
                     ref textShadow,
                     ref textEmboss,
-                    ref textImprint);
+                    ref textImprint,
+                    ref ligatures,
+                    ref contextualAlternates,
+                    ref numberForm,
+                    ref numberSpacing,
+                    ref stylisticSets);
             }
         }
 
@@ -158,7 +178,12 @@ public sealed class EditorFormattingStateAdapter : IFormattingState
             textOutline.Build(),
             textShadow.Build(),
             textEmboss.Build(),
-            textImprint.Build());
+            textImprint.Build(),
+            ligatures.Build(),
+            contextualAlternates.Build(),
+            numberForm.Build(),
+            numberSpacing.Build(),
+            stylisticSets.Build());
     }
 
     private void AddStylesInRange(
@@ -184,7 +209,12 @@ public sealed class EditorFormattingStateAdapter : IFormattingState
         ref EditorValueAccumulator<bool> textOutline,
         ref EditorValueAccumulator<bool> textShadow,
         ref EditorValueAccumulator<bool> textEmboss,
-        ref EditorValueAccumulator<bool> textImprint)
+        ref EditorValueAccumulator<bool> textImprint,
+        ref NullableEditorValueAccumulator<DocLigatureOptions> ligatures,
+        ref NullableEditorValueAccumulator<bool> contextualAlternates,
+        ref NullableEditorValueAccumulator<DocNumberForm> numberForm,
+        ref NullableEditorValueAccumulator<DocNumberSpacing> numberSpacing,
+        ref NullableEditorValueAccumulator<uint> stylisticSets)
     {
         if (startOffset >= endOffset)
         {
@@ -218,7 +248,12 @@ public sealed class EditorFormattingStateAdapter : IFormattingState
                 ref textOutline,
                 ref textShadow,
                 ref textEmboss,
-                ref textImprint);
+                ref textImprint,
+                ref ligatures,
+                ref contextualAlternates,
+                ref numberForm,
+                ref numberSpacing,
+                ref stylisticSets);
             return;
         }
 
@@ -258,7 +293,12 @@ public sealed class EditorFormattingStateAdapter : IFormattingState
                     ref textOutline,
                     ref textShadow,
                     ref textEmboss,
-                    ref textImprint);
+                    ref textImprint,
+                    ref ligatures,
+                    ref contextualAlternates,
+                    ref numberForm,
+                    ref numberSpacing,
+                    ref stylisticSets);
                 foundRun = true;
             }
         }
@@ -286,7 +326,12 @@ public sealed class EditorFormattingStateAdapter : IFormattingState
                 ref textOutline,
                 ref textShadow,
                 ref textEmboss,
-                ref textImprint);
+                ref textImprint,
+                ref ligatures,
+                ref contextualAlternates,
+                ref numberForm,
+                ref numberSpacing,
+                ref stylisticSets);
         }
     }
 
@@ -345,7 +390,12 @@ public sealed class EditorFormattingStateAdapter : IFormattingState
         ref EditorValueAccumulator<bool> textOutline,
         ref EditorValueAccumulator<bool> textShadow,
         ref EditorValueAccumulator<bool> textEmboss,
-        ref EditorValueAccumulator<bool> textImprint)
+        ref EditorValueAccumulator<bool> textImprint,
+        ref NullableEditorValueAccumulator<DocLigatureOptions> ligatures,
+        ref NullableEditorValueAccumulator<bool> contextualAlternates,
+        ref NullableEditorValueAccumulator<DocNumberForm> numberForm,
+        ref NullableEditorValueAccumulator<DocNumberSpacing> numberSpacing,
+        ref NullableEditorValueAccumulator<uint> stylisticSets)
     {
         fontFamily.Add(ResolveFontFamily(style));
         fontSize.Add(style.FontSize);
@@ -368,6 +418,12 @@ public sealed class EditorFormattingStateAdapter : IFormattingState
         textShadow.Add(effects?.Shadow?.Enabled ?? false);
         textEmboss.Add(effects?.Emboss ?? false);
         textImprint.Add(effects?.Imprint ?? false);
+        var openType = style.OpenTypeFeatures;
+        ligatures.Add(openType?.Ligatures);
+        contextualAlternates.Add(openType?.ContextualAlternates);
+        numberForm.Add(openType?.NumberForm);
+        numberSpacing.Add(openType?.NumberSpacing);
+        stylisticSets.Add(openType?.StylisticSets);
     }
 
     private static string ResolveFontFamily(TextStyle style)

@@ -16,7 +16,10 @@ public sealed class EditorController : IEditorMutableSession
     public DocumentLayout Layout => _layoutService.Layout;
     public TextPosition Caret => _selectionService.Caret;
     public TextRange Selection => _selectionService.Selection;
+    public IReadOnlyList<TextRange> SelectionRanges => _selectionService.SelectionRanges;
+    public IReadOnlyList<TableSelectionRange> TableSelections => _selectionService.TableSelections;
     public Guid? SelectedFloatingObjectId => _selectionService.SelectedFloatingObjectId;
+    public IReadOnlyList<Guid> SelectedFloatingObjectIds => _selectionService.SelectedFloatingObjectIds;
     public IReadOnlyList<int> DirtyPages { get; private set; } = Array.Empty<int>();
     public long DirtyVersion { get; private set; }
 
@@ -370,17 +373,23 @@ public sealed class EditorController : IEditorMutableSession
 
     public void SetCaretFromPoint(float x, float y, bool extendSelection)
     {
-        _selectionService.SetCaretFromPoint(x, y, extendSelection);
+        var mode = extendSelection ? SelectionUpdateMode.Extend : SelectionUpdateMode.Replace;
+        _selectionService.SetCaretFromPoint(x, y, mode);
+    }
+
+    public void SetCaretFromPoint(float x, float y, SelectionUpdateMode mode)
+    {
+        _selectionService.SetCaretFromPoint(x, y, mode);
     }
 
     public void SetSelection(TextRange selection)
     {
-        var normalized = selection.Normalize();
-        _selectionService.SetCaret(normalized.Start, false);
-        if (!normalized.IsEmpty)
-        {
-            _selectionService.SetCaret(normalized.End, true);
-        }
+        _selectionService.SetSelection(selection, SelectionUpdateMode.Replace);
+    }
+
+    public void SetSelection(TextRange selection, SelectionUpdateMode mode)
+    {
+        _selectionService.SetSelection(selection, mode);
     }
 
     public bool TrySelectFirstFloatingObject()

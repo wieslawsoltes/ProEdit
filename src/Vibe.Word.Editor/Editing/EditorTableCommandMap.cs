@@ -92,6 +92,12 @@ public sealed class EditorTableCommandMap
         {
             return false;
         }
+        var selections = _session.TableSelections;
+        if (selections.Count > 0)
+        {
+            range = ResolvePrimarySelection(selections).Normalize();
+            return true;
+        }
 
         var selection = _session.Selection.Normalize();
         var startIndex = Math.Clamp(selection.Start.ParagraphIndex, 0, _session.Document.ParagraphCount - 1);
@@ -112,79 +118,128 @@ public sealed class EditorTableCommandMap
         var rowEnd = Math.Max(startLocation.RowIndex, endLocation.RowIndex);
         var columnStart = Math.Min(startLocation.ColumnIndex, endLocation.ColumnIndex);
         var columnEnd = Math.Max(startLocation.ColumnIndex, endLocation.ColumnIndex);
-        range = new TableSelectionRange(startLocation.Table, startLocation.BlockIndex, rowStart, rowEnd, columnStart, columnEnd);
+        range = new TableSelectionRange(startLocation.Table, rowStart, rowEnd, columnStart, columnEnd);
         return true;
+    }
+
+    private TableSelectionRange ResolvePrimarySelection(IReadOnlyList<TableSelectionRange> selections)
+    {
+        if (TryGetTableContext(out var context))
+        {
+            for (var i = 0; i < selections.Count; i++)
+            {
+                if (ReferenceEquals(selections[i].Table, context.Table))
+                {
+                    return selections[i];
+                }
+            }
+        }
+
+        return selections[0];
     }
 
     private void InsertRow(bool insertAbove)
     {
-        if (!TryGetTableContext(out var context))
+        if (!TryGetSelectionRange(out var range))
         {
             return;
         }
 
-        var table = context.Table;
+        var table = range.Table;
         if (table.Rows.Count == 0)
         {
-            table.Rows.Add(BuildEmptyRow(1));
+            table.Rows.Add(BuildEmptyRow(GetColumnCount(table)));
             _session.RefreshLayout();
             return;
         }
 
-        var insertIndex = insertAbove ? context.RowIndex : context.RowIndex + 1;
+        var rowStart = Math.Clamp(range.RowStart, 0, table.Rows.Count - 1);
+        var rowEnd = Math.Clamp(range.RowEnd, 0, table.Rows.Count - 1);
+        if (rowEnd < rowStart)
+        {
+            (rowStart, rowEnd) = (rowEnd, rowStart);
+        }
+
+        var insertIndex = insertAbove ? rowStart : rowEnd + 1;
         insertIndex = Math.Clamp(insertIndex, 0, table.Rows.Count);
-        var templateRow = table.Rows[Math.Clamp(context.RowIndex, 0, table.Rows.Count - 1)];
-        var newRow = BuildRowFromTemplate(table, templateRow, insertIndex);
-        table.Rows.Insert(insertIndex, newRow);
+        var templateIndex = insertAbove ? rowStart : Math.Clamp(rowEnd, 0, table.Rows.Count - 1);
+        var templateRow = table.Rows[templateIndex];
+        var count = rowEnd - rowStart + 1;
+        for (var i = 0; i < count; i++)
+        {
+            var newRow = BuildRowFromTemplate(table, templateRow, insertIndex + i);
+            table.Rows.Insert(insertIndex + i, newRow);
+        }
+
         _session.RefreshLayout();
     }
 
     private void InsertColumn(bool insertLeft)
     {
-        if (!TryGetTableContext(out var context))
+        if (!TryGetSelectionRange(out var range))
         {
             return;
         }
 
-        var table = context.Table;
+        var table = range.Table;
         if (table.Rows.Count == 0)
         {
-            table.Rows.Add(BuildEmptyRow(1));
+            table.Rows.Add(BuildEmptyRow(GetColumnCount(table)));
             _session.RefreshLayout();
             return;
         }
 
-        var row = table.Rows[Math.Clamp(context.RowIndex, 0, table.Rows.Count - 1)];
-        if (!TryGetCellAtColumn(row, context.ColumnIndex, out var cell, out _, out _))
+        var columnCount = GetColumnCount(table);
+        if (columnCount <= 0)
         {
             return;
         }
 
-        var insertIndex = insertLeft
-            ? context.ColumnIndex
-            : context.ColumnIndex + Math.Max(1, cell.ColumnSpan);
-        InsertColumnAt(table, insertIndex);
+        var columnStart = Math.Clamp(range.ColumnStart, 0, columnCount - 1);
+        var columnEnd = Math.Clamp(range.ColumnEnd, 0, columnCount - 1);
+        if (columnEnd < columnStart)
+        {
+            (columnStart, columnEnd) = (columnEnd, columnStart);
+        }
+
+        var insertIndex = insertLeft ? columnStart : columnEnd + 1;
+        var count = columnEnd - columnStart + 1;
+        for (var i = 0; i < count; i++)
+        {
+            InsertColumnAt(table, insertIndex + i);
+        }
+
         _session.RefreshLayout();
     }
 
     private void DeleteRow()
     {
-        if (!TryGetTableContext(out var context))
+        if (!TryGetSelectionRange(out var range))
         {
             return;
         }
 
-        var table = context.Table;
+        var table = range.Table;
         if (table.Rows.Count == 0)
         {
             return;
         }
 
-        var rowIndex = Math.Clamp(context.RowIndex, 0, table.Rows.Count - 1);
-        table.Rows.RemoveAt(rowIndex);
+        var rowStart = Math.Clamp(range.RowStart, 0, table.Rows.Count - 1);
+        var rowEnd = Math.Clamp(range.RowEnd, 0, table.Rows.Count - 1);
+        if (rowEnd < rowStart)
+        {
+            (rowStart, rowEnd) = (rowEnd, rowStart);
+        }
+
+        for (var rowIndex = rowEnd; rowIndex >= rowStart; rowIndex--)
+        {
+            table.Rows.RemoveAt(rowIndex);
+        }
+
         if (table.Rows.Count == 0)
         {
-            table.Rows.Add(BuildEmptyRow(1));
+            table.Rows.Add(BuildEmptyRow(GetColumnCount(table)));
         }
 
         NormalizeVerticalMerges(table);
@@ -193,12 +248,30 @@ public sealed class EditorTableCommandMap
 
     private void DeleteColumn()
     {
-        if (!TryGetTableContext(out var context))
+        if (!TryGetSelectionRange(out var range))
         {
             return;
         }
 
-        RemoveColumnAt(context.Table, context.ColumnIndex);
+        var table = range.Table;
+        var columnCount = GetColumnCount(table);
+        if (columnCount <= 0)
+        {
+            return;
+        }
+
+        var columnStart = Math.Clamp(range.ColumnStart, 0, columnCount - 1);
+        var columnEnd = Math.Clamp(range.ColumnEnd, 0, columnCount - 1);
+        if (columnEnd < columnStart)
+        {
+            (columnStart, columnEnd) = (columnEnd, columnStart);
+        }
+
+        for (var columnIndex = columnEnd; columnIndex >= columnStart; columnIndex--)
+        {
+            RemoveColumnAt(table, columnIndex);
+        }
+
         _session.RefreshLayout();
     }
 
@@ -394,6 +467,7 @@ public sealed class EditorTableCommandMap
             return;
         }
 
+        range = ClampSelectionRange(range);
         if (range.RowStart == range.RowEnd && range.ColumnStart == range.ColumnEnd)
         {
             return;
@@ -429,31 +503,47 @@ public sealed class EditorTableCommandMap
 
     private void SplitCells()
     {
-        if (!TryGetTableContext(out var context))
+        if (!TryGetSelectionRange(out var range))
         {
             return;
         }
 
-        var table = context.Table;
-        var row = table.Rows[Math.Clamp(context.RowIndex, 0, table.Rows.Count - 1)];
-        if (!TryGetCellAtColumn(row, context.ColumnIndex, out var cell, out var cellIndex, out var cellStart))
-        {
-            return;
-        }
+        range = ClampSelectionRange(range);
+        var table = range.Table;
 
-        var originalSpan = Math.Max(1, cell.ColumnSpan);
-        if (originalSpan > 1)
+        for (var rowIndex = range.RowStart; rowIndex <= range.RowEnd; rowIndex++)
         {
-            cell.ColumnSpan = 1;
-            for (var i = 1; i < originalSpan; i++)
+            if (rowIndex < 0 || rowIndex >= table.Rows.Count)
             {
-                row.Cells.Insert(cellIndex + i, CreateCellFromTemplate(cell));
+                continue;
             }
-        }
 
-        if (cell.VerticalMerge != TableCellVerticalMerge.None)
-        {
-            ClearVerticalMerge(table, context.RowIndex, cellStart, originalSpan);
+            var row = table.Rows[rowIndex];
+            var placements = GetRowPlacements(row);
+            for (var placementIndex = placements.Count - 1; placementIndex >= 0; placementIndex--)
+            {
+                var placement = placements[placementIndex];
+                if (!IntersectsColumns(placement, range.ColumnStart, range.ColumnEnd))
+                {
+                    continue;
+                }
+
+                var cell = placement.Cell;
+                var originalSpan = Math.Max(1, cell.ColumnSpan);
+                if (cell.VerticalMerge != TableCellVerticalMerge.None)
+                {
+                    ClearVerticalMerge(table, rowIndex, placement.Start, originalSpan);
+                }
+
+                if (originalSpan > 1)
+                {
+                    cell.ColumnSpan = 1;
+                    for (var i = 1; i < originalSpan; i++)
+                    {
+                        row.Cells.Insert(placement.Index + i, CreateCellFromTemplate(cell));
+                    }
+                }
+            }
         }
 
         _session.RefreshLayout();
@@ -461,12 +551,12 @@ public sealed class EditorTableCommandMap
 
     private void AutoFitContents()
     {
-        if (!TryGetTableContext(out var context))
+        if (!TryGetSelectionRange(out var range))
         {
             return;
         }
 
-        var properties = context.Table.Properties;
+        var properties = range.Table.Properties;
         properties.LayoutMode = TableLayoutMode.Auto;
         properties.ColumnWidths.Clear();
         properties.Width = null;
@@ -476,12 +566,12 @@ public sealed class EditorTableCommandMap
 
     private void AutoFitWindow()
     {
-        if (!TryGetTableContext(out var context))
+        if (!TryGetSelectionRange(out var range))
         {
             return;
         }
 
-        var properties = context.Table.Properties;
+        var properties = range.Table.Properties;
         properties.LayoutMode = TableLayoutMode.Auto;
         properties.ColumnWidths.Clear();
         properties.Width = 100f;
@@ -491,17 +581,17 @@ public sealed class EditorTableCommandMap
 
     private void FixedColumnWidth()
     {
-        if (!TryGetTableContext(out var context))
+        if (!TryGetSelectionRange(out var range))
         {
             return;
         }
 
-        if (!TryGetTableLayout(context.Table, out var layout))
+        if (!TryGetTableLayout(range.Table, out var layout))
         {
             return;
         }
 
-        var properties = context.Table.Properties;
+        var properties = range.Table.Properties;
         properties.LayoutMode = TableLayoutMode.Fixed;
         properties.ColumnWidths.Clear();
         properties.ColumnWidths.AddRange(layout.ColumnWidths);
@@ -662,6 +752,7 @@ public sealed class EditorTableCommandMap
             return;
         }
 
+        range = ClampSelectionRange(range);
         ApplyCellVerticalAlignment(range, alignment);
         _session.RefreshLayout();
     }
@@ -693,7 +784,7 @@ public sealed class EditorTableCommandMap
         var rowIndex = Math.Clamp(context.RowIndex, 0, Math.Max(0, context.Table.Rows.Count - 1));
         var columnCount = GetColumnCount(context.Table);
         var columnIndex = Math.Clamp(context.ColumnIndex, 0, Math.Max(0, columnCount - 1));
-        return new TableSelectionRange(context.Table, context.BlockIndex, rowIndex, rowIndex, columnIndex, columnIndex);
+        return new TableSelectionRange(context.Table, rowIndex, rowIndex, columnIndex, columnIndex);
     }
 
     private static TableSelectionRange ClampSelectionRange(TableSelectionRange range)
@@ -1160,6 +1251,13 @@ public sealed class EditorTableCommandMap
         return placements;
     }
 
+    private static bool IntersectsColumns(CellPlacement placement, int columnStart, int columnEnd)
+    {
+        var start = placement.Start;
+        var end = placement.Start + placement.Span - 1;
+        return end >= columnStart && start <= columnEnd;
+    }
+
     private static TableCell CreateCellFromTemplate(TableCell? template)
     {
         var cell = new TableCell();
@@ -1273,14 +1371,6 @@ public sealed class EditorTableCommandMap
     }
 
     private readonly record struct TableContext(TableBlock Table, int BlockIndex, int RowIndex, int ColumnIndex);
-
-    private readonly record struct TableSelectionRange(
-        TableBlock Table,
-        int BlockIndex,
-        int RowStart,
-        int RowEnd,
-        int ColumnStart,
-        int ColumnEnd);
 
     private readonly record struct CellPlacement(TableCell Cell, int Index, int Start, int Span);
 }

@@ -16,8 +16,11 @@ public sealed class EditorSelectionStateAdapter : ISelectionState
     {
         var caret = _session.Caret;
         var selection = _session.Selection;
-        var isCollapsed = selection.IsEmpty;
-        var selectedFloating = _session.SelectedFloatingObjectId;
+        var selectionRanges = _session.SelectionRanges;
+        var nonEmptyRangeCount = CountNonEmptyRanges(selectionRanges);
+        var selectedFloatingIds = _session.SelectedFloatingObjectIds;
+        var selectedFloating = selectedFloatingIds.Count > 0 ? selectedFloatingIds[0] : _session.SelectedFloatingObjectId;
+        var isCollapsed = nonEmptyRangeCount == 0;
         var kind = selectedFloating.HasValue
             ? EditorSelectionKind.FloatingObject
             : isCollapsed ? EditorSelectionKind.Caret : EditorSelectionKind.Range;
@@ -47,12 +50,31 @@ public sealed class EditorSelectionStateAdapter : ISelectionState
         return new EditorSelectionSnapshot(
             kind,
             isCollapsed,
-            false,
-            false,
+            nonEmptyRangeCount > 1 || selectedFloatingIds.Count > 1,
+            _session.TableSelections.Count > 0 && nonEmptyRangeCount > 0,
             isInTable,
             isInList,
             caret,
             selection,
             selectedFloating);
+    }
+
+    private static int CountNonEmptyRanges(IReadOnlyList<TextRange> ranges)
+    {
+        if (ranges.Count == 0)
+        {
+            return 0;
+        }
+
+        var count = 0;
+        for (var i = 0; i < ranges.Count; i++)
+        {
+            if (!ranges[i].IsEmpty)
+            {
+                count++;
+            }
+        }
+
+        return count;
     }
 }

@@ -289,6 +289,7 @@ internal sealed class EditorTextFormattingApplier
         style.LanguageEastAsia = null;
         style.LanguageBidi = null;
         style.EastAsianLayout = null;
+        style.OpenTypeFeatures = null;
         style.Effects = null;
     }
 }

@@ -153,7 +153,7 @@ public sealed class EditorStyleServiceAdapter : IStyleManagerService
             return false;
         }
 
-        if (!_session.Document.Styles.ParagraphStyles.ContainsKey(styleId))
+        if (!_session.Document.Styles.ParagraphStyles.TryGetValue(styleId, out var definition))
         {
             return false;
         }
@@ -163,6 +163,13 @@ public sealed class EditorStyleServiceAdapter : IStyleManagerService
         if (paragraphCount == 0)
         {
             return false;
+        }
+
+        if (TryResolveLinkedCharacterStyle(definition, out var linkedStyleId)
+            && TryApplyLinkedCharacterStyle(selection, paragraphCount, linkedStyleId))
+        {
+            _session.RefreshLayout();
+            return true;
         }
 
         var startIndex = Math.Clamp(selection.Start.ParagraphIndex, 0, paragraphCount - 1);
@@ -191,6 +198,59 @@ public sealed class EditorStyleServiceAdapter : IStyleManagerService
         }
 
         return updated;
+    }
+
+    private bool TryResolveLinkedCharacterStyle(ParagraphStyleDefinition definition, out string linkedStyleId)
+    {
+        linkedStyleId = string.Empty;
+        if (string.IsNullOrWhiteSpace(definition.LinkedStyleId))
+        {
+            return false;
+        }
+
+        var candidate = definition.LinkedStyleId.Trim();
+        if (_session.Document.Styles.CharacterStyles.ContainsKey(candidate))
+        {
+            linkedStyleId = candidate;
+            return true;
+        }
+
+        return false;
+    }
+
+    private bool TryApplyLinkedCharacterStyle(TextRange selection, int paragraphCount, string linkedStyleId)
+    {
+        if (selection.IsEmpty)
+        {
+            return false;
+        }
+
+        var startIndex = Math.Clamp(selection.Start.ParagraphIndex, 0, paragraphCount - 1);
+        var endIndex = Math.Clamp(selection.End.ParagraphIndex, 0, paragraphCount - 1);
+        if (startIndex != endIndex)
+        {
+            return false;
+        }
+
+        var paragraph = _session.GetParagraphFast(startIndex);
+        var paragraphLength = DocumentEditHelpers.GetParagraphLength(paragraph);
+        var startOffset = Math.Clamp(selection.Start.Offset, 0, paragraphLength);
+        var endOffset = Math.Clamp(selection.End.Offset, 0, paragraphLength);
+
+        if (startOffset == 0 && endOffset >= paragraphLength)
+        {
+            return false;
+        }
+
+        if (startOffset == endOffset)
+        {
+            return false;
+        }
+
+        var range = new TextRange(
+            new TextPosition(startIndex, startOffset),
+            new TextPosition(endIndex, endOffset));
+        return ApplyCharacterStyleToRange(range, linkedStyleId);
     }
 
     public bool RenameParagraphStyle(string styleId, string name)
@@ -1089,6 +1149,7 @@ public sealed class EditorStyleServiceAdapter : IStyleManagerService
                     Name = name,
                     BasedOnId = ResolveStyleIdOrNull(EditorStyleType.Paragraph, options.BasedOnId),
                     NextStyleId = ResolveStyleIdOrNull(EditorStyleType.Paragraph, options.NextStyleId),
+                    LinkedStyleId = ResolveLinkedStyleId(EditorStyleType.Paragraph, options.LinkedStyleId),
                     QuickStyle = options.QuickStyle,
                     AutoRedefine = options.AutoRedefine,
                     CustomStyle = true
@@ -1106,6 +1167,7 @@ public sealed class EditorStyleServiceAdapter : IStyleManagerService
                     Name = name,
                     BasedOnId = ResolveStyleIdOrNull(EditorStyleType.Character, options.BasedOnId),
                     NextStyleId = ResolveStyleIdOrNull(EditorStyleType.Character, options.NextStyleId),
+                    LinkedStyleId = ResolveLinkedStyleId(EditorStyleType.Character, options.LinkedStyleId),
                     QuickStyle = options.QuickStyle,
                     AutoRedefine = options.AutoRedefine,
                     CustomStyle = true
@@ -1122,6 +1184,7 @@ public sealed class EditorStyleServiceAdapter : IStyleManagerService
                     Name = name,
                     BasedOnId = ResolveStyleIdOrNull(EditorStyleType.Table, options.BasedOnId),
                     NextStyleId = ResolveStyleIdOrNull(EditorStyleType.Table, options.NextStyleId),
+                    LinkedStyleId = ResolveLinkedStyleId(EditorStyleType.Table, options.LinkedStyleId),
                     QuickStyle = options.QuickStyle,
                     AutoRedefine = options.AutoRedefine,
                     CustomStyle = true
@@ -1800,6 +1863,27 @@ public sealed class EditorStyleServiceAdapter : IStyleManagerService
         };
     }
 
+    private string? ResolveLinkedStyleId(EditorStyleType type, string? styleId)
+    {
+        if (string.IsNullOrWhiteSpace(styleId))
+        {
+            return null;
+        }
+
+        var resolvedType = ResolveLinkedStyleType(type);
+        return ResolveStyleIdOrNull(resolvedType, styleId);
+    }
+
+    private static EditorStyleType ResolveLinkedStyleType(EditorStyleType type)
+    {
+        return type switch
+        {
+            EditorStyleType.Paragraph => EditorStyleType.Character,
+            EditorStyleType.Character => EditorStyleType.Paragraph,
+            _ => type
+        };
+    }
+
     private static void ApplyTextStyleProperties(TextStyleProperties target, TextStyleProperties? source)
     {
         if (source is null)
@@ -1845,6 +1929,7 @@ public sealed class EditorStyleServiceAdapter : IStyleManagerService
         target.LanguageEastAsia = source.LanguageEastAsia;
         target.LanguageBidi = source.LanguageBidi;
         target.EastAsianLayout = source.EastAsianLayout?.Clone();
+        target.OpenTypeFeatures = source.OpenTypeFeatures?.Clone();
         target.Effects = source.Effects?.Clone();
     }
 
@@ -1887,6 +1972,7 @@ public sealed class EditorStyleServiceAdapter : IStyleManagerService
         target.LanguageEastAsia = null;
         target.LanguageBidi = null;
         target.EastAsianLayout = null;
+        target.OpenTypeFeatures = null;
         target.Effects = null;
     }
 
@@ -2106,6 +2192,8 @@ public sealed class EditorStyleServiceAdapter : IStyleManagerService
             WrapSide = source.WrapSide,
             WrapPolygon = source.WrapPolygon is null ? null : new FloatingWrapPolygon(source.WrapPolygon.Points.ToArray()),
             BehindText = source.BehindText,
+            AllowOverlap = source.AllowOverlap,
+            ZOrder = source.ZOrder,
             Distance = source.Distance,
             AnchorOffset = source.AnchorOffset
         };

@@ -1,6 +1,7 @@
 using Vibe.Office.Documents;
 using Vibe.Office.Editing;
 using Vibe.Office.Layout;
+using Vibe.Office.Primitives;
 
 namespace Vibe.Word.Editor.Editing;
 
@@ -37,13 +38,12 @@ public sealed class EditorLayoutCommandMap
 
     private bool HasFloatingSelection(RibbonContextSnapshot? context)
     {
-        if (context.HasValue)
+        if (_session.SelectedFloatingObjectId.HasValue)
         {
-            return context.Value.Selection.Kind == EditorSelectionKind.FloatingObject
-                   && _session.SelectedFloatingObjectId.HasValue;
+            return true;
         }
 
-        return _session.SelectedFloatingObjectId.HasValue;
+        return TryGetSelectedInlineObject(out _, out _, out _, out _, out _);
     }
 
     private void RegisterArrangeCommands()
@@ -53,7 +53,17 @@ public sealed class EditorLayoutCommandMap
         _router.RegisterAction(EditorLayoutCommandIds.Arrange.WrapSide, (_, payload) => ApplyWrapSide(payload), (context, _) => HasFloatingSelection(context));
         _router.RegisterAction(EditorLayoutCommandIds.Arrange.Align, (_, payload) => ApplyAlign(payload), (context, _) => HasFloatingSelection(context));
         _router.RegisterAction(EditorLayoutCommandIds.Arrange.Order, (_, payload) => ApplyOrder(payload), (context, _) => HasFloatingSelection(context));
-        _router.RegisterAction(EditorLayoutCommandIds.Arrange.Rotate, (_, payload) => ApplyRotate(payload), (context, _) => HasFloatingSelection(context));
+        _router.RegisterAction(EditorLayoutCommandIds.Arrange.Rotate, (_, payload) => ApplyRotate(payload), (context, _) => CanRotate(context));
+    }
+
+    private bool CanRotate(RibbonContextSnapshot? context)
+    {
+        if (TryGetSelectedFloatingObject(out var floating))
+        {
+            return floating.Content is ShapeInline;
+        }
+
+        return TryGetSelectedInlineObject(out _, out _, out var inline, out _, out _) && inline is ShapeInline;
     }
 
     private void SetMargins(object? payload)
@@ -294,7 +304,7 @@ public sealed class EditorLayoutCommandMap
             return;
         }
 
-        if (!TryGetSelectedFloatingObject(out var floating))
+        if (!TryGetSelectedFloatingObjectOrPromote(out var floating, inline => inline is ShapeInline))
         {
             return;
         }
@@ -355,7 +365,7 @@ public sealed class EditorLayoutCommandMap
             return;
         }
 
-        if (!TryGetSelectedFloatingObject(out var floating))
+        if (!TryGetSelectedFloatingObjectOrPromote(out var floating))
         {
             return;
         }
@@ -399,7 +409,7 @@ public sealed class EditorLayoutCommandMap
             return;
         }
 
-        if (!TryGetSelectedFloatingObject(out var floating))
+        if (!TryGetSelectedFloatingObjectOrPromote(out var floating))
         {
             return;
         }
@@ -467,7 +477,7 @@ public sealed class EditorLayoutCommandMap
             return;
         }
 
-        if (!TryGetSelectedFloatingObject(out var floating))
+        if (!TryGetSelectedFloatingObjectOrPromote(out var floating))
         {
             return;
         }
@@ -564,7 +574,7 @@ public sealed class EditorLayoutCommandMap
             return;
         }
 
-        if (!TryGetSelectedFloatingObject(out var paragraph, out var floating, out var index))
+        if (!TryGetSelectedFloatingObjectOrPromote(out var paragraph, out var floating, out var index))
         {
             return;
         }
@@ -611,7 +621,7 @@ public sealed class EditorLayoutCommandMap
             return;
         }
 
-        if (!TryGetSelectedFloatingObject(out var floating))
+        if (!TryGetSelectedFloatingObjectOrPromote(out var floating))
         {
             return;
         }
@@ -644,6 +654,287 @@ public sealed class EditorLayoutCommandMap
     {
         var value = degrees % 360f;
         return value < 0f ? value + 360f : value;
+    }
+
+    private bool TryGetSelectedFloatingObjectOrPromote(out FloatingObject floating, Func<Inline, bool>? canPromote = null)
+    {
+        floating = null!;
+        return TryGetSelectedFloatingObject(out floating)
+               || TryPromoteInlineSelectionToFloating(out _, out floating, out _, canPromote);
+    }
+
+    private bool TryGetSelectedFloatingObjectOrPromote(
+        out ParagraphBlock paragraph,
+        out FloatingObject floating,
+        out int index,
+        Func<Inline, bool>? canPromote = null)
+    {
+        paragraph = null!;
+        floating = null!;
+        index = -1;
+        return TryGetSelectedFloatingObject(out paragraph, out floating, out index)
+               || TryPromoteInlineSelectionToFloating(out paragraph, out floating, out index, canPromote);
+    }
+
+    private bool TryPromoteInlineSelectionToFloating(
+        out ParagraphBlock paragraph,
+        out FloatingObject floating,
+        out int index,
+        Func<Inline, bool>? canPromote = null)
+    {
+        paragraph = null!;
+        floating = null!;
+        index = -1;
+
+        if (!TryGetSelectedInlineObject(out var paragraphIndex, out paragraph, out var inline, out var inlineIndex, out var inlineStartOffset))
+        {
+            return false;
+        }
+
+        if (canPromote is not null && !canPromote(inline))
+        {
+            return false;
+        }
+
+        if (!TryGetInlineObjectBounds(inline, paragraphIndex, out var bounds, out var pageIndex))
+        {
+            return false;
+        }
+
+        if (inlineIndex < 0 || inlineIndex >= paragraph.Inlines.Count)
+        {
+            return false;
+        }
+
+        if (!ReferenceEquals(paragraph.Inlines[inlineIndex], inline))
+        {
+            return false;
+        }
+
+        paragraph.Inlines.RemoveAt(inlineIndex);
+
+        floating = new FloatingObject(inline);
+        var anchor = floating.Anchor;
+        anchor.HorizontalReference = FloatingHorizontalReference.Page;
+        anchor.VerticalReference = FloatingVerticalReference.Page;
+        anchor.HorizontalAlignment = FloatingHorizontalAlignment.None;
+        anchor.VerticalAlignment = FloatingVerticalAlignment.None;
+        anchor.WrapStyle = FloatingWrapStyle.None;
+        anchor.WrapSide = FloatingWrapSide.Both;
+        anchor.BehindText = false;
+        anchor.AnchorOffset = inlineStartOffset;
+
+        if (_session.Layout.Pages.Count > 0)
+        {
+            var clamped = Math.Clamp(pageIndex, 0, _session.Layout.Pages.Count - 1);
+            var page = _session.Layout.Pages[clamped];
+            anchor.OffsetX = bounds.X - page.Bounds.X;
+            anchor.OffsetY = bounds.Y - page.Bounds.Y;
+        }
+        else
+        {
+            anchor.OffsetX = bounds.X;
+            anchor.OffsetY = bounds.Y;
+        }
+
+        paragraph.FloatingObjects.Add(floating);
+        index = paragraph.FloatingObjects.Count - 1;
+        _session.RefreshLayout();
+
+        var centerX = bounds.X + MathF.Max(1f, bounds.Width) * 0.5f;
+        var centerY = bounds.Y + MathF.Max(1f, bounds.Height) * 0.5f;
+        _session.SetCaretFromPoint(centerX, centerY, SelectionUpdateMode.Replace);
+        return true;
+    }
+
+    private bool TryGetSelectedInlineObject(
+        out int paragraphIndex,
+        out ParagraphBlock paragraph,
+        out Inline inline,
+        out int inlineIndex,
+        out int inlineStartOffset)
+    {
+        paragraphIndex = -1;
+        paragraph = null!;
+        inline = null!;
+        inlineIndex = -1;
+        inlineStartOffset = 0;
+
+        if (_session.SelectedFloatingObjectIds.Count > 0 || _session.SelectedFloatingObjectId.HasValue)
+        {
+            return false;
+        }
+
+        var ranges = _session.SelectionRanges;
+        if (ranges.Count != 1)
+        {
+            return false;
+        }
+
+        var range = ranges[0].Normalize();
+        if (range.IsEmpty || range.Start.ParagraphIndex != range.End.ParagraphIndex)
+        {
+            return false;
+        }
+
+        paragraphIndex = range.Start.ParagraphIndex;
+        if (paragraphIndex < 0 || paragraphIndex >= _session.Document.ParagraphCount)
+        {
+            return false;
+        }
+
+        paragraph = _session.Document.GetParagraph(paragraphIndex);
+        if (!TryGetInlineAtOffset(paragraph, range.Start.Offset, out inline, out inlineIndex, out inlineStartOffset, out var inlineLength))
+        {
+            return false;
+        }
+
+        if (inlineStartOffset != range.Start.Offset || inlineLength != range.End.Offset - range.Start.Offset)
+        {
+            return false;
+        }
+
+        return inline is ImageInline or ShapeInline or ChartInline;
+    }
+
+    private bool TryGetInlineObjectBounds(Inline inline, int paragraphIndex, out DocRect bounds, out int pageIndex)
+    {
+        bounds = default;
+        pageIndex = -1;
+        var layout = _session.Layout;
+        if (layout.Lines.Count == 0)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < layout.Lines.Count; i++)
+        {
+            var line = layout.Lines[i];
+            if (line.ParagraphIndex != paragraphIndex)
+            {
+                continue;
+            }
+
+            if (inline is ImageInline image)
+            {
+                foreach (var layoutImage in line.Images)
+                {
+                    if (!ReferenceEquals(layoutImage.Image, image))
+                    {
+                        continue;
+                    }
+
+                    bounds = ComputeInlineObjectBounds(line, layoutImage.X, layoutImage.Width, layoutImage.Height);
+                    pageIndex = layout.LineIndex.GetPageForLine(i);
+                    return true;
+                }
+            }
+            else if (inline is ShapeInline shape)
+            {
+                foreach (var layoutShape in line.Shapes)
+                {
+                    if (!ReferenceEquals(layoutShape.Shape, shape))
+                    {
+                        continue;
+                    }
+
+                    bounds = ComputeInlineObjectBounds(line, layoutShape.X, layoutShape.Width, layoutShape.Height);
+                    pageIndex = layout.LineIndex.GetPageForLine(i);
+                    return true;
+                }
+            }
+            else if (inline is ChartInline chart)
+            {
+                foreach (var layoutChart in line.Charts)
+                {
+                    if (!ReferenceEquals(layoutChart.Chart, chart))
+                    {
+                        continue;
+                    }
+
+                    bounds = ComputeInlineObjectBounds(line, layoutChart.X, layoutChart.Width, layoutChart.Height);
+                    pageIndex = layout.LineIndex.GetPageForLine(i);
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static bool TryGetInlineAtOffset(
+        ParagraphBlock paragraph,
+        int offset,
+        out Inline inline,
+        out int inlineIndex,
+        out int inlineStart,
+        out int inlineLength)
+    {
+        inline = null!;
+        inlineIndex = -1;
+        inlineStart = 0;
+        inlineLength = 0;
+        if (paragraph.Inlines.Count == 0)
+        {
+            return false;
+        }
+
+        var position = 0;
+        for (var i = 0; i < paragraph.Inlines.Count; i++)
+        {
+            var current = paragraph.Inlines[i];
+            var length = DocumentEditHelpers.GetInlineLength(current);
+            if (offset >= position && offset < position + length)
+            {
+                inline = current;
+                inlineIndex = i;
+                inlineStart = position;
+                inlineLength = length;
+                return true;
+            }
+
+            position += length;
+        }
+
+        return false;
+    }
+
+    private static DocRect ComputeInlineObjectBounds(LayoutLine line, float x, float width, float height)
+    {
+        if (!DocTextDirectionHelpers.IsVertical(line.TextDirection))
+        {
+            var baseline = line.Y + line.Ascent;
+            return new DocRect(line.X + x, baseline - height, width, height);
+        }
+
+        var baseRotation = DocTextDirectionHelpers.GetRotationDegrees(line.TextDirection!.Value);
+        var baselineLocal = line.Ascent;
+        var left = x;
+        var top = baselineLocal - height;
+        var right = left + width;
+        var bottom = top + height;
+
+        var radians = baseRotation * (MathF.PI / 180f);
+        var cos = MathF.Cos(radians);
+        var sin = MathF.Sin(radians);
+
+        var p1 = RotatePoint(left, top, cos, sin, line.X, line.Y);
+        var p2 = RotatePoint(right, top, cos, sin, line.X, line.Y);
+        var p3 = RotatePoint(right, bottom, cos, sin, line.X, line.Y);
+        var p4 = RotatePoint(left, bottom, cos, sin, line.X, line.Y);
+
+        var minX = MathF.Min(MathF.Min(p1.X, p2.X), MathF.Min(p3.X, p4.X));
+        var maxX = MathF.Max(MathF.Max(p1.X, p2.X), MathF.Max(p3.X, p4.X));
+        var minY = MathF.Min(MathF.Min(p1.Y, p2.Y), MathF.Min(p3.Y, p4.Y));
+        var maxY = MathF.Max(MathF.Max(p1.Y, p2.Y), MathF.Max(p3.Y, p4.Y));
+        return new DocRect(minX, minY, MathF.Max(0f, maxX - minX), MathF.Max(0f, maxY - minY));
+    }
+
+    private static DocPoint RotatePoint(float x, float y, float cos, float sin, float originX, float originY)
+    {
+        var worldX = originX + x * cos - y * sin;
+        var worldY = originY + x * sin + y * cos;
+        return new DocPoint(worldX, worldY);
     }
 
     private bool TryGetSelectedFloatingObject(out FloatingObject floating)

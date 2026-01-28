@@ -11,6 +11,7 @@ public sealed class EditorReferencesCommandMap
 {
     private const string TocTagPrefix = "TOC";
     private const string TocTitleText = "Table of Contents";
+    private const int ReferenceSingleLineSpacingTwips = 240;
     private const string TofTagPrefix = "TOF";
     private const string TofTitleText = "Table of Figures";
     private const string IndexTagPrefix = "INDEX";
@@ -681,10 +682,14 @@ public sealed class EditorReferencesCommandMap
 
     private List<ParagraphBlock> BuildTocParagraphs(EditorTocInsertRequest request, DocumentLayout layout, float contentWidth)
     {
-        var paragraphs = new List<ParagraphBlock>
+        var paragraphs = new List<ParagraphBlock>();
+        var titleParagraph = new ParagraphBlock(TocTitleText);
+        if (TryResolveTocHeadingStyle(out var tocHeadingStyleId, out _))
         {
-            new ParagraphBlock(TocTitleText)
-        };
+            titleParagraph.StyleId = tocHeadingStyleId;
+        }
+
+        paragraphs.Add(titleParagraph);
 
         var headings = CollectHeadingEntries(request.MaxLevel);
         if (headings.Count == 0)
@@ -698,19 +703,22 @@ public sealed class EditorReferencesCommandMap
             var level = Math.Clamp(heading.Level, 1, 9);
             var indentLeft = indentStep * Math.Max(0, level - 1);
             var paragraph = new ParagraphBlock();
-            if (indentLeft > 0f)
+            if (TryResolveTocEntryStyle(level, out var tocStyleId, out var tocStyle))
             {
-                paragraph.Properties.IndentLeft = indentLeft;
+                paragraph.StyleId = tocStyleId;
+            }
+            else
+            {
+                ApplyReferenceEntryFallback(paragraph, indentLeft);
             }
 
             if (request.ShowPageNumbers)
             {
-                var tabStopPosition = MathF.Max(0f, contentWidth - indentLeft);
-                paragraph.Properties.TabStops.Add(new TabStopDefinition(tabStopPosition)
+                var hasStyleTabs = tocStyle?.ParagraphProperties.TabStops.Count > 0;
+                if (!hasStyleTabs)
                 {
-                    Alignment = TabAlignment.Right,
-                    Leader = TabLeader.Dot
-                });
+                    AddReferenceTabStop(paragraph, contentWidth, indentLeft);
+                }
             }
 
             paragraph.Inlines.Add(new RunInline(heading.Text));
@@ -725,6 +733,112 @@ public sealed class EditorReferencesCommandMap
         }
 
         return paragraphs;
+    }
+
+    private bool TryResolveTocHeadingStyle(out string? styleId, out ParagraphStyleDefinition? style)
+    {
+        return TryResolveParagraphStyle("TOCHeading", "TOC Heading", out styleId, out style);
+    }
+
+    private bool TryResolveTocEntryStyle(int level, out string? styleId, out ParagraphStyleDefinition? style)
+    {
+        return TryResolveParagraphStyle($"TOC{level}", $"TOC {level}", out styleId, out style);
+    }
+
+    private bool TryResolveTofHeadingStyle(out string? styleId, out ParagraphStyleDefinition? style)
+    {
+        return TryResolveParagraphStyle("TOFHeading", "TOF Heading", out styleId, out style)
+               || TryResolveParagraphStyle("TableOfFiguresHeading", "Table of Figures Heading", out styleId, out style);
+    }
+
+    private bool TryResolveTofEntryStyle(out string? styleId, out ParagraphStyleDefinition? style)
+    {
+        return TryResolveParagraphStyle("TOF", "TOF", out styleId, out style)
+               || TryResolveParagraphStyle("TOF1", "TOF 1", out styleId, out style)
+               || TryResolveParagraphStyle("TableOfFigures", "Table of Figures", out styleId, out style);
+    }
+
+    private bool TryResolveIndexHeadingStyle(out string? styleId, out ParagraphStyleDefinition? style)
+    {
+        return TryResolveParagraphStyle("IndexHeading", "Index Heading", out styleId, out style);
+    }
+
+    private bool TryResolveIndexEntryStyle(out string? styleId, out ParagraphStyleDefinition? style)
+    {
+        return TryResolveParagraphStyle("Index1", "Index 1", out styleId, out style)
+               || TryResolveParagraphStyle("Index", "Index", out styleId, out style);
+    }
+
+    private bool TryResolveAuthoritiesHeadingStyle(out string? styleId, out ParagraphStyleDefinition? style)
+    {
+        return TryResolveParagraphStyle("TOAHeading", "TOA Heading", out styleId, out style)
+               || TryResolveParagraphStyle("TableOfAuthoritiesHeading", "Table of Authorities Heading", out styleId, out style);
+    }
+
+    private bool TryResolveAuthoritiesEntryStyle(out string? styleId, out ParagraphStyleDefinition? style)
+    {
+        return TryResolveParagraphStyle("TOA", "TOA", out styleId, out style)
+               || TryResolveParagraphStyle("TOA1", "TOA 1", out styleId, out style)
+               || TryResolveParagraphStyle("TableOfAuthorities", "Table of Authorities", out styleId, out style);
+    }
+
+    private bool TryResolveParagraphStyle(
+        string idCandidate,
+        string nameCandidate,
+        out string? styleId,
+        out ParagraphStyleDefinition? style)
+    {
+        var styles = _session.Document.Styles.ParagraphStyles;
+        if (styles.TryGetValue(idCandidate, out style))
+        {
+            styleId = idCandidate;
+            return true;
+        }
+
+        if (styles.TryGetValue(nameCandidate, out style))
+        {
+            styleId = nameCandidate;
+            return true;
+        }
+
+        foreach (var pair in styles)
+        {
+            var name = pair.Value.Name;
+            if (string.Equals(name, nameCandidate, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(name, idCandidate, StringComparison.OrdinalIgnoreCase))
+            {
+                styleId = pair.Key;
+                style = pair.Value;
+                return true;
+            }
+        }
+
+        styleId = null;
+        style = null;
+        return false;
+    }
+
+    private static void ApplyReferenceEntryFallback(ParagraphBlock paragraph, float indentLeft)
+    {
+        if (indentLeft > 0f)
+        {
+            paragraph.Properties.IndentLeft = indentLeft;
+        }
+
+        paragraph.Properties.LineSpacing = ReferenceSingleLineSpacingTwips;
+        paragraph.Properties.LineSpacingRule = DocLineSpacingRule.Auto;
+        paragraph.Properties.SpacingBefore = 0f;
+        paragraph.Properties.SpacingAfter = 0f;
+    }
+
+    private static void AddReferenceTabStop(ParagraphBlock paragraph, float contentWidth, float indentLeft)
+    {
+        var tabStopPosition = MathF.Max(0f, contentWidth - indentLeft);
+        paragraph.Properties.TabStops.Add(new TabStopDefinition(tabStopPosition)
+        {
+            Alignment = TabAlignment.Right,
+            Leader = TabLeader.Dot
+        });
     }
 
     private List<TocHeadingEntry> CollectHeadingEntries(int maxLevel)
@@ -1654,10 +1768,14 @@ public sealed class EditorReferencesCommandMap
 
     private List<ParagraphBlock> BuildTableOfFiguresParagraphs(string label, DocumentLayout layout, float contentWidth)
     {
-        var paragraphs = new List<ParagraphBlock>
+        var paragraphs = new List<ParagraphBlock>();
+        var titleParagraph = new ParagraphBlock(TofTitleText);
+        if (TryResolveTofHeadingStyle(out var headingStyleId, out _))
         {
-            new ParagraphBlock(TofTitleText)
-        };
+            titleParagraph.StyleId = headingStyleId;
+        }
+
+        paragraphs.Add(titleParagraph);
 
         var captions = CollectCaptionEntries(label);
         if (captions.Count == 0)
@@ -1665,15 +1783,24 @@ public sealed class EditorReferencesCommandMap
             return paragraphs;
         }
 
+        TryResolveTofEntryStyle(out var entryStyleId, out var entryStyle);
         foreach (var entry in captions)
         {
             var paragraph = new ParagraphBlock();
-            var tabStopPosition = MathF.Max(0f, contentWidth);
-            paragraph.Properties.TabStops.Add(new TabStopDefinition(tabStopPosition)
+            if (!string.IsNullOrWhiteSpace(entryStyleId))
             {
-                Alignment = TabAlignment.Right,
-                Leader = TabLeader.Dot
-            });
+                paragraph.StyleId = entryStyleId;
+            }
+            else
+            {
+                ApplyReferenceEntryFallback(paragraph, 0f);
+            }
+
+            var hasStyleTabs = entryStyle?.ParagraphProperties.TabStops.Count > 0;
+            if (!hasStyleTabs)
+            {
+                AddReferenceTabStop(paragraph, contentWidth, 0f);
+            }
 
             paragraph.Inlines.Add(new RunInline(entry.Text));
             var pageNumber = ResolvePageNumber(layout, entry.ParagraphIndex);
@@ -1790,10 +1917,14 @@ public sealed class EditorReferencesCommandMap
 
     private List<ParagraphBlock> BuildIndexParagraphs(DocumentLayout layout, float contentWidth)
     {
-        var paragraphs = new List<ParagraphBlock>
+        var paragraphs = new List<ParagraphBlock>();
+        var titleParagraph = new ParagraphBlock(IndexTitleText);
+        if (TryResolveIndexHeadingStyle(out var headingStyleId, out _))
         {
-            new ParagraphBlock(IndexTitleText)
-        };
+            titleParagraph.StyleId = headingStyleId;
+        }
+
+        paragraphs.Add(titleParagraph);
 
         var entries = CollectFieldEntries("XE");
         if (entries.Count == 0)
@@ -1801,7 +1932,8 @@ public sealed class EditorReferencesCommandMap
             return paragraphs;
         }
 
-        foreach (var entry in BuildIndexGroups(entries, layout, contentWidth))
+        TryResolveIndexEntryStyle(out var entryStyleId, out var entryStyle);
+        foreach (var entry in BuildIndexGroups(entries, layout, contentWidth, entryStyleId, entryStyle))
         {
             paragraphs.Add(entry);
         }
@@ -1811,10 +1943,14 @@ public sealed class EditorReferencesCommandMap
 
     private List<ParagraphBlock> BuildAuthorityParagraphs(DocumentLayout layout, float contentWidth)
     {
-        var paragraphs = new List<ParagraphBlock>
+        var paragraphs = new List<ParagraphBlock>();
+        var titleParagraph = new ParagraphBlock(AuthoritiesTitleText);
+        if (TryResolveAuthoritiesHeadingStyle(out var headingStyleId, out _))
         {
-            new ParagraphBlock(AuthoritiesTitleText)
-        };
+            titleParagraph.StyleId = headingStyleId;
+        }
+
+        paragraphs.Add(titleParagraph);
 
         var entries = CollectFieldEntries("TA");
         if (entries.Count == 0)
@@ -1822,7 +1958,8 @@ public sealed class EditorReferencesCommandMap
             return paragraphs;
         }
 
-        foreach (var entry in BuildIndexGroups(entries, layout, contentWidth))
+        TryResolveAuthoritiesEntryStyle(out var entryStyleId, out var entryStyle);
+        foreach (var entry in BuildIndexGroups(entries, layout, contentWidth, entryStyleId, entryStyle))
         {
             paragraphs.Add(entry);
         }
@@ -1923,7 +2060,12 @@ public sealed class EditorReferencesCommandMap
         return !string.IsNullOrWhiteSpace(entry);
     }
 
-    private IEnumerable<ParagraphBlock> BuildIndexGroups(List<IndexEntry> entries, DocumentLayout layout, float contentWidth)
+    private IEnumerable<ParagraphBlock> BuildIndexGroups(
+        List<IndexEntry> entries,
+        DocumentLayout layout,
+        float contentWidth,
+        string? entryStyleId,
+        ParagraphStyleDefinition? entryStyle)
     {
         var grouped = new Dictionary<string, List<int>>(StringComparer.OrdinalIgnoreCase);
         foreach (var entry in entries)
@@ -1957,12 +2099,20 @@ public sealed class EditorReferencesCommandMap
             }
 
             var paragraph = new ParagraphBlock();
-            var tabStopPosition = MathF.Max(0f, contentWidth);
-            paragraph.Properties.TabStops.Add(new TabStopDefinition(tabStopPosition)
+            if (!string.IsNullOrWhiteSpace(entryStyleId))
             {
-                Alignment = TabAlignment.Right,
-                Leader = TabLeader.Dot
-            });
+                paragraph.StyleId = entryStyleId;
+            }
+            else
+            {
+                ApplyReferenceEntryFallback(paragraph, 0f);
+            }
+
+            var hasStyleTabs = entryStyle?.ParagraphProperties.TabStops.Count > 0;
+            if (!hasStyleTabs)
+            {
+                AddReferenceTabStop(paragraph, contentWidth, 0f);
+            }
 
             paragraph.Inlines.Add(new RunInline(key));
             paragraph.Inlines.Add(new RunInline("\t"));

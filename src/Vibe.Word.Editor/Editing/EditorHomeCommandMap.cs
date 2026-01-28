@@ -799,6 +799,12 @@ public sealed class EditorHomeCommandMap
                 style.BaselineOffset = options.BaselineOffset.Value;
             }
 
+            if (options.OpenTypeFeatures?.HasValues == true)
+            {
+                style.OpenTypeFeatures ??= new TextOpenTypeFeatures();
+                style.OpenTypeFeatures.ApplyOverrides(options.OpenTypeFeatures);
+            }
+
             ApplyTextEffectsFromOptions(style, options);
         });
     }

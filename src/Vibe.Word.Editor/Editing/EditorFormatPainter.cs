@@ -190,6 +190,13 @@ internal sealed class EditorFormatPainter : IFormatPainterService
             hasValue = true;
         }
 
+        var openType = BuildOpenTypeFeatures(snapshot);
+        if (openType is not null)
+        {
+            style.OpenTypeFeatures = openType;
+            hasValue = true;
+        }
+
         var effects = BuildTextEffects(snapshot);
         if (effects is not null)
         {
@@ -298,6 +305,12 @@ internal sealed class EditorFormatPainter : IFormatPainterService
         {
             target.Effects = source.Effects.Clone();
         }
+
+        if (source.OpenTypeFeatures?.HasValues == true)
+        {
+            target.OpenTypeFeatures ??= new TextOpenTypeFeatures();
+            target.OpenTypeFeatures.ApplyOverrides(source.OpenTypeFeatures);
+        }
     }
 
     private static TextEffects? BuildTextEffects(EditorFormattingSnapshot snapshot)
@@ -332,5 +345,42 @@ internal sealed class EditorFormatPainter : IFormatPainterService
         }
 
         return effects.HasValues ? effects : null;
+    }
+
+    private static TextOpenTypeFeatures? BuildOpenTypeFeatures(EditorFormattingSnapshot snapshot)
+    {
+        TextOpenTypeFeatures? features = null;
+
+        if (TryGet(snapshot.Ligatures, out var ligatures))
+        {
+            features ??= new TextOpenTypeFeatures();
+            features.Ligatures = ligatures;
+        }
+
+        if (TryGet(snapshot.ContextualAlternates, out var contextualAlternates))
+        {
+            features ??= new TextOpenTypeFeatures();
+            features.ContextualAlternates = contextualAlternates;
+        }
+
+        if (TryGet(snapshot.NumberForm, out var numberForm))
+        {
+            features ??= new TextOpenTypeFeatures();
+            features.NumberForm = numberForm;
+        }
+
+        if (TryGet(snapshot.NumberSpacing, out var numberSpacing))
+        {
+            features ??= new TextOpenTypeFeatures();
+            features.NumberSpacing = numberSpacing;
+        }
+
+        if (TryGet(snapshot.StylisticSets, out var stylisticSets))
+        {
+            features ??= new TextOpenTypeFeatures();
+            features.StylisticSets = stylisticSets;
+        }
+
+        return features?.HasValues == true ? features : null;
     }
 }

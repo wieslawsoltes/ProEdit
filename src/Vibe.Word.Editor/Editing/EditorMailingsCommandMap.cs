@@ -293,6 +293,11 @@ public sealed class EditorMailingsCommandMap
     private void FinishAndMerge(object? payload)
     {
         var mode = payload as string;
+        if (string.Equals(mode, "PrintDocuments", StringComparison.OrdinalIgnoreCase))
+        {
+            _ = _router.ExecuteAsync(EditorReferencesCommandIds.Fields.UpdateAll, recordHistory: false).GetAwaiter().GetResult();
+        }
+
         var message = string.IsNullOrWhiteSpace(mode)
             ? "Finish and Merge"
             : string.Format(CultureInfo.InvariantCulture, "Finish and Merge: {0}", mode);

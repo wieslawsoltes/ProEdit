@@ -16,9 +16,18 @@ public sealed class EditorSelectionTextServiceAdapter : ISelectionTextService
 
     public bool TryGetSelectionText(out string text, int maxLength = 0)
     {
-        var selection = _session.Selection.Normalize();
-        if (selection.IsEmpty)
+        var limit = maxLength > 0 ? maxLength : int.MaxValue;
+        var selectionRanges = GetNormalizedSelectionRanges();
+        if (selectionRanges.Length == 0)
         {
+            var floatingCount = _session.SelectedFloatingObjectIds.Count;
+            if (floatingCount > 0)
+            {
+                var count = limit == int.MaxValue ? floatingCount : Math.Min(floatingCount, limit);
+                text = count > 0 ? new string(DocumentConstants.ObjectReplacementChar, count) : string.Empty;
+                return true;
+            }
+
             text = string.Empty;
             return false;
         }
@@ -30,40 +39,23 @@ public sealed class EditorSelectionTextServiceAdapter : ISelectionTextService
             return false;
         }
 
-        var startIndex = Math.Clamp(selection.Start.ParagraphIndex, 0, paragraphs.Count - 1);
-        var endIndex = Math.Clamp(selection.End.ParagraphIndex, 0, paragraphs.Count - 1);
-        if (startIndex > endIndex)
-        {
-            (startIndex, endIndex) = (endIndex, startIndex);
-        }
-
-        var limit = maxLength > 0 ? maxLength : int.MaxValue;
-        var capacity = Math.Min(EstimateSelectionLength(paragraphs, selection, startIndex, endIndex), limit);
+        var estimatedLength = EstimateSelectionLength(paragraphs, selectionRanges);
+        var capacity = Math.Min(estimatedLength, limit);
         var builder = new StringBuilder(capacity);
 
-        for (var i = startIndex; i <= endIndex; i++)
+        for (var rangeIndex = 0; rangeIndex < selectionRanges.Length; rangeIndex++)
         {
-            var paragraph = paragraphs[i];
-            var paragraphLength = DocumentEditHelpers.GetParagraphLength(paragraph);
-            var startOffset = i == startIndex ? selection.Start.Offset : 0;
-            var endOffset = i == endIndex ? selection.End.Offset : paragraphLength;
-
-            startOffset = Math.Clamp(startOffset, 0, paragraphLength);
-            endOffset = Math.Clamp(endOffset, 0, paragraphLength);
-            if (endOffset > startOffset)
-            {
-                if (!AppendParagraphSlice(builder, paragraph, startOffset, endOffset, limit))
-                {
-                    break;
-                }
-            }
-
-            if (i < endIndex)
+            if (rangeIndex > 0)
             {
                 if (!AppendChar(builder, '\n', limit))
                 {
                     break;
                 }
+            }
+
+            if (!AppendSelectionRange(builder, paragraphs, selectionRanges[rangeIndex], limit))
+            {
+                break;
             }
         }
 
@@ -71,15 +63,48 @@ public sealed class EditorSelectionTextServiceAdapter : ISelectionTextService
         return text.Length > 0;
     }
 
-    private int EstimateSelectionLength(IReadOnlyList<ParagraphBlock> paragraphs, TextRange selection, int startIndex, int endIndex)
+    private static int EstimateSelectionLength(IReadOnlyList<ParagraphBlock> paragraphs, IReadOnlyList<TextRange> ranges)
     {
+        if (ranges.Count == 0)
+        {
+            return 0;
+        }
+
+        var total = 0;
+        for (var i = 0; i < ranges.Count; i++)
+        {
+            total += EstimateSelectionLength(paragraphs, ranges[i]);
+            if (i + 1 < ranges.Count)
+            {
+                total += 1;
+            }
+        }
+
+        return total;
+    }
+
+    private static int EstimateSelectionLength(IReadOnlyList<ParagraphBlock> paragraphs, TextRange selection)
+    {
+        if (paragraphs.Count == 0)
+        {
+            return 0;
+        }
+
+        var normalized = selection.Normalize();
+        var startIndex = Math.Clamp(normalized.Start.ParagraphIndex, 0, paragraphs.Count - 1);
+        var endIndex = Math.Clamp(normalized.End.ParagraphIndex, 0, paragraphs.Count - 1);
+        if (startIndex > endIndex)
+        {
+            (startIndex, endIndex) = (endIndex, startIndex);
+        }
+
         var total = 0;
         for (var i = startIndex; i <= endIndex; i++)
         {
             var paragraph = paragraphs[i];
             var paragraphLength = DocumentEditHelpers.GetParagraphLength(paragraph);
-            var startOffset = i == startIndex ? selection.Start.Offset : 0;
-            var endOffset = i == endIndex ? selection.End.Offset : paragraphLength;
+            var startOffset = i == startIndex ? normalized.Start.Offset : 0;
+            var endOffset = i == endIndex ? normalized.End.Offset : paragraphLength;
 
             startOffset = Math.Clamp(startOffset, 0, paragraphLength);
             endOffset = Math.Clamp(endOffset, 0, paragraphLength);
@@ -106,6 +131,106 @@ public sealed class EditorSelectionTextServiceAdapter : ISelectionTextService
         }
 
         return DocumentEditHelpers.BuildParagraphList(_session.Document);
+    }
+
+    private TextRange[] GetNormalizedSelectionRanges()
+    {
+        var ranges = _session.SelectionRanges;
+        if (ranges.Count == 0)
+        {
+            return Array.Empty<TextRange>();
+        }
+
+        var list = new List<TextRange>(ranges.Count);
+        for (var i = 0; i < ranges.Count; i++)
+        {
+            var normalized = ranges[i].Normalize();
+            if (!normalized.IsEmpty)
+            {
+                list.Add(normalized);
+            }
+        }
+
+        if (list.Count == 0)
+        {
+            return Array.Empty<TextRange>();
+        }
+
+        list.Sort(CompareRanges);
+
+        var merged = new List<TextRange>(list.Count);
+        var current = list[0];
+        for (var i = 1; i < list.Count; i++)
+        {
+            var candidate = list[i];
+            if (candidate.Start <= current.End)
+            {
+                var end = candidate.End >= current.End ? candidate.End : current.End;
+                current = new TextRange(current.Start, end);
+                continue;
+            }
+
+            merged.Add(current);
+            current = candidate;
+        }
+
+        merged.Add(current);
+        return merged.ToArray();
+    }
+
+    private static int CompareRanges(TextRange left, TextRange right)
+    {
+        var startCompare = left.Start.CompareTo(right.Start);
+        if (startCompare != 0)
+        {
+            return startCompare;
+        }
+
+        return left.End.CompareTo(right.End);
+    }
+
+    private static bool AppendSelectionRange(StringBuilder builder, IReadOnlyList<ParagraphBlock> paragraphs, TextRange selection, int limit)
+    {
+        if (paragraphs.Count == 0)
+        {
+            return false;
+        }
+
+        var normalized = selection.Normalize();
+        var startIndex = Math.Clamp(normalized.Start.ParagraphIndex, 0, paragraphs.Count - 1);
+        var endIndex = Math.Clamp(normalized.End.ParagraphIndex, 0, paragraphs.Count - 1);
+        if (startIndex > endIndex)
+        {
+            (startIndex, endIndex) = (endIndex, startIndex);
+        }
+
+        for (var i = startIndex; i <= endIndex; i++)
+        {
+            var paragraph = paragraphs[i];
+            var paragraphLength = DocumentEditHelpers.GetParagraphLength(paragraph);
+            var startOffset = i == startIndex ? normalized.Start.Offset : 0;
+            var endOffset = i == endIndex ? normalized.End.Offset : paragraphLength;
+
+            startOffset = Math.Clamp(startOffset, 0, paragraphLength);
+            endOffset = Math.Clamp(endOffset, 0, paragraphLength);
+            if (endOffset > startOffset)
+            {
+                if (!AppendParagraphSlice(builder, paragraph, startOffset, endOffset, limit))
+                {
+                    return false;
+                }
+            }
+
+            if (i < endIndex)
+            {
+                if (!AppendChar(builder, '\n', limit))
+                {
+                    return false;
+                }
+            }
+        }
+
+        return true;
     }
 
     private static bool AppendParagraphSlice(StringBuilder builder, ParagraphBlock paragraph, int startOffset, int endOffset, int maxLength)

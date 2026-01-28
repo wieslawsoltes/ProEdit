@@ -674,6 +674,8 @@ public sealed class EditorDrawCommandMap
         target.WrapSide = source.WrapSide;
         target.WrapPolygon = source.WrapPolygon;
         target.BehindText = source.BehindText;
+        target.AllowOverlap = source.AllowOverlap;
+        target.ZOrder = source.ZOrder;
         target.Distance = source.Distance;
         target.AnchorOffset = source.AnchorOffset;
     }
