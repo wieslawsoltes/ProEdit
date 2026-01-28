@@ -1,0 +1,94 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Vibe.Word.Avalonia.CitationSourceManagerDialog"
+        Width="760"
+        Height="520"
+        WindowStartupLocation="CenterOwner"
+        Title="Manage Sources">
+  <Grid RowDefinitions="Auto,*,Auto"
+        ColumnDefinitions="220,*"
+        RowSpacing="10"
+        ColumnSpacing="12"
+        Margin="12">
+    <StackPanel Grid.Row="0"
+                Grid.ColumnSpan="2"
+                Orientation="Horizontal"
+                Spacing="8">
+      <Button Content="Add Source"
+              Click="OnAddSourceClick" />
+      <Button Content="Remove Source"
+              Click="OnRemoveSourceClick" />
+    </StackPanel>
+
+    <Border Grid.Row="1"
+            Grid.Column="0"
+            BorderBrush="#D0D4DB"
+            BorderThickness="1"
+            CornerRadius="4"
+            Padding="4">
+      <ListBox x:Name="SourcesList"
+               x:CompileBindings="False"
+               DisplayMemberBinding="{Binding DisplayName}"
+               SelectionMode="Single" />
+    </Border>
+
+    <Border Grid.Row="1"
+            Grid.Column="1"
+            BorderBrush="#D0D4DB"
+            BorderThickness="1"
+            CornerRadius="4"
+            Padding="8">
+      <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                    VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="8">
+          <Grid ColumnDefinitions="120,*"
+                ColumnSpacing="8">
+            <TextBlock Text="Tag"
+                       VerticalAlignment="Center" />
+            <TextBox x:Name="TagBox"
+                     Grid.Column="1"
+                     TextChanged="OnTagChanged" />
+          </Grid>
+          <Grid ColumnDefinitions="120,*"
+                ColumnSpacing="8">
+            <TextBlock Text="Type"
+                       VerticalAlignment="Center" />
+            <ComboBox x:Name="SourceTypeCombo"
+                      Grid.Column="1"
+                      SelectionChanged="OnSourceTypeChanged" />
+          </Grid>
+          <Border BorderBrush="#E0E0E0"
+                  BorderThickness="0,1,0,0"
+                  Margin="0,6,0,6" />
+          <StackPanel x:Name="StandardFieldsPanel"
+                      Spacing="6" />
+          <TextBlock Text="Other Fields"
+                     Margin="0,6,0,0" />
+          <StackPanel x:Name="ExtraFieldsPanel"
+                      Spacing="6" />
+          <StackPanel Orientation="Horizontal"
+                      Spacing="6">
+            <TextBox x:Name="NewFieldNameBox"
+                     Width="160"
+                     Watermark="Field name" />
+            <Button Content="Add Field"
+                    Click="OnAddFieldClick" />
+          </StackPanel>
+        </StackPanel>
+      </ScrollViewer>
+    </Border>
+
+    <StackPanel Grid.Row="2"
+                Grid.ColumnSpan="2"
+                Orientation="Horizontal"
+                HorizontalAlignment="Right"
+                Spacing="8">
+      <Button Content="OK"
+              Width="80"
+              Click="OnOkClick" />
+      <Button Content="Cancel"
+              Width="80"
+              Click="OnCancelClick" />
+    </StackPanel>
+  </Grid>
+</Window>

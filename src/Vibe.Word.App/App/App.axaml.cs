@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Avalonia.Markup.Xaml.Styling;
 using System.IO;
 namespace Vibe.Word.App;
 
@@ -9,6 +10,10 @@ public partial class App : Application
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
+        Resources.MergedDictionaries.Add(new ResourceInclude(new Uri("avares://Vibe.Word.Avalonia/"))
+        {
+            Source = new Uri("avares://Vibe.Word.Avalonia/WordEditorResources.axaml")
+        });
     }
 
     public override void OnFrameworkInitializationCompleted()

@@ -1,8 +1,0 @@
-namespace Vibe.Word.App;
-
-public sealed record PickerItem(
-    string Id,
-    string Label,
-    string? Description = null,
-    string? IconKey = null,
-    string? GeometryData = null);

@@ -1,0 +1,142 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:editing="clr-namespace:Vibe.Office.Editing;assembly=Vibe.Office.Editing"
+        x:Class="Vibe.Word.Avalonia.ManageStylesDialog"
+        Width="700"
+        Height="500"
+        WindowStartupLocation="CenterOwner"
+        Title="Manage Styles">
+  <Grid Margin="12"
+        ColumnDefinitions="2*,3*"
+        RowDefinitions="Auto,*,Auto">
+    <StackPanel Grid.Column="0"
+                Grid.ColumnSpan="2"
+                Orientation="Horizontal"
+                Spacing="8"
+                Margin="0,0,0,8">
+      <TextBox x:Name="StyleSearchBox"
+               Watermark="Search styles"
+               Width="220" />
+      <ComboBox x:Name="StyleTypeCombo"
+                Width="160">
+        <ComboBoxItem Content="All Types" />
+        <ComboBoxItem Content="Paragraph" />
+        <ComboBoxItem Content="Character" />
+        <ComboBoxItem Content="Table" />
+      </ComboBox>
+    </StackPanel>
+
+    <ListBox x:Name="StylesList"
+             Grid.Row="1"
+             Grid.Column="0">
+      <ListBox.ItemTemplate>
+        <DataTemplate x:DataType="editing:EditorStyleInfo">
+          <StackPanel Spacing="2">
+            <TextBlock Text="{Binding Name}" />
+            <TextBlock Text="{Binding Type}"
+                       FontSize="11"
+                       Foreground="#666666" />
+          </StackPanel>
+        </DataTemplate>
+      </ListBox.ItemTemplate>
+    </ListBox>
+
+    <Border Grid.Row="1"
+            Grid.Column="1"
+            BorderBrush="#DDDDDD"
+            BorderThickness="1"
+            Padding="8">
+      <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="8">
+          <TextBlock Text="Style settings"
+                     FontWeight="SemiBold" />
+          <StackPanel Orientation="Horizontal"
+                      Spacing="6">
+            <TextBlock Text="Name"
+                       Width="100" />
+            <TextBox x:Name="StyleNameBox"
+                     Width="220" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal"
+                      Spacing="6">
+            <TextBlock Text="Type"
+                       Width="100" />
+            <TextBlock x:Name="StyleTypeText"
+                       Width="220" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal"
+                      Spacing="6">
+            <TextBlock Text="Based on"
+                       Width="100" />
+            <ComboBox x:Name="StyleBasedOnCombo"
+                      Width="220" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal"
+                      Spacing="6">
+            <TextBlock Text="Next style"
+                       Width="100" />
+            <ComboBox x:Name="StyleNextCombo"
+                      Width="220" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal"
+                      Spacing="6">
+            <TextBlock Text="Linked style"
+                       Width="100" />
+            <ComboBox x:Name="StyleLinkedCombo"
+                      Width="220" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal"
+                      Spacing="6">
+            <TextBlock Text="Priority"
+                       Width="100" />
+            <TextBox x:Name="PriorityBox"
+                     Width="90" />
+          </StackPanel>
+
+          <CheckBox x:Name="QuickStyleCheckBox"
+                    Content="Show in Quick Styles"
+                    IsThreeState="True" />
+          <CheckBox x:Name="HiddenCheckBox"
+                    Content="Hidden"
+                    IsThreeState="True" />
+          <CheckBox x:Name="SemiHiddenCheckBox"
+                    Content="Hide until used"
+                    IsThreeState="True" />
+          <CheckBox x:Name="UnhideWhenUsedCheckBox"
+                    Content="Unhide when used"
+                    IsThreeState="True" />
+          <CheckBox x:Name="AutoRedefineCheckBox"
+                    Content="Automatically update"
+                    IsThreeState="True" />
+          <CheckBox x:Name="LockedCheckBox"
+                    Content="Locked"
+                    IsThreeState="True" />
+
+          <StackPanel Orientation="Horizontal"
+                      Spacing="6"
+                      Margin="0,8,0,0">
+            <Button x:Name="SetDefaultButton"
+                    Content="Set Default" />
+            <Button x:Name="ModifyButton"
+                    Content="Modify" />
+            <Button x:Name="UpdateButton"
+                    Content="Update" />
+          </StackPanel>
+        </StackPanel>
+      </ScrollViewer>
+    </Border>
+
+    <StackPanel Grid.Row="2"
+                Grid.Column="0"
+                Grid.ColumnSpan="2"
+                Orientation="Horizontal"
+                HorizontalAlignment="Right"
+                Spacing="8"
+                Margin="0,8,0,0">
+      <Button x:Name="NewStyleButton"
+              Content="New Style" />
+      <Button x:Name="CloseButton"
+              Content="Close" />
+    </StackPanel>
+  </Grid>
+</Window>

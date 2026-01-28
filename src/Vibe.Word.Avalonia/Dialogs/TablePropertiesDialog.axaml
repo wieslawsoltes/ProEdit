@@ -1,0 +1,306 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:doc="clr-namespace:Vibe.Office.Documents;assembly=Vibe.Office.Documents"
+        x:Class="Vibe.Word.Avalonia.TablePropertiesDialog"
+        Width="560"
+        Height="520"
+        WindowStartupLocation="CenterOwner"
+        Title="Table Properties">
+  <Grid RowDefinitions="*,Auto"
+        Margin="12">
+    <TabControl>
+      <TabItem Header="Table">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <StackPanel Spacing="12">
+            <Border BorderBrush="#D0D0D0"
+                    BorderThickness="1"
+                    CornerRadius="4"
+                    Padding="8">
+              <StackPanel Spacing="8">
+                <TextBlock Text="Table layout"
+                           FontWeight="SemiBold" />
+                <Grid ColumnDefinitions="Auto,*"
+                      RowDefinitions="Auto,Auto,Auto,Auto,Auto"
+                      ColumnSpacing="8"
+                      RowSpacing="6">
+                  <TextBlock Text="Alignment:"
+                             VerticalAlignment="Center" />
+                  <ComboBox x:Name="TableAlignmentCombo"
+                            Grid.Column="1"
+                            Width="180">
+                    <ComboBoxItem Content="Left"
+                                  Tag="{x:Static doc:TableAlignment.Left}" />
+                    <ComboBoxItem Content="Center"
+                                  Tag="{x:Static doc:TableAlignment.Center}" />
+                    <ComboBoxItem Content="Right"
+                                  Tag="{x:Static doc:TableAlignment.Right}" />
+                  </ComboBox>
+
+                  <TextBlock Grid.Row="1"
+                             Text="Preferred width:"
+                             VerticalAlignment="Center" />
+                  <StackPanel Grid.Row="1"
+                              Grid.Column="1"
+                              Orientation="Horizontal"
+                              Spacing="6">
+                    <TextBox x:Name="TableWidthTextBox"
+                             Width="80"
+                             HorizontalContentAlignment="Right" />
+                    <ComboBox x:Name="TableWidthUnitCombo"
+                              Width="120">
+                      <ComboBoxItem Content="Auto"
+                                    Tag="{x:Static doc:TableWidthUnit.Auto}" />
+                      <ComboBoxItem Content="Points"
+                                    Tag="{x:Static doc:TableWidthUnit.Dxa}" />
+                      <ComboBoxItem Content="Percent"
+                                    Tag="{x:Static doc:TableWidthUnit.Pct}" />
+                    </ComboBox>
+                  </StackPanel>
+
+                  <TextBlock Grid.Row="2"
+                             Text="Indent:"
+                             VerticalAlignment="Center" />
+                  <StackPanel Grid.Row="2"
+                              Grid.Column="1"
+                              Orientation="Horizontal"
+                              Spacing="6">
+                    <TextBox x:Name="TableIndentTextBox"
+                             Width="80"
+                             HorizontalContentAlignment="Right" />
+                    <ComboBox x:Name="TableIndentUnitCombo"
+                              Width="120">
+                      <ComboBoxItem Content="Points"
+                                    Tag="{x:Static doc:TableWidthUnit.Dxa}" />
+                      <ComboBoxItem Content="Percent"
+                                    Tag="{x:Static doc:TableWidthUnit.Pct}" />
+                    </ComboBox>
+                  </StackPanel>
+
+                  <TextBlock Grid.Row="3"
+                             Text="Layout:"
+                             VerticalAlignment="Center" />
+                  <ComboBox x:Name="TableLayoutCombo"
+                            Grid.Row="3"
+                            Grid.Column="1"
+                            Width="180">
+                    <ComboBoxItem Content="Auto"
+                                  Tag="{x:Static doc:TableLayoutMode.Auto}" />
+                    <ComboBoxItem Content="Fixed"
+                                  Tag="{x:Static doc:TableLayoutMode.Fixed}" />
+                  </ComboBox>
+
+                  <TextBlock Grid.Row="4"
+                             Text="Cell spacing:"
+                             VerticalAlignment="Center" />
+                  <StackPanel Grid.Row="4"
+                              Grid.Column="1"
+                              Orientation="Horizontal"
+                              Spacing="6">
+                    <TextBox x:Name="CellSpacingTextBox"
+                             Width="80"
+                             HorizontalContentAlignment="Right" />
+                    <ComboBox x:Name="CellSpacingUnitCombo"
+                              Width="120">
+                      <ComboBoxItem Content="Points"
+                                    Tag="{x:Static doc:TableWidthUnit.Dxa}" />
+                      <ComboBoxItem Content="Percent"
+                                    Tag="{x:Static doc:TableWidthUnit.Pct}" />
+                    </ComboBox>
+                  </StackPanel>
+                </Grid>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+
+      <TabItem Header="Row">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <StackPanel Spacing="12">
+            <Border BorderBrush="#D0D0D0"
+                    BorderThickness="1"
+                    CornerRadius="4"
+                    Padding="8">
+              <StackPanel Spacing="8">
+                <TextBlock Text="Row size"
+                           FontWeight="SemiBold" />
+                <Grid ColumnDefinitions="Auto,*"
+                      RowDefinitions="Auto,Auto"
+                      ColumnSpacing="8"
+                      RowSpacing="6">
+                  <TextBlock Text="Height:"
+                             VerticalAlignment="Center" />
+                  <StackPanel Grid.Column="1"
+                              Orientation="Horizontal"
+                              Spacing="6">
+                    <TextBox x:Name="RowHeightTextBox"
+                             Width="80"
+                             HorizontalContentAlignment="Right" />
+                    <TextBlock Text="pt"
+                               VerticalAlignment="Center" />
+                    <ComboBox x:Name="RowHeightRuleCombo"
+                              Width="140">
+                      <ComboBoxItem Content="Auto"
+                                    Tag="{x:Static doc:TableRowHeightRule.Auto}" />
+                      <ComboBoxItem Content="At least"
+                                    Tag="{x:Static doc:TableRowHeightRule.AtLeast}" />
+                      <ComboBoxItem Content="Exactly"
+                                    Tag="{x:Static doc:TableRowHeightRule.Exact}" />
+                    </ComboBox>
+                  </StackPanel>
+                </Grid>
+              </StackPanel>
+            </Border>
+
+            <StackPanel Spacing="6">
+              <CheckBox x:Name="AllowRowBreakCheckBox"
+                        Content="Allow row to break across pages"
+                        IsThreeState="True" />
+              <CheckBox x:Name="RepeatHeaderRowsCheckBox"
+                        Content="Repeat as header row at the top of each page"
+                        IsThreeState="True" />
+            </StackPanel>
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+
+      <TabItem Header="Column">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <StackPanel Spacing="12">
+            <Border BorderBrush="#D0D0D0"
+                    BorderThickness="1"
+                    CornerRadius="4"
+                    Padding="8">
+              <StackPanel Spacing="8">
+                <TextBlock Text="Column size"
+                           FontWeight="SemiBold" />
+                <Grid ColumnDefinitions="Auto,*"
+                      RowDefinitions="Auto"
+                      ColumnSpacing="8"
+                      RowSpacing="6">
+                  <TextBlock Text="Preferred width:"
+                             VerticalAlignment="Center" />
+                  <StackPanel Grid.Column="1"
+                              Orientation="Horizontal"
+                              Spacing="6">
+                    <TextBox x:Name="ColumnWidthTextBox"
+                             Width="80"
+                             HorizontalContentAlignment="Right" />
+                    <TextBlock Text="pt"
+                               VerticalAlignment="Center" />
+                  </StackPanel>
+                </Grid>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+
+      <TabItem Header="Cell">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <StackPanel Spacing="12">
+            <Border BorderBrush="#D0D0D0"
+                    BorderThickness="1"
+                    CornerRadius="4"
+                    Padding="8">
+              <StackPanel Spacing="8">
+                <TextBlock Text="Vertical alignment"
+                           FontWeight="SemiBold" />
+                <ComboBox x:Name="CellVerticalAlignmentCombo"
+                          Width="200">
+                  <ComboBoxItem Content="Top"
+                                Tag="{x:Static doc:TableCellVerticalAlignment.Top}" />
+                  <ComboBoxItem Content="Center"
+                                Tag="{x:Static doc:TableCellVerticalAlignment.Center}" />
+                  <ComboBoxItem Content="Bottom"
+                                Tag="{x:Static doc:TableCellVerticalAlignment.Bottom}" />
+                </ComboBox>
+              </StackPanel>
+            </Border>
+
+            <Border BorderBrush="#D0D0D0"
+                    BorderThickness="1"
+                    CornerRadius="4"
+                    Padding="8">
+              <StackPanel Spacing="8">
+                <TextBlock Text="Cell margins"
+                           FontWeight="SemiBold" />
+                <Grid ColumnDefinitions="Auto,*"
+                      RowDefinitions="Auto,Auto,Auto,Auto"
+                      ColumnSpacing="8"
+                      RowSpacing="6">
+                  <TextBlock Text="Left:"
+                             VerticalAlignment="Center" />
+                  <StackPanel Grid.Column="1"
+                              Orientation="Horizontal"
+                              Spacing="6">
+                    <TextBox x:Name="CellMarginLeftTextBox"
+                             Width="80"
+                             HorizontalContentAlignment="Right" />
+                    <TextBlock Text="pt"
+                               VerticalAlignment="Center" />
+                  </StackPanel>
+
+                  <TextBlock Grid.Row="1"
+                             Text="Right:"
+                             VerticalAlignment="Center" />
+                  <StackPanel Grid.Row="1"
+                              Grid.Column="1"
+                              Orientation="Horizontal"
+                              Spacing="6">
+                    <TextBox x:Name="CellMarginRightTextBox"
+                             Width="80"
+                             HorizontalContentAlignment="Right" />
+                    <TextBlock Text="pt"
+                               VerticalAlignment="Center" />
+                  </StackPanel>
+
+                  <TextBlock Grid.Row="2"
+                             Text="Top:"
+                             VerticalAlignment="Center" />
+                  <StackPanel Grid.Row="2"
+                              Grid.Column="1"
+                              Orientation="Horizontal"
+                              Spacing="6">
+                    <TextBox x:Name="CellMarginTopTextBox"
+                             Width="80"
+                             HorizontalContentAlignment="Right" />
+                    <TextBlock Text="pt"
+                               VerticalAlignment="Center" />
+                  </StackPanel>
+
+                  <TextBlock Grid.Row="3"
+                             Text="Bottom:"
+                             VerticalAlignment="Center" />
+                  <StackPanel Grid.Row="3"
+                              Grid.Column="1"
+                              Orientation="Horizontal"
+                              Spacing="6">
+                    <TextBox x:Name="CellMarginBottomTextBox"
+                             Width="80"
+                             HorizontalContentAlignment="Right" />
+                    <TextBlock Text="pt"
+                               VerticalAlignment="Center" />
+                  </StackPanel>
+                </Grid>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+    </TabControl>
+
+    <StackPanel Grid.Row="1"
+                Orientation="Horizontal"
+                HorizontalAlignment="Right"
+                Spacing="8"
+                Margin="0,12,0,0">
+      <Button x:Name="OkButton"
+              Content="OK"
+              Width="72" />
+      <Button x:Name="CancelButton"
+              Content="Cancel"
+              Width="72" />
+    </StackPanel>
+  </Grid>
+</Window>

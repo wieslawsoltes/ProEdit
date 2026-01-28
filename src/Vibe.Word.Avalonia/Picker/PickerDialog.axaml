@@ -1,0 +1,91 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:Vibe.Word.Avalonia"
+        xmlns:ribbon="clr-namespace:Vibe.Office.Ribbon.Avalonia;assembly=Vibe.Office.Ribbon.Avalonia"
+        x:Class="Vibe.Word.Avalonia.PickerDialog"
+        Width="520"
+        Height="400"
+        WindowStartupLocation="CenterOwner"
+        Title="Select Item">
+  <Window.Resources>
+    <local:PickerGeometryConverter x:Key="PickerGeometryConverter" />
+    <local:PickerStringHasValueConverter x:Key="PickerStringHasValueConverter" />
+    <ribbon:RibbonIconConverter x:Key="RibbonIconConverter" />
+  </Window.Resources>
+  <Grid RowDefinitions="*,Auto"
+        RowSpacing="10"
+        Margin="12">
+    <Border Grid.Row="0"
+            BorderBrush="#D0D4DB"
+            BorderThickness="1"
+            CornerRadius="4"
+            Padding="8">
+      <ListBox x:Name="ItemsList"
+               SelectionMode="Single"
+               DoubleTapped="OnItemDoubleTapped">
+        <ListBox.ItemsPanel>
+          <ItemsPanelTemplate>
+            <WrapPanel Orientation="Horizontal"
+                       ItemWidth="150"
+                       ItemHeight="104" />
+          </ItemsPanelTemplate>
+        </ListBox.ItemsPanel>
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="local:PickerItem">
+            <Border BorderBrush="#DADFE6"
+                    BorderThickness="1"
+                    CornerRadius="4"
+                    Padding="6"
+                    Margin="4">
+              <StackPanel Orientation="Vertical"
+                          Spacing="4"
+                          HorizontalAlignment="Center">
+                <Border BorderBrush="#E3E7ED"
+                        BorderThickness="1"
+                        CornerRadius="4"
+                        Background="#F7F9FC"
+                        Padding="4">
+                  <Grid Width="72"
+                        Height="44">
+                    <Path Data="{Binding GeometryData, Converter={StaticResource PickerGeometryConverter}}"
+                          IsVisible="{Binding GeometryData, Converter={StaticResource PickerGeometryConverter}, ConverterParameter=HasValue}"
+                          Fill="#9BB1CC"
+                          Stroke="#4A5B73"
+                          StrokeThickness="1.4"
+                          Stretch="Uniform" />
+                    <TextBlock Text="{Binding IconKey, Converter={StaticResource RibbonIconConverter}}"
+                               IsVisible="{Binding IconKey, Converter={StaticResource RibbonIconConverter}, ConverterParameter=HasValue}"
+                               FontSize="22"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center" />
+                  </Grid>
+                </Border>
+                <TextBlock Text="{Binding Label}"
+                           FontSize="12"
+                           TextWrapping="Wrap"
+                           TextAlignment="Center" />
+                <TextBlock Text="{Binding Description}"
+                           FontSize="10"
+                           Foreground="#707070"
+                           TextWrapping="Wrap"
+                           TextAlignment="Center"
+                           IsVisible="{Binding Description, Converter={StaticResource PickerStringHasValueConverter}}" />
+              </StackPanel>
+            </Border>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+    </Border>
+    <StackPanel Grid.Row="1"
+                Orientation="Horizontal"
+                HorizontalAlignment="Right"
+                Spacing="8">
+      <Button Content="Insert"
+              Width="80"
+              Click="OnInsertClick" />
+      <Button Content="Cancel"
+              Width="80"
+              Click="OnCancelClick" />
+    </StackPanel>
+  </Grid>
+</Window>

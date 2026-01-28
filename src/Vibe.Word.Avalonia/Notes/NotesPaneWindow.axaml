@@ -1,0 +1,88 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:Vibe.Word.Avalonia"
+        x:Class="Vibe.Word.Avalonia.NotesPaneWindow"
+        Width="780"
+        Height="520"
+        MinWidth="560"
+        MinHeight="360"
+        WindowStartupLocation="CenterOwner"
+        Title="Notes">
+  <Grid ColumnDefinitions="260,*"
+        RowDefinitions="Auto,*,Auto"
+        ColumnSpacing="12"
+        RowSpacing="10"
+        Margin="12">
+    <TabControl Grid.Row="0"
+                Grid.RowSpan="3"
+                Grid.Column="0"
+                x:Name="NotesTabs">
+      <TabItem Header="Footnotes">
+        <Border BorderBrush="#D0D4DB"
+                BorderThickness="1"
+                CornerRadius="4"
+                Padding="6">
+          <ListBox x:Name="FootnotesList"
+                   SelectionMode="Single"
+                   SelectionChanged="OnFootnoteSelectionChanged">
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="local:NoteEntry">
+                <TextBlock Text="{Binding Display}"
+                           TextWrapping="Wrap" />
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </Border>
+      </TabItem>
+      <TabItem Header="Endnotes">
+        <Border BorderBrush="#D0D4DB"
+                BorderThickness="1"
+                CornerRadius="4"
+                Padding="6">
+          <ListBox x:Name="EndnotesList"
+                   SelectionMode="Single"
+                   SelectionChanged="OnEndnoteSelectionChanged">
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="local:NoteEntry">
+                <TextBlock Text="{Binding Display}"
+                           TextWrapping="Wrap" />
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </Border>
+      </TabItem>
+    </TabControl>
+
+    <StackPanel Grid.Row="0"
+                Grid.Column="1"
+                Spacing="6">
+      <TextBlock x:Name="NoteTitle"
+                 Text="Select a note"
+                 FontSize="14"
+                 FontWeight="SemiBold" />
+      <TextBlock Text="Note text" />
+    </StackPanel>
+
+    <TextBox Grid.Row="1"
+             Grid.Column="1"
+             x:Name="NoteEditor"
+             AcceptsReturn="True"
+             TextWrapping="Wrap"
+             ScrollViewer.VerticalScrollBarVisibility="Auto" />
+
+    <StackPanel Grid.Row="2"
+                Grid.Column="1"
+                Orientation="Horizontal"
+                HorizontalAlignment="Right"
+                Spacing="8">
+      <Button x:Name="ApplyButton"
+              Content="Apply"
+              IsEnabled="False"
+              Click="OnApplyClick" />
+      <Button Content="Go To Reference"
+              Click="OnGoToReferenceClick" />
+      <Button Content="Close"
+              Click="OnCloseClick" />
+    </StackPanel>
+  </Grid>
+</Window>
