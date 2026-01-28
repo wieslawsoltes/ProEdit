@@ -5,6 +5,8 @@ using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using Vibe.Office.OpenXml;
+using VibeDocs = Vibe.Office.Documents;
+using VibeDocument = Vibe.Office.Documents.Document;
 using Xunit;
 
 namespace Vibe.Office.OpenXml.Tests;
@@ -151,6 +153,127 @@ public sealed class DocxRoundTripTests
         }
     }
 
+    [Fact]
+    public void RoundTrip_PreservesStyleListNumbering()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), "VibeOfficeTests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempRoot);
+        var inputPath = Path.Combine(tempRoot, "input.docx");
+        var outputPath = Path.Combine(tempRoot, "output.docx");
+
+        try
+        {
+            CreateStyleNumberingInputDoc(inputPath);
+
+            var importer = new DocxImporter();
+            var document = importer.Load(inputPath);
+
+            var exporter = new DocxExporter();
+            exporter.Save(document, outputPath);
+
+            using var outputDoc = WordprocessingDocument.Open(outputPath, false);
+            var styles = outputDoc.MainDocumentPart?.StyleDefinitionsPart?.Styles;
+            Assert.NotNull(styles);
+
+            var listStyle = styles!.Elements<Style>()
+                .First(style => string.Equals(style.StyleId?.Value, "ListStyle", StringComparison.Ordinal));
+            var numbering = listStyle.GetFirstChild<StyleParagraphProperties>()?.NumberingProperties;
+            Assert.NotNull(numbering);
+            Assert.Equal(10, numbering!.NumberingId?.Val?.Value);
+            Assert.Equal(0, numbering.NumberingLevelReference?.Val?.Value);
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                Directory.Delete(tempRoot, true);
+            }
+        }
+    }
+
+    [Fact]
+    public void RoundTrip_PreservesFloatingTablePosition()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), "VibeOfficeTests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempRoot);
+        var inputPath = Path.Combine(tempRoot, "input.docx");
+        var outputPath = Path.Combine(tempRoot, "output.docx");
+
+        try
+        {
+            CreateFloatingTableInputDoc(inputPath);
+
+            var importer = new DocxImporter();
+            var document = importer.Load(inputPath);
+
+            var exporter = new DocxExporter();
+            exporter.Save(document, outputPath);
+
+            using var outputDoc = WordprocessingDocument.Open(outputPath, false);
+            var table = outputDoc.MainDocumentPart!.Document!.Body!.Elements<Table>().First();
+            var tableProps = table.GetFirstChild<TableProperties>();
+            Assert.NotNull(tableProps);
+            var position = tableProps!.GetFirstChild<TablePositionProperties>();
+            Assert.NotNull(position);
+            Assert.Equal(HorizontalAnchorValues.Margin, position!.HorizontalAnchor?.Value);
+            Assert.Equal(VerticalAnchorValues.Text, position.VerticalAnchor?.Value);
+            Assert.Equal(720, position.TablePositionX?.Value);
+            Assert.Equal(1440, position.TablePositionY?.Value);
+            Assert.Equal((short?)120, position.LeftFromText?.Value);
+            Assert.Equal((short?)120, position.RightFromText?.Value);
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                Directory.Delete(tempRoot, true);
+            }
+        }
+    }
+
+    [Fact]
+    public void Exporter_PreservesNestedFieldResults()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), "VibeOfficeTests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempRoot);
+        var outputPath = Path.Combine(tempRoot, "output.docx");
+
+        try
+        {
+            var document = new VibeDocument();
+            document.Blocks.Clear();
+            var paragraph = new VibeDocs.ParagraphBlock();
+            paragraph.Inlines.Add(new VibeDocs.FieldStartInline("REF Outer"));
+            paragraph.Inlines.Add(new VibeDocs.FieldSeparatorInline());
+            paragraph.Inlines.Add(new VibeDocs.RunInline("Before "));
+            paragraph.Inlines.Add(new VibeDocs.FieldStartInline("PAGE"));
+            paragraph.Inlines.Add(new VibeDocs.FieldSeparatorInline());
+            paragraph.Inlines.Add(new VibeDocs.RunInline("1"));
+            paragraph.Inlines.Add(new VibeDocs.FieldEndInline());
+            paragraph.Inlines.Add(new VibeDocs.RunInline(" After"));
+            paragraph.Inlines.Add(new VibeDocs.FieldEndInline());
+            document.Blocks.Add(paragraph);
+
+            var exporter = new DocxExporter();
+            exporter.Save(document, outputPath);
+
+            using var outputDoc = WordprocessingDocument.Open(outputPath, false);
+            var body = outputDoc.MainDocumentPart!.Document!.Body!;
+            var fields = body.Descendants<SimpleField>().ToList();
+            Assert.True(fields.Count >= 2);
+            var outerText = fields[0].InnerText;
+            Assert.Contains("Before", outerText);
+            Assert.Contains("After", outerText);
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                Directory.Delete(tempRoot, true);
+            }
+        }
+    }
+
     private static void CreateInputDoc(string filePath)
     {
         using var doc = WordprocessingDocument.Create(filePath, WordprocessingDocumentType.Document);
@@ -215,6 +338,78 @@ public sealed class DocxRoundTripTests
         run.AppendChild(new Text("Styled text"));
         paragraph.AppendChild(run);
         mainPart.Document.Body!.AppendChild(paragraph);
+        mainPart.Document.Save();
+    }
+
+    private static void CreateStyleNumberingInputDoc(string filePath)
+    {
+        using var doc = WordprocessingDocument.Create(filePath, WordprocessingDocumentType.Document);
+        var mainPart = doc.AddMainDocumentPart();
+        mainPart.Document = new Document(new Body());
+
+        var stylesPart = mainPart.AddNewPart<StyleDefinitionsPart>();
+        var styles = new Styles();
+        var listStyle = new Style { Type = StyleValues.Paragraph, StyleId = "ListStyle" };
+        listStyle.StyleName = new StyleName { Val = "ListStyle" };
+        listStyle.AppendChild(new StyleParagraphProperties(
+            new NumberingProperties(
+                new NumberingLevelReference { Val = 0 },
+                new NumberingId { Val = 10 })));
+        styles.Append(listStyle);
+        stylesPart.Styles = styles;
+        stylesPart.Styles.Save();
+
+        var numberingPart = mainPart.AddNewPart<NumberingDefinitionsPart>();
+        var numbering = new Numbering();
+        var abstractNum = new AbstractNum { AbstractNumberId = 1 };
+        var level = new Level { LevelIndex = 0 };
+        level.AppendChild(new StartNumberingValue { Val = 1 });
+        level.AppendChild(new NumberingFormat { Val = NumberFormatValues.Decimal });
+        level.AppendChild(new LevelText { Val = "%1." });
+        abstractNum.AppendChild(level);
+        numbering.AppendChild(abstractNum);
+        numbering.AppendChild(new NumberingInstance
+        {
+            NumberID = 10,
+            AbstractNumId = new AbstractNumId { Val = 1 }
+        });
+        numberingPart.Numbering = numbering;
+        numberingPart.Numbering.Save();
+
+        var paragraph = new Paragraph(new ParagraphProperties(new ParagraphStyleId { Val = "ListStyle" }));
+        paragraph.AppendChild(new Run(new Text("Item")));
+        mainPart.Document.Body!.AppendChild(paragraph);
+        mainPart.Document.Save();
+    }
+
+    private static void CreateFloatingTableInputDoc(string filePath)
+    {
+        using var doc = WordprocessingDocument.Create(filePath, WordprocessingDocumentType.Document);
+        var mainPart = doc.AddMainDocumentPart();
+        mainPart.Document = new Document(new Body());
+
+        var table = new Table();
+        var tableProps = new TableProperties();
+        tableProps.AppendChild(new TablePositionProperties
+        {
+            HorizontalAnchor = HorizontalAnchorValues.Margin,
+            VerticalAnchor = VerticalAnchorValues.Text,
+            TablePositionX = 720,
+            TablePositionY = 1440,
+            LeftFromText = 120,
+            RightFromText = 120,
+            TopFromText = 60,
+            BottomFromText = 60
+        });
+        table.AppendChild(tableProps);
+
+        var row = new TableRow();
+        var cell = new TableCell();
+        cell.AppendChild(new Paragraph(new Run(new Text("Cell"))));
+        row.AppendChild(cell);
+        table.AppendChild(row);
+
+        mainPart.Document.Body!.AppendChild(table);
         mainPart.Document.Save();
     }
 
