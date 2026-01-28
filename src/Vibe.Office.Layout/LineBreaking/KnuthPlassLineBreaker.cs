@@ -126,6 +126,7 @@ internal static class KnuthPlassLineBreaker
         float otherLineWidth,
         ITextMeasurer measurer,
         float charGridSpacing,
+        LineBreakOptions options,
         out List<ParagraphLineBreak> breaks)
     {
         breaks = new List<ParagraphLineBreak>();
@@ -134,7 +135,7 @@ internal static class KnuthPlassLineBreaker
             return false;
         }
 
-        if (!TryBuildLineBreakNodes(text, spans, measurer, charGridSpacing, out var nodes))
+        if (!TryBuildLineBreakNodes(text, spans, measurer, charGridSpacing, options, out var nodes))
         {
             return false;
         }
@@ -144,7 +145,7 @@ internal static class KnuthPlassLineBreaker
             return false;
         }
 
-        breaks = BuildLineBreaks(text, nodes, breakpoints);
+        breaks = BuildLineBreaks(text, nodes, breakpoints, options);
         return breaks.Count > 0;
     }
 
@@ -153,6 +154,7 @@ internal static class KnuthPlassLineBreaker
         IReadOnlyList<InlineSpan> spans,
         ITextMeasurer measurer,
         float charGridSpacing,
+        LineBreakOptions options,
         out List<LineBreakNode> nodes)
     {
         nodes = new List<LineBreakNode>();
@@ -248,7 +250,7 @@ internal static class KnuthPlassLineBreaker
 
                 var wordLength = index - wordStart;
                 var wordOffset = segmentStartOffset + wordStart;
-                AddWordNodes(segmentText, wordStart, wordLength, wordOffset, span.Style, span.BaselineOffset, measurer, charGridSpacing, hyphenator, wordWidthCache, hyphenWidthCache, nodes);
+                AddWordNodes(segmentText, wordStart, wordLength, wordOffset, span.Style, span.BaselineOffset, measurer, charGridSpacing, hyphenator, wordWidthCache, hyphenWidthCache, options, nodes);
                 atParagraphStart = false;
             }
         }
@@ -269,6 +271,7 @@ internal static class KnuthPlassLineBreaker
         Hyphenator? hyphenator,
         Dictionary<TextStyleGridKey, Dictionary<TextSliceKey, float>> wordWidthCache,
         Dictionary<TextStyleGridKey, float> hyphenWidthCache,
+        LineBreakOptions options,
         List<LineBreakNode> nodes)
     {
         if (string.IsNullOrEmpty(source) || length <= 0)
@@ -277,9 +280,9 @@ internal static class KnuthPlassLineBreaker
         }
 
         var wordSpan = source.AsSpan(start, length);
-        if (TextScript.ContainsEastAsian(wordSpan))
+        if (options.UseEastAsianBreakRules && TextScript.ContainsEastAsian(wordSpan))
         {
-            AddCjkNodes(source, start, length, wordOffset, style, baselineOffset, measurer, charGridSpacing, wordWidthCache, nodes);
+            AddCjkNodes(source, start, length, wordOffset, style, baselineOffset, measurer, charGridSpacing, wordWidthCache, options, nodes);
             return;
         }
 
@@ -365,6 +368,7 @@ internal static class KnuthPlassLineBreaker
         ITextMeasurer measurer,
         float charGridSpacing,
         Dictionary<TextStyleGridKey, Dictionary<TextSliceKey, float>> wordWidthCache,
+        LineBreakOptions options,
         List<LineBreakNode> nodes)
     {
         var span = source.AsSpan(start, length);
@@ -374,12 +378,92 @@ internal static class KnuthPlassLineBreaker
             var clusterLength = GetNextClusterLength(span, index);
             var width = MeasureTextCached(source, start + index, clusterLength, style, measurer, charGridSpacing, wordWidthCache);
             nodes.Add(LineBreakNode.Box(width, wordOffset + index, clusterLength));
-            index += clusterLength;
-            if (index < span.Length)
+            var nextIndex = index + clusterLength;
+            if (nextIndex < span.Length)
             {
-                nodes.Add(LineBreakNode.PenaltyNode(0f, 0, false, wordOffset + index, style, baselineOffset));
+                if (ShouldAllowCjkBreak(span, index, clusterLength, nextIndex, options))
+                {
+                    nodes.Add(LineBreakNode.PenaltyNode(0f, 0, false, wordOffset + nextIndex, style, baselineOffset));
+                }
+            }
+
+            index = nextIndex;
+        }
+    }
+
+    private static bool ShouldAllowCjkBreak(
+        ReadOnlySpan<char> span,
+        int currentIndex,
+        int currentLength,
+        int nextIndex,
+        LineBreakOptions options)
+    {
+        if (!options.UseAltKinsokuLineBreakRules && !options.DoNotWrapTextWithPunctuation)
+        {
+            return true;
+        }
+
+        var currentRune = GetClusterRune(span.Slice(currentIndex, currentLength));
+        var nextLength = GetNextClusterLength(span, nextIndex);
+        var nextRune = GetClusterRune(span.Slice(nextIndex, nextLength));
+
+        if (options.DoNotWrapTextWithPunctuation)
+        {
+            if (IsPunctuationOrSymbol(currentRune) || IsPunctuationOrSymbol(nextRune))
+            {
+                return false;
             }
         }
+
+        if (options.UseAltKinsokuLineBreakRules)
+        {
+            if (IsOpeningPunctuation(currentRune) || IsClosingPunctuation(nextRune))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static Rune GetClusterRune(ReadOnlySpan<char> span)
+    {
+        if (Utf16Decoder.TryDecodeFromUtf16(span, out var rune, out _))
+        {
+            return rune;
+        }
+
+        return Rune.ReplacementChar;
+    }
+
+    private static bool IsOpeningPunctuation(Rune rune)
+    {
+        var category = Rune.GetUnicodeCategory(rune);
+        return category == UnicodeCategory.OpenPunctuation
+               || category == UnicodeCategory.InitialQuotePunctuation;
+    }
+
+    private static bool IsClosingPunctuation(Rune rune)
+    {
+        var category = Rune.GetUnicodeCategory(rune);
+        return category == UnicodeCategory.ClosePunctuation
+               || category == UnicodeCategory.FinalQuotePunctuation;
+    }
+
+    private static bool IsPunctuationOrSymbol(Rune rune)
+    {
+        var category = Rune.GetUnicodeCategory(rune);
+        return category == UnicodeCategory.ConnectorPunctuation
+               || category == UnicodeCategory.DashPunctuation
+               || category == UnicodeCategory.OpenPunctuation
+               || category == UnicodeCategory.ClosePunctuation
+               || category == UnicodeCategory.InitialQuotePunctuation
+               || category == UnicodeCategory.FinalQuotePunctuation
+               || category == UnicodeCategory.OtherPunctuation
+               || category == UnicodeCategory.MathSymbol
+               || category == UnicodeCategory.CurrencySymbol
+               || category == UnicodeCategory.ModifierSymbol
+               || category == UnicodeCategory.OtherSymbol;
     }
 
     private static bool TryAddBreakableNodes(
@@ -777,13 +861,14 @@ internal static class KnuthPlassLineBreaker
     private static List<ParagraphLineBreak> BuildLineBreaks(
         string text,
         IReadOnlyList<LineBreakNode> nodes,
-        IReadOnlyList<int> breakpoints)
+        IReadOnlyList<int> breakpoints,
+        LineBreakOptions options)
     {
         var lines = new List<ParagraphLineBreak>();
         var previous = -1;
         foreach (var breakIndex in breakpoints)
         {
-            var lineStartOffset = ResolveLineStartOffset(nodes, previous);
+            var lineStartOffset = ResolveLineStartOffset(nodes, previous, options);
             var breakNode = nodes[Math.Clamp(breakIndex, 0, nodes.Count - 1)];
             var lineEndOffset = breakNode.TextOffset;
             if (lineEndOffset < lineStartOffset)
@@ -804,14 +889,26 @@ internal static class KnuthPlassLineBreaker
         return lines;
     }
 
-    private static int ResolveLineStartOffset(IReadOnlyList<LineBreakNode> nodes, int previousBreak)
+    private static int ResolveLineStartOffset(IReadOnlyList<LineBreakNode> nodes, int previousBreak, LineBreakOptions options)
     {
         var startOffset = -1;
         var index = Math.Max(0, previousBreak + 1);
-        while (index < nodes.Count && nodes[index].Kind == LineBreakNodeKind.Glue)
+        if (options.WrapTrailingSpaces && previousBreak >= 0 && previousBreak < nodes.Count)
         {
-            startOffset = nodes[index].TextOffset + nodes[index].TextLength;
-            index++;
+            var previousNode = nodes[previousBreak];
+            if (previousNode.Kind == LineBreakNodeKind.Glue)
+            {
+                return previousNode.TextOffset;
+            }
+        }
+
+        if (!options.WrapTrailingSpaces)
+        {
+            while (index < nodes.Count && nodes[index].Kind == LineBreakNodeKind.Glue)
+            {
+                startOffset = nodes[index].TextOffset + nodes[index].TextLength;
+                index++;
+            }
         }
 
         if (startOffset >= 0)

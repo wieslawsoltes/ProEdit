@@ -1005,6 +1005,12 @@ public sealed class DocumentStyleResolver
         {
             target.LanguageBidi = source.LanguageBidi;
         }
+
+        if (source.OpenTypeFeatures?.HasValues == true)
+        {
+            target.OpenTypeFeatures ??= new TextOpenTypeFeatures();
+            target.OpenTypeFeatures.ApplyOverrides(source.OpenTypeFeatures);
+        }
     }
 
     private static void ApplyParagraphBorders(ParagraphBorders target, ParagraphBorders source)
@@ -1144,6 +1150,16 @@ public sealed class DocumentStyleResolver
         if (source.VerticalAlignment.HasValue)
         {
             target.VerticalAlignment = source.VerticalAlignment;
+        }
+
+        if (source.PreferredWidth.HasValue)
+        {
+            target.PreferredWidth = source.PreferredWidth;
+        }
+
+        if (source.PreferredWidthUnit.HasValue)
+        {
+            target.PreferredWidthUnit = source.PreferredWidthUnit;
         }
 
         ApplyTableCellBorders(target.Borders, source.Borders);

@@ -9,17 +9,19 @@ internal static class ParagraphLineBreaker
         float otherLineWidth,
         ITextMeasurer measurer,
         float charGridSpacing,
+        LineBreakOptions options,
         Func<int, int, float> measureFirstLineWidth,
         Func<int, int, float> measureOtherLineWidth)
     {
         ArgumentNullException.ThrowIfNull(measureFirstLineWidth);
         ArgumentNullException.ThrowIfNull(measureOtherLineWidth);
 
-        if (KnuthPlassLineBreaker.TryBreakParagraph(text, spans, firstLineWidth, otherLineWidth, measurer, charGridSpacing, out var breaks))
+        if (!options.UseWord97LineBreakRules
+            && KnuthPlassLineBreaker.TryBreakParagraph(text, spans, firstLineWidth, otherLineWidth, measurer, charGridSpacing, options, out var breaks))
         {
             return breaks;
         }
 
-        return GreedyLineBreaker.BreakParagraph(text, firstLineWidth, otherLineWidth, measureFirstLineWidth, measureOtherLineWidth);
+        return GreedyLineBreaker.BreakParagraph(text, firstLineWidth, otherLineWidth, options, measureFirstLineWidth, measureOtherLineWidth);
     }
 }

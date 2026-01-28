@@ -90,14 +90,37 @@ public sealed class DocumentLayouter
         DocumentLayout? previousLayout,
         int? dirtyParagraphIndex)
     {
-        var baseLayout = LayoutInternal(document, settings, measurer, previousLayout, dirtyParagraphIndex, null, out var scanState);
+        var baseLayout = LayoutInternal(document, settings, measurer, previousLayout, dirtyParagraphIndex, null, out var scanState, null);
         var fieldContext = FieldEvaluationContext.TryCreate(document, baseLayout, scanState);
         if (fieldContext is null)
         {
-            return baseLayout;
+            return LayoutWithFootnotePageRestart(document, settings, measurer, baseLayout, scanState, null);
         }
 
-        return LayoutInternal(document, settings, measurer, null, null, fieldContext, out _);
+        var evaluatedLayout = LayoutInternal(document, settings, measurer, null, null, fieldContext, out var evaluatedScanState, null);
+        return LayoutWithFootnotePageRestart(document, settings, measurer, evaluatedLayout, evaluatedScanState, fieldContext);
+    }
+
+    private DocumentLayout LayoutWithFootnotePageRestart(
+        Document document,
+        LayoutSettings settings,
+        ITextMeasurer measurer,
+        DocumentLayout layout,
+        ParagraphScanState scanState,
+        FieldEvaluationContext? fieldContext)
+    {
+        if (!RequiresFootnotePageRestart(document))
+        {
+            return layout;
+        }
+
+        var noteNumbers = BuildNoteNumberingContextForPageRestarts(layout, scanState, document);
+        if (noteNumbers is null)
+        {
+            return layout;
+        }
+
+        return LayoutInternal(document, settings, measurer, null, null, fieldContext, out _, noteNumbers);
     }
 
     private DocumentLayout LayoutInternal(
@@ -107,13 +130,18 @@ public sealed class DocumentLayouter
         DocumentLayout? previousLayout,
         int? dirtyParagraphIndex,
         FieldEvaluationContext? fieldContext,
-        out ParagraphScanState scanState)
+        out ParagraphScanState scanState,
+        NoteNumberingContext? noteNumbersOverride)
     {
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(measurer);
 
         var style = document.DefaultTextStyle;
+        var compatibility = document.Compatibility;
+        var lineBreakOptions = new LineBreakOptions(compatibility);
+        var suppressSpacingAtTopOfPage = compatibility.SuppressSpacingAtTopOfPage == true;
+        var suppressSpacingBeforeAfterPageBreak = compatibility.SuppressSpacingBeforeAfterPageBreak == true;
         var metrics = measurer.MeasureText("Mg", style);
         var lineHeight = MathF.Max(1f, metrics.Height);
         var ascent = metrics.Ascent;
@@ -124,6 +152,7 @@ public sealed class DocumentLayouter
         var pageSections = new List<PageSectionSettings>();
         var headerFooters = new List<HeaderFooterLayout>();
         var wrapFloatingObjects = new List<FloatingLayoutObject>();
+        var placedFloatingObjects = new List<FloatingLayoutObject>();
         var extraFloatingObjects = new List<FloatingLayoutObject>();
         var breakMarkers = new List<BreakMarker>();
         var linePageIndices = new List<int>();
@@ -133,10 +162,11 @@ public sealed class DocumentLayouter
         var styleResolver = new DocumentStyleResolver(document);
         var spacingMetricsCache = new Dictionary<TextStyleKey, TextMetrics>();
         var showRevisions = document.TrackChangesEnabled || document.Revisions.Timeline.Count > 0;
-        var scanStateLocal = new ParagraphScanState();
-        scanStateLocal.Scan(document, fieldContext);
-        scanState = scanStateLocal;
         var (paragraphList, paragraphSectionIndices) = BuildParagraphMaps(document);
+        var scanStateLocal = new ParagraphScanState();
+        var noteNumbers = noteNumbersOverride ?? BuildNoteNumberingContext(paragraphList, paragraphSectionIndices, document);
+        scanStateLocal.Scan(document, fieldContext, noteNumbers);
+        scanState = scanStateLocal;
         var sectionSettingsByIndex = BuildSectionSettingsByIndex(document, settings);
         var footnotesByPage = new Dictionary<int, HashSet<int>>();
         var endnotesByPage = new Dictionary<int, HashSet<int>>();
@@ -228,6 +258,17 @@ public sealed class DocumentLayouter
 
             pendingParagraphSpacingAfter = spacingAfter;
             hasPendingParagraphSpacing = true;
+        }
+
+        static bool IsPageOrColumnBreak(Block? block)
+        {
+            return block switch
+            {
+                PageBreakBlock => true,
+                ColumnBreakBlock => true,
+                SectionBreakBlock section => section.BreakType != SectionBreakType.Continuous,
+                _ => false
+            };
         }
 
         void UpdateColumnMetrics()
@@ -1015,6 +1056,7 @@ public sealed class DocumentLayouter
                 if (floating.ParagraphIndex < paragraphIndex)
                 {
                     wrapFloatingObjects.Add(floating);
+                    placedFloatingObjects.Add(floating);
                 }
             }
 
@@ -1265,6 +1307,7 @@ public sealed class DocumentLayouter
                 var x = baseX + floating.Anchor.OffsetX;
                 var y = baseY + floating.Anchor.OffsetY;
                 var bounds = new DocRect(x, y, width, height);
+                bounds = ResolveOverlappingBounds(bounds, floating.Anchor, anchorPageIndex, placedFloatingObjects, result);
                 var wrapContour = CreateWrapContour(floating.Anchor, bounds);
                 result.Add(new FloatingLayoutObject(floating, paragraphIndex, anchorPageIndex, bounds, wrapContour));
             }
@@ -1292,7 +1335,7 @@ public sealed class DocumentLayouter
             var paragraphLineStart = lines.Count;
             var blockRevision = showRevisions && blockRevisionStack.Count > 0 ? blockRevisionStack[^1] : null;
             WrapResolver? wrapResolver = wrapFloatingObjects.Count == 0 ? null : ResolveWrapBounds;
-            var (text, spans) = BuildInlineSpans(paragraph, paragraphIndex, paragraphStyle, styleResolver, document, fieldContext, blockRevision, showRevisions);
+            var (text, spans) = BuildInlineSpans(paragraph, paragraphIndex, paragraphStyle, styleResolver, document, fieldContext, blockRevision, showRevisions, noteNumbers: noteNumbers);
             var charGridSpacing = TextGridSnapping.GetCharacterSpacing(pageSettings.DocGrid);
             var (paragraphLineHeight, paragraphAscent) = ResolveParagraphLineMetrics(paragraphStyle, measurer, spacingMetricsCache);
             var dropCapActive = false;
@@ -1329,7 +1372,8 @@ public sealed class DocumentLayouter
                     measurer,
                     paragraphLineHeight,
                     paragraphAscent,
-                    pageSettings.DocGrid)
+                    pageSettings.DocGrid,
+                    lineBreakOptions)
                 : BuildParagraphLines(
                     text,
                     spans,
@@ -1347,6 +1391,7 @@ public sealed class DocumentLayouter
                     paragraphLineHeight,
                     paragraphAscent,
                     pageSettings.DocGrid,
+                    lineBreakOptions,
                     wrapResolver);
 
             if (paragraphLines.Count == 0)
@@ -1673,6 +1718,7 @@ public sealed class DocumentLayouter
                     lineHeight,
                     ascent,
                     pageSettings.DocGrid,
+                    lineBreakOptions,
                     null);
 
                 if (verticalLines.Count == 0)
@@ -2388,6 +2434,35 @@ public sealed class DocumentLayouter
                     spacingAfter = 0f;
                 }
             }
+
+            if (suppressSpacingBeforeAfterPageBreak)
+            {
+                var previousBlock = blockIndex > 0 ? blocks[blockIndex - 1] : null;
+                var nextBlock = blockIndex + 1 < blocks.Count ? blocks[blockIndex + 1] : null;
+                if (IsPageOrColumnBreak(previousBlock))
+                {
+                    spacingBefore = 0f;
+                }
+
+                if (IsPageOrColumnBreak(nextBlock))
+                {
+                    spacingAfter = 0f;
+                }
+
+                if (properties.PageBreakBefore == true)
+                {
+                    spacingBefore = 0f;
+                }
+
+                if (nextBlock is ParagraphBlock nextParagraph)
+                {
+                    var nextProperties = styleResolver.ResolveParagraphProperties(nextParagraph);
+                    if (nextProperties.PageBreakBefore == true)
+                    {
+                        spacingAfter = 0f;
+                    }
+                }
+            }
             paragraphSpacingBefore[paragraphIndex] = spacingBefore;
             var indentLeft = properties.IndentLeft ?? 0f;
             var indentRight = properties.IndentRight ?? 0f;
@@ -2404,7 +2479,7 @@ public sealed class DocumentLayouter
             var keepLinesTogether = properties.KeepLinesTogether == true;
             var widowControl = properties.WidowControl ?? true;
             var nextBlockMinHeight = keepWithNext
-                ? EstimateNextBlockMinHeight(blockIndex, blocks, document, styleResolver, settings, measurer, style, spacingMetricsCache, columnWidth, lineHeight, ascent, pageSettings.DocGrid, fieldContext, showRevisions)
+                ? EstimateNextBlockMinHeight(blockIndex, blocks, document, styleResolver, settings, measurer, style, spacingMetricsCache, columnWidth, lineHeight, ascent, pageSettings.DocGrid, lineBreakOptions, fieldContext, showRevisions, noteNumbers)
                 : 0f;
 
             var canReflow = paragraph.FloatingObjects.Count > 0;
@@ -2431,6 +2506,7 @@ public sealed class DocumentLayouter
         {
             var canReflow = plan.CanReflow;
             var wrapStartCount = wrapFloatingObjects.Count;
+            var placedStartCount = placedFloatingObjects.Count;
             ParagraphLayoutSnapshot? snapshot = null;
             Dictionary<int, HashSet<int>>? footnotesSnapshot = null;
             Dictionary<int, HashSet<int>>? endnotesSnapshot = null;
@@ -2472,9 +2548,15 @@ public sealed class DocumentLayouter
                     wrapFloatingObjects.RemoveRange(wrapStartCount, wrapFloatingObjects.Count - wrapStartCount);
                 }
 
+                if (placedFloatingObjects.Count > placedStartCount)
+                {
+                    placedFloatingObjects.RemoveRange(placedStartCount, placedFloatingObjects.Count - placedStartCount);
+                }
+
                 if (localFloats.Length > 0)
                 {
                     wrapFloatingObjects.AddRange(localFloats);
+                    placedFloatingObjects.AddRange(localFloats);
                 }
 
                 lineRange = LayoutParagraphLines(
@@ -2526,6 +2608,12 @@ public sealed class DocumentLayouter
                 if (localFloats.Length > 0)
                 {
                     wrapFloatingObjects.AddRange(localFloats);
+                    if (placedFloatingObjects.Count > placedStartCount)
+                    {
+                        placedFloatingObjects.RemoveRange(placedStartCount, placedFloatingObjects.Count - placedStartCount);
+                    }
+
+                    placedFloatingObjects.AddRange(localFloats);
                 }
             }
 
@@ -2541,7 +2629,7 @@ public sealed class DocumentLayouter
             }
 
             var blockRevision = showRevisions && blockRevisionStack.Count > 0 ? blockRevisionStack[^1] : null;
-            var (text, spans) = BuildInlineSpans(plan.Paragraph, paragraphIndex, plan.ParagraphStyle, styleResolver, document, fieldContext, blockRevision, showRevisions);
+            var (text, spans) = BuildInlineSpans(plan.Paragraph, paragraphIndex, plan.ParagraphStyle, styleResolver, document, fieldContext, blockRevision, showRevisions, noteNumbers: noteNumbers);
             var charGridSpacing = TextGridSnapping.GetCharacterSpacing(pageSettings.DocGrid);
             var baseWidth = MathF.Max(1f, columnWidth - plan.IndentLeft - plan.IndentRight - plan.ListIndent - plan.PrefixWidth);
             var measuredWidth = text.Length == 0
@@ -2570,6 +2658,7 @@ public sealed class DocumentLayouter
                         settings,
                         measurer,
                         charGridSpacing,
+                        lineBreakOptions,
                         firstLineTabOffset,
                         otherLineTabOffset)
                     .Count();
@@ -2632,10 +2721,12 @@ public sealed class DocumentLayouter
             var baseX = ResolveAnchorX(floating.Anchor, anchorLine, anchorPage, anchorSection, frameWidth);
             var baseY = ResolveAnchorY(floating.Anchor, anchorLine, anchorPage, frameHeight);
             var bounds = new DocRect(baseX + floating.Anchor.OffsetX, baseY + floating.Anchor.OffsetY, frameWidth, frameHeight);
+            bounds = ResolveOverlappingBounds(bounds, floating.Anchor, anchorPageIndex, placedFloatingObjects, null);
             var wrapContour = CreateWrapContour(floating.Anchor, bounds);
             var layoutObject = new FloatingLayoutObject(floating, paragraphIndex, anchorPageIndex, bounds, wrapContour);
 
             extraFloatingObjects.Add(layoutObject);
+            placedFloatingObjects.Add(layoutObject);
             if (floating.Anchor.WrapStyle != FloatingWrapStyle.None)
             {
                 wrapFloatingObjects.Add(layoutObject);
@@ -2674,6 +2765,8 @@ public sealed class DocumentLayouter
                 lineHeight,
                 ascent,
                 pageSettings.DocGrid,
+                lineBreakOptions,
+                noteNumbers,
                 fieldContext,
                 blockRevision,
                 showRevisions,
@@ -2743,7 +2836,9 @@ public sealed class DocumentLayouter
                 y = baseY + floatingAnchor.OffsetY;
             }
 
-            var tableLayout = OffsetTableLayout(baseLayout, x - baseLayout.Bounds.X, y - baseLayout.Bounds.Y);
+            var bounds = new DocRect(x, y, tableWidth, tableHeight);
+            bounds = ResolveOverlappingBounds(bounds, floatingAnchor, anchorPageIndex, placedFloatingObjects, null);
+            var tableLayout = OffsetTableLayout(baseLayout, bounds.X - baseLayout.Bounds.X, bounds.Y - baseLayout.Bounds.Y);
             tables.Add(tableLayout);
             AddTableLines(tableLayout);
 
@@ -2752,6 +2847,7 @@ public sealed class DocumentLayouter
             var wrapContour = CreateWrapContour(floating.Anchor, tableLayout.Bounds);
             var layoutObject = new FloatingLayoutObject(floating, anchorParagraphIndex, anchorPageIndex, tableLayout.Bounds, wrapContour);
             extraFloatingObjects.Add(layoutObject);
+            placedFloatingObjects.Add(layoutObject);
             if (floating.Anchor.WrapStyle != FloatingWrapStyle.None)
             {
                 wrapFloatingObjects.Add(layoutObject);
@@ -2770,6 +2866,11 @@ public sealed class DocumentLayouter
             if (cursorY <= columnTop + 0.5f)
             {
                 ClearPendingParagraphSpacing();
+            }
+
+            if (suppressSpacingAtTopOfPage && cursorY <= columnTop + 0.5f)
+            {
+                plan = plan with { SpacingBefore = 0f };
             }
 
             var layoutPlan = plan;
@@ -2822,6 +2923,8 @@ public sealed class DocumentLayouter
                 lineHeight,
                 ascent,
                 pageSettings.DocGrid,
+                lineBreakOptions,
+                noteNumbers,
                 fieldContext,
                 blockRevision,
                 showRevisions,
@@ -3005,6 +3108,7 @@ public sealed class DocumentLayouter
         }
 
         IReadOnlyList<FootnoteLayout> footnotes = Array.Empty<FootnoteLayout>();
+        IReadOnlyList<EndnoteLayout> endnotes = Array.Empty<EndnoteLayout>();
 
         static bool HasHeaderFooterContent(params HeaderFooter[] headers)
         {
@@ -3109,12 +3213,14 @@ public sealed class DocumentLayouter
                     lineHeight,
                     ascent,
                     section.DocGrid,
+                    lineBreakOptions,
                     pageNumberText,
                     totalPagesText,
                     fieldContext,
                     showRevisions,
                     includeTables: true,
-                    handleFrameParagraphs: true);
+                    handleFrameParagraphs: true,
+                    noteNumbers: noteNumbers);
                 var footerLayout = LayoutHeaderFooterBlocks(
                     footerBlocks,
                     document,
@@ -3127,12 +3233,14 @@ public sealed class DocumentLayouter
                     lineHeight,
                     ascent,
                     section.DocGrid,
+                    lineBreakOptions,
                     pageNumberText,
                     totalPagesText,
                     fieldContext,
                     showRevisions,
                     includeTables: true,
-                    handleFrameParagraphs: true);
+                    handleFrameParagraphs: true,
+                    noteNumbers: noteNumbers);
 
                 var headerTop = page.Bounds.Y + section.HeaderOffset;
                 var footerTop = page.Bounds.Bottom - section.FooterOffset - footerLayout.Height;
@@ -3189,6 +3297,7 @@ public sealed class DocumentLayouter
                     floatingObjects.AddRange(footerFrameObjects);
                 }
 
+                SortFloatingObjects(floatingObjects);
                 headerFooters.Add(new HeaderFooterLayout(page.Index, headerLines, footerLines, headerTables, footerTables, floatingObjects));
             }
         }
@@ -3200,6 +3309,9 @@ public sealed class DocumentLayouter
                 pages,
                 pageSections,
                 headerFooters,
+                lines,
+                tables,
+                linePageIndices,
                 footnotesByPage,
                 endnotesByPage,
                 settings,
@@ -3209,6 +3321,28 @@ public sealed class DocumentLayouter
                 spacingMetricsCache,
                 lineHeight,
                 ascent,
+                lineBreakOptions,
+                fieldContext,
+                showRevisions,
+                noteNumbers);
+        }
+
+        void LayoutEndnotes()
+        {
+            endnotes = BuildEndnoteLayouts(
+                document,
+                pages,
+                pageSections,
+                sectionSettingsByIndex,
+                noteNumbers,
+                settings,
+                measurer,
+                style,
+                styleResolver,
+                spacingMetricsCache,
+                lineHeight,
+                ascent,
+                lineBreakOptions,
                 fieldContext,
                 showRevisions);
         }
@@ -3226,6 +3360,7 @@ public sealed class DocumentLayouter
             return new[]
             {
                 new LayoutPass(BalanceSectionColumns),
+                new LayoutPass(LayoutEndnotes),
                 new LayoutPass(LayoutHeaderFooters),
                 new LayoutPass(LayoutFootnotes)
             };
@@ -3246,6 +3381,7 @@ public sealed class DocumentLayouter
         {
             floatingObjects.AddRange(extraFloatingObjects);
         }
+        SortFloatingObjects(floatingObjects);
         return new DocumentLayout(
             settings.Clone(),
             paragraphList,
@@ -3254,6 +3390,7 @@ public sealed class DocumentLayouter
             pages,
             headerFooters,
             footnotes,
+            endnotes,
             floatingObjects,
             extraFloatingObjects,
             pageSections,
@@ -3370,6 +3507,7 @@ public sealed class DocumentLayouter
             var x = baseX + floating.Anchor.OffsetX;
             var y = baseY + floating.Anchor.OffsetY;
             var bounds = new DocRect(x, y, width, height);
+            bounds = ResolveOverlappingBounds(bounds, floating.Anchor, anchorPageIndex, result, null);
             var wrapContour = CreateWrapContour(floating.Anchor, bounds);
             result.Add(new FloatingLayoutObject(floating, paragraphIndex, anchorPageIndex, bounds, wrapContour));
         }
@@ -3529,19 +3667,43 @@ public sealed class DocumentLayouter
             return false;
         }
 
-        var sampleY = lineTop + lineHeight * 0.5f;
-        if (sampleY < contour.Bounds.Y || sampleY > contour.Bounds.Bottom)
+        var sampleTop = lineTop + lineHeight * 0.25f;
+        var sampleMid = lineTop + lineHeight * 0.5f;
+        var sampleBottom = lineTop + lineHeight * 0.75f;
+        Span<float> samples = stackalloc float[3];
+        samples[0] = Math.Clamp(sampleTop, contour.Bounds.Y, contour.Bounds.Bottom);
+        samples[1] = Math.Clamp(sampleMid, contour.Bounds.Y, contour.Bounds.Bottom);
+        samples[2] = Math.Clamp(sampleBottom, contour.Bounds.Y, contour.Bounds.Bottom);
+
+        var found = false;
+        var minLeft = float.MaxValue;
+        var maxRight = float.MinValue;
+        for (var i = 0; i < samples.Length; i++)
         {
-            sampleY = Math.Clamp(sampleY, contour.Bounds.Y, contour.Bounds.Bottom);
+            if (!contour.TryGetHorizontalSpan(samples[i], out var spanLeft, out var spanRight))
+            {
+                continue;
+            }
+
+            found = true;
+            if (spanLeft < minLeft)
+            {
+                minLeft = spanLeft;
+            }
+
+            if (spanRight > maxRight)
+            {
+                maxRight = spanRight;
+            }
         }
 
-        if (!contour.TryGetHorizontalSpan(sampleY, out var spanLeft, out var spanRight))
+        if (!found)
         {
             return false;
         }
 
-        left = spanLeft - anchor.Distance.Left;
-        right = spanRight + anchor.Distance.Right;
+        left = minLeft - anchor.Distance.Left;
+        right = maxRight + anchor.Distance.Right;
         blockBottom = bottom;
         return true;
     }
@@ -3559,6 +3721,90 @@ public sealed class DocumentLayouter
     {
         var lineBottom = lineTop + lineHeight;
         return lineTop < bounds.Bottom && lineBottom > bounds.Top;
+    }
+
+    private static DocRect ResolveOverlappingBounds(
+        DocRect bounds,
+        FloatingAnchor anchor,
+        int pageIndex,
+        IReadOnlyList<FloatingLayoutObject> existing,
+        IReadOnlyList<FloatingLayoutObject>? local)
+    {
+        var adjusted = bounds;
+        const float epsilon = 0.5f;
+        for (var attempt = 0; attempt < 6; attempt++)
+        {
+            var shift = ResolveOverlapShift(adjusted, anchor, pageIndex, existing, local, epsilon);
+            if (shift <= 0f)
+            {
+                break;
+            }
+
+            adjusted = new DocRect(adjusted.X, adjusted.Y + shift, adjusted.Width, adjusted.Height);
+        }
+
+        return adjusted;
+    }
+
+    private static float ResolveOverlapShift(
+        DocRect bounds,
+        FloatingAnchor anchor,
+        int pageIndex,
+        IReadOnlyList<FloatingLayoutObject> existing,
+        IReadOnlyList<FloatingLayoutObject>? local,
+        float epsilon)
+    {
+        var maxShift = 0f;
+        ApplyOverlapShift(ref maxShift, bounds, anchor, pageIndex, existing, epsilon);
+        if (local is not null && local.Count > 0)
+        {
+            ApplyOverlapShift(ref maxShift, bounds, anchor, pageIndex, local, epsilon);
+        }
+
+        return maxShift;
+    }
+
+    private static void ApplyOverlapShift(
+        ref float maxShift,
+        DocRect bounds,
+        FloatingAnchor anchor,
+        int pageIndex,
+        IReadOnlyList<FloatingLayoutObject> floats,
+        float epsilon)
+    {
+        for (var i = 0; i < floats.Count; i++)
+        {
+            var other = floats[i];
+            if (other.PageIndex != pageIndex)
+            {
+                continue;
+            }
+
+            var otherAnchor = other.Object.Anchor;
+            if (anchor.AllowOverlap && otherAnchor.AllowOverlap)
+            {
+                continue;
+            }
+
+            if (!Intersects(bounds, other.Bounds))
+            {
+                continue;
+            }
+
+            var shift = other.Bounds.Bottom - bounds.Top + epsilon;
+            if (shift > maxShift)
+            {
+                maxShift = shift;
+            }
+        }
+    }
+
+    private static bool Intersects(DocRect first, DocRect second)
+    {
+        return first.Left < second.Right
+               && first.Right > second.Left
+               && first.Top < second.Bottom
+               && first.Bottom > second.Top;
     }
 
     private static bool AreBoundsClose(DocRect left, DocRect right, float epsilon)
@@ -3603,6 +3849,52 @@ public sealed class DocumentLayouter
         }
 
         return true;
+    }
+
+    private static void SortFloatingObjects(List<FloatingLayoutObject> floats)
+    {
+        if (floats.Count <= 1)
+        {
+            return;
+        }
+
+        floats.Sort(CompareFloatingLayoutObjects);
+    }
+
+    private static int CompareFloatingLayoutObjects(FloatingLayoutObject left, FloatingLayoutObject right)
+    {
+        if (left.PageIndex != right.PageIndex)
+        {
+            return left.PageIndex.CompareTo(right.PageIndex);
+        }
+
+        var leftBehind = left.Object.Anchor.BehindText;
+        var rightBehind = right.Object.Anchor.BehindText;
+        if (leftBehind != rightBehind)
+        {
+            return leftBehind ? -1 : 1;
+        }
+
+        var leftZ = left.Object.Anchor.ZOrder;
+        var rightZ = right.Object.Anchor.ZOrder;
+        if (leftZ != rightZ)
+        {
+            return leftZ < rightZ ? -1 : 1;
+        }
+
+        if (left.ParagraphIndex != right.ParagraphIndex)
+        {
+            return left.ParagraphIndex.CompareTo(right.ParagraphIndex);
+        }
+
+        var leftOffset = left.Object.Anchor.AnchorOffset ?? int.MaxValue;
+        var rightOffset = right.Object.Anchor.AnchorOffset ?? int.MaxValue;
+        if (leftOffset != rightOffset)
+        {
+            return leftOffset.CompareTo(rightOffset);
+        }
+
+        return left.Object.Id.CompareTo(right.Object.Id);
     }
 
     private static Dictionary<int, HashSet<int>> CloneNoteMap(Dictionary<int, HashSet<int>> source)
@@ -3827,6 +4119,7 @@ public sealed class DocumentLayouter
         var resolvedTableProperties = MergeTableProperties(tableStyle?.TableProperties, table.Properties);
         var tableLook = ResolveTableLook(table.Properties.Look ?? tableStyle?.TableProperties.Look);
         var paragraphIndex = 0;
+        var lineBreakOptions = new LineBreakOptions(document.Compatibility);
         var data = ComputeTableLayoutData(
             table,
             document,
@@ -3843,6 +4136,8 @@ public sealed class DocumentLayouter
             lineHeight,
             ascent,
             docGrid,
+            lineBreakOptions,
+            null,
             null,
             null,
             false,
@@ -3934,6 +4229,8 @@ public sealed class DocumentLayouter
         float lineHeight,
         float ascent,
         DocGridSettings? docGrid,
+        LineBreakOptions lineBreakOptions,
+        NoteNumberingContext? noteNumbers,
         FieldEvaluationContext? fieldContext,
         RevisionInfo? blockRevision,
         bool showRevisions,
@@ -3946,8 +4243,6 @@ public sealed class DocumentLayouter
         var spacingBaseWidth = tableWidth ?? ResolveTableSpacingBaseWidth(resolvedTableProperties, contentWidth);
         var cellSpacing = ResolveTableCellSpacing(resolvedTableProperties, spacingBaseWidth);
         var separateBorders = cellSpacing > 0f;
-        var columnWidths = ResolveColumnWidths(resolvedTableProperties, columnCount, contentWidth, tableWidth, cellSpacing);
-        var effectiveTableWidth = MathF.Max(0f, columnWidths.Sum() + cellSpacing * (columnCount + 1));
         var rowHeights = new float[rowCount];
         var rowCanExpand = new bool[rowCount];
         var placements = new List<TableCellPlacement>();
@@ -4019,26 +4314,85 @@ public sealed class DocumentLayouter
             placement.RowSpan = rowSpan;
         }
 
+        var autoFit = resolvedTableProperties.LayoutMode != TableLayoutMode.Fixed;
+        var preferredColumnWidths = BuildPreferredColumnWidths(resolvedTableProperties, columnCount);
+        var minColumnWidths = autoFit ? new float[columnCount] : Array.Empty<float>();
+        var preferredReferenceWidth = tableWidth ?? contentWidth;
+
+        foreach (var placement in placements)
+        {
+            var row = rows[placement.RowIndex];
+            var effectiveProperties = ResolveTableCellProperties(
+                placement.Cell,
+                row.Properties,
+                directTableProperties,
+                tableStyle,
+                tableLook,
+                separateBorders,
+                placement.RowIndex,
+                placement.ColumnIndex,
+                rowCount,
+                columnCount);
+            placement.Properties = effectiveProperties;
+            placement.Padding = ResolvePadding(effectiveProperties.Padding, tablePadding);
+
+            if (!autoFit || placement.IsMergeContinuation)
+            {
+                continue;
+            }
+
+            var preferredWidth = ResolvePreferredCellWidth(effectiveProperties, preferredReferenceWidth);
+            if (preferredWidth.HasValue && preferredWidth.Value > 0f)
+            {
+                var perColumn = preferredWidth.Value / Math.Max(1, placement.ColumnSpan);
+                for (var i = 0; i < placement.ColumnSpan; i++)
+                {
+                    var index = placement.ColumnIndex + i;
+                    if (index >= 0 && index < preferredColumnWidths.Length)
+                    {
+                        preferredColumnWidths[index] = MathF.Max(preferredColumnWidths[index], perColumn);
+                    }
+                }
+            }
+
+            var minWidth = MeasureTableCellMinWidth(
+                placement.Cell,
+                document,
+                settings,
+                measurer,
+                style,
+                styleResolver,
+                docGrid,
+                noteNumbers,
+                fieldContext,
+                blockRevision,
+                showRevisions);
+            minWidth += placement.Padding.Horizontal;
+            if (minWidth > 0f)
+            {
+                var perColumn = minWidth / Math.Max(1, placement.ColumnSpan);
+                for (var i = 0; i < placement.ColumnSpan; i++)
+                {
+                    var index = placement.ColumnIndex + i;
+                    if (index >= 0 && index < minColumnWidths.Length)
+                    {
+                        minColumnWidths[index] = MathF.Max(minColumnWidths[index], perColumn);
+                    }
+                }
+            }
+        }
+
+        var columnWidths = autoFit
+            ? ResolveAutoColumnWidths(columnCount, contentWidth, tableWidth, cellSpacing, preferredColumnWidths, minColumnWidths)
+            : ResolveColumnWidths(resolvedTableProperties, columnCount, contentWidth, tableWidth, cellSpacing);
+        var effectiveTableWidth = MathF.Max(0f, columnWidths.Sum() + cellSpacing * (columnCount + 1));
+
         for (var rowIndex = 0; rowIndex < rowCount; rowIndex++)
         {
             var row = rows[rowIndex];
             var maxHeight = 0f;
             foreach (var placement in placementsByRow[rowIndex])
             {
-                var effectiveProperties = ResolveTableCellProperties(
-                    placement.Cell,
-                    row.Properties,
-                    directTableProperties,
-                    tableStyle,
-                    tableLook,
-                    separateBorders,
-                    rowIndex,
-                    placement.ColumnIndex,
-                    rowCount,
-                    columnCount);
-                placement.Properties = effectiveProperties;
-                placement.Padding = ResolvePadding(effectiveProperties.Padding, tablePadding);
-
                 if (!placement.IsMergeContinuation)
                 {
                     var spanWidth = SumColumnsWithSpacing(columnWidths, placement.ColumnIndex, placement.ColumnSpan, cellSpacing);
@@ -4055,6 +4409,8 @@ public sealed class DocumentLayouter
                         lineHeight,
                         ascent,
                         docGrid,
+                        lineBreakOptions,
+                        noteNumbers,
                         fieldContext,
                         blockRevision,
                         showRevisions,
@@ -4085,7 +4441,7 @@ public sealed class DocumentLayouter
                     maxHeight = height;
                     rowCanExpand[rowIndex] = false;
                 }
-                else if (rule != TableRowHeightRule.Auto)
+                else
                 {
                     maxHeight = MathF.Max(maxHeight, height);
                 }
@@ -4495,7 +4851,19 @@ public sealed class DocumentLayouter
         var canSplit = new bool[rowCount];
         for (var i = 0; i < rowCount && i < table.Rows.Count; i++)
         {
-            canSplit[i] = table.Rows[i].Properties.CantSplit != true;
+            var properties = table.Rows[i].Properties;
+            var allowSplit = properties.CantSplit != true;
+            if (properties.RepeatOnEachPage == true)
+            {
+                allowSplit = false;
+            }
+
+            if (properties.HeightRule == TableRowHeightRule.Exact && properties.Height.HasValue)
+            {
+                allowSplit = false;
+            }
+
+            canSplit[i] = allowSplit;
         }
 
         if (rowCount == 0)
@@ -4830,6 +5198,8 @@ public sealed class DocumentLayouter
         float lineHeight,
         float ascent,
         DocGridSettings? docGrid,
+        LineBreakOptions lineBreakOptions,
+        NoteNumberingContext? noteNumbers,
         FieldEvaluationContext? fieldContext,
         RevisionInfo? blockRevision,
         bool showRevisions,
@@ -4840,6 +5210,8 @@ public sealed class DocumentLayouter
         var y = 0f;
         var listState = new ListNumberingState(document);
         var charGridSpacing = TextGridSnapping.GetCharacterSpacing(docGrid);
+        var pendingParagraphSpacingAfter = 0f;
+        var hasPendingParagraphSpacing = false;
 
         for (var paragraphOffset = 0; paragraphOffset < cell.Paragraphs.Count; paragraphOffset++)
         {
@@ -4881,6 +5253,12 @@ public sealed class DocumentLayouter
                     spacingAfter = 0f;
                 }
             }
+
+            if (hasPendingParagraphSpacing)
+            {
+                var collapsedSpacing = MathF.Max(spacingBefore, pendingParagraphSpacingAfter);
+                spacingBefore = MathF.Max(0f, collapsedSpacing - pendingParagraphSpacingAfter);
+            }
             var indentLeft = properties.IndentLeft ?? 0f;
             var indentRight = properties.IndentRight ?? 0f;
             var firstLineIndent = properties.FirstLineIndent ?? 0f;
@@ -4894,7 +5272,7 @@ public sealed class DocumentLayouter
 
             if (DocTextDirectionHelpers.IsVertical(textDirection))
             {
-                var (verticalText, verticalSpans) = BuildInlineSpans(paragraph, currentParagraphIndex, paragraphStyle, styleResolver, document, fieldContext, blockRevision, showRevisions);
+                var (verticalText, verticalSpans) = BuildInlineSpans(paragraph, currentParagraphIndex, paragraphStyle, styleResolver, document, fieldContext, blockRevision, showRevisions, noteNumbers: noteNumbers);
                 var (emptyLineHeight, emptyAscent) = ApplyLineSpacing(paragraphLineHeight, paragraphAscent, properties, docGrid);
                 if (string.IsNullOrEmpty(verticalText))
                 {
@@ -4944,6 +5322,8 @@ public sealed class DocumentLayouter
                         true,
                         true));
                     y = emptyAxisOrigin + emptyLineHeight + spacingAfter;
+                    pendingParagraphSpacingAfter = spacingAfter;
+                    hasPendingParagraphSpacing = true;
                     paragraphIndex++;
                     continue;
                 }
@@ -4966,6 +5346,7 @@ public sealed class DocumentLayouter
                     paragraphLineHeight,
                     paragraphAscent,
                     docGrid,
+                    lineBreakOptions,
                     null);
 
                 y += spacingBefore;
@@ -5030,13 +5411,15 @@ public sealed class DocumentLayouter
                 }
 
                 y = maxLineAxisEnd + spacingAfter;
+                pendingParagraphSpacingAfter = spacingAfter;
+                hasPendingParagraphSpacing = true;
                 paragraphIndex++;
                 continue;
             }
 
             y += spacingBefore;
 
-            var (text, spans) = BuildInlineSpans(paragraph, currentParagraphIndex, paragraphStyle, styleResolver, document, fieldContext, blockRevision, showRevisions);
+            var (text, spans) = BuildInlineSpans(paragraph, currentParagraphIndex, paragraphStyle, styleResolver, document, fieldContext, blockRevision, showRevisions, noteNumbers: noteNumbers);
             if (text.Length == 0)
             {
                 var lineX = indentLeft + listIndent + firstLineIndent + prefixWidth;
@@ -5076,6 +5459,8 @@ public sealed class DocumentLayouter
                     true));
                 y += emptyLineHeight;
                 y += spacingAfter;
+                pendingParagraphSpacingAfter = spacingAfter;
+                hasPendingParagraphSpacing = true;
                 paragraphIndex++;
                 continue;
             }
@@ -5095,6 +5480,7 @@ public sealed class DocumentLayouter
                          settings,
                          measurer,
                          charGridSpacing,
+                         lineBreakOptions,
                          firstLineTabOffset,
                          otherLineTabOffset))
             {
@@ -5168,10 +5554,197 @@ public sealed class DocumentLayouter
             }
 
             y += spacingAfter;
+            pendingParagraphSpacingAfter = spacingAfter;
+            hasPendingParagraphSpacing = true;
             paragraphIndex++;
         }
 
         return lines;
+    }
+
+    private static float MeasureTableCellMinWidth(
+        TableCell cell,
+        Document document,
+        LayoutSettings settings,
+        ITextMeasurer measurer,
+        TextStyle style,
+        DocumentStyleResolver styleResolver,
+        DocGridSettings? docGrid,
+        NoteNumberingContext? noteNumbers,
+        FieldEvaluationContext? fieldContext,
+        RevisionInfo? blockRevision,
+        bool showRevisions)
+    {
+        var listState = new ListNumberingState(document);
+        var charGridSpacing = TextGridSnapping.GetCharacterSpacing(docGrid);
+        var paragraphIndex = 0;
+        var maxWidth = 0f;
+
+        for (var paragraphOffset = 0; paragraphOffset < cell.Paragraphs.Count; paragraphOffset++)
+        {
+            var paragraph = cell.Paragraphs[paragraphOffset];
+            var properties = styleResolver.ResolveParagraphProperties(paragraph);
+            var paragraphStyle = styleResolver.ResolveParagraphTextStyle(paragraph, style);
+            var listMarker = listState.GetMarker(paragraph.ListInfo, settings, measurer, paragraphStyle);
+            var listIndent = listMarker?.Indent ?? 0f;
+            var prefixWidth = listMarker?.PrefixWidth ?? 0f;
+            var indentLeft = properties.IndentLeft ?? 0f;
+            var indentRight = properties.IndentRight ?? 0f;
+            var firstLineIndent = properties.FirstLineIndent ?? 0f;
+            var baseIndent = MathF.Max(0f, indentLeft)
+                             + MathF.Max(0f, indentRight)
+                             + MathF.Max(0f, listIndent)
+                             + MathF.Max(0f, prefixWidth)
+                             + MathF.Max(0f, firstLineIndent);
+
+            var (_, spans) = BuildInlineSpans(paragraph, paragraphIndex, paragraphStyle, styleResolver, document, fieldContext, blockRevision, showRevisions, noteNumbers: noteNumbers);
+            var contentWidth = MeasureInlineSpansMaxWordWidth(spans, measurer, charGridSpacing, settings.DefaultTabWidth);
+            maxWidth = MathF.Max(maxWidth, baseIndent + contentWidth);
+            paragraphIndex++;
+        }
+
+        return maxWidth;
+    }
+
+    private static float MeasureInlineSpansMaxWordWidth(
+        IReadOnlyList<InlineSpan> spans,
+        ITextMeasurer measurer,
+        float charGridSpacing,
+        float defaultTabWidth)
+    {
+        var maxWidth = 0f;
+        var mathLayoutEngine = SharedMathLayoutEngine;
+
+        foreach (var span in spans)
+        {
+            if (span.Image is not null)
+            {
+                maxWidth = MathF.Max(maxWidth, span.Image.Width);
+                continue;
+            }
+
+            if (span.Shape is not null)
+            {
+                maxWidth = MathF.Max(maxWidth, span.Shape.Width);
+                continue;
+            }
+
+            if (span.Chart is not null)
+            {
+                maxWidth = MathF.Max(maxWidth, span.Chart.Width);
+                continue;
+            }
+
+            if (span.Equation is not null)
+            {
+                var layout = mathLayoutEngine.Layout(span.Equation.Root, span.Style, measurer);
+                maxWidth = MathF.Max(maxWidth, layout.Width);
+                continue;
+            }
+
+            if (span.Ruby is not null && span.RubyStyle is not null)
+            {
+                var baseText = span.Text;
+                var baseWidth = string.IsNullOrEmpty(baseText)
+                    ? 0f
+                    : TextGridSnapping.MeasureText(baseText, span.Style, measurer, charGridSpacing);
+                var rubyText = span.Ruby.RubyText;
+                var rubyWidth = string.IsNullOrEmpty(rubyText)
+                    ? 0f
+                    : TextGridSnapping.MeasureText(rubyText, span.RubyStyle, measurer, charGridSpacing);
+                maxWidth = MathF.Max(maxWidth, MathF.Max(baseWidth, rubyWidth));
+                continue;
+            }
+
+            if (string.IsNullOrEmpty(span.Text))
+            {
+                continue;
+            }
+
+            maxWidth = MathF.Max(maxWidth, MeasureTextSegmentMaxWordWidth(span.Text.AsSpan(), span.Style, measurer, charGridSpacing, defaultTabWidth));
+        }
+
+        return maxWidth;
+    }
+
+    private static float MeasureTextSegmentMaxWordWidth(
+        ReadOnlySpan<char> text,
+        TextStyle style,
+        ITextMeasurer measurer,
+        float charGridSpacing,
+        float defaultTabWidth)
+    {
+        if (text.IsEmpty)
+        {
+            return 0f;
+        }
+
+        if (TextScript.ContainsEastAsian(text))
+        {
+            var maxWidth = 0f;
+            var index = 0;
+            while (index < text.Length)
+            {
+                var clusterLength = TextCluster.GetNextClusterLength(text, index);
+                var width = TextGridSnapping.MeasureText(text.Slice(index, clusterLength), style, measurer, charGridSpacing);
+                maxWidth = MathF.Max(maxWidth, width);
+                index += clusterLength;
+            }
+
+            return maxWidth;
+        }
+
+        var wordStart = -1;
+        var maxWordWidth = 0f;
+        for (var i = 0; i < text.Length; i++)
+        {
+            var ch = text[i];
+            if (char.IsWhiteSpace(ch))
+            {
+                if (ch == '\t')
+                {
+                    maxWordWidth = MathF.Max(maxWordWidth, defaultTabWidth);
+                }
+
+                if (wordStart >= 0)
+                {
+                    var word = text.Slice(wordStart, i - wordStart);
+                    var width = TextGridSnapping.MeasureText(word, style, measurer, charGridSpacing);
+                    maxWordWidth = MathF.Max(maxWordWidth, width);
+                    wordStart = -1;
+                }
+
+                continue;
+            }
+
+            if (ch == '-' || ch == '/')
+            {
+                if (wordStart < 0)
+                {
+                    wordStart = i;
+                }
+
+                var word = text.Slice(wordStart, i - wordStart + 1);
+                var width = TextGridSnapping.MeasureText(word, style, measurer, charGridSpacing);
+                maxWordWidth = MathF.Max(maxWordWidth, width);
+                wordStart = -1;
+                continue;
+            }
+
+            if (wordStart < 0)
+            {
+                wordStart = i;
+            }
+        }
+
+        if (wordStart >= 0)
+        {
+            var word = text.Slice(wordStart);
+            var width = TextGridSnapping.MeasureText(word, style, measurer, charGridSpacing);
+            maxWordWidth = MathF.Max(maxWordWidth, width);
+        }
+
+        return maxWordWidth;
     }
 
     private static IEnumerable<ParagraphLineBreak> WrapParagraph(
@@ -5183,18 +5756,99 @@ public sealed class DocumentLayouter
         LayoutSettings settings,
         ITextMeasurer measurer,
         float charGridSpacing,
+        LineBreakOptions lineBreakOptions,
         float firstLineTabOffset,
         float otherLineTabOffset)
     {
-        return ParagraphLineBreaker.BreakParagraph(
-            text,
-            spans,
-            firstLineWidth,
-            otherLineWidth,
-            measurer,
-            charGridSpacing,
-            (start, length) => MeasureInlineSpans(spans, start, length, properties.TabStops, settings.DefaultTabWidth, measurer, charGridSpacing, firstLineTabOffset),
-            (start, length) => MeasureInlineSpans(spans, start, length, properties.TabStops, settings.DefaultTabWidth, measurer, charGridSpacing, otherLineTabOffset));
+        if (string.IsNullOrEmpty(text))
+        {
+            yield break;
+        }
+
+        var hardBreakIndex = FindNextHardBreak(text, 0, out var hardBreakLength);
+        if (hardBreakIndex < 0)
+        {
+            foreach (var line in ParagraphLineBreaker.BreakParagraph(
+                         text,
+                         spans,
+                         firstLineWidth,
+                         otherLineWidth,
+                         measurer,
+                         charGridSpacing,
+                         lineBreakOptions,
+                         (start, length) => MeasureInlineSpans(spans, start, length, properties.TabStops, settings.DefaultTabWidth, measurer, charGridSpacing, firstLineTabOffset),
+                         (start, length) => MeasureInlineSpans(spans, start, length, properties.TabStops, settings.DefaultTabWidth, measurer, charGridSpacing, otherLineTabOffset)))
+            {
+                yield return line;
+            }
+
+            yield break;
+        }
+
+        var startIndex = 0;
+        var isFirstLine = true;
+        while (startIndex <= text.Length)
+        {
+            hardBreakIndex = FindNextHardBreak(text, startIndex, out hardBreakLength);
+            var segmentLength = hardBreakIndex >= 0 ? hardBreakIndex - startIndex : text.Length - startIndex;
+            var segmentFirstLineWidth = isFirstLine ? firstLineWidth : otherLineWidth;
+            var segmentFirstTabOffset = isFirstLine ? firstLineTabOffset : otherLineTabOffset;
+
+            if (segmentLength == 0)
+            {
+                yield return new ParagraphLineBreak(startIndex, 0, false, null, 0f);
+            }
+            else
+            {
+                var segmentText = text.Substring(startIndex, segmentLength);
+                var segmentSpans = SliceInlineSpans(spans, startIndex, segmentLength);
+                foreach (var line in ParagraphLineBreaker.BreakParagraph(
+                             segmentText,
+                             segmentSpans,
+                             segmentFirstLineWidth,
+                             otherLineWidth,
+                             measurer,
+                             charGridSpacing,
+                             lineBreakOptions,
+                             (start, length) => MeasureInlineSpans(segmentSpans, start, length, properties.TabStops, settings.DefaultTabWidth, measurer, charGridSpacing, segmentFirstTabOffset),
+                             (start, length) => MeasureInlineSpans(segmentSpans, start, length, properties.TabStops, settings.DefaultTabWidth, measurer, charGridSpacing, otherLineTabOffset)))
+                {
+                    yield return new ParagraphLineBreak(startIndex + line.Start, line.Length, line.HasHyphen, line.HyphenStyle, line.HyphenBaselineOffset);
+                }
+            }
+
+            if (hardBreakIndex < 0)
+            {
+                break;
+            }
+
+            startIndex = hardBreakIndex + hardBreakLength;
+            isFirstLine = false;
+        }
+    }
+
+    private static int FindNextHardBreak(string text, int start, out int length)
+    {
+        for (var i = Math.Max(0, start); i < text.Length; i++)
+        {
+            var ch = text[i];
+            if (ch != '\n' && ch != '\r')
+            {
+                continue;
+            }
+
+            if (ch == '\r' && i + 1 < text.Length && text[i + 1] == '\n')
+            {
+                length = 2;
+                return i;
+            }
+
+            length = 1;
+            return i;
+        }
+
+        length = 0;
+        return -1;
     }
 
     private static int FindLineLength(string text, int start, float maxWidth, Func<int, int, float> measureWidth)
@@ -5244,7 +5898,8 @@ public sealed class DocumentLayouter
         ITextMeasurer measurer,
         float lineHeight,
         float ascent,
-        DocGridSettings? docGrid)
+        DocGridSettings? docGrid,
+        LineBreakOptions lineBreakOptions)
     {
         var lines = new List<ParagraphLine>();
         if (string.IsNullOrEmpty(text))
@@ -5274,6 +5929,7 @@ public sealed class DocumentLayouter
                      dropCapLineWidth,
                      measurer,
                      charGridSpacing,
+                     lineBreakOptions,
                      (start, length) => MeasureInlineSpans(spans, start, length, properties.TabStops, settings.DefaultTabWidth, measurer, charGridSpacing, firstLineTabOffset),
                      (start, length) => MeasureInlineSpans(spans, start, length, properties.TabStops, settings.DefaultTabWidth, measurer, charGridSpacing, otherLineTabOffset)))
         {
@@ -5352,6 +6008,7 @@ public sealed class DocumentLayouter
                      settings,
                      measurer,
                      charGridSpacing,
+                     lineBreakOptions,
                      otherLineTabOffset,
                      otherLineTabOffset))
         {
@@ -5443,6 +6100,7 @@ public sealed class DocumentLayouter
         float lineHeight,
         float ascent,
         DocGridSettings? docGrid,
+        LineBreakOptions lineBreakOptions,
         WrapResolver? wrapResolver)
     {
         var lines = new List<ParagraphLine>();
@@ -5472,6 +6130,7 @@ public sealed class DocumentLayouter
                          settings,
                          measurer,
                          charGridSpacing,
+                         lineBreakOptions,
                          firstLineTabOffset,
                          otherLineTabOffset))
             {
@@ -5590,8 +6249,10 @@ public sealed class DocumentLayouter
         float lineHeight,
         float ascent,
         DocGridSettings? docGrid,
+        LineBreakOptions lineBreakOptions,
         FieldEvaluationContext? fieldContext,
-        bool showRevisions)
+        bool showRevisions,
+        NoteNumberingContext? noteNumbers)
     {
         if (blockIndex + 1 >= blocks.Count)
         {
@@ -5634,7 +6295,7 @@ public sealed class DocumentLayouter
             var listIndent = nextParagraph.ListInfo is null ? 0f : settings.ListIndent * (nextParagraph.ListInfo.Level + 1);
             var prefixWidth = 0f;
 
-            var (text, spans) = BuildInlineSpans(nextParagraph, -1, paragraphStyle, styleResolver, document, fieldContext, null, showRevisions);
+            var (text, spans) = BuildInlineSpans(nextParagraph, -1, paragraphStyle, styleResolver, document, fieldContext, null, showRevisions, noteNumbers: noteNumbers);
             if (string.IsNullOrEmpty(text))
             {
                 var (emptyLineHeight, _) = ApplyLineSpacing(paragraphLineHeight, paragraphAscent, properties, docGrid);
@@ -5655,6 +6316,7 @@ public sealed class DocumentLayouter
                     settings,
                     measurer,
                     charGridSpacing,
+                    lineBreakOptions,
                     firstLineTabOffset,
                     otherLineTabOffset)
                 .FirstOrDefault();
@@ -5702,6 +6364,8 @@ public sealed class DocumentLayouter
                 lineHeight,
                 ascent,
                 docGrid,
+                lineBreakOptions,
+                noteNumbers,
                 fieldContext,
                 null,
                 showRevisions,
@@ -5737,7 +6401,8 @@ public sealed class DocumentLayouter
         RevisionInfo? blockRevision,
         bool showRevisions,
         string? pageNumberText = null,
-        string? totalPagesText = null)
+        string? totalPagesText = null,
+        NoteNumberingContext? noteNumbers = null)
     {
         var spansList = new List<InlineSpan>();
         var builder = new System.Text.StringBuilder();
@@ -6063,7 +6728,11 @@ public sealed class DocumentLayouter
                 }
                 case FootnoteReferenceInline footnoteReference:
                 {
-                    var text = footnoteReference.Id.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    var text = noteNumbers?.GetText(NoteKind.Footnote, footnoteReference.Id);
+                    if (string.IsNullOrEmpty(text))
+                    {
+                        text = footnoteReference.Id.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    }
                     var refStyle = styleResolver.ResolveRunStyle(footnoteReference.StyleId, footnoteReference.Style, paragraphStyle);
                     if (TryEnsureFieldEvaluation(refStyle))
                     {
@@ -6076,7 +6745,11 @@ public sealed class DocumentLayouter
                 }
                 case EndnoteReferenceInline endnoteReference:
                 {
-                    var text = endnoteReference.Id.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    var text = noteNumbers?.GetText(NoteKind.Endnote, endnoteReference.Id);
+                    if (string.IsNullOrEmpty(text))
+                    {
+                        text = endnoteReference.Id.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    }
                     var refStyle = styleResolver.ResolveRunStyle(endnoteReference.StyleId, endnoteReference.Style, paragraphStyle);
                     if (TryEnsureFieldEvaluation(refStyle))
                     {
@@ -6592,6 +7265,10 @@ public sealed class DocumentLayouter
             FieldKind.Time => true,
             FieldKind.DocProperty => true,
             FieldKind.Ref => true,
+            FieldKind.Toc => true,
+            FieldKind.Seq => true,
+            FieldKind.TocEntry => true,
+            FieldKind.IndexEntry => true,
             _ => false
         };
     }
@@ -6658,6 +7335,16 @@ public sealed class DocumentLayouter
 
                 return fieldContext.TryGetDocProperty(name, out text);
             }
+            case FieldKind.Toc:
+                return fieldContext.TryGetTocText(start, definition, out text);
+            case FieldKind.Seq:
+                return fieldContext.TryGetSequenceText(start, definition, out text);
+            case FieldKind.TocEntry:
+                text = string.Empty;
+                return fieldContext.ShouldSuppressTocEntry(definition);
+            case FieldKind.IndexEntry:
+                text = string.Empty;
+                return fieldContext.ShouldSuppressIndexEntry(definition);
         }
 
         return false;
@@ -6711,6 +7398,35 @@ public sealed class DocumentLayouter
         }
 
         return null;
+    }
+
+    private static bool HasFieldSwitch(FieldDefinition definition, string name)
+    {
+        foreach (var fieldSwitch in definition.Switches)
+        {
+            var switchName = fieldSwitch.Name;
+            if (switchName.Equals(name, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            if (switchName.Length > 0 && switchName[0] == '\\' && name.Length > 0 && name[0] != '\\')
+            {
+                if (switchName.AsSpan(1).Equals(name.AsSpan(), StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+            else if (name.Length > 0 && name[0] == '\\' && switchName.Length > 0 && switchName[0] != '\\')
+            {
+                if (name.AsSpan(1).Equals(switchName.AsSpan(), StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     private static bool ResolveLineIsRtl(ParagraphProperties properties, TextSlice textSlice)
@@ -7081,6 +7797,99 @@ public sealed class DocumentLayouter
         Endnote
     }
 
+    private sealed class NoteNumberingContext
+    {
+        private readonly Dictionary<int, string> _footnoteNumbers = new();
+        private readonly Dictionary<int, string> _endnoteNumbers = new();
+        private readonly List<int> _footnoteOrder = new();
+        private readonly List<int> _endnoteOrder = new();
+        private readonly Dictionary<int, int> _footnoteSections = new();
+        private readonly Dictionary<int, int> _endnoteSections = new();
+
+        public IReadOnlyList<int> FootnoteOrder => _footnoteOrder;
+        public IReadOnlyList<int> EndnoteOrder => _endnoteOrder;
+
+        public bool TryGetText(NoteKind kind, int id, out string text)
+        {
+            switch (kind)
+            {
+                case NoteKind.Footnote:
+                    if (_footnoteNumbers.TryGetValue(id, out var footnoteText) && !string.IsNullOrEmpty(footnoteText))
+                    {
+                        text = footnoteText;
+                        return true;
+                    }
+
+                    text = string.Empty;
+                    return false;
+                case NoteKind.Endnote:
+                    if (_endnoteNumbers.TryGetValue(id, out var endnoteText) && !string.IsNullOrEmpty(endnoteText))
+                    {
+                        text = endnoteText;
+                        return true;
+                    }
+
+                    text = string.Empty;
+                    return false;
+                default:
+                    text = string.Empty;
+                    return false;
+            }
+        }
+
+        public string GetText(NoteKind kind, int id)
+        {
+            return TryGetText(kind, id, out var text) ? text : string.Empty;
+        }
+
+        public void SetText(NoteKind kind, int id, string text)
+        {
+            if (string.IsNullOrEmpty(text))
+            {
+                return;
+            }
+
+            if (kind == NoteKind.Endnote)
+            {
+                if (!_endnoteNumbers.ContainsKey(id))
+                {
+                    _endnoteOrder.Add(id);
+                }
+
+                _endnoteNumbers[id] = text;
+                return;
+            }
+
+            if (!_footnoteNumbers.ContainsKey(id))
+            {
+                _footnoteOrder.Add(id);
+            }
+
+            _footnoteNumbers[id] = text;
+        }
+
+        public bool TryGetSectionIndex(NoteKind kind, int id, out int sectionIndex)
+        {
+            if (kind == NoteKind.Endnote)
+            {
+                return _endnoteSections.TryGetValue(id, out sectionIndex);
+            }
+
+            return _footnoteSections.TryGetValue(id, out sectionIndex);
+        }
+
+        public void SetSectionIndex(NoteKind kind, int id, int sectionIndex)
+        {
+            if (kind == NoteKind.Endnote)
+            {
+                _endnoteSections.TryAdd(id, sectionIndex);
+                return;
+            }
+
+            _footnoteSections.TryAdd(id, sectionIndex);
+        }
+    }
+
     private sealed record NoteReference(int Offset, int Length, int Id, NoteKind Kind);
 
     private sealed record CommentMarker(int Offset, int Id, bool IsStart);
@@ -7102,6 +7911,7 @@ public sealed class DocumentLayouter
         ParagraphBlock paragraph,
         int paragraphIndex,
         FieldEvaluationContext? fieldContext,
+        NoteNumberingContext? noteNumbers,
         string? pageNumberText = null,
         string? totalPagesText = null)
     {
@@ -7281,7 +8091,11 @@ public sealed class DocumentLayouter
                         break;
                     }
 
-                    var text = footnoteReference.Id.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    var text = noteNumbers?.GetText(NoteKind.Footnote, footnoteReference.Id);
+                    if (string.IsNullOrEmpty(text))
+                    {
+                        text = footnoteReference.Id.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    }
                     noteReferences.Add(new NoteReference(length, text.Length, footnoteReference.Id, NoteKind.Footnote));
                     AppendLength(text);
                     break;
@@ -7293,7 +8107,11 @@ public sealed class DocumentLayouter
                         break;
                     }
 
-                    var text = endnoteReference.Id.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    var text = noteNumbers?.GetText(NoteKind.Endnote, endnoteReference.Id);
+                    if (string.IsNullOrEmpty(text))
+                    {
+                        text = endnoteReference.Id.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    }
                     noteReferences.Add(new NoteReference(length, text.Length, endnoteReference.Id, NoteKind.Endnote));
                     AppendLength(text);
                     break;
@@ -7423,12 +8241,14 @@ public sealed class DocumentLayouter
         float lineHeight,
         float ascent,
         DocGridSettings? docGrid,
+        LineBreakOptions lineBreakOptions,
         string? pageNumberText,
         string? totalPagesText,
         FieldEvaluationContext? fieldContext,
         bool showRevisions,
         bool includeTables,
-        bool handleFrameParagraphs)
+        bool handleFrameParagraphs,
+        NoteNumberingContext? noteNumbers = null)
     {
         if (blocks.Count == 0)
         {
@@ -7448,6 +8268,8 @@ public sealed class DocumentLayouter
         var y = 0f;
         var listState = new ListNumberingState(document);
         var paragraphIndex = 0;
+        var pendingParagraphSpacingAfter = 0f;
+        var hasPendingParagraphSpacing = false;
 
         TableLayout LayoutHeaderFooterTable(TableBlock table, float tableY, ref int index)
         {
@@ -7470,6 +8292,8 @@ public sealed class DocumentLayouter
                 lineHeight,
                 ascent,
                 docGrid,
+                lineBreakOptions,
+                noteNumbers,
                 fieldContext,
                 null,
                 showRevisions,
@@ -7521,7 +8345,7 @@ public sealed class DocumentLayouter
                 return false;
             }
 
-            var (text, spans) = BuildInlineSpans(paragraph, -1, paragraphStyle, styleResolver, document, fieldContext, null, showRevisions, pageNumberText, totalPagesText);
+            var (text, spans) = BuildInlineSpans(paragraph, -1, paragraphStyle, styleResolver, document, fieldContext, null, showRevisions, pageNumberText, totalPagesText, noteNumbers);
             var baseWidth = MathF.Max(1f, contentWidth - indentLeft - indentRight - listIndent - prefixWidth);
             var firstLineIndent = properties.FirstLineIndent ?? 0f;
             var firstLineTabOffset = indentLeft + listIndent + firstLineIndent + prefixWidth;
@@ -7549,6 +8373,7 @@ public sealed class DocumentLayouter
                         settings,
                         measurer,
                         charGridSpacing,
+                        lineBreakOptions,
                         firstLineTabOffset,
                         otherLineTabOffset)
                     .Count();
@@ -7599,11 +8424,15 @@ public sealed class DocumentLayouter
                 var tableLayout = LayoutHeaderFooterTable(table, y, ref paragraphIndex);
                 tables.Add(tableLayout);
                 y = tableLayout.Bounds.Bottom + settings.BlockSpacing;
+                pendingParagraphSpacingAfter = 0f;
+                hasPendingParagraphSpacing = false;
                 continue;
             }
 
             if (block is not ParagraphBlock paragraph)
             {
+                pendingParagraphSpacingAfter = 0f;
+                hasPendingParagraphSpacing = false;
                 continue;
             }
 
@@ -7648,6 +8477,12 @@ public sealed class DocumentLayouter
                     spacingAfter = 0f;
                 }
             }
+
+            if (hasPendingParagraphSpacing)
+            {
+                var collapsedSpacing = MathF.Max(spacingBefore, pendingParagraphSpacingAfter);
+                spacingBefore = MathF.Max(0f, collapsedSpacing - pendingParagraphSpacingAfter);
+            }
             var indentLeft = properties.IndentLeft ?? 0f;
             var indentRight = properties.IndentRight ?? 0f;
             var firstLineIndent = properties.FirstLineIndent ?? 0f;
@@ -7671,13 +8506,15 @@ public sealed class DocumentLayouter
                     paragraphIndex,
                     y))
             {
+                pendingParagraphSpacingAfter = 0f;
+                hasPendingParagraphSpacing = false;
                 paragraphIndex++;
                 continue;
             }
 
             if (DocTextDirectionHelpers.IsVertical(properties.TextDirection))
             {
-                var (verticalText, verticalSpans) = BuildInlineSpans(paragraph, -1, paragraphStyle, styleResolver, document, fieldContext, null, showRevisions, pageNumberText, totalPagesText);
+                var (verticalText, verticalSpans) = BuildInlineSpans(paragraph, -1, paragraphStyle, styleResolver, document, fieldContext, null, showRevisions, pageNumberText, totalPagesText, noteNumbers);
                 var (emptyLineHeight, emptyAscent) = ApplyLineSpacing(paragraphLineHeight, paragraphAscent, properties, docGrid);
                 if (string.IsNullOrEmpty(verticalText))
                 {
@@ -7724,6 +8561,8 @@ public sealed class DocumentLayouter
                         emptyIsRtl));
                     y = emptyAxisOrigin + emptyLineHeight + spacingAfter;
                     paragraphLineRanges[paragraphIndex] = new LineRange(paragraphLineStart, lines.Count - paragraphLineStart);
+                    pendingParagraphSpacingAfter = spacingAfter;
+                    hasPendingParagraphSpacing = true;
                     paragraphIndex++;
                     continue;
                 }
@@ -7746,6 +8585,7 @@ public sealed class DocumentLayouter
                     paragraphLineHeight,
                     paragraphAscent,
                     docGrid,
+                    lineBreakOptions,
                     null);
 
                 y += spacingBefore;
@@ -7807,13 +8647,15 @@ public sealed class DocumentLayouter
 
                 y = maxLineAxisEnd + spacingAfter;
                 paragraphLineRanges[paragraphIndex] = new LineRange(paragraphLineStart, lines.Count - paragraphLineStart);
+                pendingParagraphSpacingAfter = spacingAfter;
+                hasPendingParagraphSpacing = true;
                 paragraphIndex++;
                 continue;
             }
 
             y += spacingBefore;
 
-            var (text, spans) = BuildInlineSpans(paragraph, -1, paragraphStyle, styleResolver, document, fieldContext, null, showRevisions, pageNumberText, totalPagesText);
+            var (text, spans) = BuildInlineSpans(paragraph, -1, paragraphStyle, styleResolver, document, fieldContext, null, showRevisions, pageNumberText, totalPagesText, noteNumbers);
             if (text.Length == 0)
             {
                 var lineX = indentLeft + listIndent + firstLineIndent + prefixWidth;
@@ -7850,6 +8692,8 @@ public sealed class DocumentLayouter
                 y += emptyLineHeight;
                 y += spacingAfter;
                 paragraphLineRanges[paragraphIndex] = new LineRange(paragraphLineStart, lines.Count - paragraphLineStart);
+                pendingParagraphSpacingAfter = spacingAfter;
+                hasPendingParagraphSpacing = true;
                 paragraphIndex++;
                 continue;
             }
@@ -7869,6 +8713,7 @@ public sealed class DocumentLayouter
                          settings,
                          measurer,
                          charGridSpacing,
+                         lineBreakOptions,
                          firstLineTabOffset,
                          otherLineTabOffset))
             {
@@ -7939,6 +8784,8 @@ public sealed class DocumentLayouter
 
             y += spacingAfter;
             paragraphLineRanges[paragraphIndex] = new LineRange(paragraphLineStart, lines.Count - paragraphLineStart);
+            pendingParagraphSpacingAfter = spacingAfter;
+            hasPendingParagraphSpacing = true;
             paragraphIndex++;
         }
 
@@ -7977,6 +8824,33 @@ public sealed class DocumentLayouter
         return result;
     }
 
+    private static bool HasVisibleSeparatorContent(HeaderFooterLayoutResult layout)
+    {
+        if (layout.Tables.Count > 0)
+        {
+            return true;
+        }
+
+        foreach (var line in layout.Lines)
+        {
+            if (line.Length > 0)
+            {
+                return true;
+            }
+
+            if (line.Images.Count > 0
+                || line.Shapes.Count > 0
+                || line.Charts.Count > 0
+                || line.Equations.Count > 0
+                || line.Rubies.Count > 0)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private static List<FloatingLayoutObject> BuildHeaderFooterFrameObjects(
         IReadOnlyList<HeaderFooterFrameLayout> frames,
         PageLayout page,
@@ -8004,6 +8878,7 @@ public sealed class DocumentLayouter
             var x = baseX + frame.Floating.Anchor.OffsetX;
             var y = baseY + frame.Floating.Anchor.OffsetY;
             var bounds = new DocRect(x, y, width, height);
+            bounds = ResolveOverlappingBounds(bounds, frame.Floating.Anchor, page.Index, result, null);
             var wrapContour = CreateWrapContour(frame.Floating.Anchor, bounds);
             result.Add(new FloatingLayoutObject(frame.Floating, anchorLine.ParagraphIndex, page.Index, bounds, wrapContour));
         }
@@ -8113,6 +8988,7 @@ public sealed class DocumentLayouter
                 var x = baseX + floating.Anchor.OffsetX;
                 var y = baseY + floating.Anchor.OffsetY;
                 var bounds = new DocRect(x, y, width, height);
+                bounds = ResolveOverlappingBounds(bounds, floating.Anchor, page.Index, result, null);
                 var wrapContour = CreateWrapContour(floating.Anchor, bounds);
                 result.Add(new FloatingLayoutObject(floating, paragraphIndex, page.Index, bounds, wrapContour));
             }
@@ -8187,6 +9063,9 @@ public sealed class DocumentLayouter
         IReadOnlyList<PageLayout> pages,
         IReadOnlyList<PageSectionSettings> pageSections,
         IReadOnlyList<HeaderFooterLayout> headerFooters,
+        IReadOnlyList<LayoutLine> lines,
+        IReadOnlyList<TableLayout> tables,
+        IReadOnlyList<int> linePageIndices,
         IReadOnlyDictionary<int, HashSet<int>> footnotesByPage,
         IReadOnlyDictionary<int, HashSet<int>> endnotesByPage,
         LayoutSettings settings,
@@ -8196,11 +9075,13 @@ public sealed class DocumentLayouter
         Dictionary<TextStyleKey, TextMetrics> spacingMetricsCache,
         float lineHeight,
         float ascent,
+        LineBreakOptions lineBreakOptions,
         FieldEvaluationContext? fieldContext,
-        bool showRevisions)
+        bool showRevisions,
+        NoteNumberingContext? noteNumbers)
     {
         var footnoteLayouts = new List<FootnoteLayout>();
-        if (pages.Count == 0 || (footnotesByPage.Count == 0 && endnotesByPage.Count == 0))
+        if (pages.Count == 0 || footnotesByPage.Count == 0)
         {
             return footnoteLayouts;
         }
@@ -8209,36 +9090,80 @@ public sealed class DocumentLayouter
         var totalPages = Math.Max(1, pages.Count);
         var pageNumberTexts = BuildPageNumberTexts(pages, pageSections);
         var totalPagesTexts = BuildTotalPagesTexts(pages, pageSections, totalPages);
+        var footnoteOrder = noteNumbers?.FootnoteOrder;
+        Dictionary<int, int>? footnoteOrderMap = null;
+        if (footnoteOrder is { Count: > 0 })
+        {
+            footnoteOrderMap = new Dictionary<int, int>(footnoteOrder.Count);
+            for (var i = 0; i < footnoteOrder.Count; i++)
+            {
+                footnoteOrderMap[footnoteOrder[i]] = i;
+            }
+        }
+
+        var contentBottoms = new float[pages.Count];
+        for (var i = 0; i < pages.Count; i++)
+        {
+            var section = pageSections[Math.Clamp(i, 0, pageSections.Count - 1)];
+            contentBottoms[i] = pages[i].Bounds.Y + section.MarginTop;
+        }
+
+        for (var i = 0; i < lines.Count && i < linePageIndices.Count; i++)
+        {
+            var pageIndex = linePageIndices[i];
+            if ((uint)pageIndex >= (uint)contentBottoms.Length)
+            {
+                continue;
+            }
+
+            var line = lines[i];
+            var bottom = line.Y + line.LineHeight;
+            if (bottom > contentBottoms[pageIndex])
+            {
+                contentBottoms[pageIndex] = bottom;
+            }
+        }
+
+        for (var i = 0; i < tables.Count; i++)
+        {
+            var table = tables[i];
+            var pageIndex = ResolvePageIndexForY(table.Bounds.Y, pages);
+            if ((uint)pageIndex >= (uint)contentBottoms.Length)
+            {
+                continue;
+            }
+
+            var bottom = table.Bounds.Bottom;
+            if (bottom > contentBottoms[pageIndex])
+            {
+                contentBottoms[pageIndex] = bottom;
+            }
+        }
 
         for (var pageIndex = 0; pageIndex < pages.Count; pageIndex++)
         {
             footnotesByPage.TryGetValue(pageIndex, out var footnoteIds);
-            endnotesByPage.TryGetValue(pageIndex, out var endnoteIds);
-            if ((footnoteIds is null || footnoteIds.Count == 0) && (endnoteIds is null || endnoteIds.Count == 0))
+            if (footnoteIds is null || footnoteIds.Count == 0)
             {
                 continue;
             }
 
             var blocks = new List<Block>();
-            if (footnoteIds is not null)
+            IEnumerable<int> orderedFootnotes = footnoteIds;
+            if (footnoteOrderMap is not null)
             {
-                foreach (var id in footnoteIds.OrderBy(id => id))
-                {
-                    if (document.Footnotes.TryGetValue(id, out var definition))
-                    {
-                        AppendNoteBlocks(blocks, definition.Blocks, id, NoteKind.Footnote);
-                    }
-                }
+                orderedFootnotes = footnoteIds.OrderBy(id => footnoteOrderMap.TryGetValue(id, out var order) ? order : int.MaxValue);
+            }
+            else
+            {
+                orderedFootnotes = footnoteIds.OrderBy(id => id);
             }
 
-            if (endnoteIds is not null)
+            foreach (var id in orderedFootnotes)
             {
-                foreach (var id in endnoteIds.OrderBy(id => id))
+                if (document.Footnotes.TryGetValue(id, out var definition))
                 {
-                    if (document.Endnotes.TryGetValue(id, out var definition))
-                    {
-                        AppendNoteBlocks(blocks, definition.Blocks, id, NoteKind.Endnote);
-                    }
+                    AppendNoteBlocks(blocks, definition.Blocks, id, NoteKind.Footnote);
                 }
             }
 
@@ -8257,6 +9182,35 @@ public sealed class DocumentLayouter
             var totalPagesText = pageIndex < totalPagesTexts.Length
                 ? totalPagesTexts[pageIndex]
                 : totalPages.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            HeaderFooterLayoutResult? separatorLayout = null;
+            if (document.FootnoteSeparators.HasSeparator)
+            {
+                var candidate = LayoutHeaderFooterBlocks(
+                    document.FootnoteSeparators.SeparatorBlocks,
+                    document,
+                    settings,
+                    measurer,
+                    style,
+                    styleResolver,
+                    spacingMetricsCache,
+                    contentWidth,
+                    lineHeight,
+                    ascent,
+                    section.DocGrid,
+                    lineBreakOptions,
+                    pageNumberText,
+                    totalPagesText,
+                    fieldContext,
+                    showRevisions,
+                    includeTables: true,
+                    handleFrameParagraphs: false,
+                    noteNumbers: noteNumbers);
+                if (HasVisibleSeparatorContent(candidate))
+                {
+                    separatorLayout = candidate;
+                }
+            }
+
             var layout = LayoutHeaderFooterBlocks(
                 blocks,
                 document,
@@ -8269,12 +9223,14 @@ public sealed class DocumentLayouter
                 lineHeight,
                 ascent,
                 section.DocGrid,
+                lineBreakOptions,
                 pageNumberText,
                 totalPagesText,
                 fieldContext,
                 showRevisions,
                 includeTables: true,
-                handleFrameParagraphs: false);
+                handleFrameParagraphs: false,
+                noteNumbers: noteNumbers);
 
             if (layout.Lines.Count == 0 && layout.Tables.Count == 0)
             {
@@ -8318,20 +9274,330 @@ public sealed class DocumentLayouter
                 }
             }
 
-            var footnoteTop = footerTop - layout.Height;
-            var offsetLines = OffsetHeaderFooterLines(layout.Lines, page.Bounds.X + section.MarginLeft, footnoteTop);
-            var separatorWidth = MathF.Min(120f, contentWidth * 0.25f);
-            var separatorX = page.Bounds.X + section.MarginLeft;
-            var separatorY = footnoteTop - MathF.Max(4f, settings.ParagraphSpacing * 0.5f);
-            var separatorBounds = separatorWidth > 0f
-                ? new DocRect(separatorX, separatorY, separatorWidth, 1f)
-                : new DocRect(separatorX, separatorY, 0f, 0f);
+            var separatorGap = MathF.Max(4f, settings.ParagraphSpacing * 0.5f);
+            var footnoteSettings = ResolveFootnoteSettings(document, section.SectionIndex);
+            var separatorHeight = separatorLayout?.Height ?? 0f;
+            var desiredFootnoteTop = contentBottoms[pageIndex]
+                                     + (separatorLayout is null ? separatorGap : separatorHeight + separatorGap);
+            var footnoteTop = footnoteSettings.Position == FootnotePosition.BeneathText
+                ? Math.Min(desiredFootnoteTop, footerTop - layout.Height)
+                : footerTop - layout.Height;
+            var offsetX = page.Bounds.X + section.MarginLeft;
+            var offsetLines = OffsetHeaderFooterLines(layout.Lines, offsetX, footnoteTop);
+            var offsetTables = OffsetHeaderFooterTables(layout.Tables, offsetX, footnoteTop);
+            if (separatorLayout is not null)
+            {
+                var resolvedSeparatorLayout = separatorLayout.Value;
+                var separatorY = footnoteTop - separatorGap - separatorHeight;
+                var separatorLines = OffsetHeaderFooterLines(resolvedSeparatorLayout.Lines, offsetX, separatorY);
+                var separatorTables = OffsetHeaderFooterTables(resolvedSeparatorLayout.Tables, offsetX, separatorY);
+                var mergedLines = new List<HeaderFooterLine>(separatorLines.Count + offsetLines.Count);
+                mergedLines.AddRange(separatorLines);
+                mergedLines.AddRange(offsetLines);
+                var mergedTables = new List<TableLayout>(separatorTables.Count + offsetTables.Count);
+                mergedTables.AddRange(separatorTables);
+                mergedTables.AddRange(offsetTables);
+                var separatorBounds = new DocRect(offsetX, separatorY, 0f, 0f);
+                footnoteLayouts.Add(new FootnoteLayout(page.Index, mergedLines, mergedTables, separatorBounds));
+                continue;
+            }
 
-            var offsetTables = OffsetHeaderFooterTables(layout.Tables, page.Bounds.X + section.MarginLeft, footnoteTop);
-            footnoteLayouts.Add(new FootnoteLayout(page.Index, offsetLines, offsetTables, separatorBounds));
+            var separatorWidth = MathF.Max(1f, contentWidth * 0.33f);
+            var defaultSeparatorY = footnoteTop - separatorGap;
+            var defaultSeparatorBounds = separatorWidth > 0f
+                ? new DocRect(offsetX, defaultSeparatorY, separatorWidth, 1f)
+                : new DocRect(offsetX, defaultSeparatorY, 0f, 0f);
+            footnoteLayouts.Add(new FootnoteLayout(page.Index, offsetLines, offsetTables, defaultSeparatorBounds));
         }
 
         return footnoteLayouts;
+    }
+
+    private static List<EndnoteLayout> BuildEndnoteLayouts(
+        Document document,
+        List<PageLayout> pages,
+        List<PageSectionSettings> pageSections,
+        IReadOnlyDictionary<int, PageSectionSettings> sectionSettingsByIndex,
+        NoteNumberingContext? noteNumbers,
+        LayoutSettings settings,
+        ITextMeasurer measurer,
+        TextStyle style,
+        DocumentStyleResolver styleResolver,
+        Dictionary<TextStyleKey, TextMetrics> spacingMetricsCache,
+        float lineHeight,
+        float ascent,
+        LineBreakOptions lineBreakOptions,
+        FieldEvaluationContext? fieldContext,
+        bool showRevisions)
+    {
+        var endnoteLayouts = new List<EndnoteLayout>();
+        if (pages.Count == 0)
+        {
+            return endnoteLayouts;
+        }
+
+        IReadOnlyList<int> endnoteOrder = noteNumbers?.EndnoteOrder ?? Array.Empty<int>();
+        if (endnoteOrder.Count == 0)
+        {
+            return endnoteLayouts;
+        }
+
+        var blocks = new List<Block>();
+        foreach (var id in endnoteOrder)
+        {
+            if (document.Endnotes.TryGetValue(id, out var definition))
+            {
+                AppendNoteBlocks(blocks, definition.Blocks, id, NoteKind.Endnote);
+            }
+        }
+
+        if (blocks.Count == 0)
+        {
+            return endnoteLayouts;
+        }
+
+        var lastSectionIndex = pageSections.Count > 0 ? pageSections[^1].SectionIndex : 0;
+        if (!sectionSettingsByIndex.TryGetValue(lastSectionIndex, out var baseSection))
+        {
+            baseSection = pageSections.Count > 0
+                ? pageSections[^1]
+                : PageSectionSettings.FromSettings(settings, document.SectionProperties, lastSectionIndex, document.MirrorMargins, document.GutterAtTop);
+        }
+
+        var contentWidth = MathF.Max(1f, baseSection.PageWidth - baseSection.MarginLeft - baseSection.MarginRight);
+        var separatorGap = MathF.Max(4f, settings.ParagraphSpacing * 0.5f);
+        HeaderFooterLayoutResult? separatorLayout = null;
+        if (document.EndnoteSeparators.HasSeparator)
+        {
+            var candidate = LayoutHeaderFooterBlocks(
+                document.EndnoteSeparators.SeparatorBlocks,
+                document,
+                settings,
+                measurer,
+                style,
+                styleResolver,
+                spacingMetricsCache,
+                contentWidth,
+                lineHeight,
+                ascent,
+                baseSection.DocGrid,
+                lineBreakOptions,
+                null,
+                null,
+                fieldContext,
+                showRevisions,
+                includeTables: true,
+                handleFrameParagraphs: false,
+                noteNumbers: noteNumbers);
+            if (HasVisibleSeparatorContent(candidate))
+            {
+                separatorLayout = candidate;
+            }
+        }
+
+        var layout = LayoutHeaderFooterBlocks(
+            blocks,
+            document,
+            settings,
+            measurer,
+            style,
+            styleResolver,
+            spacingMetricsCache,
+            contentWidth,
+            lineHeight,
+            ascent,
+            baseSection.DocGrid,
+            lineBreakOptions,
+            null,
+            null,
+            fieldContext,
+            showRevisions,
+            includeTables: true,
+            handleFrameParagraphs: false,
+            noteNumbers: noteNumbers);
+
+        if (layout.Lines.Count == 0 && layout.Tables.Count == 0)
+        {
+            return endnoteLayouts;
+        }
+
+        var contentHeight = MathF.Max(1f, baseSection.PageHeight - baseSection.MarginTop - baseSection.MarginBottom);
+        var separatorOffset = separatorLayout is null ? 0f : separatorLayout.Value.Height + separatorGap;
+        var maxPageIndex = -1;
+        for (var i = 0; i < layout.Lines.Count; i++)
+        {
+            var line = layout.Lines[i];
+            var pageIndex = ResolvePageIndexForContentOffset(line.Y + line.LineHeight, contentHeight, separatorOffset);
+            if (pageIndex > maxPageIndex)
+            {
+                maxPageIndex = pageIndex;
+            }
+        }
+
+        for (var i = 0; i < layout.Tables.Count; i++)
+        {
+            var table = layout.Tables[i];
+            var pageIndex = ResolvePageIndexForContentOffset(table.Bounds.Bottom, contentHeight, separatorOffset);
+            if (pageIndex > maxPageIndex)
+            {
+                maxPageIndex = pageIndex;
+            }
+        }
+
+        if (maxPageIndex < 0)
+        {
+            return endnoteLayouts;
+        }
+
+        var pageCount = maxPageIndex + 1;
+        var pageLines = new List<HeaderFooterLine>[pageCount];
+        var pageTables = new List<TableLayout>[pageCount];
+        for (var i = 0; i < pageCount; i++)
+        {
+            pageLines[i] = new List<HeaderFooterLine>();
+            pageTables[i] = new List<TableLayout>();
+        }
+
+        for (var i = 0; i < layout.Lines.Count; i++)
+        {
+            var line = layout.Lines[i];
+            var pageIndex = ResolvePageIndexForContentOffset(line.Y + line.LineHeight, contentHeight, separatorOffset);
+            if ((uint)pageIndex >= (uint)pageCount)
+            {
+                continue;
+            }
+
+            pageLines[pageIndex].Add(line);
+        }
+
+        for (var i = 0; i < layout.Tables.Count; i++)
+        {
+            var table = layout.Tables[i];
+            var pageIndex = ResolvePageIndexForContentOffset(table.Bounds.Bottom, contentHeight, separatorOffset);
+            if ((uint)pageIndex >= (uint)pageCount)
+            {
+                continue;
+            }
+
+            pageTables[pageIndex].Add(table);
+        }
+
+        var previousBounds = pages[^1].Bounds;
+        for (var i = 0; i < pageCount; i++)
+        {
+            var bounds = ComputeNextPageBounds(previousBounds, baseSection.PageWidth, baseSection.PageHeight, settings);
+            previousBounds = bounds;
+
+            var globalPageIndex = pages.Count;
+            var resolvedSection = baseSection.ResolveForPage(globalPageIndex);
+            var contentBounds = new DocRect(
+                bounds.X + resolvedSection.MarginLeft,
+                bounds.Y + resolvedSection.MarginTop,
+                MathF.Max(1f, bounds.Width - resolvedSection.MarginLeft - resolvedSection.MarginRight),
+                MathF.Max(1f, bounds.Height - resolvedSection.MarginTop - resolvedSection.MarginBottom));
+
+            pages.Add(new PageLayout(globalPageIndex, bounds, contentBounds));
+            pageSections.Add(resolvedSection);
+
+            var offsetX = bounds.X + resolvedSection.MarginLeft;
+            var offsetY = bounds.Y + resolvedSection.MarginTop - i * contentHeight + separatorOffset;
+            var offsetLines = OffsetHeaderFooterLines(pageLines[i], offsetX, offsetY);
+            var offsetTables = OffsetHeaderFooterTables(pageTables[i], offsetX, offsetY);
+            if (separatorLayout is not null && i == 0)
+            {
+                var resolvedSeparatorLayout = separatorLayout.Value;
+                var separatorLines = OffsetHeaderFooterLines(resolvedSeparatorLayout.Lines, offsetX, bounds.Y + resolvedSection.MarginTop);
+                var separatorTables = OffsetHeaderFooterTables(resolvedSeparatorLayout.Tables, offsetX, bounds.Y + resolvedSection.MarginTop);
+                var mergedLines = new List<HeaderFooterLine>(separatorLines.Count + offsetLines.Count);
+                mergedLines.AddRange(separatorLines);
+                mergedLines.AddRange(offsetLines);
+                offsetLines = mergedLines;
+                var mergedTables = new List<TableLayout>(separatorTables.Count + offsetTables.Count);
+                mergedTables.AddRange(separatorTables);
+                mergedTables.AddRange(offsetTables);
+                offsetTables = mergedTables;
+            }
+
+            DocRect separatorBounds;
+            if (separatorLayout is not null || i > 0)
+            {
+                separatorBounds = new DocRect(offsetX, bounds.Y + resolvedSection.MarginTop, 0f, 0f);
+            }
+            else
+            {
+                var separatorWidth = MathF.Max(1f, contentBounds.Width * 0.33f);
+                var separatorY = offsetLines.Count > 0
+                    ? offsetLines[0].Y - separatorGap
+                    : offsetTables.Count > 0
+                        ? offsetTables[0].Bounds.Y - separatorGap
+                        : bounds.Y + resolvedSection.MarginTop;
+                separatorBounds = separatorWidth > 0f
+                    ? new DocRect(offsetX, separatorY, separatorWidth, 1f)
+                    : new DocRect(offsetX, separatorY, 0f, 0f);
+            }
+
+            endnoteLayouts.Add(new EndnoteLayout(globalPageIndex, offsetLines, offsetTables, separatorBounds));
+        }
+
+        return endnoteLayouts;
+    }
+
+    private static int ResolvePageIndexForContentOffset(float offset, float contentHeight)
+    {
+        if (contentHeight <= 0f)
+        {
+            return 0;
+        }
+
+        var pageIndex = (int)MathF.Floor((offset - 0.01f) / contentHeight);
+        return Math.Max(0, pageIndex);
+    }
+
+    private static int ResolvePageIndexForContentOffset(float offset, float contentHeight, float firstPageOffset)
+    {
+        if (firstPageOffset <= 0f)
+        {
+            return ResolvePageIndexForContentOffset(offset, contentHeight);
+        }
+
+        var firstPageHeight = MathF.Max(1f, contentHeight - firstPageOffset);
+        if (offset <= firstPageHeight)
+        {
+            return 0;
+        }
+
+        var remaining = offset - firstPageHeight;
+        var pageIndex = 1 + (int)MathF.Floor((remaining - 0.01f) / contentHeight);
+        return Math.Max(0, pageIndex);
+    }
+
+    private static DocRect ComputeNextPageBounds(DocRect previousBounds, float pageWidth, float pageHeight, LayoutSettings settings)
+    {
+        if (!settings.UsePagination)
+        {
+            return new DocRect(previousBounds.X, previousBounds.Y, pageWidth, pageHeight);
+        }
+
+        if (settings.PageFlow == PageFlowDirection.Horizontal)
+        {
+            return new DocRect(previousBounds.X + pageWidth + settings.PageGap, previousBounds.Y, pageWidth, pageHeight);
+        }
+
+        return new DocRect(previousBounds.X, previousBounds.Y + pageHeight + settings.PageGap, pageWidth, pageHeight);
+    }
+
+    private static int ResolvePageIndexForY(float y, IReadOnlyList<PageLayout> pages)
+    {
+        for (var i = 0; i < pages.Count; i++)
+        {
+            var bounds = pages[i].Bounds;
+            if (y >= bounds.Y && y < bounds.Bottom)
+            {
+                return i;
+            }
+        }
+
+        return pages.Count - 1;
     }
 
     private static string[] BuildPageNumberTexts(
@@ -8422,6 +9688,45 @@ public sealed class DocumentLayouter
             PageNumberFormat.LowerLetter => ToAlpha(value, false),
             _ => value.ToString(System.Globalization.CultureInfo.InvariantCulture)
         };
+    }
+
+    private static readonly char[] NoteSymbolSequence = { '*', '\u2020', '\u2021', '\u00A7', '\u2016', '\u00B6', '#' };
+
+    private static string FormatNoteNumber(int value, NoteNumberFormat format)
+    {
+        if (value <= 0)
+        {
+            return value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        }
+
+        return format switch
+        {
+            NoteNumberFormat.UpperRoman => ToRoman(value, true),
+            NoteNumberFormat.LowerRoman => ToRoman(value, false),
+            NoteNumberFormat.UpperLetter => ToAlpha(value, true),
+            NoteNumberFormat.LowerLetter => ToAlpha(value, false),
+            NoteNumberFormat.Symbol => FormatNoteSymbol(value),
+            _ => value.ToString(System.Globalization.CultureInfo.InvariantCulture)
+        };
+    }
+
+    private static string FormatNoteSymbol(int value)
+    {
+        if (value <= 0)
+        {
+            return value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        }
+
+        var symbols = NoteSymbolSequence;
+        if (symbols.Length == 0)
+        {
+            return value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        }
+
+        var index = (value - 1) % symbols.Length;
+        var repeat = (value - 1) / symbols.Length + 1;
+        var symbol = symbols[index];
+        return new string(symbol, repeat);
     }
 
     private static string ToAlpha(int value, bool upper)
@@ -8538,6 +9843,8 @@ public sealed class DocumentLayouter
         target.WrapSide = source.WrapSide;
         target.WrapPolygon = CloneWrapPolygon(source.WrapPolygon);
         target.BehindText = source.BehindText;
+        target.AllowOverlap = source.AllowOverlap;
+        target.ZOrder = source.ZOrder;
         target.Distance = source.Distance;
         target.AnchorOffset = source.AnchorOffset;
     }
@@ -8697,14 +10004,18 @@ public sealed class DocumentLayouter
 
     private static LineLayout ApplyLineSpacing(LineLayout layout, ParagraphProperties properties, DocGridSettings? docGrid)
     {
-        var targetHeight = ComputeLineHeight(layout.LineHeight, properties, docGrid);
+        var targetHeight = ComputeLineHeight(layout.LineHeight, properties, docGrid, out var scaleAscent);
         if (MathF.Abs(targetHeight - layout.LineHeight) < 0.01f)
         {
             return layout;
         }
 
-        var scale = layout.LineHeight > 0f ? targetHeight / layout.LineHeight : 1f;
-        var ascent = layout.Ascent * scale;
+        var ascent = layout.Ascent;
+        if (scaleAscent && layout.LineHeight > 0f)
+        {
+            ascent *= targetHeight / layout.LineHeight;
+        }
+
         return layout with { LineHeight = targetHeight, Ascent = ascent };
     }
 
@@ -8724,23 +10035,35 @@ public sealed class DocumentLayouter
 
     private static (float LineHeight, float Ascent) ApplyLineSpacing(float lineHeight, float ascent, ParagraphProperties properties, DocGridSettings? docGrid)
     {
-        var targetHeight = ComputeLineHeight(lineHeight, properties, docGrid);
+        var targetHeight = ComputeLineHeight(lineHeight, properties, docGrid, out var scaleAscent);
         if (MathF.Abs(targetHeight - lineHeight) < 0.01f)
         {
             return (lineHeight, ascent);
         }
 
-        var scale = lineHeight > 0f ? targetHeight / lineHeight : 1f;
-        return (targetHeight, ascent * scale);
+        var adjustedAscent = ascent;
+        if (scaleAscent && lineHeight > 0f)
+        {
+            adjustedAscent = ascent * (targetHeight / lineHeight);
+        }
+
+        return (targetHeight, adjustedAscent);
     }
 
     private static float ComputeLineHeight(float baseHeight, ParagraphProperties properties, DocGridSettings? docGrid)
     {
+        return ComputeLineHeight(baseHeight, properties, docGrid, out _);
+    }
+
+    private static float ComputeLineHeight(float baseHeight, ParagraphProperties properties, DocGridSettings? docGrid, out bool scaleAscent)
+    {
+        scaleAscent = true;
         if (!properties.LineSpacing.HasValue)
         {
             if (docGrid?.LinePitch is > 0f
                 && docGrid.Type is DocGridType.Lines or DocGridType.LinesAndChars or DocGridType.SnapToChars)
             {
+                scaleAscent = false;
                 return MathF.Max(1f, docGrid.LinePitch.Value);
             }
 
@@ -8761,6 +10084,7 @@ public sealed class DocumentLayouter
         }
 
         var lineDip = TwipsToDip(lineValue);
+        scaleAscent = false;
         return rule == DocLineSpacingRule.AtLeast
             ? MathF.Max(baseHeight, lineDip)
             : MathF.Max(1f, lineDip);
@@ -9399,6 +10723,264 @@ public sealed class DocumentLayouter
         return (paragraphs, map);
     }
 
+    private static bool RequiresFootnotePageRestart(Document document)
+    {
+        if (document.Footnotes.Count == 0)
+        {
+            return false;
+        }
+
+        var count = Math.Max(1, document.SectionCount);
+        for (var i = 0; i < count; i++)
+        {
+            var settings = document.GetSection(i).Properties.Footnotes;
+            if (settings?.Restart == NoteNumberRestart.EachPage)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static NoteNumberingContext BuildNoteNumberingContext(
+        IReadOnlyList<ParagraphBlock> paragraphs,
+        IReadOnlyDictionary<int, int> paragraphSectionIndices,
+        Document document)
+    {
+        var context = new NoteNumberingContext();
+        if (paragraphs.Count == 0)
+        {
+            return context;
+        }
+
+        var currentSectionIndex = -1;
+        var footnoteSettings = ResolveFootnoteSettings(document, 0);
+        var endnoteSettings = ResolveEndnoteSettings(document, 0);
+        var footnoteNumber = 0;
+        var endnoteNumber = 0;
+
+        void EnsureSection(int sectionIndex)
+        {
+            if (sectionIndex == currentSectionIndex)
+            {
+                return;
+            }
+
+            currentSectionIndex = sectionIndex;
+            footnoteSettings = ResolveFootnoteSettings(document, sectionIndex);
+            endnoteSettings = ResolveEndnoteSettings(document, sectionIndex);
+
+            if (footnoteSettings.Restart == NoteNumberRestart.EachSection || footnoteNumber == 0)
+            {
+                footnoteNumber = footnoteSettings.Start ?? 1;
+            }
+
+            if (endnoteSettings.Restart == NoteNumberRestart.EachSection || endnoteNumber == 0)
+            {
+                endnoteNumber = endnoteSettings.Start ?? 1;
+            }
+        }
+
+        for (var index = 0; index < paragraphs.Count; index++)
+        {
+            if (!paragraphSectionIndices.TryGetValue(index, out var sectionIndex))
+            {
+                sectionIndex = 0;
+            }
+
+            EnsureSection(sectionIndex);
+            var inlines = paragraphs[index].Inlines;
+            if (inlines.Count == 0)
+            {
+                continue;
+            }
+
+            for (var i = 0; i < inlines.Count; i++)
+            {
+                switch (inlines[i])
+                {
+                    case FootnoteReferenceInline footnote:
+                        context.SetSectionIndex(NoteKind.Footnote, footnote.Id, sectionIndex);
+                        if (!context.TryGetText(NoteKind.Footnote, footnote.Id, out _))
+                        {
+                            var text = FormatNoteNumber(footnoteNumber, footnoteSettings.Format ?? NoteNumberFormat.Decimal);
+                            context.SetText(NoteKind.Footnote, footnote.Id, text);
+                            footnoteNumber++;
+                        }
+
+                        break;
+                    case EndnoteReferenceInline endnote:
+                        context.SetSectionIndex(NoteKind.Endnote, endnote.Id, sectionIndex);
+                        if (!context.TryGetText(NoteKind.Endnote, endnote.Id, out _))
+                        {
+                            var text = FormatNoteNumber(endnoteNumber, endnoteSettings.Format ?? NoteNumberFormat.Decimal);
+                            context.SetText(NoteKind.Endnote, endnote.Id, text);
+                            endnoteNumber++;
+                        }
+
+                        break;
+                }
+            }
+        }
+
+        return context;
+    }
+
+    private static NoteNumberingContext? BuildNoteNumberingContextForPageRestarts(
+        DocumentLayout layout,
+        ParagraphScanState scanState,
+        Document document)
+    {
+        if (layout.Pages.Count == 0 || layout.Lines.Count == 0 || scanState.NoteReferencesByParagraph.Count == 0)
+        {
+            return null;
+        }
+
+        var baseContext = BuildNoteNumberingContext(layout.Paragraphs, layout.ParagraphSectionIndices, document);
+        var context = new NoteNumberingContext();
+        CopyNoteNumbers(baseContext, context, NoteKind.Endnote);
+
+        var pageCount = layout.Pages.Count;
+        var pageFootnotes = new List<int>[pageCount];
+        var pageFootnoteSets = new HashSet<int>[pageCount];
+
+        for (var lineIndex = 0; lineIndex < layout.Lines.Count; lineIndex++)
+        {
+            var line = layout.Lines[lineIndex];
+            if (line.ParagraphIndex < 0)
+            {
+                continue;
+            }
+
+            if (!scanState.NoteReferencesByParagraph.TryGetValue(line.ParagraphIndex, out var references))
+            {
+                continue;
+            }
+
+            var pageIndex = layout.LineIndex.GetPageForLine(lineIndex);
+            if ((uint)pageIndex >= (uint)pageCount)
+            {
+                continue;
+            }
+
+            var lineStart = line.StartOffset;
+            var lineEnd = lineStart + line.Length;
+            for (var i = 0; i < references.Count; i++)
+            {
+                var reference = references[i];
+                if (reference.Kind != NoteKind.Footnote)
+                {
+                    continue;
+                }
+
+                if (reference.Offset < lineStart || reference.Offset >= lineEnd)
+                {
+                    continue;
+                }
+
+                var set = pageFootnoteSets[pageIndex] ??= new HashSet<int>();
+                if (!set.Add(reference.Id))
+                {
+                    continue;
+                }
+
+                var list = pageFootnotes[pageIndex] ??= new List<int>();
+                list.Add(reference.Id);
+
+                if (layout.ParagraphSectionIndices.TryGetValue(line.ParagraphIndex, out var sectionIndex))
+                {
+                    context.SetSectionIndex(NoteKind.Footnote, reference.Id, sectionIndex);
+                }
+            }
+        }
+
+        var currentSectionIndex = -1;
+        var footnoteSettings = ResolveFootnoteSettings(document, 0);
+        var footnoteNumber = 0;
+
+        for (var pageIndex = 0; pageIndex < pageCount; pageIndex++)
+        {
+            var sectionIndex = layout.PageSections[Math.Clamp(pageIndex, 0, layout.PageSections.Count - 1)].SectionIndex;
+            if (sectionIndex != currentSectionIndex)
+            {
+                currentSectionIndex = sectionIndex;
+                footnoteSettings = ResolveFootnoteSettings(document, sectionIndex);
+                if (footnoteSettings.Restart == NoteNumberRestart.EachSection || footnoteNumber == 0)
+                {
+                    footnoteNumber = footnoteSettings.Start ?? 1;
+                }
+            }
+
+            if (footnoteSettings.Restart == NoteNumberRestart.EachPage)
+            {
+                footnoteNumber = footnoteSettings.Start ?? 1;
+            }
+
+            var ids = pageFootnotes[pageIndex];
+            if (ids is null || ids.Count == 0)
+            {
+                continue;
+            }
+
+            for (var i = 0; i < ids.Count; i++)
+            {
+                var id = ids[i];
+                if (context.TryGetText(NoteKind.Footnote, id, out _))
+                {
+                    continue;
+                }
+
+                var text = FormatNoteNumber(footnoteNumber, footnoteSettings.Format ?? NoteNumberFormat.Decimal);
+                context.SetText(NoteKind.Footnote, id, text);
+                footnoteNumber++;
+            }
+        }
+
+        return context;
+    }
+
+    private static void CopyNoteNumbers(NoteNumberingContext source, NoteNumberingContext target, NoteKind kind)
+    {
+        IReadOnlyList<int> order = kind == NoteKind.Endnote ? source.EndnoteOrder : source.FootnoteOrder;
+        for (var i = 0; i < order.Count; i++)
+        {
+            var id = order[i];
+            var text = source.GetText(kind, id);
+            if (!string.IsNullOrEmpty(text))
+            {
+                target.SetText(kind, id, text);
+            }
+
+            if (source.TryGetSectionIndex(kind, id, out var sectionIndex))
+            {
+                target.SetSectionIndex(kind, id, sectionIndex);
+            }
+        }
+    }
+
+    private static FootnoteSettings ResolveFootnoteSettings(Document document, int sectionIndex)
+    {
+        var section = document.GetSection(sectionIndex);
+        var settings = section.Properties.Footnotes?.Clone() ?? new FootnoteSettings();
+        settings.Start ??= 1;
+        settings.Format ??= NoteNumberFormat.Decimal;
+        settings.Restart ??= NoteNumberRestart.Continuous;
+        settings.Position ??= FootnotePosition.PageBottom;
+        return settings;
+    }
+
+    private static EndnoteSettings ResolveEndnoteSettings(Document document, int sectionIndex)
+    {
+        var section = document.GetSection(sectionIndex);
+        var settings = section.Properties.Endnotes?.Clone() ?? new EndnoteSettings();
+        settings.Start ??= 1;
+        settings.Format ??= NoteNumberFormat.Decimal;
+        settings.Restart ??= NoteNumberRestart.Continuous;
+        settings.Position ??= EndnotePosition.EndOfDocument;
+        return settings;
+    }
+
     private static float[] ResolveColumnWidths(
         TableProperties properties,
         int columnCount,
@@ -9457,6 +11039,120 @@ public sealed class DocumentLayouter
         }
 
         return widths;
+    }
+
+    private static float[] ResolveAutoColumnWidths(
+        int columnCount,
+        float contentWidth,
+        float? tableWidth,
+        float cellSpacing,
+        float[] preferredWidths,
+        float[] minContentWidths)
+    {
+        var widths = new float[columnCount];
+        var spacingTotal = cellSpacing * (columnCount + 1);
+        var total = 0f;
+
+        for (var i = 0; i < columnCount; i++)
+        {
+            var preferred = i < preferredWidths.Length ? MathF.Max(0f, preferredWidths[i]) : 0f;
+            var minContent = i < minContentWidths.Length ? MathF.Max(0f, minContentWidths[i]) : 0f;
+            var width = MathF.Max(preferred, minContent);
+            widths[i] = width;
+            total += width;
+        }
+
+        if (total <= 0f)
+        {
+            var targetWidth = tableWidth ?? contentWidth;
+            var availableWidth = MathF.Max(1f, targetWidth - spacingTotal);
+            var defaultWidth = availableWidth / Math.Max(1, columnCount);
+            Array.Fill(widths, defaultWidth);
+            return widths;
+        }
+
+        if (tableWidth.HasValue)
+        {
+            var availableWidth = MathF.Max(1f, tableWidth.Value - spacingTotal);
+            if (total < availableWidth)
+            {
+                DistributeExtraWidth(widths, preferredWidths, availableWidth - total);
+            }
+        }
+
+        return widths;
+    }
+
+    private static void DistributeExtraWidth(float[] widths, float[] preferredWidths, float extra)
+    {
+        if (widths.Length == 0 || extra <= 0f)
+        {
+            return;
+        }
+
+        var weightSum = 0f;
+        for (var i = 0; i < widths.Length; i++)
+        {
+            if (i < preferredWidths.Length && preferredWidths[i] > 0f)
+            {
+                weightSum += preferredWidths[i];
+            }
+        }
+
+        if (weightSum <= 0f)
+        {
+            var extraPerColumn = extra / Math.Max(1, widths.Length);
+            for (var i = 0; i < widths.Length; i++)
+            {
+                widths[i] += extraPerColumn;
+            }
+
+            return;
+        }
+
+        for (var i = 0; i < widths.Length; i++)
+        {
+            var weight = i < preferredWidths.Length ? MathF.Max(0f, preferredWidths[i]) : 0f;
+            if (weight <= 0f)
+            {
+                continue;
+            }
+
+            widths[i] += extra * (weight / weightSum);
+        }
+    }
+
+    private static float[] BuildPreferredColumnWidths(TableProperties properties, int columnCount)
+    {
+        var widths = new float[columnCount];
+        if (properties.ColumnWidths.Count == 0)
+        {
+            return widths;
+        }
+
+        for (var i = 0; i < columnCount; i++)
+        {
+            var width = i < properties.ColumnWidths.Count ? properties.ColumnWidths[i] : properties.ColumnWidths.Last();
+            widths[i] = MathF.Max(0f, width);
+        }
+
+        return widths;
+    }
+
+    private static float? ResolvePreferredCellWidth(TableCellProperties properties, float referenceWidth)
+    {
+        if (!properties.PreferredWidth.HasValue && !properties.PreferredWidthUnit.HasValue)
+        {
+            return null;
+        }
+
+        var unit = properties.PreferredWidthUnit ?? TableWidthUnit.Dxa;
+        if (unit == TableWidthUnit.Auto)
+        {
+            return null;
+        }
+
+        return ResolveTableMeasurement(properties.PreferredWidth, unit, referenceWidth);
     }
 
     private static float? ResolveTableWidth(TableProperties properties, float contentWidth)
@@ -9762,14 +11458,31 @@ public sealed class DocumentLayouter
         int rowCount,
         int columnCount)
     {
+        var hasFirstRow = look.FirstRow && rowCount > 0;
+        var hasLastRow = look.LastRow && rowCount > 1;
+        var hasFirstColumn = look.FirstColumn && columnCount > 0;
+        var hasLastColumn = look.LastColumn && columnCount > 1;
+
         if (look.BandedRows)
         {
-            yield return rowIndex % 2 == 0 ? TableStyleCondition.Band1Horizontal : TableStyleCondition.Band2Horizontal;
+            var bandStart = hasFirstRow ? 1 : 0;
+            var bandEnd = hasLastRow ? rowCount - 1 : rowCount;
+            if (rowIndex >= bandStart && rowIndex < bandEnd)
+            {
+                var bandIndex = rowIndex - bandStart;
+                yield return bandIndex % 2 == 0 ? TableStyleCondition.Band1Horizontal : TableStyleCondition.Band2Horizontal;
+            }
         }
 
         if (look.BandedColumns)
         {
-            yield return columnIndex % 2 == 0 ? TableStyleCondition.Band1Vertical : TableStyleCondition.Band2Vertical;
+            var bandStart = hasFirstColumn ? 1 : 0;
+            var bandEnd = hasLastColumn ? columnCount - 1 : columnCount;
+            if (columnIndex >= bandStart && columnIndex < bandEnd)
+            {
+                var bandIndex = columnIndex - bandStart;
+                yield return bandIndex % 2 == 0 ? TableStyleCondition.Band1Vertical : TableStyleCondition.Band2Vertical;
+            }
         }
 
         if (look.FirstRow && rowIndex == 0)
@@ -9898,6 +11611,8 @@ public sealed class DocumentLayouter
             WrapSide = source.WrapSide,
             WrapPolygon = CloneWrapPolygon(source.WrapPolygon),
             BehindText = source.BehindText,
+            AllowOverlap = source.AllowOverlap,
+            ZOrder = source.ZOrder,
             Distance = source.Distance,
             AnchorOffset = source.AnchorOffset
         };
@@ -9938,10 +11653,10 @@ public sealed class DocumentLayouter
 
         var value = padding.Value;
         return new DocThickness(
-            float.IsNaN(value.Left) ? 0f : value.Left,
-            float.IsNaN(value.Top) ? 0f : value.Top,
-            float.IsNaN(value.Right) ? 0f : value.Right,
-            float.IsNaN(value.Bottom) ? 0f : value.Bottom);
+            ResolvePaddingSide(value.Left, fallback.Left),
+            ResolvePaddingSide(value.Top, fallback.Top),
+            ResolvePaddingSide(value.Right, fallback.Right),
+            ResolvePaddingSide(value.Bottom, fallback.Bottom));
     }
 
     private static float ResolvePaddingSide(float value, float fallback)
@@ -10109,6 +11824,16 @@ public sealed class DocumentLayouter
         if (source.VerticalAlignment.HasValue)
         {
             target.VerticalAlignment = source.VerticalAlignment;
+        }
+
+        if (source.PreferredWidth.HasValue)
+        {
+            target.PreferredWidth = source.PreferredWidth;
+        }
+
+        if (source.PreferredWidthUnit.HasValue)
+        {
+            target.PreferredWidthUnit = source.PreferredWidthUnit;
         }
 
         ApplyTableCellBorders(target.Borders, source.Borders);
@@ -10605,12 +12330,25 @@ public sealed class DocumentLayouter
 
     private sealed class FieldEvaluationContext
     {
+        private enum TocEntrySource
+        {
+            Heading,
+            Field
+        }
+
+        private readonly record struct TocEntry(TextPosition Position, int Level, string Text, TocEntrySource Source, string? TableId);
+        private readonly record struct IndexEntry(TextPosition Position, string Text);
+
         private readonly Document _document;
         private readonly DocumentLayout _layout;
         private readonly IReadOnlyDictionary<string, TextPosition> _bookmarkPositions;
         private readonly IReadOnlyDictionary<string, TextRange> _bookmarkRanges;
         private readonly string[] _pageNumberTexts;
         private readonly string[] _totalPagesTexts;
+        private readonly List<TocEntry> _tocEntries = new();
+        private readonly List<IndexEntry> _indexEntries = new();
+        private readonly Dictionary<FieldStartInline, string> _sequenceTexts = new();
+        private readonly Dictionary<FieldStartInline, string> _tocTexts = new();
 
         private FieldEvaluationContext(
             Document document,
@@ -10625,6 +12363,7 @@ public sealed class DocumentLayouter
             _pageNumberTexts = BuildPageNumberTexts(layout.Pages, layout.PageSections);
             _totalPagesTexts = BuildTotalPagesTexts(layout.Pages, layout.PageSections, Math.Max(1, layout.Pages.Count));
             Now = DateTimeOffset.Now;
+            ScanFieldEntries();
         }
 
         public DateTimeOffset Now { get; }
@@ -10741,6 +12480,91 @@ public sealed class DocumentLayouter
 
             text = string.Empty;
             return false;
+        }
+
+        public bool TryGetSequenceText(FieldStartInline start, FieldDefinition definition, out string text)
+        {
+            if (_sequenceTexts.TryGetValue(start, out var cached) && !string.IsNullOrEmpty(cached))
+            {
+                text = cached;
+                return true;
+            }
+
+            text = string.Empty;
+            return false;
+        }
+
+        public bool TryGetTocText(FieldStartInline start, FieldDefinition definition, out string text)
+        {
+            if (_tocTexts.TryGetValue(start, out var cached) && !string.IsNullOrEmpty(cached))
+            {
+                text = cached;
+                return true;
+            }
+
+            text = string.Empty;
+            if (_tocEntries.Count == 0)
+            {
+                _tocTexts[start] = text;
+                return false;
+            }
+
+            var (minLevel, maxLevel) = ResolveTocLevelRange(definition);
+            var hasTocFieldSwitch = HasFieldSwitch(definition, "\\f");
+            var tableId = GetFieldSwitch(definition, "\\f");
+            var showPageNumbers = !HasFieldSwitch(definition, "\\n");
+            var separator = GetFieldSwitch(definition, "\\p");
+            if (string.IsNullOrEmpty(separator))
+            {
+                separator = "\t";
+            }
+
+            var builder = new System.Text.StringBuilder();
+            var hasEntry = false;
+            foreach (var entry in _tocEntries)
+            {
+                if (!ShouldIncludeTocEntry(entry, hasTocFieldSwitch, tableId, minLevel, maxLevel))
+                {
+                    continue;
+                }
+
+                if (hasEntry)
+                {
+                    builder.Append('\n');
+                }
+
+                var level = Math.Clamp(entry.Level, 1, 9);
+                if (level > 1)
+                {
+                    builder.Append('\t', level - 1);
+                }
+
+                builder.Append(entry.Text);
+                if (showPageNumbers)
+                {
+                    builder.Append(separator);
+                    if (TryGetPageNumberText(entry.Position, out var pageText))
+                    {
+                        builder.Append(pageText);
+                    }
+                }
+
+                hasEntry = true;
+            }
+
+            text = builder.ToString();
+            _tocTexts[start] = text;
+            return hasEntry;
+        }
+
+        public bool ShouldSuppressTocEntry(FieldDefinition definition)
+        {
+            return TryParseTocEntry(definition, out _, out _, out _);
+        }
+
+        public bool ShouldSuppressIndexEntry(FieldDefinition definition)
+        {
+            return TryParseIndexEntry(definition, out _);
         }
 
         private bool TryGetPageIndex(TextPosition position, out int pageIndex)
@@ -10920,6 +12744,474 @@ public sealed class DocumentLayouter
 
             return builder.ToString();
         }
+
+        private void ScanFieldEntries()
+        {
+            var tocStack = new Stack<int?>();
+            var sequenceCounters = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            var paragraphIndex = 0;
+
+            foreach (var block in _document.Blocks)
+            {
+                switch (block)
+                {
+                    case ContentControlStartBlock start when IsTocTag(start.Properties.Tag):
+                        tocStack.Push(start.Properties.Id);
+                        break;
+                    case ContentControlEndBlock end:
+                        if (tocStack.Count > 0 && (!tocStack.Peek().HasValue || tocStack.Peek() == end.Id))
+                        {
+                            tocStack.Pop();
+                        }
+
+                        break;
+                    case ParagraphBlock paragraph:
+                        ScanParagraph(paragraph, paragraphIndex, tocStack.Count > 0, sequenceCounters);
+                        paragraphIndex++;
+                        break;
+                    case TableBlock table:
+                        foreach (var row in table.Rows)
+                        {
+                            foreach (var cell in row.Cells)
+                            {
+                                foreach (var cellParagraph in cell.Paragraphs)
+                                {
+                                    ScanParagraph(cellParagraph, paragraphIndex, tocStack.Count > 0, sequenceCounters);
+                                    paragraphIndex++;
+                                }
+                            }
+                        }
+
+                        break;
+                }
+            }
+        }
+
+        private void ScanParagraph(
+            ParagraphBlock paragraph,
+            int paragraphIndex,
+            bool insideToc,
+            Dictionary<string, int> sequenceCounters)
+        {
+            if (!insideToc)
+            {
+                TryAddHeadingEntry(paragraph, paragraphIndex);
+            }
+
+            ScanParagraphFields(paragraph, paragraphIndex, insideToc, sequenceCounters);
+        }
+
+        private void ScanParagraphFields(
+            ParagraphBlock paragraph,
+            int paragraphIndex,
+            bool insideToc,
+            Dictionary<string, int> sequenceCounters)
+        {
+            if (paragraph.Inlines.Count == 0)
+            {
+                return;
+            }
+
+            var offset = 0;
+            foreach (var inline in paragraph.Inlines)
+            {
+                switch (inline)
+                {
+                    case FieldStartInline fieldStart:
+                    {
+                        var definition = fieldStart.Definition ?? FieldInstructionParser.Parse(fieldStart.Instruction);
+                        fieldStart.Definition = definition;
+                        if (definition is not null)
+                        {
+                            switch (definition.Kind)
+                            {
+                                case FieldKind.Seq:
+                                    if (TryBuildSequenceText(definition, sequenceCounters, out var sequenceText))
+                                    {
+                                        _sequenceTexts[fieldStart] = sequenceText;
+                                    }
+
+                                    break;
+                                case FieldKind.TocEntry:
+                                    if (!insideToc && TryParseTocEntry(definition, out var entryText, out var level, out var tableId))
+                                    {
+                                        var position = new TextPosition(paragraphIndex, offset);
+                                        _tocEntries.Add(new TocEntry(position, level, entryText, TocEntrySource.Field, tableId));
+                                    }
+
+                                    break;
+                                case FieldKind.IndexEntry:
+                                    if (!insideToc && TryParseIndexEntry(definition, out var indexText))
+                                    {
+                                        var position = new TextPosition(paragraphIndex, offset);
+                                        _indexEntries.Add(new IndexEntry(position, indexText));
+                                    }
+
+                                    break;
+                            }
+                        }
+
+                        break;
+                    }
+                    case RunInline runInline:
+                        offset += runInline.Length;
+                        break;
+                    case RubyInline rubyInline:
+                        offset += rubyInline.BaseText?.Length ?? 0;
+                        break;
+                    case ImageInline:
+                    case ShapeInline:
+                    case ChartInline:
+                    case EquationInline:
+                    case TableInline:
+                        offset += 1;
+                        break;
+                    case PageNumberInline:
+                        offset += ResolvePageNumberLength(paragraphIndex, offset);
+                        break;
+                    case TotalPagesInline:
+                        offset += ResolveTotalPagesLength(paragraphIndex, offset);
+                        break;
+                    case FootnoteReferenceInline footnote:
+                        offset += footnote.Id.ToString(System.Globalization.CultureInfo.InvariantCulture).Length;
+                        break;
+                    case EndnoteReferenceInline endnote:
+                        offset += endnote.Id.ToString(System.Globalization.CultureInfo.InvariantCulture).Length;
+                        break;
+                    case CommentReferenceInline comment:
+                        offset += comment.Id.ToString(System.Globalization.CultureInfo.InvariantCulture).Length;
+                        break;
+                    case ContentControlStartInline:
+                    case ContentControlEndInline:
+                    case FieldSeparatorInline:
+                    case FieldEndInline:
+                    case BookmarkStartInline:
+                    case BookmarkEndInline:
+                    case CommentRangeStartInline:
+                    case CommentRangeEndInline:
+                    case MetadataStartInline:
+                    case MetadataEndInline:
+                    case RevisionStartInline:
+                    case RevisionEndInline:
+                    case RevisionRangeStartInline:
+                    case RevisionRangeEndInline:
+                        break;
+                    default:
+                        offset += 1;
+                        break;
+                }
+            }
+        }
+
+        private int ResolvePageNumberLength(int paragraphIndex, int offset)
+        {
+            if (TryGetPageNumberText(new TextPosition(paragraphIndex, offset), out var text))
+            {
+                return text.Length;
+            }
+
+            return 0;
+        }
+
+        private int ResolveTotalPagesLength(int paragraphIndex, int offset)
+        {
+            if (TryGetTotalPagesText(new TextPosition(paragraphIndex, offset), out var text))
+            {
+                return text.Length;
+            }
+
+            return 0;
+        }
+
+        private void TryAddHeadingEntry(ParagraphBlock paragraph, int paragraphIndex)
+        {
+            if (!TryGetHeadingLevel(_document, paragraph, out var level))
+            {
+                return;
+            }
+
+            if (!TryGetParagraphText(paragraphIndex, out var text))
+            {
+                return;
+            }
+
+            text = text.Trim();
+            if (text.Length == 0)
+            {
+                return;
+            }
+
+            var position = new TextPosition(paragraphIndex, 0);
+            _tocEntries.Add(new TocEntry(position, level, text, TocEntrySource.Heading, null));
+        }
+
+        private static bool TryBuildSequenceText(
+            FieldDefinition definition,
+            Dictionary<string, int> sequenceCounters,
+            out string text)
+        {
+            text = string.Empty;
+            var label = GetFirstFieldArgument(definition);
+            if (string.IsNullOrWhiteSpace(label))
+            {
+                return false;
+            }
+
+            label = label.Trim();
+            if (TryGetFieldSwitchInt(definition, "\\r", out var resetValue))
+            {
+                sequenceCounters[label] = resetValue;
+                text = resetValue.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                return true;
+            }
+
+            if (HasFieldSwitch(definition, "\\c"))
+            {
+                if (!sequenceCounters.TryGetValue(label, out var current))
+                {
+                    current = 0;
+                }
+
+                text = current.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                return true;
+            }
+
+            var nextValue = sequenceCounters.TryGetValue(label, out var value) ? value + 1 : 1;
+            sequenceCounters[label] = nextValue;
+            text = nextValue.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            return true;
+        }
+
+        private static bool TryGetFieldSwitchInt(FieldDefinition definition, string name, out int value)
+        {
+            value = 0;
+            var raw = GetFieldSwitch(definition, name);
+            return !string.IsNullOrWhiteSpace(raw)
+                   && int.TryParse(raw, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out value);
+        }
+
+        private static bool TryParseTocEntry(FieldDefinition definition, out string text, out int level, out string? tableId)
+        {
+            text = GetFirstFieldArgument(definition) ?? string.Empty;
+            text = text.Trim();
+            level = 1;
+            tableId = null;
+
+            if (text.Length == 0)
+            {
+                return false;
+            }
+
+            var levelValue = GetFieldSwitch(definition, "\\l");
+            if (!string.IsNullOrWhiteSpace(levelValue)
+                && int.TryParse(levelValue, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var parsed))
+            {
+                level = Math.Clamp(parsed, 1, 9);
+            }
+
+            tableId = GetFieldSwitch(definition, "\\f");
+            if (!string.IsNullOrWhiteSpace(tableId))
+            {
+                tableId = tableId.Trim();
+            }
+
+            return true;
+        }
+
+        private static bool TryParseIndexEntry(FieldDefinition definition, out string text)
+        {
+            text = GetFirstFieldArgument(definition) ?? string.Empty;
+            text = text.Trim();
+            return text.Length > 0;
+        }
+
+        private static (int Min, int Max) ResolveTocLevelRange(FieldDefinition definition)
+        {
+            var range = GetFieldSwitch(definition, "\\o");
+            if (!string.IsNullOrWhiteSpace(range) && TryParseTocLevelRange(range, out var min, out var max))
+            {
+                return (min, max);
+            }
+
+            return (1, 3);
+        }
+
+        private static bool TryParseTocLevelRange(string value, out int minLevel, out int maxLevel)
+        {
+            minLevel = 1;
+            maxLevel = 3;
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return false;
+            }
+
+            var span = value.AsSpan().Trim();
+            if (!TryParseLevelValue(span, out var parsedMin, out var index))
+            {
+                return false;
+            }
+
+            minLevel = parsedMin;
+            if (index < span.Length && span[index] == '-')
+            {
+                index++;
+                var remaining = span.Slice(index);
+                if (!TryParseLevelValue(remaining, out var parsedMax, out _))
+                {
+                    return false;
+                }
+
+                maxLevel = parsedMax;
+            }
+            else
+            {
+                maxLevel = parsedMin;
+            }
+
+            minLevel = Math.Clamp(parsedMin, 1, 9);
+            maxLevel = Math.Clamp(maxLevel, minLevel, 9);
+            return true;
+        }
+
+        private static bool TryParseLevelValue(ReadOnlySpan<char> span, out int value, out int index)
+        {
+            value = 0;
+            index = 0;
+            while (index < span.Length && char.IsWhiteSpace(span[index]))
+            {
+                index++;
+            }
+
+            var parsed = 0;
+            var hasDigit = false;
+            while (index < span.Length && char.IsDigit(span[index]))
+            {
+                parsed = (parsed * 10) + (span[index] - '0');
+                index++;
+                hasDigit = true;
+            }
+
+            if (!hasDigit)
+            {
+                return false;
+            }
+
+            value = parsed;
+            return true;
+        }
+
+        private static bool ShouldIncludeTocEntry(
+            TocEntry entry,
+            bool hasTocFieldSwitch,
+            string? tableId,
+            int minLevel,
+            int maxLevel)
+        {
+            if (entry.Level < minLevel || entry.Level > maxLevel)
+            {
+                return false;
+            }
+
+            if (hasTocFieldSwitch)
+            {
+                if (entry.Source != TocEntrySource.Field)
+                {
+                    return false;
+                }
+
+                return TableIdMatches(entry.TableId, tableId);
+            }
+
+            if (entry.Source == TocEntrySource.Field && !string.IsNullOrWhiteSpace(entry.TableId))
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        private static bool TableIdMatches(string? candidate, string? target)
+        {
+            if (string.IsNullOrWhiteSpace(target))
+            {
+                return string.IsNullOrWhiteSpace(candidate);
+            }
+
+            if (string.IsNullOrWhiteSpace(candidate))
+            {
+                return false;
+            }
+
+            return string.Equals(candidate.Trim(), target.Trim(), StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool TryGetHeadingLevel(Document document, ParagraphBlock paragraph, out int level)
+        {
+            level = 0;
+            if (string.IsNullOrWhiteSpace(paragraph.StyleId))
+            {
+                return false;
+            }
+
+            if (TryParseHeadingLevel(paragraph.StyleId, out level))
+            {
+                return true;
+            }
+
+            if (document.Styles.ParagraphStyles.TryGetValue(paragraph.StyleId, out var style))
+            {
+                return TryParseHeadingLevel(style.Name, out level);
+            }
+
+            return false;
+        }
+
+        private static bool TryParseHeadingLevel(string? value, out int level)
+        {
+            level = 0;
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return false;
+            }
+
+            var span = value.AsSpan().Trim();
+            if (!span.StartsWith("Heading", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            var index = "Heading".Length;
+            while (index < span.Length && char.IsWhiteSpace(span[index]))
+            {
+                index++;
+            }
+
+            if (index >= span.Length || !char.IsDigit(span[index]))
+            {
+                return false;
+            }
+
+            var parsed = 0;
+            while (index < span.Length && char.IsDigit(span[index]))
+            {
+                parsed = (parsed * 10) + (span[index] - '0');
+                index++;
+            }
+
+            if (parsed <= 0 || parsed > 9)
+            {
+                return false;
+            }
+
+            level = parsed;
+            return true;
+        }
+
+        private static bool IsTocTag(string? tag)
+        {
+            return !string.IsNullOrWhiteSpace(tag)
+                   && tag.TrimStart().StartsWith("TOC", StringComparison.OrdinalIgnoreCase);
+        }
     }
 
     private sealed class ParagraphScanState
@@ -10937,7 +13229,7 @@ public sealed class DocumentLayouter
         public bool HasFieldEvaluationCandidates { get; private set; }
         public int? FirstFieldCandidateParagraphIndex { get; private set; }
 
-        public void Scan(Document document, FieldEvaluationContext? fieldContext)
+        public void Scan(Document document, FieldEvaluationContext? fieldContext, NoteNumberingContext? noteNumbers)
         {
             var paragraphIndex = 0;
             foreach (var block in document.Blocks)
@@ -10945,7 +13237,7 @@ public sealed class DocumentLayouter
                 switch (block)
                 {
                     case ParagraphBlock paragraph:
-                        RegisterParagraph(paragraphIndex++, paragraph, fieldContext);
+                        RegisterParagraph(paragraphIndex++, paragraph, fieldContext, noteNumbers);
                         break;
                     case TableBlock table:
                         foreach (var row in table.Rows)
@@ -10954,7 +13246,7 @@ public sealed class DocumentLayouter
                             {
                                 foreach (var paragraph in cell.Paragraphs)
                                 {
-                                    RegisterParagraph(paragraphIndex++, paragraph, fieldContext);
+                                    RegisterParagraph(paragraphIndex++, paragraph, fieldContext, noteNumbers);
                                 }
                             }
                         }
@@ -11007,9 +13299,9 @@ public sealed class DocumentLayouter
                 static item => (IReadOnlyList<CommentHighlightSpan>)item.Value);
         }
 
-        private void RegisterParagraph(int paragraphIndex, ParagraphBlock paragraph, FieldEvaluationContext? fieldContext)
+        private void RegisterParagraph(int paragraphIndex, ParagraphBlock paragraph, FieldEvaluationContext? fieldContext, NoteNumberingContext? noteNumbers)
         {
-            var scan = ScanParagraphInlines(paragraph, paragraphIndex, fieldContext);
+            var scan = ScanParagraphInlines(paragraph, paragraphIndex, fieldContext, noteNumbers);
             if (scan.NoteReferences.Count > 0)
             {
                 NoteReferencesByParagraph[paragraphIndex] = scan.NoteReferences;

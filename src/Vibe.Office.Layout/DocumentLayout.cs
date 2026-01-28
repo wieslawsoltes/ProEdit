@@ -11,6 +11,7 @@ public sealed class DocumentLayout
     public IReadOnlyList<PageLayout> Pages { get; }
     public IReadOnlyList<HeaderFooterLayout> HeaderFooters { get; }
     public IReadOnlyList<FootnoteLayout> Footnotes { get; }
+    public IReadOnlyList<EndnoteLayout> Endnotes { get; }
     public IReadOnlyList<FloatingLayoutObject> FloatingObjects { get; }
     public IReadOnlyList<FloatingLayoutObject> ExtraFloatingObjects { get; }
     public IReadOnlyList<PageSectionSettings> PageSections { get; }
@@ -33,6 +34,7 @@ public sealed class DocumentLayout
         IReadOnlyList<PageLayout> pages,
         IReadOnlyList<HeaderFooterLayout> headerFooters,
         IReadOnlyList<FootnoteLayout> footnotes,
+        IReadOnlyList<EndnoteLayout> endnotes,
         IReadOnlyList<FloatingLayoutObject> floatingObjects,
         IReadOnlyList<FloatingLayoutObject> extraFloatingObjects,
         IReadOnlyList<PageSectionSettings> pageSections,
@@ -54,6 +56,7 @@ public sealed class DocumentLayout
         Pages = pages;
         HeaderFooters = headerFooters;
         Footnotes = footnotes;
+        Endnotes = endnotes;
         FloatingObjects = floatingObjects;
         ExtraFloatingObjects = extraFloatingObjects;
         PageSections = pageSections;
