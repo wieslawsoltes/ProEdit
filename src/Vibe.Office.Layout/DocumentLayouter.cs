@@ -7142,7 +7142,11 @@ public sealed class DocumentLayouter
             revisionStack.RemoveRange(index, revisionStack.Count - index);
         }
 
-        void AppendText(string text, TextStyle style)
+        void AppendText(
+            string text,
+            TextStyle style,
+            ContentControlProperties? contentControl = null,
+            bool contentControlIsPlaceholder = false)
         {
             if (string.IsNullOrEmpty(text))
             {
@@ -7150,7 +7154,7 @@ public sealed class DocumentLayouter
             }
 
             var (effectiveStyle, baselineOffset) = PrepareRunStyle(style, CurrentRevision(), textDirection);
-            AppendTextSpans(builder, spansList, text, effectiveStyle, baselineOffset);
+            AppendTextSpans(builder, spansList, text, effectiveStyle, baselineOffset, contentControl, contentControlIsPlaceholder);
         }
 
         void MarkContent()
@@ -7186,16 +7190,49 @@ public sealed class DocumentLayouter
             }
         }
 
-        void AppendContent(string text, TextStyle style)
+        void AppendContent(
+            string text,
+            TextStyle style,
+            ContentControlProperties? contentControl = null,
+            bool contentControlIsPlaceholder = false)
         {
             if (string.IsNullOrEmpty(text))
             {
                 return;
             }
 
-            AppendText(text, style);
+            if (contentControl is null)
+            {
+                contentControl = ResolveActiveContentControl();
+            }
+
+            AppendText(text, style, contentControl, contentControlIsPlaceholder);
             MarkContent();
             MarkFieldResultContent();
+        }
+
+        ContentControlProperties? ResolveActiveContentControl()
+        {
+            if (contentControls.Count == 0)
+            {
+                return null;
+            }
+
+            for (var i = contentControls.Count - 1; i >= 0; i--)
+            {
+                var state = contentControls[i];
+                if (ShouldRenderContentControlWidget(state.Properties))
+                {
+                    return state.Properties;
+                }
+            }
+
+            return null;
+        }
+
+        bool ShouldRenderContentControlWidget(ContentControlProperties properties)
+        {
+            return properties.DataType != ContentControlDataType.None;
         }
 
         bool TryEnsureFieldEvaluation(TextStyle style)
@@ -7575,13 +7612,14 @@ public sealed class DocumentLayouter
 
                     var state = contentControls[^1];
                     contentControls.RemoveAt(contentControls.Count - 1);
+                    var renderWidget = ShouldRenderContentControlWidget(state.Properties);
                     if (!state.HasContent && !string.IsNullOrWhiteSpace(state.BoundValue))
                     {
-                        AppendContent(state.BoundValue, state.ValueStyle);
+                        AppendContent(state.BoundValue, state.ValueStyle, renderWidget ? state.Properties : null, false);
                     }
                     else if (!state.HasContent && state.ShouldShowPlaceholder && !string.IsNullOrWhiteSpace(state.PlaceholderText))
                     {
-                        AppendContent(state.PlaceholderText, state.PlaceholderStyle);
+                        AppendContent(state.PlaceholderText, state.PlaceholderStyle, renderWidget ? state.Properties : null, true);
                     }
 
                     break;
@@ -8202,7 +8240,9 @@ public sealed class DocumentLayouter
         List<InlineSpan> spans,
         string text,
         TextStyle style,
-        float baselineOffset)
+        float baselineOffset,
+        ContentControlProperties? contentControl = null,
+        bool contentControlIsPlaceholder = false)
     {
         if (string.IsNullOrEmpty(text))
         {
@@ -8211,11 +8251,11 @@ public sealed class DocumentLayouter
 
         if (RequiresScriptSegmentation(style))
         {
-            AppendScriptSpans(builder, spans, text, style, baselineOffset);
+            AppendScriptSpans(builder, spans, text, style, baselineOffset, contentControl, contentControlIsPlaceholder);
             return;
         }
 
-        AppendSegmentSpan(builder, spans, text, style, baselineOffset);
+        AppendSegmentSpan(builder, spans, text, style, baselineOffset, contentControl, contentControlIsPlaceholder);
     }
 
     private static bool RequiresScriptSegmentation(TextStyle style)
@@ -8234,7 +8274,9 @@ public sealed class DocumentLayouter
         List<InlineSpan> spans,
         string text,
         TextStyle style,
-        float baselineOffset)
+        float baselineOffset,
+        ContentControlProperties? contentControl,
+        bool contentControlIsPlaceholder)
     {
         var index = 0;
         var segmentStart = 0;
@@ -8266,7 +8308,7 @@ public sealed class DocumentLayouter
             }
             else if (script != currentScript)
             {
-                AppendScriptSegment(builder, spans, text, segmentStart, index - segmentStart, style, currentScript, baselineOffset);
+                AppendScriptSegment(builder, spans, text, segmentStart, index - segmentStart, style, currentScript, baselineOffset, contentControl, contentControlIsPlaceholder);
                 currentScript = script;
                 segmentStart = index;
             }
@@ -8276,7 +8318,7 @@ public sealed class DocumentLayouter
 
         if (segmentStart < text.Length)
         {
-            AppendScriptSegment(builder, spans, text, segmentStart, text.Length - segmentStart, style, currentScript, baselineOffset);
+            AppendScriptSegment(builder, spans, text, segmentStart, text.Length - segmentStart, style, currentScript, baselineOffset, contentControl, contentControlIsPlaceholder);
         }
     }
 
@@ -8288,7 +8330,9 @@ public sealed class DocumentLayouter
         int length,
         TextStyle style,
         TextScriptKind script,
-        float baselineOffset)
+        float baselineOffset,
+        ContentControlProperties? contentControl,
+        bool contentControlIsPlaceholder)
     {
         if (length <= 0)
         {
@@ -8297,7 +8341,7 @@ public sealed class DocumentLayouter
 
         var segmentText = text.Substring(start, length);
         var segmentStyle = ResolveScriptStyle(style, script);
-        AppendSegmentSpan(builder, spans, segmentText, segmentStyle, baselineOffset);
+        AppendSegmentSpan(builder, spans, segmentText, segmentStyle, baselineOffset, contentControl, contentControlIsPlaceholder);
     }
 
     private static TextStyle ResolveScriptStyle(TextStyle style, TextScriptKind script)
@@ -8344,7 +8388,9 @@ public sealed class DocumentLayouter
         List<InlineSpan> spans,
         string text,
         TextStyle style,
-        float baselineOffset)
+        float baselineOffset,
+        ContentControlProperties? contentControl,
+        bool contentControlIsPlaceholder)
     {
         if (!style.SmallCaps)
         {
@@ -8353,13 +8399,21 @@ public sealed class DocumentLayouter
                 var upperText = text.ToUpperInvariant();
                 var start = builder.Length;
                 builder.Append(upperText);
-                spans.Add(new InlineSpan(start, upperText.Length, upperText, style, null, null, null, null, null, null, baselineOffset));
+                spans.Add(new InlineSpan(start, upperText.Length, upperText, style, null, null, null, null, null, null, baselineOffset)
+                {
+                    ContentControl = contentControl,
+                    ContentControlIsPlaceholder = contentControlIsPlaceholder
+                });
                 return;
             }
 
             var defaultStart = builder.Length;
             builder.Append(text);
-            spans.Add(new InlineSpan(defaultStart, text.Length, text, style, null, null, null, null, null, null, baselineOffset));
+            spans.Add(new InlineSpan(defaultStart, text.Length, text, style, null, null, null, null, null, null, baselineOffset)
+            {
+                ContentControl = contentControl,
+                ContentControlIsPlaceholder = contentControlIsPlaceholder
+            });
             return;
         }
 
@@ -8382,7 +8436,11 @@ public sealed class DocumentLayouter
 
             var segmentText = segmentBuilder.ToString();
             var segmentStyle = currentSmallCaps.Value ? smallCapsStyle : normalStyle;
-            spans.Add(new InlineSpan(segmentStart, segmentText.Length, segmentText, segmentStyle, null, null, null, null, null, null, baselineOffset));
+            spans.Add(new InlineSpan(segmentStart, segmentText.Length, segmentText, segmentStyle, null, null, null, null, null, null, baselineOffset)
+            {
+                ContentControl = contentControl,
+                ContentControlIsPlaceholder = contentControlIsPlaceholder
+            });
             segmentBuilder.Clear();
         }
 
@@ -10807,7 +10865,11 @@ public sealed class DocumentLayouter
                     maxAscent = MathF.Max(maxAscent, ascent);
                     maxDescent = MathF.Max(maxDescent, descent);
 
-                    runs.Add(new LayoutRun(item.Text, item.Style, x, item.Width, item.Text.Length, false, item.BaselineOffset, LetterSpacing: item.Style.LetterSpacing));
+                    runs.Add(new LayoutRun(item.Text, item.Style, x, item.Width, item.Text.Length, false, item.BaselineOffset, LetterSpacing: item.Style.LetterSpacing)
+                    {
+                        ContentControl = item.ContentControl,
+                        ContentControlIsPlaceholder = item.ContentControlIsPlaceholder
+                    });
                     x += item.Width;
                     offset += item.Text.Length;
                     break;
@@ -10821,7 +10883,11 @@ public sealed class DocumentLayouter
                     maxDescent = MathF.Max(maxDescent, descent);
 
                     var baseWidth = TextGridSnapping.MeasureText(item.Text, item.Style, measurer, charGridSpacing);
-                    runs.Add(new LayoutRun(item.Text, item.Style, x, baseWidth, item.Text.Length, false, item.BaselineOffset, LetterSpacing: item.Style.LetterSpacing));
+                    runs.Add(new LayoutRun(item.Text, item.Style, x, baseWidth, item.Text.Length, false, item.BaselineOffset, LetterSpacing: item.Style.LetterSpacing)
+                    {
+                        ContentControl = item.ContentControl,
+                        ContentControlIsPlaceholder = item.ContentControlIsPlaceholder
+                    });
 
                     var rubyStyle = item.RubyStyle ?? item.Style;
                     if (!string.IsNullOrEmpty(item.RubyText))
@@ -11099,6 +11165,8 @@ public sealed class DocumentLayouter
         public string Text { get; }
         public TextStyle Style { get; }
         public float BaselineOffset { get; }
+        public ContentControlProperties? ContentControl { get; }
+        public bool ContentControlIsPlaceholder { get; }
         public string RubyText { get; }
         public TextStyle? RubyStyle { get; }
         public ImageInline? Image { get; }
@@ -11114,6 +11182,8 @@ public sealed class DocumentLayouter
             string text,
             TextStyle style,
             float baselineOffset,
+            ContentControlProperties? contentControl,
+            bool contentControlIsPlaceholder,
             string rubyText,
             TextStyle? rubyStyle,
             ImageInline? image,
@@ -11128,6 +11198,8 @@ public sealed class DocumentLayouter
             Text = text;
             Style = style;
             BaselineOffset = baselineOffset;
+            ContentControl = contentControl;
+            ContentControlIsPlaceholder = contentControlIsPlaceholder;
             RubyText = rubyText;
             RubyStyle = rubyStyle;
             Image = image;
@@ -11139,39 +11211,53 @@ public sealed class DocumentLayouter
             Height = height;
         }
 
-        public static LineItem TextSegment(string text, TextStyle style, float baselineOffset, float width)
+        public static LineItem TextSegment(
+            string text,
+            TextStyle style,
+            float baselineOffset,
+            float width,
+            ContentControlProperties? contentControl,
+            bool contentControlIsPlaceholder)
         {
-            return new LineItem(LineItemKind.Text, text, style, baselineOffset, string.Empty, null, null, null, null, null, null, width, 0f);
+            return new LineItem(LineItemKind.Text, text, style, baselineOffset, contentControl, contentControlIsPlaceholder, string.Empty, null, null, null, null, null, null, width, 0f);
         }
 
-        public static LineItem RubySegment(string text, TextStyle style, float baselineOffset, string rubyText, TextStyle rubyStyle, float width)
+        public static LineItem RubySegment(
+            string text,
+            TextStyle style,
+            float baselineOffset,
+            string rubyText,
+            TextStyle rubyStyle,
+            float width,
+            ContentControlProperties? contentControl,
+            bool contentControlIsPlaceholder)
         {
-            return new LineItem(LineItemKind.Ruby, text, style, baselineOffset, rubyText, rubyStyle, null, null, null, null, null, width, 0f);
+            return new LineItem(LineItemKind.Ruby, text, style, baselineOffset, contentControl, contentControlIsPlaceholder, rubyText, rubyStyle, null, null, null, null, null, width, 0f);
         }
 
         public static LineItem Tab(TextStyle style, float baselineOffset)
         {
-            return new LineItem(LineItemKind.Tab, string.Empty, style, baselineOffset, string.Empty, null, null, null, null, null, null, 0f, 0f);
+            return new LineItem(LineItemKind.Tab, string.Empty, style, baselineOffset, null, false, string.Empty, null, null, null, null, null, null, 0f, 0f);
         }
 
         public static LineItem ImageSegment(ImageInline image, TextStyle style, float width, float height)
         {
-            return new LineItem(LineItemKind.Image, string.Empty, style, 0f, string.Empty, null, image, null, null, null, null, width, height);
+            return new LineItem(LineItemKind.Image, string.Empty, style, 0f, null, false, string.Empty, null, image, null, null, null, null, width, height);
         }
 
         public static LineItem ShapeSegment(ShapeInline shape, TextStyle style, float width, float height)
         {
-            return new LineItem(LineItemKind.Shape, string.Empty, style, 0f, string.Empty, null, null, shape, null, null, null, width, height);
+            return new LineItem(LineItemKind.Shape, string.Empty, style, 0f, null, false, string.Empty, null, null, shape, null, null, null, width, height);
         }
 
         public static LineItem ChartSegment(ChartInline chart, TextStyle style, float width, float height)
         {
-            return new LineItem(LineItemKind.Chart, string.Empty, style, 0f, string.Empty, null, null, null, chart, null, null, width, height);
+            return new LineItem(LineItemKind.Chart, string.Empty, style, 0f, null, false, string.Empty, null, null, null, chart, null, null, width, height);
         }
 
         public static LineItem EquationSegment(EquationInline equation, MathLayout layout, TextStyle style, float width, float height)
         {
-            return new LineItem(LineItemKind.Equation, string.Empty, style, 0f, string.Empty, null, null, null, null, equation, layout, width, height);
+            return new LineItem(LineItemKind.Equation, string.Empty, style, 0f, null, false, string.Empty, null, null, null, null, equation, layout, width, height);
         }
     }
 
@@ -11251,12 +11337,28 @@ public sealed class DocumentLayouter
                     : TextGridSnapping.MeasureText(rubyText, span.RubyStyle, measurer, charGridSpacing);
                 var width = MathF.Max(baseWidth, rubyWidth);
                 var rubyStyle = span.RubyStyle ?? span.Style;
-                items.Add(LineItem.RubySegment(baseText, span.Style, span.BaselineOffset, rubyText, rubyStyle, width));
+                items.Add(LineItem.RubySegment(
+                    baseText,
+                    span.Style,
+                    span.BaselineOffset,
+                    rubyText,
+                    rubyStyle,
+                    width,
+                    span.ContentControl,
+                    span.ContentControlIsPlaceholder));
                 continue;
             }
 
             var segmentText = span.Text.AsSpan(segmentStart - spanStart, segmentLength);
-            AppendTextItems(items, segmentText, span.Style, span.BaselineOffset, measurer, charGridSpacing);
+            AppendTextItems(
+                items,
+                segmentText,
+                span.Style,
+                span.BaselineOffset,
+                measurer,
+                charGridSpacing,
+                span.ContentControl,
+                span.ContentControlIsPlaceholder);
         }
 
         return items;
@@ -11268,7 +11370,9 @@ public sealed class DocumentLayouter
         TextStyle style,
         float baselineOffset,
         ITextMeasurer measurer,
-        float charGridSpacing)
+        float charGridSpacing,
+        ContentControlProperties? contentControl,
+        bool contentControlIsPlaceholder)
     {
         if (text.IsEmpty)
         {
@@ -11287,7 +11391,7 @@ public sealed class DocumentLayouter
             {
                 var segmentText = new string(text.Slice(segmentStart, i - segmentStart));
                 var width = TextGridSnapping.MeasureText(segmentText, style, measurer, charGridSpacing);
-                items.Add(LineItem.TextSegment(segmentText, style, baselineOffset, width));
+                items.Add(LineItem.TextSegment(segmentText, style, baselineOffset, width, contentControl, contentControlIsPlaceholder));
             }
 
             items.Add(LineItem.Tab(style, baselineOffset));
@@ -11298,7 +11402,7 @@ public sealed class DocumentLayouter
         {
             var segmentText = new string(text.Slice(segmentStart));
             var width = TextGridSnapping.MeasureText(segmentText, style, measurer, charGridSpacing);
-            items.Add(LineItem.TextSegment(segmentText, style, baselineOffset, width));
+            items.Add(LineItem.TextSegment(segmentText, style, baselineOffset, width, contentControl, contentControlIsPlaceholder));
         }
     }
 

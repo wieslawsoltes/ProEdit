@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Text;
 using SkiaSharp;
 using SkiaSharp.HarfBuzz;
@@ -903,6 +904,183 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             }
 
             var baseline = originY + lineAscent;
+            bool ResolveCheckBoxState(LayoutRun run)
+            {
+                var properties = run.ContentControl;
+                if (properties?.IsChecked is bool isChecked)
+                {
+                    return isChecked;
+                }
+
+                if (run.ContentControlIsPlaceholder)
+                {
+                    return false;
+                }
+
+                var text = run.Text;
+                if (string.IsNullOrEmpty(text))
+                {
+                    return false;
+                }
+
+                return text.IndexOf('x', StringComparison.OrdinalIgnoreCase) >= 0;
+            }
+
+            void DrawContentControlWidget(LayoutRun run, float minX, float maxX)
+            {
+                var properties = run.ContentControl;
+                if (properties is null || properties.DataType == ContentControlDataType.None || run.Style.Hidden)
+                {
+                    return;
+                }
+
+                var runPaint = GetRunPaint(run.Style);
+                var metrics = runPaint.FontMetrics;
+                var ascent = MathF.Max(1f, -metrics.Ascent);
+                var descent = MathF.Max(0f, metrics.Descent);
+                var runBaseline = baseline - run.BaselineOffset;
+                var textTop = runBaseline - ascent;
+                var textBottom = runBaseline + descent;
+                var height = MathF.Max(1f, textBottom - textTop);
+                var padding = MathF.Max(1f, height * 0.1f);
+                var left = originX + minX;
+                var right = originX + maxX;
+                if (right <= left)
+                {
+                    return;
+                }
+
+                var rect = new SKRect(left - padding, textTop - padding, right + padding, textBottom + padding);
+                var borderColor = run.ContentControlIsPlaceholder
+                    ? BlendColor(runPaint.Color, SKColors.Gray, 0.5f)
+                    : BlendColor(runPaint.Color, SKColors.Black, 0.35f);
+                var fillColor = run.ContentControlIsPlaceholder
+                    ? SKColors.White.WithAlpha(160)
+                    : SKColors.White.WithAlpha(210);
+
+                switch (properties.DataType)
+                {
+                    case ContentControlDataType.CheckBox:
+                    {
+                        var size = MathF.Min(rect.Width, rect.Height);
+                        if (size <= 0f)
+                        {
+                            return;
+                        }
+
+                        var boxX = rect.Left + (rect.Width - size) * 0.5f;
+                        var boxY = rect.Top + (rect.Height - size) * 0.5f;
+                        var boxRect = new SKRect(boxX, boxY, boxX + size, boxY + size);
+                        using var fillPaint = new SKPaint
+                        {
+                            Style = SKPaintStyle.Fill,
+                            Color = fillColor,
+                            IsAntialias = true
+                        };
+                        using var borderPaint = new SKPaint
+                        {
+                            Style = SKPaintStyle.Stroke,
+                            Color = borderColor,
+                            StrokeWidth = MathF.Max(1f, size * 0.08f),
+                            IsAntialias = true
+                        };
+                        targetCanvas.DrawRect(boxRect, fillPaint);
+                        targetCanvas.DrawRect(boxRect, borderPaint);
+
+                        if (ResolveCheckBoxState(run))
+                        {
+                            using var checkPaint = new SKPaint
+                            {
+                                Style = SKPaintStyle.Stroke,
+                                Color = borderColor,
+                                StrokeWidth = MathF.Max(1.2f, size * 0.12f),
+                                StrokeCap = SKStrokeCap.Round,
+                                StrokeJoin = SKStrokeJoin.Round,
+                                IsAntialias = true
+                            };
+                            var start = new SKPoint(boxRect.Left + size * 0.2f, boxRect.MidY);
+                            var mid = new SKPoint(boxRect.Left + size * 0.45f, boxRect.Bottom - size * 0.2f);
+                            var end = new SKPoint(boxRect.Right - size * 0.2f, boxRect.Top + size * 0.25f);
+                            targetCanvas.DrawLine(start, mid, checkPaint);
+                            targetCanvas.DrawLine(mid, end, checkPaint);
+                        }
+
+                        break;
+                    }
+                    case ContentControlDataType.DropDownList:
+                    case ContentControlDataType.ComboBox:
+                    {
+                        var corner = MathF.Max(1f, height * 0.15f);
+                        using var fillPaint = new SKPaint
+                        {
+                            Style = SKPaintStyle.Fill,
+                            Color = fillColor,
+                            IsAntialias = true
+                        };
+                        using var borderPaint = new SKPaint
+                        {
+                            Style = SKPaintStyle.Stroke,
+                            Color = borderColor,
+                            StrokeWidth = MathF.Max(1f, height * 0.07f),
+                            IsAntialias = true
+                        };
+                        targetCanvas.DrawRoundRect(rect, corner, corner, fillPaint);
+                        targetCanvas.DrawRoundRect(rect, corner, corner, borderPaint);
+
+                        var iconSize = MathF.Min(MathF.Max(6f, height * 0.35f), rect.Width * 0.4f);
+                        var iconX = rect.Right - padding - iconSize;
+                        var iconCenterY = rect.MidY;
+                        using var arrowPaint = new SKPaint
+                        {
+                            Style = SKPaintStyle.Fill,
+                            Color = borderColor,
+                            IsAntialias = true
+                        };
+                        using var path = new SKPath();
+                        path.MoveTo(iconX, iconCenterY - iconSize * 0.2f);
+                        path.LineTo(iconX + iconSize, iconCenterY - iconSize * 0.2f);
+                        path.LineTo(iconX + iconSize * 0.5f, iconCenterY + iconSize * 0.3f);
+                        path.Close();
+                        targetCanvas.DrawPath(path, arrowPaint);
+                        break;
+                    }
+                    case ContentControlDataType.Date:
+                    {
+                        var corner = MathF.Max(1f, height * 0.15f);
+                        using var fillPaint = new SKPaint
+                        {
+                            Style = SKPaintStyle.Fill,
+                            Color = fillColor,
+                            IsAntialias = true
+                        };
+                        using var borderPaint = new SKPaint
+                        {
+                            Style = SKPaintStyle.Stroke,
+                            Color = borderColor,
+                            StrokeWidth = MathF.Max(1f, height * 0.07f),
+                            IsAntialias = true
+                        };
+                        targetCanvas.DrawRoundRect(rect, corner, corner, fillPaint);
+                        targetCanvas.DrawRoundRect(rect, corner, corner, borderPaint);
+
+                        var iconSize = MathF.Min(MathF.Max(7f, height * 0.5f), rect.Width * 0.45f);
+                        var iconLeft = rect.Right - padding - iconSize;
+                        var iconTop = rect.MidY - iconSize * 0.5f;
+                        var iconRect = new SKRect(iconLeft, iconTop, iconLeft + iconSize, iconTop + iconSize);
+                        using var iconPaint = new SKPaint
+                        {
+                            Style = SKPaintStyle.Stroke,
+                            Color = borderColor,
+                            StrokeWidth = MathF.Max(1f, iconSize * 0.1f),
+                            IsAntialias = true
+                        };
+                        targetCanvas.DrawRect(iconRect, iconPaint);
+                        var headerY = iconRect.Top + iconSize * 0.28f;
+                        targetCanvas.DrawLine(iconRect.Left, headerY, iconRect.Right, headerY, iconPaint);
+                        break;
+                    }
+                }
+            }
             var segments = BuildVisualSegments(lineText, baseRtl, runs, images, shapes, charts, equations, gridSpacing, GetRunMetrics);
             if (!string.IsNullOrEmpty(prefix))
             {
@@ -918,6 +1096,40 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                 {
                     targetCanvas.DrawShapedText(prefixShaper, prefix, prefixX, prefixBaseline, defaultPaint);
                 }
+            }
+            Dictionary<LayoutRun, (float MinX, float MaxX)>? contentControlBounds = null;
+            for (var i = 0; i < segments.Count; i++)
+            {
+                var run = segments[i].Run;
+                if (run is null || run.IsTab || run.Style.Hidden)
+                {
+                    continue;
+                }
+
+                var properties = run.ContentControl;
+                if (properties is null || properties.DataType == ContentControlDataType.None)
+                {
+                    continue;
+                }
+
+                var start = segments[i].X;
+                var end = start + segments[i].Width;
+                if (contentControlBounds is null)
+                {
+                    contentControlBounds = new Dictionary<LayoutRun, (float MinX, float MaxX)>(ReferenceEqualityComparer<LayoutRun>.Instance);
+                }
+
+                if (contentControlBounds.TryGetValue(run, out var bounds))
+                {
+                    bounds.MinX = MathF.Min(bounds.MinX, start);
+                    bounds.MaxX = MathF.Max(bounds.MaxX, end);
+                }
+                else
+                {
+                    bounds = (start, end);
+                }
+
+                contentControlBounds[run] = bounds;
             }
             foreach (var segment in segments)
             {
@@ -960,6 +1172,10 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                 {
                     var run = segment.Run;
                     if (run.Style.Hidden || string.IsNullOrEmpty(run.Text))
+                    {
+                        continue;
+                    }
+                    if (run.ContentControl?.DataType == ContentControlDataType.CheckBox)
                     {
                         continue;
                     }
@@ -1073,6 +1289,14 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                         baseline,
                         GetRunPaint,
                         runStyle => SkiaTextMeasurer.ShouldApplyKerning(runStyle) ? GetRunShaper(runStyle) : null);
+                }
+            }
+
+            if (contentControlBounds is not null)
+            {
+                foreach (var entry in contentControlBounds)
+                {
+                    DrawContentControlWidget(entry.Key, entry.Value.MinX, entry.Value.MaxX);
                 }
             }
 
@@ -4920,5 +5144,14 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
 
             return low;
         }
+    }
+
+    private sealed class ReferenceEqualityComparer<T> : IEqualityComparer<T> where T : class
+    {
+        public static readonly ReferenceEqualityComparer<T> Instance = new ReferenceEqualityComparer<T>();
+
+        public bool Equals(T? x, T? y) => ReferenceEquals(x, y);
+
+        public int GetHashCode(T obj) => RuntimeHelpers.GetHashCode(obj);
     }
 }

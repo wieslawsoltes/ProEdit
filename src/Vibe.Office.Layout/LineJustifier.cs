@@ -630,7 +630,11 @@ internal static class LineJustifier
                         {
                             var token = text.Substring(segmentStart, chIndex - segmentStart);
                             var width = TextGridSnapping.MeasureText(token, run.Style, measurer, charGridSpacing);
-                            runs.Add(new LayoutRun(token, run.Style, x, width, token.Length, false, run.BaselineOffset, run.TabLeader, run.LetterSpacing));
+                            runs.Add(new LayoutRun(token, run.Style, x, width, token.Length, false, run.BaselineOffset, run.TabLeader, run.LetterSpacing)
+                            {
+                                ContentControl = run.ContentControl,
+                                ContentControlIsPlaceholder = run.ContentControlIsPlaceholder
+                            });
                             x += width;
                         }
 
@@ -640,7 +644,11 @@ internal static class LineJustifier
                         {
                             adjustedWidth = TextGridSnapping.SnapToGridForward(adjustedWidth, charGridSpacing);
                         }
-                        runs.Add(new LayoutRun(" ", run.Style, x, adjustedWidth, 1, false, run.BaselineOffset, run.TabLeader, run.LetterSpacing));
+                        runs.Add(new LayoutRun(" ", run.Style, x, adjustedWidth, 1, false, run.BaselineOffset, run.TabLeader, run.LetterSpacing)
+                        {
+                            ContentControl = run.ContentControl,
+                            ContentControlIsPlaceholder = run.ContentControlIsPlaceholder
+                        });
                         x += adjustedWidth;
                         segmentStart = chIndex + 1;
                     }
@@ -649,7 +657,11 @@ internal static class LineJustifier
                     {
                         var token = text.Substring(segmentStart);
                         var width = TextGridSnapping.MeasureText(token, run.Style, measurer, charGridSpacing);
-                        runs.Add(new LayoutRun(token, run.Style, x, width, token.Length, false, run.BaselineOffset, run.TabLeader, run.LetterSpacing));
+                        runs.Add(new LayoutRun(token, run.Style, x, width, token.Length, false, run.BaselineOffset, run.TabLeader, run.LetterSpacing)
+                        {
+                            ContentControl = run.ContentControl,
+                            ContentControlIsPlaceholder = run.ContentControlIsPlaceholder
+                        });
                         x += width;
                     }
                     break;
@@ -842,7 +854,11 @@ internal static class LineJustifier
 
                     var newText = BuildTextWithKashidas(run.Text, runPlan.Positions, runPlan.Insertions);
                     var width = TextGridSnapping.MeasureText(newText.AsSpan(), run.Style, measurer, charGridSpacing);
-                    runs.Add(new LayoutRun(newText, run.Style, x, width, newText.Length, false, run.BaselineOffset, run.TabLeader, run.LetterSpacing));
+                    runs.Add(new LayoutRun(newText, run.Style, x, width, newText.Length, false, run.BaselineOffset, run.TabLeader, run.LetterSpacing)
+                    {
+                        ContentControl = run.ContentControl,
+                        ContentControlIsPlaceholder = run.ContentControlIsPlaceholder
+                    });
                     x += width;
                     break;
                 }
@@ -1079,7 +1095,11 @@ internal static class LineJustifier
                             width = TextGridSnapping.SnapToGridForward(width, charGridSpacing);
                         }
 
-                        runs.Add(new LayoutRun(glyph, run.Style, x, width, 1, false, run.BaselineOffset, run.TabLeader, run.LetterSpacing));
+                        runs.Add(new LayoutRun(glyph, run.Style, x, width, 1, false, run.BaselineOffset, run.TabLeader, run.LetterSpacing)
+                        {
+                            ContentControl = run.ContentControl,
+                            ContentControlIsPlaceholder = run.ContentControlIsPlaceholder
+                        });
                         x += width;
                     }
                     break;

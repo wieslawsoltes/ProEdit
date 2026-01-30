@@ -13,4 +13,8 @@ internal sealed record InlineSpan(
     EquationInline? Equation,
     RubyInline? Ruby,
     TextStyle? RubyStyle,
-    float BaselineOffset);
+    float BaselineOffset)
+{
+    public ContentControlProperties? ContentControl { get; init; }
+    public bool ContentControlIsPlaceholder { get; init; }
+}
