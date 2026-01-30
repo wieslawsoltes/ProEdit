@@ -25,33 +25,7 @@ public static class ClipboardPlainTextSerializer
 
     public static Document ToDocument(string text)
     {
-        var document = new Document();
-        document.Blocks.Clear();
-        document.Sections.Clear();
-        document.Sections.Add(new DocumentSection(
-            document.SectionProperties,
-            document.Header,
-            document.Footer,
-            document.FirstHeader,
-            document.FirstFooter,
-            document.EvenHeader,
-            document.EvenFooter));
-        DocumentDefaults.ApplyDefaultPageSetup(document.SectionProperties);
-
-        if (string.IsNullOrEmpty(text))
-        {
-            document.Blocks.Add(new ParagraphBlock());
-            return document;
-        }
-
-        var normalized = text.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
-        var lines = normalized.Split('\n');
-        foreach (var line in lines)
-        {
-            document.Blocks.Add(new ParagraphBlock(line));
-        }
-
-        return document;
+        return DocumentPlainTextParser.FromPlainText(text);
     }
 
     private static string BuildObjectText(ClipboardContent content)

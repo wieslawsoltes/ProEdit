@@ -28,7 +28,9 @@ public static class EditorReviewCommandIds
     public static class Comments
     {
         public const string NewComment = "review.comments.new";
+        public const string ReplyComment = "review.comments.reply";
         public const string DeleteComment = "review.comments.delete";
+        public const string ResolveComment = "review.comments.resolve";
         public const string PreviousComment = "review.comments.previous";
         public const string NextComment = "review.comments.next";
     }

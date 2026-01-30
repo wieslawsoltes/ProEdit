@@ -32,7 +32,9 @@ public sealed class EditorReviewCommandMap
         _router.RegisterAction(EditorReviewCommandIds.Language.SetLanguage, (_, payload) => SetLanguage(payload), (context, _) => HasParagraphs(context));
 
         _router.RegisterAction(EditorReviewCommandIds.Comments.NewComment, (_, __) => InsertComment(), (context, _) => HasParagraphs(context));
-        _router.RegisterAction(EditorReviewCommandIds.Comments.DeleteComment, (_, __) => DeleteComment(), (context, _) => HasComments(context));
+        _router.RegisterAction(EditorReviewCommandIds.Comments.ReplyComment, (_, payload) => ReplyToComment(payload), (context, _) => HasComments(context));
+        _router.RegisterAction(EditorReviewCommandIds.Comments.DeleteComment, (_, payload) => DeleteComment(payload), (context, _) => HasComments(context));
+        _router.RegisterAction(EditorReviewCommandIds.Comments.ResolveComment, (_, payload) => ToggleCommentResolved(payload), (context, _) => HasComments(context));
         _router.RegisterAction(EditorReviewCommandIds.Comments.PreviousComment, (_, __) => NavigateComment(-1), (context, _) => HasComments(context));
         _router.RegisterAction(EditorReviewCommandIds.Comments.NextComment, (_, __) => NavigateComment(1), (context, _) => HasComments(context));
 
@@ -329,7 +331,8 @@ public sealed class EditorReviewCommandMap
         var definition = new CommentDefinition(commentId)
         {
             Author = Environment.UserName,
-            Date = DateTime.UtcNow
+            Date = DateTime.UtcNow,
+            ThreadId = commentId
         };
         definition.Blocks.Add(new ParagraphBlock("Comment"));
         _session.Document.Comments[commentId] = definition;
@@ -338,15 +341,92 @@ public sealed class EditorReviewCommandMap
         _session.RefreshLayout();
     }
 
-    private void DeleteComment()
+    private void DeleteComment(object? payload)
     {
-        if (!TryResolveCommentId(out var commentId))
+        if (!TryResolveCommentId(payload, out var commentId))
         {
             return;
         }
 
-        _session.Document.Comments.Remove(commentId);
-        RemoveCommentMarkers(commentId);
+        var comments = _session.Document.Comments;
+        if (!comments.TryGetValue(commentId, out var comment))
+        {
+            return;
+        }
+
+        var threadId = CommentThreading.ResolveThreadId(comment, comments);
+        if (!comment.ParentId.HasValue || commentId == threadId)
+        {
+            var threadComments = CollectThreadCommentIds(threadId, comments);
+            foreach (var id in threadComments)
+            {
+                comments.Remove(id);
+            }
+
+            RemoveCommentMarkers(threadId);
+        }
+        else
+        {
+            comments.Remove(commentId);
+        }
+
+        _session.RefreshLayout();
+    }
+
+    private void ReplyToComment(object? payload)
+    {
+        if (!TryResolveCommentId(payload, out var commentId))
+        {
+            return;
+        }
+
+        var comments = _session.Document.Comments;
+        if (!comments.TryGetValue(commentId, out var comment))
+        {
+            return;
+        }
+
+        var threadId = CommentThreading.ResolveThreadId(comment, comments);
+        var replyId = _commentCounter++;
+        var definition = new CommentDefinition(replyId)
+        {
+            Author = Environment.UserName,
+            Date = DateTime.UtcNow,
+            ParentId = commentId,
+            ThreadId = threadId
+        };
+
+        definition.Blocks.Add(new ParagraphBlock("Reply"));
+        comments[replyId] = definition;
+
+        if (comments.TryGetValue(threadId, out var root) && root.IsResolved)
+        {
+            root.IsResolved = false;
+            root.ResolvedBy = null;
+            root.ResolvedDate = null;
+        }
+
+        _session.RefreshLayout();
+    }
+
+    private void ToggleCommentResolved(object? payload)
+    {
+        if (!TryResolveCommentId(payload, out var commentId))
+        {
+            return;
+        }
+
+        var comments = _session.Document.Comments;
+        if (!comments.TryGetValue(commentId, out var comment))
+        {
+            return;
+        }
+
+        var root = CommentThreading.ResolveRootComment(comment, comments);
+        var resolved = !root.IsResolved;
+        root.IsResolved = resolved;
+        root.ResolvedBy = resolved ? Environment.UserName : null;
+        root.ResolvedDate = resolved ? DateTime.UtcNow : null;
         _session.RefreshLayout();
     }
 
@@ -474,6 +554,17 @@ public sealed class EditorReviewCommandMap
         _session.InsertInlines(inlines);
     }
 
+    private bool TryResolveCommentId(object? payload, out int commentId)
+    {
+        if (payload is int id)
+        {
+            commentId = id;
+            return true;
+        }
+
+        return TryResolveCommentId(out commentId);
+    }
+
     private bool TryResolveCommentId(out int commentId)
     {
         commentId = 0;
@@ -551,6 +642,20 @@ public sealed class EditorReviewCommandMap
                 NormalizeParagraphInlines(paragraph);
             }
         }
+    }
+
+    private static List<int> CollectThreadCommentIds(int threadId, IReadOnlyDictionary<int, CommentDefinition> comments)
+    {
+        var ids = new List<int>();
+        foreach (var pair in comments)
+        {
+            if (CommentThreading.ResolveThreadId(pair.Value, comments) == threadId)
+            {
+                ids.Add(pair.Key);
+            }
+        }
+
+        return ids;
     }
 
     private bool HasCommentMarkers()

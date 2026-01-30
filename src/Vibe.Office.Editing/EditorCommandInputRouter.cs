@@ -1,3 +1,5 @@
+using Vibe.Office.Documents;
+
 namespace Vibe.Office.Editing;
 
 public sealed class EditorCommandInputRouter : IEditorInputRouter
@@ -7,18 +9,21 @@ public sealed class EditorCommandInputRouter : IEditorInputRouter
     private readonly IUndoRedoService? _undoRedo;
     private readonly IClipboardService? _clipboard;
     private readonly EditorClipboardController? _clipboardController;
+    private readonly IContentControlInteractionService? _contentControls;
 
     public EditorCommandInputRouter(
         EditorCommandDispatcher dispatcher,
         IEditorMutableSession session,
         IUndoRedoService? undoRedo = null,
         IClipboardService? clipboard = null,
-        ITableSelectionSnapshotProvider? tableSelectionProvider = null)
+        ITableSelectionSnapshotProvider? tableSelectionProvider = null,
+        IContentControlInteractionService? contentControls = null)
     {
         _dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
         _session = session ?? throw new ArgumentNullException(nameof(session));
         _undoRedo = undoRedo;
         _clipboard = clipboard;
+        _contentControls = contentControls;
         if (clipboard is not null)
         {
             _clipboardController = new EditorClipboardController(session, clipboard, tableSelectionProvider);
@@ -35,6 +40,17 @@ public sealed class EditorCommandInputRouter : IEditorInputRouter
         if (text.Length == 1 && (text[0] == '\r' || text[0] == '\n'))
         {
             _dispatcher.Dispatch(new InsertParagraphBreakCommand(), _session);
+            return true;
+        }
+
+        if (text.Length == 1 && text[0] == ' '
+            && _session is IContentControlInteractionSession contentSession
+            && contentSession.TryGetContentControlAtCaret(out var hit)
+            && hit.Properties.DataType != ContentControlDataType.None)
+        {
+            _dispatcher.Dispatch(
+                new ActivateContentControlCommand(hit, ContentControlActivationSource.Keyboard, modifiers, _contentControls),
+                _session);
             return true;
         }
 
@@ -233,6 +249,19 @@ public sealed class EditorCommandInputRouter : IEditorInputRouter
         if (pointerEvent.Kind == EditorPointerKind.Down)
         {
             var mode = ResolveSelectionMode(pointerEvent.Modifiers);
+            if (pointerEvent.Button == EditorPointerButton.Primary
+                && mode == SelectionUpdateMode.Replace
+                && pointerEvent.ClickCount <= 1
+                && _session is IContentControlInteractionSession contentSession
+                && contentSession.TryGetContentControlAtPoint(pointerEvent.X, pointerEvent.Y, out var hit)
+                && hit.Properties.DataType != ContentControlDataType.None)
+            {
+                _dispatcher.Dispatch(
+                    new ActivateContentControlCommand(hit, ContentControlActivationSource.Pointer, pointerEvent.Modifiers, _contentControls),
+                    _session);
+                return true;
+            }
+
             _dispatcher.Dispatch(new SetCaretFromPointCommand(pointerEvent.X, pointerEvent.Y, mode), _session);
             return true;
         }

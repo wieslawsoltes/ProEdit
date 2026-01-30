@@ -648,6 +648,7 @@ public sealed class EditorClipboardController
             }
         }
 
+        ExpandCommentIds(document.Comments, commentIds);
         foreach (var commentId in commentIds)
         {
             if (document.Comments.TryGetValue(commentId, out var definition))
@@ -962,7 +963,7 @@ public sealed class EditorClipboardController
         var listIdMap = MergeListDefinitions(resources.ListDefinitions, target.ListDefinitions);
         var footnoteMap = MergeNotes(resources.Footnotes, target.Footnotes);
         var endnoteMap = MergeNotes(resources.Endnotes, target.Endnotes);
-        var commentMap = MergeNotes(resources.Comments, target.Comments);
+        var commentMap = MergeComments(resources.Comments, target.Comments);
 
         if (listIdMap.Count > 0 || footnoteMap.Count > 0 || endnoteMap.Count > 0 || commentMap.Count > 0)
         {
@@ -981,7 +982,7 @@ public sealed class EditorClipboardController
             : new Dictionary<int, int>();
         var footnoteMap = MergeNotes(resources.Footnotes, target.Footnotes);
         var endnoteMap = MergeNotes(resources.Endnotes, target.Endnotes);
-        var commentMap = MergeNotes(resources.Comments, target.Comments);
+        var commentMap = MergeComments(resources.Comments, target.Comments);
 
         if (listIdMap.Count > 0 || footnoteMap.Count > 0 || endnoteMap.Count > 0 || commentMap.Count > 0)
         {
@@ -1296,6 +1297,56 @@ public sealed class EditorClipboardController
         return map;
     }
 
+    private static Dictionary<int, int> MergeComments(
+        IReadOnlyDictionary<int, CommentDefinition> source,
+        Dictionary<int, CommentDefinition> target)
+    {
+        var map = new Dictionary<int, int>();
+        if (source.Count == 0)
+        {
+            return map;
+        }
+
+        var nextId = target.Count == 0 ? 1 : target.Keys.Max() + 1;
+        foreach (var pair in source)
+        {
+            var newId = pair.Key;
+            if (target.ContainsKey(newId))
+            {
+                newId = nextId++;
+                map[pair.Key] = newId;
+            }
+
+            var clone = DocumentClone.CloneCommentDefinition(pair.Value);
+            clone.Id = newId;
+            target[newId] = clone;
+        }
+
+        if (map.Count > 0)
+        {
+            foreach (var pair in source)
+            {
+                var mappedId = map.TryGetValue(pair.Key, out var newId) ? newId : pair.Key;
+                if (!target.TryGetValue(mappedId, out var clone))
+                {
+                    continue;
+                }
+
+                if (clone.ParentId.HasValue && map.TryGetValue(clone.ParentId.Value, out var parentId))
+                {
+                    clone.ParentId = parentId;
+                }
+
+                if (clone.ThreadId.HasValue && map.TryGetValue(clone.ThreadId.Value, out var threadId))
+                {
+                    clone.ThreadId = threadId;
+                }
+            }
+        }
+
+        return map;
+    }
+
     private static T CloneNote<T>(T note, int newId) where T : class
     {
         switch (note)
@@ -1326,7 +1377,12 @@ public sealed class EditorClipboardController
                 {
                     Author = comment.Author,
                     Initials = comment.Initials,
-                    Date = comment.Date
+                    Date = comment.Date,
+                    ParentId = comment.ParentId,
+                    ThreadId = comment.ThreadId,
+                    IsResolved = comment.IsResolved,
+                    ResolvedBy = comment.ResolvedBy,
+                    ResolvedDate = comment.ResolvedDate
                 };
                 foreach (var block in comment.Blocks)
                 {
@@ -1337,6 +1393,37 @@ public sealed class EditorClipboardController
             }
             default:
                 throw new InvalidOperationException("Unsupported note definition.");
+        }
+    }
+
+    private static void ExpandCommentIds(IReadOnlyDictionary<int, CommentDefinition> comments, HashSet<int> commentIds)
+    {
+        if (commentIds.Count == 0 || comments.Count == 0)
+        {
+            return;
+        }
+
+        var threadIds = new HashSet<int>();
+        foreach (var commentId in commentIds)
+        {
+            if (comments.TryGetValue(commentId, out var comment))
+            {
+                threadIds.Add(CommentThreading.ResolveThreadId(comment, comments));
+            }
+        }
+
+        if (threadIds.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var pair in comments)
+        {
+            var threadId = CommentThreading.ResolveThreadId(pair.Value, comments);
+            if (threadIds.Contains(threadId))
+            {
+                commentIds.Add(pair.Key);
+            }
         }
     }
 

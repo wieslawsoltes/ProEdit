@@ -1,12 +1,13 @@
 using Vibe.Office.Documents;
 using Vibe.Office.Layout;
 using Vibe.Office.Primitives;
+using Vibe.Word.Editor.Editing;
 
 using Vibe.Office.Editing;
 
 namespace Vibe.Word.Editor;
 
-public sealed class EditorController : IEditorMutableSession
+public sealed class EditorController : IEditorMutableSession, IContentControlInteractionSession
 {
     private readonly EditorLayoutService _layoutService;
     private readonly EditorSelectionService _selectionService;
@@ -63,7 +64,14 @@ public sealed class EditorController : IEditorMutableSession
         DeleteSelectionIfAny();
 
         var paragraph = this.GetParagraphFast(Caret.ParagraphIndex);
-        InsertTextAtPosition(paragraph, Caret.Offset, text);
+        if (Document.TrackChangesEnabled)
+        {
+            InsertTextWithRevision(paragraph, Caret.Offset, text);
+        }
+        else
+        {
+            InsertTextAtPosition(paragraph, Caret.Offset, text);
+        }
         _selectionService.SetCaret(new TextPosition(Caret.ParagraphIndex, Caret.Offset + text.Length), false);
         Reflow(dirtyParagraphIndex);
     }
@@ -113,7 +121,14 @@ public sealed class EditorController : IEditorMutableSession
             StyleId = styleId
         };
 
-        InsertInlineAtPosition(paragraph, Caret.Offset, equation);
+        if (Document.TrackChangesEnabled)
+        {
+            InsertInlineWithRevision(paragraph, Caret.Offset, equation);
+        }
+        else
+        {
+            InsertInlineAtPosition(paragraph, Caret.Offset, equation);
+        }
         _selectionService.SetCaret(new TextPosition(Caret.ParagraphIndex, Caret.Offset + 1), false);
         Reflow(dirtyParagraphIndex);
     }
@@ -200,7 +215,14 @@ public sealed class EditorController : IEditorMutableSession
 
         var paragraph = this.GetParagraphFast(Caret.ParagraphIndex);
         var offset = Caret.Offset;
-        InsertInlineAtPosition(paragraph, offset, inline);
+        if (Document.TrackChangesEnabled)
+        {
+            InsertInlineWithRevision(paragraph, offset, inline);
+        }
+        else
+        {
+            InsertInlineAtPosition(paragraph, offset, inline);
+        }
         var length = DocumentEditHelpers.GetInlineLength(inline);
         _selectionService.SetCaret(new TextPosition(Caret.ParagraphIndex, offset + length), false);
         Reflow(dirtyParagraphIndex);
@@ -219,7 +241,14 @@ public sealed class EditorController : IEditorMutableSession
         var paragraph = this.GetParagraphFast(Caret.ParagraphIndex);
         var offset = Caret.Offset;
         var totalLength = GetInlineRangeLength(inlines);
-        InsertInlineRangeAtPosition(paragraph, offset, inlines, totalLength);
+        if (Document.TrackChangesEnabled)
+        {
+            InsertInlineRangeWithRevision(paragraph, offset, inlines, totalLength);
+        }
+        else
+        {
+            InsertInlineRangeAtPosition(paragraph, offset, inlines, totalLength);
+        }
         _selectionService.SetCaret(new TextPosition(Caret.ParagraphIndex, offset + totalLength), false);
         Reflow(dirtyParagraphIndex);
     }
@@ -288,6 +317,27 @@ public sealed class EditorController : IEditorMutableSession
             return;
         }
 
+        if (Document.TrackChangesEnabled)
+        {
+            if (Caret.Offset > 0)
+            {
+                var paragraph = this.GetParagraphFast(Caret.ParagraphIndex);
+                MarkDeletionRange(paragraph, Caret.Offset - 1, Caret.Offset);
+                _selectionService.SetCaret(new TextPosition(Caret.ParagraphIndex, Caret.Offset - 1), false);
+                Reflow(dirtyParagraphIndex);
+                return;
+            }
+
+            if (Caret.ParagraphIndex > 0)
+            {
+                var paragraph = this.GetParagraphFast(Caret.ParagraphIndex);
+                InsertDeletionMarker(paragraph, 0);
+                Reflow(dirtyParagraphIndex);
+            }
+
+            return;
+        }
+
         if (Caret.Offset > 0)
         {
             var paragraph = this.GetParagraphFast(Caret.ParagraphIndex);
@@ -328,6 +378,22 @@ public sealed class EditorController : IEditorMutableSession
 
         var currentLocation = Document.GetParagraphLocation(Caret.ParagraphIndex);
         var paragraph = currentLocation.Paragraph;
+        if (Document.TrackChangesEnabled)
+        {
+            if (Caret.Offset < DocumentEditHelpers.GetParagraphLength(paragraph))
+            {
+                MarkDeletionRange(paragraph, Caret.Offset, Caret.Offset + 1);
+                Reflow(dirtyParagraphIndex);
+            }
+            else if (Caret.ParagraphIndex < this.GetParagraphCountFast() - 1)
+            {
+                InsertDeletionMarker(paragraph, Caret.Offset);
+                Reflow(dirtyParagraphIndex);
+            }
+
+            return;
+        }
+
         if (Caret.Offset < DocumentEditHelpers.GetParagraphLength(paragraph))
         {
             DeleteRangeInParagraph(paragraph, Caret.Offset, Caret.Offset + 1);
@@ -406,9 +472,232 @@ public sealed class EditorController : IEditorMutableSession
     {
         return _selectionService.GetEquationAtPosition(position);
     }
+
+    public bool TryGetContentControlAtPoint(float x, float y, out ContentControlHit hit)
+    {
+        return _selectionService.TryGetContentControlAtPoint(x, y, out hit);
+    }
+
+    public bool TryGetContentControlAtCaret(out ContentControlHit hit)
+    {
+        return _selectionService.TryGetContentControlAtCaret(out hit);
+    }
+
+    public bool TryActivateContentControl(
+        in ContentControlHit hit,
+        ContentControlActivationSource source,
+        EditorModifiers modifiers,
+        IContentControlInteractionService? interactionService)
+    {
+        _selectionService.SetCaret(hit.Position, SelectionUpdateMode.Replace);
+        if (DocumentEditHelpers.IsContentControlContentLocked(hit.Properties))
+        {
+            return false;
+        }
+
+        var updated = hit.Properties.DataType switch
+        {
+            ContentControlDataType.CheckBox => TryToggleCheckBox(hit.Properties),
+            ContentControlDataType.DropDownList => TrySelectListItem(hit.Properties, allowCustom: false, modifiers, interactionService),
+            ContentControlDataType.ComboBox => TrySelectListItem(hit.Properties, allowCustom: true, modifiers, interactionService),
+            ContentControlDataType.Date => TrySelectDate(hit.Properties, interactionService),
+            _ => false
+        };
+
+        if (updated)
+        {
+            Reflow(hit.Position.ParagraphIndex);
+        }
+
+        return updated;
+    }
     private void Reflow(int? dirtyParagraphIndex)
     {
         _layoutService.RefreshLayout(dirtyParagraphIndex);
+    }
+
+    private bool TryToggleCheckBox(ContentControlProperties properties)
+    {
+        var newValue = !properties.IsChecked.GetValueOrDefault();
+        var bindingValue = newValue ? "true" : "false";
+        if (!TryUpdateContentControlBinding(properties, bindingValue))
+        {
+            return false;
+        }
+
+        properties.IsChecked = newValue;
+        properties.ShowingPlaceholder = false;
+        return true;
+    }
+
+    private bool TrySelectListItem(
+        ContentControlProperties properties,
+        bool allowCustom,
+        EditorModifiers modifiers,
+        IContentControlInteractionService? interactionService)
+    {
+        string? selectedValue = null;
+        if (interactionService is not null)
+        {
+            var currentValue = properties.SelectedValue;
+            if (!interactionService.TryPickListItem(properties, properties.Items, currentValue, allowCustom, out selectedValue))
+            {
+                return false;
+            }
+
+            if (!allowCustom && !TryResolveListSelection(properties, selectedValue, out selectedValue))
+            {
+                return false;
+            }
+        }
+        else if (!TrySelectNextListItem(properties, modifiers, out selectedValue))
+        {
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(selectedValue))
+        {
+            return false;
+        }
+
+        if (!TryUpdateContentControlBinding(properties, selectedValue))
+        {
+            return false;
+        }
+
+        properties.SelectedValue = selectedValue;
+        properties.ShowingPlaceholder = false;
+        return true;
+    }
+
+    private bool TrySelectDate(ContentControlProperties properties, IContentControlInteractionService? interactionService)
+    {
+        DateTimeOffset selectedDate;
+        if (interactionService is not null)
+        {
+            var currentDate = ResolveCurrentDate(properties);
+            if (!interactionService.TryPickDate(properties, currentDate, out selectedDate))
+            {
+                return false;
+            }
+        }
+        else
+        {
+            selectedDate = DateTimeOffset.Now;
+        }
+
+        var value = selectedDate.ToString("o", System.Globalization.CultureInfo.InvariantCulture);
+        if (!TryUpdateContentControlBinding(properties, value))
+        {
+            return false;
+        }
+
+        properties.FullDate = value;
+        properties.ShowingPlaceholder = false;
+        return true;
+    }
+
+    private bool TryUpdateContentControlBinding(ContentControlProperties properties, string value)
+    {
+        if (properties.DataBinding is null)
+        {
+            return true;
+        }
+
+        return ContentControlValueResolver.TryUpdateContentControlBinding(properties.DataBinding, Document, value);
+    }
+
+    private DateTimeOffset? ResolveCurrentDate(ContentControlProperties properties)
+    {
+        if (!string.IsNullOrWhiteSpace(properties.FullDate)
+            && DateTimeOffset.TryParse(properties.FullDate, out var parsed))
+        {
+            return parsed;
+        }
+
+        if (properties.DataBinding is not null
+            && ContentControlValueResolver.TryResolveContentControlBinding(properties.DataBinding, Document, out var bindingValue)
+            && DateTimeOffset.TryParse(bindingValue, out var boundDate))
+        {
+            return boundDate;
+        }
+
+        return null;
+    }
+
+    private static bool TrySelectNextListItem(
+        ContentControlProperties properties,
+        EditorModifiers modifiers,
+        out string? selectedValue)
+    {
+        selectedValue = null;
+        if (properties.Items.Count == 0)
+        {
+            return false;
+        }
+
+        var direction = (modifiers & EditorModifiers.Shift) != 0 ? -1 : 1;
+        var startIndex = -1;
+        if (!string.IsNullOrWhiteSpace(properties.SelectedValue))
+        {
+            for (var i = 0; i < properties.Items.Count; i++)
+            {
+                var itemValue = properties.Items[i].Value;
+                if (string.Equals(itemValue, properties.SelectedValue, StringComparison.OrdinalIgnoreCase))
+                {
+                    startIndex = i;
+                    break;
+                }
+            }
+        }
+
+        for (var i = 0; i < properties.Items.Count; i++)
+        {
+            var index = direction > 0
+                ? (startIndex + 1 + i) % properties.Items.Count
+                : (startIndex - 1 - i + properties.Items.Count * 2) % properties.Items.Count;
+            var candidate = properties.Items[index];
+            selectedValue = candidate.Value ?? candidate.DisplayText;
+            if (!string.IsNullOrWhiteSpace(selectedValue))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool TryResolveListSelection(
+        ContentControlProperties properties,
+        string? input,
+        out string? selectedValue)
+    {
+        selectedValue = null;
+        if (string.IsNullOrWhiteSpace(input))
+        {
+            return false;
+        }
+
+        for (var i = 0; i < properties.Items.Count; i++)
+        {
+            var item = properties.Items[i];
+            if (string.Equals(item.Value, input, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(item.DisplayText, input, StringComparison.OrdinalIgnoreCase))
+            {
+                selectedValue = item.Value ?? item.DisplayText;
+                return !string.IsNullOrWhiteSpace(selectedValue);
+            }
+        }
+
+        if (int.TryParse(input, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var index)
+            && index > 0 && index <= properties.Items.Count)
+        {
+            var item = properties.Items[index - 1];
+            selectedValue = item.Value ?? item.DisplayText;
+            return !string.IsNullOrWhiteSpace(selectedValue);
+        }
+
+        return false;
     }
 
     private bool DeleteSelectionIfAny()
@@ -419,6 +708,15 @@ public sealed class EditorController : IEditorMutableSession
         }
 
         var range = Selection.Normalize();
+        if (Document.TrackChangesEnabled)
+        {
+            if (ApplyDeletionRevision(range))
+            {
+                _selectionService.SetCaret(new TextPosition(range.Start.ParagraphIndex, range.Start.Offset), false);
+                return true;
+            }
+        }
+
         if (range.Start.ParagraphIndex == range.End.ParagraphIndex)
         {
             var paragraph = Document.GetParagraph(range.Start.ParagraphIndex);
@@ -493,6 +791,28 @@ public sealed class EditorController : IEditorMutableSession
         NormalizeInlines(paragraph);
     }
 
+    private void InsertTextWithRevision(ParagraphBlock paragraph, int offset, string text)
+    {
+        var revision = EditorRevisionHelper.CreateRevision(Document, RevisionKind.Insert);
+        if (revision is null)
+        {
+            InsertTextAtPosition(paragraph, offset, text);
+            return;
+        }
+
+        EnsureParagraphInlines(paragraph);
+        var position = FindInlinePosition(paragraph, offset);
+        var run = CreateInsertionRun(paragraph, position, text);
+        var inlines = new List<Inline>(3)
+        {
+            new RevisionStartInline(revision),
+            run,
+            new RevisionEndInline(revision.Kind, revision.Id)
+        };
+
+        InsertInlineRangeAtPosition(paragraph, offset, inlines, text.Length);
+    }
+
     private void InsertInlineAtPosition(ParagraphBlock paragraph, int offset, Inline inline)
     {
         EnsureParagraphInlines(paragraph);
@@ -537,6 +857,29 @@ public sealed class EditorController : IEditorMutableSession
         }
 
         NormalizeInlines(paragraph);
+    }
+
+    private void InsertInlineWithRevision(ParagraphBlock paragraph, int offset, Inline inline)
+    {
+        var revision = EditorRevisionHelper.CreateRevision(Document, RevisionKind.Insert);
+        if (revision is null)
+        {
+            InsertInlineAtPosition(paragraph, offset, inline);
+            return;
+        }
+
+        var inlines = new List<Inline>(3)
+        {
+            new RevisionStartInline(revision),
+            inline,
+            new RevisionEndInline(revision.Kind, revision.Id)
+        };
+
+        InsertInlineRangeAtPosition(
+            paragraph,
+            offset,
+            inlines,
+            DocumentEditHelpers.GetInlineLength(inline));
     }
 
     private void InsertInlineRangeAtPosition(
@@ -590,6 +933,29 @@ public sealed class EditorController : IEditorMutableSession
         }
 
         NormalizeInlines(paragraph);
+    }
+
+    private void InsertInlineRangeWithRevision(
+        ParagraphBlock paragraph,
+        int offset,
+        IReadOnlyList<Inline> inlines,
+        int totalLength)
+    {
+        var revision = EditorRevisionHelper.CreateRevision(Document, RevisionKind.Insert);
+        if (revision is null)
+        {
+            InsertInlineRangeAtPosition(paragraph, offset, inlines, totalLength);
+            return;
+        }
+
+        var wrapped = new List<Inline>(inlines.Count + 2)
+        {
+            new RevisionStartInline(revision)
+        };
+        wrapped.AddRange(inlines);
+        wrapped.Add(new RevisionEndInline(revision.Kind, revision.Id));
+
+        InsertInlineRangeAtPosition(paragraph, offset, wrapped, totalLength);
     }
 
     private static int GetInlineRangeLength(IReadOnlyList<Inline> inlines)
@@ -688,6 +1054,10 @@ public sealed class EditorController : IEditorMutableSession
                 case CommentRangeEndInline:
                 case ContentControlStartInline:
                 case ContentControlEndInline:
+                case RevisionStartInline:
+                case RevisionEndInline:
+                case RevisionRangeStartInline:
+                case RevisionRangeEndInline:
                     break;
                 default:
                     builder.Append(DocumentConstants.ObjectReplacementChar);
@@ -722,6 +1092,37 @@ public sealed class EditorController : IEditorMutableSession
         var lastIndex = inlines.Count - 1;
         var lastLength = DocumentEditHelpers.GetInlineLength(inlines[lastIndex]);
         return new InlinePosition(lastIndex, lastLength, lastLength);
+    }
+
+    private static RunInline CreateInsertionRun(ParagraphBlock paragraph, InlinePosition position, string text)
+    {
+        TextStyleProperties? style = null;
+        string? styleId = null;
+        HyperlinkInfo? hyperlink = null;
+
+        if (paragraph.Inlines.Count > 0)
+        {
+            var current = paragraph.Inlines[position.Index];
+            if (current is RunInline run && run.Text.Length > 0)
+            {
+                style = run.Style?.Clone();
+                styleId = run.StyleId;
+                hyperlink = run.Hyperlink;
+            }
+            else
+            {
+                var adjacent = GetAdjacentRunFormatting(paragraph, position.OffsetInInline <= 0 ? position.Index : position.Index + 1);
+                style = adjacent.Style;
+                styleId = adjacent.StyleId;
+                hyperlink = adjacent.Hyperlink;
+            }
+        }
+
+        return new RunInline(text, style)
+        {
+            StyleId = styleId,
+            Hyperlink = hyperlink
+        };
     }
 
     private int FindParagraphIndex(ParagraphBlock paragraph)
@@ -1028,6 +1429,99 @@ public sealed class EditorController : IEditorMutableSession
         }
 
         return (null, null);
+    }
+
+    private static (TextStyleProperties? Style, string? StyleId, HyperlinkInfo? Hyperlink) GetAdjacentRunFormatting(
+        ParagraphBlock paragraph,
+        int insertIndex)
+    {
+        var inlines = paragraph.Inlines;
+        for (var i = insertIndex - 1; i >= 0; i--)
+        {
+            if (inlines[i] is RunInline run && run.Text.Length > 0)
+            {
+                return (run.Style?.Clone(), run.StyleId, run.Hyperlink);
+            }
+        }
+
+        for (var i = insertIndex; i < inlines.Count; i++)
+        {
+            if (inlines[i] is RunInline run && run.Text.Length > 0)
+            {
+                return (run.Style?.Clone(), run.StyleId, run.Hyperlink);
+            }
+        }
+
+        return (null, null, null);
+    }
+
+    private bool ApplyDeletionRevision(TextRange range)
+    {
+        var revision = EditorRevisionHelper.CreateRevision(Document, RevisionKind.Delete);
+        if (revision is null)
+        {
+            return false;
+        }
+
+        var startIndex = range.Start.ParagraphIndex;
+        var endIndex = range.End.ParagraphIndex;
+        if (startIndex > endIndex)
+        {
+            (startIndex, endIndex) = (endIndex, startIndex);
+        }
+
+        for (var i = startIndex; i <= endIndex; i++)
+        {
+            var paragraph = Document.GetParagraph(i);
+            var paragraphLength = DocumentEditHelpers.GetParagraphLength(paragraph);
+            var startOffset = i == startIndex ? range.Start.Offset : 0;
+            var endOffset = i == endIndex ? range.End.Offset : paragraphLength;
+            startOffset = Math.Clamp(startOffset, 0, paragraphLength);
+            endOffset = Math.Clamp(endOffset, 0, paragraphLength);
+            if (endOffset <= startOffset)
+            {
+                continue;
+            }
+
+            if (DocumentEditHelpers.WrapRangeWithRevisionMarkers(paragraph, startOffset, endOffset, revision))
+            {
+                NormalizeInlines(paragraph);
+            }
+        }
+
+        return true;
+    }
+
+    private void MarkDeletionRange(ParagraphBlock paragraph, int startOffset, int endOffset)
+    {
+        var revision = EditorRevisionHelper.CreateRevision(Document, RevisionKind.Delete);
+        if (revision is null)
+        {
+            DeleteRangeInParagraph(paragraph, startOffset, endOffset);
+            return;
+        }
+
+        if (DocumentEditHelpers.WrapRangeWithRevisionMarkers(paragraph, startOffset, endOffset, revision))
+        {
+            NormalizeInlines(paragraph);
+        }
+    }
+
+    private void InsertDeletionMarker(ParagraphBlock paragraph, int offset)
+    {
+        var revision = EditorRevisionHelper.CreateRevision(Document, RevisionKind.Delete);
+        if (revision is null)
+        {
+            return;
+        }
+
+        var markers = new List<Inline>(2)
+        {
+            new RevisionStartInline(revision),
+            new RevisionEndInline(revision.Kind, revision.Id)
+        };
+
+        InsertInlineRangeAtPosition(paragraph, offset, markers, 0);
     }
 
     private static bool AreRunsMergeable(RunInline left, RunInline right)

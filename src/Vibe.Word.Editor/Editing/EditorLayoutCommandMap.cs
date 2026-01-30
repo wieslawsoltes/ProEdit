@@ -626,28 +626,45 @@ public sealed class EditorLayoutCommandMap
             return;
         }
 
-        if (floating.Content is not ShapeInline shape)
+        if (floating.Content is ShapeInline shape)
         {
+            switch (request.Kind)
+            {
+                case EditorFloatingRotateKind.RotateRight90:
+                    shape.Properties.Rotation = NormalizeRotation(shape.Properties.Rotation + 90f);
+                    break;
+                case EditorFloatingRotateKind.RotateLeft90:
+                    shape.Properties.Rotation = NormalizeRotation(shape.Properties.Rotation - 90f);
+                    break;
+                case EditorFloatingRotateKind.FlipHorizontal:
+                    shape.Properties.FlipHorizontal = !shape.Properties.FlipHorizontal;
+                    break;
+                case EditorFloatingRotateKind.FlipVertical:
+                    shape.Properties.FlipVertical = !shape.Properties.FlipVertical;
+                    break;
+            }
+
+            _session.RefreshLayout();
             return;
         }
 
-        switch (request.Kind)
+        if (floating.Content is ImageInline image)
         {
-            case EditorFloatingRotateKind.RotateRight90:
-                shape.Properties.Rotation = NormalizeRotation(shape.Properties.Rotation + 90f);
-                break;
-            case EditorFloatingRotateKind.RotateLeft90:
-                shape.Properties.Rotation = NormalizeRotation(shape.Properties.Rotation - 90f);
-                break;
-            case EditorFloatingRotateKind.FlipHorizontal:
-                shape.Properties.FlipHorizontal = !shape.Properties.FlipHorizontal;
-                break;
-            case EditorFloatingRotateKind.FlipVertical:
-                shape.Properties.FlipVertical = !shape.Properties.FlipVertical;
-                break;
+            switch (request.Kind)
+            {
+                case EditorFloatingRotateKind.RotateRight90:
+                    image.Rotation = NormalizeRotation(image.Rotation + 90f);
+                    break;
+                case EditorFloatingRotateKind.RotateLeft90:
+                    image.Rotation = NormalizeRotation(image.Rotation - 90f);
+                    break;
+                default:
+                    return;
+            }
+
+            _session.RefreshLayout();
         }
 
-        _session.RefreshLayout();
     }
 
     private static float NormalizeRotation(float degrees)

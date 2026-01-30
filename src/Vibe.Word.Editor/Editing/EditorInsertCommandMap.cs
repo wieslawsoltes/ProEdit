@@ -811,7 +811,12 @@ public sealed class EditorInsertCommandMap
             {
                 Author = sourceComment.Author,
                 Initials = sourceComment.Initials,
-                Date = sourceComment.Date
+                Date = sourceComment.Date,
+                ParentId = sourceComment.ParentId,
+                ThreadId = sourceComment.ThreadId,
+                IsResolved = sourceComment.IsResolved,
+                ResolvedBy = sourceComment.ResolvedBy,
+                ResolvedDate = sourceComment.ResolvedDate
             };
 
             foreach (var block in sourceComment.Blocks)
@@ -951,6 +956,8 @@ public sealed class EditorInsertCommandMap
             "Cycle" => new[] { "Phase 1", "Phase 2", "Phase 3", "Phase 4" },
             "Hierarchy" => new[] { "Root", "Child 1", "Child 2", "Child 3" },
             "Matrix" => new[] { "Item A", "Item B", "Item C", "Item D" },
+            "Relationship" => new[] { "Central", "Related 1", "Related 2", "Related 3" },
+            "Pyramid" => new[] { "Tier 1", "Tier 2", "Tier 3", "Tier 4" },
             _ => new[] { "Item 1", "Item 2", "Item 3" }
         };
 
@@ -976,8 +983,8 @@ public sealed class EditorInsertCommandMap
             "Cycle" => "Cycle",
             "Hierarchy" => "Hierarchy",
             "Matrix" => "Matrix",
-            "Pyramid" => "Matrix",
-            "Relationship" => "Cycle",
+            "Pyramid" => "Pyramid",
+            "Relationship" => "Relationship",
             "List" => "List",
             _ => "List"
         };
@@ -1001,6 +1008,13 @@ public sealed class EditorInsertCommandMap
         if (nodes.Count > 1)
         {
             if (layoutName == "Hierarchy")
+            {
+                for (var i = 1; i < nodes.Count; i++)
+                {
+                    builder.Append("<dgm:cxn srcId=\"n1\" destId=\"n").Append(i + 1).Append("\"/>");
+                }
+            }
+            else if (layoutName == "Relationship")
             {
                 for (var i = 1; i < nodes.Count; i++)
                 {

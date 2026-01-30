@@ -34,9 +34,11 @@ internal sealed class EditorTextFormattingApplier
         }
 
         var selection = _session.Selection.Normalize();
+        var trackChanges = !selection.IsEmpty && _session.Document.TrackChangesEnabled;
+        RevisionInfo? revision = null;
         var changed = selection.IsEmpty
             ? ApplyToCaret(selection.Start, apply, clearFormatting)
-            : ApplyToRange(selection, apply, clearFormatting);
+            : ApplyToRange(selection, apply, clearFormatting, trackChanges, ref revision);
 
         if (changed)
         {
@@ -97,7 +99,12 @@ internal sealed class EditorTextFormattingApplier
         return true;
     }
 
-    private bool ApplyToRange(TextRange range, Action<TextStyleProperties> apply, bool clearFormatting)
+    private bool ApplyToRange(
+        TextRange range,
+        Action<TextStyleProperties> apply,
+        bool clearFormatting,
+        bool trackChanges,
+        ref RevisionInfo? revision)
     {
         var paragraphCount = _session.GetParagraphCountFast();
         var startIndex = Math.Clamp(range.Start.ParagraphIndex, 0, paragraphCount - 1);
@@ -122,7 +129,18 @@ internal sealed class EditorTextFormattingApplier
                 continue;
             }
 
-            changed |= ApplyToParagraphRange(paragraph, startOffset, endOffset, apply, clearFormatting);
+            var paragraphChanged = ApplyToParagraphRange(paragraph, startOffset, endOffset, apply, clearFormatting);
+            if (paragraphChanged && trackChanges)
+            {
+                revision ??= EditorRevisionHelper.CreateRevision(_session.Document, RevisionKind.Insert);
+                if (revision is not null)
+                {
+                    paragraphChanged = DocumentEditHelpers.WrapRangeWithRevisionMarkers(paragraph, startOffset, endOffset, revision)
+                                       || paragraphChanged;
+                }
+            }
+
+            changed |= paragraphChanged;
         }
 
         return changed;

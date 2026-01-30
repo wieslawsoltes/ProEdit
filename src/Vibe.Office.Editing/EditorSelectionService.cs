@@ -48,6 +48,11 @@ public sealed class EditorSelectionService
             return;
         }
 
+        if (TryMoveCaretHorizontally(-1, mode))
+        {
+            return;
+        }
+
         var layout = _layoutService.Layout;
         if (Caret.Offset > 0)
         {
@@ -68,6 +73,11 @@ public sealed class EditorSelectionService
         if (!extendSelection && !Selection.IsEmpty)
         {
             SetCaret(Selection.Normalize().End, SelectionUpdateMode.Replace);
+            return;
+        }
+
+        if (TryMoveCaretHorizontally(1, mode))
+        {
             return;
         }
 
@@ -129,6 +139,107 @@ public sealed class EditorSelectionService
         var caretPoint = GetCaretPoint(currentLine);
         var offset = GetOffsetFromLine(targetLine, caretPoint.X, caretPoint.Y);
         SetCaret(new TextPosition(targetLine.ParagraphIndex, offset), mode);
+    }
+
+    private bool TryMoveCaretHorizontally(int direction, SelectionUpdateMode mode)
+    {
+        var layout = _layoutService.Layout;
+        if (layout.Lines.Count == 0)
+        {
+            return false;
+        }
+
+        var lineIndex = FindLineIndexForCaret(out var line);
+        if (lineIndex < 0 || lineIndex >= layout.Lines.Count)
+        {
+            return false;
+        }
+
+        var lineEndOffset = line.StartOffset + line.Length;
+        if (Caret.Offset == lineEndOffset && lineIndex + 1 < layout.Lines.Count)
+        {
+            var nextLine = layout.Lines[lineIndex + 1];
+            if (nextLine.ParagraphIndex == line.ParagraphIndex && nextLine.StartOffset == lineEndOffset)
+            {
+                lineIndex++;
+                line = nextLine;
+            }
+        }
+
+        var stops = BuildVisualCaretStops(line);
+        if (stops.Count == 0)
+        {
+            return false;
+        }
+
+        var currentOffset = Caret.Offset;
+        var stopIndex = FindCaretStopIndex(stops, currentOffset);
+        if (stopIndex < 0)
+        {
+            var offsetInLine = Math.Clamp(currentOffset - line.StartOffset, 0, line.Length);
+            var localX = MeasureLineOffset(line, offsetInLine);
+            stopIndex = FindNearestCaretStopIndex(stops, localX);
+        }
+
+        var nextIndex = stopIndex + direction;
+        if (nextIndex >= 0 && nextIndex < stops.Count)
+        {
+            var targetOffset = stops[nextIndex].Offset;
+            SetCaret(new TextPosition(line.ParagraphIndex, targetOffset), mode);
+            return true;
+        }
+
+        return TryMoveCaretToAdjacentLine(layout, lineIndex, direction, currentOffset, mode);
+    }
+
+    private bool TryMoveCaretToAdjacentLine(
+        DocumentLayout layout,
+        int lineIndex,
+        int direction,
+        int currentOffset,
+        SelectionUpdateMode mode)
+    {
+        var targetIndex = lineIndex + direction;
+        if (targetIndex < 0 || targetIndex >= layout.Lines.Count)
+        {
+            return false;
+        }
+
+        var targetLine = layout.Lines[targetIndex];
+        var stops = BuildVisualCaretStops(targetLine);
+        if (stops.Count == 0)
+        {
+            return false;
+        }
+
+        if (direction < 0)
+        {
+            for (var i = stops.Count - 1; i >= 0; i--)
+            {
+                if (stops[i].Offset == currentOffset)
+                {
+                    continue;
+                }
+
+                SetCaret(new TextPosition(targetLine.ParagraphIndex, stops[i].Offset), mode);
+                return true;
+            }
+        }
+        else
+        {
+            for (var i = 0; i < stops.Count; i++)
+            {
+                if (stops[i].Offset == currentOffset)
+                {
+                    continue;
+                }
+
+                SetCaret(new TextPosition(targetLine.ParagraphIndex, stops[i].Offset), mode);
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public void SetCaretFromPoint(float x, float y, bool extendSelection)
@@ -300,6 +411,59 @@ public sealed class EditorSelectionService
 
         var paragraph = GetParagraphAt(layout, position.ParagraphIndex);
         return DocumentEditHelpers.FindEquationInline(paragraph, position.Offset);
+    }
+
+    public bool TryGetContentControlAtCaret(out ContentControlHit hit)
+    {
+        return TryGetContentControlAtPosition(Caret, out hit);
+    }
+
+    public bool TryGetContentControlAtPosition(TextPosition position, out ContentControlHit hit)
+    {
+        hit = default;
+        var layout = _layoutService.Layout;
+        if (position.ParagraphIndex < 0 || position.ParagraphIndex >= GetParagraphCount(layout))
+        {
+            return false;
+        }
+
+        var paragraph = GetParagraphAt(layout, position.ParagraphIndex);
+        if (!DocumentEditHelpers.TryFindContentControlAtOffset(paragraph, position.Offset, out var properties))
+        {
+            return false;
+        }
+
+        hit = new ContentControlHit(properties, position);
+        return true;
+    }
+
+    public bool TryGetContentControlAtPoint(float x, float y, out ContentControlHit hit)
+    {
+        hit = default;
+        var layout = _layoutService.Layout;
+        if (layout.Lines.Count == 0)
+        {
+            return false;
+        }
+
+        EnsureLayoutCaches(layout);
+        var lineIndex = FindLineIndexFromPoint(x, y, out var line);
+        if (lineIndex < 0 || line.ParagraphIndex < 0)
+        {
+            return false;
+        }
+
+        var offset = GetOffsetFromLine(line, x, y);
+        var layoutOffset = line.StartOffset + offset;
+        var paragraph = GetParagraphAt(layout, line.ParagraphIndex);
+        if (!DocumentEditHelpers.TryFindContentControlAtLayoutOffset(_document, paragraph, layoutOffset, out var properties, out var documentOffset))
+        {
+            return false;
+        }
+
+        var clampedOffset = Math.Clamp(documentOffset, 0, DocumentEditHelpers.GetParagraphLength(paragraph));
+        hit = new ContentControlHit(properties, new TextPosition(line.ParagraphIndex, clampedOffset));
+        return true;
     }
 
     private bool TrySelectFloatingObject(float x, float y, SelectionUpdateMode mode)
@@ -519,28 +683,49 @@ public sealed class EditorSelectionService
         for (var tableIndex = 0; tableIndex < tableIndices.Length; tableIndex++)
         {
             var table = layout.Tables[tableIndices[tableIndex]];
-            if (!table.Bounds.Contains(x, y))
+            if (TrySetCaretFromTableLayout(table, x, y, mode))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool TrySetCaretFromTableLayout(TableLayout table, float x, float y, SelectionUpdateMode mode)
+    {
+        if (!table.Bounds.Contains(x, y))
+        {
+            return false;
+        }
+
+        foreach (var cell in table.Cells)
+        {
+            if (!cell.Bounds.Contains(x, y))
             {
                 continue;
             }
 
-            foreach (var cell in table.Cells)
+            if (cell.Tables.Count > 0)
             {
-                if (!cell.Bounds.Contains(x, y))
+                foreach (var nested in cell.Tables)
                 {
-                    continue;
+                    if (TrySetCaretFromTableLayout(nested, x, y, mode))
+                    {
+                        return true;
+                    }
                 }
-
-                var line = FindTableLineAtPoint(cell.Lines, x, y);
-                if (line is null)
-                {
-                    return false;
-                }
-
-                var offset = GetOffsetFromLine(line, x, y);
-                SetCaret(new TextPosition(line.ParagraphIndex, offset), mode);
-                return true;
             }
+
+            var line = FindTableLineAtPoint(cell.Lines, x, y);
+            if (line is null)
+            {
+                return false;
+            }
+
+            var offset = GetOffsetFromLine(line, x, y);
+            SetCaret(new TextPosition(line.ParagraphIndex, offset), mode);
+            return true;
         }
 
         return false;
@@ -724,7 +909,25 @@ public sealed class EditorSelectionService
 
     private int FindLineIndexForCaret(out LayoutLine line)
     {
-        return FindLineIndexForPosition(_layoutService.Layout, Caret, out line);
+        var layout = _layoutService.Layout;
+        var index = FindLineIndexForPosition(layout, Caret, out line);
+        if (index < 0 || index >= layout.Lines.Count)
+        {
+            return index;
+        }
+
+        var lineEndOffset = line.StartOffset + line.Length;
+        if (Caret.Offset == lineEndOffset && index + 1 < layout.Lines.Count)
+        {
+            var nextLine = layout.Lines[index + 1];
+            if (nextLine.ParagraphIndex == line.ParagraphIndex && nextLine.StartOffset == lineEndOffset)
+            {
+                line = nextLine;
+                return index + 1;
+            }
+        }
+
+        return index;
     }
 
     private (float X, float Y) GetCaretPoint(LayoutLine line)
@@ -1117,6 +1320,226 @@ public sealed class EditorSelectionService
         return segments;
     }
 
+    private List<CaretStop> BuildVisualCaretStops(LayoutLine line)
+    {
+        var segments = BuildVisualSegments(line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations);
+        var stops = new List<CaretStop>();
+        if (segments.Count == 0)
+        {
+            var lineStart = line.StartOffset;
+            stops.Add(new CaretStop(lineStart, 0f));
+            if (line.Length > 0)
+            {
+                stops.Add(new CaretStop(lineStart + line.Length, line.Width));
+            }
+
+            return stops;
+        }
+
+        for (var i = 0; i < segments.Count; i++)
+        {
+            AppendSegmentCaretStops(line, segments[i], stops);
+        }
+
+        var lineStartOffset = line.StartOffset;
+        var lineEndOffset = line.StartOffset + line.Length;
+        if (stops.Count == 0 || stops[0].Offset != lineStartOffset)
+        {
+            stops.Insert(0, new CaretStop(lineStartOffset, 0f));
+        }
+
+        if (stops.Count == 0 || stops[^1].Offset != lineEndOffset)
+        {
+            var endX = segments[^1].X + segments[^1].Width;
+            stops.Add(new CaretStop(lineEndOffset, endX));
+        }
+
+        return stops;
+    }
+
+    private void AppendSegmentCaretStops(LayoutLine line, VisualSegment segment, List<CaretStop> stops)
+    {
+        if (segment.Length <= 0)
+        {
+            return;
+        }
+
+        if (segment.IsText && segment.Run is not null)
+        {
+            AppendTextCaretStops(line, segment, stops);
+            return;
+        }
+
+        AppendNonTextCaretStops(line, segment, stops);
+    }
+
+    private void AppendTextCaretStops(LayoutLine line, VisualSegment segment, List<CaretStop> stops)
+    {
+        var run = segment.Run!;
+        var runStart = segment.RunStart;
+        var runEnd = runStart + segment.Length;
+        if (runEnd <= runStart)
+        {
+            return;
+        }
+
+        var metrics = GetRunMetrics(run.Text, run.Style, run.LetterSpacing);
+        var clusterOffsets = metrics.ClusterOffsets;
+        if (clusterOffsets.Length == 0)
+        {
+            AppendTextCaretStopsFallback(line, segment, runStart, runEnd, stops);
+            return;
+        }
+
+        var startIndex = LowerBound(clusterOffsets, runStart);
+        var endIndex = LowerBound(clusterOffsets, runEnd);
+        if (segment.IsRtl)
+        {
+            AppendCaretStop(line, segment, runEnd, stops);
+            for (var i = endIndex - 1; i >= startIndex; i--)
+            {
+                AppendCaretStop(line, segment, clusterOffsets[i], stops);
+            }
+        }
+        else
+        {
+            for (var i = startIndex; i < endIndex; i++)
+            {
+                AppendCaretStop(line, segment, clusterOffsets[i], stops);
+            }
+
+            AppendCaretStop(line, segment, runEnd, stops);
+        }
+    }
+
+    private void AppendTextCaretStopsFallback(
+        LayoutLine line,
+        VisualSegment segment,
+        int runStart,
+        int runEnd,
+        List<CaretStop> stops)
+    {
+        var run = segment.Run!;
+        var span = run.Text.AsSpan();
+        var index = runStart;
+        if (segment.IsRtl)
+        {
+            AppendCaretStop(line, segment, runEnd, stops);
+            var offsets = new List<int>();
+            while (index < runEnd)
+            {
+                offsets.Add(index);
+                var length = TextCluster.GetNextClusterLength(span, index);
+                index += Math.Max(1, length);
+            }
+
+            for (var i = offsets.Count - 1; i >= 0; i--)
+            {
+                AppendCaretStop(line, segment, offsets[i], stops);
+            }
+        }
+        else
+        {
+            while (index < runEnd)
+            {
+                AppendCaretStop(line, segment, index, stops);
+                var length = TextCluster.GetNextClusterLength(span, index);
+                index += Math.Max(1, length);
+            }
+
+            AppendCaretStop(line, segment, runEnd, stops);
+        }
+    }
+
+    private void AppendNonTextCaretStops(LayoutLine line, VisualSegment segment, List<CaretStop> stops)
+    {
+        var segmentStart = segment.RunStart;
+        var segmentEnd = segmentStart + segment.Length;
+        if (segment.IsRtl)
+        {
+            AppendCaretStop(line, segment, segmentEnd, stops);
+            AppendCaretStop(line, segment, segmentStart, stops);
+        }
+        else
+        {
+            AppendCaretStop(line, segment, segmentStart, stops);
+            AppendCaretStop(line, segment, segmentEnd, stops);
+        }
+    }
+
+    private void AppendCaretStop(LayoutLine line, VisualSegment segment, int runOffset, List<CaretStop> stops)
+    {
+        var segmentOffset = runOffset - segment.RunStart;
+        if (segmentOffset < 0 || segmentOffset > segment.Length)
+        {
+            return;
+        }
+
+        var lineOffset = line.StartOffset + segment.StartOffset + segmentOffset;
+        var localX = segment.X + MeasureSegmentOffset(segment, segmentOffset);
+        if (stops.Count > 0 && stops[^1].Offset == lineOffset)
+        {
+            return;
+        }
+
+        stops.Add(new CaretStop(lineOffset, localX));
+    }
+
+    private static int FindCaretStopIndex(IReadOnlyList<CaretStop> stops, int offset)
+    {
+        for (var i = 0; i < stops.Count; i++)
+        {
+            if (stops[i].Offset == offset)
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    private static int FindNearestCaretStopIndex(IReadOnlyList<CaretStop> stops, float localX)
+    {
+        if (stops.Count == 0)
+        {
+            return -1;
+        }
+
+        var bestIndex = 0;
+        var bestDistance = MathF.Abs(stops[0].X - localX);
+        for (var i = 1; i < stops.Count; i++)
+        {
+            var distance = MathF.Abs(stops[i].X - localX);
+            if (distance < bestDistance)
+            {
+                bestDistance = distance;
+                bestIndex = i;
+            }
+        }
+
+        return bestIndex;
+    }
+
+    private static int LowerBound(ReadOnlySpan<int> values, int target)
+    {
+        var low = 0;
+        var high = values.Length;
+        while (low < high)
+        {
+            var mid = low + ((high - low) >> 1);
+            if (values[mid] < target)
+            {
+                low = mid + 1;
+            }
+            else
+            {
+                high = mid;
+            }
+        }
+
+        return low;
+    }
+
     private float MeasureRunSegmentWidth(LayoutRun run, int segmentStart, int segmentLength, out float scale)
     {
         scale = 1f;
@@ -1247,6 +1670,8 @@ public sealed class EditorSelectionService
         public bool IsText => Run is not null && !Run.IsTab;
     }
 
+    private readonly record struct CaretStop(int Offset, float X);
+
     private sealed class LogicalSegment
     {
         public float X { get; }
@@ -1364,15 +1789,25 @@ public sealed class EditorSelectionService
             return new TextShapeInfo(0, Array.Empty<int>(), Array.Empty<float>());
         }
 
-        var offsets = new int[text.Length];
-        var advances = new float[text.Length];
-        for (var i = 0; i < text.Length; i++)
+        var offsetList = new List<int>(text.Length);
+        var advanceList = new List<float>(text.Length);
+        var span = text.AsSpan();
+        var index = 0;
+        while (index < span.Length)
         {
-            offsets[i] = i;
-            advances[i] = _measurer.MeasureText(text[i].ToString(), style).Width;
+            offsetList.Add(index);
+            var length = TextCluster.GetNextClusterLength(span, index);
+            if (length <= 0)
+            {
+                length = 1;
+            }
+
+            var clusterText = text.Substring(index, length);
+            advanceList.Add(_measurer.MeasureText(clusterText, style).Width);
+            index += length;
         }
 
-        return new TextShapeInfo(text.Length, offsets, advances);
+        return new TextShapeInfo(text.Length, offsetList.ToArray(), advanceList.ToArray());
     }
 
     private readonly struct LineSegment
@@ -1553,6 +1988,8 @@ public sealed class EditorSelectionService
         }
 
         public float Width => _totalWidth;
+        public int TextLength => _textLength;
+        public ReadOnlySpan<int> ClusterOffsets => _clusterOffsets;
 
         public float GetWidth(int length)
         {

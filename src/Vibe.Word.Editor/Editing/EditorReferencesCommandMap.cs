@@ -2131,7 +2131,7 @@ public sealed class EditorReferencesCommandMap
         var selection = _session.Selection.Normalize();
         if (scope == FieldUpdateScope.Current && selection.IsEmpty)
         {
-            if (TryUpdateFieldAtCaret(pageNumbersOnly))
+            if (DocumentFieldUpdater.UpdateFieldAtPosition(_session.Document, _session.Layout, _session.Caret, pageNumbersOnly))
             {
                 _session.RefreshLayout();
             }
@@ -2140,7 +2140,7 @@ public sealed class EditorReferencesCommandMap
         }
 
         TextRange? range = scope == FieldUpdateScope.Document ? null : selection;
-        if (UpdateFieldsInDocument(range, pageNumbersOnly))
+        if (DocumentFieldUpdater.UpdateFields(_session.Document, _session.Layout, range, pageNumbersOnly))
         {
             _session.RefreshLayout();
         }
@@ -2178,34 +2178,7 @@ public sealed class EditorReferencesCommandMap
 
     private bool TryUpdateFieldAtCaret(bool pageNumbersOnly)
     {
-        var caret = _session.Caret;
-        if (caret.ParagraphIndex < 0 || caret.ParagraphIndex >= _session.Document.ParagraphCount)
-        {
-            return false;
-        }
-
-        var paragraph = _session.Document.GetParagraph(caret.ParagraphIndex);
-        var spans = BuildFieldSpans(paragraph);
-        if (spans.Count == 0)
-        {
-            return false;
-        }
-
-        foreach (var span in spans)
-        {
-            if (caret.Offset >= span.StartOffset && caret.Offset <= span.EndOffset)
-            {
-                if (TryBuildFieldResult(span, paragraph, caret.ParagraphIndex, pageNumbersOnly, out var resultInline))
-                {
-                    ReplaceFieldResult(paragraph, span, resultInline);
-                    return true;
-                }
-
-                return false;
-            }
-        }
-
-        return false;
+        return DocumentFieldUpdater.UpdateFieldAtPosition(_session.Document, _session.Layout, _session.Caret, pageNumbersOnly);
     }
 
     private void SetFieldLocks(bool locked)
