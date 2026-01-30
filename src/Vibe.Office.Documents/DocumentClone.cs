@@ -343,9 +343,9 @@ public static class DocumentClone
         };
 
         CopyTableCellProperties(source.Properties, clone.Properties);
-        foreach (var paragraph in source.Paragraphs)
+        foreach (var block in source.Blocks)
         {
-            clone.Paragraphs.Add(CloneParagraphBlock(paragraph));
+            clone.Blocks.Add(CloneBlock(block));
         }
 
         foreach (var metadata in source.Metadata)
@@ -469,6 +469,7 @@ public static class DocumentClone
     {
         var clone = new ImageInline(CloneBytes(source.Data) ?? Array.Empty<byte>(), source.Width, source.Height, source.ContentType)
         {
+            Rotation = source.Rotation,
             EmbeddedObject = CloneEmbeddedObject(source.EmbeddedObject),
             Diagram = CloneDiagram(source.Diagram),
             Effects = source.Effects?.Clone(),
@@ -515,6 +516,23 @@ public static class DocumentClone
                 EndChar = delimiter.EndChar,
                 SeparatorChar = delimiter.SeparatorChar
             },
+            MathFunction function => new MathFunction(CloneMathElement(function.Name), CloneMathElement(function.Argument)),
+            MathBar bar => new MathBar(CloneMathElement(bar.Base))
+            {
+                Position = bar.Position
+            },
+            MathBoxElement box => new MathBoxElement(CloneMathElement(box.Base)),
+            MathBorderBox border => new MathBorderBox(CloneMathElement(border.Base))
+            {
+                HideTop = border.HideTop,
+                HideBottom = border.HideBottom,
+                HideLeft = border.HideLeft,
+                HideRight = border.HideRight,
+                StrikeHorizontal = border.StrikeHorizontal,
+                StrikeVertical = border.StrikeVertical,
+                StrikeDiagonalUp = border.StrikeDiagonalUp,
+                StrikeDiagonalDown = border.StrikeDiagonalDown
+            },
             MathNary nary => new MathNary(CloneMathElement(nary.Base))
             {
                 Subscript = nary.Subscript is null ? null : CloneMathElement(nary.Subscript),
@@ -524,14 +542,36 @@ public static class DocumentClone
                 HideSup = nary.HideSup
             },
             MathMatrix matrix => CloneMathMatrix(matrix),
+            MathLimit limit => new MathLimit(CloneMathElement(limit.Base), CloneMathElement(limit.Limit))
+            {
+                Position = limit.Position
+            },
             MathScript script => new MathScript(CloneMathElement(script.Base))
             {
                 Subscript = script.Subscript is null ? null : CloneMathElement(script.Subscript),
                 Superscript = script.Superscript is null ? null : CloneMathElement(script.Superscript)
             },
+            MathPreScript preScript => new MathPreScript(CloneMathElement(preScript.Base))
+            {
+                Subscript = preScript.Subscript is null ? null : CloneMathElement(preScript.Subscript),
+                Superscript = preScript.Superscript is null ? null : CloneMathElement(preScript.Superscript)
+            },
             MathRadical radical => new MathRadical(CloneMathElement(radical.Radicand))
             {
                 Degree = radical.Degree is null ? null : CloneMathElement(radical.Degree)
+            },
+            MathGroupCharacter group => new MathGroupCharacter(CloneMathElement(group.Base))
+            {
+                Character = group.Character,
+                Position = group.Position
+            },
+            MathPhantom phantom => new MathPhantom(CloneMathElement(phantom.Base))
+            {
+                Show = phantom.Show,
+                ZeroWidth = phantom.ZeroWidth,
+                ZeroAscent = phantom.ZeroAscent,
+                ZeroDescent = phantom.ZeroDescent,
+                Transparent = phantom.Transparent
             },
             _ => throw new NotSupportedException($"Unsupported math element type: {source.GetType().Name}")
         };
@@ -575,6 +615,10 @@ public static class DocumentClone
         var clone = new ShapeTextBox();
         clone.Properties.Padding = source.Properties.Padding;
         clone.Properties.VerticalAlignment = source.Properties.VerticalAlignment;
+        clone.Properties.AutoFit = source.Properties.AutoFit;
+        clone.Properties.HorizontalOverflow = source.Properties.HorizontalOverflow;
+        clone.Properties.VerticalOverflow = source.Properties.VerticalOverflow;
+        clone.Properties.TextDirection = source.Properties.TextDirection;
         CopyBlocks(source.Blocks, clone.Blocks);
         return clone;
     }
@@ -636,8 +680,15 @@ public static class DocumentClone
             DoughnutHoleSize = source.DoughnutHoleSize,
             Title = source.Title,
             ChartAreaStyle = CloneChartStyle(source.ChartAreaStyle),
-            PlotAreaStyle = CloneChartStyle(source.PlotAreaStyle)
+            PlotAreaStyle = CloneChartStyle(source.PlotAreaStyle),
+            Legend = CloneChartLegend(source.Legend),
+            DataLabels = CloneChartDataLabels(source.DataLabels)
         };
+
+        foreach (var axis in source.Axes)
+        {
+            clone.Axes.Add(CloneChartAxis(axis));
+        }
 
         foreach (var series in source.Series)
         {
@@ -652,7 +703,8 @@ public static class DocumentClone
         var clone = new ChartSeries
         {
             Name = source.Name,
-            Style = CloneChartStyle(source.Style)
+            Style = CloneChartStyle(source.Style),
+            DataLabels = CloneChartDataLabels(source.DataLabels)
         };
 
         foreach (var point in source.Points)
@@ -671,7 +723,91 @@ public static class DocumentClone
             Value = source.Value,
             XValue = source.XValue,
             Size = source.Size,
-            Style = CloneChartStyle(source.Style)
+            Style = CloneChartStyle(source.Style),
+            DataLabel = CloneChartDataLabels(source.DataLabel)
+        };
+    }
+
+    private static ChartAxis CloneChartAxis(ChartAxis source)
+    {
+        return new ChartAxis
+        {
+            AxisId = source.AxisId,
+            CrossAxisId = source.CrossAxisId,
+            Kind = source.Kind,
+            Position = source.Position,
+            IsVisible = source.IsVisible,
+            Minimum = source.Minimum,
+            Maximum = source.Maximum,
+            MajorUnit = source.MajorUnit,
+            MinorUnit = source.MinorUnit,
+            MajorTickMark = source.MajorTickMark,
+            MinorTickMark = source.MinorTickMark,
+            TickLabelPosition = source.TickLabelPosition,
+            NumberFormat = source.NumberFormat,
+            Title = source.Title,
+            LineStyle = CloneChartLine(source.LineStyle),
+            MajorGridlineStyle = CloneChartLine(source.MajorGridlineStyle),
+            MinorGridlineStyle = CloneChartLine(source.MinorGridlineStyle),
+            LabelTextStyle = CloneChartTextStyle(source.LabelTextStyle),
+            TitleTextStyle = CloneChartTextStyle(source.TitleTextStyle)
+        };
+    }
+
+    private static ChartLegend? CloneChartLegend(ChartLegend? source)
+    {
+        if (source is null)
+        {
+            return null;
+        }
+
+        return new ChartLegend
+        {
+            IsVisible = source.IsVisible,
+            Position = source.Position,
+            Overlay = source.Overlay,
+            TextStyle = CloneChartTextStyle(source.TextStyle)
+        };
+    }
+
+    private static ChartDataLabelSettings? CloneChartDataLabels(ChartDataLabelSettings? source)
+    {
+        if (source is null)
+        {
+            return null;
+        }
+
+        return new ChartDataLabelSettings
+        {
+            IsHidden = source.IsHidden,
+            ShowValue = source.ShowValue,
+            ShowCategoryName = source.ShowCategoryName,
+            ShowSeriesName = source.ShowSeriesName,
+            ShowPercent = source.ShowPercent,
+            ShowBubbleSize = source.ShowBubbleSize,
+            ShowLegendKey = source.ShowLegendKey,
+            ShowLeaderLines = source.ShowLeaderLines,
+            Position = source.Position,
+            NumberFormat = source.NumberFormat,
+            TextStyle = CloneChartTextStyle(source.TextStyle),
+            ShapeStyle = CloneChartStyle(source.ShapeStyle)
+        };
+    }
+
+    private static ChartTextStyle? CloneChartTextStyle(ChartTextStyle? source)
+    {
+        if (source is null)
+        {
+            return null;
+        }
+
+        return new ChartTextStyle
+        {
+            FontFamily = source.FontFamily,
+            FontSize = source.FontSize,
+            Color = source.Color,
+            Bold = source.Bold,
+            Italic = source.Italic
         };
     }
 
@@ -833,7 +969,12 @@ public static class DocumentClone
         {
             Author = source.Author,
             Initials = source.Initials,
-            Date = source.Date
+            Date = source.Date,
+            ParentId = source.ParentId,
+            ThreadId = source.ThreadId,
+            IsResolved = source.IsResolved,
+            ResolvedBy = source.ResolvedBy,
+            ResolvedDate = source.ResolvedDate
         };
 
         CopyBlocks(source.Blocks, clone.Blocks);

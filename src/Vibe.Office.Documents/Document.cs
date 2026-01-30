@@ -73,13 +73,7 @@ public sealed class Document
                         count++;
                         break;
                     case TableBlock table:
-                        foreach (var row in table.Rows)
-                        {
-                            foreach (var cell in row.Cells)
-                            {
-                                count += cell.Paragraphs.Count;
-                            }
-                        }
+                        count += CountParagraphsInTable(table);
 
                         break;
                 }
@@ -122,26 +116,9 @@ public sealed class Document
                 }
                 case TableBlock table:
                 {
-                    for (var rowIndex = 0; rowIndex < table.Rows.Count; rowIndex++)
+                    if (TryFindParagraphInTable(table, i, paragraphIndex, ref count, out var location))
                     {
-                        var row = table.Rows[rowIndex];
-                        var columnIndex = Math.Max(0, row.Properties.GridBefore ?? 0);
-                        for (var cellIndex = 0; cellIndex < row.Cells.Count; cellIndex++)
-                        {
-                            var cell = row.Cells[cellIndex];
-                            for (var paragraphIndexInCell = 0; paragraphIndexInCell < cell.Paragraphs.Count; paragraphIndexInCell++)
-                            {
-                                var paragraph = cell.Paragraphs[paragraphIndexInCell];
-                                if (count == paragraphIndex)
-                                {
-                                    return new ParagraphLocation(paragraph, i, table, cell, rowIndex, columnIndex, paragraphIndexInCell);
-                                }
-
-                                count++;
-                            }
-
-                            columnIndex += Math.Max(1, cell.ColumnSpan);
-                        }
+                        return location;
                     }
 
                     break;
@@ -213,5 +190,104 @@ public sealed class Document
 
         var blockInsertIndex = Math.Clamp(location.BlockIndex + 1, 0, Blocks.Count);
         Blocks.Insert(blockInsertIndex, paragraph);
+    }
+
+    private static int CountParagraphsInTable(TableBlock table)
+    {
+        var count = 0;
+        foreach (var row in table.Rows)
+        {
+            foreach (var cell in row.Cells)
+            {
+                count += CountParagraphsInBlocks(cell.Blocks);
+            }
+        }
+
+        return count;
+    }
+
+    private static int CountParagraphsInBlocks(IReadOnlyList<Block> blocks)
+    {
+        var count = 0;
+        foreach (var block in blocks)
+        {
+            switch (block)
+            {
+                case ParagraphBlock:
+                    count++;
+                    break;
+                case TableBlock table:
+                    count += CountParagraphsInTable(table);
+                    break;
+            }
+        }
+
+        return count;
+    }
+
+    private static bool TryFindParagraphInTable(
+        TableBlock table,
+        int blockIndex,
+        int targetIndex,
+        ref int count,
+        out ParagraphLocation location)
+    {
+        for (var rowIndex = 0; rowIndex < table.Rows.Count; rowIndex++)
+        {
+            var row = table.Rows[rowIndex];
+            var columnIndex = Math.Max(0, row.Properties.GridBefore ?? 0);
+            for (var cellIndex = 0; cellIndex < row.Cells.Count; cellIndex++)
+            {
+                var cell = row.Cells[cellIndex];
+                if (TryFindParagraphInCell(table, cell, rowIndex, columnIndex, blockIndex, targetIndex, ref count, out location))
+                {
+                    return true;
+                }
+
+                columnIndex += Math.Max(1, cell.ColumnSpan);
+            }
+        }
+
+        location = default;
+        return false;
+    }
+
+    private static bool TryFindParagraphInCell(
+        TableBlock table,
+        TableCell cell,
+        int rowIndex,
+        int columnIndex,
+        int blockIndex,
+        int targetIndex,
+        ref int count,
+        out ParagraphLocation location)
+    {
+        var paragraphIndexInCell = 0;
+        foreach (var block in cell.Blocks)
+        {
+            switch (block)
+            {
+                case ParagraphBlock paragraph:
+                    if (count == targetIndex)
+                    {
+                        location = new ParagraphLocation(paragraph, blockIndex, table, cell, rowIndex, columnIndex, paragraphIndexInCell);
+                        return true;
+                    }
+
+                    count++;
+                    paragraphIndexInCell++;
+                    break;
+                case TableBlock nestedTable:
+                    if (TryFindParagraphInTable(nestedTable, blockIndex, targetIndex, ref count, out location))
+                    {
+                        return true;
+                    }
+
+                    break;
+            }
+        }
+
+        location = default;
+        return false;
     }
 }

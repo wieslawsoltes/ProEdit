@@ -13,11 +13,13 @@ public enum FieldKind
     Time,
     Hyperlink,
     Ref,
+    StyleRef,
     DocProperty,
     Citation,
     Bibliography,
     Toc,
     Seq,
+    Index,
     TocEntry,
     IndexEntry
 }
@@ -137,11 +139,13 @@ public static class FieldInstructionParser
             "HYPERLINK" => FieldKind.Hyperlink,
             "REF" => FieldKind.Ref,
             "PAGEREF" => FieldKind.Ref,
+            "STYLEREF" => FieldKind.StyleRef,
             "DOCPROPERTY" => FieldKind.DocProperty,
             "CITATION" => FieldKind.Citation,
             "BIBLIOGRAPHY" => FieldKind.Bibliography,
             "TOC" => FieldKind.Toc,
             "SEQ" => FieldKind.Seq,
+            "INDEX" => FieldKind.Index,
             "TC" => FieldKind.TocEntry,
             "XE" => FieldKind.IndexEntry,
             _ => FieldKind.Unknown

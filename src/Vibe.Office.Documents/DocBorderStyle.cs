@@ -10,5 +10,9 @@ public enum DocBorderStyle
     DotDash,
     DotDotDash,
     Thick,
-    Hairline
+    Hairline,
+    Triple,
+    ThickThin,
+    ThinThick,
+    ThinThickThin
 }

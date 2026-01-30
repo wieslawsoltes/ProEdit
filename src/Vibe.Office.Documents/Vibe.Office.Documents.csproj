@@ -10,4 +10,8 @@
     <ProjectReference Include="..\\Vibe.Office.Primitives\\Vibe.Office.Primitives.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="Shapes\\presetShapeDefinitions.xml" />
+  </ItemGroup>
+
 </Project>

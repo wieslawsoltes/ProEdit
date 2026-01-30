@@ -2,7 +2,8 @@ namespace Vibe.Office.Documents;
 
 public sealed class TableCell
 {
-    public List<ParagraphBlock> Paragraphs { get; } = new List<ParagraphBlock>();
+    public List<Block> Blocks { get; } = new List<Block>();
+    public TableCellParagraphCollection Paragraphs { get; }
     public TableCellProperties Properties { get; } = new TableCellProperties();
     public ContentControlProperties? ContentControl { get; set; }
     public List<MetadataContainer> Metadata { get; } = new List<MetadataContainer>();
@@ -11,9 +12,11 @@ public sealed class TableCell
 
     public TableCell()
     {
+        Paragraphs = new TableCellParagraphCollection(Blocks);
     }
 
     public TableCell(IEnumerable<ParagraphBlock> paragraphs)
+        : this()
     {
         Paragraphs.AddRange(paragraphs);
     }
