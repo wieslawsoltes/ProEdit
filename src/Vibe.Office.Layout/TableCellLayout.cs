@@ -10,6 +10,7 @@ public sealed record TableCellLayout(
     int RowSpan,
     DocRect Bounds,
     IReadOnlyList<TableCellLine> Lines,
+    IReadOnlyList<TableLayout> Tables,
     TableCellProperties Properties,
     DocThickness Padding,
     bool IsMergeContinuation = false,

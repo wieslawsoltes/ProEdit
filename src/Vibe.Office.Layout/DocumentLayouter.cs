@@ -154,6 +154,10 @@ public sealed class DocumentLayouter
         var wrapFloatingObjects = new List<FloatingLayoutObject>();
         var placedFloatingObjects = new List<FloatingLayoutObject>();
         var extraFloatingObjects = new List<FloatingLayoutObject>();
+        var wrapIntervals = new List<WrapInterval>();
+        var wrapIntervalsScratch = new List<WrapInterval>();
+        var wrapExclusionSpans = new List<WrapInterval>();
+        var wrapContourScratch = new List<WrapInterval>();
         var breakMarkers = new List<BreakMarker>();
         var linePageIndices = new List<int>();
         var paragraphLineRanges = new Dictionary<int, LineRange>();
@@ -499,15 +503,28 @@ public sealed class DocumentLayouter
             }
 
             var tableLines = new List<TableCellLine>();
-            foreach (var cell in tableLayout.Cells)
+            void CollectTableLines(TableLayout table)
             {
-                if (cell.Lines.Count == 0)
+                foreach (var cell in table.Cells)
                 {
-                    continue;
-                }
+                    if (cell.Lines.Count > 0)
+                    {
+                        tableLines.AddRange(cell.Lines);
+                    }
 
-                tableLines.AddRange(cell.Lines);
+                    if (cell.Tables.Count == 0)
+                    {
+                        continue;
+                    }
+
+                    foreach (var nested in cell.Tables)
+                    {
+                        CollectTableLines(nested);
+                    }
+                }
             }
+
+            CollectTableLines(tableLayout);
 
             if (tableLines.Count == 0)
             {
@@ -654,8 +671,20 @@ public sealed class DocumentLayouter
 
             if (dirtyLocation.IsInTable)
             {
-                var paragraphsBefore = CountParagraphsBeforeInTable(dirtyLocation);
-                startParagraphIndex = Math.Max(0, dirtyParagraph - paragraphsBefore);
+                if (dirtyLocation.Table is not null
+                    && startBlockIndex >= 0
+                    && startBlockIndex < blocks.Count
+                    && blocks[startBlockIndex] is TableBlock outerTable
+                    && !ReferenceEquals(outerTable, dirtyLocation.Table)
+                    && TryCountParagraphsBeforeInTableBlock(outerTable, dirtyLocation.Paragraph, out var paragraphsBeforeOuter))
+                {
+                    startParagraphIndex = Math.Max(0, dirtyParagraph - paragraphsBeforeOuter);
+                }
+                else
+                {
+                    var paragraphsBefore = CountParagraphsBeforeInTable(dirtyLocation);
+                    startParagraphIndex = Math.Max(0, dirtyParagraph - paragraphsBefore);
+                }
             }
 
             if (startBlockIndex > 0 && blocks[startBlockIndex - 1] is ParagraphBlock previousParagraph)
@@ -812,17 +841,29 @@ public sealed class DocumentLayouter
                 var row = location.Table.Rows[rowIndex];
                 foreach (var cell in row.Cells)
                 {
-                    count += cell.Paragraphs.Count;
+                    count += CountParagraphsInBlocks(cell.Blocks);
                 }
             }
 
             var currentRow = location.Table.Rows[location.RowIndex];
             for (var columnIndex = 0; columnIndex < location.ColumnIndex; columnIndex++)
             {
-                count += currentRow.Cells[columnIndex].Paragraphs.Count;
+                count += CountParagraphsInBlocks(currentRow.Cells[columnIndex].Blocks);
             }
 
-            count += Math.Max(0, location.ParagraphIndexInCell);
+            if (location.Cell is not null)
+            {
+                var localCount = 0;
+                if (TryCountParagraphsBeforeInBlocks(location.Cell.Blocks, location.Paragraph, ref localCount))
+                {
+                    count += localCount;
+                }
+                else
+                {
+                    count += Math.Max(0, location.ParagraphIndexInCell);
+                }
+            }
+
             return count;
         }
 
@@ -906,16 +947,31 @@ public sealed class DocumentLayouter
         static int GetTableMinParagraphIndex(TableLayout table)
         {
             var min = int.MaxValue;
-            foreach (var cell in table.Cells)
+            void InspectTable(TableLayout tableLayout)
             {
-                foreach (var line in cell.Lines)
+                foreach (var cell in tableLayout.Cells)
                 {
-                    if (line.ParagraphIndex >= 0 && line.ParagraphIndex < min)
+                    foreach (var line in cell.Lines)
                     {
-                        min = line.ParagraphIndex;
+                        if (line.ParagraphIndex >= 0 && line.ParagraphIndex < min)
+                        {
+                            min = line.ParagraphIndex;
+                        }
+                    }
+
+                    if (cell.Tables.Count == 0)
+                    {
+                        continue;
+                    }
+
+                    foreach (var nested in cell.Tables)
+                    {
+                        InspectTable(nested);
                     }
                 }
             }
+
+            InspectTable(table);
 
             return min == int.MaxValue ? -1 : min;
         }
@@ -1063,6 +1119,30 @@ public sealed class DocumentLayouter
             InitializePendingParagraphSpacing();
         }
 
+        void EnsureWrapBufferCapacity(int floatingCount)
+        {
+            var capacity = Math.Max(8, floatingCount * 4);
+            if (wrapIntervals.Capacity < capacity)
+            {
+                wrapIntervals.Capacity = capacity;
+            }
+
+            if (wrapIntervalsScratch.Capacity < capacity)
+            {
+                wrapIntervalsScratch.Capacity = capacity;
+            }
+
+            if (wrapExclusionSpans.Capacity < capacity)
+            {
+                wrapExclusionSpans.Capacity = capacity;
+            }
+
+            if (wrapContourScratch.Capacity < capacity)
+            {
+                wrapContourScratch.Capacity = capacity;
+            }
+        }
+
         WrapBounds ResolveWrapBounds(float lineTop, float lineHeight, float baseLeft, float baseRight)
         {
             if (wrapFloatingObjects.Count == 0 || baseRight <= baseLeft)
@@ -1070,10 +1150,12 @@ public sealed class DocumentLayouter
                 return new WrapBounds(baseLeft, baseRight, float.MinValue);
             }
 
-            var left = baseLeft;
-            var right = baseRight;
+            EnsureWrapBufferCapacity(wrapFloatingObjects.Count);
+            wrapIntervals.Clear();
+            wrapIntervals.Add(new WrapInterval(baseLeft, baseRight));
+            wrapIntervalsScratch.Clear();
+
             var blockBottom = float.MinValue;
-            var mid = (baseLeft + baseRight) / 2f;
 
             foreach (var floating in wrapFloatingObjects)
             {
@@ -1088,73 +1170,35 @@ public sealed class DocumentLayouter
                     continue;
                 }
 
-                float boundsLeft;
-                float boundsRight;
-                float boundsBottom;
-                if (!TryResolveWrapContourBounds(floating, lineTop, lineHeight, out boundsLeft, out boundsRight, out boundsBottom))
+                if (!TryCollectWrapSpans(floating, lineTop, lineHeight, wrapExclusionSpans, wrapContourScratch, out var boundsBottom))
                 {
-                    var bounds = InflateBounds(floating.Bounds, anchor.Distance);
-                    if (!LineOverlaps(bounds, lineTop, lineHeight))
-                    {
-                        continue;
-                    }
-
-                    if (bounds.Right <= baseLeft || bounds.Left >= baseRight)
-                    {
-                        continue;
-                    }
-
-                    boundsLeft = bounds.Left;
-                    boundsRight = bounds.Right;
-                    boundsBottom = bounds.Bottom;
+                    continue;
                 }
-                else if (boundsRight <= baseLeft || boundsLeft >= baseRight)
+
+                if (!SpansOverlapRange(wrapExclusionSpans, baseLeft, baseRight))
                 {
                     continue;
                 }
 
                 blockBottom = MathF.Max(blockBottom, boundsBottom);
-                switch (anchor.WrapSide)
+                if (wrapIntervals.Count == 0)
                 {
-                    case FloatingWrapSide.Left:
-                        right = MathF.Min(right, boundsLeft);
-                        break;
-                    case FloatingWrapSide.Right:
-                        left = MathF.Max(left, boundsRight);
-                        break;
-                    case FloatingWrapSide.Largest:
-                    {
-                        var leftSpace = MathF.Max(0f, boundsLeft - baseLeft);
-                        var rightSpace = MathF.Max(0f, baseRight - boundsRight);
-                        if (rightSpace > leftSpace)
-                        {
-                            left = MathF.Max(left, boundsRight);
-                        }
-                        else
-                        {
-                            right = MathF.Min(right, boundsLeft);
-                        }
-
-                        break;
-                    }
-                    default:
-                    {
-                        var center = (boundsLeft + boundsRight) / 2f;
-                        if (center <= mid)
-                        {
-                            left = MathF.Max(left, boundsRight);
-                        }
-                        else
-                        {
-                            right = MathF.Min(right, boundsLeft);
-                        }
-
-                        break;
-                    }
+                    continue;
                 }
+
+                ApplyWrapExclusions(wrapIntervals, wrapIntervalsScratch, wrapExclusionSpans, anchor.WrapSide, baseLeft, baseRight);
+                var swap = wrapIntervals;
+                wrapIntervals = wrapIntervalsScratch;
+                wrapIntervalsScratch = swap;
             }
 
-            return new WrapBounds(left, right, blockBottom);
+            if (wrapIntervals.Count == 0)
+            {
+                return new WrapBounds(baseLeft, baseLeft, blockBottom);
+            }
+
+            var selected = SelectWrapInterval(wrapIntervals, baseLeft);
+            return new WrapBounds(selected.Left, selected.Right, blockBottom);
         }
 
         bool TryReuseSuffixAfterParagraph(int paragraphIndex, ParagraphLayoutPlan plan, LineRange lineRange)
@@ -1335,7 +1379,17 @@ public sealed class DocumentLayouter
             var paragraphLineStart = lines.Count;
             var blockRevision = showRevisions && blockRevisionStack.Count > 0 ? blockRevisionStack[^1] : null;
             WrapResolver? wrapResolver = wrapFloatingObjects.Count == 0 ? null : ResolveWrapBounds;
-            var (text, spans) = BuildInlineSpans(paragraph, paragraphIndex, paragraphStyle, styleResolver, document, fieldContext, blockRevision, showRevisions, noteNumbers: noteNumbers);
+            var (text, spans) = BuildInlineSpans(
+                paragraph,
+                paragraphIndex,
+                paragraphStyle,
+                styleResolver,
+                document,
+                fieldContext,
+                blockRevision,
+                showRevisions,
+                noteNumbers: noteNumbers,
+                textDirection: properties.TextDirection);
             var charGridSpacing = TextGridSnapping.GetCharacterSpacing(pageSettings.DocGrid);
             var (paragraphLineHeight, paragraphAscent) = ResolveParagraphLineMetrics(paragraphStyle, measurer, spacingMetricsCache);
             var dropCapActive = false;
@@ -2629,7 +2683,17 @@ public sealed class DocumentLayouter
             }
 
             var blockRevision = showRevisions && blockRevisionStack.Count > 0 ? blockRevisionStack[^1] : null;
-            var (text, spans) = BuildInlineSpans(plan.Paragraph, paragraphIndex, plan.ParagraphStyle, styleResolver, document, fieldContext, blockRevision, showRevisions, noteNumbers: noteNumbers);
+            var (text, spans) = BuildInlineSpans(
+                plan.Paragraph,
+                paragraphIndex,
+                plan.ParagraphStyle,
+                styleResolver,
+                document,
+                fieldContext,
+                blockRevision,
+                showRevisions,
+                noteNumbers: noteNumbers,
+                textDirection: plan.Properties.TextDirection);
             var charGridSpacing = TextGridSnapping.GetCharacterSpacing(pageSettings.DocGrid);
             var baseWidth = MathF.Max(1f, columnWidth - plan.IndentLeft - plan.IndentRight - plan.ListIndent - plan.PrefixWidth);
             var measuredWidth = text.Length == 0
@@ -3425,30 +3489,31 @@ public sealed class DocumentLayouter
             ? new Block[] { new ParagraphBlock() }
             : document.Blocks;
 
-        foreach (var block in blocks)
+        void AppendBlocks(IReadOnlyList<Block> blockList)
         {
-            switch (block)
+            foreach (var block in blockList)
             {
-                case ParagraphBlock paragraph:
-                    AppendFloatingObjects(paragraph, paragraphIndex, lines, pages, pageSections, paragraphLineRanges, lineIndex, result);
-                    paragraphIndex++;
-                    break;
-                case TableBlock table:
-                    foreach (var row in table.Rows)
-                    {
-                        foreach (var cell in row.Cells)
+                switch (block)
+                {
+                    case ParagraphBlock paragraph:
+                        AppendFloatingObjects(paragraph, paragraphIndex, lines, pages, pageSections, paragraphLineRanges, lineIndex, result);
+                        paragraphIndex++;
+                        break;
+                    case TableBlock table:
+                        foreach (var row in table.Rows)
                         {
-                            foreach (var paragraph in cell.Paragraphs)
+                            foreach (var cell in row.Cells)
                             {
-                                AppendFloatingObjects(paragraph, paragraphIndex, lines, pages, pageSections, paragraphLineRanges, lineIndex, result);
-                                paragraphIndex++;
+                                AppendBlocks(cell.Blocks);
                             }
                         }
-                    }
 
-                    break;
+                        break;
+                }
             }
         }
+
+        AppendBlocks(blocks);
 
         return result;
     }
@@ -3636,76 +3701,303 @@ public sealed class DocumentLayouter
         return wrap;
     }
 
-    private static bool TryResolveWrapContourBounds(
+    private static bool TryCollectWrapSpans(
         FloatingLayoutObject floating,
         float lineTop,
         float lineHeight,
-        out float left,
-        out float right,
+        List<WrapInterval> spans,
+        List<WrapInterval> scratch,
         out float blockBottom)
     {
-        left = 0f;
-        right = 0f;
+        spans.Clear();
         blockBottom = 0f;
 
-        var contour = floating.WrapContour;
-        if (contour is null)
-        {
-            return false;
-        }
-
         var anchor = floating.Object.Anchor;
-        if (anchor.WrapStyle is not (FloatingWrapStyle.Tight or FloatingWrapStyle.Through))
+        if (anchor.WrapStyle is FloatingWrapStyle.Tight or FloatingWrapStyle.Through && floating.WrapContour is { } contour)
         {
-            return false;
-        }
-
-        var top = contour.Bounds.Y - anchor.Distance.Top;
-        var bottom = contour.Bounds.Bottom + anchor.Distance.Bottom;
-        if (lineTop >= bottom || lineTop + lineHeight <= top)
-        {
-            return false;
-        }
-
-        var sampleTop = lineTop + lineHeight * 0.25f;
-        var sampleMid = lineTop + lineHeight * 0.5f;
-        var sampleBottom = lineTop + lineHeight * 0.75f;
-        Span<float> samples = stackalloc float[3];
-        samples[0] = Math.Clamp(sampleTop, contour.Bounds.Y, contour.Bounds.Bottom);
-        samples[1] = Math.Clamp(sampleMid, contour.Bounds.Y, contour.Bounds.Bottom);
-        samples[2] = Math.Clamp(sampleBottom, contour.Bounds.Y, contour.Bounds.Bottom);
-
-        var found = false;
-        var minLeft = float.MaxValue;
-        var maxRight = float.MinValue;
-        for (var i = 0; i < samples.Length; i++)
-        {
-            if (!contour.TryGetHorizontalSpan(samples[i], out var spanLeft, out var spanRight))
+            var top = contour.Bounds.Y - anchor.Distance.Top;
+            var bottom = contour.Bounds.Bottom + anchor.Distance.Bottom;
+            if (lineTop >= bottom || lineTop + lineHeight <= top)
             {
+                return false;
+            }
+
+            blockBottom = bottom;
+
+            var sampleTop = lineTop + lineHeight * 0.25f;
+            var sampleMid = lineTop + lineHeight * 0.5f;
+            var sampleBottom = lineTop + lineHeight * 0.75f;
+            Span<float> samples = stackalloc float[3];
+            samples[0] = Math.Clamp(sampleTop, contour.Bounds.Y, contour.Bounds.Bottom);
+            samples[1] = Math.Clamp(sampleMid, contour.Bounds.Y, contour.Bounds.Bottom);
+            samples[2] = Math.Clamp(sampleBottom, contour.Bounds.Y, contour.Bounds.Bottom);
+
+            for (var i = 0; i < samples.Length; i++)
+            {
+                contour.GetHorizontalSpans(samples[i], scratch);
+                for (var spanIndex = 0; spanIndex < scratch.Count; spanIndex++)
+                {
+                    var span = scratch[spanIndex];
+                    var left = span.Left - anchor.Distance.Left;
+                    var right = span.Right + anchor.Distance.Right;
+                    if (right <= left)
+                    {
+                        continue;
+                    }
+
+                    spans.Add(new WrapInterval(left, right));
+                }
+            }
+
+            if (spans.Count == 0)
+            {
+                return false;
+            }
+
+            MergeWrapSpans(spans, scratch);
+            return true;
+        }
+
+        var bounds = InflateBounds(floating.Bounds, anchor.Distance);
+        if (!LineOverlaps(bounds, lineTop, lineHeight))
+        {
+            return false;
+        }
+
+        spans.Add(new WrapInterval(bounds.Left, bounds.Right));
+        blockBottom = bounds.Bottom;
+        return true;
+    }
+
+    private static void MergeWrapSpans(List<WrapInterval> spans, List<WrapInterval> scratch)
+    {
+        if (spans.Count <= 1)
+        {
+            return;
+        }
+
+        spans.Sort(static (left, right) => left.Left.CompareTo(right.Left));
+        scratch.Clear();
+
+        var current = spans[0];
+        const float epsilon = 0.25f;
+        for (var i = 1; i < spans.Count; i++)
+        {
+            var span = spans[i];
+            if (span.Left <= current.Right + epsilon)
+            {
+                current = new WrapInterval(current.Left, MathF.Max(current.Right, span.Right));
                 continue;
             }
 
-            found = true;
-            if (spanLeft < minLeft)
-            {
-                minLeft = spanLeft;
-            }
-
-            if (spanRight > maxRight)
-            {
-                maxRight = spanRight;
-            }
+            scratch.Add(current);
+            current = span;
         }
 
-        if (!found)
+        scratch.Add(current);
+        spans.Clear();
+        spans.AddRange(scratch);
+    }
+
+    private static void ApplyWrapExclusions(
+        List<WrapInterval> available,
+        List<WrapInterval> scratch,
+        List<WrapInterval> exclusions,
+        FloatingWrapSide wrapSide,
+        float baseLeft,
+        float baseRight)
+    {
+        scratch.Clear();
+        if (available.Count == 0 || exclusions.Count == 0)
         {
-            return false;
+            scratch.AddRange(available);
+            return;
         }
 
-        left = minLeft - anchor.Distance.Left;
-        right = maxRight + anchor.Distance.Right;
-        blockBottom = bottom;
-        return true;
+        var minLeft = float.MaxValue;
+        var maxRight = float.MinValue;
+        for (var i = 0; i < exclusions.Count; i++)
+        {
+            var span = exclusions[i];
+            if (span.Left < minLeft)
+            {
+                minLeft = span.Left;
+            }
+
+            if (span.Right > maxRight)
+            {
+                maxRight = span.Right;
+            }
+        }
+
+        if (wrapSide == FloatingWrapSide.Largest)
+        {
+            var leftWidth = SumWrapWidthLeftOf(available, minLeft);
+            var rightWidth = SumWrapWidthRightOf(available, maxRight);
+            wrapSide = rightWidth > leftWidth ? FloatingWrapSide.Right : FloatingWrapSide.Left;
+        }
+
+        switch (wrapSide)
+        {
+            case FloatingWrapSide.Left:
+            {
+                for (var i = 0; i < available.Count; i++)
+                {
+                    var interval = available[i];
+                    var right = MathF.Min(interval.Right, minLeft);
+                    if (right > interval.Left)
+                    {
+                        scratch.Add(new WrapInterval(interval.Left, right));
+                    }
+                }
+
+                break;
+            }
+            case FloatingWrapSide.Right:
+            {
+                for (var i = 0; i < available.Count; i++)
+                {
+                    var interval = available[i];
+                    var left = MathF.Max(interval.Left, maxRight);
+                    if (interval.Right > left)
+                    {
+                        scratch.Add(new WrapInterval(left, interval.Right));
+                    }
+                }
+
+                break;
+            }
+            default:
+            {
+                for (var i = 0; i < available.Count; i++)
+                {
+                    var interval = available[i];
+                    var currentLeft = interval.Left;
+                    var currentRight = interval.Right;
+                    if (currentRight <= baseLeft || currentLeft >= baseRight)
+                    {
+                        continue;
+                    }
+
+                    if (currentLeft < baseLeft)
+                    {
+                        currentLeft = baseLeft;
+                    }
+
+                    if (currentRight > baseRight)
+                    {
+                        currentRight = baseRight;
+                    }
+
+                    for (var exclusionIndex = 0; exclusionIndex < exclusions.Count; exclusionIndex++)
+                    {
+                        var exclusion = exclusions[exclusionIndex];
+                        if (exclusion.Right <= currentLeft)
+                        {
+                            continue;
+                        }
+
+                        if (exclusion.Left >= currentRight)
+                        {
+                            break;
+                        }
+
+                        if (exclusion.Left > currentLeft)
+                        {
+                            scratch.Add(new WrapInterval(currentLeft, exclusion.Left));
+                        }
+
+                        currentLeft = MathF.Max(currentLeft, exclusion.Right);
+                        if (currentLeft >= currentRight)
+                        {
+                            break;
+                        }
+                    }
+
+                    if (currentLeft < currentRight)
+                    {
+                        scratch.Add(new WrapInterval(currentLeft, currentRight));
+                    }
+                }
+
+                break;
+            }
+        }
+    }
+
+    private static bool SpansOverlapRange(List<WrapInterval> spans, float left, float right)
+    {
+        for (var i = 0; i < spans.Count; i++)
+        {
+            var span = spans[i];
+            if (span.Right > left && span.Left < right)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static float SumWrapWidthLeftOf(List<WrapInterval> intervals, float limit)
+    {
+        var width = 0f;
+        for (var i = 0; i < intervals.Count; i++)
+        {
+            var interval = intervals[i];
+            var right = MathF.Min(interval.Right, limit);
+            if (right > interval.Left)
+            {
+                width += right - interval.Left;
+            }
+        }
+
+        return width;
+    }
+
+    private static float SumWrapWidthRightOf(List<WrapInterval> intervals, float limit)
+    {
+        var width = 0f;
+        for (var i = 0; i < intervals.Count; i++)
+        {
+            var interval = intervals[i];
+            var left = MathF.Max(interval.Left, limit);
+            if (interval.Right > left)
+            {
+                width += interval.Right - left;
+            }
+        }
+
+        return width;
+    }
+
+    private static WrapInterval SelectWrapInterval(List<WrapInterval> intervals, float baseLeft)
+    {
+        var selected = intervals[0];
+        var closestRightStart = float.MaxValue;
+        var closestRightIndex = -1;
+
+        for (var i = 0; i < intervals.Count; i++)
+        {
+            var interval = intervals[i];
+            if (baseLeft >= interval.Left && baseLeft <= interval.Right)
+            {
+                return interval;
+            }
+
+            if (interval.Left >= baseLeft && interval.Left < closestRightStart)
+            {
+                closestRightStart = interval.Left;
+                closestRightIndex = i;
+            }
+
+            if (interval.Left < selected.Left)
+            {
+                selected = interval;
+            }
+        }
+
+        return closestRightIndex >= 0 ? intervals[closestRightIndex] : selected;
     }
 
     private static DocRect InflateBounds(DocRect bounds, DocThickness distance)
@@ -3781,6 +4073,11 @@ public sealed class DocumentLayouter
             }
 
             var otherAnchor = other.Object.Anchor;
+            if (!anchor.BehindText && otherAnchor.BehindText)
+            {
+                continue;
+            }
+
             if (anchor.AllowOverlap && otherAnchor.AllowOverlap)
             {
                 continue;
@@ -4180,10 +4477,16 @@ public sealed class DocumentLayouter
         public TableCellPlacement? MergeOrigin { get; set; }
         public TableCellProperties Properties { get; set; } = new TableCellProperties();
         public List<TableCellLine> Lines { get; set; } = new List<TableCellLine>();
+        public List<TableLayout> Tables { get; set; } = new List<TableLayout>();
         public DocThickness Padding { get; set; }
         public float ContentHeight { get; set; }
         public bool IsMergeContinuation => MergeOrigin is not null;
     }
+
+    private readonly record struct TableCellLayoutResult(
+        List<TableCellLine> Lines,
+        List<TableLayout> Tables,
+        float ContentHeight);
 
     private enum BalanceItemKind
     {
@@ -4336,23 +4639,26 @@ public sealed class DocumentLayouter
             placement.Properties = effectiveProperties;
             placement.Padding = ResolvePadding(effectiveProperties.Padding, tablePadding);
 
+            if (!placement.IsMergeContinuation)
+            {
+                var preferredWidth = ResolvePreferredCellWidth(effectiveProperties, preferredReferenceWidth);
+                if (preferredWidth.HasValue && preferredWidth.Value > 0f)
+                {
+                    var perColumn = preferredWidth.Value / Math.Max(1, placement.ColumnSpan);
+                    for (var i = 0; i < placement.ColumnSpan; i++)
+                    {
+                        var index = placement.ColumnIndex + i;
+                        if (index >= 0 && index < preferredColumnWidths.Length)
+                        {
+                            preferredColumnWidths[index] = MathF.Max(preferredColumnWidths[index], perColumn);
+                        }
+                    }
+                }
+            }
+
             if (!autoFit || placement.IsMergeContinuation)
             {
                 continue;
-            }
-
-            var preferredWidth = ResolvePreferredCellWidth(effectiveProperties, preferredReferenceWidth);
-            if (preferredWidth.HasValue && preferredWidth.Value > 0f)
-            {
-                var perColumn = preferredWidth.Value / Math.Max(1, placement.ColumnSpan);
-                for (var i = 0; i < placement.ColumnSpan; i++)
-                {
-                    var index = placement.ColumnIndex + i;
-                    if (index >= 0 && index < preferredColumnWidths.Length)
-                    {
-                        preferredColumnWidths[index] = MathF.Max(preferredColumnWidths[index], perColumn);
-                    }
-                }
             }
 
             var minWidth = MeasureTableCellMinWidth(
@@ -4362,6 +4668,9 @@ public sealed class DocumentLayouter
                 measurer,
                 style,
                 styleResolver,
+                spacingMetricsCache,
+                lineHeight,
+                ascent,
                 docGrid,
                 noteNumbers,
                 fieldContext,
@@ -4384,7 +4693,7 @@ public sealed class DocumentLayouter
 
         var columnWidths = autoFit
             ? ResolveAutoColumnWidths(columnCount, contentWidth, tableWidth, cellSpacing, preferredColumnWidths, minColumnWidths)
-            : ResolveColumnWidths(resolvedTableProperties, columnCount, contentWidth, tableWidth, cellSpacing);
+            : ResolveColumnWidths(resolvedTableProperties, columnCount, contentWidth, tableWidth, cellSpacing, preferredColumnWidths);
         var effectiveTableWidth = MathF.Max(0f, columnWidths.Sum() + cellSpacing * (columnCount + 1));
 
         for (var rowIndex = 0; rowIndex < rowCount; rowIndex++)
@@ -4396,7 +4705,7 @@ public sealed class DocumentLayouter
                 if (!placement.IsMergeContinuation)
                 {
                     var spanWidth = SumColumnsWithSpacing(columnWidths, placement.ColumnIndex, placement.ColumnSpan, cellSpacing);
-                    var cellLines = LayoutCellParagraphs(
+                    var cellLayout = LayoutCellBlocks(
                         placement.Cell,
                         document,
                         spanWidth,
@@ -4415,8 +4724,9 @@ public sealed class DocumentLayouter
                         blockRevision,
                         showRevisions,
                         ref paragraphIndex);
-                    placement.Lines = cellLines;
-                    placement.ContentHeight = cellLines.Count == 0 ? 0f : cellLines.Last().Y + GetLineBlockHeight(cellLines.Last());
+                    placement.Lines = cellLayout.Lines;
+                    placement.Tables = cellLayout.Tables;
+                    placement.ContentHeight = cellLayout.ContentHeight;
 
                     if (placement.RowSpan <= 1)
                     {
@@ -4586,6 +4896,7 @@ public sealed class DocumentLayouter
                     spanInChunk,
                     cellBounds,
                     Array.Empty<TableCellLine>(),
+                    Array.Empty<TableLayout>(),
                     origin.Properties,
                     origin.Padding,
                     true,
@@ -4611,6 +4922,7 @@ public sealed class DocumentLayouter
             var cellHeightOrigin = SumSliceHeights(rowOffsets, slices, localRowIndex, spanInPage, cellSpacing);
             var cellBoundsOrigin = new DocRect(cellXOrigin, cellYOrigin, cellWidthOrigin, cellHeightOrigin);
             IReadOnlyList<TableCellLine> offsetLines = Array.Empty<TableCellLine>();
+            IReadOnlyList<TableLayout> offsetTables = Array.Empty<TableLayout>();
             if (placement.Lines.Count > 0)
             {
                 if (placement.RowSpan == 1 && localRowIndex < slices.Count)
@@ -4628,6 +4940,23 @@ public sealed class DocumentLayouter
                 }
             }
 
+            if (placement.Tables.Count > 0)
+            {
+                if (placement.RowSpan == 1 && localRowIndex < slices.Count)
+                {
+                    var slice = slices[localRowIndex];
+                    var rowHeight = data.RowHeights[Math.Clamp(placement.RowIndex, 0, data.RowHeights.Length - 1)];
+                    var isPartial = slice.Offset > 0f || slice.Height < rowHeight - 0.01f;
+                    offsetTables = isPartial
+                        ? BuildCellTablesForSlice(placement, cellXOrigin, cellYOrigin, rowHeight, slice.Offset, slice.Height)
+                        : BuildCellTables(placement, cellXOrigin, cellYOrigin, rowHeight);
+                }
+                else
+                {
+                    offsetTables = BuildCellTables(placement, cellXOrigin, cellYOrigin, cellHeightOrigin);
+                }
+            }
+
             cellLayouts.Add(new TableCellLayout(
                 localRowIndex,
                 placement.ColumnIndex,
@@ -4635,6 +4964,7 @@ public sealed class DocumentLayouter
                 spanInPage,
                 cellBoundsOrigin,
                 offsetLines,
+                offsetTables,
                 placement.Properties,
                 placement.Padding,
                 false,
@@ -4843,6 +5173,62 @@ public sealed class DocumentLayouter
         }
 
         return offsetLines.Count == 0 ? Array.Empty<TableCellLine>() : offsetLines;
+    }
+
+    private static IReadOnlyList<TableLayout> BuildCellTables(
+        TableCellPlacement placement,
+        float cellX,
+        float cellY,
+        float alignmentHeight)
+    {
+        if (placement.Tables.Count == 0)
+        {
+            return Array.Empty<TableLayout>();
+        }
+
+        var verticalOffset = ResolveCellVerticalOffset(placement, alignmentHeight);
+        var offsetX = cellX + placement.Padding.Left;
+        var offsetY = cellY + placement.Padding.Top + verticalOffset;
+        var offsetTables = new List<TableLayout>(placement.Tables.Count);
+        foreach (var table in placement.Tables)
+        {
+            offsetTables.Add(OffsetTableLayout(table, offsetX, offsetY));
+        }
+
+        return offsetTables;
+    }
+
+    private static IReadOnlyList<TableLayout> BuildCellTablesForSlice(
+        TableCellPlacement placement,
+        float cellX,
+        float cellY,
+        float alignmentHeight,
+        float sliceOffset,
+        float sliceHeight)
+    {
+        if (placement.Tables.Count == 0)
+        {
+            return Array.Empty<TableLayout>();
+        }
+
+        var verticalOffset = ResolveCellVerticalOffset(placement, alignmentHeight);
+        var offsetX = cellX + placement.Padding.Left;
+        var offsetY = cellY + placement.Padding.Top + verticalOffset - sliceOffset;
+        var sliceEnd = sliceOffset + sliceHeight;
+        var offsetTables = new List<TableLayout>(placement.Tables.Count);
+        foreach (var table in placement.Tables)
+        {
+            var tableTop = placement.Padding.Top + verticalOffset + table.Bounds.Y;
+            var tableBottom = tableTop + table.Bounds.Height;
+            if (tableBottom <= sliceOffset + 0.01f || tableTop >= sliceEnd - 0.01f)
+            {
+                continue;
+            }
+
+            offsetTables.Add(OffsetTableLayout(table, offsetX, offsetY));
+        }
+
+        return offsetTables.Count == 0 ? Array.Empty<TableLayout>() : offsetTables;
     }
 
     private static bool[] BuildRowSplitMap(TableBlock table, TableLayoutData data)
@@ -5185,7 +5571,7 @@ public sealed class DocumentLayouter
         return string.Equals(currentId, otherId, StringComparison.OrdinalIgnoreCase);
     }
 
-    private static List<TableCellLine> LayoutCellParagraphs(
+    private static TableCellLayoutResult LayoutCellBlocks(
         TableCell cell,
         Document document,
         float columnWidth,
@@ -5207,17 +5593,135 @@ public sealed class DocumentLayouter
     {
         var availableWidth = MathF.Max(1f, columnWidth - padding.Horizontal);
         var lines = new List<TableCellLine>();
+        var tables = new List<TableLayout>();
         var y = 0f;
         var listState = new ListNumberingState(document);
         var charGridSpacing = TextGridSnapping.GetCharacterSpacing(docGrid);
         var pendingParagraphSpacingAfter = 0f;
         var hasPendingParagraphSpacing = false;
-
-        for (var paragraphOffset = 0; paragraphOffset < cell.Paragraphs.Count; paragraphOffset++)
+        var maxContentBottom = 0f;
+        var revisionStack = showRevisions ? new List<RevisionInfo>() : null;
+        if (showRevisions && blockRevision is not null)
         {
-            var paragraph = cell.Paragraphs[paragraphOffset];
-            var previousParagraph = paragraphOffset > 0 ? cell.Paragraphs[paragraphOffset - 1] : null;
-            var nextParagraph = paragraphOffset + 1 < cell.Paragraphs.Count ? cell.Paragraphs[paragraphOffset + 1] : null;
+            revisionStack!.Add(blockRevision);
+        }
+
+        RevisionInfo? ResolveCurrentRevision()
+        {
+            if (!showRevisions || revisionStack is null || revisionStack.Count == 0)
+            {
+                return null;
+            }
+
+            return revisionStack[^1];
+        }
+
+        void PopRevision(RevisionEndBlock revisionEnd)
+        {
+            if (!showRevisions || revisionStack is null || revisionStack.Count == 0)
+            {
+                return;
+            }
+
+            var index = revisionStack.Count - 1;
+            if (revisionEnd.Id.HasValue)
+            {
+                for (var i = revisionStack.Count - 1; i >= 0; i--)
+                {
+                    var candidate = revisionStack[i];
+                    if (candidate.Id == revisionEnd.Id && candidate.Kind == revisionEnd.Kind)
+                    {
+                        index = i;
+                        break;
+                    }
+                }
+            }
+
+            revisionStack.RemoveAt(index);
+        }
+
+        var blocks = cell.Blocks;
+        for (var blockIndex = 0; blockIndex < blocks.Count; blockIndex++)
+        {
+            switch (blocks[blockIndex])
+            {
+                case RevisionStartBlock revisionStart:
+                    if (showRevisions)
+                    {
+                        revisionStack!.Add(revisionStart.Revision);
+                    }
+
+                    continue;
+                case RevisionEndBlock revisionEnd:
+                    PopRevision(revisionEnd);
+                    continue;
+                case ContentControlStartBlock:
+                case ContentControlEndBlock:
+                case MetadataStartBlock:
+                case MetadataEndBlock:
+                    continue;
+                case TableBlock nestedTable:
+                {
+                    pendingParagraphSpacingAfter = 0f;
+                    hasPendingParagraphSpacing = false;
+                    var tableStyle = styleResolver.ResolveTableStyle(nestedTable);
+                    var resolvedTableProperties = MergeTableProperties(tableStyle?.TableProperties, nestedTable.Properties);
+                    var tableLook = ResolveTableLook(nestedTable.Properties.Look ?? tableStyle?.TableProperties.Look);
+                    var data = ComputeTableLayoutData(
+                        nestedTable,
+                        document,
+                        resolvedTableProperties,
+                        nestedTable.Properties,
+                        tableStyle,
+                        tableLook,
+                        availableWidth,
+                        settings,
+                        measurer,
+                        style,
+                        styleResolver,
+                        spacingMetricsCache,
+                        lineHeight,
+                        ascent,
+                        docGrid,
+                        lineBreakOptions,
+                        noteNumbers,
+                        fieldContext,
+                        ResolveCurrentRevision(),
+                        showRevisions,
+                        ref paragraphIndex);
+                    var slices = new List<TableRowSlice>(data.RowHeights.Length);
+                    for (var i = 0; i < data.RowHeights.Length; i++)
+                    {
+                        slices.Add(new TableRowSlice(i, 0f, data.RowHeights[i]));
+                    }
+
+                    var tableX = ResolveTableX(0f, availableWidth, resolvedTableProperties, data.TableWidth);
+                    var tableLayout = BuildTableLayout(
+                        nestedTable,
+                        resolvedTableProperties,
+                        data,
+                        tableX,
+                        y,
+                        slices,
+                        settings,
+                        includeTopSpacing: true,
+                        includeBottomSpacing: true,
+                        continuesFromPrevious: false,
+                        continuesOnNext: false);
+                    tables.Add(tableLayout);
+                    var tableBottom = tableLayout.Bounds.Bottom;
+                    if (tableBottom > maxContentBottom)
+                    {
+                        maxContentBottom = tableBottom;
+                    }
+
+                    y = tableBottom + settings.BlockSpacing;
+                    continue;
+                }
+                case ParagraphBlock paragraph:
+                {
+                    var previousParagraph = blockIndex > 0 ? blocks[blockIndex - 1] as ParagraphBlock : null;
+                    var nextParagraph = blockIndex + 1 < blocks.Count ? blocks[blockIndex + 1] as ParagraphBlock : null;
             var currentParagraphIndex = paragraphIndex;
             var properties = styleResolver.ResolveParagraphProperties(paragraph);
             var textDirection = properties.TextDirection ?? cell.Properties.TextDirection;
@@ -5269,10 +5773,21 @@ public sealed class DocumentLayouter
             var prefixWidth = listMarker?.PrefixWidth ?? 0f;
             var paragraphBorders = properties.Borders.HasAny ? properties.Borders.Clone() : null;
             var paragraphShading = properties.ShadingColor;
+            var currentBlockRevision = ResolveCurrentRevision();
 
             if (DocTextDirectionHelpers.IsVertical(textDirection))
             {
-                var (verticalText, verticalSpans) = BuildInlineSpans(paragraph, currentParagraphIndex, paragraphStyle, styleResolver, document, fieldContext, blockRevision, showRevisions, noteNumbers: noteNumbers);
+                var (verticalText, verticalSpans) = BuildInlineSpans(
+                    paragraph,
+                    currentParagraphIndex,
+                    paragraphStyle,
+                    styleResolver,
+                    document,
+                    fieldContext,
+                    currentBlockRevision,
+                    showRevisions,
+                    noteNumbers: noteNumbers,
+                    textDirection: textDirection);
                 var (emptyLineHeight, emptyAscent) = ApplyLineSpacing(paragraphLineHeight, paragraphAscent, properties, docGrid);
                 if (string.IsNullOrEmpty(verticalText))
                 {
@@ -5321,6 +5836,7 @@ public sealed class DocumentLayouter
                         paragraphShading,
                         true,
                         true));
+                    maxContentBottom = MathF.Max(maxContentBottom, alignedY + GetLineBlockHeight(lines[^1]));
                     y = emptyAxisOrigin + emptyLineHeight + spacingAfter;
                     pendingParagraphSpacingAfter = spacingAfter;
                     hasPendingParagraphSpacing = true;
@@ -5406,6 +5922,7 @@ public sealed class DocumentLayouter
                         paragraphShading,
                         line.IsFirstLine,
                         isLastLine));
+                    maxContentBottom = MathF.Max(maxContentBottom, alignedY + GetLineBlockHeight(lines[^1]));
                     maxLineAxisEnd = MathF.Max(maxLineAxisEnd, alignedY + lineLayout.Width);
                     currentX = lineX + lineLayout.LineHeight;
                 }
@@ -5419,7 +5936,17 @@ public sealed class DocumentLayouter
 
             y += spacingBefore;
 
-            var (text, spans) = BuildInlineSpans(paragraph, currentParagraphIndex, paragraphStyle, styleResolver, document, fieldContext, blockRevision, showRevisions, noteNumbers: noteNumbers);
+            var (text, spans) = BuildInlineSpans(
+                paragraph,
+                currentParagraphIndex,
+                paragraphStyle,
+                styleResolver,
+                document,
+                fieldContext,
+                currentBlockRevision,
+                showRevisions,
+                noteNumbers: noteNumbers,
+                textDirection: textDirection);
             if (text.Length == 0)
             {
                 var lineX = indentLeft + listIndent + firstLineIndent + prefixWidth;
@@ -5457,6 +5984,7 @@ public sealed class DocumentLayouter
                     paragraphShading,
                     true,
                     true));
+                maxContentBottom = MathF.Max(maxContentBottom, y + GetLineBlockHeight(lines[^1]));
                 y += emptyLineHeight;
                 y += spacingAfter;
                 pendingParagraphSpacingAfter = spacingAfter;
@@ -5549,6 +6077,7 @@ public sealed class DocumentLayouter
                     paragraphShading,
                     isFirstLine,
                     isLastLine));
+                maxContentBottom = MathF.Max(maxContentBottom, y + GetLineBlockHeight(lines[^1]));
                 y += lineLayout.LineHeight;
                 isFirstLine = false;
             }
@@ -5557,9 +6086,16 @@ public sealed class DocumentLayouter
             pendingParagraphSpacingAfter = spacingAfter;
             hasPendingParagraphSpacing = true;
             paragraphIndex++;
+                    break;
+                }
+                default:
+                    pendingParagraphSpacingAfter = 0f;
+                    hasPendingParagraphSpacing = false;
+                    break;
+            }
         }
 
-        return lines;
+        return new TableCellLayoutResult(lines, tables, maxContentBottom);
     }
 
     private static float MeasureTableCellMinWidth(
@@ -5569,6 +6105,9 @@ public sealed class DocumentLayouter
         ITextMeasurer measurer,
         TextStyle style,
         DocumentStyleResolver styleResolver,
+        Dictionary<TextStyleKey, TextMetrics> spacingMetricsCache,
+        float lineHeight,
+        float ascent,
         DocGridSettings? docGrid,
         NoteNumberingContext? noteNumbers,
         FieldEvaluationContext? fieldContext,
@@ -5579,31 +6118,170 @@ public sealed class DocumentLayouter
         var charGridSpacing = TextGridSnapping.GetCharacterSpacing(docGrid);
         var paragraphIndex = 0;
         var maxWidth = 0f;
-
-        for (var paragraphOffset = 0; paragraphOffset < cell.Paragraphs.Count; paragraphOffset++)
+        var lineBreakOptions = new LineBreakOptions(document.Compatibility);
+        var revisionStack = showRevisions ? new List<RevisionInfo>() : null;
+        if (showRevisions && blockRevision is not null)
         {
-            var paragraph = cell.Paragraphs[paragraphOffset];
-            var properties = styleResolver.ResolveParagraphProperties(paragraph);
-            var paragraphStyle = styleResolver.ResolveParagraphTextStyle(paragraph, style);
-            var listMarker = listState.GetMarker(paragraph.ListInfo, settings, measurer, paragraphStyle);
-            var listIndent = listMarker?.Indent ?? 0f;
-            var prefixWidth = listMarker?.PrefixWidth ?? 0f;
-            var indentLeft = properties.IndentLeft ?? 0f;
-            var indentRight = properties.IndentRight ?? 0f;
-            var firstLineIndent = properties.FirstLineIndent ?? 0f;
-            var baseIndent = MathF.Max(0f, indentLeft)
-                             + MathF.Max(0f, indentRight)
-                             + MathF.Max(0f, listIndent)
-                             + MathF.Max(0f, prefixWidth)
-                             + MathF.Max(0f, firstLineIndent);
+            revisionStack!.Add(blockRevision);
+        }
 
-            var (_, spans) = BuildInlineSpans(paragraph, paragraphIndex, paragraphStyle, styleResolver, document, fieldContext, blockRevision, showRevisions, noteNumbers: noteNumbers);
-            var contentWidth = MeasureInlineSpansMaxWordWidth(spans, measurer, charGridSpacing, settings.DefaultTabWidth);
-            maxWidth = MathF.Max(maxWidth, baseIndent + contentWidth);
-            paragraphIndex++;
+        RevisionInfo? ResolveCurrentRevision()
+        {
+            if (!showRevisions || revisionStack is null || revisionStack.Count == 0)
+            {
+                return null;
+            }
+
+            return revisionStack[^1];
+        }
+
+        void PopRevision(RevisionEndBlock revisionEnd)
+        {
+            if (!showRevisions || revisionStack is null || revisionStack.Count == 0)
+            {
+                return;
+            }
+
+            var index = revisionStack.Count - 1;
+            if (revisionEnd.Id.HasValue)
+            {
+                for (var i = revisionStack.Count - 1; i >= 0; i--)
+                {
+                    var candidate = revisionStack[i];
+                    if (candidate.Id == revisionEnd.Id && candidate.Kind == revisionEnd.Kind)
+                    {
+                        index = i;
+                        break;
+                    }
+                }
+            }
+
+            revisionStack.RemoveAt(index);
+        }
+
+        foreach (var block in cell.Blocks)
+        {
+            switch (block)
+            {
+                case RevisionStartBlock revisionStart:
+                    if (showRevisions)
+                    {
+                        revisionStack!.Add(revisionStart.Revision);
+                    }
+
+                    continue;
+                case RevisionEndBlock revisionEnd:
+                    PopRevision(revisionEnd);
+                    continue;
+                case ContentControlStartBlock:
+                case ContentControlEndBlock:
+                case MetadataStartBlock:
+                case MetadataEndBlock:
+                    continue;
+                case ParagraphBlock paragraph:
+                {
+                    var properties = styleResolver.ResolveParagraphProperties(paragraph);
+                    var paragraphStyle = styleResolver.ResolveParagraphTextStyle(paragraph, style);
+                    var listMarker = listState.GetMarker(paragraph.ListInfo, settings, measurer, paragraphStyle);
+                    var listIndent = listMarker?.Indent ?? 0f;
+                    var prefixWidth = listMarker?.PrefixWidth ?? 0f;
+                    var indentLeft = properties.IndentLeft ?? 0f;
+                    var indentRight = properties.IndentRight ?? 0f;
+                    var firstLineIndent = properties.FirstLineIndent ?? 0f;
+                    var baseIndent = MathF.Max(0f, indentLeft)
+                                     + MathF.Max(0f, indentRight)
+                                     + MathF.Max(0f, listIndent)
+                                     + MathF.Max(0f, prefixWidth)
+                                     + MathF.Max(0f, firstLineIndent);
+
+                    var (_, spans) = BuildInlineSpans(
+                        paragraph,
+                        paragraphIndex,
+                        paragraphStyle,
+                        styleResolver,
+                        document,
+                        fieldContext,
+                        ResolveCurrentRevision(),
+                        showRevisions,
+                        noteNumbers: noteNumbers,
+                        textDirection: properties.TextDirection ?? cell.Properties.TextDirection);
+                    var contentWidth = MeasureInlineSpansMaxWordWidth(spans, measurer, charGridSpacing, settings.DefaultTabWidth);
+                    maxWidth = MathF.Max(maxWidth, baseIndent + contentWidth);
+                    paragraphIndex++;
+                    break;
+                }
+                case TableBlock table:
+                {
+                    var tableWidth = MeasureTableMinWidth(
+                        table,
+                        document,
+                        settings,
+                        measurer,
+                        style,
+                        styleResolver,
+                        spacingMetricsCache,
+                        lineHeight,
+                        ascent,
+                        docGrid,
+                        lineBreakOptions,
+                        noteNumbers,
+                        fieldContext,
+                        ResolveCurrentRevision(),
+                        showRevisions);
+                    maxWidth = MathF.Max(maxWidth, tableWidth);
+                    paragraphIndex += CountParagraphsInTable(table);
+                    break;
+                }
+            }
         }
 
         return maxWidth;
+    }
+
+    private static float MeasureTableMinWidth(
+        TableBlock table,
+        Document document,
+        LayoutSettings settings,
+        ITextMeasurer measurer,
+        TextStyle style,
+        DocumentStyleResolver styleResolver,
+        Dictionary<TextStyleKey, TextMetrics> spacingMetricsCache,
+        float lineHeight,
+        float ascent,
+        DocGridSettings? docGrid,
+        LineBreakOptions lineBreakOptions,
+        NoteNumberingContext? noteNumbers,
+        FieldEvaluationContext? fieldContext,
+        RevisionInfo? blockRevision,
+        bool showRevisions)
+    {
+        var tableStyle = styleResolver.ResolveTableStyle(table);
+        var resolvedTableProperties = MergeTableProperties(tableStyle?.TableProperties, table.Properties);
+        var tableLook = ResolveTableLook(table.Properties.Look ?? tableStyle?.TableProperties.Look);
+        var paragraphIndex = 0;
+        var data = ComputeTableLayoutData(
+            table,
+            document,
+            resolvedTableProperties,
+            table.Properties,
+            tableStyle,
+            tableLook,
+            0f,
+            settings,
+            measurer,
+            style,
+            styleResolver,
+            spacingMetricsCache,
+            lineHeight,
+            ascent,
+            docGrid,
+            lineBreakOptions,
+            noteNumbers,
+            fieldContext,
+            blockRevision,
+            showRevisions,
+            ref paragraphIndex);
+        return data.TableWidth;
     }
 
     private static float MeasureInlineSpansMaxWordWidth(
@@ -6295,7 +6973,17 @@ public sealed class DocumentLayouter
             var listIndent = nextParagraph.ListInfo is null ? 0f : settings.ListIndent * (nextParagraph.ListInfo.Level + 1);
             var prefixWidth = 0f;
 
-            var (text, spans) = BuildInlineSpans(nextParagraph, -1, paragraphStyle, styleResolver, document, fieldContext, null, showRevisions, noteNumbers: noteNumbers);
+            var (text, spans) = BuildInlineSpans(
+                nextParagraph,
+                -1,
+                paragraphStyle,
+                styleResolver,
+                document,
+                fieldContext,
+                null,
+                showRevisions,
+                noteNumbers: noteNumbers,
+                textDirection: properties.TextDirection);
             if (string.IsNullOrEmpty(text))
             {
                 var (emptyLineHeight, _) = ApplyLineSpacing(paragraphLineHeight, paragraphAscent, properties, docGrid);
@@ -6402,7 +7090,8 @@ public sealed class DocumentLayouter
         bool showRevisions,
         string? pageNumberText = null,
         string? totalPagesText = null,
-        NoteNumberingContext? noteNumbers = null)
+        NoteNumberingContext? noteNumbers = null,
+        DocTextDirection? textDirection = null)
     {
         var spansList = new List<InlineSpan>();
         var builder = new System.Text.StringBuilder();
@@ -6460,7 +7149,7 @@ public sealed class DocumentLayouter
                 return;
             }
 
-            var (effectiveStyle, baselineOffset) = PrepareRunStyle(style, CurrentRevision());
+            var (effectiveStyle, baselineOffset) = PrepareRunStyle(style, CurrentRevision(), textDirection);
             AppendTextSpans(builder, spansList, text, effectiveStyle, baselineOffset);
         }
 
@@ -6477,6 +7166,26 @@ public sealed class DocumentLayouter
             }
         }
 
+        void MarkFieldResultContent()
+        {
+            for (var i = fieldStack.Count - 1; i >= 0; i--)
+            {
+                var state = fieldStack[i];
+                if (!state.InResult)
+                {
+                    continue;
+                }
+
+                if (!state.HasResultContent)
+                {
+                    state.HasResultContent = true;
+                    fieldStack[i] = state;
+                }
+
+                break;
+            }
+        }
+
         void AppendContent(string text, TextStyle style)
         {
             if (string.IsNullOrEmpty(text))
@@ -6486,6 +7195,7 @@ public sealed class DocumentLayouter
 
             AppendText(text, style);
             MarkContent();
+            MarkFieldResultContent();
         }
 
         bool TryEnsureFieldEvaluation(TextStyle style)
@@ -6502,6 +7212,11 @@ public sealed class DocumentLayouter
 
             var state = fieldStack[^1];
             if (!state.InResult)
+            {
+                return false;
+            }
+
+            if (state.Definition?.Kind == FieldKind.Hyperlink)
             {
                 return false;
             }
@@ -6532,6 +7247,12 @@ public sealed class DocumentLayouter
         {
             if (!state.InResult || state.Attempted)
             {
+                return;
+            }
+
+            if (state.Definition?.Kind == FieldKind.Hyperlink && state.HasResultContent)
+            {
+                state.Attempted = true;
                 return;
             }
 
@@ -6615,12 +7336,13 @@ public sealed class DocumentLayouter
                         }
                     }
 
-                    var (effectiveBaseStyle, baselineOffset) = PrepareRunStyle(baseStyle, CurrentRevision());
-                    var (effectiveRubyStyle, _) = PrepareRunStyle(rubyStyle, CurrentRevision());
+                    var (effectiveBaseStyle, baselineOffset) = PrepareRunStyle(baseStyle, CurrentRevision(), textDirection);
+                    var (effectiveRubyStyle, _) = PrepareRunStyle(rubyStyle, CurrentRevision(), textDirection);
                     var start = builder.Length;
                     builder.Append(baseText);
                     spansList.Add(new InlineSpan(start, baseText.Length, baseText, effectiveBaseStyle, null, null, null, null, rubyInline, effectiveRubyStyle, baselineOffset));
                     MarkContent();
+                    MarkFieldResultContent();
                     break;
                 }
                 case ImageInline imageInline:
@@ -6634,6 +7356,7 @@ public sealed class DocumentLayouter
                     builder.Append(DocumentConstants.ObjectReplacementChar);
                     spansList.Add(new InlineSpan(start, 1, string.Empty, paragraphStyle, imageInline, null, null, null, null, null, 0f));
                     MarkContent();
+                    MarkFieldResultContent();
                     break;
                 }
                 case ShapeInline shapeInline:
@@ -6647,6 +7370,7 @@ public sealed class DocumentLayouter
                     builder.Append(DocumentConstants.ObjectReplacementChar);
                     spansList.Add(new InlineSpan(start, 1, string.Empty, paragraphStyle, null, shapeInline, null, null, null, null, 0f));
                     MarkContent();
+                    MarkFieldResultContent();
                     break;
                 }
                 case ChartInline chartInline:
@@ -6660,6 +7384,7 @@ public sealed class DocumentLayouter
                     builder.Append(DocumentConstants.ObjectReplacementChar);
                     spansList.Add(new InlineSpan(start, 1, string.Empty, paragraphStyle, null, null, chartInline, null, null, null, 0f));
                     MarkContent();
+                    MarkFieldResultContent();
                     break;
                 }
                 case EquationInline equationInline:
@@ -6674,6 +7399,7 @@ public sealed class DocumentLayouter
                     var equationStyle = styleResolver.ResolveRunStyle(equationInline.StyleId, equationInline.Style, paragraphStyle);
                     spansList.Add(new InlineSpan(start, 1, string.Empty, equationStyle, null, null, null, equationInline, null, null, 0f));
                     MarkContent();
+                    MarkFieldResultContent();
                     break;
                 }
                 case PageNumberInline pageNumberInline:
@@ -6851,13 +7577,11 @@ public sealed class DocumentLayouter
                     contentControls.RemoveAt(contentControls.Count - 1);
                     if (!state.HasContent && !string.IsNullOrWhiteSpace(state.BoundValue))
                     {
-                        AppendText(state.BoundValue, state.ValueStyle);
-                        MarkContent();
+                        AppendContent(state.BoundValue, state.ValueStyle);
                     }
                     else if (!state.HasContent && state.ShouldShowPlaceholder && !string.IsNullOrWhiteSpace(state.PlaceholderText))
                     {
-                        AppendText(state.PlaceholderText, state.PlaceholderStyle);
-                        MarkContent();
+                        AppendContent(state.PlaceholderText, state.PlaceholderStyle);
                     }
 
                     break;
@@ -6922,7 +7646,10 @@ public sealed class DocumentLayouter
     private static readonly DocColor RevisionInsertColor = new DocColor(0, 102, 204);
     private static readonly DocColor RevisionDeleteColor = new DocColor(192, 0, 0);
 
-    private static (TextStyle Style, float BaselineOffset) PrepareRunStyle(TextStyle style, RevisionInfo? revision)
+    private static (TextStyle Style, float BaselineOffset) PrepareRunStyle(
+        TextStyle style,
+        RevisionInfo? revision,
+        DocTextDirection? textDirection)
     {
         var effective = style.Clone();
         var baselineOffset = 0f;
@@ -6951,6 +7678,11 @@ public sealed class DocumentLayouter
         }
 
         effective.VerticalPosition = DocVerticalPosition.Normal;
+        if (textDirection.HasValue)
+        {
+            effective.TextDirection = textDirection;
+        }
+
         if (revision is not null)
         {
             ApplyRevisionStyle(effective, revision.Kind);
@@ -6988,42 +7720,12 @@ public sealed class DocumentLayouter
 
     private static string ResolvePlaceholderText(ContentControlProperties properties)
     {
-        if (!string.IsNullOrWhiteSpace(properties.PlaceholderText))
-        {
-            return properties.PlaceholderText;
-        }
-
-        if (!string.IsNullOrWhiteSpace(properties.Placeholder))
-        {
-            return properties.Placeholder;
-        }
-
-        if (!string.IsNullOrWhiteSpace(properties.Alias))
-        {
-            return properties.Alias;
-        }
-
-        if (!string.IsNullOrWhiteSpace(properties.Tag))
-        {
-            return properties.Tag;
-        }
-
-        return "Content Control";
+        return ContentControlValueResolver.ResolvePlaceholderText(properties);
     }
 
     private static string? ResolveContentControlValue(ContentControlProperties properties, Document document)
     {
-        if (TryResolveContentControlBinding(properties.DataBinding, document, out var bindingValue))
-        {
-            return bindingValue;
-        }
-
-        if (TryResolveStructuredContentControlValue(properties, out var structuredValue))
-        {
-            return structuredValue;
-        }
-
-        return null;
+        return ContentControlValueResolver.ResolveContentControlValue(properties, document);
     }
 
     private static bool TryResolveStructuredContentControlValue(ContentControlProperties properties, out string value)
@@ -7263,10 +7965,15 @@ public sealed class DocumentLayouter
             FieldKind.NumPages => true,
             FieldKind.Date => true,
             FieldKind.Time => true,
+            FieldKind.Hyperlink => true,
             FieldKind.DocProperty => true,
             FieldKind.Ref => true,
+            FieldKind.StyleRef => true,
+            FieldKind.Citation => true,
+            FieldKind.Bibliography => true,
             FieldKind.Toc => true,
             FieldKind.Seq => true,
+            FieldKind.Index => true,
             FieldKind.TocEntry => true,
             FieldKind.IndexEntry => true,
             _ => false
@@ -7310,6 +8017,8 @@ public sealed class DocumentLayouter
                 return TryFormatDateTimeField(definition, fieldContext.Now, false, out text);
             case FieldKind.Time:
                 return TryFormatDateTimeField(definition, fieldContext.Now, true, out text);
+            case FieldKind.Hyperlink:
+                return TryResolveHyperlinkFieldText(definition, out text);
             case FieldKind.Ref:
             {
                 var target = GetFirstFieldArgument(definition);
@@ -7325,6 +8034,8 @@ public sealed class DocumentLayouter
 
                 return fieldContext.TryGetBookmarkText(target, out text);
             }
+            case FieldKind.StyleRef:
+                return fieldContext.TryGetStyleRefText(definition, position, out text);
             case FieldKind.DocProperty:
             {
                 var name = GetFirstFieldArgument(definition);
@@ -7335,10 +8046,16 @@ public sealed class DocumentLayouter
 
                 return fieldContext.TryGetDocProperty(name, out text);
             }
+            case FieldKind.Citation:
+                return fieldContext.TryGetCitationText(definition, out text);
+            case FieldKind.Bibliography:
+                return fieldContext.TryGetBibliographyText(out text);
             case FieldKind.Toc:
                 return fieldContext.TryGetTocText(start, definition, out text);
             case FieldKind.Seq:
                 return fieldContext.TryGetSequenceText(start, definition, out text);
+            case FieldKind.Index:
+                return fieldContext.TryGetIndexText(start, definition, out text);
             case FieldKind.TocEntry:
                 text = string.Empty;
                 return fieldContext.ShouldSuppressTocEntry(definition);
@@ -7371,6 +8088,32 @@ public sealed class DocumentLayouter
 
         text = isTime ? value.ToString("T", culture) : value.ToString("d", culture);
         return true;
+    }
+
+    private static bool TryResolveHyperlinkFieldText(FieldDefinition definition, out string text)
+    {
+        text = string.Empty;
+        var anchor = GetFieldSwitch(definition, "\\l");
+        if (!string.IsNullOrWhiteSpace(anchor))
+        {
+            text = anchor.Trim();
+            return text.Length > 0;
+        }
+
+        var target = GetFirstFieldArgument(definition);
+        if (string.IsNullOrWhiteSpace(target))
+        {
+            return false;
+        }
+
+        target = target.Trim();
+        if (target.Length > 0 && target[0] == '#')
+        {
+            target = target.TrimStart('#');
+        }
+
+        text = target;
+        return text.Length > 0;
     }
 
     private static string? GetFirstFieldArgument(FieldDefinition definition)
@@ -7930,6 +8673,27 @@ public sealed class DocumentLayouter
             }
 
             length += text.Length;
+            MarkFieldResultContent();
+        }
+
+        void MarkFieldResultContent()
+        {
+            for (var i = fieldStack.Count - 1; i >= 0; i--)
+            {
+                var state = fieldStack[i];
+                if (!state.InResult)
+                {
+                    continue;
+                }
+
+                if (!state.HasResultContent)
+                {
+                    state.HasResultContent = true;
+                    fieldStack[i] = state;
+                }
+
+                break;
+            }
         }
 
         if (paragraph.Inlines.Count == 0)
@@ -7975,7 +8739,7 @@ public sealed class DocumentLayouter
                     }
 
                     var state = fieldStack[^1];
-                    if (!state.Attempted)
+                    if (!state.Attempted && !(state.Definition?.Kind == FieldKind.Hyperlink && state.HasResultContent))
                     {
                         state.Attempted = true;
                         if (TryResolveFieldText(
@@ -8022,6 +8786,7 @@ public sealed class DocumentLayouter
                     }
 
                     length += 1;
+                    MarkFieldResultContent();
                     break;
                 }
                 case ChartInline:
@@ -8032,6 +8797,7 @@ public sealed class DocumentLayouter
                     }
 
                     length += 1;
+                    MarkFieldResultContent();
                     break;
                 }
                 case EquationInline:
@@ -8042,6 +8808,7 @@ public sealed class DocumentLayouter
                     }
 
                     length += 1;
+                    MarkFieldResultContent();
                     break;
                 }
                 case PageNumberInline:
@@ -8189,6 +8956,11 @@ public sealed class DocumentLayouter
 
             var state = fieldStack[^1];
             if (!state.InResult)
+            {
+                return false;
+            }
+
+            if (state.Definition?.Kind == FieldKind.Hyperlink)
             {
                 return false;
             }
@@ -8345,7 +9117,19 @@ public sealed class DocumentLayouter
                 return false;
             }
 
-            var (text, spans) = BuildInlineSpans(paragraph, -1, paragraphStyle, styleResolver, document, fieldContext, null, showRevisions, pageNumberText, totalPagesText, noteNumbers);
+            var (text, spans) = BuildInlineSpans(
+                paragraph,
+                -1,
+                paragraphStyle,
+                styleResolver,
+                document,
+                fieldContext,
+                null,
+                showRevisions,
+                pageNumberText,
+                totalPagesText,
+                noteNumbers,
+                textDirection: properties.TextDirection);
             var baseWidth = MathF.Max(1f, contentWidth - indentLeft - indentRight - listIndent - prefixWidth);
             var firstLineIndent = properties.FirstLineIndent ?? 0f;
             var firstLineTabOffset = indentLeft + listIndent + firstLineIndent + prefixWidth;
@@ -8514,7 +9298,19 @@ public sealed class DocumentLayouter
 
             if (DocTextDirectionHelpers.IsVertical(properties.TextDirection))
             {
-                var (verticalText, verticalSpans) = BuildInlineSpans(paragraph, -1, paragraphStyle, styleResolver, document, fieldContext, null, showRevisions, pageNumberText, totalPagesText, noteNumbers);
+                var (verticalText, verticalSpans) = BuildInlineSpans(
+                    paragraph,
+                    -1,
+                    paragraphStyle,
+                    styleResolver,
+                    document,
+                    fieldContext,
+                    null,
+                    showRevisions,
+                    pageNumberText,
+                    totalPagesText,
+                    noteNumbers,
+                    textDirection: properties.TextDirection);
                 var (emptyLineHeight, emptyAscent) = ApplyLineSpacing(paragraphLineHeight, paragraphAscent, properties, docGrid);
                 if (string.IsNullOrEmpty(verticalText))
                 {
@@ -8655,7 +9451,19 @@ public sealed class DocumentLayouter
 
             y += spacingBefore;
 
-            var (text, spans) = BuildInlineSpans(paragraph, -1, paragraphStyle, styleResolver, document, fieldContext, null, showRevisions, pageNumberText, totalPagesText, noteNumbers);
+            var (text, spans) = BuildInlineSpans(
+                paragraph,
+                -1,
+                paragraphStyle,
+                styleResolver,
+                document,
+                fieldContext,
+                null,
+                showRevisions,
+                pageNumberText,
+                totalPagesText,
+                noteNumbers,
+                textDirection: properties.TextDirection);
             if (text.Length == 0)
             {
                 var lineX = indentLeft + listIndent + firstLineIndent + prefixWidth;
@@ -8900,9 +9708,24 @@ public sealed class DocumentLayouter
         {
             var cellBounds = cell.Bounds;
             var updatedCellBounds = new DocRect(cellBounds.X + dx, cellBounds.Y + dy, cellBounds.Width, cellBounds.Height);
+            IReadOnlyList<TableLayout> updatedTables;
+            if (cell.Tables.Count == 0)
+            {
+                updatedTables = Array.Empty<TableLayout>();
+            }
+            else
+            {
+                var nestedTables = new List<TableLayout>(cell.Tables.Count);
+                foreach (var nested in cell.Tables)
+                {
+                    nestedTables.Add(OffsetTableLayout(nested, dx, dy));
+                }
+
+                updatedTables = nestedTables;
+            }
             if (cell.Lines.Count == 0)
             {
-                updatedCells.Add(cell with { Bounds = updatedCellBounds });
+                updatedCells.Add(cell with { Bounds = updatedCellBounds, Tables = updatedTables });
                 continue;
             }
 
@@ -8912,7 +9735,7 @@ public sealed class DocumentLayouter
                 updatedLines.Add(line with { X = line.X + dx, Y = line.Y + dy });
             }
 
-            updatedCells.Add(cell with { Bounds = updatedCellBounds, Lines = updatedLines });
+            updatedCells.Add(cell with { Bounds = updatedCellBounds, Lines = updatedLines, Tables = updatedTables });
         }
 
         return table with { Bounds = updatedBounds, Cells = updatedCells };
@@ -8925,11 +9748,88 @@ public sealed class DocumentLayouter
         {
             foreach (var cell in row.Cells)
             {
-                count += cell.Paragraphs.Count;
+                count += CountParagraphsInBlocks(cell.Blocks);
             }
         }
 
         return count;
+    }
+
+    private static int CountParagraphsInBlocks(IReadOnlyList<Block> blocks)
+    {
+        var count = 0;
+        foreach (var block in blocks)
+        {
+            switch (block)
+            {
+                case ParagraphBlock:
+                    count++;
+                    break;
+                case TableBlock table:
+                    count += CountParagraphsInTable(table);
+                    break;
+            }
+        }
+
+        return count;
+    }
+
+    private static bool TryCountParagraphsBeforeInBlocks(
+        IReadOnlyList<Block> blocks,
+        ParagraphBlock target,
+        ref int count)
+    {
+        foreach (var block in blocks)
+        {
+            switch (block)
+            {
+                case ParagraphBlock paragraph:
+                    if (ReferenceEquals(paragraph, target))
+                    {
+                        return true;
+                    }
+
+                    count++;
+                    break;
+                case TableBlock table:
+                    if (TryCountParagraphsBeforeInTable(table, target, ref count))
+                    {
+                        return true;
+                    }
+
+                    break;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool TryCountParagraphsBeforeInTable(
+        TableBlock table,
+        ParagraphBlock target,
+        ref int count)
+    {
+        foreach (var row in table.Rows)
+        {
+            foreach (var cell in row.Cells)
+            {
+                if (TryCountParagraphsBeforeInBlocks(cell.Blocks, target, ref count))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static bool TryCountParagraphsBeforeInTableBlock(
+        TableBlock table,
+        ParagraphBlock target,
+        out int count)
+    {
+        count = 0;
+        return TryCountParagraphsBeforeInTable(table, target, ref count);
     }
 
     private static List<FloatingLayoutObject> BuildHeaderFooterFloatingObjects(
@@ -10692,6 +11592,30 @@ public sealed class DocumentLayouter
         var currentSectionIndex = 0;
         var paragraphIndex = 0;
 
+        void AppendBlocks(IReadOnlyList<Block> blocks, int sectionIndex)
+        {
+            foreach (var block in blocks)
+            {
+                switch (block)
+                {
+                    case ParagraphBlock paragraph:
+                        paragraphs.Add(paragraph);
+                        map[paragraphIndex++] = sectionIndex;
+                        break;
+                    case TableBlock table:
+                        foreach (var row in table.Rows)
+                        {
+                            foreach (var cell in row.Cells)
+                            {
+                                AppendBlocks(cell.Blocks, sectionIndex);
+                            }
+                        }
+
+                        break;
+                }
+            }
+        }
+
         foreach (var block in document.Blocks)
         {
             switch (block)
@@ -10708,11 +11632,7 @@ public sealed class DocumentLayouter
                     {
                         foreach (var cell in row.Cells)
                         {
-                            foreach (var paragraph in cell.Paragraphs)
-                            {
-                                paragraphs.Add(paragraph);
-                                map[paragraphIndex++] = currentSectionIndex;
-                            }
+                            AppendBlocks(cell.Blocks, currentSectionIndex);
                         }
                     }
 
@@ -10986,13 +11906,23 @@ public sealed class DocumentLayouter
         int columnCount,
         float contentWidth,
         float? tableWidth,
-        float cellSpacing)
+        float cellSpacing,
+        float[] preferredColumnWidths)
     {
         var widths = new float[columnCount];
-        var hasExplicitWidths = properties.ColumnWidths.Count > 0;
         var spacingTotal = cellSpacing * (columnCount + 1);
+        var hasPreferredWidths = false;
 
-        if (!hasExplicitWidths)
+        for (var i = 0; i < preferredColumnWidths.Length; i++)
+        {
+            if (preferredColumnWidths[i] > 0f)
+            {
+                hasPreferredWidths = true;
+                break;
+            }
+        }
+
+        if (!hasPreferredWidths)
         {
             var targetWidth = tableWidth ?? contentWidth;
             var availableWidth = MathF.Max(1f, targetWidth - spacingTotal);
@@ -11003,10 +11933,46 @@ public sealed class DocumentLayouter
 
         for (var i = 0; i < columnCount; i++)
         {
-            widths[i] = i < properties.ColumnWidths.Count ? properties.ColumnWidths[i] : properties.ColumnWidths.Last();
+            widths[i] = i < preferredColumnWidths.Length ? preferredColumnWidths[i] : 0f;
         }
 
-        var total = widths.Sum();
+        var zeroCount = 0;
+        var allocated = 0f;
+        for (var i = 0; i < widths.Length; i++)
+        {
+            if (widths[i] > 0f)
+            {
+                allocated += widths[i];
+            }
+            else
+            {
+                zeroCount++;
+            }
+        }
+
+        if (zeroCount > 0)
+        {
+            var targetWidth = tableWidth ?? contentWidth;
+            var availableWidth = MathF.Max(1f, targetWidth - spacingTotal);
+            var remaining = MathF.Max(0f, availableWidth - allocated);
+            var fallbackWidth = remaining > 0f
+                ? remaining / zeroCount
+                : availableWidth / Math.Max(1, widths.Length);
+            for (var i = 0; i < widths.Length; i++)
+            {
+                if (widths[i] <= 0f)
+                {
+                    widths[i] = fallbackWidth;
+                }
+            }
+        }
+
+        var total = 0f;
+        for (var i = 0; i < widths.Length; i++)
+        {
+            total += widths[i];
+        }
+
         if (total <= 0f)
         {
             var targetWidth = tableWidth ?? contentWidth;
@@ -11052,17 +12018,22 @@ public sealed class DocumentLayouter
         var widths = new float[columnCount];
         var spacingTotal = cellSpacing * (columnCount + 1);
         var total = 0f;
+        var hasWidths = false;
 
         for (var i = 0; i < columnCount; i++)
         {
             var preferred = i < preferredWidths.Length ? MathF.Max(0f, preferredWidths[i]) : 0f;
             var minContent = i < minContentWidths.Length ? MathF.Max(0f, minContentWidths[i]) : 0f;
-            var width = MathF.Max(preferred, minContent);
+            var width = preferred > 0f ? MathF.Max(preferred, minContent) : minContent;
             widths[i] = width;
             total += width;
+            if (width > 0f)
+            {
+                hasWidths = true;
+            }
         }
 
-        if (total <= 0f)
+        if (!hasWidths)
         {
             var targetWidth = tableWidth ?? contentWidth;
             var availableWidth = MathF.Max(1f, targetWidth - spacingTotal);
@@ -11073,10 +12044,14 @@ public sealed class DocumentLayouter
 
         if (tableWidth.HasValue)
         {
-            var availableWidth = MathF.Max(1f, tableWidth.Value - spacingTotal);
+            var availableWidth = MathF.Max(0f, tableWidth.Value - spacingTotal);
             if (total < availableWidth)
             {
                 DistributeExtraWidth(widths, preferredWidths, availableWidth - total);
+            }
+            else if (total > availableWidth)
+            {
+                ShrinkWidthsToFit(widths, minContentWidths, total - availableWidth);
             }
         }
 
@@ -11087,6 +12062,31 @@ public sealed class DocumentLayouter
     {
         if (widths.Length == 0 || extra <= 0f)
         {
+            return;
+        }
+
+        var flexibleCount = 0;
+        for (var i = 0; i < widths.Length; i++)
+        {
+            var preferred = i < preferredWidths.Length ? MathF.Max(0f, preferredWidths[i]) : 0f;
+            if (preferred <= 0f)
+            {
+                flexibleCount++;
+            }
+        }
+
+        if (flexibleCount > 0)
+        {
+            var extraPerColumn = extra / flexibleCount;
+            for (var i = 0; i < widths.Length; i++)
+            {
+                var preferred = i < preferredWidths.Length ? MathF.Max(0f, preferredWidths[i]) : 0f;
+                if (preferred <= 0f)
+                {
+                    widths[i] += extraPerColumn;
+                }
+            }
+
             return;
         }
 
@@ -11119,6 +12119,41 @@ public sealed class DocumentLayouter
             }
 
             widths[i] += extra * (weight / weightSum);
+        }
+    }
+
+    private static void ShrinkWidthsToFit(float[] widths, float[] minWidths, float excess)
+    {
+        if (widths.Length == 0 || excess <= 0f)
+        {
+            return;
+        }
+
+        var capacity = 0f;
+        for (var i = 0; i < widths.Length; i++)
+        {
+            var minWidth = i < minWidths.Length ? MathF.Max(0f, minWidths[i]) : 0f;
+            var slack = widths[i] - minWidth;
+            if (slack > 0f)
+            {
+                capacity += slack;
+            }
+        }
+
+        if (capacity <= 0f)
+        {
+            return;
+        }
+
+        var ratio = MathF.Min(1f, excess / capacity);
+        for (var i = 0; i < widths.Length; i++)
+        {
+            var minWidth = i < minWidths.Length ? MathF.Max(0f, minWidths[i]) : 0f;
+            var slack = widths[i] - minWidth;
+            if (slack > 0f)
+            {
+                widths[i] -= slack * ratio;
+            }
         }
     }
 
@@ -12320,6 +13355,7 @@ public sealed class DocumentLayouter
         public bool InResult { get; set; }
         public bool Attempted { get; set; }
         public bool SuppressResult { get; set; }
+        public bool HasResultContent { get; set; }
 
         public FieldEvaluationState(FieldStartInline start, FieldDefinition? definition)
         {
@@ -12349,6 +13385,7 @@ public sealed class DocumentLayouter
         private readonly List<IndexEntry> _indexEntries = new();
         private readonly Dictionary<FieldStartInline, string> _sequenceTexts = new();
         private readonly Dictionary<FieldStartInline, string> _tocTexts = new();
+        private readonly Dictionary<FieldStartInline, string> _indexTexts = new();
 
         private FieldEvaluationContext(
             Document document,
@@ -12482,6 +13519,56 @@ public sealed class DocumentLayouter
             return false;
         }
 
+        public bool TryGetCitationText(FieldDefinition definition, out string text)
+        {
+            text = string.Empty;
+            var tag = GetFirstFieldArgument(definition);
+            if (string.IsNullOrWhiteSpace(tag))
+            {
+                return false;
+            }
+
+            tag = tag.Trim();
+            text = BuildCitationDisplay(tag);
+            return !string.IsNullOrEmpty(text);
+        }
+
+        public bool TryGetBibliographyText(out string text)
+        {
+            text = BuildBibliographyDisplay();
+            return !string.IsNullOrEmpty(text);
+        }
+
+        public bool TryGetStyleRefText(FieldDefinition definition, TextPosition position, out string text)
+        {
+            text = string.Empty;
+            var styleName = GetFirstFieldArgument(definition);
+            if (string.IsNullOrWhiteSpace(styleName))
+            {
+                return false;
+            }
+
+            styleName = styleName.Trim();
+            if (styleName.Length == 0)
+            {
+                return false;
+            }
+
+            var startIndex = Math.Clamp(position.ParagraphIndex, 0, Math.Max(0, _document.ParagraphCount - 1));
+            if (TryResolveStyleRefText(styleName, startIndex, -1, out text))
+            {
+                return true;
+            }
+
+            if (TryResolveStyleRefText(styleName, startIndex + 1, 1, out text))
+            {
+                return true;
+            }
+
+            text = string.Empty;
+            return false;
+        }
+
         public bool TryGetSequenceText(FieldStartInline start, FieldDefinition definition, out string text)
         {
             if (_sequenceTexts.TryGetValue(start, out var cached) && !string.IsNullOrEmpty(cached))
@@ -12555,6 +13642,102 @@ public sealed class DocumentLayouter
             text = builder.ToString();
             _tocTexts[start] = text;
             return hasEntry;
+        }
+
+        public bool TryGetIndexText(FieldStartInline start, FieldDefinition definition, out string text)
+        {
+            if (_indexTexts.TryGetValue(start, out var cached))
+            {
+                text = cached;
+                return !string.IsNullOrEmpty(text);
+            }
+
+            text = string.Empty;
+            if (_indexEntries.Count == 0)
+            {
+                _indexTexts[start] = text;
+                return false;
+            }
+
+            var entrySeparator = GetFieldSwitch(definition, "\\e");
+            if (string.IsNullOrEmpty(entrySeparator))
+            {
+                entrySeparator = "\t";
+            }
+
+            var pageSeparator = GetFieldSwitch(definition, "\\p");
+            if (string.IsNullOrEmpty(pageSeparator))
+            {
+                pageSeparator = ", ";
+            }
+
+            var grouped = new Dictionary<string, List<int>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var entry in _indexEntries)
+            {
+                if (!grouped.TryGetValue(entry.Text, out var list))
+                {
+                    list = new List<int>();
+                    grouped[entry.Text] = list;
+                }
+
+                if (TryGetPageIndex(entry.Position, out var pageIndex))
+                {
+                    list.Add(pageIndex);
+                }
+            }
+
+            var keys = grouped.Keys.ToList();
+            keys.Sort(StringComparer.OrdinalIgnoreCase);
+
+            var builder = new System.Text.StringBuilder();
+            foreach (var key in keys)
+            {
+                if (builder.Length > 0)
+                {
+                    builder.Append('\n');
+                }
+
+                builder.Append(key);
+                var pages = grouped[key];
+                if (pages.Count == 0)
+                {
+                    continue;
+                }
+
+                pages.Sort();
+                var first = true;
+                var lastPage = -1;
+                for (var i = 0; i < pages.Count; i++)
+                {
+                    var pageIndex = pages[i];
+                    if (pageIndex == lastPage)
+                    {
+                        continue;
+                    }
+
+                    if (pageIndex < 0 || pageIndex >= _pageNumberTexts.Length)
+                    {
+                        continue;
+                    }
+
+                    if (first)
+                    {
+                        builder.Append(entrySeparator);
+                        first = false;
+                    }
+                    else
+                    {
+                        builder.Append(pageSeparator);
+                    }
+
+                    builder.Append(_pageNumberTexts[pageIndex]);
+                    lastPage = pageIndex;
+                }
+            }
+
+            text = builder.ToString();
+            _indexTexts[start] = text;
+            return !string.IsNullOrEmpty(text);
         }
 
         public bool ShouldSuppressTocEntry(FieldDefinition definition)
@@ -12638,47 +13821,183 @@ public sealed class DocumentLayouter
             return false;
         }
 
+        private bool TryResolveStyleRefText(string styleName, int startIndex, int step, out string text)
+        {
+            text = string.Empty;
+            if (step == 0)
+            {
+                return false;
+            }
+
+            var index = startIndex;
+            while (index >= 0 && index < _document.ParagraphCount)
+            {
+                if (TryGetParagraphByIndex(index, out var paragraph) && IsParagraphStyleMatch(paragraph, styleName))
+                {
+                    if (TryGetParagraphText(index, out var paragraphText))
+                    {
+                        paragraphText = paragraphText.Trim();
+                        if (paragraphText.Length > 0)
+                        {
+                            text = paragraphText;
+                            return true;
+                        }
+                    }
+                }
+
+                index += step;
+            }
+
+            return false;
+        }
+
+        private bool IsParagraphStyleMatch(ParagraphBlock paragraph, string styleName)
+        {
+            if (string.IsNullOrWhiteSpace(styleName))
+            {
+                return false;
+            }
+
+            if (!string.IsNullOrWhiteSpace(paragraph.StyleId)
+                && string.Equals(paragraph.StyleId, styleName, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            if (!string.IsNullOrWhiteSpace(paragraph.StyleId)
+                && _document.Styles.ParagraphStyles.TryGetValue(paragraph.StyleId, out var style))
+            {
+                if (string.Equals(style.Name, styleName, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private string BuildCitationDisplay(string tag)
+        {
+            var source = _document.CitationSources.FindByTag(tag);
+            if (source is null)
+            {
+                return tag;
+            }
+
+            var author = source.GetField("Author");
+            var year = source.GetField("Year");
+            var title = source.GetField("Title");
+            if (!string.IsNullOrWhiteSpace(author) && !string.IsNullOrWhiteSpace(year))
+            {
+                return string.Format(System.Globalization.CultureInfo.CurrentCulture, "{0}, {1}", author, year);
+            }
+
+            if (!string.IsNullOrWhiteSpace(author) && !string.IsNullOrWhiteSpace(title))
+            {
+                return string.Format(System.Globalization.CultureInfo.CurrentCulture, "{0}, {1}", author, title);
+            }
+
+            if (!string.IsNullOrWhiteSpace(title))
+            {
+                return title;
+            }
+
+            return tag;
+        }
+
+        private string BuildBibliographyDisplay()
+        {
+            var sources = _document.CitationSources.Sources;
+            if (sources.Count == 0)
+            {
+                return "Bibliography";
+            }
+
+            var entries = new List<string>(sources.Count);
+            foreach (var source in sources)
+            {
+                var author = source.GetField("Author");
+                var year = source.GetField("Year");
+                var title = source.GetField("Title");
+                if (!string.IsNullOrWhiteSpace(author) && !string.IsNullOrWhiteSpace(year))
+                {
+                    entries.Add(string.Format(System.Globalization.CultureInfo.CurrentCulture, "{0} ({1})", author, year));
+                }
+                else if (!string.IsNullOrWhiteSpace(author) && !string.IsNullOrWhiteSpace(title))
+                {
+                    entries.Add(string.Format(System.Globalization.CultureInfo.CurrentCulture, "{0}. {1}.", author, title));
+                }
+                else if (!string.IsNullOrWhiteSpace(title))
+                {
+                    entries.Add(title);
+                }
+                else if (!string.IsNullOrWhiteSpace(source.Tag))
+                {
+                    entries.Add(source.Tag);
+                }
+            }
+
+            return entries.Count == 0 ? "Bibliography" : string.Join("; ", entries);
+        }
+
         private bool TryGetParagraphByIndex(int paragraphIndex, out ParagraphBlock paragraph)
         {
             paragraph = null!;
             var index = 0;
-            foreach (var block in _document.Blocks)
+            return TryGetParagraphInBlocks(_document.Blocks, ref index, paragraphIndex, out paragraph);
+        }
+
+        private static bool TryGetParagraphInBlocks(
+            IReadOnlyList<Block> blocks,
+            ref int index,
+            int targetIndex,
+            out ParagraphBlock paragraph)
+        {
+            foreach (var block in blocks)
             {
-                if (block is ParagraphBlock paragraphBlock)
+                switch (block)
                 {
-                    if (index == paragraphIndex)
-                    {
-                        paragraph = paragraphBlock;
-                        return true;
-                    }
-
-                    index++;
-                    continue;
-                }
-
-                if (block is not TableBlock table)
-                {
-                    continue;
-                }
-
-                foreach (var row in table.Rows)
-                {
-                    foreach (var cell in row.Cells)
-                    {
-                        foreach (var cellParagraph in cell.Paragraphs)
+                    case ParagraphBlock paragraphBlock:
+                        if (index == targetIndex)
                         {
-                            if (index == paragraphIndex)
-                            {
-                                paragraph = cellParagraph;
-                                return true;
-                            }
-
-                            index++;
+                            paragraph = paragraphBlock;
+                            return true;
                         }
+
+                        index++;
+                        break;
+                    case TableBlock table:
+                        if (TryGetParagraphInTable(table, ref index, targetIndex, out paragraph))
+                        {
+                            return true;
+                        }
+
+                        break;
+                }
+            }
+
+            paragraph = null!;
+            return false;
+        }
+
+        private static bool TryGetParagraphInTable(
+            TableBlock table,
+            ref int index,
+            int targetIndex,
+            out ParagraphBlock paragraph)
+        {
+            foreach (var row in table.Rows)
+            {
+                foreach (var cell in row.Cells)
+                {
+                    if (TryGetParagraphInBlocks(cell.Blocks, ref index, targetIndex, out paragraph))
+                    {
+                        return true;
                     }
                 }
             }
 
+            paragraph = null!;
             return false;
         }
 
@@ -12751,40 +14070,41 @@ public sealed class DocumentLayouter
             var sequenceCounters = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
             var paragraphIndex = 0;
 
-            foreach (var block in _document.Blocks)
+            void ScanBlocks(IReadOnlyList<Block> blocks)
             {
-                switch (block)
+                foreach (var block in blocks)
                 {
-                    case ContentControlStartBlock start when IsTocTag(start.Properties.Tag):
-                        tocStack.Push(start.Properties.Id);
-                        break;
-                    case ContentControlEndBlock end:
-                        if (tocStack.Count > 0 && (!tocStack.Peek().HasValue || tocStack.Peek() == end.Id))
-                        {
-                            tocStack.Pop();
-                        }
-
-                        break;
-                    case ParagraphBlock paragraph:
-                        ScanParagraph(paragraph, paragraphIndex, tocStack.Count > 0, sequenceCounters);
-                        paragraphIndex++;
-                        break;
-                    case TableBlock table:
-                        foreach (var row in table.Rows)
-                        {
-                            foreach (var cell in row.Cells)
+                    switch (block)
+                    {
+                        case ContentControlStartBlock start when IsTocTag(start.Properties.Tag):
+                            tocStack.Push(start.Properties.Id);
+                            break;
+                        case ContentControlEndBlock end:
+                            if (tocStack.Count > 0 && (!tocStack.Peek().HasValue || tocStack.Peek() == end.Id))
                             {
-                                foreach (var cellParagraph in cell.Paragraphs)
+                                tocStack.Pop();
+                            }
+
+                            break;
+                        case ParagraphBlock paragraph:
+                            ScanParagraph(paragraph, paragraphIndex, tocStack.Count > 0, sequenceCounters);
+                            paragraphIndex++;
+                            break;
+                        case TableBlock table:
+                            foreach (var row in table.Rows)
+                            {
+                                foreach (var cell in row.Cells)
                                 {
-                                    ScanParagraph(cellParagraph, paragraphIndex, tocStack.Count > 0, sequenceCounters);
-                                    paragraphIndex++;
+                                    ScanBlocks(cell.Blocks);
                                 }
                             }
-                        }
 
-                        break;
+                            break;
+                    }
                 }
             }
+
+            ScanBlocks(_document.Blocks);
         }
 
         private void ScanParagraph(
@@ -13232,28 +14552,30 @@ public sealed class DocumentLayouter
         public void Scan(Document document, FieldEvaluationContext? fieldContext, NoteNumberingContext? noteNumbers)
         {
             var paragraphIndex = 0;
-            foreach (var block in document.Blocks)
+            void ScanBlocks(IReadOnlyList<Block> blocks)
             {
-                switch (block)
+                foreach (var block in blocks)
                 {
-                    case ParagraphBlock paragraph:
-                        RegisterParagraph(paragraphIndex++, paragraph, fieldContext, noteNumbers);
-                        break;
-                    case TableBlock table:
-                        foreach (var row in table.Rows)
-                        {
-                            foreach (var cell in row.Cells)
+                    switch (block)
+                    {
+                        case ParagraphBlock paragraph:
+                            RegisterParagraph(paragraphIndex++, paragraph, fieldContext, noteNumbers);
+                            break;
+                        case TableBlock table:
+                            foreach (var row in table.Rows)
                             {
-                                foreach (var paragraph in cell.Paragraphs)
+                                foreach (var cell in row.Cells)
                                 {
-                                    RegisterParagraph(paragraphIndex++, paragraph, fieldContext, noteNumbers);
+                                    ScanBlocks(cell.Blocks);
                                 }
                             }
-                        }
 
-                        break;
+                            break;
+                    }
                 }
             }
+
+            ScanBlocks(document.Blocks);
         }
 
         public IReadOnlyDictionary<int, IReadOnlyList<CommentHighlightSpan>> BuildCommentHighlights()

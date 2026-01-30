@@ -85,11 +85,22 @@ internal sealed class Hyphenator
         return true;
     }
 
+    public static Hyphenator? Create(string resourceName, int leftMin, int rightMin)
+    {
+        var patterns = HyphenationPatternLoader.LoadPatterns(resourceName);
+        if (patterns.Count == 0)
+        {
+            return null;
+        }
+
+        var trie = HyphenationPatternTrie.Build(patterns);
+        return new Hyphenator(trie, leftMin, rightMin);
+    }
+
     public static Hyphenator CreateDefault()
     {
-        var patterns = HyphenationPatternLoader.LoadDefaultPatterns();
-        var trie = HyphenationPatternTrie.Build(patterns);
-        return new Hyphenator(trie, 2, 2);
+        return Create(HyphenationPatternLoader.DefaultResourceName, 2, 3)
+               ?? new Hyphenator(HyphenationPatternTrie.Build(Array.Empty<string>()), 2, 3);
     }
 }
 
@@ -282,12 +293,22 @@ internal sealed class HyphenationPatternTrie
 
 internal static class HyphenationPatternLoader
 {
-    private const string DefaultResourceName = "Vibe.Office.Layout.Hyphenation.en-us.pat.txt";
+    internal const string DefaultResourceName = "Vibe.Office.Layout.Hyphenation.en-us.pat.txt";
 
-    public static IEnumerable<string> LoadDefaultPatterns()
+    public static IReadOnlyList<string> LoadDefaultPatterns()
     {
+        return LoadPatterns(DefaultResourceName);
+    }
+
+    public static IReadOnlyList<string> LoadPatterns(string resourceName)
+    {
+        if (string.IsNullOrWhiteSpace(resourceName))
+        {
+            return Array.Empty<string>();
+        }
+
         var assembly = Assembly.GetExecutingAssembly();
-        using var stream = assembly.GetManifestResourceStream(DefaultResourceName);
+        using var stream = assembly.GetManifestResourceStream(resourceName);
         if (stream is null)
         {
             return Array.Empty<string>();

@@ -24,6 +24,7 @@ public sealed class MathBox
     public float Baseline { get; }
     public string? Text { get; }
     public TextStyle? Style { get; }
+    public bool IsHidden { get; }
     public IReadOnlyList<MathBoxChild> Children { get; }
 
     public MathBox(
@@ -33,7 +34,8 @@ public sealed class MathBox
         float baseline,
         string? text,
         TextStyle? style,
-        IReadOnlyList<MathBoxChild>? children = null)
+        IReadOnlyList<MathBoxChild>? children = null,
+        bool isHidden = false)
     {
         Element = element ?? throw new ArgumentNullException(nameof(element));
         Width = width;
@@ -41,6 +43,7 @@ public sealed class MathBox
         Baseline = baseline;
         Text = text;
         Style = style;
+        IsHidden = isHidden;
         Children = children ?? Array.Empty<MathBoxChild>();
     }
 }

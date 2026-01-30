@@ -22,13 +22,21 @@ public sealed class MathLayoutEngine
         {
             MathRun run => LayoutRun(run, context, level),
             MathRow row => LayoutRow(row, context, level),
+            MathFunction function => LayoutFunction(function, context, level),
             MathFraction fraction => LayoutFraction(fraction, context, level),
             MathAccent accent => LayoutAccent(accent, context, level),
             MathDelimiter delimiter => LayoutDelimiter(delimiter, context, level),
+            MathBar bar => LayoutBar(bar, context, level),
+            MathBoxElement box => LayoutBoxElement(box, context, level),
+            MathBorderBox border => LayoutBorderBox(border, context, level),
             MathNary nary => LayoutNary(nary, context, level),
             MathMatrix matrix => LayoutMatrix(matrix, context, level),
+            MathLimit limit => LayoutLimit(limit, context, level),
             MathScript script => LayoutScript(script, context, level),
+            MathPreScript preScript => LayoutPreScript(preScript, context, level),
             MathRadical radical => LayoutRadical(radical, context, level),
+            MathGroupCharacter group => LayoutGroupCharacter(group, context, level),
+            MathPhantom phantom => LayoutPhantom(phantom, context, level),
             _ => LayoutFallback(element, context, level)
         };
     }
@@ -145,11 +153,12 @@ public sealed class MathLayoutEngine
     private MathBox LayoutDelimiter(MathDelimiter delimiter, MathLayoutContext context, int level)
     {
         var style = ScaleStyle(context.BaseStyle, level);
-        var bodyBox = LayoutElement(delimiter.Body, context, level);
+        var bodyBox = LayoutDelimiterBody(delimiter, context, level);
         var beginChar = string.IsNullOrEmpty(delimiter.BeginChar) ? "(" : delimiter.BeginChar;
         var endChar = string.IsNullOrEmpty(delimiter.EndChar) ? ")" : delimiter.EndChar;
-        var leftBox = LayoutTextBox(new MathRun { Text = beginChar }, beginChar, style, context.Measurer);
-        var rightBox = LayoutTextBox(new MathRun { Text = endChar }, endChar, style, context.Measurer);
+        var targetHeight = MathF.Max(bodyBox.Height, style.FontSize);
+        var leftBox = LayoutStretchTextBox(new MathRun { Text = beginChar }, beginChar, style, context.Measurer, targetHeight);
+        var rightBox = LayoutStretchTextBox(new MathRun { Text = endChar }, endChar, style, context.Measurer, targetHeight);
         var gap = MathF.Max(0f, style.FontSize * MathLayoutMetrics.DelimiterGapScale);
 
         var baseline = MathF.Max(bodyBox.Baseline, MathF.Max(leftBox.Baseline, rightBox.Baseline));
@@ -168,6 +177,84 @@ public sealed class MathLayoutEngine
         };
 
         return new MathBox(delimiter, width, height, baseline, null, style, children);
+    }
+
+    private MathBox LayoutBar(MathBar bar, MathLayoutContext context, int level)
+    {
+        var baseBox = LayoutElement(bar.Base, context, level);
+        var style = ScaleStyle(context.BaseStyle, level);
+        var gap = MathF.Max(1f, style.FontSize * MathLayoutMetrics.BarGapScale);
+        var thickness = MathF.Max(1f, style.FontSize * MathLayoutMetrics.BarThicknessScale);
+
+        var baseY = bar.Position == MathBarPosition.Top ? thickness + gap : 0f;
+        var height = baseY + baseBox.Height;
+        if (bar.Position == MathBarPosition.Bottom)
+        {
+            height += gap + thickness;
+        }
+
+        var baseline = baseY + baseBox.Baseline;
+        var children = new List<MathBoxChild>
+        {
+            new MathBoxChild(baseBox, 0f, baseY)
+        };
+
+        return new MathBox(bar, baseBox.Width, height, baseline, null, style, children);
+    }
+
+    private MathBox LayoutBoxElement(MathBoxElement box, MathLayoutContext context, int level)
+    {
+        var baseBox = LayoutElement(box.Base, context, level);
+        var style = ScaleStyle(context.BaseStyle, level);
+        var padding = MathF.Max(1f, style.FontSize * MathLayoutMetrics.BoxPaddingScale);
+        var width = baseBox.Width + padding * 2f;
+        var height = baseBox.Height + padding * 2f;
+        var baseline = baseBox.Baseline + padding;
+        var children = new List<MathBoxChild>
+        {
+            new MathBoxChild(baseBox, padding, padding)
+        };
+
+        return new MathBox(box, width, height, baseline, null, style, children);
+    }
+
+    private MathBox LayoutBorderBox(MathBorderBox box, MathLayoutContext context, int level)
+    {
+        var baseBox = LayoutElement(box.Base, context, level);
+        var style = ScaleStyle(context.BaseStyle, level);
+        var padding = MathF.Max(1f, style.FontSize * MathLayoutMetrics.BoxPaddingScale);
+        var border = MathF.Max(1f, style.FontSize * MathLayoutMetrics.BorderThicknessScale);
+        var inset = padding + border;
+        var width = baseBox.Width + inset * 2f;
+        var height = baseBox.Height + inset * 2f;
+        var baseline = baseBox.Baseline + inset;
+        var children = new List<MathBoxChild>
+        {
+            new MathBoxChild(baseBox, inset, inset)
+        };
+
+        return new MathBox(box, width, height, baseline, null, style, children);
+    }
+
+    private MathBox LayoutFunction(MathFunction function, MathLayoutContext context, int level)
+    {
+        var nameBox = LayoutElement(function.Name, context, level);
+        var argumentBox = LayoutElement(function.Argument, context, level);
+        var style = ScaleStyle(context.BaseStyle, level);
+        var gap = MathF.Max(0f, style.FontSize * MathLayoutMetrics.FunctionGapScale);
+
+        var baseline = MathF.Max(nameBox.Baseline, argumentBox.Baseline);
+        var nameY = baseline - nameBox.Baseline;
+        var argumentY = baseline - argumentBox.Baseline;
+        var width = nameBox.Width + gap + argumentBox.Width;
+        var height = MathF.Max(nameY + nameBox.Height, argumentY + argumentBox.Height);
+        var children = new List<MathBoxChild>
+        {
+            new MathBoxChild(nameBox, 0f, nameY),
+            new MathBoxChild(argumentBox, nameBox.Width + gap, argumentY)
+        };
+
+        return new MathBox(function, width, height, baseline, null, style, children);
     }
 
     private MathBox LayoutNary(MathNary nary, MathLayoutContext context, int level)
@@ -307,6 +394,45 @@ public sealed class MathLayoutEngine
         return new MathBox(matrix, totalWidth, totalHeight, baseline, null, style, children);
     }
 
+    private MathBox LayoutLimit(MathLimit limit, MathLayoutContext context, int level)
+    {
+        var baseBox = LayoutElement(limit.Base, context, level);
+        var limitBox = LayoutElement(limit.Limit, context, level + 1);
+        var style = ScaleStyle(context.BaseStyle, level);
+        var gap = MathF.Max(1f, style.FontSize * MathLayoutMetrics.LimitGapScale);
+
+        var width = MathF.Max(baseBox.Width, limitBox.Width);
+        var baseX = (width - baseBox.Width) / 2f;
+        var limitX = (width - limitBox.Width) / 2f;
+
+        float baseY;
+        float limitY;
+        float baseline;
+        float height;
+        if (limit.Position == MathLimitPosition.Upper)
+        {
+            limitY = 0f;
+            baseY = limitBox.Height + gap;
+            height = baseY + baseBox.Height;
+            baseline = baseY + baseBox.Baseline;
+        }
+        else
+        {
+            baseY = 0f;
+            limitY = baseBox.Height + gap;
+            height = limitY + limitBox.Height;
+            baseline = baseBox.Baseline;
+        }
+
+        var children = new List<MathBoxChild>
+        {
+            new MathBoxChild(baseBox, baseX, baseY),
+            new MathBoxChild(limitBox, limitX, limitY)
+        };
+
+        return new MathBox(limit, width, height, baseline, null, style, children);
+    }
+
     private MathBox LayoutScript(MathScript script, MathLayoutContext context, int level)
     {
         var baseBox = LayoutElement(script.Base, context, level);
@@ -344,6 +470,40 @@ public sealed class MathLayoutEngine
         return new MathBox(script, width, height, baseline, null, style, children);
     }
 
+    private MathBox LayoutPreScript(MathPreScript script, MathLayoutContext context, int level)
+    {
+        var baseBox = LayoutElement(script.Base, context, level);
+        var supBox = script.Superscript is not null ? LayoutElement(script.Superscript, context, level + 1) : null;
+        var subBox = script.Subscript is not null ? LayoutElement(script.Subscript, context, level + 1) : null;
+        var style = ScaleStyle(context.BaseStyle, level);
+        var gap = MathF.Max(1f, style.FontSize * MathLayoutMetrics.ScriptGapScale);
+
+        var scriptWidth = MathF.Max(supBox?.Width ?? 0f, subBox?.Width ?? 0f);
+        var width = baseBox.Width + (scriptWidth > 0f ? gap + scriptWidth : 0f);
+        var baseline = baseBox.Baseline;
+        var height = baseBox.Height;
+
+        var children = new List<MathBoxChild>();
+        var baseX = scriptWidth > 0f ? scriptWidth + gap : 0f;
+        children.Add(new MathBoxChild(baseBox, baseX, 0f));
+
+        if (supBox is not null)
+        {
+            var supY = MathF.Max(0f, baseline - supBox.Height - gap);
+            children.Add(new MathBoxChild(supBox, 0f, supY));
+            height = MathF.Max(height, supY + supBox.Height);
+        }
+
+        if (subBox is not null)
+        {
+            var subY = baseline + gap;
+            children.Add(new MathBoxChild(subBox, 0f, subY));
+            height = MathF.Max(height, subY + subBox.Height);
+        }
+
+        return new MathBox(script, width, height, baseline, null, style, children);
+    }
+
     private MathBox LayoutRadical(MathRadical radical, MathLayoutContext context, int level)
     {
         var radicand = LayoutElement(radical.Radicand, context, level);
@@ -369,6 +529,72 @@ public sealed class MathLayoutEngine
         return new MathBox(radical, width, height, baseline, null, style, children);
     }
 
+    private MathBox LayoutGroupCharacter(MathGroupCharacter group, MathLayoutContext context, int level)
+    {
+        var baseBox = LayoutElement(group.Base, context, level);
+        var style = ScaleStyle(context.BaseStyle, level);
+        var groupText = string.IsNullOrWhiteSpace(group.Character) ? "^" : group.Character;
+        var groupStyle = style.Clone();
+        var groupBox = LayoutTextBox(new MathRun { Text = groupText }, groupText, groupStyle, context.Measurer);
+
+        if (groupBox.Width > 0f && baseBox.Width > groupBox.Width)
+        {
+            var scale = MathF.Min(MathLayoutMetrics.GroupCharMaxScale, baseBox.Width / groupBox.Width);
+            if (scale > 1f)
+            {
+                groupStyle = style.Clone();
+                groupStyle.HorizontalScale = MathF.Max(0.1f, groupStyle.HorizontalScale * scale);
+                groupBox = LayoutTextBox(new MathRun { Text = groupText }, groupText, groupStyle, context.Measurer);
+            }
+        }
+
+        var gap = MathF.Max(1f, style.FontSize * MathLayoutMetrics.GroupCharGapScale);
+        var width = MathF.Max(baseBox.Width, groupBox.Width);
+        var baseX = (width - baseBox.Width) / 2f;
+        var groupX = (width - groupBox.Width) / 2f;
+
+        float baseY;
+        float groupY;
+        float baseline;
+        float height;
+        if (group.Position == MathGroupCharacterPosition.Bottom)
+        {
+            baseY = 0f;
+            groupY = baseBox.Height + gap;
+            height = groupY + groupBox.Height;
+            baseline = baseBox.Baseline;
+        }
+        else
+        {
+            groupY = 0f;
+            baseY = groupBox.Height + gap;
+            height = baseY + baseBox.Height;
+            baseline = baseY + baseBox.Baseline;
+        }
+
+        var children = new List<MathBoxChild>
+        {
+            new MathBoxChild(groupBox, groupX, groupY),
+            new MathBoxChild(baseBox, baseX, baseY)
+        };
+
+        return new MathBox(group, width, height, baseline, null, style, children);
+    }
+
+    private MathBox LayoutPhantom(MathPhantom phantom, MathLayoutContext context, int level)
+    {
+        var baseBox = LayoutElement(phantom.Base, context, level);
+        var ascent = phantom.ZeroAscent ? 0f : baseBox.Baseline;
+        var descent = phantom.ZeroDescent ? 0f : MathF.Max(0f, baseBox.Height - baseBox.Baseline);
+        var width = phantom.ZeroWidth ? 0f : baseBox.Width;
+        var height = ascent + descent;
+        var baseline = ascent;
+        var style = ScaleStyle(context.BaseStyle, level);
+
+        var isHidden = !phantom.Show || phantom.Transparent;
+        return new MathBox(phantom, width, height, baseline, null, style, null, isHidden);
+    }
+
     private MathBox LayoutTextBox(MathElement element, string text, TextStyle style, ITextMeasurer measurer)
     {
         if (text.Length == 0)
@@ -384,11 +610,78 @@ public sealed class MathLayoutEngine
         return new MathBox(element, width, heightValue, baseline, text, style);
     }
 
+    private MathBox LayoutStretchTextBox(
+        MathElement element,
+        string text,
+        TextStyle style,
+        ITextMeasurer measurer,
+        float targetHeight)
+    {
+        if (text.Length == 0)
+        {
+            var height = MathF.Max(1f, style.FontSize);
+            return new MathBox(element, 0f, height, height * 0.8f, string.Empty, style);
+        }
+
+        var metrics = measurer.MeasureText(text, style);
+        var heightValue = MathF.Max(1f, metrics.Height);
+        if (targetHeight <= heightValue)
+        {
+            var baseline = MathF.Max(1f, metrics.Ascent);
+            return new MathBox(element, MathF.Max(0f, metrics.Width), heightValue, baseline, text, style);
+        }
+
+        var scale = MathF.Min(MathLayoutMetrics.DelimiterMaxScale, targetHeight / heightValue);
+        if (scale <= 1f)
+        {
+            var baseline = MathF.Max(1f, metrics.Ascent);
+            return new MathBox(element, MathF.Max(0f, metrics.Width), heightValue, baseline, text, style);
+        }
+
+        var stretchedStyle = style.Clone();
+        stretchedStyle.FontSize = MathF.Max(1f, style.FontSize * scale);
+        var stretched = measurer.MeasureText(text, stretchedStyle);
+        var stretchedHeight = MathF.Max(1f, stretched.Height);
+        var stretchedBaseline = MathF.Max(1f, stretched.Ascent);
+        return new MathBox(
+            element,
+            MathF.Max(0f, stretched.Width),
+            stretchedHeight,
+            stretchedBaseline,
+            text,
+            stretchedStyle);
+    }
+
     private MathBox LayoutFallback(MathElement element, MathLayoutContext context, int level)
     {
         var style = ScaleStyle(context.BaseStyle, level);
         var height = MathF.Max(1f, style.FontSize);
         return new MathBox(element, 0f, height, height * 0.8f, null, style);
+    }
+
+    private MathBox LayoutDelimiterBody(MathDelimiter delimiter, MathLayoutContext context, int level)
+    {
+        if (string.IsNullOrWhiteSpace(delimiter.SeparatorChar))
+        {
+            return LayoutElement(delimiter.Body, context, level);
+        }
+
+        if (delimiter.Body is not MathRow row || row.Elements.Count < 2)
+        {
+            return LayoutElement(delimiter.Body, context, level);
+        }
+
+        var synthetic = new MathRow();
+        for (var i = 0; i < row.Elements.Count; i++)
+        {
+            synthetic.Elements.Add(row.Elements[i]);
+            if (i < row.Elements.Count - 1)
+            {
+                synthetic.Elements.Add(new MathRun { Text = delimiter.SeparatorChar });
+            }
+        }
+
+        return LayoutRow(synthetic, context, level);
     }
 
     private static TextStyle ResolveRunStyle(MathRun run, TextStyle baseStyle, int level)

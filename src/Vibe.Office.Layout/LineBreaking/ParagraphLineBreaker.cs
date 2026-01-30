@@ -16,10 +16,14 @@ internal static class ParagraphLineBreaker
         ArgumentNullException.ThrowIfNull(measureFirstLineWidth);
         ArgumentNullException.ThrowIfNull(measureOtherLineWidth);
 
-        if (!options.UseWord97LineBreakRules
-            && KnuthPlassLineBreaker.TryBreakParagraph(text, spans, firstLineWidth, otherLineWidth, measurer, charGridSpacing, options, out var breaks))
+        if (!options.UseWord97LineBreakRules)
         {
-            return breaks;
+            if (KnuthPlassLineBreaker.TryBreakParagraph(text, spans, firstLineWidth, otherLineWidth, measurer, charGridSpacing, options, out var breaks))
+            {
+                return breaks;
+            }
+
+            return Uax14LineBreaker.BreakParagraph(text, firstLineWidth, otherLineWidth, options, measureFirstLineWidth, measureOtherLineWidth);
         }
 
         return GreedyLineBreaker.BreakParagraph(text, firstLineWidth, otherLineWidth, options, measureFirstLineWidth, measureOtherLineWidth);

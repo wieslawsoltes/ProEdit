@@ -15,6 +15,7 @@ internal readonly struct TextStyleKey : IEquatable<TextStyleKey>
     private readonly bool _hasHighlight;
     private readonly DocColor _highlight;
     private readonly string _language;
+    private readonly int _textDirection;
     private readonly float _letterSpacing;
     private readonly float _horizontalScale;
     private readonly bool _hasLigatures;
@@ -40,6 +41,7 @@ internal readonly struct TextStyleKey : IEquatable<TextStyleKey>
         _hasHighlight = style.HighlightColor.HasValue;
         _highlight = style.HighlightColor ?? default;
         _language = style.Language ?? string.Empty;
+        _textDirection = style.TextDirection.HasValue ? (int)style.TextDirection.Value + 1 : 0;
         _letterSpacing = style.LetterSpacing;
         _horizontalScale = style.HorizontalScale;
 
@@ -71,6 +73,7 @@ internal readonly struct TextStyleKey : IEquatable<TextStyleKey>
             && _hasHighlight == other._hasHighlight
             && (!_hasHighlight || _highlight.Equals(other._highlight))
             && _language == other._language
+            && _textDirection == other._textDirection
             && _letterSpacing.Equals(other._letterSpacing)
             && _horizontalScale.Equals(other._horizontalScale)
             && _hasLigatures == other._hasLigatures
@@ -98,7 +101,7 @@ internal readonly struct TextStyleKey : IEquatable<TextStyleKey>
             _underline,
             _strikethrough,
             _hasHighlight ? _highlight.GetHashCode() : 0);
-        hash = HashCode.Combine(hash, _language, _letterSpacing, _horizontalScale);
+        hash = HashCode.Combine(hash, _language, _textDirection, _letterSpacing, _horizontalScale);
         hash = HashCode.Combine(hash, _hasLigatures ? (int)_ligatures : 0, _hasContextualAlternates ? (_contextualAlternates ? 1 : 0) : 0);
         hash = HashCode.Combine(hash, _hasNumberForm ? (int)_numberForm : 0, _hasNumberSpacing ? (int)_numberSpacing : 0);
         return HashCode.Combine(hash, _hasStylisticSets ? (int)_stylisticSets : 0);

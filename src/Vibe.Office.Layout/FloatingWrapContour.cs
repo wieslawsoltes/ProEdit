@@ -1,3 +1,4 @@
+using System.Buffers;
 using Vibe.Office.Primitives;
 
 namespace Vibe.Office.Layout;
@@ -82,6 +83,105 @@ public sealed class FloatingWrapContour
         left = minX;
         right = maxX;
         return right >= left;
+    }
+
+    internal int GetHorizontalSpans(float y, List<WrapInterval> spans)
+    {
+        spans.Clear();
+        if (_points.Length < 3)
+        {
+            return 0;
+        }
+
+        if (y < Bounds.Y || y > Bounds.Bottom)
+        {
+            return 0;
+        }
+
+        var count = 0;
+        var pointsLength = _points.Length;
+        float[]? rented = null;
+        Span<float> intersections = pointsLength <= 64
+            ? stackalloc float[pointsLength]
+            : (rented = ArrayPool<float>.Shared.Rent(pointsLength)).AsSpan(0, pointsLength);
+
+        try
+        {
+            var previous = _points[^1];
+            for (var i = 0; i < pointsLength; i++)
+            {
+                var current = _points[i];
+                var y1 = previous.Y;
+                var y2 = current.Y;
+                if (MathF.Abs(y2 - y1) < 0.0001f)
+                {
+                    previous = current;
+                    continue;
+                }
+
+                var minY = MathF.Min(y1, y2);
+                var maxY = MathF.Max(y1, y2);
+                if (y < minY || y >= maxY)
+                {
+                    previous = current;
+                    continue;
+                }
+
+                var t = (y - y1) / (y2 - y1);
+                var x = previous.X + t * (current.X - previous.X);
+                intersections[count++] = x;
+                previous = current;
+            }
+
+            if (count < 2)
+            {
+                return 0;
+            }
+
+            SortIntersections(intersections, count);
+
+            for (var i = 0; i + 1 < count; i += 2)
+            {
+                var left = intersections[i];
+                var right = intersections[i + 1];
+                if (right < left)
+                {
+                    (left, right) = (right, left);
+                }
+
+                if (right <= left)
+                {
+                    continue;
+                }
+
+                spans.Add(new WrapInterval(left, right));
+            }
+
+            return spans.Count;
+        }
+        finally
+        {
+            if (rented is not null)
+            {
+                ArrayPool<float>.Shared.Return(rented);
+            }
+        }
+    }
+
+    private static void SortIntersections(Span<float> values, int count)
+    {
+        for (var i = 1; i < count; i++)
+        {
+            var current = values[i];
+            var j = i - 1;
+            while (j >= 0 && values[j] > current)
+            {
+                values[j + 1] = values[j];
+                j--;
+            }
+
+            values[j + 1] = current;
+        }
     }
 
     private static DocRect ComputeBounds(ReadOnlySpan<DocPoint> points)

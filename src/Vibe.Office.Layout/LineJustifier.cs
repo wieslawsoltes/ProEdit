@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text;
 using Vibe.Office.Documents;
 
 namespace Vibe.Office.Layout;
@@ -6,6 +8,7 @@ internal static class LineJustifier
 {
     private const float MaxLetterSpacingEm = 0.05f;
     private const float MaxLetterSpacingShrinkEm = 0.02f;
+    private const char KashidaChar = '\u0640';
 
     private readonly struct TextStyleGridKey : IEquatable<TextStyleGridKey>
     {
@@ -43,7 +46,8 @@ internal static class LineJustifier
 
         var spaceWidthCache = new Dictionary<TextStyleGridKey, float>();
         var (spaceCount, totalSpaceWidth) = MeasureSpaces(layout, measurer, charGridSpacing, spaceWidthCache);
-        if (spaceCount == 0 && IsCjkLine(layout))
+        var hasAdvanced = measurer is ITextMeasurerAdvanced;
+        if (spaceCount == 0 && !hasAdvanced && IsCjkLine(layout))
         {
             return BuildCjkJustifiedLayout(layout, measurer, extra, charGridSpacing);
         }
@@ -56,6 +60,30 @@ internal static class LineJustifier
             var shrinkCap = totalSpaceWidth * LayoutSpacingDefaults.SpaceShrinkRatio;
             spaceContribution = Math.Clamp(remaining, -shrinkCap, stretchCap);
             remaining -= spaceContribution;
+        }
+
+        KashidaPlan? kashidaPlan = null;
+        var kashidaContribution = 0f;
+        if (remaining > 0.01f
+            && TryPlanKashidaInsertions(layout, measurer, charGridSpacing, remaining, out var plan, out var consumed))
+        {
+            kashidaPlan = plan;
+            kashidaContribution = consumed;
+            remaining -= consumed;
+        }
+
+        var eastAsianGapUnits = 0f;
+        Dictionary<TextStyleKey, Dictionary<TextSliceKey, int>>? eastAsianGapCache = null;
+        var eastAsianContribution = 0f;
+        if (remaining != 0f && measurer is ITextMeasurerAdvanced eastAsianAdvanced)
+        {
+            eastAsianGapCache = new Dictionary<TextStyleKey, Dictionary<TextSliceKey, int>>();
+            eastAsianGapUnits = MeasureEastAsianGapUnits(layout, eastAsianAdvanced, eastAsianGapCache);
+            if (eastAsianGapUnits > 0f)
+            {
+                eastAsianContribution = remaining;
+                remaining = 0f;
+            }
         }
 
         var letterGapUnits = 0f;
@@ -74,20 +102,42 @@ internal static class LineJustifier
             }
         }
 
-        if (spaceCount > 0 && totalSpaceWidth > 0f)
+        if (remaining != 0f)
         {
-            spaceContribution += remaining;
-        }
-        else
-        {
-            letterContribution += remaining;
+            if (spaceCount > 0 && totalSpaceWidth > 0f)
+            {
+                spaceContribution += remaining;
+                remaining = 0f;
+            }
+            else if (eastAsianGapUnits > 0f)
+            {
+                eastAsianContribution += remaining;
+                remaining = 0f;
+            }
+            else if (letterGapUnits > 0f)
+            {
+                letterContribution += remaining;
+                remaining = 0f;
+            }
         }
 
         var result = layout;
+        if (kashidaPlan is not null && kashidaContribution > 0f)
+        {
+            result = ApplyKashidaPlan(result, kashidaPlan, measurer, charGridSpacing);
+        }
+
         if (spaceCount > 0 && totalSpaceWidth > 0f && MathF.Abs(spaceContribution) > 0.001f)
         {
             var spaceScale = spaceContribution / totalSpaceWidth;
             result = BuildSpaceJustifiedLayout(result, measurer, charGridSpacing, spaceWidthCache, spaceScale);
+        }
+
+        if (eastAsianContribution != 0f && eastAsianGapUnits > 0f && measurer is ITextMeasurerAdvanced eastAsianAdvancedApply)
+        {
+            var eastAsianSpacingEm = eastAsianContribution / eastAsianGapUnits;
+            result = ApplyEastAsianLetterSpacing(result, eastAsianSpacingEm, eastAsianAdvancedApply,
+                eastAsianGapCache ?? new Dictionary<TextStyleKey, Dictionary<TextSliceKey, int>>());
         }
 
         if (letterContribution != 0f && letterGapUnits > 0f && measurer is ITextMeasurerAdvanced advancedSpacing)
@@ -176,6 +226,81 @@ internal static class LineJustifier
             if (segmentStart < text.Length)
             {
                 var gapCount = GetLatinGapCountCached(text, segmentStart, text.Length - segmentStart, run.Style, advanced, cache);
+                if (gapCount > 0)
+                {
+                    units += gapCount * run.Style.FontSize;
+                }
+            }
+        }
+
+        return units;
+    }
+
+    private static float MeasureEastAsianGapUnits(
+        LineLayout layout,
+        ITextMeasurerAdvanced advanced,
+        Dictionary<TextStyleKey, Dictionary<TextSliceKey, int>> cache)
+    {
+        var units = 0f;
+        foreach (var run in layout.Runs)
+        {
+            if (run.IsTab || string.IsNullOrEmpty(run.Text))
+            {
+                continue;
+            }
+
+            var text = run.Text;
+            var segmentStart = -1;
+            var index = 0;
+            while (index < text.Length)
+            {
+                if (!Utf16Decoder.TryDecodeFromUtf16(text.AsSpan(index), out var rune, out var consumed))
+                {
+                    rune = new Rune(text[index]);
+                    consumed = 1;
+                }
+
+                if (rune.Value == ' ' || rune.Value == '\t')
+                {
+                    if (segmentStart >= 0)
+                    {
+                        var gapCount = GetEastAsianGapCountCached(text, segmentStart, index - segmentStart, run.Style, advanced, cache);
+                        if (gapCount > 0)
+                        {
+                            units += gapCount * run.Style.FontSize;
+                        }
+
+                        segmentStart = -1;
+                    }
+
+                    index += consumed;
+                    continue;
+                }
+
+                if (IsEastAsianSpacingRune(rune))
+                {
+                    if (segmentStart < 0)
+                    {
+                        segmentStart = index;
+                    }
+                }
+                else if (segmentStart >= 0)
+                {
+                    var gapCount = GetEastAsianGapCountCached(text, segmentStart, index - segmentStart, run.Style, advanced, cache);
+                    if (gapCount > 0)
+                    {
+                        units += gapCount * run.Style.FontSize;
+                    }
+
+                    segmentStart = -1;
+                }
+
+                index += consumed;
+            }
+
+            if (segmentStart >= 0)
+            {
+                var gapCount = GetEastAsianGapCountCached(text, segmentStart, text.Length - segmentStart, run.Style, advanced, cache);
                 if (gapCount > 0)
                 {
                     units += gapCount * run.Style.FontSize;
@@ -278,6 +403,98 @@ internal static class LineJustifier
         };
     }
 
+    private static LineLayout ApplyEastAsianLetterSpacing(
+        LineLayout layout,
+        float letterSpacingEm,
+        ITextMeasurerAdvanced advanced,
+        Dictionary<TextStyleKey, Dictionary<TextSliceKey, int>> cache)
+    {
+        if (MathF.Abs(letterSpacingEm) < 0.0001f)
+        {
+            return layout;
+        }
+
+        var segments = BuildLayoutSegments(layout);
+        var runs = new List<LayoutRun>(layout.Runs.Count);
+        var images = new List<LayoutImage>(layout.Images.Count);
+        var shapes = new List<LayoutShape>(layout.Shapes.Count);
+        var charts = new List<LayoutChart>(layout.Charts.Count);
+        var equations = new List<LayoutEquation>(layout.Equations.Count);
+        var x = 0f;
+
+        for (var i = 0; i < segments.Count; i++)
+        {
+            var segment = segments[i];
+            switch (segment.Kind)
+            {
+                case LayoutSegmentKind.Run:
+                {
+                    var run = segment.Run!;
+                    if (run.IsTab || string.IsNullOrEmpty(run.Text))
+                    {
+                        runs.Add(run with { X = x });
+                        x += run.Width;
+                        break;
+                    }
+
+                    var gapCount = GetEastAsianGapCountCached(run.Text, 0, run.Text.Length, run.Style, advanced, cache);
+                    if (gapCount > 0)
+                    {
+                        var letterSpacing = letterSpacingEm * run.Style.FontSize;
+                        var adjustedWidth = run.Width + letterSpacing * gapCount;
+                        runs.Add(run with { X = x, Width = adjustedWidth, LetterSpacing = run.LetterSpacing + letterSpacing });
+                        x += adjustedWidth;
+                    }
+                    else
+                    {
+                        runs.Add(run with { X = x, LetterSpacing = run.LetterSpacing });
+                        x += run.Width;
+                    }
+
+                    break;
+                }
+                case LayoutSegmentKind.Image:
+                {
+                    var image = segment.Image!;
+                    images.Add(image with { X = x });
+                    x += image.Width;
+                    break;
+                }
+                case LayoutSegmentKind.Shape:
+                {
+                    var shape = segment.Shape!;
+                    shapes.Add(shape with { X = x });
+                    x += shape.Width;
+                    break;
+                }
+                case LayoutSegmentKind.Chart:
+                {
+                    var chart = segment.Chart!;
+                    charts.Add(chart with { X = x });
+                    x += chart.Width;
+                    break;
+                }
+                case LayoutSegmentKind.Equation:
+                {
+                    var equation = segment.Equation!;
+                    equations.Add(equation with { X = x });
+                    x += equation.Width;
+                    break;
+                }
+            }
+        }
+
+        return layout with
+        {
+            Runs = runs,
+            Images = images,
+            Shapes = shapes,
+            Charts = charts,
+            Equations = equations,
+            Width = x
+        };
+    }
+
     private static int GetLatinGapCountCached(
         string source,
         int start,
@@ -317,6 +534,52 @@ internal static class LineJustifier
         count = Math.Max(0, clusterCount - 1);
         map[slice] = count;
         return count;
+    }
+
+    private static int GetEastAsianGapCountCached(
+        string source,
+        int start,
+        int length,
+        TextStyle style,
+        ITextMeasurerAdvanced advanced,
+        Dictionary<TextStyleKey, Dictionary<TextSliceKey, int>> cache)
+    {
+        if (string.IsNullOrEmpty(source) || length <= 0)
+        {
+            return 0;
+        }
+
+        var key = new TextStyleKey(style);
+        if (!cache.TryGetValue(key, out var map))
+        {
+            map = new Dictionary<TextSliceKey, int>();
+            cache[key] = map;
+        }
+
+        var slice = new TextSliceKey(source, start, length);
+        if (map.TryGetValue(slice, out var count))
+        {
+            return count;
+        }
+
+        var span = source.AsSpan(start, length);
+        var shaped = advanced is ITextMeasurerAdvancedSpan advancedSpan
+            ? advancedSpan.ShapeText(span, style)
+            : advanced.ShapeText(span.ToString(), style);
+        var clusterCount = shaped.ClusterOffsets.Length;
+        count = Math.Max(0, clusterCount - 1);
+        map[slice] = count;
+        return count;
+    }
+
+    private static bool IsEastAsianSpacingRune(Rune rune)
+    {
+        if (TextScript.IsEastAsianRune(rune))
+        {
+            return true;
+        }
+
+        return TextEastAsianWidth.IsFullWideOrHalf(rune.Value);
     }
 
     private static LineLayout BuildSpaceJustifiedLayout(
@@ -431,6 +694,328 @@ internal static class LineJustifier
             Equations = equations,
             Width = x
         };
+    }
+
+    private static bool TryPlanKashidaInsertions(
+        LineLayout layout,
+        ITextMeasurer measurer,
+        float charGridSpacing,
+        float available,
+        out KashidaPlan plan,
+        out float consumed)
+    {
+        plan = KashidaPlan.Empty;
+        consumed = 0f;
+        if (available <= 0.01f)
+        {
+            return false;
+        }
+
+        var widthCache = new Dictionary<TextStyleGridKey, float>();
+        var runPlans = new List<KashidaRunPlan>();
+        var minWidth = float.PositiveInfinity;
+
+        foreach (var run in layout.Runs)
+        {
+            if (run.IsTab || string.IsNullOrEmpty(run.Text))
+            {
+                continue;
+            }
+
+            var positions = GetKashidaPositions(run.Text);
+            if (positions.Count == 0)
+            {
+                continue;
+            }
+
+            var kashidaWidth = MeasureKashida(run.Style, measurer, charGridSpacing, widthCache);
+            if (kashidaWidth <= 0f)
+            {
+                continue;
+            }
+
+            runPlans.Add(new KashidaRunPlan(run, positions, new int[positions.Count], kashidaWidth));
+            minWidth = MathF.Min(minWidth, kashidaWidth);
+        }
+
+        if (runPlans.Count == 0 || available < minWidth)
+        {
+            return false;
+        }
+
+        var slots = new List<KashidaSlot>();
+        for (var runIndex = 0; runIndex < runPlans.Count; runIndex++)
+        {
+            var positions = runPlans[runIndex].Positions;
+            for (var positionIndex = 0; positionIndex < positions.Count; positionIndex++)
+            {
+                slots.Add(new KashidaSlot(runIndex, positionIndex, runPlans[runIndex].KashidaWidth));
+            }
+        }
+
+        if (slots.Count == 0)
+        {
+            return false;
+        }
+
+        var remaining = available;
+        var inserted = true;
+        while (inserted && remaining >= minWidth)
+        {
+            inserted = false;
+            for (var i = 0; i < slots.Count; i++)
+            {
+                var slot = slots[i];
+                if (remaining + 0.001f < slot.Width)
+                {
+                    continue;
+                }
+
+                runPlans[slot.RunIndex].Insertions[slot.PositionIndex]++;
+                remaining -= slot.Width;
+                consumed += slot.Width;
+                inserted = true;
+                if (remaining < minWidth)
+                {
+                    break;
+                }
+            }
+        }
+
+        if (consumed <= 0f)
+        {
+            return false;
+        }
+
+        for (var i = runPlans.Count - 1; i >= 0; i--)
+        {
+            if (!HasInsertions(runPlans[i].Insertions))
+            {
+                runPlans.RemoveAt(i);
+            }
+        }
+
+        if (runPlans.Count == 0)
+        {
+            consumed = 0f;
+            return false;
+        }
+
+        plan = new KashidaPlan(runPlans);
+        return true;
+    }
+
+    private static LineLayout ApplyKashidaPlan(
+        LineLayout layout,
+        KashidaPlan plan,
+        ITextMeasurer measurer,
+        float charGridSpacing)
+    {
+        if (plan.RunPlans.Count == 0)
+        {
+            return layout;
+        }
+
+        var segments = BuildLayoutSegments(layout);
+        var runs = new List<LayoutRun>(layout.Runs.Count);
+        var images = new List<LayoutImage>(layout.Images.Count);
+        var shapes = new List<LayoutShape>(layout.Shapes.Count);
+        var charts = new List<LayoutChart>(layout.Charts.Count);
+        var equations = new List<LayoutEquation>(layout.Equations.Count);
+        var x = 0f;
+
+        for (var i = 0; i < segments.Count; i++)
+        {
+            var segment = segments[i];
+            switch (segment.Kind)
+            {
+                case LayoutSegmentKind.Run:
+                {
+                    var run = segment.Run!;
+                    var runPlan = FindKashidaPlan(plan.RunPlans, run);
+                    if (runPlan is null || !HasInsertions(runPlan.Insertions))
+                    {
+                        runs.Add(run with { X = x });
+                        x += run.Width;
+                        break;
+                    }
+
+                    var newText = BuildTextWithKashidas(run.Text, runPlan.Positions, runPlan.Insertions);
+                    var width = TextGridSnapping.MeasureText(newText.AsSpan(), run.Style, measurer, charGridSpacing);
+                    runs.Add(new LayoutRun(newText, run.Style, x, width, newText.Length, false, run.BaselineOffset, run.TabLeader, run.LetterSpacing));
+                    x += width;
+                    break;
+                }
+                case LayoutSegmentKind.Image:
+                {
+                    var image = segment.Image!;
+                    images.Add(image with { X = x });
+                    x += image.Width;
+                    break;
+                }
+                case LayoutSegmentKind.Shape:
+                {
+                    var shape = segment.Shape!;
+                    shapes.Add(shape with { X = x });
+                    x += shape.Width;
+                    break;
+                }
+                case LayoutSegmentKind.Chart:
+                {
+                    var chart = segment.Chart!;
+                    charts.Add(chart with { X = x });
+                    x += chart.Width;
+                    break;
+                }
+                case LayoutSegmentKind.Equation:
+                {
+                    var equation = segment.Equation!;
+                    equations.Add(equation with { X = x });
+                    x += equation.Width;
+                    break;
+                }
+            }
+        }
+
+        return layout with
+        {
+            Runs = runs,
+            Images = images,
+            Shapes = shapes,
+            Charts = charts,
+            Equations = equations,
+            Width = x
+        };
+    }
+
+    private static KashidaRunPlan? FindKashidaPlan(List<KashidaRunPlan> plans, LayoutRun run)
+    {
+        for (var i = 0; i < plans.Count; i++)
+        {
+            if (ReferenceEquals(plans[i].Run, run))
+            {
+                return plans[i];
+            }
+        }
+
+        return null;
+    }
+
+    private static bool HasInsertions(int[] insertions)
+    {
+        for (var i = 0; i < insertions.Length; i++)
+        {
+            if (insertions[i] > 0)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static List<int> GetKashidaPositions(string text)
+    {
+        var positions = new List<int>();
+        if (string.IsNullOrEmpty(text))
+        {
+            return positions;
+        }
+
+        var index = 0;
+        var hasPrevious = false;
+        var previousIsArabic = false;
+        while (index < text.Length)
+        {
+            if (!Utf16Decoder.TryDecodeFromUtf16(text.AsSpan(index), out var rune, out var consumed))
+            {
+                rune = new Rune(text[index]);
+                consumed = 1;
+            }
+
+            var currentIsArabic = IsArabicLetter(rune);
+            if (hasPrevious && previousIsArabic && currentIsArabic)
+            {
+                positions.Add(index);
+            }
+
+            previousIsArabic = currentIsArabic;
+            hasPrevious = true;
+            index += consumed;
+        }
+
+        return positions;
+    }
+
+    private static bool IsArabicLetter(Rune rune)
+    {
+        if (!TextScript.IsArabicRune(rune))
+        {
+            return false;
+        }
+
+        var category = Rune.GetUnicodeCategory(rune);
+        return category == UnicodeCategory.UppercaseLetter
+               || category == UnicodeCategory.LowercaseLetter
+               || category == UnicodeCategory.TitlecaseLetter
+               || category == UnicodeCategory.ModifierLetter
+               || category == UnicodeCategory.OtherLetter;
+    }
+
+    private static string BuildTextWithKashidas(string text, List<int> positions, int[] insertions)
+    {
+        if (positions.Count == 0 || insertions.Length == 0)
+        {
+            return text;
+        }
+
+        var extraCount = 0;
+        for (var i = 0; i < insertions.Length; i++)
+        {
+            extraCount += insertions[i];
+        }
+
+        if (extraCount <= 0)
+        {
+            return text;
+        }
+
+        var builder = new System.Text.StringBuilder(text.Length + extraCount);
+        var positionIndex = 0;
+        for (var i = 0; i < text.Length; i++)
+        {
+            while (positionIndex < positions.Count && positions[positionIndex] == i)
+            {
+                var count = insertions[positionIndex];
+                if (count > 0)
+                {
+                    builder.Append(KashidaChar, count);
+                }
+
+                positionIndex++;
+            }
+
+            builder.Append(text[i]);
+        }
+
+        return builder.ToString();
+    }
+
+    private static float MeasureKashida(
+        TextStyle style,
+        ITextMeasurer measurer,
+        float charGridSpacing,
+        Dictionary<TextStyleGridKey, float> cache)
+    {
+        var key = new TextStyleGridKey(style, charGridSpacing);
+        if (cache.TryGetValue(key, out var width))
+        {
+            return width;
+        }
+
+        width = TextGridSnapping.MeasureText(new string(KashidaChar, 1).AsSpan(), style, measurer, charGridSpacing);
+        cache[key] = width;
+        return width;
     }
 
     private static LineLayout BuildCjkJustifiedLayout(LineLayout layout, ITextMeasurer measurer, float extra, float charGridSpacing)
@@ -556,38 +1141,32 @@ internal static class LineJustifier
                 continue;
             }
 
-            foreach (var ch in run.Text)
+            var text = run.Text;
+            var index = 0;
+            while (index < text.Length)
             {
-                if (ch == ' ' || ch == '\t')
+                if (!Utf16Decoder.TryDecodeFromUtf16(text.AsSpan(index), out var rune, out var consumed))
+                {
+                    rune = new Rune(text[index]);
+                    consumed = 1;
+                }
+
+                if (rune.Value == ' ' || rune.Value == '\t')
                 {
                     return false;
                 }
 
-                if (!IsCjkChar(ch))
+                if (!IsEastAsianSpacingRune(rune))
                 {
                     return false;
                 }
 
                 hasText = true;
+                index += consumed;
             }
         }
 
         return hasText;
-    }
-
-    private static bool IsCjkChar(char ch)
-    {
-        var code = (int)ch;
-        return (code >= 0x3040 && code <= 0x30FF)
-               || (code >= 0x3400 && code <= 0x4DBF)
-               || (code >= 0x4E00 && code <= 0x9FFF)
-               || (code >= 0xAC00 && code <= 0xD7AF)
-               || (code >= 0xF900 && code <= 0xFAFF)
-               || (code >= 0x2E80 && code <= 0x2FFF)
-               || (code >= 0x3000 && code <= 0x303F)
-               || (code >= 0x3100 && code <= 0x312F)
-               || (code >= 0x31F0 && code <= 0x31FF)
-               || (code >= 0xFF00 && code <= 0xFFEF);
     }
 
     private static float MeasureSpace(TextStyle style, ITextMeasurer measurer, float charGridSpacing, Dictionary<TextStyleGridKey, float> cache)
@@ -723,4 +1302,34 @@ internal static class LineJustifier
             Equation = equation;
         }
     }
+
+    private sealed class KashidaPlan
+    {
+        public static readonly KashidaPlan Empty = new(new List<KashidaRunPlan>());
+
+        public KashidaPlan(List<KashidaRunPlan> runPlans)
+        {
+            RunPlans = runPlans;
+        }
+
+        public List<KashidaRunPlan> RunPlans { get; }
+    }
+
+    private sealed class KashidaRunPlan
+    {
+        public KashidaRunPlan(LayoutRun run, List<int> positions, int[] insertions, float kashidaWidth)
+        {
+            Run = run;
+            Positions = positions;
+            Insertions = insertions;
+            KashidaWidth = kashidaWidth;
+        }
+
+        public LayoutRun Run { get; }
+        public List<int> Positions { get; }
+        public int[] Insertions { get; }
+        public float KashidaWidth { get; }
+    }
+
+    private readonly record struct KashidaSlot(int RunIndex, int PositionIndex, float Width);
 }
