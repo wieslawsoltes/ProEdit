@@ -29,6 +29,11 @@ public sealed partial class SkiaDocumentRenderer
         Func<TextStyle, SKPaint> paintProvider,
         Func<TextStyle, SKShaper?> shaperProvider)
     {
+        if (box.IsHidden || box.Style?.Hidden == true)
+        {
+            return;
+        }
+
         if (!string.IsNullOrEmpty(box.Text))
         {
             var style = box.Style ?? new TextStyle();
@@ -57,6 +62,12 @@ public sealed partial class SkiaDocumentRenderer
                 break;
             case MathRadical:
                 DrawRadical(canvas, box, x, y, paintProvider);
+                break;
+            case MathBar bar:
+                DrawBar(canvas, box, bar, x, y, paintProvider);
+                break;
+            case MathBorderBox border:
+                DrawBorderBox(canvas, box, border, x, y, paintProvider);
                 break;
         }
     }
@@ -110,6 +121,95 @@ public sealed partial class SkiaDocumentRenderer
         path.LineTo(tipX, barY);
         canvas.DrawPath(path, paint);
         canvas.DrawLine(tipX, barY, x + box.Width, barY, paint);
+    }
+
+    private static void DrawBar(
+        SKCanvas canvas,
+        MathBox box,
+        MathBar bar,
+        float x,
+        float y,
+        Func<TextStyle, SKPaint> paintProvider)
+    {
+        if (box.Width <= 0f || box.Height <= 0f)
+        {
+            return;
+        }
+
+        var style = box.Style ?? new TextStyle();
+        var thickness = MathF.Max(1f, style.FontSize * MathLayoutMetrics.BarThicknessScale);
+        var half = thickness * 0.5f;
+        var lineY = bar.Position == MathBarPosition.Bottom
+            ? y + box.Height - half
+            : y + half;
+
+        using var paint = CreateMathStrokePaint(paintProvider, style, thickness);
+        canvas.DrawLine(x, lineY, x + box.Width, lineY, paint);
+    }
+
+    private static void DrawBorderBox(
+        SKCanvas canvas,
+        MathBox box,
+        MathBorderBox border,
+        float x,
+        float y,
+        Func<TextStyle, SKPaint> paintProvider)
+    {
+        if (box.Width <= 0f || box.Height <= 0f)
+        {
+            return;
+        }
+
+        var style = box.Style ?? new TextStyle();
+        var thickness = MathF.Max(1f, style.FontSize * MathLayoutMetrics.BorderThicknessScale);
+        var half = thickness * 0.5f;
+        var left = x + half;
+        var right = x + box.Width - half;
+        var top = y + half;
+        var bottom = y + box.Height - half;
+        var midX = (left + right) * 0.5f;
+        var midY = (top + bottom) * 0.5f;
+
+        using var paint = CreateMathStrokePaint(paintProvider, style, thickness);
+        if (!border.HideTop)
+        {
+            canvas.DrawLine(left, top, right, top, paint);
+        }
+
+        if (!border.HideBottom)
+        {
+            canvas.DrawLine(left, bottom, right, bottom, paint);
+        }
+
+        if (!border.HideLeft)
+        {
+            canvas.DrawLine(left, top, left, bottom, paint);
+        }
+
+        if (!border.HideRight)
+        {
+            canvas.DrawLine(right, top, right, bottom, paint);
+        }
+
+        if (border.StrikeHorizontal)
+        {
+            canvas.DrawLine(left, midY, right, midY, paint);
+        }
+
+        if (border.StrikeVertical)
+        {
+            canvas.DrawLine(midX, top, midX, bottom, paint);
+        }
+
+        if (border.StrikeDiagonalUp)
+        {
+            canvas.DrawLine(left, bottom, right, top, paint);
+        }
+
+        if (border.StrikeDiagonalDown)
+        {
+            canvas.DrawLine(left, top, right, bottom, paint);
+        }
     }
 
     private static SKPaint CreateMathStrokePaint(Func<TextStyle, SKPaint> paintProvider, TextStyle style, float thickness)

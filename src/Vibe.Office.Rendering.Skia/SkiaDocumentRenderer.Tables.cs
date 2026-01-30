@@ -253,28 +253,72 @@ public sealed partial class SkiaDocumentRenderer
         Func<BorderLine, float, SKPaint> paintProvider)
     {
         var thickness = GetBorderThickness(border);
-        if (border.Style == DocBorderStyle.Double)
+        var dx = x2 - x1;
+        var dy = y2 - y1;
+        var length = MathF.Sqrt(dx * dx + dy * dy);
+        if (length <= 0.01f)
         {
-            var lineThickness = MathF.Max(0.5f, thickness / 2f);
-            var gap = border.Spacing ?? lineThickness;
-            var offset = (lineThickness + gap) / 2f;
-            var paint = paintProvider(border, lineThickness);
-            if (Math.Abs(x1 - x2) < 0.01f)
-            {
-                canvas.DrawLine(x1 - offset, y1, x2 - offset, y2, paint);
-                canvas.DrawLine(x1 + offset, y1, x2 + offset, y2, paint);
-            }
-            else
-            {
-                canvas.DrawLine(x1, y1 - offset, x2, y2 - offset, paint);
-                canvas.DrawLine(x1, y1 + offset, x2, y2 + offset, paint);
-            }
-
             return;
         }
 
-        var singlePaint = paintProvider(border, thickness);
-        canvas.DrawLine(x1, y1, x2, y2, singlePaint);
+        var dirX = dx / length;
+        var dirY = dy / length;
+        var trimStart = 0f;
+        var trimEnd = 0f;
+        if (border.TailArrow.IsVisible)
+        {
+            ResolveArrowDimensions(border.TailArrow, thickness, out var tailLength, out _);
+            trimStart = MathF.Min(tailLength, length);
+        }
+
+        if (border.HeadArrow.IsVisible)
+        {
+            ResolveArrowDimensions(border.HeadArrow, thickness, out var headLength, out _);
+            trimEnd = MathF.Min(headLength, MathF.Max(0f, length - trimStart));
+        }
+
+        var trimmedLength = length - trimStart - trimEnd;
+        if (trimmedLength > 0.01f)
+        {
+            var startX = x1 + dirX * trimStart;
+            var startY = y1 + dirY * trimStart;
+            var endX = x2 - dirX * trimEnd;
+            var endY = y2 - dirY * trimEnd;
+            var normalX = -dirY;
+            var normalY = dirX;
+            Span<CompoundStroke> strokes = stackalloc CompoundStroke[3];
+            var strokeCount = BuildCompoundStrokes(border, thickness, strokes);
+            for (var i = 0; i < strokeCount; i++)
+            {
+                var stroke = strokes[i];
+                var offsetX = normalX * stroke.Offset;
+                var offsetY = normalY * stroke.Offset;
+                var paint = paintProvider(border, stroke.Thickness);
+                canvas.DrawLine(startX + offsetX, startY + offsetY, endX + offsetX, endY + offsetY, paint);
+            }
+        }
+
+        if (border.TailArrow.IsVisible)
+        {
+            DrawArrowHead(
+                canvas,
+                new SKPoint(x1, y1),
+                new SKPoint(-dirX, -dirY),
+                border.TailArrow,
+                ToSkColor(border.Color),
+                thickness);
+        }
+
+        if (border.HeadArrow.IsVisible)
+        {
+            DrawArrowHead(
+                canvas,
+                new SKPoint(x2, y2),
+                new SKPoint(dirX, dirY),
+                border.HeadArrow,
+                ToSkColor(border.Color),
+                thickness);
+        }
     }
 
     private static float GetBorderThickness(BorderLine border)
@@ -296,7 +340,20 @@ public sealed partial class SkiaDocumentRenderer
     private static float GetBorderWeight(BorderLine border)
     {
         var thickness = GetBorderThickness(border);
-        return border.Style == DocBorderStyle.Double ? thickness * 2f : thickness;
+        Span<CompoundStroke> strokes = stackalloc CompoundStroke[3];
+        var strokeCount = BuildCompoundStrokes(border, thickness, strokes);
+        var halfWidth = 0f;
+        for (var i = 0; i < strokeCount; i++)
+        {
+            var stroke = strokes[i];
+            var extent = MathF.Abs(stroke.Offset) + stroke.Thickness / 2f;
+            if (extent > halfWidth)
+            {
+                halfWidth = extent;
+            }
+        }
+
+        return halfWidth > 0f ? halfWidth * 2f : thickness;
     }
 
     private static SKPathEffect? CreateBorderEffect(DocBorderStyle style, float thickness)
@@ -312,5 +369,272 @@ public sealed partial class SkiaDocumentRenderer
         };
     }
 
-    private readonly record struct BorderPaintKey(DocColor Color, float Thickness, DocBorderStyle Style);
+    private static DocCompoundLine ResolveCompoundLine(BorderLine border)
+    {
+        if (border.Compound != DocCompoundLine.Single)
+        {
+            return border.Compound;
+        }
+
+        return border.Style switch
+        {
+            DocBorderStyle.Double => DocCompoundLine.Double,
+            DocBorderStyle.Triple => DocCompoundLine.Triple,
+            DocBorderStyle.ThickThin => DocCompoundLine.ThickThin,
+            DocBorderStyle.ThinThick => DocCompoundLine.ThinThick,
+            DocBorderStyle.ThinThickThin => DocCompoundLine.Triple,
+            _ => DocCompoundLine.Single
+        };
+    }
+
+    private static int BuildCompoundStrokes(BorderLine border, float thickness, Span<CompoundStroke> strokes)
+    {
+        var compound = ResolveCompoundLine(border);
+        if (compound == DocCompoundLine.Double)
+        {
+            var lineThickness = MathF.Max(0.5f, thickness / 2f);
+            var gap = ResolveCompoundGap(border, lineThickness);
+            var offset = (lineThickness + gap) / 2f;
+            strokes[0] = new CompoundStroke(-offset, lineThickness);
+            strokes[1] = new CompoundStroke(offset, lineThickness);
+            return 2;
+        }
+
+        if (compound == DocCompoundLine.ThickThin || compound == DocCompoundLine.ThinThick)
+        {
+            var thin = MathF.Max(0.5f, thickness / 2f);
+            var thick = MathF.Max(thin, thickness);
+            var gap = ResolveCompoundGap(border, thin);
+            var thickOffset = thick / 2f + gap / 2f;
+            var thinOffset = thin / 2f + gap / 2f;
+            if (compound == DocCompoundLine.ThickThin)
+            {
+                strokes[0] = new CompoundStroke(-thinOffset, thin);
+                strokes[1] = new CompoundStroke(thickOffset, thick);
+            }
+            else
+            {
+                strokes[0] = new CompoundStroke(-thickOffset, thick);
+                strokes[1] = new CompoundStroke(thinOffset, thin);
+            }
+
+            return 2;
+        }
+
+        if (compound == DocCompoundLine.Triple)
+        {
+            var thin = MathF.Max(0.5f, thickness / 2f);
+            var thick = MathF.Max(thin, thickness);
+            var gap = ResolveCompoundGap(border, thin);
+            var offset = thick / 2f + gap + thin / 2f;
+            strokes[0] = new CompoundStroke(-offset, thin);
+            strokes[1] = new CompoundStroke(0f, thick);
+            strokes[2] = new CompoundStroke(offset, thin);
+            return 3;
+        }
+
+        strokes[0] = new CompoundStroke(0f, thickness);
+        return 1;
+    }
+
+    private static float ResolveCompoundGap(BorderLine border, float fallback)
+    {
+        if (border.CompoundSpacing.HasValue && border.CompoundSpacing.Value > 0f)
+        {
+            return MathF.Max(0.5f, border.CompoundSpacing.Value);
+        }
+
+        if (border.Spacing.HasValue && border.Spacing.Value > 0f)
+        {
+            return MathF.Max(0.5f, border.Spacing.Value);
+        }
+
+        return MathF.Max(0.5f, fallback);
+    }
+
+    private static DocLineCap ResolveStrokeCap(BorderLine border)
+    {
+        if (border.LineCap != DocLineCap.Flat)
+        {
+            return border.LineCap;
+        }
+
+        return border.Style == DocBorderStyle.Dotted ? DocLineCap.Round : DocLineCap.Flat;
+    }
+
+    private static SKStrokeCap ToSkStrokeCap(DocLineCap cap)
+    {
+        return cap switch
+        {
+            DocLineCap.Round => SKStrokeCap.Round,
+            DocLineCap.Square => SKStrokeCap.Square,
+            _ => SKStrokeCap.Butt
+        };
+    }
+
+    private static SKStrokeJoin ToSkStrokeJoin(DocLineJoin join)
+    {
+        return join switch
+        {
+            DocLineJoin.Round => SKStrokeJoin.Round,
+            DocLineJoin.Bevel => SKStrokeJoin.Bevel,
+            _ => SKStrokeJoin.Miter
+        };
+    }
+
+    private static void ResolveArrowDimensions(
+        DocLineArrow arrow,
+        float thickness,
+        out float length,
+        out float width)
+    {
+        var lengthScale = ResolveArrowScale(arrow.Length);
+        var widthScale = ResolveArrowScale(arrow.Width);
+        var baseLength = MathF.Max(2f, thickness * 3f);
+        var baseWidth = MathF.Max(2f, thickness * 2f);
+        length = baseLength * lengthScale;
+        width = baseWidth * widthScale;
+    }
+
+    private static float ResolveArrowScale(DocLineArrowSize size)
+    {
+        return size switch
+        {
+            DocLineArrowSize.Small => 0.75f,
+            DocLineArrowSize.Large => 1.5f,
+            _ => 1f
+        };
+    }
+
+    private static void DrawArrowHead(
+        SKCanvas canvas,
+        SKPoint tip,
+        SKPoint direction,
+        DocLineArrow arrow,
+        SKColor color,
+        float strokeWidth)
+    {
+        if (arrow.Type == DocLineArrowType.None)
+        {
+            return;
+        }
+
+        var dx = direction.X;
+        var dy = direction.Y;
+        var length = MathF.Sqrt(dx * dx + dy * dy);
+        if (length <= 0.001f)
+        {
+            return;
+        }
+
+        dx /= length;
+        dy /= length;
+        var px = -dy;
+        var py = dx;
+        ResolveArrowDimensions(arrow, strokeWidth, out var arrowLength, out var arrowWidth);
+        var halfWidth = arrowWidth / 2f;
+        static SKPoint Transform(SKPoint tip, float dx, float dy, float px, float py, float x, float y)
+        {
+            return new SKPoint(tip.X + dx * x + px * y, tip.Y + dy * x + py * y);
+        }
+
+        if (arrow.Type == DocLineArrowType.Arrow)
+        {
+            using var strokePaint = new SKPaint
+            {
+                Style = SKPaintStyle.Stroke,
+                Color = color,
+                StrokeWidth = MathF.Max(1f, strokeWidth),
+                IsAntialias = true,
+                StrokeCap = SKStrokeCap.Round,
+                StrokeJoin = SKStrokeJoin.Round
+            };
+            var left = Transform(tip, dx, dy, px, py, -arrowLength, halfWidth);
+            var right = Transform(tip, dx, dy, px, py, -arrowLength, -halfWidth);
+            canvas.DrawLine(tip, left, strokePaint);
+            canvas.DrawLine(tip, right, strokePaint);
+            return;
+        }
+
+        using var fillPaint = new SKPaint
+        {
+            Style = SKPaintStyle.Fill,
+            Color = color,
+            IsAntialias = true
+        };
+        using var path = new SKPath();
+        switch (arrow.Type)
+        {
+            case DocLineArrowType.Triangle:
+            {
+                var left = Transform(tip, dx, dy, px, py, -arrowLength, halfWidth);
+                var right = Transform(tip, dx, dy, px, py, -arrowLength, -halfWidth);
+                path.MoveTo(tip);
+                path.LineTo(left);
+                path.LineTo(right);
+                path.Close();
+                break;
+            }
+            case DocLineArrowType.Stealth:
+            {
+                var left = Transform(tip, dx, dy, px, py, -arrowLength, halfWidth);
+                var right = Transform(tip, dx, dy, px, py, -arrowLength, -halfWidth);
+                var notch = Transform(tip, dx, dy, px, py, -arrowLength * 0.6f, 0f);
+                path.MoveTo(tip);
+                path.LineTo(left);
+                path.LineTo(notch);
+                path.LineTo(right);
+                path.Close();
+                break;
+            }
+            case DocLineArrowType.Diamond:
+            {
+                var left = Transform(tip, dx, dy, px, py, -arrowLength * 0.5f, halfWidth);
+                var back = Transform(tip, dx, dy, px, py, -arrowLength, 0f);
+                var right = Transform(tip, dx, dy, px, py, -arrowLength * 0.5f, -halfWidth);
+                path.MoveTo(tip);
+                path.LineTo(left);
+                path.LineTo(back);
+                path.LineTo(right);
+                path.Close();
+                break;
+            }
+            case DocLineArrowType.Oval:
+            {
+                var center = Transform(tip, dx, dy, px, py, -arrowLength * 0.5f, 0f);
+                var rect = new SKRect(
+                    center.X - arrowLength * 0.5f,
+                    center.Y - halfWidth,
+                    center.X + arrowLength * 0.5f,
+                    center.Y + halfWidth);
+                path.AddOval(rect);
+                break;
+            }
+        }
+
+        if (!path.IsEmpty)
+        {
+            canvas.DrawPath(path, fillPaint);
+        }
+    }
+
+    private readonly struct CompoundStroke
+    {
+        public float Offset { get; }
+        public float Thickness { get; }
+
+        public CompoundStroke(float offset, float thickness)
+        {
+            Offset = offset;
+            Thickness = thickness;
+        }
+    }
+
+    private readonly record struct BorderPaintKey(
+        DocColor Color,
+        float Thickness,
+        DocBorderStyle Style,
+        DocLineCap LineCap,
+        DocLineJoin LineJoin,
+        float MiterLimit);
 }

@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Text;
 using SkiaSharp;
 using SkiaSharp.HarfBuzz;
@@ -14,7 +13,7 @@ public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
     public ISkiaTypefaceResolver? TypefaceResolver { get; set; }
     private static readonly TextShapeInfo EmptyShapeInfo = new TextShapeInfo(0, Array.Empty<int>(), Array.Empty<float>());
     private const int FontSizeScale = 512;
-    private const int MaxFeatureCount = 32;
+    private const int MaxFeatureCount = 40;
     private static readonly HarfBuzzSharp.Tag LigaTag = new HarfBuzzSharp.Tag('l', 'i', 'g', 'a');
     private static readonly HarfBuzzSharp.Tag CligTag = new HarfBuzzSharp.Tag('c', 'l', 'i', 'g');
     private static readonly HarfBuzzSharp.Tag DligTag = new HarfBuzzSharp.Tag('d', 'l', 'i', 'g');
@@ -25,6 +24,10 @@ public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
     private static readonly HarfBuzzSharp.Tag LnumTag = new HarfBuzzSharp.Tag('l', 'n', 'u', 'm');
     private static readonly HarfBuzzSharp.Tag OnumTag = new HarfBuzzSharp.Tag('o', 'n', 'u', 'm');
     private static readonly HarfBuzzSharp.Tag KernTag = new HarfBuzzSharp.Tag('k', 'e', 'r', 'n');
+    private static readonly HarfBuzzSharp.Tag VertTag = new HarfBuzzSharp.Tag('v', 'e', 'r', 't');
+    private static readonly HarfBuzzSharp.Tag Vrt2Tag = new HarfBuzzSharp.Tag('v', 'r', 't', '2');
+    private static readonly HarfBuzzSharp.Tag VkrnTag = new HarfBuzzSharp.Tag('v', 'k', 'r', 'n');
+    private static readonly HarfBuzzSharp.Tag VknaTag = new HarfBuzzSharp.Tag('v', 'k', 'n', 'a');
 
     public bool UseHarfBuzz
     {
@@ -408,7 +411,7 @@ public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
 
     internal static bool HasOpenTypeFeatures(TextStyle style)
     {
-        return style.OpenTypeFeatures?.HasValues == true;
+        return style.OpenTypeFeatures?.HasValues == true || HasVerticalLayout(style);
     }
 
     internal static bool TryShapeTextWithFeatures(
@@ -435,7 +438,7 @@ public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
         using (fontContext)
         using (var buffer = CreateBuffer(text, style))
         {
-            var featureList = BuildOpenTypeFeatures(style, applyKerning);
+            var featureList = BuildOpenTypeFeatures(style, applyKerning, HasVerticalLayout(style));
             fontContext.Font.Shape(buffer, featureList);
 
             var glyphInfos = buffer.GetGlyphInfoSpan();
@@ -479,7 +482,7 @@ public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
         using (fontContext)
         using (var buffer = CreateBuffer(text, style))
         {
-            var featureList = BuildOpenTypeFeatures(style, applyKerning);
+            var featureList = BuildOpenTypeFeatures(style, applyKerning, HasVerticalLayout(style));
             fontContext.Font.Shape(buffer, featureList);
 
             var glyphInfos = buffer.GetGlyphInfoSpan();
@@ -636,7 +639,7 @@ public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
         }
     }
 
-    private static HarfBuzzSharp.Feature[] BuildOpenTypeFeatures(TextStyle style, bool applyKerning)
+    private static HarfBuzzSharp.Feature[] BuildOpenTypeFeatures(TextStyle style, bool applyKerning, bool includeVerticalFeatures)
     {
         Span<HarfBuzzSharp.Feature> buffer = stackalloc HarfBuzzSharp.Feature[MaxFeatureCount];
         var count = 0;
@@ -705,6 +708,14 @@ public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
             count = AppendFeature(buffer, count, KernTag, 0u);
         }
 
+        if (includeVerticalFeatures)
+        {
+            count = AppendFeature(buffer, count, VertTag, 1u);
+            count = AppendFeature(buffer, count, Vrt2Tag, 1u);
+            count = AppendFeature(buffer, count, VknaTag, 1u);
+            count = AppendFeature(buffer, count, VkrnTag, applyKerning ? 1u : 0u);
+        }
+
         if (count == 0)
         {
             return Array.Empty<HarfBuzzSharp.Feature>();
@@ -713,6 +724,11 @@ public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
         var result = new HarfBuzzSharp.Feature[count];
         buffer[..count].CopyTo(result);
         return result;
+    }
+
+    private static bool HasVerticalLayout(TextStyle style)
+    {
+        return DocTextDirectionHelpers.IsVertical(style.TextDirection);
     }
 
     private static int AppendFeature(Span<HarfBuzzSharp.Feature> features, int count, HarfBuzzSharp.Tag tag, uint value)
@@ -808,7 +824,7 @@ public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
         }
 
         var index = 0;
-        var lastStrong = ScriptKind.Latin;
+        var lastStrong = TextScriptKind.Latin;
         TextStyle? latinStyle = null;
         TextStyle? eastAsiaStyle = null;
         TextStyle? complexStyle = null;
@@ -873,14 +889,6 @@ public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
         return segments;
     }
 
-    private enum ScriptKind
-    {
-        Latin,
-        EastAsian,
-        Complex,
-        Neutral
-    }
-
     private static bool RequiresScriptSegmentation(TextStyle style)
     {
         return !string.IsNullOrWhiteSpace(style.FontFamilyAscii)
@@ -892,7 +900,7 @@ public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
                || !string.IsNullOrWhiteSpace(style.LanguageBidi);
     }
 
-    private static ScriptKind ClassifyClusterScript(ReadOnlySpan<char> cluster, ref ScriptKind lastStrong)
+    private static TextScriptKind ClassifyClusterScript(ReadOnlySpan<char> cluster, ref TextScriptKind lastStrong)
     {
         var index = 0;
         while (index < cluster.Length)
@@ -903,8 +911,8 @@ public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
                 consumed = 1;
             }
 
-            var script = ClassifyRune(rune);
-            if (script != ScriptKind.Neutral)
+            var script = TextScript.ClassifyRune(rune);
+            if (script != TextScriptKind.Neutral)
             {
                 lastStrong = script;
                 return script;
@@ -916,130 +924,22 @@ public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
         return lastStrong;
     }
 
-    private static ScriptKind ClassifyRune(Rune rune)
-    {
-        var category = Rune.GetUnicodeCategory(rune);
-        if (category == System.Globalization.UnicodeCategory.NonSpacingMark
-            || category == System.Globalization.UnicodeCategory.SpacingCombiningMark
-            || category == System.Globalization.UnicodeCategory.EnclosingMark)
-        {
-            return ScriptKind.Neutral;
-        }
-
-        if (Rune.IsWhiteSpace(rune) || Rune.IsDigit(rune) || IsSymbolOrPunctuation(category))
-        {
-            return ScriptKind.Neutral;
-        }
-
-        if (IsEastAsianRune(rune))
-        {
-            return ScriptKind.EastAsian;
-        }
-
-        if (IsComplexScriptRune(rune))
-        {
-            return ScriptKind.Complex;
-        }
-
-        if (IsLatinRune(rune))
-        {
-            return ScriptKind.Latin;
-        }
-
-        return ScriptKind.Latin;
-    }
-
-    private static bool IsLatinRune(Rune rune)
-    {
-        var code = rune.Value;
-        return (code >= 0x0041 && code <= 0x005A)
-               || (code >= 0x0061 && code <= 0x007A)
-               || (code >= 0x00C0 && code <= 0x024F)
-               || (code >= 0x1E00 && code <= 0x1EFF);
-    }
-
-    private static bool IsEastAsianRune(Rune rune)
-    {
-        var code = rune.Value;
-        return (code >= 0x1100 && code <= 0x11FF)
-               || (code >= 0x3040 && code <= 0x30FF)
-               || (code >= 0x31F0 && code <= 0x31FF)
-               || (code >= 0x3130 && code <= 0x318F)
-               || (code >= 0x3300 && code <= 0x33FF)
-               || (code >= 0x3400 && code <= 0x4DBF)
-               || (code >= 0x4E00 && code <= 0x9FFF)
-               || (code >= 0xA960 && code <= 0xA97F)
-               || (code >= 0xAC00 && code <= 0xD7AF)
-               || (code >= 0xD7B0 && code <= 0xD7FF)
-               || (code >= 0xF900 && code <= 0xFAFF)
-               || (code >= 0xFE30 && code <= 0xFE4F)
-               || (code >= 0x20000 && code <= 0x2A6DF)
-               || (code >= 0x2A700 && code <= 0x2B73F)
-               || (code >= 0x2B740 && code <= 0x2B81F)
-               || (code >= 0x2B820 && code <= 0x2CEAF)
-               || (code >= 0x2CEB0 && code <= 0x2EBEF)
-               || (code >= 0x2F800 && code <= 0x2FA1F);
-    }
-
-    private static bool IsComplexScriptRune(Rune rune)
-    {
-        var code = rune.Value;
-        return (code >= 0x0590 && code <= 0x05FF)
-               || (code >= 0x0600 && code <= 0x06FF)
-               || (code >= 0x0700 && code <= 0x074F)
-               || (code >= 0x0750 && code <= 0x077F)
-               || (code >= 0x0780 && code <= 0x07BF)
-               || (code >= 0x07C0 && code <= 0x07FF)
-               || (code >= 0x08A0 && code <= 0x08FF)
-               || (code >= 0x0900 && code <= 0x0D7F)
-               || (code >= 0x0E00 && code <= 0x0E7F)
-               || (code >= 0x0E80 && code <= 0x0EFF)
-               || (code >= 0x0F00 && code <= 0x0FFF)
-               || (code >= 0x1000 && code <= 0x109F)
-               || (code >= 0x1780 && code <= 0x17FF)
-               || (code >= 0x1A00 && code <= 0x1AFF)
-               || (code >= 0x1B00 && code <= 0x1B7F)
-               || (code >= 0x1B80 && code <= 0x1BBF)
-               || (code >= 0x1C00 && code <= 0x1C4F)
-               || (code >= 0x1C50 && code <= 0x1C7F)
-               || (code >= 0x1CD0 && code <= 0x1CFF)
-               || (code >= 0xA800 && code <= 0xA82F)
-               || (code >= 0xA840 && code <= 0xA87F)
-               || (code >= 0xFB50 && code <= 0xFDFF)
-               || (code >= 0xFE70 && code <= 0xFEFF);
-    }
-
-    private static bool IsSymbolOrPunctuation(System.Globalization.UnicodeCategory category)
-    {
-        return category == System.Globalization.UnicodeCategory.ConnectorPunctuation
-               || category == System.Globalization.UnicodeCategory.DashPunctuation
-               || category == System.Globalization.UnicodeCategory.OpenPunctuation
-               || category == System.Globalization.UnicodeCategory.ClosePunctuation
-               || category == System.Globalization.UnicodeCategory.InitialQuotePunctuation
-               || category == System.Globalization.UnicodeCategory.FinalQuotePunctuation
-               || category == System.Globalization.UnicodeCategory.OtherPunctuation
-               || category == System.Globalization.UnicodeCategory.MathSymbol
-               || category == System.Globalization.UnicodeCategory.CurrencySymbol
-               || category == System.Globalization.UnicodeCategory.ModifierSymbol
-               || category == System.Globalization.UnicodeCategory.OtherSymbol;
-    }
-
     private static TextStyle ResolveScriptStyle(
         TextStyle style,
-        ScriptKind script,
+        TextScriptKind script,
         ref TextStyle? latinStyle,
         ref TextStyle? eastAsiaStyle,
         ref TextStyle? complexStyle)
     {
         return script switch
         {
-            ScriptKind.EastAsian => eastAsiaStyle ??= BuildScriptStyle(style, script),
-            ScriptKind.Complex => complexStyle ??= BuildScriptStyle(style, script),
-            _ => latinStyle ??= BuildScriptStyle(style, ScriptKind.Latin)
+            TextScriptKind.EastAsian => eastAsiaStyle ??= BuildScriptStyle(style, script),
+            TextScriptKind.Complex => complexStyle ??= BuildScriptStyle(style, script),
+            _ => latinStyle ??= BuildScriptStyle(style, TextScriptKind.Latin)
         };
     }
 
-    private static TextStyle BuildScriptStyle(TextStyle style, ScriptKind script)
+    private static TextStyle BuildScriptStyle(TextStyle style, TextScriptKind script)
     {
         var family = style.FontFamily;
         var size = style.FontSize;
@@ -1047,11 +947,11 @@ public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
 
         switch (script)
         {
-            case ScriptKind.EastAsian:
+            case TextScriptKind.EastAsian:
                 family = style.FontFamilyEastAsia ?? family;
                 language = style.LanguageEastAsia ?? language;
                 break;
-            case ScriptKind.Complex:
+            case TextScriptKind.Complex:
                 family = style.FontFamilyComplexScript ?? family;
                 if (style.FontSizeComplexScript.HasValue && style.FontSizeComplexScript.Value > 0f)
                 {
@@ -1059,7 +959,7 @@ public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
                 }
                 language = style.LanguageBidi ?? language;
                 break;
-            case ScriptKind.Latin:
+            case TextScriptKind.Latin:
                 family = style.FontFamilyAscii ?? style.FontFamilyHighAnsi ?? family;
                 break;
         }
@@ -1219,11 +1119,15 @@ public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
     {
         var buffer = new HarfBuzzSharp.Buffer();
         buffer.AddUtf16(text);
+        buffer.GuessSegmentProperties();
         if (!string.IsNullOrWhiteSpace(style.Language))
         {
             buffer.Language = new HarfBuzzSharp.Language(style.Language);
         }
-        buffer.GuessSegmentProperties();
+        if (TextScript.TryGetScriptTag(text, out var scriptTag))
+        {
+            buffer.Script = (HarfBuzzSharp.Script)scriptTag;
+        }
         var direction = TextBidi.FindFirstStrongDirection(text);
         buffer.Direction = direction == BidiDirection.Rtl
             ? HarfBuzzSharp.Direction.RightToLeft

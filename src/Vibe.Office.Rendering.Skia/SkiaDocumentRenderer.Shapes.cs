@@ -11,6 +11,9 @@ public sealed partial class SkiaDocumentRenderer
 {
     private static readonly DocumentLayouter ShapeTextLayouter = new DocumentLayouter();
     private SkiaTextMeasurer? _shapeTextMeasurer;
+    private readonly Dictionary<ShapeImageFill, SKBitmap> _shapeFillImageCache = new();
+    private readonly HashSet<ShapeImageFill> _invalidShapeFillImages = new();
+    private readonly Dictionary<PatternShaderKey, PatternShaderCacheEntry> _patternShaderCache = new();
 
     private void DrawShape(
         SKCanvas canvas,
@@ -34,12 +37,9 @@ public sealed partial class SkiaDocumentRenderer
         var originX = lineX + shapeLayout.X;
         var originY = baseline - height;
         var properties = shape.Properties;
-        var kind = ResolveShapeKind(properties.PresetGeometry);
-        var isLine = kind == ShapeKind.Line;
+        var fill = properties.Fill;
         var fillColor = properties.FillColor;
         var outline = properties.Outline;
-        var hasFill = fillColor.HasValue && fillColor.Value.A > 0;
-        var hasOutline = outline is not null && outline.IsVisible;
         var rect = new SKRect(0f, 0f, width, height);
         var effects = properties.Effects;
 
@@ -47,99 +47,112 @@ public sealed partial class SkiaDocumentRenderer
         canvas.Translate(originX, originY);
         ApplyShapeTransform(canvas, properties, width, height);
 
-        using var path = CreateShapePath(kind, rect);
-        ShapeTextBox? textBox = null;
-        if (shape.TextBox is { Blocks.Count: > 0 } resolvedTextBox)
+        var pathData = ShapeGeometryEvaluator.Evaluate(properties, width, height);
+        if (pathData.Count == 0)
         {
-            textBox = resolvedTextBox;
+            canvas.Restore();
+            return;
         }
 
-        var hasText = textBox is not null;
-        if (!hasFill && !hasOutline)
+        var paths = new List<ShapePathEntry>(pathData.Count);
+        var hasFillPath = false;
+        var hasStrokePath = false;
+        foreach (var data in pathData)
         {
-            if (!hasText || kind == ShapeKind.Unknown)
+            if (data.IsFilled)
             {
-                DrawShapePlaceholder(canvas, rect, options, "Shape");
-            }
-        }
-        else
-        {
-            if (effects?.HasValues == true)
-            {
-                if (effects.Shadow is not null)
-                {
-                    DrawShapeShadow(canvas, path, kind, fillColor, outline, effects.Shadow);
-                }
-
-                if (effects.Glow is not null)
-                {
-                    DrawShapeGlow(canvas, path, kind, fillColor, outline, effects.Glow);
-                }
-
-                if (effects.SoftEdge is not null)
-                {
-                    DrawShapeSoftEdge(canvas, path, kind, fillColor, outline, effects.SoftEdge);
-                }
+                hasFillPath = true;
             }
 
-            DrawShapeGeometry(canvas, path, kind, fillColor, outline);
+            if (data.IsStroked)
+            {
+                hasStrokePath = true;
+            }
+
+            paths.Add(new ShapePathEntry(data, CreateSkiaPath(data)));
         }
 
-        if (textBox is not null)
+        try
         {
-            DrawShapeText(canvas, textBox, rect, options, document, defaultStyle, layoutSettings);
-        }
+            ShapeTextBox? textBox = null;
+            if (shape.TextBox is { Blocks.Count: > 0 } resolvedTextBox)
+            {
+                textBox = resolvedTextBox;
+            }
 
-        if (effects?.Reflection is not null && (hasFill || hasOutline))
+            var hasText = textBox is not null;
+            var hasFill = HasShapeFill(fill, fillColor) && hasFillPath;
+            var hasOutline = outline is not null && outline.IsVisible && hasStrokePath;
+            if (!hasFill && !hasOutline)
+            {
+                if (!hasText)
+                {
+                    DrawShapePlaceholder(canvas, rect, options, "Shape");
+                }
+            }
+            else
+            {
+                if (effects?.HasValues == true)
+                {
+                    if (effects.Shadow is not null)
+                    {
+                        DrawShapeShadow(canvas, paths, fill, fillColor, outline, rect, effects.Shadow);
+                    }
+
+                    if (effects.Glow is not null)
+                    {
+                        DrawShapeGlow(canvas, paths, fill, fillColor, outline, rect, effects.Glow);
+                    }
+
+                    if (effects.SoftEdge is not null)
+                    {
+                        DrawShapeSoftEdge(canvas, paths, fill, fillColor, outline, rect, effects.SoftEdge);
+                    }
+                }
+
+                DrawShapeGeometry(canvas, paths, fill, fillColor, outline, rect);
+            }
+
+            if (textBox is not null)
+            {
+                var textRect = ResolveShapeTextRect(properties, width, height);
+                DrawShapeText(canvas, textBox, textRect, options, document, defaultStyle, layoutSettings);
+            }
+
+            if (effects?.Reflection is not null && (hasFill || hasOutline))
+            {
+                DrawShapeReflection(canvas, paths, rect, fill, fillColor, outline, effects.Reflection);
+            }
+        }
+        finally
         {
-            DrawShapeReflection(canvas, path, rect, kind, fillColor, outline, effects.Reflection);
+            foreach (var entry in paths)
+            {
+                entry.Path.Dispose();
+            }
         }
 
         canvas.Restore();
     }
 
-    private static void DrawShapeGeometry(
+    private void DrawShapeGeometry(
         SKCanvas canvas,
-        SKPath path,
-        ShapeKind kind,
-        DocColor? fillColor,
-        BorderLine? outline)
-    {
-        var hasFill = fillColor.HasValue && fillColor.Value.A > 0;
-        var hasOutline = outline is not null && outline.IsVisible;
-        if (hasFill && kind != ShapeKind.Line)
-        {
-            using var fillPaint = new SKPaint
-            {
-                Style = SKPaintStyle.Fill,
-                Color = ToSkColor(fillColor!.Value),
-                IsAntialias = true
-            };
-            canvas.DrawPath(path, fillPaint);
-        }
-
-        if (hasOutline)
-        {
-            var thickness = MathF.Max(0.5f, GetBorderThickness(outline!));
-            using var strokePaint = new SKPaint
-            {
-                Style = SKPaintStyle.Stroke,
-                Color = ToSkColor(outline!.Color),
-                StrokeWidth = thickness,
-                IsAntialias = true,
-                StrokeCap = outline.Style == DocBorderStyle.Dotted ? SKStrokeCap.Round : SKStrokeCap.Butt,
-                PathEffect = CreateBorderEffect(outline.Style, thickness)
-            };
-            canvas.DrawPath(path, strokePaint);
-        }
-    }
-
-    private static void DrawShapeShadow(
-        SKCanvas canvas,
-        SKPath path,
-        ShapeKind kind,
+        IReadOnlyList<ShapePathEntry> paths,
+        ShapeFill? fill,
         DocColor? fillColor,
         BorderLine? outline,
+        SKRect bounds)
+    {
+        DrawShapePaths(canvas, paths, fill, fillColor, outline, bounds, null);
+    }
+
+    private void DrawShapeShadow(
+        SKCanvas canvas,
+        IReadOnlyList<ShapePathEntry> paths,
+        ShapeFill? fill,
+        DocColor? fillColor,
+        BorderLine? outline,
+        SKRect bounds,
         DrawingShadowEffect shadow)
     {
         var blurRadius = MathF.Max(0f, shadow.BlurRadius);
@@ -152,43 +165,17 @@ public sealed partial class SkiaDocumentRenderer
         var angle = shadow.Direction * (MathF.PI / 180f);
         var dx = distance * MathF.Cos(angle);
         var dy = distance * MathF.Sin(angle);
-        var shadowColor = ToSkColor(shadow.Color);
-
-        if (fillColor.HasValue && fillColor.Value.A > 0 && kind != ShapeKind.Line)
-        {
-            using var fillPaint = new SKPaint
-            {
-                Style = SKPaintStyle.Fill,
-                Color = ToSkColor(fillColor.Value),
-                IsAntialias = true,
-                ImageFilter = SKImageFilter.CreateDropShadowOnly(dx, dy, blurRadius, blurRadius, shadowColor)
-            };
-            canvas.DrawPath(path, fillPaint);
-        }
-
-        if (outline is not null && outline.IsVisible)
-        {
-            var thickness = MathF.Max(0.5f, GetBorderThickness(outline));
-            using var strokePaint = new SKPaint
-            {
-                Style = SKPaintStyle.Stroke,
-                Color = ToSkColor(outline.Color),
-                StrokeWidth = thickness,
-                IsAntialias = true,
-                StrokeCap = outline.Style == DocBorderStyle.Dotted ? SKStrokeCap.Round : SKStrokeCap.Butt,
-                PathEffect = CreateBorderEffect(outline.Style, thickness),
-                ImageFilter = SKImageFilter.CreateDropShadowOnly(dx, dy, blurRadius, blurRadius, shadowColor)
-            };
-            canvas.DrawPath(path, strokePaint);
-        }
+        using var filter = SKImageFilter.CreateDropShadowOnly(dx, dy, blurRadius, blurRadius, ToSkColor(shadow.Color));
+        DrawShapePaths(canvas, paths, fill, fillColor, outline, bounds, filter);
     }
 
-    private static void DrawShapeGlow(
+    private void DrawShapeGlow(
         SKCanvas canvas,
-        SKPath path,
-        ShapeKind kind,
+        IReadOnlyList<ShapePathEntry> paths,
+        ShapeFill? fill,
         DocColor? fillColor,
         BorderLine? outline,
+        SKRect bounds,
         DrawingGlowEffect glow)
     {
         var blurRadius = MathF.Max(0f, glow.Radius);
@@ -197,43 +184,17 @@ public sealed partial class SkiaDocumentRenderer
             return;
         }
 
-        var glowColor = ToSkColor(glow.Color);
-
-        if (fillColor.HasValue && fillColor.Value.A > 0 && kind != ShapeKind.Line)
-        {
-            using var fillPaint = new SKPaint
-            {
-                Style = SKPaintStyle.Fill,
-                Color = ToSkColor(fillColor.Value),
-                IsAntialias = true,
-                ImageFilter = SKImageFilter.CreateDropShadowOnly(0f, 0f, blurRadius, blurRadius, glowColor)
-            };
-            canvas.DrawPath(path, fillPaint);
-        }
-
-        if (outline is not null && outline.IsVisible)
-        {
-            var thickness = MathF.Max(0.5f, GetBorderThickness(outline));
-            using var strokePaint = new SKPaint
-            {
-                Style = SKPaintStyle.Stroke,
-                Color = ToSkColor(outline.Color),
-                StrokeWidth = thickness,
-                IsAntialias = true,
-                StrokeCap = outline.Style == DocBorderStyle.Dotted ? SKStrokeCap.Round : SKStrokeCap.Butt,
-                PathEffect = CreateBorderEffect(outline.Style, thickness),
-                ImageFilter = SKImageFilter.CreateDropShadowOnly(0f, 0f, blurRadius, blurRadius, glowColor)
-            };
-            canvas.DrawPath(path, strokePaint);
-        }
+        using var filter = SKImageFilter.CreateDropShadowOnly(0f, 0f, blurRadius, blurRadius, ToSkColor(glow.Color));
+        DrawShapePaths(canvas, paths, fill, fillColor, outline, bounds, filter);
     }
 
-    private static void DrawShapeSoftEdge(
+    private void DrawShapeSoftEdge(
         SKCanvas canvas,
-        SKPath path,
-        ShapeKind kind,
+        IReadOnlyList<ShapePathEntry> paths,
+        ShapeFill? fill,
         DocColor? fillColor,
         BorderLine? outline,
+        SKRect bounds,
         DrawingSoftEdgeEffect softEdge)
     {
         var blurRadius = MathF.Max(0f, softEdge.Radius);
@@ -242,40 +203,15 @@ public sealed partial class SkiaDocumentRenderer
             return;
         }
 
-        if (fillColor.HasValue && fillColor.Value.A > 0 && kind != ShapeKind.Line)
-        {
-            using var fillPaint = new SKPaint
-            {
-                Style = SKPaintStyle.Fill,
-                Color = ToSkColor(fillColor.Value),
-                IsAntialias = true,
-                ImageFilter = SKImageFilter.CreateBlur(blurRadius, blurRadius)
-            };
-            canvas.DrawPath(path, fillPaint);
-        }
-
-        if (outline is not null && outline.IsVisible)
-        {
-            var thickness = MathF.Max(0.5f, GetBorderThickness(outline));
-            using var strokePaint = new SKPaint
-            {
-                Style = SKPaintStyle.Stroke,
-                Color = ToSkColor(outline.Color),
-                StrokeWidth = thickness,
-                IsAntialias = true,
-                StrokeCap = outline.Style == DocBorderStyle.Dotted ? SKStrokeCap.Round : SKStrokeCap.Butt,
-                PathEffect = CreateBorderEffect(outline.Style, thickness),
-                ImageFilter = SKImageFilter.CreateBlur(blurRadius, blurRadius)
-            };
-            canvas.DrawPath(path, strokePaint);
-        }
+        using var filter = SKImageFilter.CreateBlur(blurRadius, blurRadius);
+        DrawShapePaths(canvas, paths, fill, fillColor, outline, bounds, filter);
     }
 
-    private static void DrawShapeReflection(
+    private void DrawShapeReflection(
         SKCanvas canvas,
-        SKPath path,
+        IReadOnlyList<ShapePathEntry> paths,
         SKRect rect,
-        ShapeKind kind,
+        ShapeFill? fill,
         DocColor? fillColor,
         BorderLine? outline,
         DrawingReflectionEffect reflection)
@@ -303,7 +239,7 @@ public sealed partial class SkiaDocumentRenderer
         var tx = rect.Left - rect.Left * scaleX;
         var ty = rect.Bottom + reflection.Distance + rect.Bottom * scaleY;
         canvas.Translate(tx, ty);
-        DrawShapeGeometry(canvas, path, kind, fillColor, outline);
+        DrawShapeGeometry(canvas, paths, fill, fillColor, outline, rect);
         canvas.Restore();
 
         using var maskPaint = CreateReflectionMaskPaint(reflectionRect, reflection.StartOpacity, reflection.EndOpacity);
@@ -369,26 +305,1006 @@ public sealed partial class SkiaDocumentRenderer
         }
     }
 
+    private static SKRect ResolveShapeTextRect(ShapeProperties properties, float width, float height)
+    {
+        var geometry = ShapeGeometryEvaluator.ResolveGeometry(properties);
+        if (geometry?.TextRectangle is null)
+        {
+            return new SKRect(0f, 0f, width, height);
+        }
+
+        var context = new ShapeGeometryContext(geometry, properties, width, height);
+        var textRect = geometry.TextRectangle;
+        var left = (float)context.GetValue(textRect.Left);
+        var top = (float)context.GetValue(textRect.Top);
+        var right = (float)context.GetValue(textRect.Right);
+        var bottom = (float)context.GetValue(textRect.Bottom);
+
+        left = MathF.Max(0f, left);
+        top = MathF.Max(0f, top);
+        right = MathF.Min(width, right);
+        bottom = MathF.Min(height, bottom);
+
+        if (right <= left || bottom <= top)
+        {
+            return new SKRect(0f, 0f, width, height);
+        }
+
+        return new SKRect(left, top, right, bottom);
+    }
+
+    private void DrawShapePaths(
+        SKCanvas canvas,
+        IReadOnlyList<ShapePathEntry> paths,
+        ShapeFill? fill,
+        DocColor? fillColor,
+        BorderLine? outline,
+        SKRect bounds,
+        SKImageFilter? filter)
+    {
+        if (paths.Count == 0)
+        {
+            return;
+        }
+
+        var canFill = HasShapeFill(fill, fillColor);
+        var hasOutline = outline is not null && outline.IsVisible;
+        if (!canFill && !hasOutline)
+        {
+            return;
+        }
+
+        SKPaint? strokePaint = null;
+        if (hasOutline)
+        {
+            var thickness = MathF.Max(0.5f, GetBorderThickness(outline!));
+            var cap = ResolveStrokeCap(outline!);
+            strokePaint = new SKPaint
+            {
+                Style = SKPaintStyle.Stroke,
+                Color = ToSkColor(outline!.Color),
+                StrokeWidth = thickness,
+                IsAntialias = true,
+                StrokeCap = ToSkStrokeCap(cap),
+                StrokeJoin = ToSkStrokeJoin(outline.LineJoin),
+                PathEffect = CreateBorderEffect(outline.Style, thickness)
+            };
+            if (outline.LineJoin == DocLineJoin.Miter && outline.MiterLimit.HasValue && outline.MiterLimit.Value > 0f)
+            {
+                strokePaint.StrokeMiter = outline.MiterLimit.Value;
+            }
+
+            if (filter is not null)
+            {
+                strokePaint.ImageFilter = filter;
+            }
+        }
+
+        Dictionary<ShapePathFillMode, SKPaint>? fillPaints = null;
+        if (canFill)
+        {
+            fillPaints = new Dictionary<ShapePathFillMode, SKPaint>();
+        }
+
+        var hasArrows = outline is not null && (outline.HeadArrow.IsVisible || outline.TailArrow.IsVisible);
+        var hasCompound = outline is not null && ResolveCompoundLine(outline) != DocCompoundLine.Single;
+        Dictionary<float, SKPaint>? segmentPaints = null;
+        SKPaint GetSegmentPaint(BorderLine border, float thickness)
+        {
+            segmentPaints ??= new Dictionary<float, SKPaint>();
+            if (segmentPaints.TryGetValue(thickness, out var existing))
+            {
+                return existing;
+            }
+
+            var cap = ResolveStrokeCap(border);
+            var paint = new SKPaint
+            {
+                Style = SKPaintStyle.Stroke,
+                Color = ToSkColor(border.Color),
+                StrokeWidth = thickness,
+                IsAntialias = true,
+                StrokeCap = ToSkStrokeCap(cap),
+                StrokeJoin = ToSkStrokeJoin(border.LineJoin),
+                PathEffect = CreateBorderEffect(border.Style, thickness)
+            };
+            if (border.LineJoin == DocLineJoin.Miter && border.MiterLimit.HasValue && border.MiterLimit.Value > 0f)
+            {
+                paint.StrokeMiter = border.MiterLimit.Value;
+            }
+
+            if (filter is not null)
+            {
+                paint.ImageFilter = filter;
+            }
+
+            segmentPaints[thickness] = paint;
+            return paint;
+        }
+
+        try
+        {
+            foreach (var entry in paths)
+            {
+                if (canFill && entry.Data.IsFilled && fillPaints is not null)
+                {
+                    if (!fillPaints.TryGetValue(entry.Data.FillMode, out var fillPaint))
+                    {
+                        fillPaint = CreateFillPaint(fill, fillColor, bounds, entry.Data.FillMode);
+                        if (fillPaint is not null)
+                        {
+                            if (filter is not null)
+                            {
+                                fillPaint.ImageFilter = filter;
+                            }
+
+                            fillPaints[entry.Data.FillMode] = fillPaint;
+                        }
+                    }
+
+                    if (fillPaint is not null)
+                    {
+                        canvas.DrawPath(entry.Path, fillPaint);
+                    }
+                }
+
+                if (strokePaint is not null && entry.Data.IsStroked)
+                {
+                    if (outline is not null
+                        && (hasArrows || hasCompound)
+                        && TryGetLineSegment(entry.Data, out var x1, out var y1, out var x2, out var y2))
+                    {
+                        DrawBorderSegment(canvas, outline, x1, y1, x2, y2, GetSegmentPaint);
+                    }
+                    else if (outline is not null && hasArrows)
+                    {
+                        DrawPathWithArrows(canvas, entry.Path, outline, strokePaint);
+                    }
+                    else
+                    {
+                        canvas.DrawPath(entry.Path, strokePaint);
+                    }
+                }
+            }
+        }
+        finally
+        {
+            if (fillPaints is not null)
+            {
+                foreach (var paint in fillPaints.Values)
+                {
+                    paint.Dispose();
+                }
+            }
+
+            if (segmentPaints is not null)
+            {
+                foreach (var paint in segmentPaints.Values)
+                {
+                    paint.Dispose();
+                }
+            }
+
+            strokePaint?.Dispose();
+        }
+    }
+
+    private static bool TryGetLineSegment(ShapePathData data, out float x1, out float y1, out float x2, out float y2)
+    {
+        x1 = 0f;
+        y1 = 0f;
+        x2 = 0f;
+        y2 = 0f;
+        if (data.Segments.Count < 2)
+        {
+            return false;
+        }
+
+        if (data.Segments[0].Kind != ShapePathSegmentKind.MoveTo)
+        {
+            return false;
+        }
+
+        if (data.Segments[1].Kind != ShapePathSegmentKind.LineTo)
+        {
+            return false;
+        }
+
+        x1 = data.Segments[0].X1;
+        y1 = data.Segments[0].Y1;
+        x2 = data.Segments[1].X1;
+        y2 = data.Segments[1].Y1;
+        for (var i = 2; i < data.Segments.Count; i++)
+        {
+            if (data.Segments[i].Kind != ShapePathSegmentKind.Close)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static void DrawPathWithArrows(SKCanvas canvas, SKPath path, BorderLine outline, SKPaint strokePaint)
+    {
+        if (!outline.HeadArrow.IsVisible && !outline.TailArrow.IsVisible)
+        {
+            canvas.DrawPath(path, strokePaint);
+            return;
+        }
+
+        using var measure = new SKPathMeasure(path, false);
+        var length = measure.Length;
+        if (length <= 0.01f)
+        {
+            canvas.DrawPath(path, strokePaint);
+            return;
+        }
+
+        var trimStart = 0f;
+        var trimEnd = 0f;
+        if (outline.TailArrow.IsVisible)
+        {
+            ResolveArrowDimensions(outline.TailArrow, strokePaint.StrokeWidth, out var tailLength, out _);
+            trimStart = MathF.Min(tailLength, length);
+        }
+
+        if (outline.HeadArrow.IsVisible)
+        {
+            ResolveArrowDimensions(outline.HeadArrow, strokePaint.StrokeWidth, out var headLength, out _);
+            trimEnd = MathF.Min(headLength, MathF.Max(0f, length - trimStart));
+        }
+
+        var trimmedLength = length - trimStart - trimEnd;
+        if (trimmedLength > 0.01f)
+        {
+            using var trimmed = new SKPath();
+            if (measure.GetSegment(trimStart, length - trimEnd, trimmed, true))
+            {
+                canvas.DrawPath(trimmed, strokePaint);
+            }
+            else
+            {
+                canvas.DrawPath(path, strokePaint);
+            }
+        }
+
+        if (outline.TailArrow.IsVisible
+            && measure.GetPositionAndTangent(0f, out var startPoint, out var startTangent))
+        {
+            DrawArrowHead(
+                canvas,
+                startPoint,
+                new SKPoint(-startTangent.X, -startTangent.Y),
+                outline.TailArrow,
+                strokePaint.Color,
+                strokePaint.StrokeWidth);
+        }
+
+        var endSample = length > 0.01f ? length - 0.01f : length;
+        if (outline.HeadArrow.IsVisible
+            && measure.GetPositionAndTangent(endSample, out var endPoint, out var endTangent))
+        {
+            DrawArrowHead(
+                canvas,
+                endPoint,
+                endTangent,
+                outline.HeadArrow,
+                strokePaint.Color,
+                strokePaint.StrokeWidth);
+        }
+    }
+
+    private static SKPath CreateSkiaPath(ShapePathData data)
+    {
+        var path = new SKPath();
+        foreach (var segment in data.Segments)
+        {
+            switch (segment.Kind)
+            {
+                case ShapePathSegmentKind.MoveTo:
+                    path.MoveTo(segment.X1, segment.Y1);
+                    break;
+                case ShapePathSegmentKind.LineTo:
+                    path.LineTo(segment.X1, segment.Y1);
+                    break;
+                case ShapePathSegmentKind.QuadTo:
+                    path.QuadTo(segment.X1, segment.Y1, segment.X2, segment.Y2);
+                    break;
+                case ShapePathSegmentKind.CubicTo:
+                    path.CubicTo(segment.X1, segment.Y1, segment.X2, segment.Y2, segment.X3, segment.Y3);
+                    break;
+                case ShapePathSegmentKind.ArcTo:
+                {
+                    var arcRect = new SKRect(segment.X1, segment.Y1, segment.X1 + segment.X2, segment.Y1 + segment.Y2);
+                    path.ArcTo(arcRect, segment.StartAngle, segment.SweepAngle, false);
+                    break;
+                }
+                case ShapePathSegmentKind.Close:
+                    path.Close();
+                    break;
+            }
+        }
+
+        return path;
+    }
+
+    private static bool HasShapeFill(ShapeFill? fill, DocColor? fillColor)
+    {
+        if (fill is ShapeNoFill)
+        {
+            return false;
+        }
+
+        if (fill is ShapeSolidFill solidFill)
+        {
+            return solidFill.Color.A > 0;
+        }
+
+        if (fill is ShapeGradientFill gradientFill)
+        {
+            return gradientFill.Stops.Count > 0;
+        }
+
+        if (fill is ShapePatternFill patternFill)
+        {
+            return patternFill.Foreground.A > 0 || patternFill.Background.A > 0;
+        }
+
+        if (fill is ShapeImageFill imageFill)
+        {
+            return imageFill.Data.Length > 0;
+        }
+
+        return fillColor.HasValue && fillColor.Value.A > 0;
+    }
+
+    private SKPaint? CreateFillPaint(ShapeFill? fill, DocColor? fillColor, SKRect bounds, ShapePathFillMode mode)
+    {
+        if (fill is ShapeNoFill)
+        {
+            return null;
+        }
+
+        if (fill is ShapeSolidFill solidFill)
+        {
+            var color = ApplyFillMode(mode, solidFill.Color);
+            return new SKPaint
+            {
+                Style = SKPaintStyle.Fill,
+                Color = ToSkColor(color),
+                IsAntialias = true
+            };
+        }
+
+        if (fill is ShapeGradientFill gradientFill)
+        {
+            var shader = CreateGradientShader(gradientFill, bounds, mode);
+            if (shader is null)
+            {
+                return null;
+            }
+
+            return new SKPaint
+            {
+                Style = SKPaintStyle.Fill,
+                Shader = shader,
+                IsAntialias = true
+            };
+        }
+
+        if (fill is ShapePatternFill patternFill)
+        {
+            var shader = CreatePatternShader(patternFill, mode);
+            if (shader is null)
+            {
+                return null;
+            }
+
+            return new SKPaint
+            {
+                Style = SKPaintStyle.Fill,
+                Shader = shader,
+                IsAntialias = true
+            };
+        }
+
+        if (fill is ShapeImageFill imageFill)
+        {
+            var shader = CreateImageShader(imageFill, bounds);
+            if (shader is null)
+            {
+                return null;
+            }
+
+            return new SKPaint
+            {
+                Style = SKPaintStyle.Fill,
+                Shader = shader,
+                IsAntialias = true
+            };
+        }
+
+        if (fillColor.HasValue && fillColor.Value.A > 0)
+        {
+            var color = ApplyFillMode(mode, fillColor.Value);
+            return new SKPaint
+            {
+                Style = SKPaintStyle.Fill,
+                Color = ToSkColor(color),
+                IsAntialias = true
+            };
+        }
+
+        return null;
+    }
+
+    private static SKShader? CreateGradientShader(ShapeGradientFill fill, SKRect bounds, ShapePathFillMode mode)
+    {
+        if (fill.Stops.Count == 0)
+        {
+            return null;
+        }
+
+        var colors = new SKColor[fill.Stops.Count];
+        var positions = new float[fill.Stops.Count];
+        for (var i = 0; i < fill.Stops.Count; i++)
+        {
+            var stop = fill.Stops[i];
+            var color = ApplyFillMode(mode, stop.Color);
+            colors[i] = ToSkColor(color);
+            positions[i] = Clamp01(stop.Position);
+        }
+
+        if (fill.Type == ShapeGradientType.Radial)
+        {
+            var rect = fill.FillRect is null ? bounds : ResolveRelativeRect(fill.FillRect, bounds);
+            var center = new SKPoint(rect.MidX, rect.MidY);
+            var radius = MathF.Max(rect.Width, rect.Height) / 2f;
+            return SKShader.CreateRadialGradient(center, radius, colors, positions, SKShaderTileMode.Clamp);
+        }
+
+        var angle = fill.Angle;
+        var radians = angle * (MathF.PI / 180f);
+        var dx = MathF.Cos(radians);
+        var dy = MathF.Sin(radians);
+        var half = MathF.Sqrt(bounds.Width * bounds.Width + bounds.Height * bounds.Height) / 2f;
+        var centerPoint = new SKPoint(bounds.MidX, bounds.MidY);
+        var start = new SKPoint(centerPoint.X - dx * half, centerPoint.Y - dy * half);
+        var end = new SKPoint(centerPoint.X + dx * half, centerPoint.Y + dy * half);
+        return SKShader.CreateLinearGradient(start, end, colors, positions, SKShaderTileMode.Clamp);
+    }
+
+    private SKShader? CreatePatternShader(ShapePatternFill fill, ShapePathFillMode mode)
+    {
+        var pattern = NormalizePatternKey(fill.Pattern);
+        if (pattern.Length == 0)
+        {
+            return null;
+        }
+
+        var foreground = ApplyFillMode(mode, fill.Foreground);
+        var background = ApplyFillMode(mode, fill.Background);
+        var key = new PatternShaderKey(pattern, foreground, background);
+        if (_patternShaderCache.TryGetValue(key, out var cached))
+        {
+            return cached.Shader;
+        }
+
+        var bitmap = new SKBitmap(PatternTileSize, PatternTileSize, SKColorType.Bgra8888, SKAlphaType.Premul);
+        using var canvas = new SKCanvas(bitmap);
+        canvas.Clear(ToSkColor(background));
+        DrawPattern(canvas, bitmap, pattern, ToSkColor(foreground));
+
+        var shader = SKShader.CreateBitmap(bitmap, SKShaderTileMode.Repeat, SKShaderTileMode.Repeat);
+        _patternShaderCache[key] = new PatternShaderCacheEntry(bitmap, shader);
+        return shader;
+    }
+
+    private static void DrawPattern(SKCanvas canvas, SKBitmap bitmap, string pattern, SKColor color)
+    {
+        switch (pattern)
+        {
+            case "pct5":
+                DrawPercentPattern(bitmap, color, 0.05f);
+                return;
+            case "pct10":
+                DrawPercentPattern(bitmap, color, 0.1f);
+                return;
+            case "pct20":
+                DrawPercentPattern(bitmap, color, 0.2f);
+                return;
+            case "pct25":
+                DrawPercentPattern(bitmap, color, 0.25f);
+                return;
+            case "pct30":
+                DrawPercentPattern(bitmap, color, 0.3f);
+                return;
+            case "pct40":
+                DrawPercentPattern(bitmap, color, 0.4f);
+                return;
+            case "pct50":
+                DrawPercentPattern(bitmap, color, 0.5f);
+                return;
+            case "pct60":
+                DrawPercentPattern(bitmap, color, 0.6f);
+                return;
+            case "pct70":
+                DrawPercentPattern(bitmap, color, 0.7f);
+                return;
+            case "pct75":
+                DrawPercentPattern(bitmap, color, 0.75f);
+                return;
+            case "pct80":
+                DrawPercentPattern(bitmap, color, 0.8f);
+                return;
+            case "pct90":
+                DrawPercentPattern(bitmap, color, 0.9f);
+                return;
+            case "horz":
+                DrawLinePattern(canvas, PatternTileSize, true, 4, 1f, color);
+                return;
+            case "vert":
+                DrawLinePattern(canvas, PatternTileSize, false, 4, 1f, color);
+                return;
+            case "lthorz":
+                DrawLinePattern(canvas, PatternTileSize, true, 6, 1f, color);
+                return;
+            case "ltvert":
+                DrawLinePattern(canvas, PatternTileSize, false, 6, 1f, color);
+                return;
+            case "dkhorz":
+                DrawLinePattern(canvas, PatternTileSize, true, 3, 2f, color);
+                return;
+            case "dkvert":
+                DrawLinePattern(canvas, PatternTileSize, false, 3, 2f, color);
+                return;
+            case "narhorz":
+                DrawLinePattern(canvas, PatternTileSize, true, 2, 1f, color);
+                return;
+            case "narvert":
+                DrawLinePattern(canvas, PatternTileSize, false, 2, 1f, color);
+                return;
+            case "dashhorz":
+                DrawDashPattern(canvas, PatternTileSize, true, 4, 1f, color);
+                return;
+            case "dashvert":
+                DrawDashPattern(canvas, PatternTileSize, false, 4, 1f, color);
+                return;
+            case "cross":
+                DrawLinePattern(canvas, PatternTileSize, true, 4, 1f, color);
+                DrawLinePattern(canvas, PatternTileSize, false, 4, 1f, color);
+                return;
+            case "dndiag":
+                DrawDiagonalPattern(canvas, PatternTileSize, true, 4, 1f, color);
+                return;
+            case "updiag":
+                DrawDiagonalPattern(canvas, PatternTileSize, false, 4, 1f, color);
+                return;
+            case "ltdndiag":
+                DrawDiagonalPattern(canvas, PatternTileSize, true, 6, 1f, color);
+                return;
+            case "ltupdiag":
+                DrawDiagonalPattern(canvas, PatternTileSize, false, 6, 1f, color);
+                return;
+            case "dkdndiag":
+                DrawDiagonalPattern(canvas, PatternTileSize, true, 3, 2f, color);
+                return;
+            case "dkupdiag":
+                DrawDiagonalPattern(canvas, PatternTileSize, false, 3, 2f, color);
+                return;
+            case "wddndiag":
+                DrawDiagonalPattern(canvas, PatternTileSize, true, 6, 2f, color);
+                return;
+            case "wdupdiag":
+                DrawDiagonalPattern(canvas, PatternTileSize, false, 6, 2f, color);
+                return;
+            case "dashdndiag":
+                DrawDiagonalPattern(canvas, PatternTileSize, true, 4, 1f, color);
+                return;
+            case "dashupdiag":
+                DrawDiagonalPattern(canvas, PatternTileSize, false, 4, 1f, color);
+                return;
+            case "diagcross":
+                DrawDiagonalPattern(canvas, PatternTileSize, true, 4, 1f, color);
+                DrawDiagonalPattern(canvas, PatternTileSize, false, 4, 1f, color);
+                return;
+            case "smgrid":
+                DrawLinePattern(canvas, PatternTileSize, true, 2, 1f, color);
+                DrawLinePattern(canvas, PatternTileSize, false, 2, 1f, color);
+                return;
+            case "lggrid":
+                DrawLinePattern(canvas, PatternTileSize, true, 4, 1f, color);
+                DrawLinePattern(canvas, PatternTileSize, false, 4, 1f, color);
+                return;
+            case "dotgrid":
+                DrawPercentPattern(bitmap, color, 0.2f);
+                return;
+            case "smcheck":
+            case "lgcheck":
+            case "plaid":
+            case "weave":
+            case "trellis":
+                DrawLinePattern(canvas, PatternTileSize, true, 4, 1f, color);
+                DrawLinePattern(canvas, PatternTileSize, false, 4, 1f, color);
+                DrawDiagonalPattern(canvas, PatternTileSize, true, 4, 1f, color);
+                return;
+            case "smconfetti":
+                DrawPercentPattern(bitmap, color, 0.25f);
+                return;
+            case "lgconfetti":
+                DrawPercentPattern(bitmap, color, 0.4f);
+                return;
+            case "horzbrick":
+            case "diagbrick":
+            case "soliddmnd":
+            case "opendmnd":
+            case "dotdmnd":
+            case "sphere":
+            case "divot":
+            case "shingle":
+            case "wave":
+            case "zigzag":
+                DrawLinePattern(canvas, PatternTileSize, true, 4, 1f, color);
+                DrawLinePattern(canvas, PatternTileSize, false, 4, 1f, color);
+                return;
+            default:
+                DrawLinePattern(canvas, PatternTileSize, true, 4, 1f, color);
+                DrawLinePattern(canvas, PatternTileSize, false, 4, 1f, color);
+                return;
+        }
+    }
+
+    private static void DrawPercentPattern(SKBitmap bitmap, SKColor color, float percent)
+    {
+        var threshold = (int)MathF.Round(Clamp01(percent) * PatternDither8x8.Length);
+        for (var i = 0; i < PatternDither8x8.Length; i++)
+        {
+            if (PatternDither8x8[i] < threshold)
+            {
+                var x = i % PatternTileSize;
+                var y = i / PatternTileSize;
+                bitmap.SetPixel(x, y, color);
+            }
+        }
+    }
+
+    private static void DrawLinePattern(SKCanvas canvas, int size, bool horizontal, int spacing, float thickness, SKColor color)
+    {
+        using var paint = new SKPaint
+        {
+            Color = color,
+            Style = SKPaintStyle.Stroke,
+            StrokeWidth = thickness,
+            IsAntialias = false
+        };
+
+        for (var offset = 0; offset < size; offset += spacing)
+        {
+            var position = offset + 0.5f;
+            if (horizontal)
+            {
+                canvas.DrawLine(0f, position, size, position, paint);
+            }
+            else
+            {
+                canvas.DrawLine(position, 0f, position, size, paint);
+            }
+        }
+    }
+
+    private static void DrawDashPattern(SKCanvas canvas, int size, bool horizontal, int spacing, float thickness, SKColor color)
+    {
+        using var paint = new SKPaint
+        {
+            Color = color,
+            Style = SKPaintStyle.Stroke,
+            StrokeWidth = thickness,
+            IsAntialias = false
+        };
+
+        var dash = size / 2f;
+        for (var offset = 0; offset < size; offset += spacing)
+        {
+            var position = offset + 0.5f;
+            if (horizontal)
+            {
+                canvas.DrawLine(0f, position, dash, position, paint);
+            }
+            else
+            {
+                canvas.DrawLine(position, 0f, position, dash, paint);
+            }
+        }
+    }
+
+    private static void DrawDiagonalPattern(SKCanvas canvas, int size, bool downward, int spacing, float thickness, SKColor color)
+    {
+        using var paint = new SKPaint
+        {
+            Color = color,
+            Style = SKPaintStyle.Stroke,
+            StrokeWidth = thickness,
+            IsAntialias = false
+        };
+
+        for (var offset = -size; offset <= size; offset += spacing)
+        {
+            if (downward)
+            {
+                canvas.DrawLine(offset, 0f, offset + size, size, paint);
+            }
+            else
+            {
+                canvas.DrawLine(offset, size, offset + size, 0f, paint);
+            }
+        }
+    }
+
+    private SKShader? CreateImageShader(ShapeImageFill fill, SKRect bounds)
+    {
+        var bitmap = GetShapeFillBitmap(fill);
+        if (bitmap is null)
+        {
+            return null;
+        }
+
+        var cropRect = ResolveImageCropRect(fill.Crop, bitmap);
+        if (cropRect.Width <= 0f || cropRect.Height <= 0f)
+        {
+            return null;
+        }
+
+        if (fill.Mode == ShapeImageFillMode.Stretch)
+        {
+            if (bounds.Width <= 0f || bounds.Height <= 0f)
+            {
+                return null;
+            }
+
+            var stretchScaleX = cropRect.Width / bounds.Width;
+            var stretchScaleY = cropRect.Height / bounds.Height;
+            var stretchMatrix = CreateBitmapMatrix(stretchScaleX, stretchScaleY, cropRect.Left, cropRect.Top);
+            return SKShader.CreateBitmap(bitmap, SKShaderTileMode.Clamp, SKShaderTileMode.Clamp, stretchMatrix);
+        }
+
+        var tile = fill.Tile;
+        var tileScaleX = tile?.ScaleX ?? 1f;
+        var tileScaleY = tile?.ScaleY ?? 1f;
+        if (tileScaleX <= 0f)
+        {
+            tileScaleX = 1f;
+        }
+
+        if (tileScaleY <= 0f)
+        {
+            tileScaleY = 1f;
+        }
+
+        var offsetX = tile?.OffsetX ?? 0f;
+        var offsetY = tile?.OffsetY ?? 0f;
+        var scaleX = 1f / tileScaleX;
+        var scaleY = 1f / tileScaleY;
+        var tileMatrix = CreateBitmapMatrix(scaleX, scaleY, cropRect.Left - offsetX * scaleX, cropRect.Top - offsetY * scaleY);
+        return SKShader.CreateBitmap(bitmap, SKShaderTileMode.Repeat, SKShaderTileMode.Repeat, tileMatrix);
+    }
+
+    private SKBitmap? GetShapeFillBitmap(ShapeImageFill fill)
+    {
+        if (_invalidShapeFillImages.Contains(fill))
+        {
+            return null;
+        }
+
+        if (!_shapeFillImageCache.TryGetValue(fill, out var bitmap))
+        {
+            if (fill.Data.Length == 0)
+            {
+                _invalidShapeFillImages.Add(fill);
+                return null;
+            }
+
+            try
+            {
+                bitmap = SKBitmap.Decode(fill.Data);
+                if (bitmap is not null)
+                {
+                    _shapeFillImageCache[fill] = bitmap;
+                }
+            }
+            catch
+            {
+                _invalidShapeFillImages.Add(fill);
+                return null;
+            }
+        }
+
+        return bitmap;
+    }
+
+    private static SKRect ResolveImageCropRect(ImageCrop? crop, SKBitmap bitmap)
+    {
+        var left = 0f;
+        var top = 0f;
+        var right = (float)bitmap.Width;
+        var bottom = (float)bitmap.Height;
+        if (crop is null || !crop.HasValues)
+        {
+            return new SKRect(left, top, right, bottom);
+        }
+
+        left += bitmap.Width * crop.Left;
+        right -= bitmap.Width * crop.Right;
+        top += bitmap.Height * crop.Top;
+        bottom -= bitmap.Height * crop.Bottom;
+        if (right <= left || bottom <= top)
+        {
+            return new SKRect(0f, 0f, bitmap.Width, bitmap.Height);
+        }
+
+        return new SKRect(left, top, right, bottom);
+    }
+
+    private static SKRect ResolveRelativeRect(ShapeGradientRect rect, SKRect bounds)
+    {
+        var left = bounds.Left + bounds.Width * rect.Left;
+        var top = bounds.Top + bounds.Height * rect.Top;
+        var right = bounds.Right - bounds.Width * rect.Right;
+        var bottom = bounds.Bottom - bounds.Height * rect.Bottom;
+        return new SKRect(left, top, right, bottom);
+    }
+
+    private static SKMatrix CreateBitmapMatrix(float scaleX, float scaleY, float translateX, float translateY)
+    {
+        return new SKMatrix
+        {
+            ScaleX = scaleX,
+            SkewX = 0f,
+            TransX = translateX,
+            SkewY = 0f,
+            ScaleY = scaleY,
+            TransY = translateY,
+            Persp0 = 0f,
+            Persp1 = 0f,
+            Persp2 = 1f
+        };
+    }
+
+    private static DocColor ApplyFillMode(ShapePathFillMode mode, DocColor color)
+    {
+        return mode switch
+        {
+            ShapePathFillMode.Lighten => BlendDocColor(color, DocColor.White, 0.4f),
+            ShapePathFillMode.LightenLess => BlendDocColor(color, DocColor.White, 0.2f),
+            ShapePathFillMode.Darken => BlendDocColor(color, DocColor.Black, 0.4f),
+            ShapePathFillMode.DarkenLess => BlendDocColor(color, DocColor.Black, 0.2f),
+            _ => color
+        };
+    }
+
+    private static DocColor BlendDocColor(DocColor baseColor, DocColor blend, float amount)
+    {
+        var clamped = Clamp01(amount);
+        var r = (byte)MathF.Round(baseColor.R + (blend.R - baseColor.R) * clamped);
+        var g = (byte)MathF.Round(baseColor.G + (blend.G - baseColor.G) * clamped);
+        var b = (byte)MathF.Round(baseColor.B + (blend.B - baseColor.B) * clamped);
+        return new DocColor(r, g, b, baseColor.A);
+    }
+
+    private static string NormalizePatternKey(string pattern)
+    {
+        if (string.IsNullOrWhiteSpace(pattern))
+        {
+            return string.Empty;
+        }
+
+        var span = pattern.AsSpan().Trim();
+        Span<char> buffer = stackalloc char[span.Length];
+        var count = 0;
+        for (var i = 0; i < span.Length; i++)
+        {
+            var ch = span[i];
+            if (!char.IsLetterOrDigit(ch))
+            {
+                continue;
+            }
+
+            buffer[count++] = char.ToLowerInvariant(ch);
+        }
+
+        return new string(buffer.Slice(0, count));
+    }
+
+    private const int PatternTileSize = 8;
+
+    private static readonly byte[] PatternDither8x8 =
+    {
+        0, 48, 12, 60, 3, 51, 15, 63,
+        32, 16, 44, 28, 35, 19, 47, 31,
+        8, 56, 4, 52, 11, 59, 7, 55,
+        40, 24, 36, 20, 43, 27, 39, 23,
+        2, 50, 14, 62, 1, 49, 13, 61,
+        34, 18, 46, 30, 33, 17, 45, 29,
+        10, 58, 6, 54, 9, 57, 5, 53,
+        42, 26, 38, 22, 41, 25, 37, 21
+    };
+
+    private readonly struct ShapePathEntry
+    {
+        public ShapePathData Data { get; }
+        public SKPath Path { get; }
+
+        public ShapePathEntry(ShapePathData data, SKPath path)
+        {
+            Data = data;
+            Path = path;
+        }
+    }
+
+    private readonly struct PatternShaderKey : IEquatable<PatternShaderKey>
+    {
+        public string Pattern { get; }
+        public DocColor Foreground { get; }
+        public DocColor Background { get; }
+
+        public PatternShaderKey(string pattern, DocColor foreground, DocColor background)
+        {
+            Pattern = pattern;
+            Foreground = foreground;
+            Background = background;
+        }
+
+        public bool Equals(PatternShaderKey other)
+        {
+            return string.Equals(Pattern, other.Pattern, StringComparison.Ordinal)
+                   && Foreground.Equals(other.Foreground)
+                   && Background.Equals(other.Background);
+        }
+
+        public override bool Equals(object? obj) => obj is PatternShaderKey other && Equals(other);
+
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(StringComparer.Ordinal.GetHashCode(Pattern), Foreground, Background);
+        }
+    }
+
+    private sealed class PatternShaderCacheEntry
+    {
+        public SKBitmap Bitmap { get; }
+        public SKShader Shader { get; }
+
+        public PatternShaderCacheEntry(SKBitmap bitmap, SKShader shader)
+        {
+            Bitmap = bitmap;
+            Shader = shader;
+        }
+    }
+
     private void DrawShapeText(
         SKCanvas canvas,
         ShapeTextBox textBox,
-        SKRect bounds,
+        SKRect textBounds,
         RenderOptions options,
         Document document,
         TextStyle defaultStyle,
         LayoutSettings layoutSettings)
     {
         var padding = textBox.Properties.Padding;
-        var left = bounds.Left + padding.Left;
-        var top = bounds.Top + padding.Top;
-        var right = bounds.Right - padding.Right;
-        var bottom = bounds.Bottom - padding.Bottom;
+        var left = textBounds.Left + padding.Left;
+        var top = textBounds.Top + padding.Top;
+        var right = textBounds.Right - padding.Right;
+        var bottom = textBounds.Bottom - padding.Bottom;
         var width = right - left;
         var height = bottom - top;
         if (width <= 1f || height <= 1f)
         {
             return;
         }
+
+        var autoFit = textBox.Properties.AutoFit;
+        var horizontalOverflow = textBox.Properties.HorizontalOverflow;
+        var verticalOverflow = textBox.Properties.VerticalOverflow;
 
         var shapeDocument = CreateShapeTextDocument(document, textBox, defaultStyle);
         var shapeSettings = layoutSettings.Clone();
@@ -416,40 +1332,94 @@ public sealed partial class SkiaDocumentRenderer
             return;
         }
 
+        var contentLeft = float.PositiveInfinity;
+        var contentTop = float.PositiveInfinity;
+        var contentRight = 0f;
         var contentBottom = 0f;
+        var hasContent = false;
+
+        void TrackBounds(float boundLeft, float boundTop, float boundRight, float boundBottom)
+        {
+            if (boundRight <= boundLeft || boundBottom <= boundTop)
+            {
+                return;
+            }
+
+            if (boundLeft < contentLeft)
+            {
+                contentLeft = boundLeft;
+            }
+
+            if (boundTop < contentTop)
+            {
+                contentTop = boundTop;
+            }
+
+            if (boundRight > contentRight)
+            {
+                contentRight = boundRight;
+            }
+
+            if (boundBottom > contentBottom)
+            {
+                contentBottom = boundBottom;
+            }
+
+            hasContent = true;
+        }
+
         foreach (var line in layout.Lines)
         {
-            var lineBottom = line.Y + line.LineHeight;
-            if (lineBottom > contentBottom)
+            if (line.IsInTable)
             {
-                contentBottom = lineBottom;
+                continue;
             }
+
+            var lineLeft = line.X - (line.Prefix is null ? 0f : line.PrefixWidth);
+            var lineRight = line.X + line.Width;
+            var lineBottom = line.Y + line.LineHeight;
+            TrackBounds(lineLeft, line.Y, lineRight, lineBottom);
         }
 
         foreach (var table in layout.Tables)
         {
-            if (table.Bounds.Bottom > contentBottom)
-            {
-                contentBottom = table.Bounds.Bottom;
-            }
+            var tableBounds = table.Bounds;
+            TrackBounds(tableBounds.X, tableBounds.Y, tableBounds.Right, tableBounds.Bottom);
         }
 
         foreach (var floating in layout.FloatingObjects)
         {
-            if (floating.Bounds.Bottom > contentBottom)
+            var floatingBounds = floating.Bounds;
+            TrackBounds(floatingBounds.X, floatingBounds.Y, floatingBounds.Right, floatingBounds.Bottom);
+        }
+
+        if (!hasContent)
+        {
+            return;
+        }
+
+        var contentWidth = MathF.Max(0f, contentRight - contentLeft);
+        var contentHeight = MathF.Max(0f, contentBottom - contentTop);
+        var scale = 1f;
+        if (autoFit == ShapeTextAutoFit.TextToFitShape && contentWidth > 0f && contentHeight > 0f)
+        {
+            var scaleX = width / contentWidth;
+            var scaleY = height / contentHeight;
+            var targetScale = MathF.Min(scaleX, scaleY);
+            if (targetScale > 0f && targetScale < 1f)
             {
-                contentBottom = floating.Bounds.Bottom;
+                scale = targetScale;
             }
         }
 
-        var contentHeight = MathF.Max(0f, contentBottom);
+        var effectiveContentHeight = contentHeight * scale;
         var startY = top;
-        if (contentHeight < height)
+        if (effectiveContentHeight < height)
         {
             startY = textBox.Properties.VerticalAlignment switch
             {
-                ShapeTextVerticalAlignment.Center => top + (height - contentHeight) / 2f,
-                ShapeTextVerticalAlignment.Bottom => top + (height - contentHeight),
+                ShapeTextVerticalAlignment.Center => top + (height - effectiveContentHeight) / 2f,
+                ShapeTextVerticalAlignment.Bottom => top + (height - effectiveContentHeight),
                 _ => top
             };
         }
@@ -732,7 +1702,11 @@ public sealed partial class SkiaDocumentRenderer
 
         SKPaint GetBorderPaint(BorderLine border, float thickness)
         {
-            var key = new BorderPaintKey(border.Color, thickness, border.Style);
+            var cap = ResolveStrokeCap(border);
+            var miterLimit = border.LineJoin == DocLineJoin.Miter && border.MiterLimit.HasValue && border.MiterLimit.Value > 0f
+                ? border.MiterLimit.Value
+                : 0f;
+            var key = new BorderPaintKey(border.Color, thickness, border.Style, cap, border.LineJoin, miterLimit);
             if (borderPaintCache.TryGetValue(key, out var cached))
             {
                 return cached;
@@ -744,9 +1718,15 @@ public sealed partial class SkiaDocumentRenderer
                 Color = ToSkColor(border.Color),
                 StrokeWidth = thickness,
                 IsAntialias = true,
-                StrokeCap = border.Style == DocBorderStyle.Dotted ? SKStrokeCap.Round : SKStrokeCap.Butt,
+                StrokeCap = ToSkStrokeCap(cap),
+                StrokeJoin = ToSkStrokeJoin(border.LineJoin),
                 PathEffect = CreateBorderEffect(border.Style, thickness)
             };
+            if (miterLimit > 0f)
+            {
+                paint.StrokeMiter = miterLimit;
+            }
+
             borderPaintCache[key] = paint;
             return paint;
         }
@@ -917,15 +1897,26 @@ public sealed partial class SkiaDocumentRenderer
             var originX = lineX;
             var originY = lineY;
             var restoreTransform = false;
+            var rotation = 0f;
+            var verticalUpright = false;
+            var rotationSin = 0f;
+            var rotationCos = 1f;
             if (DocTextDirectionHelpers.IsVertical(textDirection))
             {
                 restoreTransform = true;
                 canvas.Save();
                 canvas.Translate(lineX, lineY);
-                var rotation = DocTextDirectionHelpers.GetRotationDegrees(textDirection!.Value);
+                rotation = DocTextDirectionHelpers.GetRotationDegrees(textDirection!.Value);
                 canvas.RotateDegrees(rotation);
                 originX = 0f;
                 originY = 0f;
+                verticalUpright = DocTextDirectionHelpers.UseUprightVerticalForms(textDirection.Value);
+                if (verticalUpright)
+                {
+                    var radians = rotation * (MathF.PI / 180f);
+                    rotationSin = MathF.Sin(radians);
+                    rotationCos = MathF.Cos(radians);
+                }
             }
 
             var baseline = originY + lineAscent;
@@ -1002,9 +1993,55 @@ public sealed partial class SkiaDocumentRenderer
                         ? SkiaTextMeasurer.BuildTypefaceSegments(segmentSpan, run.Style, runPaint, fallbackResolver)
                         : null;
 
-                    if (fallbackSegments is null
-                        || fallbackSegments.Count == 0
-                        || (fallbackSegments.Count == 1 && ReferenceEquals(fallbackSegments[0].Typeface, baseTypeface)))
+                    var allowUpright = verticalUpright
+                        && (fallbackSegments is null
+                            || fallbackSegments.Count == 0
+                            || (fallbackSegments.Count == 1 && ReferenceEquals(fallbackSegments[0].Typeface, baseTypeface)));
+                    if (allowUpright)
+                    {
+                        var segmentMetrics = GetRunMetrics(segmentText, run.Style, run.LetterSpacing, gridSpacing);
+                        var cursor = drawX;
+                        var shaper = applyKerning ? GetRunShaper(run.Style) : null;
+                        ForEachVerticalTextSegment(segmentSpan, verticalUpright, (start, length, upright) =>
+                        {
+                            if (length <= 0)
+                            {
+                                return;
+                            }
+
+                            var subText = segmentText.Substring(start, length);
+                            var subWidth = segmentMetrics.GetWidth(start + length) - segmentMetrics.GetWidth(start);
+                            var subDrawX = segment.IsRtl ? cursor - subWidth : cursor;
+                            if (upright)
+                            {
+                                if (!TryDrawVerticalUprightRun(
+                                        canvas,
+                                        subText.AsSpan(),
+                                        subDrawX,
+                                        runBaseline,
+                                        rotation,
+                                        rotationSin,
+                                        rotationCos,
+                                        runPaint,
+                                        runPaint,
+                                        run.Style,
+                                        run.LetterSpacing,
+                                        gridSpacing))
+                                {
+                                    DrawTextWithSpacing(canvas, subText, subDrawX, runBaseline, runPaint, shaper, run.LetterSpacing, gridSpacing, run.Style);
+                                }
+                            }
+                            else
+                            {
+                                DrawTextWithSpacing(canvas, subText, subDrawX, runBaseline, runPaint, shaper, run.LetterSpacing, gridSpacing, run.Style);
+                            }
+
+                            cursor = segment.IsRtl ? cursor - subWidth : cursor + subWidth;
+                        });
+                    }
+                    else if (fallbackSegments is null
+                             || fallbackSegments.Count == 0
+                             || (fallbackSegments.Count == 1 && ReferenceEquals(fallbackSegments[0].Typeface, baseTypeface)))
                     {
                         var shaper = applyKerning ? GetRunShaper(run.Style) : null;
                         DrawTextWithSpacing(canvas, segmentText, drawX, runBaseline, runPaint, shaper, run.LetterSpacing, gridSpacing, run.Style);
@@ -1414,8 +2451,19 @@ public sealed partial class SkiaDocumentRenderer
             }
         }
 
+        var clipContent = autoFit != ShapeTextAutoFit.ShapeToFitText
+                          && (horizontalOverflow != ShapeTextOverflow.Overflow || verticalOverflow != ShapeTextOverflow.Overflow);
         canvas.Save();
-        canvas.ClipRect(new SKRect(left, top, right, bottom));
+        if (clipContent)
+        {
+            canvas.ClipRect(new SKRect(left, top, right, bottom));
+        }
+
+        if (scale != 1f)
+        {
+            canvas.Scale(scale, scale);
+        }
+
         canvas.Translate(left, startY);
 
         DrawFloatingObjects(true);
@@ -1542,6 +2590,11 @@ public sealed partial class SkiaDocumentRenderer
 
         CopyTextStyle(defaultStyle, shapeDocument.DefaultTextStyle);
         CopyParagraphStyleProperties(source.DefaultParagraphStyleProperties, shapeDocument.DefaultParagraphStyleProperties);
+        if (textBox.Properties.TextDirection.HasValue)
+        {
+            shapeDocument.DefaultParagraphStyleProperties.TextDirection = textBox.Properties.TextDirection;
+        }
+
         CopyDocumentStyles(source.Styles, shapeDocument.Styles);
         CopyDocumentFonts(source.Fonts, shapeDocument.Fonts);
         CopyThemeColors(source.ThemeColors, shapeDocument.ThemeColors);

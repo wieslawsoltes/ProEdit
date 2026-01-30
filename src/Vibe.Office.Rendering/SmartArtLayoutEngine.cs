@@ -43,8 +43,11 @@ public static class SmartArtLayoutEngine
             return null;
         }
 
-        var layoutKind = ResolveLayoutKind(diagram.LayoutPart);
-        return BuildLayout(graph, layoutKind, width, height);
+        var layoutDefinition = ParseLayoutDefinition(diagram.LayoutPart);
+        var layoutKind = ResolveLayoutKind(layoutDefinition);
+        var direction = ResolveLayoutDirection(layoutDefinition, layoutKind);
+        var style = ParseSmartArtStyle(diagram);
+        return BuildLayout(graph, layoutKind, direction, width, height, style);
     }
 
     private static DiagramGraph ParseDiagramData(byte[] data)
@@ -145,30 +148,118 @@ public static class SmartArtLayoutEngine
         return builder.ToString();
     }
 
-    private static SmartArtLayoutKind ResolveLayoutKind(byte[]? layoutPart)
+    private static SmartArtLayoutDefinition ParseLayoutDefinition(byte[]? layoutPart)
     {
         if (layoutPart is null || layoutPart.Length == 0)
         {
-            return SmartArtLayoutKind.List;
+            return new SmartArtLayoutDefinition();
         }
 
-        var data = layoutPart.AsSpan();
-        if (ContainsAsciiIgnoreCase(data, "cycle"))
+        var definition = new SmartArtLayoutDefinition();
+        using var stream = new MemoryStream(layoutPart, writable: false);
+        using var reader = XmlReader.Create(stream, ReaderSettings);
+
+        while (reader.Read())
+        {
+            if (reader.NodeType != XmlNodeType.Element)
+            {
+                continue;
+            }
+
+            if (!IsDiagramNamespace(reader.NamespaceURI))
+            {
+                continue;
+            }
+
+            if (reader.LocalName.Equals("layoutDef", StringComparison.OrdinalIgnoreCase))
+            {
+                definition.Name = reader.GetAttribute("name");
+                definition.Title = reader.GetAttribute("title") ?? reader.GetAttribute("desc");
+                CaptureDirectionAttributes(reader, definition);
+                continue;
+            }
+
+            if (reader.LocalName.Equals("cat", StringComparison.OrdinalIgnoreCase))
+            {
+                var name = reader.GetAttribute("name") ?? reader.GetAttribute("type");
+                if (!string.IsNullOrWhiteSpace(name))
+                {
+                    definition.Categories.Add(name);
+                }
+
+                CaptureDirectionAttributes(reader, definition);
+                continue;
+            }
+
+            if (reader.LocalName.Equals("styleLbl", StringComparison.OrdinalIgnoreCase))
+            {
+                CaptureDirectionAttributes(reader, definition);
+                continue;
+            }
+
+            CaptureDirectionAttributes(reader, definition);
+        }
+
+        if (string.IsNullOrWhiteSpace(definition.Name) && layoutPart.Length > 0)
+        {
+            var data = layoutPart.AsSpan();
+            if (ContainsAsciiIgnoreCase(data, "cycle"))
+            {
+                definition.Name = "cycle";
+            }
+            else if (ContainsAsciiIgnoreCase(data, "process"))
+            {
+                definition.Name = "process";
+            }
+            else if (ContainsAsciiIgnoreCase(data, "hierarchy"))
+            {
+                definition.Name = "hierarchy";
+            }
+            else if (ContainsAsciiIgnoreCase(data, "matrix") || ContainsAsciiIgnoreCase(data, "grid"))
+            {
+                definition.Name = "matrix";
+            }
+            else if (ContainsAsciiIgnoreCase(data, "relationship") || ContainsAsciiIgnoreCase(data, "radial"))
+            {
+                definition.Name = "relationship";
+            }
+            else if (ContainsAsciiIgnoreCase(data, "pyramid"))
+            {
+                definition.Name = "pyramid";
+            }
+        }
+
+        return definition;
+    }
+
+    private static SmartArtLayoutKind ResolveLayoutKind(SmartArtLayoutDefinition definition)
+    {
+        if (definition.Matches("relationship") || definition.Matches("radial"))
+        {
+            return SmartArtLayoutKind.Relationship;
+        }
+
+        if (definition.Matches("pyramid"))
+        {
+            return SmartArtLayoutKind.Pyramid;
+        }
+
+        if (definition.Matches("cycle"))
         {
             return SmartArtLayoutKind.Cycle;
         }
 
-        if (ContainsAsciiIgnoreCase(data, "process"))
+        if (definition.Matches("process"))
         {
             return SmartArtLayoutKind.Process;
         }
 
-        if (ContainsAsciiIgnoreCase(data, "hierarchy"))
+        if (definition.Matches("hierarchy") || definition.Matches("org"))
         {
             return SmartArtLayoutKind.Hierarchy;
         }
 
-        if (ContainsAsciiIgnoreCase(data, "matrix") || ContainsAsciiIgnoreCase(data, "grid"))
+        if (definition.Matches("matrix") || definition.Matches("grid"))
         {
             return SmartArtLayoutKind.Matrix;
         }
@@ -176,7 +267,28 @@ public static class SmartArtLayoutEngine
         return SmartArtLayoutKind.List;
     }
 
-    private static SmartArtLayout BuildLayout(DiagramGraph graph, SmartArtLayoutKind kind, float width, float height)
+    private static SmartArtLayoutDirection ResolveLayoutDirection(SmartArtLayoutDefinition definition, SmartArtLayoutKind kind)
+    {
+        if (definition.Direction.HasValue)
+        {
+            return definition.Direction.Value;
+        }
+
+        return kind switch
+        {
+            SmartArtLayoutKind.Process => SmartArtLayoutDirection.Horizontal,
+            SmartArtLayoutKind.Matrix => SmartArtLayoutDirection.Horizontal,
+            _ => SmartArtLayoutDirection.Vertical
+        };
+    }
+
+    private static SmartArtLayout BuildLayout(
+        DiagramGraph graph,
+        SmartArtLayoutKind kind,
+        SmartArtLayoutDirection direction,
+        float width,
+        float height,
+        SmartArtStyle? style)
     {
         var drawable = graph.Nodes.Where(node => !node.IsVirtual).ToList();
         if (drawable.Count == 0)
@@ -191,15 +303,17 @@ public static class SmartArtLayoutEngine
 
         var nodes = kind switch
         {
-            SmartArtLayoutKind.Process => LayoutProcess(drawable, margin, availableWidth, availableHeight, gap),
+            SmartArtLayoutKind.Process => LayoutProcess(drawable, margin, availableWidth, availableHeight, gap, direction),
             SmartArtLayoutKind.Cycle => LayoutCycle(drawable, margin, availableWidth, availableHeight),
-            SmartArtLayoutKind.Hierarchy => LayoutHierarchy(graph, drawable, margin, availableWidth, availableHeight, gap),
-            SmartArtLayoutKind.Matrix => LayoutMatrix(drawable, margin, availableWidth, availableHeight, gap),
-            _ => LayoutList(drawable, margin, availableWidth, availableHeight, gap)
+            SmartArtLayoutKind.Hierarchy => LayoutHierarchy(graph, drawable, margin, availableWidth, availableHeight, gap, direction),
+            SmartArtLayoutKind.Matrix => LayoutMatrix(drawable, margin, availableWidth, availableHeight, gap, direction),
+            SmartArtLayoutKind.Relationship => LayoutRelationship(drawable, margin, availableWidth, availableHeight, gap),
+            SmartArtLayoutKind.Pyramid => LayoutPyramid(drawable, margin, availableWidth, availableHeight, gap),
+            _ => LayoutList(drawable, margin, availableWidth, availableHeight, gap, direction)
         };
 
         var connectors = BuildConnectors(graph, nodes, kind);
-        return new SmartArtLayout(kind, nodes, connectors);
+        return new SmartArtLayout(kind, nodes, connectors, style);
     }
 
     private static List<SmartArtConnectorLayout> BuildConnectors(
@@ -219,14 +333,42 @@ public static class SmartArtLayoutEngine
 
         if (connectors.Count == 0 && nodes.Count > 1)
         {
-            for (var i = 1; i < nodes.Count; i++)
+            if (kind == SmartArtLayoutKind.Relationship)
             {
-                connectors.Add(new SmartArtConnectorLayout(nodes[i - 1].Id, nodes[i].Id));
+                for (var i = 1; i < nodes.Count; i++)
+                {
+                    connectors.Add(new SmartArtConnectorLayout(nodes[0].Id, nodes[i].Id));
+                }
             }
-
-            if (kind == SmartArtLayoutKind.Cycle && nodes.Count > 2)
+            else if (kind == SmartArtLayoutKind.Hierarchy || kind == SmartArtLayoutKind.Pyramid)
             {
-                connectors.Add(new SmartArtConnectorLayout(nodes[^1].Id, nodes[0].Id));
+                var grouped = nodes.GroupBy(node => node.Level).OrderBy(group => group.Key).ToList();
+                for (var levelIndex = 1; levelIndex < grouped.Count; levelIndex++)
+                {
+                    var parents = grouped[levelIndex - 1].ToArray();
+                    if (parents.Length == 0)
+                    {
+                        continue;
+                    }
+
+                    foreach (var child in grouped[levelIndex])
+                    {
+                        var parent = parents[Math.Min(child.Index, parents.Length - 1)];
+                        connectors.Add(new SmartArtConnectorLayout(parent.Id, child.Id));
+                    }
+                }
+            }
+            else
+            {
+                for (var i = 1; i < nodes.Count; i++)
+                {
+                    connectors.Add(new SmartArtConnectorLayout(nodes[i - 1].Id, nodes[i].Id));
+                }
+
+                if (kind == SmartArtLayoutKind.Cycle && nodes.Count > 2)
+                {
+                    connectors.Add(new SmartArtConnectorLayout(nodes[^1].Id, nodes[0].Id));
+                }
             }
         }
 
@@ -238,23 +380,43 @@ public static class SmartArtLayoutEngine
         float margin,
         float availableWidth,
         float availableHeight,
-        float gap)
+        float gap,
+        SmartArtLayoutDirection direction)
     {
         var count = nodes.Count;
-        var nodeHeight = (availableHeight - gap * MathF.Max(0, count - 1)) / Math.Max(1, count);
-        var nodeWidth = MathF.Min(availableWidth, availableWidth * 0.9f);
-        var x = margin + (availableWidth - nodeWidth) / 2f;
         var layouts = new List<SmartArtNodeLayout>(count);
 
-        for (var i = 0; i < count; i++)
+        if (direction == SmartArtLayoutDirection.Horizontal)
         {
-            var y = margin + i * (nodeHeight + gap);
-            layouts.Add(new SmartArtNodeLayout(
-                nodes[i].Id,
-                nodes[i].GetDisplayText(i),
-                new DocRect(x, y, nodeWidth, nodeHeight),
-                0,
-                i));
+            var nodeWidth = (availableWidth - gap * MathF.Max(0, count - 1)) / Math.Max(1, count);
+            var nodeHeight = MathF.Min(availableHeight, availableHeight * 0.8f);
+            var y = margin + (availableHeight - nodeHeight) / 2f;
+            for (var i = 0; i < count; i++)
+            {
+                var x = margin + i * (nodeWidth + gap);
+                layouts.Add(new SmartArtNodeLayout(
+                    nodes[i].Id,
+                    nodes[i].GetDisplayText(i),
+                    new DocRect(x, y, nodeWidth, nodeHeight),
+                    0,
+                    i));
+            }
+        }
+        else
+        {
+            var nodeHeight = (availableHeight - gap * MathF.Max(0, count - 1)) / Math.Max(1, count);
+            var nodeWidth = MathF.Min(availableWidth, availableWidth * 0.9f);
+            var x = margin + (availableWidth - nodeWidth) / 2f;
+            for (var i = 0; i < count; i++)
+            {
+                var y = margin + i * (nodeHeight + gap);
+                layouts.Add(new SmartArtNodeLayout(
+                    nodes[i].Id,
+                    nodes[i].GetDisplayText(i),
+                    new DocRect(x, y, nodeWidth, nodeHeight),
+                    0,
+                    i));
+            }
         }
 
         return layouts;
@@ -265,23 +427,43 @@ public static class SmartArtLayoutEngine
         float margin,
         float availableWidth,
         float availableHeight,
-        float gap)
+        float gap,
+        SmartArtLayoutDirection direction)
     {
         var count = nodes.Count;
-        var nodeWidth = (availableWidth - gap * MathF.Max(0, count - 1)) / Math.Max(1, count);
-        var nodeHeight = MathF.Min(availableHeight, availableHeight * 0.6f);
-        var y = margin + (availableHeight - nodeHeight) / 2f;
         var layouts = new List<SmartArtNodeLayout>(count);
 
-        for (var i = 0; i < count; i++)
+        if (direction == SmartArtLayoutDirection.Vertical)
         {
-            var x = margin + i * (nodeWidth + gap);
-            layouts.Add(new SmartArtNodeLayout(
-                nodes[i].Id,
-                nodes[i].GetDisplayText(i),
-                new DocRect(x, y, nodeWidth, nodeHeight),
-                0,
-                i));
+            var nodeHeight = (availableHeight - gap * MathF.Max(0, count - 1)) / Math.Max(1, count);
+            var nodeWidth = MathF.Min(availableWidth, availableWidth * 0.7f);
+            var x = margin + (availableWidth - nodeWidth) / 2f;
+            for (var i = 0; i < count; i++)
+            {
+                var y = margin + i * (nodeHeight + gap);
+                layouts.Add(new SmartArtNodeLayout(
+                    nodes[i].Id,
+                    nodes[i].GetDisplayText(i),
+                    new DocRect(x, y, nodeWidth, nodeHeight),
+                    0,
+                    i));
+            }
+        }
+        else
+        {
+            var nodeWidth = (availableWidth - gap * MathF.Max(0, count - 1)) / Math.Max(1, count);
+            var nodeHeight = MathF.Min(availableHeight, availableHeight * 0.6f);
+            var y = margin + (availableHeight - nodeHeight) / 2f;
+            for (var i = 0; i < count; i++)
+            {
+                var x = margin + i * (nodeWidth + gap);
+                layouts.Add(new SmartArtNodeLayout(
+                    nodes[i].Id,
+                    nodes[i].GetDisplayText(i),
+                    new DocRect(x, y, nodeWidth, nodeHeight),
+                    0,
+                    i));
+            }
         }
 
         return layouts;
@@ -323,7 +505,8 @@ public static class SmartArtLayoutEngine
         float margin,
         float availableWidth,
         float availableHeight,
-        float gap)
+        float gap,
+        SmartArtLayoutDirection direction)
     {
         var levelMap = BuildLevels(graph);
         var drawableLevels = new Dictionary<int, List<DiagramNode>>();
@@ -339,27 +522,53 @@ public static class SmartArtLayoutEngine
             list.Add(node);
         }
 
-        var levelCount = Math.Max(1, drawableLevels.Keys.Count);
-        var levelHeight = (availableHeight - gap * MathF.Max(0, levelCount - 1)) / levelCount;
         var layouts = new List<SmartArtNodeLayout>(nodes.Count);
 
         var orderedLevels = drawableLevels.Keys.OrderBy(level => level).ToArray();
-        for (var levelIndex = 0; levelIndex < orderedLevels.Length; levelIndex++)
+        if (direction == SmartArtLayoutDirection.Horizontal)
         {
-            var level = orderedLevels[levelIndex];
-            var items = drawableLevels[level];
-            var count = items.Count;
-            var nodeWidth = (availableWidth - gap * MathF.Max(0, count - 1)) / Math.Max(1, count);
-            var y = margin + levelIndex * (levelHeight + gap);
-            for (var i = 0; i < count; i++)
+            var levelCount = Math.Max(1, drawableLevels.Keys.Count);
+            var levelWidth = (availableWidth - gap * MathF.Max(0, levelCount - 1)) / levelCount;
+            for (var levelIndex = 0; levelIndex < orderedLevels.Length; levelIndex++)
             {
-                var x = margin + i * (nodeWidth + gap);
-                layouts.Add(new SmartArtNodeLayout(
-                    items[i].Id,
-                    items[i].GetDisplayText(i),
-                    new DocRect(x, y, nodeWidth, levelHeight),
-                    levelIndex,
-                    i));
+                var level = orderedLevels[levelIndex];
+                var items = drawableLevels[level];
+                var count = items.Count;
+                var nodeHeight = (availableHeight - gap * MathF.Max(0, count - 1)) / Math.Max(1, count);
+                var x = margin + levelIndex * (levelWidth + gap);
+                for (var i = 0; i < count; i++)
+                {
+                    var y = margin + i * (nodeHeight + gap);
+                    layouts.Add(new SmartArtNodeLayout(
+                        items[i].Id,
+                        items[i].GetDisplayText(i),
+                        new DocRect(x, y, levelWidth, nodeHeight),
+                        levelIndex,
+                        i));
+                }
+            }
+        }
+        else
+        {
+            var levelCount = Math.Max(1, drawableLevels.Keys.Count);
+            var levelHeight = (availableHeight - gap * MathF.Max(0, levelCount - 1)) / levelCount;
+            for (var levelIndex = 0; levelIndex < orderedLevels.Length; levelIndex++)
+            {
+                var level = orderedLevels[levelIndex];
+                var items = drawableLevels[level];
+                var count = items.Count;
+                var nodeWidth = (availableWidth - gap * MathF.Max(0, count - 1)) / Math.Max(1, count);
+                var y = margin + levelIndex * (levelHeight + gap);
+                for (var i = 0; i < count; i++)
+                {
+                    var x = margin + i * (nodeWidth + gap);
+                    layouts.Add(new SmartArtNodeLayout(
+                        items[i].Id,
+                        items[i].GetDisplayText(i),
+                        new DocRect(x, y, nodeWidth, levelHeight),
+                        levelIndex,
+                        i));
+                }
             }
         }
 
@@ -371,11 +580,16 @@ public static class SmartArtLayoutEngine
         float margin,
         float availableWidth,
         float availableHeight,
-        float gap)
+        float gap,
+        SmartArtLayoutDirection direction)
     {
         var count = nodes.Count;
         var columns = Math.Max(1, (int)MathF.Ceiling(MathF.Sqrt(count)));
         var rows = Math.Max(1, (int)MathF.Ceiling(count / (float)columns));
+        if (direction == SmartArtLayoutDirection.Vertical && rows < columns)
+        {
+            (rows, columns) = (columns, rows);
+        }
         var nodeWidth = (availableWidth - gap * MathF.Max(0, columns - 1)) / columns;
         var nodeHeight = (availableHeight - gap * MathF.Max(0, rows - 1)) / rows;
 
@@ -392,6 +606,109 @@ public static class SmartArtLayoutEngine
                 new DocRect(x, y, nodeWidth, nodeHeight),
                 row,
                 column));
+        }
+
+        return layouts;
+    }
+
+    private static List<SmartArtNodeLayout> LayoutRelationship(
+        List<DiagramNode> nodes,
+        float margin,
+        float availableWidth,
+        float availableHeight,
+        float gap)
+    {
+        var count = nodes.Count;
+        if (count <= 1)
+        {
+            return LayoutList(nodes, margin, availableWidth, availableHeight, gap, SmartArtLayoutDirection.Vertical);
+        }
+
+        var size = MathF.Min(availableWidth, availableHeight);
+        var centerSize = MathF.Max(24f, size * 0.35f);
+        var outerSize = MathF.Max(20f, centerSize * 0.6f);
+        var radius = MathF.Max(centerSize, (size - outerSize) / 2f);
+        var centerX = margin + availableWidth / 2f;
+        var centerY = margin + availableHeight / 2f;
+
+        var layouts = new List<SmartArtNodeLayout>(count);
+        layouts.Add(new SmartArtNodeLayout(
+            nodes[0].Id,
+            nodes[0].GetDisplayText(0),
+            new DocRect(centerX - centerSize / 2f, centerY - centerSize / 2f, centerSize, centerSize),
+            0,
+            0));
+
+        var outerCount = count - 1;
+        for (var i = 0; i < outerCount; i++)
+        {
+            var angle = -MathF.PI / 2f + i * (MathF.Tau / outerCount);
+            var x = centerX + MathF.Cos(angle) * radius - outerSize / 2f;
+            var y = centerY + MathF.Sin(angle) * radius - outerSize / 2f;
+            layouts.Add(new SmartArtNodeLayout(
+                nodes[i + 1].Id,
+                nodes[i + 1].GetDisplayText(i + 1),
+                new DocRect(x, y, outerSize, outerSize),
+                1,
+                i + 1));
+        }
+
+        return layouts;
+    }
+
+    private static List<SmartArtNodeLayout> LayoutPyramid(
+        List<DiagramNode> nodes,
+        float margin,
+        float availableWidth,
+        float availableHeight,
+        float gap)
+    {
+        var count = nodes.Count;
+        if (count == 0)
+        {
+            return new List<SmartArtNodeLayout>();
+        }
+
+        var levelSizes = new List<int>();
+        var remaining = count;
+        var level = 0;
+        while (remaining > 0)
+        {
+            level++;
+            var take = Math.Min(level, remaining);
+            levelSizes.Add(take);
+            remaining -= take;
+        }
+
+        var levels = levelSizes.Count;
+        var levelHeight = (availableHeight - gap * MathF.Max(0, levels - 1)) / levels;
+        var layouts = new List<SmartArtNodeLayout>(count);
+        var index = 0;
+
+        for (var levelIndex = 0; levelIndex < levels; levelIndex++)
+        {
+            var items = levelSizes[levelIndex];
+            var widthFactor = (levelIndex + 1) / (float)levels;
+            var rowWidth = availableWidth * MathF.Max(0.35f, widthFactor);
+            var nodeWidth = (rowWidth - gap * MathF.Max(0, items - 1)) / Math.Max(1, items);
+            var x = margin + (availableWidth - rowWidth) / 2f;
+            var y = margin + levelIndex * (levelHeight + gap);
+            for (var i = 0; i < items; i++)
+            {
+                if (index >= count)
+                {
+                    break;
+                }
+
+                var nodeX = x + i * (nodeWidth + gap);
+                layouts.Add(new SmartArtNodeLayout(
+                    nodes[index].Id,
+                    nodes[index].GetDisplayText(index),
+                    new DocRect(nodeX, y, nodeWidth, levelHeight),
+                    levelIndex,
+                    i));
+                index++;
+            }
         }
 
         return layouts;
@@ -482,6 +799,436 @@ public static class SmartArtLayoutEngine
         return levels;
     }
 
+    private static SmartArtStyle? ParseSmartArtStyle(DiagramInfo diagram)
+    {
+        var palette = ParseSmartArtPalette(diagram.ColorStylePart);
+        var style = new SmartArtStyle(palette);
+
+        ApplySmartArtColorStyle(diagram.ColorStylePart, style);
+        ApplySmartArtQuickStyle(diagram.QuickStylePart, style);
+
+        if (style.NodeFillPalette.Count == 0
+            && !style.NodeLineColor.HasValue
+            && !style.TextColor.HasValue
+            && !style.NodeLineWidth.HasValue
+            && !style.ConnectorColor.HasValue
+            && !style.ConnectorWidth.HasValue
+            && !style.TextSize.HasValue)
+        {
+            return null;
+        }
+
+        return style;
+    }
+
+    private static IReadOnlyList<DocColor> ParseSmartArtPalette(byte[]? colorStylePart)
+    {
+        var colors = new List<DocColor>();
+        if (colorStylePart is null || colorStylePart.Length == 0)
+        {
+            return colors;
+        }
+
+        using var stream = new MemoryStream(colorStylePart, writable: false);
+        using var reader = XmlReader.Create(stream, ReaderSettings);
+
+        var role = SmartArtColorRole.None;
+        var roleDepth = -1;
+        var currentLabel = string.Empty;
+        while (reader.Read())
+        {
+            if (reader.NodeType == XmlNodeType.Element)
+            {
+                if (reader.LocalName.Equals("styleLbl", StringComparison.OrdinalIgnoreCase)
+                    && IsDiagramNamespace(reader.NamespaceURI))
+                {
+                    currentLabel = reader.GetAttribute("name") ?? string.Empty;
+                }
+
+                if (reader.LocalName.Equals("fillClrLst", StringComparison.OrdinalIgnoreCase))
+                {
+                    role = SmartArtColorRole.Fill;
+                    roleDepth = reader.Depth;
+                }
+                else if (reader.LocalName.Equals("linClrLst", StringComparison.OrdinalIgnoreCase))
+                {
+                    role = SmartArtColorRole.Line;
+                    roleDepth = reader.Depth;
+                }
+                else if (reader.LocalName.Equals("txFillClrLst", StringComparison.OrdinalIgnoreCase))
+                {
+                    role = SmartArtColorRole.Text;
+                    roleDepth = reader.Depth;
+                }
+
+                if (TryReadColor(reader, out var color))
+                {
+                    if (role == SmartArtColorRole.Fill && !IsConnectorLabel(currentLabel))
+                    {
+                        colors.Add(color);
+                    }
+                }
+            }
+            else if (reader.NodeType == XmlNodeType.EndElement && roleDepth == reader.Depth)
+            {
+                role = SmartArtColorRole.None;
+                roleDepth = -1;
+            }
+        }
+
+        if (colors.Count == 0)
+        {
+            colors.AddRange(GetDefaultSmartArtPalette());
+        }
+
+        return colors;
+    }
+
+    private static void ApplySmartArtColorStyle(byte[]? colorStylePart, SmartArtStyle style)
+    {
+        if (colorStylePart is null || colorStylePart.Length == 0)
+        {
+            return;
+        }
+
+        using var stream = new MemoryStream(colorStylePart, writable: false);
+        using var reader = XmlReader.Create(stream, ReaderSettings);
+
+        var role = SmartArtColorRole.None;
+        var roleDepth = -1;
+        var currentLabel = string.Empty;
+        while (reader.Read())
+        {
+            if (reader.NodeType == XmlNodeType.Element)
+            {
+                if (reader.LocalName.Equals("styleLbl", StringComparison.OrdinalIgnoreCase)
+                    && IsDiagramNamespace(reader.NamespaceURI))
+                {
+                    currentLabel = reader.GetAttribute("name") ?? string.Empty;
+                }
+
+                if (reader.LocalName.Equals("fillClrLst", StringComparison.OrdinalIgnoreCase))
+                {
+                    role = SmartArtColorRole.Fill;
+                    roleDepth = reader.Depth;
+                }
+                else if (reader.LocalName.Equals("linClrLst", StringComparison.OrdinalIgnoreCase))
+                {
+                    role = SmartArtColorRole.Line;
+                    roleDepth = reader.Depth;
+                }
+                else if (reader.LocalName.Equals("txFillClrLst", StringComparison.OrdinalIgnoreCase))
+                {
+                    role = SmartArtColorRole.Text;
+                    roleDepth = reader.Depth;
+                }
+
+                if (!TryReadColor(reader, out var color))
+                {
+                    continue;
+                }
+
+                var isConnector = IsConnectorLabel(currentLabel);
+                if (role == SmartArtColorRole.Line)
+                {
+                    if (isConnector)
+                    {
+                        style.ConnectorColor ??= color;
+                    }
+                    else
+                    {
+                        style.NodeLineColor ??= color;
+                    }
+                }
+                else if (role == SmartArtColorRole.Text)
+                {
+                    style.TextColor ??= color;
+                }
+            }
+            else if (reader.NodeType == XmlNodeType.EndElement && roleDepth == reader.Depth)
+            {
+                role = SmartArtColorRole.None;
+                roleDepth = -1;
+            }
+        }
+    }
+
+    private static void ApplySmartArtQuickStyle(byte[]? quickStylePart, SmartArtStyle style)
+    {
+        if (quickStylePart is null || quickStylePart.Length == 0)
+        {
+            return;
+        }
+
+        using var stream = new MemoryStream(quickStylePart, writable: false);
+        using var reader = XmlReader.Create(stream, ReaderSettings);
+
+        var role = SmartArtColorRole.None;
+        var roleDepth = -1;
+        while (reader.Read())
+        {
+            if (reader.NodeType != XmlNodeType.Element)
+            {
+                if (reader.NodeType == XmlNodeType.EndElement && roleDepth == reader.Depth)
+                {
+                    role = SmartArtColorRole.None;
+                    roleDepth = -1;
+                }
+
+                continue;
+            }
+
+            if (reader.LocalName.Equals("ln", StringComparison.OrdinalIgnoreCase))
+            {
+                var widthText = reader.GetAttribute("w");
+                if (style.NodeLineWidth is null && TryParseEmu(widthText, out var emu))
+                {
+                    style.NodeLineWidth = EmuToDip(emu);
+                }
+                role = SmartArtColorRole.Line;
+                roleDepth = reader.Depth;
+                continue;
+            }
+
+            if (reader.LocalName.Equals("defRPr", StringComparison.OrdinalIgnoreCase))
+            {
+                var sizeText = reader.GetAttribute("sz");
+                if (style.TextSize is null && int.TryParse(sizeText, out var size))
+                {
+                    style.TextSize = SmartArtFontSizeToDip(size);
+                }
+                role = SmartArtColorRole.Text;
+                roleDepth = reader.Depth;
+                continue;
+            }
+
+            if (role != SmartArtColorRole.None && TryReadColor(reader, out var color))
+            {
+                if (role == SmartArtColorRole.Line)
+                {
+                    style.NodeLineColor ??= color;
+                }
+                else if (role == SmartArtColorRole.Text)
+                {
+                    style.TextColor ??= color;
+                }
+            }
+        }
+    }
+
+    private static bool TryReadColor(XmlReader reader, out DocColor color)
+    {
+        color = default;
+        if (!IsDrawingNamespace(reader.NamespaceURI))
+        {
+            return false;
+        }
+
+        if (reader.LocalName.Equals("srgbClr", StringComparison.OrdinalIgnoreCase))
+        {
+            var hex = reader.GetAttribute("val");
+            return TryParseHexColor(hex, out color);
+        }
+
+        if (reader.LocalName.Equals("schemeClr", StringComparison.OrdinalIgnoreCase))
+        {
+            var scheme = reader.GetAttribute("val");
+            if (TryParseSchemeColor(scheme, out var themeColor))
+            {
+                color = DocumentThemeColorMap.GetDefault(themeColor);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool TryParseHexColor(string? value, out DocColor color)
+    {
+        color = default;
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        var span = value.AsSpan().Trim();
+        if (span.Length != 6)
+        {
+            return false;
+        }
+
+        if (!TryParseHexByte(span.Slice(0, 2), out var r)
+            || !TryParseHexByte(span.Slice(2, 2), out var g)
+            || !TryParseHexByte(span.Slice(4, 2), out var b))
+        {
+            return false;
+        }
+
+        color = new DocColor(r, g, b);
+        return true;
+    }
+
+    private static bool TryParseHexByte(ReadOnlySpan<char> value, out byte result)
+    {
+        result = 0;
+        if (value.Length != 2)
+        {
+            return false;
+        }
+
+        var upper = HexValue(value[0]);
+        var lower = HexValue(value[1]);
+        if (upper < 0 || lower < 0)
+        {
+            return false;
+        }
+
+        result = (byte)((upper << 4) | lower);
+        return true;
+    }
+
+    private static int HexValue(char value)
+    {
+        if (value is >= '0' and <= '9')
+        {
+            return value - '0';
+        }
+
+        if (value is >= 'A' and <= 'F')
+        {
+            return value - 'A' + 10;
+        }
+
+        if (value is >= 'a' and <= 'f')
+        {
+            return value - 'a' + 10;
+        }
+
+        return -1;
+    }
+
+    private static bool TryParseSchemeColor(string? value, out DocThemeColor themeColor)
+    {
+        themeColor = default;
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        return value.Trim().ToLowerInvariant() switch
+        {
+            "accent1" => (themeColor = DocThemeColor.Accent1) == DocThemeColor.Accent1,
+            "accent2" => (themeColor = DocThemeColor.Accent2) == DocThemeColor.Accent2,
+            "accent3" => (themeColor = DocThemeColor.Accent3) == DocThemeColor.Accent3,
+            "accent4" => (themeColor = DocThemeColor.Accent4) == DocThemeColor.Accent4,
+            "accent5" => (themeColor = DocThemeColor.Accent5) == DocThemeColor.Accent5,
+            "accent6" => (themeColor = DocThemeColor.Accent6) == DocThemeColor.Accent6,
+            "dk1" => (themeColor = DocThemeColor.Dark1) == DocThemeColor.Dark1,
+            "lt1" => (themeColor = DocThemeColor.Light1) == DocThemeColor.Light1,
+            "dk2" => (themeColor = DocThemeColor.Dark2) == DocThemeColor.Dark2,
+            "lt2" => (themeColor = DocThemeColor.Light2) == DocThemeColor.Light2,
+            "hlink" => (themeColor = DocThemeColor.Hyperlink) == DocThemeColor.Hyperlink,
+            "folHlink" => (themeColor = DocThemeColor.FollowedHyperlink) == DocThemeColor.FollowedHyperlink,
+            _ => false
+        };
+    }
+
+    private static IReadOnlyList<DocColor> GetDefaultSmartArtPalette()
+    {
+        return new[]
+        {
+            DocumentThemeColorMap.GetDefault(DocThemeColor.Accent1),
+            DocumentThemeColorMap.GetDefault(DocThemeColor.Accent2),
+            DocumentThemeColorMap.GetDefault(DocThemeColor.Accent3),
+            DocumentThemeColorMap.GetDefault(DocThemeColor.Accent4),
+            DocumentThemeColorMap.GetDefault(DocThemeColor.Accent5),
+            DocumentThemeColorMap.GetDefault(DocThemeColor.Accent6)
+        };
+    }
+
+    private static bool TryParseEmu(string? value, out long emu)
+    {
+        emu = 0;
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        return long.TryParse(value, out emu);
+    }
+
+    private static float EmuToDip(long emu)
+    {
+        return emu / 914400f * 96f;
+    }
+
+    private static float SmartArtFontSizeToDip(int value)
+    {
+        var points = value / 100f;
+        return points * 96f / 72f;
+    }
+
+    private static bool IsConnectorLabel(string? label)
+    {
+        if (string.IsNullOrWhiteSpace(label))
+        {
+            return false;
+        }
+
+        return label.Contains("conn", StringComparison.OrdinalIgnoreCase)
+               || label.Contains("line", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static void CaptureDirectionAttributes(XmlReader reader, SmartArtLayoutDefinition definition)
+    {
+        if (definition.Direction.HasValue || !reader.HasAttributes)
+        {
+            return;
+        }
+
+        for (var i = 0; i < reader.AttributeCount; i++)
+        {
+            reader.MoveToAttribute(i);
+            var name = reader.LocalName;
+            if (name.Equals("dir", StringComparison.OrdinalIgnoreCase)
+                || name.Equals("linDir", StringComparison.OrdinalIgnoreCase)
+                || name.Equals("orient", StringComparison.OrdinalIgnoreCase))
+            {
+                if (TryParseDirection(reader.Value, out var direction))
+                {
+                    definition.Direction = direction;
+                    break;
+                }
+            }
+        }
+
+        reader.MoveToElement();
+    }
+
+    private static bool TryParseDirection(string? value, out SmartArtLayoutDirection direction)
+    {
+        direction = default;
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        var token = value.Trim().ToLowerInvariant();
+        if (token.Contains("hor") || token.Contains("ltr") || token.Contains("rtl"))
+        {
+            direction = SmartArtLayoutDirection.Horizontal;
+            return true;
+        }
+
+        if (token.Contains("ver") || token.Contains("t2b") || token.Contains("b2t"))
+        {
+            direction = SmartArtLayoutDirection.Vertical;
+            return true;
+        }
+
+        return false;
+    }
+
     private static bool IsDiagramNamespace(string? value)
     {
         return !string.IsNullOrWhiteSpace(value)
@@ -555,5 +1302,57 @@ public static class SmartArtLayoutEngine
         {
             return string.IsNullOrWhiteSpace(Text) ? $"Item {index + 1}" : Text;
         }
+    }
+
+    private sealed class SmartArtLayoutDefinition
+    {
+        public string? Name { get; set; }
+        public string? Title { get; set; }
+        public List<string> Categories { get; } = new();
+        public SmartArtLayoutDirection? Direction { get; set; }
+
+        public bool Matches(string keyword)
+        {
+            if (string.IsNullOrWhiteSpace(keyword))
+            {
+                return false;
+            }
+
+            if (!string.IsNullOrWhiteSpace(Name)
+                && Name.Contains(keyword, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            if (!string.IsNullOrWhiteSpace(Title)
+                && Title.Contains(keyword, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            foreach (var category in Categories)
+            {
+                if (category.Contains(keyword, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
+
+    private enum SmartArtLayoutDirection
+    {
+        Horizontal,
+        Vertical
+    }
+
+    private enum SmartArtColorRole
+    {
+        None,
+        Fill,
+        Line,
+        Text
     }
 }

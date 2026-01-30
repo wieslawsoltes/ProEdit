@@ -591,7 +591,11 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
 
         SKPaint GetBorderPaint(BorderLine border, float thickness)
         {
-            var key = new BorderPaintKey(border.Color, thickness, border.Style);
+            var cap = ResolveStrokeCap(border);
+            var miterLimit = border.LineJoin == DocLineJoin.Miter && border.MiterLimit.HasValue && border.MiterLimit.Value > 0f
+                ? border.MiterLimit.Value
+                : 0f;
+            var key = new BorderPaintKey(border.Color, thickness, border.Style, cap, border.LineJoin, miterLimit);
             if (borderPaintCache.TryGetValue(key, out var cached))
             {
                 return cached;
@@ -603,9 +607,15 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                 Color = ToSkColor(border.Color),
                 StrokeWidth = thickness,
                 IsAntialias = true,
-                StrokeCap = border.Style == DocBorderStyle.Dotted ? SKStrokeCap.Round : SKStrokeCap.Butt,
+                StrokeCap = ToSkStrokeCap(cap),
+                StrokeJoin = ToSkStrokeJoin(border.LineJoin),
                 PathEffect = CreateBorderEffect(border.Style, thickness)
             };
+            if (miterLimit > 0f)
+            {
+                paint.StrokeMiter = miterLimit;
+            }
+
             borderPaintCache[key] = paint;
             return paint;
         }
@@ -870,15 +880,26 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             var originX = lineX;
             var originY = lineY;
             var restoreTransform = false;
+            var rotation = 0f;
+            var verticalUpright = false;
+            var rotationSin = 0f;
+            var rotationCos = 1f;
             if (DocTextDirectionHelpers.IsVertical(textDirection))
             {
                 restoreTransform = true;
                 targetCanvas.Save();
                 targetCanvas.Translate(lineX, lineY);
-                var rotation = DocTextDirectionHelpers.GetRotationDegrees(textDirection!.Value);
+                rotation = DocTextDirectionHelpers.GetRotationDegrees(textDirection!.Value);
                 targetCanvas.RotateDegrees(rotation);
                 originX = 0f;
                 originY = 0f;
+                verticalUpright = DocTextDirectionHelpers.UseUprightVerticalForms(textDirection.Value);
+                if (verticalUpright)
+                {
+                    var radians = rotation * (MathF.PI / 180f);
+                    rotationSin = MathF.Sin(radians);
+                    rotationCos = MathF.Cos(radians);
+                }
             }
 
             var baseline = originY + lineAscent;
@@ -955,9 +976,55 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                         ? SkiaTextMeasurer.BuildTypefaceSegments(segmentSpan, run.Style, runPaint, fallbackResolver)
                         : null;
 
-                    if (fallbackSegments is null
-                        || fallbackSegments.Count == 0
-                        || (fallbackSegments.Count == 1 && ReferenceEquals(fallbackSegments[0].Typeface, baseTypeface)))
+                    var allowUpright = verticalUpright
+                        && (fallbackSegments is null
+                            || fallbackSegments.Count == 0
+                            || (fallbackSegments.Count == 1 && ReferenceEquals(fallbackSegments[0].Typeface, baseTypeface)));
+                    if (allowUpright)
+                    {
+                        var segmentMetrics = GetRunMetrics(segmentText, run.Style, run.LetterSpacing, gridSpacing);
+                        var cursor = drawX;
+                        var shaper = applyKerning ? GetRunShaper(run.Style) : null;
+                        ForEachVerticalTextSegment(segmentSpan, verticalUpright, (start, length, upright) =>
+                        {
+                            if (length <= 0)
+                            {
+                                return;
+                            }
+
+                            var subText = segmentText.Substring(start, length);
+                            var subWidth = segmentMetrics.GetWidth(start + length) - segmentMetrics.GetWidth(start);
+                            var subDrawX = segment.IsRtl ? cursor - subWidth : cursor;
+                            if (upright)
+                            {
+                                if (!TryDrawVerticalUprightRun(
+                                        targetCanvas,
+                                        subText.AsSpan(),
+                                        subDrawX,
+                                        runBaseline,
+                                        rotation,
+                                        rotationSin,
+                                        rotationCos,
+                                        runPaint,
+                                        runPaint,
+                                        run.Style,
+                                        run.LetterSpacing,
+                                        gridSpacing))
+                                {
+                                    DrawTextWithSpacing(targetCanvas, subText, subDrawX, runBaseline, runPaint, shaper, run.LetterSpacing, gridSpacing, run.Style);
+                                }
+                            }
+                            else
+                            {
+                                DrawTextWithSpacing(targetCanvas, subText, subDrawX, runBaseline, runPaint, shaper, run.LetterSpacing, gridSpacing, run.Style);
+                            }
+
+                            cursor = segment.IsRtl ? cursor - subWidth : cursor + subWidth;
+                        });
+                    }
+                    else if (fallbackSegments is null
+                             || fallbackSegments.Count == 0
+                             || (fallbackSegments.Count == 1 && ReferenceEquals(fallbackSegments[0].Typeface, baseTypeface)))
                     {
                         var shaper = applyKerning ? GetRunShaper(run.Style) : null;
                         DrawTextWithSpacing(targetCanvas, segmentText, drawX, runBaseline, runPaint, shaper, run.LetterSpacing, gridSpacing, run.Style);
@@ -1756,53 +1823,61 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                             targetCanvas.DrawRect(cellRect, GetFillPaint(shading));
                         }
 
-                        if (cell.Lines.Count > 0)
+                        if (cell.Lines.Count > 0 || cell.Tables.Count > 0)
                         {
                             targetCanvas.Save();
                             targetCanvas.ClipRect(cellRect);
-                            DrawCellParagraphDecorations(cell);
-                            for (var lineIndex = 0; lineIndex < cell.Lines.Count; lineIndex++)
+                            if (cell.Lines.Count > 0)
                             {
-                                var line = cell.Lines[lineIndex];
-                                var lineGridSpacing = ResolveLineGridSpacing(line.ParagraphIndex, pageIndex);
-                                DrawCommentHighlights(line.ParagraphIndex, line.StartOffset, line.Length, line.X, line.Y, line.LineHeight, line.TextDirection, line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, lineGridSpacing);
-                                DrawLineHighlights(line.X, line.Y, line.LineHeight, line.TextDirection, line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, lineGridSpacing);
-                                if (drawSelection && selectionRanges.Count > 0)
+                                DrawCellParagraphDecorations(cell);
+                                for (var lineIndex = 0; lineIndex < cell.Lines.Count; lineIndex++)
                                 {
-                                    for (var selectionIndex = 0; selectionIndex < selectionRanges.Count; selectionIndex++)
+                                    var line = cell.Lines[lineIndex];
+                                    var lineGridSpacing = ResolveLineGridSpacing(line.ParagraphIndex, pageIndex);
+                                    DrawCommentHighlights(line.ParagraphIndex, line.StartOffset, line.Length, line.X, line.Y, line.LineHeight, line.TextDirection, line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, lineGridSpacing);
+                                    DrawLineHighlights(line.X, line.Y, line.LineHeight, line.TextDirection, line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, lineGridSpacing);
+                                    if (drawSelection && selectionRanges.Count > 0)
                                     {
-                                        var selectionRange = selectionRanges[selectionIndex];
-                                        if (!TryGetSelectionSpan(selectionRange, line.ParagraphIndex, line.StartOffset, line.Length, out var startOffset, out var endOffset))
+                                        for (var selectionIndex = 0; selectionIndex < selectionRanges.Count; selectionIndex++)
                                         {
-                                            continue;
-                                        }
+                                            var selectionRange = selectionRanges[selectionIndex];
+                                            if (!TryGetSelectionSpan(selectionRange, line.ParagraphIndex, line.StartOffset, line.Length, out var startOffset, out var endOffset))
+                                            {
+                                                continue;
+                                            }
 
-                                        var selectionX1 = MeasureLineOffset(line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, startOffset - line.StartOffset, lineGridSpacing, GetRunMetrics);
-                                        var selectionX2 = MeasureLineOffset(line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, endOffset - line.StartOffset, lineGridSpacing, GetRunMetrics);
-                                        DrawLineRangeRect(line.X, line.Y, line.LineHeight, line.TextDirection, selectionX1, selectionX2, selectionPaint);
-                                    }
-                                }
-
-                                DrawLineContent(line.X, line.Y, line.LineHeight, line.Ascent, line.Prefix, line.PrefixWidth, line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, line.Rubies, line.TextDirection, lineGridSpacing);
-                                DrawLineInvisibles(line.X, line.Y, line.LineHeight, line.Ascent, line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, line.TextDirection, lineGridSpacing, false, 0f);
-
-                                if (drawCaret && !caretDrawn && line.ParagraphIndex == caretPosition.ParagraphIndex)
-                                {
-                                    var lineStartOffset = line.StartOffset;
-                                    var lineEndOffset = line.StartOffset + line.Length;
-                                    if (caretPosition.Offset >= lineStartOffset && caretPosition.Offset <= lineEndOffset)
-                                    {
-                                        var isLastLine = lineIndex == cell.Lines.Count - 1
-                                                         || cell.Lines[lineIndex + 1].ParagraphIndex != line.ParagraphIndex;
-                                        if (caretPosition.Offset != lineEndOffset || isLastLine)
-                                        {
-                                            var offsetInLine = Math.Clamp(caretPosition.Offset - line.StartOffset, 0, line.Length);
-                                            var caretX = MeasureLineOffset(line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, offsetInLine, lineGridSpacing, GetRunMetrics);
-                                            DrawLineRangeRect(line.X, line.Y, line.LineHeight, line.TextDirection, caretX, caretX + options.CaretThickness, caretPaint);
-                                            caretDrawn = true;
+                                            var selectionX1 = MeasureLineOffset(line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, startOffset - line.StartOffset, lineGridSpacing, GetRunMetrics);
+                                            var selectionX2 = MeasureLineOffset(line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, endOffset - line.StartOffset, lineGridSpacing, GetRunMetrics);
+                                            DrawLineRangeRect(line.X, line.Y, line.LineHeight, line.TextDirection, selectionX1, selectionX2, selectionPaint);
                                         }
                                     }
+
+                                    DrawLineContent(line.X, line.Y, line.LineHeight, line.Ascent, line.Prefix, line.PrefixWidth, line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, line.Rubies, line.TextDirection, lineGridSpacing);
+                                    DrawLineInvisibles(line.X, line.Y, line.LineHeight, line.Ascent, line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, line.TextDirection, lineGridSpacing, false, 0f);
+
+                                    if (drawCaret && !caretDrawn && line.ParagraphIndex == caretPosition.ParagraphIndex)
+                                    {
+                                        var lineStartOffset = line.StartOffset;
+                                        var lineEndOffset = line.StartOffset + line.Length;
+                                        if (caretPosition.Offset >= lineStartOffset && caretPosition.Offset <= lineEndOffset)
+                                        {
+                                            var isLastLine = lineIndex == cell.Lines.Count - 1
+                                                             || cell.Lines[lineIndex + 1].ParagraphIndex != line.ParagraphIndex;
+                                            if (caretPosition.Offset != lineEndOffset || isLastLine)
+                                            {
+                                                var offsetInLine = Math.Clamp(caretPosition.Offset - line.StartOffset, 0, line.Length);
+                                                var caretX = MeasureLineOffset(line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, offsetInLine, lineGridSpacing, GetRunMetrics);
+                                                DrawLineRangeRect(line.X, line.Y, line.LineHeight, line.TextDirection, caretX, caretX + options.CaretThickness, caretPaint);
+                                                caretDrawn = true;
+                                            }
+                                        }
+                                    }
                                 }
+                            }
+
+                            if (cell.Tables.Count > 0)
+                            {
+                                DrawTableLayouts(cell.Tables, selectionRanges, drawSelection, caretPosition, drawCaret, ref caretDrawn);
                             }
 
                             targetCanvas.Restore();
@@ -3564,6 +3639,280 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
         }
     }
 
+    private static void ForEachVerticalTextSegment(ReadOnlySpan<char> text, bool useUpright, Action<int, int, bool> handler)
+    {
+        if (text.IsEmpty)
+        {
+            return;
+        }
+
+        if (!useUpright)
+        {
+            handler(0, text.Length, false);
+            return;
+        }
+
+        var index = 0;
+        var segmentStart = 0;
+        var currentUpright = false;
+        var initialized = false;
+
+        while (index < text.Length)
+        {
+            var length = TextCluster.GetNextClusterLength(text, index);
+            if (length <= 0)
+            {
+                length = 1;
+            }
+
+            var cluster = text.Slice(index, length);
+            var upright = TextVerticalOrientation.IsUprightCluster(cluster);
+            if (!initialized)
+            {
+                segmentStart = index;
+                currentUpright = upright;
+                initialized = true;
+            }
+            else if (upright != currentUpright)
+            {
+                handler(segmentStart, index - segmentStart, currentUpright);
+                segmentStart = index;
+                currentUpright = upright;
+            }
+
+            index += length;
+        }
+
+        if (initialized && segmentStart < text.Length)
+        {
+            handler(segmentStart, text.Length - segmentStart, currentUpright);
+        }
+    }
+
+    private static bool TryGetAdjustedGlyphPositions(
+        ReadOnlySpan<char> text,
+        TextStyle style,
+        SKPaint measurePaint,
+        float letterSpacing,
+        float gridSpacing,
+        out ushort[] glyphs,
+        out SKPoint[] positions)
+    {
+        glyphs = Array.Empty<ushort>();
+        positions = Array.Empty<SKPoint>();
+        if (text.IsEmpty)
+        {
+            return false;
+        }
+
+        var applyKerning = SkiaTextMeasurer.ShouldApplyKerning(style);
+        if (!SkiaTextMeasurer.TryGetHarfBuzzGlyphRun(text, style, measurePaint, applyKerning, out var run))
+        {
+            return false;
+        }
+
+        var glyphCount = run.Glyphs.Length;
+        if (glyphCount == 0)
+        {
+            return false;
+        }
+
+        glyphs = run.Glyphs;
+        positions = new SKPoint[glyphCount];
+        var shapeInfo = run.ShapeInfo;
+        if (shapeInfo.ClusterOffsets.Length == 0)
+        {
+            Array.Copy(run.Positions, positions, glyphCount);
+            return true;
+        }
+
+        var applySpacing = MathF.Abs(letterSpacing) > 0.001f;
+        if (!applySpacing && gridSpacing <= 0f)
+        {
+            Array.Copy(run.Positions, positions, glyphCount);
+            return true;
+        }
+
+        var orderByCluster = new int[text.Length];
+        Array.Fill(orderByCluster, -1);
+        for (var i = 0; i < shapeInfo.ClusterOffsets.Length; i++)
+        {
+            var clusterIndex = shapeInfo.ClusterOffsets[i];
+            if ((uint)clusterIndex < (uint)orderByCluster.Length)
+            {
+                orderByCluster[clusterIndex] = i;
+            }
+        }
+
+        if (gridSpacing > 0f)
+        {
+            var clusterCount = shapeInfo.ClusterOffsets.Length;
+            var originalPositions = new float[clusterCount];
+            var snappedPositions = new float[clusterCount];
+            var originalTotal = 0f;
+            var snappedTotal = 0f;
+            for (var i = 0; i < clusterCount; i++)
+            {
+                originalPositions[i] = originalTotal;
+                snappedPositions[i] = snappedTotal;
+                var advance = i < shapeInfo.ClusterAdvances.Length ? shapeInfo.ClusterAdvances[i] : 0f;
+                if (applySpacing && i < clusterCount - 1)
+                {
+                    advance += letterSpacing;
+                }
+
+                originalTotal += advance;
+                snappedTotal = SnapToGridForward(snappedTotal + advance, gridSpacing);
+            }
+
+            for (var i = 0; i < glyphCount; i++)
+            {
+                var clusterIndex = (int)run.Clusters[i];
+                var order = (uint)clusterIndex < (uint)orderByCluster.Length ? orderByCluster[clusterIndex] : -1;
+                if (order < 0)
+                {
+                    order = 0;
+                }
+
+                var delta = snappedPositions[order] - originalPositions[order];
+                var point = run.Positions[i];
+                positions[i] = new SKPoint(point.X + delta, point.Y);
+            }
+
+            return true;
+        }
+
+        for (var i = 0; i < glyphCount; i++)
+        {
+            var clusterIndex = (int)run.Clusters[i];
+            var order = (uint)clusterIndex < (uint)orderByCluster.Length ? orderByCluster[clusterIndex] : -1;
+            if (order < 0)
+            {
+                order = 0;
+            }
+
+            var point = run.Positions[i];
+            positions[i] = new SKPoint(point.X + letterSpacing * order, point.Y);
+        }
+
+        return true;
+    }
+
+    private static bool TryDrawVerticalUprightRun(
+        SKCanvas canvas,
+        ReadOnlySpan<char> text,
+        float drawX,
+        float baseline,
+        float rotation,
+        float sin,
+        float cos,
+        SKPaint paint,
+        SKPaint measurePaint,
+        TextStyle style,
+        float letterSpacing,
+        float gridSpacing)
+    {
+        if (!TryGetAdjustedGlyphPositions(text, style, measurePaint, letterSpacing, gridSpacing, out var glyphs, out var positions))
+        {
+            return false;
+        }
+
+        var glyphCount = glyphs.Length;
+        if (glyphCount == 0)
+        {
+            return false;
+        }
+
+        var rotatedPositions = new SKPoint[glyphCount];
+        for (var i = 0; i < glyphCount; i++)
+        {
+            var point = positions[i];
+            var x = drawX + point.X;
+            var y = baseline + point.Y;
+            rotatedPositions[i] = new SKPoint(x * cos - y * sin, x * sin + y * cos);
+        }
+
+        using var font = measurePaint.ToFont();
+        using var blobBuilder = new SKTextBlobBuilder();
+        blobBuilder.AddPositionedRun(glyphs, font, rotatedPositions);
+        using var blob = blobBuilder.Build();
+        if (blob is null)
+        {
+            return false;
+        }
+
+        canvas.Save();
+        canvas.RotateDegrees(-rotation);
+        DrawTextBlobWithEffects(canvas, blob, 0f, 0f, paint, style);
+        canvas.Restore();
+        return true;
+    }
+
+    private static void DrawTextBlobWithEffects(SKCanvas canvas, SKTextBlob blob, float x, float y, SKPaint paint, TextStyle style)
+    {
+        var effects = style.Effects;
+        if (effects is null || !effects.HasValues)
+        {
+            canvas.DrawText(blob, x, y, paint);
+            return;
+        }
+
+        if (effects.Shadow is { Enabled: true } shadow)
+        {
+            ResolveTextShadow(shadow, paint.TextSize, out var blurRadius, out var distance, out var direction);
+            var angle = direction * (MathF.PI / 180f);
+            var dx = distance * MathF.Cos(angle);
+            var dy = distance * MathF.Sin(angle);
+            using var shadowPaint = paint.Clone();
+            shadowPaint.Color = ToSkColor(shadow.Color);
+            shadowPaint.Style = SKPaintStyle.Fill;
+            shadowPaint.MaskFilter = blurRadius > 0f ? SKMaskFilter.CreateBlur(SKBlurStyle.Normal, blurRadius) : null;
+            canvas.DrawText(blob, x + dx, y + dy, shadowPaint);
+        }
+
+        var emboss = effects.Emboss == true;
+        var imprint = effects.Imprint == true;
+        if (emboss || imprint)
+        {
+            var offset = MathF.Max(0.6f, paint.TextSize * 0.06f);
+            var blur = MathF.Max(0.5f, paint.TextSize * 0.04f);
+            var baseColor = paint.Color;
+            var lightColor = BlendColor(baseColor, SKColors.White, 0.6f);
+            var darkColor = BlendColor(baseColor, SKColors.Black, 0.6f);
+            if (imprint)
+            {
+                (lightColor, darkColor) = (darkColor, lightColor);
+            }
+
+            var highlightOffset = imprint ? offset : -offset;
+            var shadowOffset = imprint ? -offset : offset;
+
+            using var highlightPaint = paint.Clone();
+            highlightPaint.Color = lightColor;
+            highlightPaint.Style = SKPaintStyle.Fill;
+            highlightPaint.MaskFilter = blur > 0f ? SKMaskFilter.CreateBlur(SKBlurStyle.Normal, blur) : null;
+            using var shadowPaint = paint.Clone();
+            shadowPaint.Color = darkColor;
+            shadowPaint.Style = SKPaintStyle.Fill;
+            shadowPaint.MaskFilter = blur > 0f ? SKMaskFilter.CreateBlur(SKBlurStyle.Normal, blur) : null;
+            canvas.DrawText(blob, x + highlightOffset, y + highlightOffset, highlightPaint);
+            canvas.DrawText(blob, x + shadowOffset, y + shadowOffset, shadowPaint);
+        }
+
+        if (effects.Outline is not null && effects.Outline.Enabled)
+        {
+            var thickness = effects.Outline.Thickness ?? MathF.Max(0.6f, paint.TextSize * 0.06f);
+            using var outlinePaint = paint.Clone();
+            outlinePaint.Style = SKPaintStyle.Stroke;
+            outlinePaint.StrokeWidth = MathF.Max(0.5f, thickness);
+            outlinePaint.StrokeJoin = SKStrokeJoin.Round;
+            outlinePaint.Color = effects.Outline.Color.HasValue ? ToSkColor(effects.Outline.Color.Value) : paint.Color;
+            canvas.DrawText(blob, x, y, outlinePaint);
+        }
+
+        canvas.DrawText(blob, x, y, paint);
+    }
+
     private static void DrawUnderlineWords(
         SKCanvas canvas,
         ReadOnlySpan<char> text,
@@ -4366,6 +4715,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
         private readonly string _language;
         private readonly string _languageEastAsia;
         private readonly string _languageBidi;
+        private readonly int _textDirection;
         private readonly float _horizontalScale;
         private readonly bool _hasLigatures;
         private readonly DocLigatureOptions _ligatures;
@@ -4392,6 +4742,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             _language = style.Language ?? string.Empty;
             _languageEastAsia = style.LanguageEastAsia ?? string.Empty;
             _languageBidi = style.LanguageBidi ?? string.Empty;
+            _textDirection = style.TextDirection.HasValue ? (int)style.TextDirection.Value + 1 : 0;
             _horizontalScale = style.HorizontalScale;
 
             var features = style.OpenTypeFeatures;
@@ -4421,10 +4772,11 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                 && _strikethrough == other._strikethrough
                 && _hasHighlight == other._hasHighlight
                 && (!_hasHighlight || _highlight.Equals(other._highlight))
-                && _language == other._language
-                && _languageEastAsia == other._languageEastAsia
-                && _languageBidi == other._languageBidi
-                && _horizontalScale.Equals(other._horizontalScale)
+            && _language == other._language
+            && _languageEastAsia == other._languageEastAsia
+            && _languageBidi == other._languageBidi
+            && _textDirection == other._textDirection
+            && _horizontalScale.Equals(other._horizontalScale)
                 && _hasLigatures == other._hasLigatures
                 && (!_hasLigatures || _ligatures == other._ligatures)
                 && _hasContextualAlternates == other._hasContextualAlternates
@@ -4447,12 +4799,12 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                 (int)_fontStyle,
                 _color,
                 _underline,
-                _strikethrough,
-                _hasHighlight ? _highlight.GetHashCode() : 0);
-            hash = HashCode.Combine(hash, _language);
-            hash = HashCode.Combine(hash, _languageEastAsia);
-            hash = HashCode.Combine(hash, _languageBidi);
-            hash = HashCode.Combine(hash, _horizontalScale);
+            _strikethrough,
+            _hasHighlight ? _highlight.GetHashCode() : 0);
+        hash = HashCode.Combine(hash, _language);
+        hash = HashCode.Combine(hash, _languageEastAsia);
+        hash = HashCode.Combine(hash, _languageBidi);
+        hash = HashCode.Combine(hash, _textDirection, _horizontalScale);
             hash = HashCode.Combine(hash, _hasLigatures ? (int)_ligatures : 0, _hasContextualAlternates ? (_contextualAlternates ? 1 : 0) : 0);
             hash = HashCode.Combine(hash, _hasNumberForm ? (int)_numberForm : 0, _hasNumberSpacing ? (int)_numberSpacing : 0);
             return HashCode.Combine(hash, _hasStylisticSets ? (int)_stylisticSets : 0);
