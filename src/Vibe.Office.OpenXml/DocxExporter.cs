@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Xml.Linq;
@@ -18,6 +19,7 @@ using M = DocumentFormat.OpenXml.Math;
 using PIC = DocumentFormat.OpenXml.Drawing.Pictures;
 using Wps = DocumentFormat.OpenXml.Office2010.Word.DrawingShape;
 using W14 = DocumentFormat.OpenXml.Office2010.Word;
+using W15 = DocumentFormat.OpenXml.Office2013.Word;
 using Vibe.Office.Documents;
 using Vibe.Office.Primitives;
 using VibeDocument = Vibe.Office.Documents.Document;
@@ -1002,22 +1004,7 @@ public sealed class DocxExporter
                     {
                         foreach (var cell in row.Cells)
                         {
-                            foreach (var paragraph in cell.Paragraphs)
-                            {
-                                if (paragraph.ListInfo is not null)
-                                {
-                                    listInfos.Add(paragraph.ListInfo);
-                                }
-
-                                CollectListInfosFromInlines(paragraph.Inlines, listInfos);
-                                foreach (var floating in paragraph.FloatingObjects)
-                                {
-                                    if (floating.Content is ShapeInline shape && shape.TextBox is not null)
-                                    {
-                                        CollectListInfosFromBlocks(shape.TextBox.Blocks, listInfos);
-                                    }
-                                }
-                            }
+                            CollectListInfosFromBlocks(cell.Blocks, listInfos);
                         }
                     }
                     break;
@@ -1247,7 +1234,14 @@ public sealed class DocxExporter
         if (document.Comments.Count > 0)
         {
             var commentsPart = mainPart.AddNewPart<WordprocessingCommentsPart>();
-            PopulateComments(commentsPart, document, spacingResolver, numberingContext, placeholderWriter, document.Fonts);
+            var writeCommentsEx = ShouldWriteCommentsEx(document);
+            var commentParaIds = writeCommentsEx ? BuildCommentParaIdMap(document) : null;
+            PopulateComments(commentsPart, document, spacingResolver, numberingContext, placeholderWriter, document.Fonts, commentParaIds);
+            if (writeCommentsEx)
+            {
+                var commentsExPart = mainPart.AddNewPart<WordprocessingCommentsExPart>();
+                PopulateCommentsEx(commentsExPart, document, commentParaIds ?? new Dictionary<int, string>());
+            }
         }
     }
 
@@ -2189,26 +2183,19 @@ public sealed class DocxExporter
                 var tableCell = new DocumentFormat.OpenXml.Wordprocessing.TableCell();
                 ApplyTableCellProperties(tableCell, cell.Properties);
                 ApplyTableCellStructure(tableCell, cell);
-                for (var paragraphIndex = 0; paragraphIndex < cell.Paragraphs.Count; paragraphIndex++)
-                {
-                    var paragraph = cell.Paragraphs[paragraphIndex];
-                    var previousParagraph = paragraphIndex > 0 ? cell.Paragraphs[paragraphIndex - 1] : null;
-                    var nextParagraph = paragraphIndex + 1 < cell.Paragraphs.Count ? cell.Paragraphs[paragraphIndex + 1] : null;
-                    tableCell.AppendChild(CreateParagraph(
-                        document,
-                        paragraph,
-                        previousParagraph,
-                        nextParagraph,
-                        spacingResolver,
-                        numberingContext,
-                        imageWriter,
-                        chartWriter,
-                        hyperlinkWriter,
-                        embeddedObjectWriter,
-                        altChunkWriter,
-                        placeholderWriter,
-                        fonts));
-                }
+                AppendBlocks(
+                    tableCell,
+                    cell.Blocks,
+                    document,
+                    spacingResolver,
+                    numberingContext,
+                    imageWriter,
+                    chartWriter,
+                    hyperlinkWriter,
+                    embeddedObjectWriter,
+                    altChunkWriter,
+                    placeholderWriter,
+                    fonts);
 
                 if (cell.Paragraphs.Count == 0)
                 {
@@ -2804,7 +2791,89 @@ public sealed class DocxExporter
             props.AppendChild(binding);
         }
 
+        AppendStructuredContentControlProperties(props, properties);
         return props;
+    }
+
+    private static void AppendStructuredContentControlProperties(SdtProperties props, ContentControlProperties properties)
+    {
+        switch (properties.DataType)
+        {
+            case ContentControlDataType.CheckBox:
+            {
+                var checkBox = new W14.SdtContentCheckBox();
+                if (properties.IsChecked.HasValue)
+                {
+                    checkBox.Checked = new W14.Checked
+                    {
+                        Val = properties.IsChecked.Value ? W14.OnOffValues.True : W14.OnOffValues.False
+                    };
+                }
+
+                props.AppendChild(checkBox);
+                break;
+            }
+            case ContentControlDataType.Date:
+            {
+                var date = new SdtContentDate();
+                if (!string.IsNullOrWhiteSpace(properties.FullDate)
+                    && DateTimeOffset.TryParse(properties.FullDate, out var parsed))
+                {
+                    date.FullDate = parsed.UtcDateTime;
+                }
+
+                if (!string.IsNullOrWhiteSpace(properties.DateFormat))
+                {
+                    date.DateFormat = new DateFormat { Val = properties.DateFormat };
+                }
+
+                props.AppendChild(date);
+                break;
+            }
+            case ContentControlDataType.DropDownList:
+            case ContentControlDataType.ComboBox:
+            {
+                OpenXmlCompositeElement list = properties.DataType == ContentControlDataType.DropDownList
+                    ? new SdtContentDropDownList()
+                    : new SdtContentComboBox();
+
+                foreach (var item in properties.Items)
+                {
+                    if (string.IsNullOrWhiteSpace(item.Value) && string.IsNullOrWhiteSpace(item.DisplayText))
+                    {
+                        continue;
+                    }
+
+                    var listItem = new ListItem();
+                    if (!string.IsNullOrWhiteSpace(item.Value))
+                    {
+                        listItem.Value = item.Value;
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(item.DisplayText))
+                    {
+                        listItem.DisplayText = item.DisplayText;
+                    }
+
+                    list.AppendChild(listItem);
+                }
+
+                if (!string.IsNullOrWhiteSpace(properties.SelectedValue))
+                {
+                    if (list is SdtContentDropDownList dropDown)
+                    {
+                        dropDown.LastValue = properties.SelectedValue;
+                    }
+                    else if (list is SdtContentComboBox combo)
+                    {
+                        combo.LastValue = properties.SelectedValue;
+                    }
+                }
+
+                props.AppendChild(list);
+                break;
+            }
+        }
     }
 
     private static readonly Dictionary<string, LockingValues> LockingValueMap = BuildLockingValueMap();
@@ -2959,7 +3028,8 @@ public sealed class DocxExporter
         ParagraphContextualSpacingResolver spacingResolver,
         NumberingContext numberingContext,
         ContentControlPlaceholderWriter? placeholderWriter,
-        DocumentFonts fonts)
+        DocumentFonts fonts,
+        IReadOnlyDictionary<int, string>? commentParaIds)
     {
         var comments = new Comments();
         var imageWriter = new ImageWriter(commentsPart);
@@ -2984,10 +3054,79 @@ public sealed class DocxExporter
                 comment.AppendChild(new Paragraph(new Run(new Text(string.Empty))));
             }
 
+            if (commentParaIds is not null && commentParaIds.TryGetValue(definition.Id, out var paraId))
+            {
+                foreach (var paragraph in comment.Descendants<Paragraph>())
+                {
+                    paragraph.ParagraphId = new HexBinaryValue(paraId);
+                    break;
+                }
+            }
+
             comments.AppendChild(comment);
         }
 
         commentsPart.Comments = comments;
+    }
+
+    private static bool ShouldWriteCommentsEx(VibeDocument document)
+    {
+        foreach (var comment in document.Comments.Values)
+        {
+            if (comment.ParentId.HasValue || comment.IsResolved)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static Dictionary<int, string> BuildCommentParaIdMap(VibeDocument document)
+    {
+        var map = new Dictionary<int, string>(document.Comments.Count);
+        foreach (var definition in document.Comments.Values)
+        {
+            var paraId = unchecked((uint)definition.Id).ToString("X8", CultureInfo.InvariantCulture);
+            map[definition.Id] = paraId;
+        }
+
+        return map;
+    }
+
+    private static void PopulateCommentsEx(
+        WordprocessingCommentsExPart commentsExPart,
+        VibeDocument document,
+        IReadOnlyDictionary<int, string> commentParaIds)
+    {
+        var commentsEx = new W15.CommentsEx();
+        foreach (var definition in document.Comments.Values.OrderBy(item => item.Id))
+        {
+            if (!commentParaIds.TryGetValue(definition.Id, out var paraId))
+            {
+                continue;
+            }
+
+            var commentEx = new W15.CommentEx
+            {
+                ParaId = new HexBinaryValue(paraId)
+            };
+
+            if (definition.ParentId.HasValue
+                && commentParaIds.TryGetValue(definition.ParentId.Value, out var parentParaId))
+            {
+                commentEx.ParaIdParent = new HexBinaryValue(parentParaId);
+            }
+
+            if (definition.IsResolved)
+            {
+                commentEx.Done = new OnOffValue(true);
+            }
+
+            commentsEx.AppendChild(commentEx);
+        }
+
+        commentsExPart.CommentsEx = commentsEx;
     }
 
     private static Footnote CreateSeparatorFootnote(int id, bool continuation)
@@ -4329,6 +4468,9 @@ public sealed class DocxExporter
             case MathRun run:
                 parent.AppendChild(BuildMathRun(run));
                 break;
+            case MathFunction function:
+                parent.AppendChild(BuildMathFunction(function));
+                break;
             case MathFraction fraction:
                 parent.AppendChild(BuildMathFraction(fraction));
                 break;
@@ -4338,17 +4480,38 @@ public sealed class DocxExporter
             case MathDelimiter delimiter:
                 parent.AppendChild(BuildMathDelimiter(delimiter));
                 break;
+            case MathBar bar:
+                parent.AppendChild(BuildMathBar(bar));
+                break;
+            case MathBoxElement box:
+                parent.AppendChild(BuildMathBox(box));
+                break;
+            case MathBorderBox border:
+                parent.AppendChild(BuildMathBorderBox(border));
+                break;
             case MathNary nary:
                 parent.AppendChild(BuildMathNary(nary));
                 break;
             case MathMatrix matrix:
                 parent.AppendChild(BuildMathMatrix(matrix));
                 break;
+            case MathLimit limit:
+                parent.AppendChild(BuildMathLimit(limit));
+                break;
             case MathScript script:
                 AppendMathScript(parent, script);
                 break;
+            case MathPreScript preScript:
+                AppendMathPreScript(parent, preScript);
+                break;
             case MathRadical radical:
                 parent.AppendChild(BuildMathRadical(radical));
+                break;
+            case MathGroupCharacter group:
+                parent.AppendChild(BuildMathGroupChar(group));
+                break;
+            case MathPhantom phantom:
+                parent.AppendChild(BuildMathPhantom(phantom));
                 break;
         }
     }
@@ -4394,6 +4557,18 @@ public sealed class DocxExporter
         return mathFraction;
     }
 
+    private static M.MathFunction BuildMathFunction(MathFunction function)
+    {
+        var node = new M.MathFunction
+        {
+            FunctionName = new M.FunctionName()
+        };
+
+        AppendMathElements(node.FunctionName, function.Name);
+        node.Base = BuildMathBase(function.Argument);
+        return node;
+    }
+
     private static M.Accent BuildMathAccent(MathAccent accent)
     {
         var node = new M.Accent
@@ -4406,6 +4581,24 @@ public sealed class DocxExporter
             node.AccentProperties = new M.AccentProperties
             {
                 AccentChar = new M.AccentChar { Val = accent.AccentChar }
+            };
+        }
+
+        return node;
+    }
+
+    private static M.Bar BuildMathBar(MathBar bar)
+    {
+        var node = new M.Bar
+        {
+            Base = BuildMathBase(bar.Base)
+        };
+
+        if (bar.Position != MathBarPosition.Top)
+        {
+            node.BarProperties = new M.BarProperties
+            {
+                Position = new M.Position { Val = M.VerticalJustificationValues.Bottom }
             };
         }
 
@@ -4435,6 +4628,71 @@ public sealed class DocxExporter
             if (!string.IsNullOrWhiteSpace(delimiter.SeparatorChar))
             {
                 node.DelimiterProperties.SeparatorChar = new M.SeparatorChar { Val = delimiter.SeparatorChar };
+            }
+        }
+
+        return node;
+    }
+
+    private static M.Box BuildMathBox(MathBoxElement box)
+    {
+        var node = new M.Box
+        {
+            Base = BuildMathBase(box.Base)
+        };
+
+        return node;
+    }
+
+    private static M.BorderBox BuildMathBorderBox(MathBorderBox border)
+    {
+        var node = new M.BorderBox
+        {
+            Base = BuildMathBase(border.Base)
+        };
+
+        if (border.HideTop || border.HideBottom || border.HideLeft || border.HideRight
+            || border.StrikeHorizontal || border.StrikeVertical || border.StrikeDiagonalUp || border.StrikeDiagonalDown)
+        {
+            node.BorderBoxProperties = new M.BorderBoxProperties();
+            if (border.HideTop)
+            {
+                node.BorderBoxProperties.HideTop = new M.HideTop();
+            }
+
+            if (border.HideBottom)
+            {
+                node.BorderBoxProperties.HideBottom = new M.HideBottom();
+            }
+
+            if (border.HideLeft)
+            {
+                node.BorderBoxProperties.HideLeft = new M.HideLeft();
+            }
+
+            if (border.HideRight)
+            {
+                node.BorderBoxProperties.HideRight = new M.HideRight();
+            }
+
+            if (border.StrikeHorizontal)
+            {
+                node.BorderBoxProperties.StrikeHorizontal = new M.StrikeHorizontal();
+            }
+
+            if (border.StrikeVertical)
+            {
+                node.BorderBoxProperties.StrikeVertical = new M.StrikeVertical();
+            }
+
+            if (border.StrikeDiagonalUp)
+            {
+                node.BorderBoxProperties.StrikeBottomLeftToTopRight = new M.StrikeBottomLeftToTopRight();
+            }
+
+            if (border.StrikeDiagonalDown)
+            {
+                node.BorderBoxProperties.StrikeTopLeftToBottomRight = new M.StrikeTopLeftToBottomRight();
             }
         }
 
@@ -4499,6 +4757,24 @@ public sealed class DocxExporter
         return node;
     }
 
+    private static OpenXmlCompositeElement BuildMathLimit(MathLimit limit)
+    {
+        if (limit.Position == MathLimitPosition.Upper)
+        {
+            return new M.LimitUpper
+            {
+                Base = BuildMathBase(limit.Base),
+                Limit = BuildMathLimitElement(limit.Limit)
+            };
+        }
+
+        return new M.LimitLower
+        {
+            Base = BuildMathBase(limit.Base),
+            Limit = BuildMathLimitElement(limit.Limit)
+        };
+    }
+
     private static void AppendMathScript(OpenXmlCompositeElement parent, MathScript script)
     {
         var hasSub = script.Subscript is not null;
@@ -4540,6 +4816,34 @@ public sealed class DocxExporter
         AppendMathElements(parent, script.Base);
     }
 
+    private static void AppendMathPreScript(OpenXmlCompositeElement parent, MathPreScript script)
+    {
+        var hasSub = script.Subscript is not null;
+        var hasSup = script.Superscript is not null;
+        if (!hasSub && !hasSup)
+        {
+            AppendMathElements(parent, script.Base);
+            return;
+        }
+
+        var node = new M.PreSubSuper
+        {
+            Base = BuildMathBase(script.Base)
+        };
+
+        if (hasSub)
+        {
+            node.SubArgument = BuildMathSubArgument(script.Subscript!);
+        }
+
+        if (hasSup)
+        {
+            node.SuperArgument = BuildMathSuperArgument(script.Superscript!);
+        }
+
+        parent.AppendChild(node);
+    }
+
     private static M.Radical BuildMathRadical(MathRadical radical)
     {
         var node = new M.Radical
@@ -4550,6 +4854,69 @@ public sealed class DocxExporter
         if (radical.Degree is not null)
         {
             node.Degree = BuildMathDegree(radical.Degree);
+        }
+
+        return node;
+    }
+
+    private static M.GroupChar BuildMathGroupChar(MathGroupCharacter group)
+    {
+        var node = new M.GroupChar
+        {
+            Base = BuildMathBase(group.Base)
+        };
+
+        if (!string.IsNullOrWhiteSpace(group.Character) || group.Position != MathGroupCharacterPosition.Top)
+        {
+            node.GroupCharProperties = new M.GroupCharProperties();
+            if (!string.IsNullOrWhiteSpace(group.Character))
+            {
+                node.GroupCharProperties.AccentChar = new M.AccentChar { Val = group.Character };
+            }
+
+            if (group.Position == MathGroupCharacterPosition.Bottom)
+            {
+                node.GroupCharProperties.Position = new M.Position { Val = M.VerticalJustificationValues.Bottom };
+            }
+        }
+
+        return node;
+    }
+
+    private static M.Phantom BuildMathPhantom(MathPhantom phantom)
+    {
+        var node = new M.Phantom
+        {
+            Base = BuildMathBase(phantom.Base)
+        };
+
+        if (phantom.Show || phantom.ZeroWidth || phantom.ZeroAscent || phantom.ZeroDescent || phantom.Transparent)
+        {
+            node.PhantomProperties = new M.PhantomProperties();
+            if (phantom.Show)
+            {
+                node.PhantomProperties.ShowPhantom = new M.ShowPhantom();
+            }
+
+            if (phantom.ZeroWidth)
+            {
+                node.PhantomProperties.ZeroWidth = new M.ZeroWidth();
+            }
+
+            if (phantom.ZeroAscent)
+            {
+                node.PhantomProperties.ZeroAscent = new M.ZeroAscent();
+            }
+
+            if (phantom.ZeroDescent)
+            {
+                node.PhantomProperties.ZeroDescent = new M.ZeroDescent();
+            }
+
+            if (phantom.Transparent)
+            {
+                node.PhantomProperties.Transparent = new M.Transparent();
+            }
         }
 
         return node;
@@ -4579,6 +4946,13 @@ public sealed class DocxExporter
     private static M.Degree BuildMathDegree(MathElement element)
     {
         var container = new M.Degree();
+        AppendMathElements(container, element);
+        return container;
+    }
+
+    private static M.Limit BuildMathLimitElement(MathElement element)
+    {
+        var container = new M.Limit();
         AppendMathElements(container, element);
         return container;
     }
@@ -7321,10 +7695,11 @@ public sealed class DocxExporter
             return null;
         }
 
-        var size = border.Style == DocBorderStyle.None ? 0u : BorderDipToEighthPoints(border.Thickness);
+        var resolvedStyle = ResolveBorderStyle(border);
+        var size = resolvedStyle == DocBorderStyle.None ? 0u : BorderDipToEighthPoints(border.Thickness);
         var element = new TBorder
         {
-            Val = MapBorderStyle(border.Style),
+            Val = MapBorderStyle(resolvedStyle, border),
             Size = size,
             Color = ColorToHex(border.Color)
         };
@@ -7344,12 +7719,33 @@ public sealed class DocxExporter
         return new UInt32Value(rounded);
     }
 
-    private static BorderValues MapBorderStyle(DocBorderStyle style)
+    private static DocBorderStyle ResolveBorderStyle(BorderLine border)
+    {
+        if (border.Style != DocBorderStyle.Single)
+        {
+            return border.Style;
+        }
+
+        return border.Compound switch
+        {
+            DocCompoundLine.Double => DocBorderStyle.Double,
+            DocCompoundLine.Triple => DocBorderStyle.Triple,
+            DocCompoundLine.ThickThin => DocBorderStyle.ThickThin,
+            DocCompoundLine.ThinThick => DocBorderStyle.ThinThick,
+            _ => border.Style
+        };
+    }
+
+    private static BorderValues MapBorderStyle(DocBorderStyle style, BorderLine? border)
     {
         return style switch
         {
             DocBorderStyle.None => BorderValues.None,
             DocBorderStyle.Double => BorderValues.Double,
+            DocBorderStyle.Triple => BorderValues.Triple,
+            DocBorderStyle.ThickThin => ResolveCompoundBorder(BorderValues.ThickThinSmallGap, BorderValues.ThickThinMediumGap, BorderValues.ThickThinLargeGap, border),
+            DocBorderStyle.ThinThick => ResolveCompoundBorder(BorderValues.ThinThickSmallGap, BorderValues.ThinThickMediumGap, BorderValues.ThinThickLargeGap, border),
+            DocBorderStyle.ThinThickThin => ResolveCompoundBorder(BorderValues.ThinThickThinSmallGap, BorderValues.ThinThickThinMediumGap, BorderValues.ThinThickThinLargeGap, border),
             DocBorderStyle.Dotted => BorderValues.Dotted,
             DocBorderStyle.Dashed => BorderValues.Dashed,
             DocBorderStyle.DotDash => BorderValues.DotDash,
@@ -7358,6 +7754,31 @@ public sealed class DocxExporter
             DocBorderStyle.Hairline => BorderValues.Single,
             _ => BorderValues.Single
         };
+    }
+
+    private static BorderValues ResolveCompoundBorder(
+        BorderValues small,
+        BorderValues medium,
+        BorderValues large,
+        BorderLine? border)
+    {
+        if (border is null || border.Thickness <= 0f || !border.CompoundSpacing.HasValue)
+        {
+            return medium;
+        }
+
+        var ratio = border.CompoundSpacing.Value / border.Thickness;
+        if (ratio <= 0.75f)
+        {
+            return small;
+        }
+
+        if (ratio <= 1.25f)
+        {
+            return medium;
+        }
+
+        return large;
     }
 
     private static TableStyleOverrideValues MapTableStyleCondition(TableStyleCondition condition)
@@ -7399,7 +7820,7 @@ public sealed class DocxExporter
         var name = string.IsNullOrWhiteSpace(shapeInline.Name) ? "Shape" : shapeInline.Name;
         var docProperties = new DW.DocProperties { Id = 1U, Name = name };
 
-        var shapeProperties = BuildShapeProperties(shapeInline, widthEmu, heightEmu);
+        var shapeProperties = BuildShapeProperties(shapeInline, widthEmu, heightEmu, imageWriter);
         var bodyProperties = BuildShapeBodyProperties(shapeInline.TextBox);
         var textBox = BuildShapeTextBox(shapeInline.TextBox, document, spacingResolver, numberingContext, imageWriter, chartWriter, hyperlinkWriter, embeddedObjectWriter, altChunkWriter, placeholderWriter, fonts);
 
@@ -7424,7 +7845,7 @@ public sealed class DocxExporter
         return CreateDrawingContainer(docProperties, graphic, widthEmu, heightEmu, anchor);
     }
 
-    private static Wps.ShapeProperties BuildShapeProperties(ShapeInline shapeInline, long widthEmu, long heightEmu)
+    private static Wps.ShapeProperties BuildShapeProperties(ShapeInline shapeInline, long widthEmu, long heightEmu, ImageWriter imageWriter)
     {
         var props = new Wps.ShapeProperties();
         var transform = new A.Transform2D(
@@ -7447,14 +7868,12 @@ public sealed class DocxExporter
         }
 
         props.AppendChild(transform);
-        props.AppendChild(new A.PresetGeometry(new A.AdjustValueList())
-        {
-            Preset = MapShapePreset(shapeInline.Properties.PresetGeometry)
-        });
+        props.AppendChild(BuildShapeGeometry(shapeInline.Properties));
 
-        if (shapeInline.Properties.FillColor.HasValue)
+        var fillElement = BuildShapeFill(shapeInline.Properties, imageWriter);
+        if (fillElement is not null)
         {
-            props.AppendChild(new A.SolidFill(new A.RgbColorModelHex { Val = ColorToHex(shapeInline.Properties.FillColor.Value) }));
+            props.AppendChild(fillElement);
         }
         else
         {
@@ -7474,6 +7893,689 @@ public sealed class DocxExporter
         }
 
         return props;
+    }
+
+    private static OpenXmlElement BuildShapeGeometry(ShapeProperties properties)
+    {
+        if (properties.CustomGeometry is { } customGeometry)
+        {
+            return BuildCustomGeometry(customGeometry, properties.AdjustValues);
+        }
+
+        var preset = new A.PresetGeometry
+        {
+            Preset = MapShapePreset(properties.PresetGeometry)
+        };
+
+        preset.AdjustValueList = BuildPresetAdjustValueList(properties.AdjustValues);
+        return preset;
+    }
+
+    private static A.CustomGeometry BuildCustomGeometry(ShapeGeometry geometry, IReadOnlyDictionary<string, double> adjustValues)
+    {
+        var custom = new A.CustomGeometry();
+
+        var adjustList = BuildCustomAdjustValueList(geometry.Adjusts, adjustValues);
+        if (adjustList is not null)
+        {
+            custom.AdjustValueList = adjustList;
+        }
+
+        var guideList = BuildGuideList(geometry.Guides);
+        if (guideList is not null)
+        {
+            custom.ShapeGuideList = guideList;
+        }
+
+        if (geometry.TextRectangle is not null)
+        {
+            custom.Rectangle = new A.Rectangle
+            {
+                Left = geometry.TextRectangle.Left,
+                Top = geometry.TextRectangle.Top,
+                Right = geometry.TextRectangle.Right,
+                Bottom = geometry.TextRectangle.Bottom
+            };
+        }
+
+        var pathList = BuildPathList(geometry.Paths);
+        if (pathList is not null)
+        {
+            custom.PathList = pathList;
+        }
+
+        return custom;
+    }
+
+    private static A.AdjustValueList BuildPresetAdjustValueList(IReadOnlyDictionary<string, double> values)
+    {
+        var list = new A.AdjustValueList();
+        foreach (var pair in values)
+        {
+            list.AppendChild(new A.ShapeGuide
+            {
+                Name = pair.Key,
+                Formula = $"val {FormatShapeValue(pair.Value)}"
+            });
+        }
+
+        return list;
+    }
+
+    private static A.AdjustValueList? BuildCustomAdjustValueList(IReadOnlyList<ShapeGuide> adjusts, IReadOnlyDictionary<string, double> overrides)
+    {
+        if (adjusts.Count == 0 && overrides.Count == 0)
+        {
+            return null;
+        }
+
+        var list = new A.AdjustValueList();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var adjust in adjusts)
+        {
+            var formula = adjust.FormulaText;
+            if (overrides.TryGetValue(adjust.Name, out var value))
+            {
+                formula = $"val {FormatShapeValue(value)}";
+            }
+
+            list.AppendChild(new A.ShapeGuide
+            {
+                Name = adjust.Name,
+                Formula = formula
+            });
+            seen.Add(adjust.Name);
+        }
+
+        foreach (var pair in overrides)
+        {
+            if (seen.Contains(pair.Key))
+            {
+                continue;
+            }
+
+            list.AppendChild(new A.ShapeGuide
+            {
+                Name = pair.Key,
+                Formula = $"val {FormatShapeValue(pair.Value)}"
+            });
+        }
+
+        return list;
+    }
+
+    private static A.ShapeGuideList? BuildGuideList(IReadOnlyList<ShapeGuide> guides)
+    {
+        if (guides.Count == 0)
+        {
+            return null;
+        }
+
+        var list = new A.ShapeGuideList();
+        foreach (var guide in guides)
+        {
+            list.AppendChild(new A.ShapeGuide
+            {
+                Name = guide.Name,
+                Formula = guide.FormulaText
+            });
+        }
+
+        return list;
+    }
+
+    private static A.PathList? BuildPathList(IReadOnlyList<ShapePath> paths)
+    {
+        if (paths.Count == 0)
+        {
+            return null;
+        }
+
+        var list = new A.PathList();
+        foreach (var path in paths)
+        {
+            list.AppendChild(BuildShapePath(path));
+        }
+
+        return list;
+    }
+
+    private static A.Path BuildShapePath(ShapePath path)
+    {
+        var element = new A.Path();
+        if (path.Width > 0)
+        {
+            element.Width = path.Width;
+        }
+
+        if (path.Height > 0)
+        {
+            element.Height = path.Height;
+        }
+
+        if (path.FillMode != ShapePathFillMode.Normal)
+        {
+            element.Fill = MapPathFillMode(path.FillMode);
+        }
+
+        if (!path.IsStroked)
+        {
+            element.Stroke = false;
+        }
+
+        if (path.IsExtrusionOk)
+        {
+            element.ExtrusionOk = true;
+        }
+
+        foreach (var command in path.Commands)
+        {
+            switch (command)
+            {
+                case ShapeMoveToCommand moveTo:
+                    element.AppendChild(new A.MoveTo
+                    {
+                        Point = new A.Point { X = moveTo.Point.X, Y = moveTo.Point.Y }
+                    });
+                    break;
+                case ShapeLineToCommand lineTo:
+                    element.AppendChild(new A.LineTo
+                    {
+                        Point = new A.Point { X = lineTo.Point.X, Y = lineTo.Point.Y }
+                    });
+                    break;
+                case ShapeQuadBezierToCommand quadTo:
+                {
+                    var quad = new A.QuadraticBezierCurveTo();
+                    quad.AppendChild(new A.Point { X = quadTo.ControlPoint.X, Y = quadTo.ControlPoint.Y });
+                    quad.AppendChild(new A.Point { X = quadTo.EndPoint.X, Y = quadTo.EndPoint.Y });
+                    element.AppendChild(quad);
+                    break;
+                }
+                case ShapeCubicBezierToCommand cubicTo:
+                {
+                    var cubic = new A.CubicBezierCurveTo();
+                    cubic.AppendChild(new A.Point { X = cubicTo.ControlPoint1.X, Y = cubicTo.ControlPoint1.Y });
+                    cubic.AppendChild(new A.Point { X = cubicTo.ControlPoint2.X, Y = cubicTo.ControlPoint2.Y });
+                    cubic.AppendChild(new A.Point { X = cubicTo.EndPoint.X, Y = cubicTo.EndPoint.Y });
+                    element.AppendChild(cubic);
+                    break;
+                }
+                case ShapeArcToCommand arcTo:
+                    element.AppendChild(new A.ArcTo
+                    {
+                        WidthRadius = arcTo.RadiusX,
+                        HeightRadius = arcTo.RadiusY,
+                        StartAngle = arcTo.StartAngle,
+                        SwingAngle = arcTo.SweepAngle
+                    });
+                    break;
+                case ShapeClosePathCommand:
+                    element.AppendChild(new A.CloseShapePath());
+                    break;
+            }
+        }
+
+        return element;
+    }
+
+    private static OpenXmlElement? BuildShapeFill(ShapeProperties properties, ImageWriter imageWriter)
+    {
+        var fill = properties.Fill;
+        if (fill is ShapeNoFill)
+        {
+            return new A.NoFill();
+        }
+
+        if (fill is ShapeSolidFill solidFill)
+        {
+            return new A.SolidFill(new A.RgbColorModelHex { Val = ColorToHex(solidFill.Color) });
+        }
+
+        if (fill is ShapeGradientFill gradientFill)
+        {
+            return BuildGradientFill(gradientFill);
+        }
+
+        if (fill is ShapePatternFill patternFill)
+        {
+            return BuildPatternFill(patternFill);
+        }
+
+        if (fill is ShapeImageFill imageFill)
+        {
+            return BuildImageFill(imageFill, imageWriter);
+        }
+
+        if (properties.FillColor.HasValue)
+        {
+            return new A.SolidFill(new A.RgbColorModelHex { Val = ColorToHex(properties.FillColor.Value) });
+        }
+
+        return null;
+    }
+
+    private static A.GradientFill BuildGradientFill(ShapeGradientFill fill)
+    {
+        var gradientFill = new A.GradientFill();
+        var stopList = new A.GradientStopList();
+        foreach (var stop in fill.Stops)
+        {
+            var position = (int)MathF.Round(Clamp01(stop.Position) * 100000f);
+            var stopElement = new A.GradientStop { Position = position };
+            stopElement.AppendChild(new A.RgbColorModelHex { Val = ColorToHex(stop.Color) });
+            stopList.AppendChild(stopElement);
+        }
+
+        gradientFill.GradientStopList = stopList;
+
+        if (fill.Type == ShapeGradientType.Radial)
+        {
+            var path = new A.PathGradientFill();
+            if (fill.FillRect is not null)
+            {
+                path.FillToRectangle = BuildFillToRectangle(fill.FillRect);
+            }
+
+            gradientFill.AppendChild(path);
+        }
+        else
+        {
+            var linear = new A.LinearGradientFill();
+            if (MathF.Abs(fill.Angle) > 0.01f)
+            {
+                linear.Angle = (int)MathF.Round(fill.Angle * 60000f);
+            }
+
+            if (fill.IsScaled)
+            {
+                linear.Scaled = true;
+            }
+
+            gradientFill.AppendChild(linear);
+        }
+
+        if (fill.FillRect is not null && fill.Type == ShapeGradientType.Linear)
+        {
+            gradientFill.AppendChild(BuildFillRectangle(fill.FillRect));
+        }
+
+        if (fill.TileRect is not null)
+        {
+            gradientFill.AppendChild(BuildTileRectangle(fill.TileRect));
+        }
+
+        return gradientFill;
+    }
+
+    private static A.PatternFill BuildPatternFill(ShapePatternFill fill)
+    {
+        var patternFill = new A.PatternFill();
+        if (TryMapPatternPreset(fill.Pattern, out var preset))
+        {
+            patternFill.Preset = preset;
+        }
+        else
+        {
+            patternFill.Preset = A.PresetPatternValues.Percent50;
+        }
+
+        var foreground = new A.ForegroundColor();
+        foreground.AppendChild(new A.RgbColorModelHex { Val = ColorToHex(fill.Foreground) });
+        patternFill.ForegroundColor = foreground;
+
+        var background = new A.BackgroundColor();
+        background.AppendChild(new A.RgbColorModelHex { Val = ColorToHex(fill.Background) });
+        patternFill.BackgroundColor = background;
+
+        return patternFill;
+    }
+
+    private static A.BlipFill? BuildImageFill(ShapeImageFill fill, ImageWriter imageWriter)
+    {
+        if (fill.Data.Length == 0)
+        {
+            return null;
+        }
+
+        var imageInline = new ImageInline(fill.Data, 0f, 0f, fill.ContentType);
+        var relationshipId = imageWriter.AddImage(imageInline);
+
+        var blipFill = new A.BlipFill
+        {
+            Blip = new A.Blip { Embed = relationshipId }
+        };
+
+        if (fill.Crop is not null && fill.Crop.HasValues)
+        {
+            blipFill.SourceRectangle = BuildSourceRectangle(fill.Crop);
+        }
+
+        if (fill.Mode == ShapeImageFillMode.Tile)
+        {
+            var tile = new A.Tile();
+            if (fill.Tile is not null)
+            {
+                if (MathF.Abs(fill.Tile.OffsetX) > 0.01f)
+                {
+                    tile.HorizontalOffset = DipToEmu(fill.Tile.OffsetX);
+                }
+
+                if (MathF.Abs(fill.Tile.OffsetY) > 0.01f)
+                {
+                    tile.VerticalOffset = DipToEmu(fill.Tile.OffsetY);
+                }
+
+                if (MathF.Abs(fill.Tile.ScaleX - 1f) > 0.001f)
+                {
+                    tile.HorizontalRatio = (int)MathF.Round(fill.Tile.ScaleX * 100000f);
+                }
+
+                if (MathF.Abs(fill.Tile.ScaleY - 1f) > 0.001f)
+                {
+                    tile.VerticalRatio = (int)MathF.Round(fill.Tile.ScaleY * 100000f);
+                }
+            }
+
+            blipFill.AppendChild(tile);
+        }
+        else
+        {
+            var stretch = new A.Stretch();
+            stretch.FillRectangle = new A.FillRectangle();
+            blipFill.AppendChild(stretch);
+        }
+
+        return blipFill;
+    }
+
+    private static A.SourceRectangle BuildSourceRectangle(ImageCrop crop)
+    {
+        return new A.SourceRectangle
+        {
+            Left = ToPercentage(crop.Left),
+            Top = ToPercentage(crop.Top),
+            Right = ToPercentage(crop.Right),
+            Bottom = ToPercentage(crop.Bottom)
+        };
+    }
+
+    private static A.FillToRectangle BuildFillToRectangle(ShapeGradientRect rect)
+    {
+        return new A.FillToRectangle
+        {
+            Left = ToPercentage(rect.Left),
+            Top = ToPercentage(rect.Top),
+            Right = ToPercentage(rect.Right),
+            Bottom = ToPercentage(rect.Bottom)
+        };
+    }
+
+    private static A.FillRectangle BuildFillRectangle(ShapeGradientRect rect)
+    {
+        return new A.FillRectangle
+        {
+            Left = ToPercentage(rect.Left),
+            Top = ToPercentage(rect.Top),
+            Right = ToPercentage(rect.Right),
+            Bottom = ToPercentage(rect.Bottom)
+        };
+    }
+
+    private static A.TileRectangle BuildTileRectangle(ShapeGradientRect rect)
+    {
+        return new A.TileRectangle
+        {
+            Left = ToPercentage(rect.Left),
+            Top = ToPercentage(rect.Top),
+            Right = ToPercentage(rect.Right),
+            Bottom = ToPercentage(rect.Bottom)
+        };
+    }
+
+    private static A.PathFillModeValues MapPathFillMode(ShapePathFillMode mode)
+    {
+        return mode switch
+        {
+            ShapePathFillMode.None => A.PathFillModeValues.None,
+            ShapePathFillMode.Lighten => A.PathFillModeValues.Lighten,
+            ShapePathFillMode.LightenLess => A.PathFillModeValues.LightenLess,
+            ShapePathFillMode.Darken => A.PathFillModeValues.Darken,
+            ShapePathFillMode.DarkenLess => A.PathFillModeValues.DarkenLess,
+            _ => A.PathFillModeValues.Norm
+        };
+    }
+
+    private static bool TryMapPatternPreset(string? pattern, out A.PresetPatternValues preset)
+    {
+        var key = NormalizePatternKey(pattern);
+        switch (key)
+        {
+            case "pct5":
+                preset = A.PresetPatternValues.Percent5;
+                return true;
+            case "pct10":
+                preset = A.PresetPatternValues.Percent10;
+                return true;
+            case "pct20":
+                preset = A.PresetPatternValues.Percent20;
+                return true;
+            case "pct25":
+                preset = A.PresetPatternValues.Percent25;
+                return true;
+            case "pct30":
+                preset = A.PresetPatternValues.Percent30;
+                return true;
+            case "pct40":
+                preset = A.PresetPatternValues.Percent40;
+                return true;
+            case "pct50":
+                preset = A.PresetPatternValues.Percent50;
+                return true;
+            case "pct60":
+                preset = A.PresetPatternValues.Percent60;
+                return true;
+            case "pct70":
+                preset = A.PresetPatternValues.Percent70;
+                return true;
+            case "pct75":
+                preset = A.PresetPatternValues.Percent75;
+                return true;
+            case "pct80":
+                preset = A.PresetPatternValues.Percent80;
+                return true;
+            case "pct90":
+                preset = A.PresetPatternValues.Percent90;
+                return true;
+            case "horz":
+                preset = A.PresetPatternValues.Horizontal;
+                return true;
+            case "vert":
+                preset = A.PresetPatternValues.Vertical;
+                return true;
+            case "lthorz":
+                preset = A.PresetPatternValues.LightHorizontal;
+                return true;
+            case "ltvert":
+                preset = A.PresetPatternValues.LightVertical;
+                return true;
+            case "dkhorz":
+                preset = A.PresetPatternValues.DarkHorizontal;
+                return true;
+            case "dkvert":
+                preset = A.PresetPatternValues.DarkVertical;
+                return true;
+            case "narhorz":
+                preset = A.PresetPatternValues.NarrowHorizontal;
+                return true;
+            case "narvert":
+                preset = A.PresetPatternValues.NarrowVertical;
+                return true;
+            case "dashhorz":
+                preset = A.PresetPatternValues.DashedHorizontal;
+                return true;
+            case "dashvert":
+                preset = A.PresetPatternValues.DashedVertical;
+                return true;
+            case "cross":
+                preset = A.PresetPatternValues.Cross;
+                return true;
+            case "dndiag":
+                preset = A.PresetPatternValues.DownwardDiagonal;
+                return true;
+            case "updiag":
+                preset = A.PresetPatternValues.UpwardDiagonal;
+                return true;
+            case "ltdndiag":
+                preset = A.PresetPatternValues.LightDownwardDiagonal;
+                return true;
+            case "ltupdiag":
+                preset = A.PresetPatternValues.LightUpwardDiagonal;
+                return true;
+            case "dkdndiag":
+                preset = A.PresetPatternValues.DarkDownwardDiagonal;
+                return true;
+            case "dkupdiag":
+                preset = A.PresetPatternValues.DarkUpwardDiagonal;
+                return true;
+            case "wddndiag":
+                preset = A.PresetPatternValues.WideDownwardDiagonal;
+                return true;
+            case "wdupdiag":
+                preset = A.PresetPatternValues.WideUpwardDiagonal;
+                return true;
+            case "dashdndiag":
+                preset = A.PresetPatternValues.DashedDownwardDiagonal;
+                return true;
+            case "dashupdiag":
+                preset = A.PresetPatternValues.DashedUpwardDiagonal;
+                return true;
+            case "diagcross":
+                preset = A.PresetPatternValues.DiagonalCross;
+                return true;
+            case "smcheck":
+                preset = A.PresetPatternValues.SmallCheck;
+                return true;
+            case "lgcheck":
+                preset = A.PresetPatternValues.LargeCheck;
+                return true;
+            case "smgrid":
+                preset = A.PresetPatternValues.SmallGrid;
+                return true;
+            case "lggrid":
+                preset = A.PresetPatternValues.LargeGrid;
+                return true;
+            case "dotgrid":
+                preset = A.PresetPatternValues.DotGrid;
+                return true;
+            case "smconfetti":
+                preset = A.PresetPatternValues.SmallConfetti;
+                return true;
+            case "lgconfetti":
+                preset = A.PresetPatternValues.LargeConfetti;
+                return true;
+            case "horzbrick":
+                preset = A.PresetPatternValues.HorizontalBrick;
+                return true;
+            case "diagbrick":
+                preset = A.PresetPatternValues.DiagonalBrick;
+                return true;
+            case "soliddmnd":
+                preset = A.PresetPatternValues.SolidDiamond;
+                return true;
+            case "opendmnd":
+                preset = A.PresetPatternValues.OpenDiamond;
+                return true;
+            case "dotdmnd":
+                preset = A.PresetPatternValues.DottedDiamond;
+                return true;
+            case "plaid":
+                preset = A.PresetPatternValues.Plaid;
+                return true;
+            case "sphere":
+                preset = A.PresetPatternValues.Sphere;
+                return true;
+            case "weave":
+                preset = A.PresetPatternValues.Weave;
+                return true;
+            case "divot":
+                preset = A.PresetPatternValues.Divot;
+                return true;
+            case "shingle":
+                preset = A.PresetPatternValues.Shingle;
+                return true;
+            case "wave":
+                preset = A.PresetPatternValues.Wave;
+                return true;
+            case "trellis":
+                preset = A.PresetPatternValues.Trellis;
+                return true;
+            case "zigzag":
+                preset = A.PresetPatternValues.ZigZag;
+                return true;
+        }
+
+        preset = default;
+        return false;
+    }
+
+    private static string NormalizePatternKey(string? pattern)
+    {
+        if (string.IsNullOrWhiteSpace(pattern))
+        {
+            return string.Empty;
+        }
+
+        var span = pattern.AsSpan().Trim();
+        Span<char> buffer = stackalloc char[span.Length];
+        var count = 0;
+        for (var i = 0; i < span.Length; i++)
+        {
+            var ch = span[i];
+            if (!char.IsLetterOrDigit(ch))
+            {
+                continue;
+            }
+
+            buffer[count++] = char.ToLowerInvariant(ch);
+        }
+
+        return new string(buffer.Slice(0, count));
+    }
+
+    private static int ToPercentage(float value)
+    {
+        if (value <= 0f)
+        {
+            return 0;
+        }
+
+        if (value >= 1f)
+        {
+            return 100000;
+        }
+
+        return (int)MathF.Round(value * 100000f);
+    }
+
+    private static float Clamp01(float value)
+    {
+        if (value <= 0f)
+        {
+            return 0f;
+        }
+
+        if (value >= 1f)
+        {
+            return 1f;
+        }
+
+        return value;
+    }
+
+    private static string FormatShapeValue(double value)
+    {
+        return value.ToString(System.Globalization.CultureInfo.InvariantCulture);
     }
 
     private static Wps.TextBodyProperties? BuildShapeBodyProperties(ShapeTextBox? textBox)
@@ -7497,7 +8599,67 @@ public sealed class DocxExporter
             _ => A.TextAnchoringTypeValues.Top
         };
 
+        if (textBox.Properties.HorizontalOverflow != ShapeTextOverflow.Overflow)
+        {
+            body.HorizontalOverflow = MapShapeTextHorizontalOverflow(textBox.Properties.HorizontalOverflow);
+        }
+
+        if (textBox.Properties.VerticalOverflow != ShapeTextOverflow.Overflow)
+        {
+            body.VerticalOverflow = MapShapeTextVerticalOverflow(textBox.Properties.VerticalOverflow);
+        }
+
+        if (textBox.Properties.TextDirection.HasValue)
+        {
+            var (vertical, upright) = MapShapeTextVertical(textBox.Properties.TextDirection.Value);
+            body.Vertical = vertical;
+            if (DocTextDirectionHelpers.IsVertical(textBox.Properties.TextDirection))
+            {
+                body.UpRight = upright;
+            }
+        }
+
+        switch (textBox.Properties.AutoFit)
+        {
+            case ShapeTextAutoFit.TextToFitShape:
+                body.AppendChild(new A.NormalAutoFit());
+                break;
+            case ShapeTextAutoFit.ShapeToFitText:
+                body.AppendChild(new A.ShapeAutoFit());
+                break;
+        }
+
         return body;
+    }
+
+    private static A.TextHorizontalOverflowValues MapShapeTextHorizontalOverflow(ShapeTextOverflow overflow)
+    {
+        return overflow == ShapeTextOverflow.Clip || overflow == ShapeTextOverflow.Ellipsis
+            ? A.TextHorizontalOverflowValues.Clip
+            : A.TextHorizontalOverflowValues.Overflow;
+    }
+
+    private static A.TextVerticalOverflowValues MapShapeTextVerticalOverflow(ShapeTextOverflow overflow)
+    {
+        return overflow switch
+        {
+            ShapeTextOverflow.Clip => A.TextVerticalOverflowValues.Clip,
+            ShapeTextOverflow.Ellipsis => A.TextVerticalOverflowValues.Ellipsis,
+            _ => A.TextVerticalOverflowValues.Overflow
+        };
+    }
+
+    private static (A.TextVerticalValues Vertical, bool Upright) MapShapeTextVertical(DocTextDirection direction)
+    {
+        if (direction == DocTextDirection.LeftToRightTopToBottom)
+        {
+            return (A.TextVerticalValues.Horizontal, false);
+        }
+
+        var upright = DocTextDirectionHelpers.UseUprightVerticalForms(direction);
+        var rotation = DocTextDirectionHelpers.GetRotationDegrees(direction);
+        var vertical = rotation < 0f ? A.TextVerticalValues.Vertical270 : A.TextVerticalValues.Vertical;
+        return (vertical, upright);
     }
 
     private static Wps.TextBoxInfo2? BuildShapeTextBox(
@@ -7581,6 +8743,57 @@ public sealed class DocxExporter
         {
             Width = (Int32Value)DipToEmu(border.Thickness)
         };
+
+        if (border.LineCap != DocLineCap.Flat)
+        {
+            outline.CapType = MapLineCap(border.LineCap);
+        }
+
+        var compound = border.Compound;
+        if (compound == DocCompoundLine.Single)
+        {
+            compound = border.Style switch
+            {
+                DocBorderStyle.Double => DocCompoundLine.Double,
+                DocBorderStyle.Triple => DocCompoundLine.Triple,
+                DocBorderStyle.ThickThin => DocCompoundLine.ThickThin,
+                DocBorderStyle.ThinThick => DocCompoundLine.ThinThick,
+                DocBorderStyle.ThinThickThin => DocCompoundLine.Triple,
+                _ => DocCompoundLine.Single
+            };
+        }
+
+        if (compound != DocCompoundLine.Single)
+        {
+            outline.CompoundLineType = MapCompoundLine(compound);
+        }
+
+        if (border.LineJoin == DocLineJoin.Round)
+        {
+            outline.AppendChild(new A.Round());
+        }
+        else if (border.LineJoin == DocLineJoin.Bevel)
+        {
+            outline.AppendChild(new A.LineJoinBevel());
+        }
+        else if (border.LineJoin == DocLineJoin.Miter && border.MiterLimit.HasValue)
+        {
+            var miter = new A.Miter
+            {
+                Limit = (Int32Value)MathF.Round(border.MiterLimit.Value * 100000f)
+            };
+            outline.AppendChild(miter);
+        }
+
+        if (border.HeadArrow.IsVisible)
+        {
+            outline.AppendChild(BuildLineArrowHead(border.HeadArrow, true));
+        }
+
+        if (border.TailArrow.IsVisible)
+        {
+            outline.AppendChild(BuildLineArrowHead(border.TailArrow, false));
+        }
 
         outline.AppendChild(new A.SolidFill(new A.RgbColorModelHex { Val = ColorToHex(border.Color) }));
         var dash = MapShapeDash(border.Style);
@@ -7715,6 +8928,16 @@ public sealed class DocxExporter
         return (Int32Value)MathF.Round(value * 100000f);
     }
 
+    private static Int32Value ToDrawingRatioValue(float value)
+    {
+        if (value <= 0f)
+        {
+            return 0;
+        }
+
+        return (Int32Value)MathF.Round(value * 100000f);
+    }
+
     private static A.PresetLineDashValues? MapShapeDash(DocBorderStyle style)
     {
         return style switch
@@ -7724,6 +8947,107 @@ public sealed class DocxExporter
             DocBorderStyle.DotDash => A.PresetLineDashValues.DashDot,
             DocBorderStyle.DotDotDash => A.PresetLineDashValues.SystemDashDotDot,
             _ => null
+        };
+    }
+
+    private static void ApplyImageColorEffects(A.Blip blip, DrawingColorEffects? effects)
+    {
+        if (effects is null || !effects.HasValues)
+        {
+            return;
+        }
+
+        if (effects.Tint.HasValue)
+        {
+            blip.AppendChild(new A.Tint { Val = ToDrawingPercentageValue(effects.Tint.Value) });
+        }
+
+        if (effects.Saturation.HasValue)
+        {
+            blip.AppendChild(new A.SaturationModulation { Val = ToDrawingRatioValue(effects.Saturation.Value) });
+        }
+
+        if (effects.RecolorDark.HasValue || effects.RecolorLight.HasValue)
+        {
+            var dark = effects.RecolorDark ?? DocColor.Black;
+            var light = effects.RecolorLight ?? DocColor.White;
+            var duotone = new A.Duotone();
+            duotone.AppendChild(BuildDrawingColor(dark));
+            duotone.AppendChild(BuildDrawingColor(light));
+            blip.AppendChild(duotone);
+        }
+    }
+
+    private static A.LineCapValues MapLineCap(DocLineCap cap)
+    {
+        return cap switch
+        {
+            DocLineCap.Round => A.LineCapValues.Round,
+            DocLineCap.Square => A.LineCapValues.Square,
+            _ => A.LineCapValues.Flat
+        };
+    }
+
+    private static A.CompoundLineValues MapCompoundLine(DocCompoundLine compound)
+    {
+        return compound switch
+        {
+            DocCompoundLine.Double => A.CompoundLineValues.Double,
+            DocCompoundLine.ThickThin => A.CompoundLineValues.ThickThin,
+            DocCompoundLine.ThinThick => A.CompoundLineValues.ThinThick,
+            DocCompoundLine.Triple => A.CompoundLineValues.Triple,
+            _ => A.CompoundLineValues.Single
+        };
+    }
+
+    private static A.LineEndPropertiesType BuildLineArrowHead(DocLineArrow arrow, bool isHead)
+    {
+        A.LineEndPropertiesType target;
+        if (isHead)
+        {
+            target = new A.HeadEnd();
+        }
+        else
+        {
+            target = new A.TailEnd();
+        }
+
+        target.Type = MapLineArrowType(arrow.Type);
+        target.Width = MapLineArrowWidth(arrow.Width);
+        target.Length = MapLineArrowLength(arrow.Length);
+        return target;
+    }
+
+    private static A.LineEndValues MapLineArrowType(DocLineArrowType type)
+    {
+        return type switch
+        {
+            DocLineArrowType.Triangle => A.LineEndValues.Triangle,
+            DocLineArrowType.Stealth => A.LineEndValues.Stealth,
+            DocLineArrowType.Diamond => A.LineEndValues.Diamond,
+            DocLineArrowType.Oval => A.LineEndValues.Oval,
+            DocLineArrowType.Arrow => A.LineEndValues.Arrow,
+            _ => A.LineEndValues.None
+        };
+    }
+
+    private static A.LineEndWidthValues MapLineArrowWidth(DocLineArrowSize size)
+    {
+        return size switch
+        {
+            DocLineArrowSize.Small => A.LineEndWidthValues.Small,
+            DocLineArrowSize.Large => A.LineEndWidthValues.Large,
+            _ => A.LineEndWidthValues.Medium
+        };
+    }
+
+    private static A.LineEndLengthValues MapLineArrowLength(DocLineArrowSize size)
+    {
+        return size switch
+        {
+            DocLineArrowSize.Small => A.LineEndLengthValues.Small,
+            DocLineArrowSize.Large => A.LineEndLengthValues.Large,
+            _ => A.LineEndLengthValues.Medium
         };
     }
 
@@ -7738,10 +9062,16 @@ public sealed class DocxExporter
         var widthEmu = DipToEmu(imageInline.Width);
         var heightEmu = DipToEmu(imageInline.Height);
         var docProperties = new DW.DocProperties { Id = 1U, Name = "Picture" };
+        var transform = new A.Transform2D(
+            new A.Offset { X = 0L, Y = 0L },
+            new A.Extents { Cx = widthEmu, Cy = heightEmu });
+        if (MathF.Abs(imageInline.Rotation) >= 0.01f)
+        {
+            transform.Rotation = (int)MathF.Round(imageInline.Rotation * 60000f);
+        }
+
         var shapeProperties = new PIC.ShapeProperties(
-            new A.Transform2D(
-                new A.Offset { X = 0L, Y = 0L },
-                new A.Extents { Cx = widthEmu, Cy = heightEmu }),
+            transform,
             new A.PresetGeometry(new A.AdjustValueList())
             {
                 Preset = A.ShapeTypeValues.Rectangle
@@ -7753,15 +9083,25 @@ public sealed class DocxExporter
             shapeProperties.AppendChild(effects);
         }
 
+        var blip = new A.Blip { Embed = relationshipId, CompressionState = A.BlipCompressionValues.Print };
+        ApplyImageColorEffects(blip, imageInline.Effects?.Color);
+
+        var blipFill = new PIC.BlipFill(
+            blip,
+            new A.Stretch(new A.FillRectangle()));
+
+        if (imageInline.Crop is { HasValues: true } crop)
+        {
+            blipFill.SourceRectangle = BuildSourceRectangle(crop);
+        }
+
         var graphic = new A.Graphic(
             new A.GraphicData(
                 new PIC.Picture(
                     new PIC.NonVisualPictureProperties(
                         new PIC.NonVisualDrawingProperties { Id = 0U, Name = "Picture" },
                         new PIC.NonVisualPictureDrawingProperties()),
-                    new PIC.BlipFill(
-                        new A.Blip { Embed = relationshipId, CompressionState = A.BlipCompressionValues.Print },
-                        new A.Stretch(new A.FillRectangle())),
+                    blipFill,
                     shapeProperties)
             )
             { Uri = "http://schemas.openxmlformats.org/drawingml/2006/picture" });
