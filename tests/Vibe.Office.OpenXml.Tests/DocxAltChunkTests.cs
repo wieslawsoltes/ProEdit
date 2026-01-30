@@ -46,6 +46,39 @@ public sealed class DocxAltChunkTests
         }
     }
 
+    [Fact]
+    public void Importer_ConvertsHtmlAltChunkToBlocks()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), "VibeOfficeTests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempRoot);
+        var inputPath = Path.Combine(tempRoot, "altchunk-html.docx");
+
+        try
+        {
+            const string html = "<html><body><p>Alpha</p><p><b>Bold</b> Text</p></body></html>";
+            CreateHtmlAltChunkDoc(inputPath, html);
+
+            var importer = new DocxImporter();
+            var document = importer.Load(inputPath);
+
+            Assert.DoesNotContain(document.Blocks, block => block is AltChunkBlock);
+
+            var paragraphs = document.Blocks.OfType<ParagraphBlock>().ToList();
+            Assert.NotEmpty(paragraphs);
+
+            var combined = string.Join("\n", paragraphs.Select(GetParagraphText));
+            Assert.Contains("Alpha", combined, StringComparison.Ordinal);
+            Assert.Contains("Bold Text", combined, StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                Directory.Delete(tempRoot, true);
+            }
+        }
+    }
+
     private static void CreateRtfAltChunkDoc(string filePath, string rtf)
     {
         using var doc = WordprocessingDocument.Create(filePath, WordprocessingDocumentType.Document);
@@ -54,6 +87,24 @@ public sealed class DocxAltChunkTests
 
         var altPart = mainPart.AddAlternativeFormatImportPart("text/rtf");
         var data = Encoding.UTF8.GetBytes(rtf);
+        using (var stream = altPart.GetStream(FileMode.Create, FileAccess.Write))
+        {
+            stream.Write(data, 0, data.Length);
+        }
+
+        var relId = mainPart.GetIdOfPart(altPart);
+        mainPart.Document.Body!.AppendChild(new AltChunk { Id = relId });
+        mainPart.Document.Save();
+    }
+
+    private static void CreateHtmlAltChunkDoc(string filePath, string html)
+    {
+        using var doc = WordprocessingDocument.Create(filePath, WordprocessingDocumentType.Document);
+        var mainPart = doc.AddMainDocumentPart();
+        mainPart.Document = new WordDocument(new Body());
+
+        var altPart = mainPart.AddAlternativeFormatImportPart("text/html");
+        var data = Encoding.UTF8.GetBytes(html);
         using (var stream = altPart.GetStream(FileMode.Create, FileAccess.Write))
         {
             stream.Write(data, 0, data.Length);
