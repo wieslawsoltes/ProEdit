@@ -14,6 +14,7 @@ public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
     private static readonly TextShapeInfo EmptyShapeInfo = new TextShapeInfo(0, Array.Empty<int>(), Array.Empty<float>());
     private const int FontSizeScale = 512;
     private const int MaxFeatureCount = 40;
+    private const float VerticalCompressionScale = 0.85f; // Word-like vertical compression factor.
     private static readonly HarfBuzzSharp.Tag LigaTag = new HarfBuzzSharp.Tag('l', 'i', 'g', 'a');
     private static readonly HarfBuzzSharp.Tag CligTag = new HarfBuzzSharp.Tag('c', 'l', 'i', 'g');
     private static readonly HarfBuzzSharp.Tag DligTag = new HarfBuzzSharp.Tag('d', 'l', 'i', 'g');
@@ -61,6 +62,8 @@ public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
         var fallbackResolver = TypefaceResolver as ISkiaTypefaceFallbackResolver;
         var baseTypeface = paint.Typeface ?? SKTypeface.Default;
         var width = 0f;
+        var advanceScale = ResolveVerticalAdvanceScale(style);
+        var applyAdvanceScale = advanceScale != 1f;
         if (text.Length > 0)
         {
             var applyKerning = ShouldApplyKerning(style);
@@ -101,11 +104,19 @@ public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
                     {
                         width = paint.MeasureText(text);
                     }
+                    if (applyAdvanceScale)
+                    {
+                        width *= advanceScale;
+                    }
                 }
                 catch
                 {
                     MarkShaperFailed(baseTypeface);
                     width = paint.MeasureText(text);
+                    if (applyAdvanceScale)
+                    {
+                        width *= advanceScale;
+                    }
                 }
             }
             else
@@ -113,6 +124,10 @@ public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
                 width = applyKerning
                     ? paint.MeasureText(text)
                     : MeasureTextWithoutKerning(text, paint);
+                if (applyAdvanceScale)
+                {
+                    width *= advanceScale;
+                }
             }
         }
 
@@ -173,7 +188,7 @@ public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
             return ShapeTextWithFallback(text, style, paint, fallbackResolver!, _useHarfBuzz && (applyKerning || useOpenTypeFeatures), useOpenTypeFeatures, applyKerning);
         }
 
-        return BuildSimpleShapeInfo(text, paint);
+        return BuildSimpleShapeInfo(text, paint, style);
     }
 
     private float MeasureTextWithFallback(
@@ -192,6 +207,8 @@ public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
         }
 
         var width = 0f;
+        var advanceScale = ResolveVerticalAdvanceScale(style);
+        var applyAdvanceScale = advanceScale != 1f;
         var paintCache = new Dictionary<SKTypeface, SKPaint>();
         var shaperCache = useShaper ? new Dictionary<SKTypeface, SKShaper>() : null;
 
@@ -223,6 +240,10 @@ public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
                             var segmentWidth = MathF.Abs(result.Width);
                             if (!float.IsNaN(segmentWidth) && !float.IsInfinity(segmentWidth))
                             {
+                                if (applyAdvanceScale)
+                                {
+                                    segmentWidth *= advanceScale;
+                                }
                                 width += segmentWidth;
                                 continue;
                             }
@@ -236,9 +257,14 @@ public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
                     }
                 }
 
-                width += applyKerning
+                var segmentWidthFallback = applyKerning
                     ? paint.MeasureText(segmentSpan)
                     : MeasureTextWithoutKerning(segmentSpan, paint);
+                if (applyAdvanceScale)
+                {
+                    segmentWidthFallback *= advanceScale;
+                }
+                width += segmentWidthFallback;
             }
         }
         finally
@@ -340,7 +366,7 @@ public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
                     }
                 }
 
-                segmentShape = BuildSimpleShapeInfo(segmentSpan, paint);
+                segmentShape = BuildSimpleShapeInfo(segmentSpan, paint, style);
                 AppendShapeInfo(segmentShape, segment.Start, offsets, advances);
             }
         }
@@ -399,7 +425,7 @@ public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
         shape = EmptyShapeInfo;
         using var buffer = CreateBuffer(text, style);
         var result = shaper.Shape(buffer, paint);
-        var shaped = BuildShapeInfo(text.Length, result);
+        var shaped = BuildShapeInfo(text.Length, result, ResolveVerticalAdvanceScale(style));
         if (shaped.ClusterOffsets.Length == 0 || shaped.ClusterOffsets.Length != shaped.ClusterAdvances.Length)
         {
             return false;
@@ -435,6 +461,7 @@ public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
             return false;
         }
 
+        var advanceScale = ResolveVerticalAdvanceScale(style);
         using (fontContext)
         using (var buffer = CreateBuffer(text, style))
         {
@@ -450,7 +477,7 @@ public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
 
             var scaleY = paint.TextSize / FontSizeScale;
             var scaleX = scaleY * paint.TextScaleX;
-            shape = BuildShapeInfoFromGlyphs(text.Length, glyphInfos, glyphPositions, scaleX, out width);
+            shape = BuildShapeInfoFromGlyphs(text.Length, glyphInfos, glyphPositions, scaleX, advanceScale, out width);
             return shape.ClusterOffsets.Length != 0 && shape.ClusterOffsets.Length == shape.ClusterAdvances.Length;
         }
     }
@@ -479,6 +506,7 @@ public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
             return false;
         }
 
+        var advanceScale = ResolveVerticalAdvanceScale(style);
         using (fontContext)
         using (var buffer = CreateBuffer(text, style))
         {
@@ -514,15 +542,24 @@ public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
                 clusters[i] = info.Cluster;
 
                 var pos = glyphPositions[i];
+                var xOffset = pos.XOffset * scaleX;
+                if (advanceScale != 1f)
+                {
+                    xOffset *= advanceScale;
+                }
                 positions[i] = new SKPoint(
-                    x + pos.XOffset * scaleX,
+                    x + xOffset,
                     y - pos.YOffset * scaleY);
-
-                x += pos.XAdvance * scaleX;
+                var xAdvance = pos.XAdvance * scaleX;
+                if (advanceScale != 1f)
+                {
+                    xAdvance *= advanceScale;
+                }
+                x += xAdvance;
                 y += pos.YAdvance * scaleY;
             }
 
-            var shapeInfo = BuildShapeInfoFromGlyphs(text.Length, glyphInfos, glyphPositions, scaleX, out var width);
+            var shapeInfo = BuildShapeInfoFromGlyphs(text.Length, glyphInfos, glyphPositions, scaleX, advanceScale, out var width);
             if (shapeInfo.ClusterOffsets.Length == 0 || shapeInfo.ClusterOffsets.Length != shapeInfo.ClusterAdvances.Length)
             {
                 return false;
@@ -538,6 +575,7 @@ public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
         ReadOnlySpan<HarfBuzzSharp.GlyphInfo> glyphInfos,
         ReadOnlySpan<HarfBuzzSharp.GlyphPosition> glyphPositions,
         float scaleX,
+        float advanceScale,
         out float width)
     {
         width = 0f;
@@ -558,6 +596,10 @@ public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
         for (var i = 0; i < glyphCount; i++)
         {
             var advance = glyphPositions[i].XAdvance * scaleX;
+            if (advanceScale != 1f)
+            {
+                advance *= advanceScale;
+            }
             total += advance;
 
             var clusterIndex = (int)glyphInfos[i].Cluster;
@@ -731,6 +773,18 @@ public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
         return DocTextDirectionHelpers.IsVertical(style.TextDirection);
     }
 
+    internal static float ResolveVerticalAdvanceScale(TextStyle style)
+    {
+        if (!HasVerticalLayout(style))
+        {
+            return 1f;
+        }
+
+        return style.EastAsianLayout?.VerticalCompress == true
+            ? VerticalCompressionScale
+            : 1f;
+    }
+
     private static int AppendFeature(Span<HarfBuzzSharp.Feature> features, int count, HarfBuzzSharp.Tag tag, uint value)
     {
         if ((uint)count >= (uint)features.Length)
@@ -749,7 +803,7 @@ public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
         return new HarfBuzzSharp.Tag('s', 's', tens, ones);
     }
 
-    internal static TextShapeInfo BuildSimpleShapeInfo(ReadOnlySpan<char> text, SKPaint paint)
+    internal static TextShapeInfo BuildSimpleShapeInfo(ReadOnlySpan<char> text, SKPaint paint, TextStyle style)
     {
         if (text.IsEmpty)
         {
@@ -758,12 +812,19 @@ public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
 
         var offsets = new List<int>();
         var advances = new List<float>();
+        var advanceScale = ResolveVerticalAdvanceScale(style);
+        var applyAdvanceScale = advanceScale != 1f;
         var index = 0;
         while (index < text.Length)
         {
             var clusterLength = GetNextClusterLength(text, index);
             offsets.Add(index);
-            advances.Add(paint.MeasureText(text.Slice(index, clusterLength)));
+            var advance = paint.MeasureText(text.Slice(index, clusterLength));
+            if (applyAdvanceScale)
+            {
+                advance *= advanceScale;
+            }
+            advances.Add(advance);
             index += clusterLength;
         }
 
@@ -1041,7 +1102,7 @@ public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
         }
     }
 
-    internal static TextShapeInfo BuildShapeInfo(int textLength, SKShaper.Result result)
+    internal static TextShapeInfo BuildShapeInfo(int textLength, SKShaper.Result result, float advanceScale)
     {
         if (textLength <= 0)
         {
@@ -1064,21 +1125,24 @@ public sealed class SkiaTextMeasurer : ITextMeasurerAdvancedSpan
         var totalWidth = MathF.Abs(result.Width);
         if (float.IsNaN(totalWidth) || float.IsInfinity(totalWidth) || totalWidth <= 0f)
         {
-            var lastX = points[glyphCount - 1].X;
-            totalWidth = float.IsNaN(lastX) || float.IsInfinity(lastX) ? 0f : MathF.Abs(lastX);
+            var lastPoint = points[glyphCount - 1].X;
+            totalWidth = float.IsNaN(lastPoint) || float.IsInfinity(lastPoint) ? 0f : MathF.Abs(lastPoint);
         }
-
         var glyphAdvances = new float[glyphCount];
         for (var i = 0; i < glyphCount; i++)
         {
-            var currentX = points[i].X;
-            var nextX = i + 1 < glyphCount ? points[i + 1].X : totalWidth;
-            if (float.IsNaN(currentX) || float.IsNaN(nextX) || float.IsInfinity(currentX) || float.IsInfinity(nextX))
+            var current = points[i].X;
+            var next = i + 1 < glyphCount ? points[i + 1].X : totalWidth;
+            if (float.IsNaN(current) || float.IsNaN(next) || float.IsInfinity(current) || float.IsInfinity(next))
             {
                 return new TextShapeInfo(textLength, Array.Empty<int>(), Array.Empty<float>());
             }
 
-            var advance = nextX - currentX;
+            var advance = next - current;
+            if (advanceScale != 1f)
+            {
+                advance *= advanceScale;
+            }
             glyphAdvances[i] = advance < 0f ? -advance : advance;
         }
 

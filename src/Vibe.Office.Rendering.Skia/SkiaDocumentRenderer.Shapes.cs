@@ -1587,7 +1587,7 @@ public sealed partial class SkiaDocumentRenderer
                     }
                 }
 
-                return SkiaTextMeasurer.BuildSimpleShapeInfo(textSpan, paint);
+                return SkiaTextMeasurer.BuildSimpleShapeInfo(textSpan, paint, runStyle);
             }
 
             var segments = SkiaTextMeasurer.BuildTypefaceSegments(textSpan, runStyle, paint, fallbackResolver);
@@ -1622,7 +1622,7 @@ public sealed partial class SkiaDocumentRenderer
                     }
                 }
 
-                var fallbackShape = SkiaTextMeasurer.BuildSimpleShapeInfo(segmentSpan, segmentPaint);
+                var fallbackShape = SkiaTextMeasurer.BuildSimpleShapeInfo(segmentSpan, segmentPaint, runStyle);
                 AppendShapeInfo(fallbackShape, segment.Start, segmentOffsets, segmentAdvances);
             }
 

@@ -446,7 +446,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                     }
                 }
 
-                return SkiaTextMeasurer.BuildSimpleShapeInfo(textSpan, paint);
+                return SkiaTextMeasurer.BuildSimpleShapeInfo(textSpan, paint, runStyle);
             }
 
             var segments = SkiaTextMeasurer.BuildTypefaceSegments(textSpan, runStyle, paint, fallbackResolver);
@@ -481,7 +481,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                     }
                 }
 
-                var fallbackShape = SkiaTextMeasurer.BuildSimpleShapeInfo(segmentSpan, segmentPaint);
+                var fallbackShape = SkiaTextMeasurer.BuildSimpleShapeInfo(segmentSpan, segmentPaint, runStyle);
                 AppendShapeInfo(fallbackShape, segment.Start, segmentOffsets, segmentAdvances);
             }
 
@@ -3467,6 +3467,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             return;
         }
 
+        var advanceScale = SkiaTextMeasurer.ResolveVerticalAdvanceScale(style);
         if (shaper is not null && SkiaTextMeasurer.HasOpenTypeFeatures(style))
         {
             var applyKerning = SkiaTextMeasurer.ShouldApplyKerning(style);
@@ -3540,7 +3541,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
 
         if (shaper is null)
         {
-            DrawTextWithGridSpacingFallback(canvas, text, x, baseline, paint, measurePaint, letterSpacing, gridSpacing);
+            DrawTextWithGridSpacingFallback(canvas, text, x, baseline, paint, measurePaint, letterSpacing, gridSpacing, advanceScale);
             return;
         }
 
@@ -3553,14 +3554,14 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             var codepoints = result.Codepoints;
             if (clusters is null || points is null || codepoints is null)
             {
-                DrawTextWithGridSpacingFallback(canvas, text, x, baseline, paint, measurePaint, letterSpacing, gridSpacing);
+                DrawTextWithGridSpacingFallback(canvas, text, x, baseline, paint, measurePaint, letterSpacing, gridSpacing, advanceScale);
                 return;
             }
 
-            var shapeInfo = SkiaTextMeasurer.BuildShapeInfo(text.Length, result);
+            var shapeInfo = SkiaTextMeasurer.BuildShapeInfo(text.Length, result, advanceScale);
             if (shapeInfo.ClusterOffsets.Length == 0)
             {
-                DrawTextWithGridSpacingFallback(canvas, text, x, baseline, paint, measurePaint, letterSpacing, gridSpacing);
+                DrawTextWithGridSpacingFallback(canvas, text, x, baseline, paint, measurePaint, letterSpacing, gridSpacing, advanceScale);
                 return;
             }
 
@@ -3598,7 +3599,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             var glyphCount = Math.Min(codepoints.Length, Math.Min(points.Length, clusters.Length));
             if (glyphCount == 0)
             {
-                DrawTextWithGridSpacingFallback(canvas, text, x, baseline, paint, measurePaint, letterSpacing, gridSpacing);
+                DrawTextWithGridSpacingFallback(canvas, text, x, baseline, paint, measurePaint, letterSpacing, gridSpacing, advanceScale);
                 return;
             }
 
@@ -3614,13 +3615,14 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                 }
 
                 var delta = snappedPositions[order] - originalPositions[order];
-                var point = points[i];
-                positions[i] = new SKPoint(point.X + delta, point.Y);
+            var point = points[i];
+            var baseX = advanceScale != 1f ? point.X * advanceScale : point.X;
+            positions[i] = new SKPoint(baseX + delta, point.Y);
 
                 var codepoint = codepoints[i];
                 if (codepoint > ushort.MaxValue)
                 {
-                    DrawTextWithGridSpacingFallback(canvas, text, x, baseline, paint, measurePaint, letterSpacing, gridSpacing);
+                    DrawTextWithGridSpacingFallback(canvas, text, x, baseline, paint, measurePaint, letterSpacing, gridSpacing, advanceScale);
                     return;
                 }
 
@@ -3633,7 +3635,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             using var blob = blobBuilder.Build();
             if (blob is null)
             {
-                DrawTextWithGridSpacingFallback(canvas, text, x, baseline, paint, measurePaint, letterSpacing, gridSpacing);
+                DrawTextWithGridSpacingFallback(canvas, text, x, baseline, paint, measurePaint, letterSpacing, gridSpacing, advanceScale);
                 return;
             }
 
@@ -3641,7 +3643,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
         }
         catch
         {
-            DrawTextWithGridSpacingFallback(canvas, text, x, baseline, paint, measurePaint, letterSpacing, gridSpacing);
+            DrawTextWithGridSpacingFallback(canvas, text, x, baseline, paint, measurePaint, letterSpacing, gridSpacing, advanceScale);
         }
     }
 
@@ -3653,7 +3655,8 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
         SKPaint paint,
         SKPaint measurePaint,
         float letterSpacing,
-        float gridSpacing)
+        float gridSpacing,
+        float advanceScale)
     {
         if (string.IsNullOrEmpty(text))
         {
@@ -3677,6 +3680,10 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             canvas.DrawText(glyph, x + offset, baseline, paint);
 
             var advance = MeasureCluster(measurePaint, cluster);
+            if (advanceScale != 1f)
+            {
+                advance *= advanceScale;
+            }
             if (applySpacing && index + length < span.Length)
             {
                 advance += letterSpacing;
@@ -3694,6 +3701,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             return;
         }
 
+        var advanceScale = SkiaTextMeasurer.ResolveVerticalAdvanceScale(style);
         if (shaper is not null && SkiaTextMeasurer.HasOpenTypeFeatures(style))
         {
             var applyKerning = SkiaTextMeasurer.ShouldApplyKerning(style);
@@ -3746,7 +3754,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
 
         if (shaper is null)
         {
-            DrawTextWithLetterSpacingFallback(canvas, text, x, baseline, paint, measurePaint, letterSpacing);
+            DrawTextWithLetterSpacingFallback(canvas, text, x, baseline, paint, measurePaint, letterSpacing, advanceScale);
             return;
         }
 
@@ -3759,14 +3767,14 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             var codepoints = result.Codepoints;
             if (clusters is null || points is null || codepoints is null)
             {
-                DrawTextWithLetterSpacingFallback(canvas, text, x, baseline, paint, measurePaint, letterSpacing);
+                DrawTextWithLetterSpacingFallback(canvas, text, x, baseline, paint, measurePaint, letterSpacing, advanceScale);
                 return;
             }
 
-            var shapeInfo = SkiaTextMeasurer.BuildShapeInfo(text.Length, result);
+            var shapeInfo = SkiaTextMeasurer.BuildShapeInfo(text.Length, result, advanceScale);
             if (shapeInfo.ClusterOffsets.Length == 0)
             {
-                DrawTextWithLetterSpacingFallback(canvas, text, x, baseline, paint, measurePaint, letterSpacing);
+                DrawTextWithLetterSpacingFallback(canvas, text, x, baseline, paint, measurePaint, letterSpacing, advanceScale);
                 return;
             }
 
@@ -3784,7 +3792,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             var glyphCount = Math.Min(codepoints.Length, Math.Min(points.Length, clusters.Length));
             if (glyphCount == 0)
             {
-                DrawTextWithLetterSpacingFallback(canvas, text, x, baseline, paint, measurePaint, letterSpacing);
+                DrawTextWithLetterSpacingFallback(canvas, text, x, baseline, paint, measurePaint, letterSpacing, advanceScale);
                 return;
             }
 
@@ -3801,12 +3809,13 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
 
                 var point = points[i];
                 var offsetX = letterSpacing * order;
-                positions[i] = new SKPoint(point.X + offsetX, point.Y);
+                var baseX = advanceScale != 1f ? point.X * advanceScale : point.X;
+                positions[i] = new SKPoint(baseX + offsetX, point.Y);
 
                 var codepoint = codepoints[i];
                 if (codepoint > ushort.MaxValue)
                 {
-                    DrawTextWithLetterSpacingFallback(canvas, text, x, baseline, paint, measurePaint, letterSpacing);
+                    DrawTextWithLetterSpacingFallback(canvas, text, x, baseline, paint, measurePaint, letterSpacing, advanceScale);
                     return;
                 }
 
@@ -3819,7 +3828,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             using var blob = blobBuilder.Build();
             if (blob is null)
             {
-                DrawTextWithLetterSpacingFallback(canvas, text, x, baseline, paint, measurePaint, letterSpacing);
+                DrawTextWithLetterSpacingFallback(canvas, text, x, baseline, paint, measurePaint, letterSpacing, advanceScale);
                 return;
             }
 
@@ -3827,11 +3836,19 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
         }
         catch
         {
-            DrawTextWithLetterSpacingFallback(canvas, text, x, baseline, paint, measurePaint, letterSpacing);
+            DrawTextWithLetterSpacingFallback(canvas, text, x, baseline, paint, measurePaint, letterSpacing, advanceScale);
         }
     }
 
-    private static void DrawTextWithLetterSpacingFallback(SKCanvas canvas, string text, float x, float baseline, SKPaint paint, SKPaint measurePaint, float letterSpacing)
+    private static void DrawTextWithLetterSpacingFallback(
+        SKCanvas canvas,
+        string text,
+        float x,
+        float baseline,
+        SKPaint paint,
+        SKPaint measurePaint,
+        float letterSpacing,
+        float advanceScale)
     {
         if (string.IsNullOrEmpty(text))
         {
@@ -3853,6 +3870,10 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             canvas.DrawText(glyph, x, baseline, paint);
 
             var advance = MeasureCluster(measurePaint, cluster);
+            if (advanceScale != 1f)
+            {
+                advance *= advanceScale;
+            }
             if (index + length < span.Length)
             {
                 advance += letterSpacing;
@@ -4941,6 +4962,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
         private readonly string _languageBidi;
         private readonly int _textDirection;
         private readonly float _horizontalScale;
+        private readonly bool _verticalCompress;
         private readonly bool _hasLigatures;
         private readonly DocLigatureOptions _ligatures;
         private readonly bool _hasContextualAlternates;
@@ -4968,6 +4990,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             _languageBidi = style.LanguageBidi ?? string.Empty;
             _textDirection = style.TextDirection.HasValue ? (int)style.TextDirection.Value + 1 : 0;
             _horizontalScale = style.HorizontalScale;
+            _verticalCompress = style.EastAsianLayout?.VerticalCompress == true;
 
             var features = style.OpenTypeFeatures;
             if (features is not null)
@@ -5001,6 +5024,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             && _languageBidi == other._languageBidi
             && _textDirection == other._textDirection
             && _horizontalScale.Equals(other._horizontalScale)
+            && _verticalCompress == other._verticalCompress
                 && _hasLigatures == other._hasLigatures
                 && (!_hasLigatures || _ligatures == other._ligatures)
                 && _hasContextualAlternates == other._hasContextualAlternates
@@ -5028,7 +5052,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
         hash = HashCode.Combine(hash, _language);
         hash = HashCode.Combine(hash, _languageEastAsia);
         hash = HashCode.Combine(hash, _languageBidi);
-        hash = HashCode.Combine(hash, _textDirection, _horizontalScale);
+        hash = HashCode.Combine(hash, _textDirection, _horizontalScale, _verticalCompress ? 1 : 0);
             hash = HashCode.Combine(hash, _hasLigatures ? (int)_ligatures : 0, _hasContextualAlternates ? (_contextualAlternates ? 1 : 0) : 0);
             hash = HashCode.Combine(hash, _hasNumberForm ? (int)_numberForm : 0, _hasNumberSpacing ? (int)_numberSpacing : 0);
             return HashCode.Combine(hash, _hasStylisticSets ? (int)_stylisticSets : 0);
