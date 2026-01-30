@@ -158,6 +158,8 @@ public sealed class DocumentLayouter
         var wrapIntervalsScratch = new List<WrapInterval>();
         var wrapExclusionSpans = new List<WrapInterval>();
         var wrapContourScratch = new List<WrapInterval>();
+        var wrapPrioritySpans = new List<WrapInterval>();
+        var wrapPriorityScratch = new List<WrapInterval>();
         var breakMarkers = new List<BreakMarker>();
         var linePageIndices = new List<int>();
         var paragraphLineRanges = new Dictionary<int, LineRange>();
@@ -1116,6 +1118,7 @@ public sealed class DocumentLayouter
                 }
             }
 
+            SortWrapFloatingObjects(wrapFloatingObjects);
             InitializePendingParagraphSpacing();
         }
 
@@ -1141,6 +1144,16 @@ public sealed class DocumentLayouter
             {
                 wrapContourScratch.Capacity = capacity;
             }
+
+            if (wrapPrioritySpans.Capacity < capacity)
+            {
+                wrapPrioritySpans.Capacity = capacity;
+            }
+
+            if (wrapPriorityScratch.Capacity < capacity)
+            {
+                wrapPriorityScratch.Capacity = capacity;
+            }
         }
 
         WrapBounds ResolveWrapBounds(float lineTop, float lineHeight, float baseLeft, float baseRight)
@@ -1154,6 +1167,8 @@ public sealed class DocumentLayouter
             wrapIntervals.Clear();
             wrapIntervals.Add(new WrapInterval(baseLeft, baseRight));
             wrapIntervalsScratch.Clear();
+            wrapPrioritySpans.Clear();
+            wrapPriorityScratch.Clear();
 
             var blockBottom = float.MinValue;
 
@@ -1180,6 +1195,15 @@ public sealed class DocumentLayouter
                     continue;
                 }
 
+                if (wrapPrioritySpans.Count > 0)
+                {
+                    TrimWrapExclusions(wrapExclusionSpans, wrapPrioritySpans, wrapPriorityScratch);
+                    if (wrapExclusionSpans.Count == 0)
+                    {
+                        continue;
+                    }
+                }
+
                 blockBottom = MathF.Max(blockBottom, boundsBottom);
                 if (wrapIntervals.Count == 0)
                 {
@@ -1190,6 +1214,7 @@ public sealed class DocumentLayouter
                 var swap = wrapIntervals;
                 wrapIntervals = wrapIntervalsScratch;
                 wrapIntervalsScratch = swap;
+                AppendWrapSpans(wrapPrioritySpans, wrapPriorityScratch, wrapExclusionSpans);
             }
 
             if (wrapIntervals.Count == 0)
@@ -2611,6 +2636,7 @@ public sealed class DocumentLayouter
                 {
                     wrapFloatingObjects.AddRange(localFloats);
                     placedFloatingObjects.AddRange(localFloats);
+                    SortWrapFloatingObjects(wrapFloatingObjects);
                 }
 
                 lineRange = LayoutParagraphLines(
@@ -2662,6 +2688,7 @@ public sealed class DocumentLayouter
                 if (localFloats.Length > 0)
                 {
                     wrapFloatingObjects.AddRange(localFloats);
+                    SortWrapFloatingObjects(wrapFloatingObjects);
                     if (placedFloatingObjects.Count > placedStartCount)
                     {
                         placedFloatingObjects.RemoveRange(placedStartCount, placedFloatingObjects.Count - placedStartCount);
@@ -2794,6 +2821,7 @@ public sealed class DocumentLayouter
             if (floating.Anchor.WrapStyle != FloatingWrapStyle.None)
             {
                 wrapFloatingObjects.Add(layoutObject);
+                SortWrapFloatingObjects(wrapFloatingObjects);
             }
 
             paragraphLineRanges[paragraphIndex] = new LineRange(lines.Count, 0);
@@ -2915,6 +2943,7 @@ public sealed class DocumentLayouter
             if (floating.Anchor.WrapStyle != FloatingWrapStyle.None)
             {
                 wrapFloatingObjects.Add(layoutObject);
+                SortWrapFloatingObjects(wrapFloatingObjects);
             }
 
             return true;
@@ -3769,6 +3798,82 @@ public sealed class DocumentLayouter
         return true;
     }
 
+    private static void TrimWrapExclusions(
+        List<WrapInterval> exclusions,
+        List<WrapInterval> occupied,
+        List<WrapInterval> scratch)
+    {
+        if (exclusions.Count == 0 || occupied.Count == 0)
+        {
+            return;
+        }
+
+        scratch.Clear();
+        var occupiedIndex = 0;
+        for (var i = 0; i < exclusions.Count; i++)
+        {
+            var exclusion = exclusions[i];
+            var left = exclusion.Left;
+            var right = exclusion.Right;
+            if (right <= left)
+            {
+                continue;
+            }
+
+            while (occupiedIndex < occupied.Count && occupied[occupiedIndex].Right <= left)
+            {
+                occupiedIndex++;
+            }
+
+            var currentLeft = left;
+            var localIndex = occupiedIndex;
+            while (localIndex < occupied.Count)
+            {
+                var span = occupied[localIndex];
+                if (span.Left >= right)
+                {
+                    break;
+                }
+
+                if (span.Left > currentLeft)
+                {
+                    scratch.Add(new WrapInterval(currentLeft, MathF.Min(span.Left, right)));
+                }
+
+                currentLeft = MathF.Max(currentLeft, span.Right);
+                if (currentLeft >= right)
+                {
+                    break;
+                }
+
+                localIndex++;
+            }
+
+            if (currentLeft < right)
+            {
+                scratch.Add(new WrapInterval(currentLeft, right));
+            }
+        }
+
+        exclusions.Clear();
+        exclusions.AddRange(scratch);
+        scratch.Clear();
+    }
+
+    private static void AppendWrapSpans(
+        List<WrapInterval> spans,
+        List<WrapInterval> scratch,
+        List<WrapInterval> additions)
+    {
+        if (additions.Count == 0)
+        {
+            return;
+        }
+
+        spans.AddRange(additions);
+        MergeWrapSpans(spans, scratch);
+    }
+
     private static void MergeWrapSpans(List<WrapInterval> spans, List<WrapInterval> scratch)
     {
         if (spans.Count <= 1)
@@ -4146,6 +4251,52 @@ public sealed class DocumentLayouter
         }
 
         return true;
+    }
+
+    private static void SortWrapFloatingObjects(List<FloatingLayoutObject> floats)
+    {
+        if (floats.Count <= 1)
+        {
+            return;
+        }
+
+        floats.Sort(CompareWrapFloatingObjects);
+    }
+
+    private static int CompareWrapFloatingObjects(FloatingLayoutObject left, FloatingLayoutObject right)
+    {
+        if (left.PageIndex != right.PageIndex)
+        {
+            return left.PageIndex.CompareTo(right.PageIndex);
+        }
+
+        var leftBehind = left.Object.Anchor.BehindText;
+        var rightBehind = right.Object.Anchor.BehindText;
+        if (leftBehind != rightBehind)
+        {
+            return leftBehind ? 1 : -1;
+        }
+
+        var leftZ = left.Object.Anchor.ZOrder;
+        var rightZ = right.Object.Anchor.ZOrder;
+        if (leftZ != rightZ)
+        {
+            return leftZ > rightZ ? -1 : 1;
+        }
+
+        if (left.ParagraphIndex != right.ParagraphIndex)
+        {
+            return left.ParagraphIndex.CompareTo(right.ParagraphIndex);
+        }
+
+        var leftOffset = left.Object.Anchor.AnchorOffset ?? int.MaxValue;
+        var rightOffset = right.Object.Anchor.AnchorOffset ?? int.MaxValue;
+        if (leftOffset != rightOffset)
+        {
+            return leftOffset.CompareTo(rightOffset);
+        }
+
+        return left.Object.Id.CompareTo(right.Object.Id);
     }
 
     private static void SortFloatingObjects(List<FloatingLayoutObject> floats)
