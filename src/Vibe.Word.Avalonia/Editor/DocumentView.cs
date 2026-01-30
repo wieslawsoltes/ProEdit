@@ -197,6 +197,24 @@ public sealed class DocumentView : Control, ILogicalScrollable
     private bool _shapeDirty;
     private DocRect? _shapePreviewBounds;
     private bool _shapeLayoutRefreshPending;
+    private bool _isImageEditing;
+    private ShapeDragMode _imageDragMode;
+    private ShapeHandleInfo? _activeImageHandle;
+    private ShapeHandleInfo? _hoverImageHandle;
+    private FloatingObject? _imageFloating;
+    private ImageInline? _imageInline;
+    private DocPoint _imageStartPoint;
+    private DocPoint _imageStartCenter;
+    private DocRect _imageStartBounds;
+    private float _imageStartRotation;
+    private float _imageStartOffsetX;
+    private float _imageStartOffsetY;
+    private float _imageStartPointerAngle;
+    private float _imageStartAspectRatio;
+    private EditorSessionSnapshot? _imageSnapshot;
+    private bool _imageDirty;
+    private DocRect? _imagePreviewBounds;
+    private bool _imageLayoutRefreshPending;
     private bool _isInlineObjectEditing;
     private InlineObjectDragMode _inlineObjectDragMode;
     private ShapeHandleInfo? _activeInlineHandle;
@@ -644,7 +662,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
                 return;
             }
 
-            if (TryHandleShapePointerPressed(e) || TryHandleInlineObjectPointerPressed(e))
+            if (TryHandleShapePointerPressed(e) || TryHandleFloatingImagePointerPressed(e) || TryHandleInlineObjectPointerPressed(e))
             {
                 return;
             }
@@ -664,6 +682,11 @@ public sealed class DocumentView : Control, ILogicalScrollable
         base.OnPointerMoved(e);
         if (_isLoading)
         {
+            return;
+        }
+        if (_isImageEditing)
+        {
+            HandleFloatingImagePointerMoved(e);
             return;
         }
         if (_isInlineObjectEditing)
@@ -725,6 +748,12 @@ public sealed class DocumentView : Control, ILogicalScrollable
         base.OnPointerReleased(e);
         if (_isLoading)
         {
+            return;
+        }
+
+        if (_isImageEditing)
+        {
+            EndFloatingImageEdit(e);
             return;
         }
 
@@ -1286,6 +1315,245 @@ public sealed class DocumentView : Control, ILogicalScrollable
         _editor.RefreshLayout();
     }
 
+    private bool TryHandleFloatingImagePointerPressed(PointerPressedEventArgs e)
+    {
+        if (_isPictureCropMode)
+        {
+            return false;
+        }
+
+        var point = e.GetCurrentPoint(this);
+        if (!point.Properties.IsLeftButtonPressed)
+        {
+            return false;
+        }
+
+        var docPoint = GetDocumentPoint(point.Position);
+        if (TryGetFloatingImageHandleAtPoint(docPoint, out var handle))
+        {
+            if (!TryGetSelectedFloatingImageLayout(out var layoutObject, out var image))
+            {
+                return false;
+            }
+
+            var mode = handle.Kind == ShapeHandleKind.Rotate ? ShapeDragMode.Rotate : ShapeDragMode.Resize;
+            BeginFloatingImageEdit(mode, handle, layoutObject, image, docPoint);
+            e.Pointer.Capture(this);
+            e.Handled = true;
+            return true;
+        }
+
+        if (TryGetFloatingImageAtPoint(docPoint, out var hitLayout, out var hitImage))
+        {
+            _editor.SetCaretFromPoint(docPoint.X, docPoint.Y, false);
+            BeginFloatingImageEdit(ShapeDragMode.Move, null, hitLayout, hitImage, docPoint);
+            e.Pointer.Capture(this);
+            e.Handled = true;
+            return true;
+        }
+
+        return false;
+    }
+
+    private void BeginFloatingImageEdit(
+        ShapeDragMode mode,
+        ShapeHandleInfo? handle,
+        FloatingLayoutObject layoutObject,
+        ImageInline image,
+        DocPoint startPoint)
+    {
+        _imageSnapshot = null;
+        if (_kernel.Services.TryGet<IEditorHistorySnapshotService>(out var history))
+        {
+            _imageSnapshot = history.CaptureSnapshot();
+        }
+
+        _isImageEditing = true;
+        _imageDragMode = mode;
+        _imageFloating = layoutObject.Object;
+        _imageInline = image;
+        _imageStartPoint = startPoint;
+        _imageStartBounds = layoutObject.Bounds;
+        _imageStartCenter = new DocPoint(
+            _imageStartBounds.X + _imageStartBounds.Width * 0.5f,
+            _imageStartBounds.Y + _imageStartBounds.Height * 0.5f);
+        _imageStartRotation = image.Rotation;
+        _imageStartOffsetX = layoutObject.Object.Anchor.OffsetX;
+        _imageStartOffsetY = layoutObject.Object.Anchor.OffsetY;
+        _imageStartPointerAngle = GetAngleDegrees(_imageStartCenter, startPoint);
+        _imageStartAspectRatio = image.Height > 0f ? image.Width / image.Height : 1f;
+        _imageDirty = false;
+        _activeImageHandle = handle;
+        _hoverImageHandle = handle;
+        _isSelecting = false;
+        _imagePreviewBounds = null;
+
+        switch (mode)
+        {
+            case ShapeDragMode.Move:
+                UpdatePointerCursor(ShapeMoveCursor);
+                break;
+            case ShapeDragMode.Rotate:
+                UpdatePointerCursor(ShapeRotateCursor);
+                break;
+            case ShapeDragMode.Resize:
+                UpdatePointerCursor(handle.HasValue ? GetShapeCursor(handle.Value.Kind) : ShapeMoveCursor);
+                break;
+        }
+    }
+
+    private void HandleFloatingImagePointerMoved(PointerEventArgs e)
+    {
+        if (!_isImageEditing || _imageFloating is null || _imageInline is null)
+        {
+            return;
+        }
+
+        var point = e.GetCurrentPoint(this);
+        var docPoint = GetDocumentPoint(point.Position);
+        var modifiers = e.KeyModifiers;
+        switch (_imageDragMode)
+        {
+            case ShapeDragMode.Move:
+            {
+                var deltaX = docPoint.X - _imageStartPoint.X;
+                var deltaY = docPoint.Y - _imageStartPoint.Y;
+                _imageFloating.Anchor.OffsetX = _imageStartOffsetX + deltaX;
+                _imageFloating.Anchor.OffsetY = _imageStartOffsetY + deltaY;
+                _imagePreviewBounds = new DocRect(
+                    _imageStartBounds.X + deltaX,
+                    _imageStartBounds.Y + deltaY,
+                    _imageStartBounds.Width,
+                    _imageStartBounds.Height);
+                _imageDirty = true;
+                RequestImageLayoutRefresh();
+                UpdateDirtyPages(GetAllPages());
+                InvalidateVisual();
+                break;
+            }
+            case ShapeDragMode.Resize:
+            {
+                if (!_activeImageHandle.HasValue)
+                {
+                    return;
+                }
+
+                var keepAspect = modifiers.HasFlag(KeyModifiers.Shift);
+                var newBounds = ComputeResizedBounds(
+                    _imageStartBounds,
+                    _imageStartCenter,
+                    _imageStartRotation,
+                    _activeImageHandle.Value.Kind,
+                    docPoint,
+                    _imageStartAspectRatio,
+                    keepAspect);
+                _imageInline.Width = newBounds.Width;
+                _imageInline.Height = newBounds.Height;
+                _imageFloating.Anchor.OffsetX = _imageStartOffsetX + (newBounds.X - _imageStartBounds.X);
+                _imageFloating.Anchor.OffsetY = _imageStartOffsetY + (newBounds.Y - _imageStartBounds.Y);
+                _imagePreviewBounds = newBounds;
+                _imageDirty = true;
+                RequestImageLayoutRefresh();
+                UpdateDirtyPages(GetAllPages());
+                InvalidateVisual();
+                break;
+            }
+            case ShapeDragMode.Rotate:
+            {
+                var angle = GetAngleDegrees(_imageStartCenter, docPoint);
+                var delta = NormalizeAngleDelta(angle - _imageStartPointerAngle);
+                var rotation = NormalizeRotation(_imageStartRotation + delta);
+                if (modifiers.HasFlag(KeyModifiers.Shift))
+                {
+                    rotation = SnapRotation(rotation, ShapeRotateSnapDegrees);
+                }
+
+                if (MathF.Abs(rotation - _imageInline.Rotation) < 0.01f)
+                {
+                    break;
+                }
+
+                _imageInline.Rotation = rotation;
+                _imageDirty = true;
+                RequestImageLayoutRefresh();
+                UpdateDirtyPages(GetAllPages());
+                InvalidateVisual();
+                break;
+            }
+        }
+
+        e.Handled = true;
+    }
+
+    private void EndFloatingImageEdit(PointerReleasedEventArgs e)
+    {
+        _isImageEditing = false;
+        e.Pointer.Capture(null);
+        e.Handled = true;
+
+        if (_imageDirty && _imageSnapshot.HasValue
+            && _kernel.Services.TryGet<IEditorHistorySnapshotService>(out var history))
+        {
+            history.RecordSnapshot(_imageSnapshot.Value);
+        }
+
+        if (_imageDirty || _imageLayoutRefreshPending)
+        {
+            FlushImageLayoutRefresh();
+        }
+
+        ResetFloatingImageEditState();
+        UpdatePointerCursor(null);
+        InvalidateVisual();
+    }
+
+    private void ResetFloatingImageEditState()
+    {
+        _imageDragMode = ShapeDragMode.None;
+        _activeImageHandle = null;
+        _hoverImageHandle = null;
+        _imageFloating = null;
+        _imageInline = null;
+        _imageStartPoint = default;
+        _imageStartCenter = default;
+        _imageStartBounds = default;
+        _imageStartRotation = 0f;
+        _imageStartOffsetX = 0f;
+        _imageStartOffsetY = 0f;
+        _imageStartPointerAngle = 0f;
+        _imageStartAspectRatio = 0f;
+        _imageSnapshot = null;
+        _imageDirty = false;
+        _imagePreviewBounds = null;
+        _imageLayoutRefreshPending = false;
+    }
+
+    private void RequestImageLayoutRefresh()
+    {
+        if (_imageLayoutRefreshPending)
+        {
+            return;
+        }
+
+        _imageLayoutRefreshPending = true;
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (!_imageLayoutRefreshPending)
+            {
+                return;
+            }
+
+            _imageLayoutRefreshPending = false;
+            _editor.RefreshLayout();
+        }, DispatcherPriority.Render);
+    }
+
+    private void FlushImageLayoutRefresh()
+    {
+        _imageLayoutRefreshPending = false;
+        _editor.RefreshLayout();
+    }
+
     private bool TryHandleInlineObjectPointerPressed(PointerPressedEventArgs e)
     {
         if (_isPictureCropMode)
@@ -1461,11 +1729,6 @@ public sealed class DocumentView : Control, ILogicalScrollable
             }
             case InlineObjectDragMode.Rotate:
             {
-                if (selection.Inline is not ShapeInline shape)
-                {
-                    return;
-                }
-
                 var angle = GetAngleDegrees(_inlineStartCenter, docPoint);
                 var deltaAngle = NormalizeAngleDelta(angle - _inlineStartPointerAngle);
                 var rotation = NormalizeRotation(_inlineStartRotation + deltaAngle);
@@ -1475,12 +1738,29 @@ public sealed class DocumentView : Control, ILogicalScrollable
                 }
 
                 var objectRotation = NormalizeRotation(rotation - selection.BaseRotation);
-                if (MathF.Abs(objectRotation - shape.Properties.Rotation) < 0.01f)
+                if (selection.Inline is ShapeInline shape)
+                {
+                    if (MathF.Abs(objectRotation - shape.Properties.Rotation) < 0.01f)
+                    {
+                        break;
+                    }
+
+                    shape.Properties.Rotation = objectRotation;
+                }
+                else if (selection.Inline is ImageInline image)
+                {
+                    if (MathF.Abs(objectRotation - image.Rotation) < 0.01f)
+                    {
+                        break;
+                    }
+
+                    image.Rotation = objectRotation;
+                }
+                else
                 {
                     break;
                 }
 
-                shape.Properties.Rotation = objectRotation;
                 _inlineDirty = true;
                 RequestInlineLayoutRefresh();
                 UpdateDirtyPages(GetAllPages());
@@ -1771,6 +2051,8 @@ public sealed class DocumentView : Control, ILogicalScrollable
             }
 
             _hoverShapeHandle = null;
+            _hoverImageHandle = null;
+            _hoverInlineHandle = null;
             _hoverTableResizeHandle = null;
             UpdatePointerCursor(GetCropCursor(cropHandle.Kind));
             return;
@@ -1796,6 +2078,12 @@ public sealed class DocumentView : Control, ILogicalScrollable
                 InvalidateVisual();
             }
 
+            if (_hoverImageHandle.HasValue)
+            {
+                _hoverImageHandle = null;
+                InvalidateVisual();
+            }
+
             _hoverTableResizeHandle = null;
             UpdatePointerCursor(GetShapeCursor(shapeHandle.Kind));
             return;
@@ -1807,11 +2095,42 @@ public sealed class DocumentView : Control, ILogicalScrollable
             InvalidateVisual();
         }
 
+        if (!_isPictureCropMode && TryGetFloatingImageHandleAtPoint(docPoint, out var imageHandle))
+        {
+            if (!_hoverImageHandle.HasValue || _hoverImageHandle.Value.Kind != imageHandle.Kind)
+            {
+                _hoverImageHandle = imageHandle;
+                InvalidateVisual();
+            }
+
+            if (_hoverInlineHandle.HasValue)
+            {
+                _hoverInlineHandle = null;
+                InvalidateVisual();
+            }
+
+            _hoverTableResizeHandle = null;
+            UpdatePointerCursor(GetShapeCursor(imageHandle.Kind));
+            return;
+        }
+
+        if (_hoverImageHandle.HasValue)
+        {
+            _hoverImageHandle = null;
+            InvalidateVisual();
+        }
+
         if (!_isPictureCropMode && TryGetInlineObjectHandleAtPoint(docPoint, out var inlineHandle))
         {
             if (!_hoverInlineHandle.HasValue || _hoverInlineHandle.Value.Kind != inlineHandle.Kind)
             {
                 _hoverInlineHandle = inlineHandle;
+                InvalidateVisual();
+            }
+
+            if (_hoverImageHandle.HasValue)
+            {
+                _hoverImageHandle = null;
                 InvalidateVisual();
             }
 
@@ -1827,6 +2146,12 @@ public sealed class DocumentView : Control, ILogicalScrollable
         }
 
         if (!_isPictureCropMode && TryGetSelectedShapeBounds(out var shapeBounds) && shapeBounds.Contains(docPoint.X, docPoint.Y))
+        {
+            UpdatePointerCursor(ShapeMoveCursor);
+            return;
+        }
+
+        if (!_isPictureCropMode && TryGetSelectedFloatingImageBounds(out var imageBounds) && imageBounds.Contains(docPoint.X, docPoint.Y))
         {
             UpdatePointerCursor(ShapeMoveCursor);
             return;
@@ -2021,6 +2346,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
         DrawTableResizeHandles(context, effectiveOffset);
         DrawPictureCropOverlay(context, effectiveOffset);
         DrawShapeSelectionOverlay(context, effectiveOffset);
+        DrawFloatingImageSelectionOverlay(context, effectiveOffset);
         DrawInlineObjectSelectionOverlay(context, effectiveOffset);
         DrawCommentBalloons(context, effectiveOffset);
         DrawRevisionBalloons(context, effectiveOffset);
@@ -2697,7 +3023,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
             var viewX = (docX * zoom) - effectiveOffset.X;
             var viewY = (anchor.DocY * zoom) - effectiveOffset.Y;
 
-            var text = ReviewingHelpers.BuildCommentDisplayText(comment);
+            var text = ReviewingHelpers.BuildCommentDisplayText(_editor.Document, comment);
             if (string.IsNullOrWhiteSpace(text))
             {
                 text = $"Comment {anchor.Id}";
@@ -3039,6 +3365,48 @@ public sealed class DocumentView : Control, ILogicalScrollable
         }
     }
 
+    private void DrawFloatingImageSelectionOverlay(DrawingContext context, Vector effectiveOffset)
+    {
+        if (_headerFooterSession is not null || _isPictureCropMode)
+        {
+            return;
+        }
+
+        if (!TryBuildFloatingImageHandles(out var handles, out var geometry))
+        {
+            return;
+        }
+
+        var topLeft = DocToView(geometry.TopLeft, effectiveOffset);
+        var topRight = DocToView(geometry.TopRight, effectiveOffset);
+        var bottomRight = DocToView(geometry.BottomRight, effectiveOffset);
+        var bottomLeft = DocToView(geometry.BottomLeft, effectiveOffset);
+        context.DrawLine(ShapeSelectionBorderPen, topLeft, topRight);
+        context.DrawLine(ShapeSelectionBorderPen, topRight, bottomRight);
+        context.DrawLine(ShapeSelectionBorderPen, bottomRight, bottomLeft);
+        context.DrawLine(ShapeSelectionBorderPen, bottomLeft, topLeft);
+
+        var active = _activeImageHandle;
+        var hover = _hoverImageHandle;
+        foreach (var handle in handles)
+        {
+            var rect = DocRectToViewRect(handle.Bounds, effectiveOffset);
+            var isActive = active.HasValue && handle.Kind == active.Value.Kind;
+            var isHover = !isActive && hover.HasValue && handle.Kind == hover.Value.Kind;
+            var fill = isActive || isHover ? TableResizeHandleActiveFillBrush : ShapeHandleFillBrush;
+            var pen = isActive || isHover ? TableResizeHandleActiveBorderPen : ShapeHandleBorderPen;
+            context.FillRectangle(fill, rect);
+            context.DrawRectangle(pen, rect);
+        }
+
+        if (geometry.RotateHandle.X != 0f || geometry.RotateHandle.Y != 0f)
+        {
+            var start = DocToView(geometry.TopCenter, effectiveOffset);
+            var end = DocToView(geometry.RotateHandle, effectiveOffset);
+            context.DrawLine(ShapeSelectionBorderPen, start, end);
+        }
+    }
+
     private void DrawInlineObjectSelectionOverlay(DrawingContext context, Vector effectiveOffset)
     {
         if (_headerFooterSession is not null || _isPictureCropMode)
@@ -3220,6 +3588,38 @@ public sealed class DocumentView : Control, ILogicalScrollable
         return true;
     }
 
+    private bool TryBuildFloatingImageHandles(out List<ShapeHandleInfo> handles, out ShapeSelectionGeometry geometry)
+    {
+        handles = new List<ShapeHandleInfo>();
+        geometry = default;
+        if (!TryResolveFloatingImageSelection(out var selection))
+        {
+            return false;
+        }
+
+        var bounds = selection.Bounds;
+        if (bounds.Width <= 0f || bounds.Height <= 0f)
+        {
+            return false;
+        }
+
+        var size = ShapeHandleSize / MathF.Max(0.1f, _zoomFactor);
+        var half = size * 0.5f;
+        var rotateOffset = ShapeRotateHandleOffset / MathF.Max(0.1f, _zoomFactor);
+        geometry = BuildShapeSelectionGeometry(bounds, selection.Rotation, rotateOffset);
+
+        handles.Add(new ShapeHandleInfo(ShapeHandleKind.TopLeft, new DocRect(geometry.TopLeft.X - half, geometry.TopLeft.Y - half, size, size)));
+        handles.Add(new ShapeHandleInfo(ShapeHandleKind.Top, new DocRect(geometry.TopCenter.X - half, geometry.TopCenter.Y - half, size, size)));
+        handles.Add(new ShapeHandleInfo(ShapeHandleKind.TopRight, new DocRect(geometry.TopRight.X - half, geometry.TopRight.Y - half, size, size)));
+        handles.Add(new ShapeHandleInfo(ShapeHandleKind.Right, new DocRect(geometry.RightCenter.X - half, geometry.RightCenter.Y - half, size, size)));
+        handles.Add(new ShapeHandleInfo(ShapeHandleKind.BottomRight, new DocRect(geometry.BottomRight.X - half, geometry.BottomRight.Y - half, size, size)));
+        handles.Add(new ShapeHandleInfo(ShapeHandleKind.Bottom, new DocRect(geometry.BottomCenter.X - half, geometry.BottomCenter.Y - half, size, size)));
+        handles.Add(new ShapeHandleInfo(ShapeHandleKind.BottomLeft, new DocRect(geometry.BottomLeft.X - half, geometry.BottomLeft.Y - half, size, size)));
+        handles.Add(new ShapeHandleInfo(ShapeHandleKind.Left, new DocRect(geometry.LeftCenter.X - half, geometry.LeftCenter.Y - half, size, size)));
+        handles.Add(new ShapeHandleInfo(ShapeHandleKind.Rotate, new DocRect(geometry.RotateHandle.X - half, geometry.RotateHandle.Y - half, size, size)));
+        return true;
+    }
+
     private bool TryBuildInlineObjectHandles(out List<ShapeHandleInfo> handles, out ShapeSelectionGeometry geometry, out bool showRotate)
     {
         handles = new List<ShapeHandleInfo>();
@@ -3265,6 +3665,26 @@ public sealed class DocumentView : Control, ILogicalScrollable
     {
         handle = default;
         if (!TryBuildShapeHandles(out var handles, out _))
+        {
+            return false;
+        }
+
+        foreach (var candidate in handles)
+        {
+            if (candidate.Bounds.Contains(point.X, point.Y))
+            {
+                handle = candidate;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool TryGetFloatingImageHandleAtPoint(DocPoint point, out ShapeHandleInfo handle)
+    {
+        handle = default;
+        if (!TryBuildFloatingImageHandles(out var handles, out _))
         {
             return false;
         }
@@ -3547,7 +3967,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
         for (var i = line.Images.Count - 1; i >= 0; i--)
         {
             var layoutImage = line.Images[i];
-            if (TryBuildHit(InlineObjectKind.Image, layoutImage.Image, layoutImage.X, layoutImage.Width, layoutImage.Height, 0f, false, out hit))
+            if (TryBuildHit(InlineObjectKind.Image, layoutImage.Image, layoutImage.X, layoutImage.Width, layoutImage.Height, layoutImage.Image.Rotation, true, out hit))
             {
                 return true;
             }
@@ -3749,7 +4169,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
         bounds = default;
         rotation = 0f;
         pageIndex = -1;
-        supportsRotate = inline is ShapeInline;
+        supportsRotate = inline is ShapeInline or ImageInline;
         var layout = _editor.Layout;
         if (layout.Lines.Count == 0)
         {
@@ -3773,7 +4193,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
                         continue;
                     }
 
-                    bounds = ComputeInlineObjectSelectionBounds(line, layoutImage.X, layoutImage.Width, layoutImage.Height, 0f, out rotation);
+                    bounds = ComputeInlineObjectSelectionBounds(line, layoutImage.X, layoutImage.Width, layoutImage.Height, image.Rotation, out rotation);
                     pageIndex = layout.LineIndex.GetPageForLine(i);
                     return true;
                 }
@@ -4048,6 +4468,24 @@ public sealed class DocumentView : Control, ILogicalScrollable
         return true;
     }
 
+    private bool TryResolveFloatingImageSelection(out ImageSelectionInfo selection)
+    {
+        selection = default;
+        if (!TryGetSelectedFloatingImageLayout(out var layoutObject, out var image))
+        {
+            return false;
+        }
+
+        var bounds = layoutObject.Bounds;
+        if (_isImageEditing && _imagePreviewBounds.HasValue && ReferenceEquals(image, _imageInline))
+        {
+            bounds = _imagePreviewBounds.Value;
+        }
+
+        selection = new ImageSelectionInfo(image, bounds, image.Rotation);
+        return true;
+    }
+
     private bool TryResolveInlineSelection(out InlineObjectSelectionInfo selection)
     {
         if (_isInlineObjectEditing && _inlineEditSelection.HasValue && _inlineObjectDragMode != InlineObjectDragMode.Move)
@@ -4056,6 +4494,10 @@ public sealed class DocumentView : Control, ILogicalScrollable
             if (selection.Inline is ShapeInline shape)
             {
                 selection = selection with { Rotation = selection.BaseRotation + shape.Properties.Rotation };
+            }
+            else if (selection.Inline is ImageInline image)
+            {
+                selection = selection with { Rotation = selection.BaseRotation + image.Rotation };
             }
 
             if (_inlinePreviewBounds.HasValue)
@@ -4136,7 +4578,12 @@ public sealed class DocumentView : Control, ILogicalScrollable
             _ => InlineObjectKind.Image
         };
 
-        var objectRotation = inline is ShapeInline shape ? shape.Properties.Rotation : 0f;
+        var objectRotation = inline switch
+        {
+            ShapeInline shape => shape.Properties.Rotation,
+            ImageInline image => image.Rotation,
+            _ => 0f
+        };
         var baseRotation = rotation - objectRotation;
         selection = new InlineObjectSelectionInfo(kind, inline, paragraphIndex, inlineIndex, bounds, rotation, baseRotation, supportsRotate, pageIndex);
         return true;
@@ -4154,6 +4601,29 @@ public sealed class DocumentView : Control, ILogicalScrollable
     {
         bounds = default;
         if (!TryResolveShapeSelection(out var selection))
+        {
+            return false;
+        }
+
+        if (MathF.Abs(selection.Rotation) < 0.01f)
+        {
+            bounds = selection.Bounds;
+            return true;
+        }
+
+        var geometry = BuildShapeSelectionGeometry(selection.Bounds, selection.Rotation, 0f);
+        var minX = MathF.Min(MathF.Min(geometry.TopLeft.X, geometry.TopRight.X), MathF.Min(geometry.BottomLeft.X, geometry.BottomRight.X));
+        var maxX = MathF.Max(MathF.Max(geometry.TopLeft.X, geometry.TopRight.X), MathF.Max(geometry.BottomLeft.X, geometry.BottomRight.X));
+        var minY = MathF.Min(MathF.Min(geometry.TopLeft.Y, geometry.TopRight.Y), MathF.Min(geometry.BottomLeft.Y, geometry.BottomRight.Y));
+        var maxY = MathF.Max(MathF.Max(geometry.TopLeft.Y, geometry.TopRight.Y), MathF.Max(geometry.BottomLeft.Y, geometry.BottomRight.Y));
+        bounds = new DocRect(minX, minY, MathF.Max(0f, maxX - minX), MathF.Max(0f, maxY - minY));
+        return true;
+    }
+
+    private bool TryGetSelectedFloatingImageBounds(out DocRect bounds)
+    {
+        bounds = default;
+        if (!TryResolveFloatingImageSelection(out var selection))
         {
             return false;
         }
@@ -4220,6 +4690,35 @@ public sealed class DocumentView : Control, ILogicalScrollable
                 layoutObject = candidate;
                 floating = candidate.Object;
                 shape = inlineShape;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool TryGetFloatingImageAtPoint(DocPoint point, out FloatingLayoutObject layoutObject, out ImageInline image)
+    {
+        layoutObject = null!;
+        image = null!;
+        var floats = _editor.Layout.FloatingObjects;
+        if (floats.Count == 0)
+        {
+            return false;
+        }
+
+        for (var i = floats.Count - 1; i >= 0; i--)
+        {
+            var candidate = floats[i];
+            if (!candidate.Bounds.Contains(point.X, point.Y))
+            {
+                continue;
+            }
+
+            if (candidate.Object.Content is ImageInline inlineImage)
+            {
+                layoutObject = candidate;
+                image = inlineImage;
                 return true;
             }
         }
@@ -4551,7 +5050,8 @@ public sealed class DocumentView : Control, ILogicalScrollable
         _kernel.Services.TryGet<IUndoRedoService>(out var undoRedo);
         _kernel.Services.TryGet<IClipboardService>(out var clipboard);
         _kernel.Services.TryGet<ITableSelectionSnapshotProvider>(out var tableSelectionProvider);
-        var commandRouter = new EditorCommandInputRouter(_kernel.Commands, editor, undoRedo, clipboard, tableSelectionProvider);
+        _kernel.Services.TryGet<IContentControlInteractionService>(out var contentControls);
+        var commandRouter = new EditorCommandInputRouter(_kernel.Commands, editor, undoRedo, clipboard, tableSelectionProvider, contentControls);
         _inputAdapter = new AvaloniaEditorInputAdapter(commandRouter);
     }
 
@@ -5080,7 +5580,12 @@ public sealed class DocumentView : Control, ILogicalScrollable
         services.Register<IEditorCommandRouter>(new HeaderFooterCommandRouter(router, MarkHeaderFooterDirty, history));
         var clipboard = services.GetRequired<IClipboardService>();
         var tableSelectionProvider = services.GetRequired<ITableSelectionSnapshotProvider>();
-        var inputRouter = new EditorCommandInputRouter(dispatcher, editor, undoRedo, clipboard, tableSelectionProvider);
+        if (_kernel.Services.TryGet<IContentControlInteractionService>(out var contentControls))
+        {
+            services.Register(contentControls);
+        }
+
+        var inputRouter = new EditorCommandInputRouter(dispatcher, editor, undoRedo, clipboard, tableSelectionProvider, contentControls);
         var inputAdapter = new AvaloniaEditorInputAdapter(inputRouter);
         session = new HeaderFooterEditSession(hit.Mode, hit.Target, document, editor, inputAdapter);
         return true;
@@ -6440,6 +6945,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
 
     private readonly record struct ShapeHandleInfo(ShapeHandleKind Kind, DocRect Bounds);
     private readonly record struct ShapeSelectionInfo(ShapeInline Shape, DocRect Bounds, float Rotation);
+    private readonly record struct ImageSelectionInfo(ImageInline Image, DocRect Bounds, float Rotation);
     private readonly record struct ShapeSelectionGeometry(
         DocPoint TopLeft,
         DocPoint TopRight,

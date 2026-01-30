@@ -244,7 +244,8 @@
                                                  Grid.Row="0">
                                             <ListBox.ItemTemplate>
                                                 <DataTemplate x:CompileBindings="False">
-                                                    <StackPanel Spacing="2">
+                                                    <StackPanel Spacing="2"
+                                                                Margin="{Binding Indent}">
                                                         <TextBlock Text="{Binding Header}"
                                                                    FontSize="12"
                                                                    FontWeight="SemiBold"
@@ -271,6 +272,14 @@
                                             <StackPanel Orientation="Horizontal"
                                                         Spacing="6"
                                                         HorizontalAlignment="Right">
+                                                <Button x:Name="ReviewCommentReplyButton"
+                                                        Content="Reply"
+                                                        Padding="10,2"
+                                                        Height="24" />
+                                                <Button x:Name="ReviewCommentResolveButton"
+                                                        Content="Resolve"
+                                                        Padding="10,2"
+                                                        Height="24" />
                                                 <Button x:Name="ReviewCommentApplyButton"
                                                         Content="Apply"
                                                         Padding="10,2"

@@ -41,6 +41,8 @@ public partial class WordEditorControl : UserControl
     private readonly TextBox? _reviewCommentEditor;
     private readonly Button? _reviewCommentApplyButton;
     private readonly Button? _reviewCommentDeleteButton;
+    private readonly Button? _reviewCommentReplyButton;
+    private readonly Button? _reviewCommentResolveButton;
     private readonly Button? _reviewChangeAcceptButton;
     private readonly Button? _reviewChangeRejectButton;
     private readonly Button? _reviewChangePreviousButton;
@@ -92,6 +94,7 @@ public partial class WordEditorControl : UserControl
     };
     private const float PageThumbnailWidth = 120f;
     private const float PageThumbnailHeight = 160f;
+    private const double ReviewCommentReplyIndent = 16d;
 
     private Window? _ownerWindow;
     private string? _pendingOpenPath;
@@ -130,6 +133,8 @@ public partial class WordEditorControl : UserControl
         _reviewCommentEditor = this.FindControl<TextBox>("ReviewCommentEditor");
         _reviewCommentApplyButton = this.FindControl<Button>("ReviewCommentApplyButton");
         _reviewCommentDeleteButton = this.FindControl<Button>("ReviewCommentDeleteButton");
+        _reviewCommentReplyButton = this.FindControl<Button>("ReviewCommentReplyButton");
+        _reviewCommentResolveButton = this.FindControl<Button>("ReviewCommentResolveButton");
         _reviewChangeAcceptButton = this.FindControl<Button>("ReviewChangeAcceptButton");
         _reviewChangeRejectButton = this.FindControl<Button>("ReviewChangeRejectButton");
         _reviewChangePreviousButton = this.FindControl<Button>("ReviewChangePreviousButton");
@@ -233,6 +238,16 @@ public partial class WordEditorControl : UserControl
             _reviewCommentApplyButton.Click += OnReviewCommentApplyClicked;
         }
 
+        if (_reviewCommentReplyButton is not null)
+        {
+            _reviewCommentReplyButton.Click += OnReviewCommentReplyClicked;
+        }
+
+        if (_reviewCommentResolveButton is not null)
+        {
+            _reviewCommentResolveButton.Click += OnReviewCommentResolveClicked;
+        }
+
         if (_reviewCommentDeleteButton is not null)
         {
             _reviewCommentDeleteButton.Click += OnReviewCommentDeleteClicked;
@@ -282,6 +297,7 @@ public partial class WordEditorControl : UserControl
 
         var dialogService = new WordEditorDialogService(ResolveOwnerWindow);
         _editorView.RegisterService<IEditorDialogService>(dialogService);
+        _editorView.RegisterService<IContentControlInteractionService>(new WordEditorContentControlInteractionService(dialogService));
         _editorView.RegisterService<IEditorWindowService>(
             new WordEditorWindowService(
                 ResolveOwnerWindow,
@@ -7663,21 +7679,7 @@ public partial class WordEditorControl : UserControl
         var selectedRevision = _reviewChangesList?.SelectedItem as ReviewRevisionItem;
 
         var commentAnchors = ReviewingHelpers.BuildCommentAnchors(document);
-        var commentItems = new List<ReviewCommentItem>(document.Comments.Count);
-        foreach (var comment in document.Comments.Values)
-        {
-            if (!commentAnchors.TryGetValue(comment.Id, out var anchor))
-            {
-                anchor = new TextPosition(int.MaxValue, 0);
-            }
-
-            var header = BuildReviewCommentHeader(comment);
-            var text = ReviewingHelpers.BuildCommentText(comment);
-            var preview = BuildReviewPreview(text);
-            commentItems.Add(new ReviewCommentItem(comment.Id, header, preview, text, anchor));
-        }
-
-        commentItems.Sort(CompareReviewCommentItems);
+        var commentItems = BuildReviewCommentItems(document, commentAnchors);
 
         _suppressReviewSelection = true;
         _reviewCommentItems.Clear();
@@ -7847,7 +7849,117 @@ public partial class WordEditorControl : UserControl
         return null;
     }
 
-    private static int CompareReviewCommentItems(ReviewCommentItem left, ReviewCommentItem right)
+    private List<ReviewCommentItem> BuildReviewCommentItems(
+        Document document,
+        IReadOnlyDictionary<int, TextPosition> anchors)
+    {
+        if (document.Comments.Count == 0)
+        {
+            return new List<ReviewCommentItem>();
+        }
+
+        var threads = new Dictionary<int, List<CommentDefinition>>();
+        foreach (var comment in document.Comments.Values)
+        {
+            var threadId = CommentThreading.ResolveThreadId(comment, document.Comments);
+            if (!threads.TryGetValue(threadId, out var threadComments))
+            {
+                threadComments = new List<CommentDefinition>();
+                threads[threadId] = threadComments;
+            }
+
+            threadComments.Add(comment);
+        }
+
+        var threadItems = new List<ReviewCommentThread>(threads.Count);
+        foreach (var pair in threads)
+        {
+            var root = ResolveThreadRoot(pair.Key, pair.Value, document);
+            var anchor = anchors.TryGetValue(root.Id, out var anchorPosition)
+                ? anchorPosition
+                : new TextPosition(int.MaxValue, 0);
+            threadItems.Add(new ReviewCommentThread(pair.Key, root, anchor, pair.Value));
+        }
+
+        threadItems.Sort(CompareReviewCommentThreads);
+
+        var items = new List<ReviewCommentItem>(document.Comments.Count);
+        foreach (var thread in threadItems)
+        {
+            var root = thread.Root;
+            var rootText = ReviewingHelpers.BuildCommentText(root);
+            var rootHeader = BuildReviewCommentHeader(root, isReply: false, isResolved: root.IsResolved);
+            var rootPreview = BuildReviewPreview(rootText);
+            items.Add(new ReviewCommentItem(
+                root.Id,
+                thread.ThreadId,
+                rootHeader,
+                rootPreview,
+                rootText,
+                thread.Anchor,
+                root.IsResolved,
+                new Thickness(0)));
+
+            if (thread.Comments.Count == 1)
+            {
+                continue;
+            }
+
+            var replies = new List<CommentDefinition>();
+            foreach (var comment in thread.Comments)
+            {
+                if (comment.Id != root.Id)
+                {
+                    replies.Add(comment);
+                }
+            }
+
+            replies.Sort(CompareThreadCommentItems);
+
+            foreach (var reply in replies)
+            {
+                var depth = Math.Max(1, CommentThreading.ResolveDepth(reply, document.Comments));
+                var indent = new Thickness(depth * ReviewCommentReplyIndent, 0, 0, 0);
+                var replyText = ReviewingHelpers.BuildCommentText(reply);
+                var replyHeader = BuildReviewCommentHeader(reply, isReply: true, isResolved: false);
+                var replyPreview = BuildReviewPreview(replyText);
+                items.Add(new ReviewCommentItem(
+                    reply.Id,
+                    thread.ThreadId,
+                    replyHeader,
+                    replyPreview,
+                    replyText,
+                    thread.Anchor,
+                    root.IsResolved,
+                    indent));
+            }
+        }
+
+        return items;
+    }
+
+    private static CommentDefinition ResolveThreadRoot(
+        int threadId,
+        IReadOnlyList<CommentDefinition> comments,
+        Document document)
+    {
+        if (document.Comments.TryGetValue(threadId, out var root))
+        {
+            return root;
+        }
+
+        foreach (var comment in comments)
+        {
+            if (!comment.ParentId.HasValue)
+            {
+                return comment;
+            }
+        }
+
+        return comments[0];
+    }
+
+    private static int CompareReviewCommentThreads(ReviewCommentThread left, ReviewCommentThread right)
     {
         var paragraphCompare = left.Anchor.ParagraphIndex.CompareTo(right.Anchor.ParagraphIndex);
         if (paragraphCompare != 0)
@@ -7856,6 +7968,19 @@ public partial class WordEditorControl : UserControl
         }
 
         return left.Anchor.Offset.CompareTo(right.Anchor.Offset);
+    }
+
+    private static int CompareThreadCommentItems(CommentDefinition left, CommentDefinition right)
+    {
+        var leftDate = left.Date ?? DateTime.MinValue;
+        var rightDate = right.Date ?? DateTime.MinValue;
+        var dateCompare = leftDate.CompareTo(rightDate);
+        if (dateCompare != 0)
+        {
+            return dateCompare;
+        }
+
+        return left.Id.CompareTo(right.Id);
     }
 
     private static int CompareRevisionAnchors(ReviewRevisionAnchor left, ReviewRevisionAnchor right)
@@ -7869,15 +7994,24 @@ public partial class WordEditorControl : UserControl
         return left.Anchor.Offset.CompareTo(right.Anchor.Offset);
     }
 
-    private static string BuildReviewCommentHeader(CommentDefinition comment)
+    private static string BuildReviewCommentHeader(CommentDefinition comment, bool isReply, bool isResolved)
     {
         var author = string.IsNullOrWhiteSpace(comment.Author) ? $"Comment {comment.Id}" : comment.Author.Trim();
-        if (comment.Date.HasValue)
+        var header = comment.Date.HasValue
+            ? $"{author} ({comment.Date.Value.ToLocalTime():g})"
+            : author;
+
+        if (isReply)
         {
-            return $"{author} ({comment.Date.Value.ToLocalTime():g})";
+            header = $"Reply - {header}";
         }
 
-        return author;
+        if (isResolved)
+        {
+            header = $"{header} [Resolved]";
+        }
+
+        return header;
     }
 
     private static string BuildReviewPreview(string text)
@@ -7952,15 +8086,27 @@ public partial class WordEditorControl : UserControl
 
     private void UpdateReviewPaneButtonState()
     {
-        var hasCommentSelection = _reviewCommentsList?.SelectedItem is ReviewCommentItem;
+        var selectedComment = _reviewCommentsList?.SelectedItem as ReviewCommentItem;
+        var hasCommentSelection = selectedComment is not null;
         if (_reviewCommentApplyButton is not null)
         {
             _reviewCommentApplyButton.IsEnabled = hasCommentSelection;
         }
 
+        if (_reviewCommentReplyButton is not null)
+        {
+            _reviewCommentReplyButton.IsEnabled = hasCommentSelection;
+        }
+
         if (_reviewCommentDeleteButton is not null)
         {
             _reviewCommentDeleteButton.IsEnabled = hasCommentSelection;
+        }
+
+        if (_reviewCommentResolveButton is not null)
+        {
+            _reviewCommentResolveButton.IsEnabled = hasCommentSelection;
+            _reviewCommentResolveButton.Content = IsThreadResolved(selectedComment) ? "Reopen" : "Resolve";
         }
 
         var hasRevisions = _reviewRevisionItems.Count > 0;
@@ -7983,6 +8129,31 @@ public partial class WordEditorControl : UserControl
         {
             _reviewChangeNextButton.IsEnabled = hasRevisions;
         }
+    }
+
+    private bool IsThreadResolved(ReviewCommentItem? item)
+    {
+        if (item is null)
+        {
+            return false;
+        }
+
+        if (_editorView?.Document is not { } document)
+        {
+            return item.IsResolved;
+        }
+
+        if (document.Comments.TryGetValue(item.ThreadId, out var root))
+        {
+            return root.IsResolved;
+        }
+
+        if (document.Comments.TryGetValue(item.Id, out var comment))
+        {
+            return CommentThreading.ResolveRootComment(comment, document.Comments).IsResolved;
+        }
+
+        return false;
     }
 
     private void OnReviewCommentSelectionChanged(object? sender, global::Avalonia.Controls.SelectionChangedEventArgs e)
@@ -8049,6 +8220,29 @@ public partial class WordEditorControl : UserControl
         RefreshReviewPaneItems();
     }
 
+    private async void OnReviewCommentReplyClicked(object? sender, RoutedEventArgs e)
+    {
+        if (_reviewCommentsList?.SelectedItem is not ReviewCommentItem item)
+        {
+            return;
+        }
+
+        _editorView?.GoToPosition(item.Anchor, ensureVisible: true);
+        await ExecuteEditorCommandFromPaneAsync(EditorReviewCommandIds.Comments.ReplyComment, item.Id);
+        RefreshReviewPaneItems();
+    }
+
+    private async void OnReviewCommentResolveClicked(object? sender, RoutedEventArgs e)
+    {
+        if (_reviewCommentsList?.SelectedItem is not ReviewCommentItem item)
+        {
+            return;
+        }
+
+        await ExecuteEditorCommandFromPaneAsync(EditorReviewCommandIds.Comments.ResolveComment, item.Id);
+        RefreshReviewPaneItems();
+    }
+
     private async void OnReviewCommentDeleteClicked(object? sender, RoutedEventArgs e)
     {
         if (_reviewCommentsList?.SelectedItem is not ReviewCommentItem item)
@@ -8057,7 +8251,8 @@ public partial class WordEditorControl : UserControl
         }
 
         _editorView?.GoToPosition(item.Anchor, ensureVisible: true);
-        await ExecuteEditorCommandFromPaneAsync(EditorReviewCommandIds.Comments.DeleteComment);
+        await ExecuteEditorCommandFromPaneAsync(EditorReviewCommandIds.Comments.DeleteComment, item.Id);
+        RefreshReviewPaneItems();
     }
 
     private async void OnReviewChangeAcceptClicked(object? sender, RoutedEventArgs e)
@@ -8375,18 +8570,52 @@ public partial class WordEditorControl : UserControl
     private sealed class ReviewCommentItem
     {
         public int Id { get; }
+        public int ThreadId { get; }
         public string Header { get; }
         public string Preview { get; }
         public string FullText { get; }
         public TextPosition Anchor { get; }
+        public bool IsResolved { get; }
+        public Thickness Indent { get; }
 
-        public ReviewCommentItem(int id, string header, string preview, string fullText, TextPosition anchor)
+        public ReviewCommentItem(
+            int id,
+            int threadId,
+            string header,
+            string preview,
+            string fullText,
+            TextPosition anchor,
+            bool isResolved,
+            Thickness indent)
         {
             Id = id;
+            ThreadId = threadId;
             Header = header;
             Preview = preview;
             FullText = fullText;
             Anchor = anchor;
+            IsResolved = isResolved;
+            Indent = indent;
+        }
+    }
+
+    private sealed class ReviewCommentThread
+    {
+        public int ThreadId { get; }
+        public CommentDefinition Root { get; }
+        public TextPosition Anchor { get; }
+        public IReadOnlyList<CommentDefinition> Comments { get; }
+
+        public ReviewCommentThread(
+            int threadId,
+            CommentDefinition root,
+            TextPosition anchor,
+            IReadOnlyList<CommentDefinition> comments)
+        {
+            ThreadId = threadId;
+            Root = root;
+            Anchor = anchor;
+            Comments = comments;
         }
     }
 

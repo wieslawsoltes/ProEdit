@@ -64,33 +64,32 @@ internal static class ReviewingHelpers
     {
         var body = BuildCommentText(comment);
         var builder = new StringBuilder();
-        var hasHeader = false;
+        var hasHeader = AppendCommentHeader(builder, comment, isReply: false, showResolved: comment.IsResolved);
+        AppendCommentBody(builder, body, hasHeader);
+        return builder.ToString();
+    }
 
-        if (!string.IsNullOrWhiteSpace(comment.Author))
-        {
-            builder.Append(comment.Author);
-            hasHeader = true;
-        }
+    public static string BuildCommentDisplayText(Document document, CommentDefinition comment)
+    {
+        var root = CommentThreading.ResolveRootComment(comment, document.Comments);
+        var builder = new StringBuilder();
 
-        if (comment.Date.HasValue)
+        var rootBody = BuildCommentText(root);
+        var hasHeader = AppendCommentHeader(builder, root, isReply: false, showResolved: root.IsResolved);
+        AppendCommentBody(builder, rootBody, hasHeader);
+
+        var replies = CollectThreadReplies(document, root.Id);
+        foreach (var reply in replies)
         {
-            if (hasHeader)
+            if (builder.Length > 0)
             {
-                builder.Append(' ');
+                builder.AppendLine();
+                builder.AppendLine();
             }
 
-            builder.Append(comment.Date.Value.ToLocalTime().ToString("g"));
-            hasHeader = true;
-        }
-
-        if (hasHeader && !string.IsNullOrWhiteSpace(body))
-        {
-            builder.AppendLine();
-        }
-
-        if (!string.IsNullOrWhiteSpace(body))
-        {
-            builder.Append(body);
+            var replyBody = BuildCommentText(reply);
+            var replyHeader = AppendCommentHeader(builder, reply, isReply: true, showResolved: false);
+            AppendCommentBody(builder, replyBody, replyHeader);
         }
 
         return builder.ToString();
@@ -129,6 +128,98 @@ internal static class ReviewingHelpers
         if (comment.Blocks.Count == 0)
         {
             comment.Blocks.Add(new ParagraphBlock());
+        }
+    }
+
+    private static List<CommentDefinition> CollectThreadReplies(Document document, int threadId)
+    {
+        var replies = new List<CommentDefinition>();
+        foreach (var comment in document.Comments.Values)
+        {
+            if (comment.Id == threadId)
+            {
+                continue;
+            }
+
+            if (CommentThreading.ResolveThreadId(comment, document.Comments) == threadId)
+            {
+                replies.Add(comment);
+            }
+        }
+
+        replies.Sort(CompareCommentThreadItems);
+        return replies;
+    }
+
+    private static int CompareCommentThreadItems(CommentDefinition left, CommentDefinition right)
+    {
+        var leftDate = left.Date ?? DateTime.MinValue;
+        var rightDate = right.Date ?? DateTime.MinValue;
+        var dateCompare = leftDate.CompareTo(rightDate);
+        if (dateCompare != 0)
+        {
+            return dateCompare;
+        }
+
+        return left.Id.CompareTo(right.Id);
+    }
+
+    private static bool AppendCommentHeader(StringBuilder builder, CommentDefinition comment, bool isReply, bool showResolved)
+    {
+        var hasHeader = false;
+
+        if (isReply)
+        {
+            builder.Append("Reply");
+            hasHeader = true;
+        }
+
+        if (!string.IsNullOrWhiteSpace(comment.Author))
+        {
+            if (hasHeader)
+            {
+                builder.Append(" - ");
+            }
+
+            builder.Append(comment.Author);
+            hasHeader = true;
+        }
+
+        if (comment.Date.HasValue)
+        {
+            if (hasHeader)
+            {
+                builder.Append(' ');
+            }
+
+            builder.Append(comment.Date.Value.ToLocalTime().ToString("g"));
+            hasHeader = true;
+        }
+
+        if (showResolved)
+        {
+            if (hasHeader)
+            {
+                builder.Append(' ');
+            }
+
+            builder.Append("(Resolved)");
+            hasHeader = true;
+        }
+
+        return hasHeader;
+    }
+
+    private static void AppendCommentBody(StringBuilder builder, string body, bool hasHeader)
+    {
+        if (hasHeader && !string.IsNullOrWhiteSpace(body))
+        {
+            builder.AppendLine();
+        }
+
+        if (!string.IsNullOrWhiteSpace(body))
+        {
+            builder.Append(body);
         }
     }
 
