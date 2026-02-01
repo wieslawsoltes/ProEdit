@@ -5136,8 +5136,14 @@ public sealed class DocumentView : Control, ILogicalScrollable
 
     private void UpdateDirtyPages(IReadOnlyList<int> pages)
     {
+        var effectivePages = pages;
+        if (effectivePages.Count == 0 && _editor.Layout.Pages.Count > 0)
+        {
+            effectivePages = GetAllPages();
+        }
+
         _renderVersion++;
-        _renderOptions.DirtyPages = pages;
+        _renderOptions.DirtyPages = effectivePages;
         _renderOptions.DirtyVersion = _renderVersion;
     }
 
