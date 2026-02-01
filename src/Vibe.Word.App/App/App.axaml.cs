@@ -28,7 +28,9 @@ public partial class App : Application
                 {
                     var extension = Path.GetExtension(candidate);
                     if (extension.Equals(".docx", StringComparison.OrdinalIgnoreCase)
-                        || extension.Equals(".docm", StringComparison.OrdinalIgnoreCase))
+                        || extension.Equals(".docm", StringComparison.OrdinalIgnoreCase)
+                        || extension.Equals(".md", StringComparison.OrdinalIgnoreCase)
+                        || extension.Equals(".markdown", StringComparison.OrdinalIgnoreCase))
                     {
                         path = candidate;
                     }

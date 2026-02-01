@@ -13,6 +13,7 @@ using Avalonia.VisualTree;
 using Vibe.Office.Documents;
 using Vibe.Office.Editing;
 using Vibe.Office.Layout;
+using Vibe.Office.Markdown;
 using Vibe.Office.Macros;
 using Vibe.Office.Vba.Runtime;
 using Vibe.Office.OpenXml;
@@ -79,6 +80,10 @@ public partial class WordEditorControl : UserControl
     private static readonly FilePickerFileType DocxFileType = new("Word Documents")
     {
         Patterns = new[] { "*.docx", "*.docm" }
+    };
+    private static readonly FilePickerFileType MarkdownFileType = new("Markdown")
+    {
+        Patterns = new[] { "*.md", "*.markdown" }
     };
     private static readonly FilePickerFileType ImageFileType = new("Images")
     {
@@ -497,7 +502,7 @@ public partial class WordEditorControl : UserControl
         var result = await storageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
             AllowMultiple = false,
-            FileTypeFilter = new[] { DocxFileType }
+            FileTypeFilter = new[] { DocxFileType, MarkdownFileType }
         });
 
         if (result.Count == 0)
@@ -524,6 +529,7 @@ public partial class WordEditorControl : UserControl
         _currentPath = null;
         var document = DocumentTemplates.CreateDefaultDocument();
         await _editorView.LoadDocumentAsync(document);
+        ApplyFormatProfile(isMarkdown: false);
         RefreshStyleGalleryItems();
         AttachStyleManagerEvents();
         _ribbon?.RefreshState();
@@ -548,7 +554,7 @@ public partial class WordEditorControl : UserControl
             var file = await storageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
             {
                 DefaultExtension = "docx",
-                FileTypeChoices = new[] { DocxFileType }
+                FileTypeChoices = new[] { DocxFileType, MarkdownFileType }
             });
 
             path = file?.TryGetLocalPath();
@@ -559,7 +565,15 @@ public partial class WordEditorControl : UserControl
             return;
         }
 
-        new DocxExporter().Save(_editorView.Document, path);
+        if (IsMarkdownPath(path))
+        {
+            var markdown = MarkdownDocumentConverter.ToMarkdown(_editorView.Document, CreateMarkdownOptions());
+            await File.WriteAllTextAsync(path, markdown);
+        }
+        else
+        {
+            new DocxExporter().Save(_editorView.Document, path);
+        }
         _currentPath = path;
     }
 
@@ -571,6 +585,46 @@ public partial class WordEditorControl : UserControl
         if (string.IsNullOrWhiteSpace(_currentPath))
         {
             _currentPath = previousPath;
+        }
+    }
+
+    private static bool IsMarkdownPath(string path)
+    {
+        var extension = Path.GetExtension(path);
+        return extension.Equals(".md", StringComparison.OrdinalIgnoreCase)
+               || extension.Equals(".markdown", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static MarkdownOptions CreateMarkdownOptions()
+    {
+        return new MarkdownOptions
+        {
+            Flavor = MarkdownFlavor.GitHub,
+            UseGfmTables = true,
+            UseTaskLists = true,
+            UseStrikethrough = true
+        };
+    }
+
+    private void ApplyFormatProfile(bool isMarkdown)
+    {
+        if (_editorView is null)
+        {
+            return;
+        }
+
+        if (_editorView.TryGetService<IEditorFormatProfileService>(out var profileService))
+        {
+            if (isMarkdown)
+            {
+                profileService.CurrentProfile = MarkdownProfiles.GitHub;
+                profileService.CommandPolicy = MarkdownCommandPolicy.Create(MarkdownProfiles.GitHub);
+            }
+            else
+            {
+                profileService.CurrentProfile = null;
+                profileService.CommandPolicy = null;
+            }
         }
     }
 
@@ -7417,7 +7471,16 @@ public partial class WordEditorControl : UserControl
         var loaded = false;
         try
         {
-            var document = await Task.Run(() => new DocxImporter().Load(path));
+            Document document;
+            if (IsMarkdownPath(path))
+            {
+                var markdown = await File.ReadAllTextAsync(path);
+                document = MarkdownDocumentConverter.FromMarkdown(markdown.AsSpan(), CreateMarkdownOptions());
+            }
+            else
+            {
+                document = await Task.Run(() => new DocxImporter().Load(path));
+            }
             await _editorView.LoadDocumentAsync(document);
             _currentPath = path;
             loaded = true;
@@ -7433,6 +7496,7 @@ public partial class WordEditorControl : UserControl
 
         if (loaded)
         {
+            ApplyFormatProfile(IsMarkdownPath(path));
             RefreshStyleGalleryItems();
             AttachStyleManagerEvents();
             _ribbon?.RefreshState();
