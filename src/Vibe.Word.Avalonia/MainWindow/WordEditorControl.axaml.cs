@@ -81,6 +81,10 @@ public partial class WordEditorControl : UserControl
     {
         Patterns = new[] { "*.docx", "*.docm" }
     };
+    private static readonly FilePickerFileType SupportedFileType = new("Supported Files")
+    {
+        Patterns = new[] { "*.docx", "*.docm", "*.md", "*.markdown" }
+    };
     private static readonly FilePickerFileType MarkdownFileType = new("Markdown")
     {
         Patterns = new[] { "*.md", "*.markdown" }
@@ -502,7 +506,7 @@ public partial class WordEditorControl : UserControl
         var result = await storageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
             AllowMultiple = false,
-            FileTypeFilter = new[] { DocxFileType, MarkdownFileType }
+            FileTypeFilter = new[] { SupportedFileType, DocxFileType, MarkdownFileType }
         });
 
         if (result.Count == 0)
