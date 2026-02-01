@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
+using System.ComponentModel;
 using System.Globalization;
 using System.IO;
 using System.Text;
@@ -158,6 +159,17 @@ public partial class WordEditorControl : UserControl
         _zoomInButton = this.FindControl<Button>("ZoomInButton");
         _zoomOutButton = this.FindControl<Button>("ZoomOutButton");
         _zoomResetButton = this.FindControl<Button>("ZoomResetButton");
+
+        if (_navigationPane is not null)
+        {
+            _navigationPane.PropertyChanged += (_, e) =>
+            {
+                if (e.Property == Visual.IsVisibleProperty && _navigationPane.IsVisible)
+                {
+                    RefreshNavigationPaneItems(force: true);
+                }
+            };
+        }
 
         if (_zoomSlider is not null)
         {
@@ -7599,16 +7611,13 @@ public partial class WordEditorControl : UserControl
             return;
         }
 
-        var layout = _editorView.Layout;
-        var document = _editorView.Document;
-        if (!force
-            && ReferenceEquals(layout, _navigationLayout)
-            && ReferenceEquals(document, _navigationDocument))
+        if (!force && _navigationPane?.IsVisible != true)
         {
-            UpdatePagePaneSelection(layout);
             return;
         }
 
+        var layout = _editorView.Layout;
+        var document = _editorView.Document;
         _navigationLayout = layout;
         _navigationDocument = document;
 
@@ -7619,7 +7628,19 @@ public partial class WordEditorControl : UserControl
             _navigationItems.Add(item);
         }
 
-        RefreshPagePaneItems(layout);
+        var pageCount = Math.Max(1, layout.Pages.Count);
+        if (force || _pageItems.Count != pageCount)
+        {
+            RefreshPagePaneItems(layout);
+        }
+        else
+        {
+            UpdatePagePaneSelection(layout);
+            if (_pagePaneList?.IsVisible == true)
+            {
+                UpdateCurrentPageThumbnail(layout);
+            }
+        }
     }
 
     private void RefreshPagePaneItems(DocumentLayout layout)
@@ -7653,6 +7674,27 @@ public partial class WordEditorControl : UserControl
         _suppressPageSelection = false;
     }
 
+    private void UpdateCurrentPageThumbnail(DocumentLayout layout)
+    {
+        if (_editorView is null || _pageItems.Count == 0)
+        {
+            return;
+        }
+
+        var currentPage = ResolveCurrentPage(layout, _editorView.Caret) - 1;
+        if (currentPage < 0 || currentPage >= _pageItems.Count)
+        {
+            return;
+        }
+
+        var thumbnail = CreatePageThumbnail(currentPage);
+        if (thumbnail is null)
+        {
+            return;
+        }
+
+        _pageItems[currentPage].SetThumbnail(thumbnail);
+    }
     private Bitmap? CreatePageThumbnail(int pageIndex)
     {
         if (_editorView is null)
@@ -8540,23 +8582,45 @@ public partial class WordEditorControl : UserControl
         public override string ToString() => Display;
     }
 
-    private sealed class PageNavigationItem : IDisposable
+    private sealed class PageNavigationItem : INotifyPropertyChanged, IDisposable
     {
         public int PageIndex { get; }
         public string Display { get; }
-        public Bitmap? Thumbnail { get; private set; }
+        private Bitmap? _thumbnail;
+        public Bitmap? Thumbnail
+        {
+            get => _thumbnail;
+            private set
+            {
+                if (ReferenceEquals(_thumbnail, value))
+                {
+                    return;
+                }
+
+                _thumbnail?.Dispose();
+                _thumbnail = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Thumbnail)));
+            }
+        }
+
+        public event PropertyChangedEventHandler? PropertyChanged;
 
         public PageNavigationItem(int pageIndex, Bitmap? thumbnail)
         {
             PageIndex = pageIndex;
             Display = $"Page {pageIndex + 1}";
+            _thumbnail = thumbnail;
+        }
+
+        public void SetThumbnail(Bitmap? thumbnail)
+        {
             Thumbnail = thumbnail;
         }
 
         public void Dispose()
         {
-            Thumbnail?.Dispose();
-            Thumbnail = null;
+            _thumbnail?.Dispose();
+            _thumbnail = null;
         }
 
         public override string ToString() => Display;
