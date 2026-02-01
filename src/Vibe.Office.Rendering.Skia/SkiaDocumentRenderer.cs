@@ -50,6 +50,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
         canvas.Clear(ToSkColor(options.BackgroundColor));
 
         var dirtyPages = options.DirtyPages;
+        var hasDirtyPages = dirtyPages is { Count: > 0 };
         var hasVisibleBounds = options.VisibleBounds.HasValue;
         var visibleBounds = hasVisibleBounds ? options.VisibleBounds.GetValueOrDefault() : default;
         var pageStart = 0;
@@ -70,13 +71,13 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                 return;
             }
 
-            if (dirtyPages is { Count: > 0 } && options.DirtyVersion != _pendingDirtyVersion)
+            if (dirtyPages is { Count: > 0 } dirtyPageList && options.DirtyVersion != _pendingDirtyVersion)
             {
                 _pendingDirtyPages ??= new HashSet<int>();
                 _pendingDirtyPages.Clear();
-                for (var i = 0; i < dirtyPages.Count; i++)
+                for (var i = 0; i < dirtyPageList.Count; i++)
                 {
-                    var pageIndex = dirtyPages[i];
+                    var pageIndex = dirtyPageList[i];
                     if ((uint)pageIndex < (uint)layout.Pages.Count)
                     {
                         _pendingDirtyPages.Add(pageIndex);
@@ -150,10 +151,20 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
         }
         else
         {
-            UpdatePendingDirtyPages();
-            if (TryDrawCachedPagesOnly())
+            if (!hasDirtyPages && options.DirtyVersion != _pendingDirtyVersion)
             {
-                return;
+                // Unknown dirty pages; invalidate cached pictures to avoid stale content.
+                ClearPageCache();
+                _pendingDirtyPages?.Clear();
+                _pendingDirtyVersion = options.DirtyVersion;
+            }
+            else
+            {
+                UpdatePendingDirtyPages();
+                if (TryDrawCachedPagesOnly())
+                {
+                    return;
+                }
             }
         }
 
