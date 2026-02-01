@@ -3,6 +3,7 @@
     <Project Path="src/Vibe.Office.Editing/Vibe.Office.Editing.csproj" />
     <Project Path="src/Vibe.Office.Documents/Vibe.Office.Documents.csproj" />
     <Project Path="src/Vibe.Office.Layout/Vibe.Office.Layout.csproj" />
+    <Project Path="src/Vibe.Office.Markdown/Vibe.Office.Markdown.csproj" />
     <Project Path="src/Vibe.Office.Macros/Vibe.Office.Macros.csproj" />
     <Project Path="src/Vibe.Office.OpenXml/Vibe.Office.OpenXml.csproj" />
     <Project Path="src/Vibe.Office.Primitives/Vibe.Office.Primitives.csproj" />
@@ -17,6 +18,7 @@
     <Project Path="src/Vibe.Word.Editor/Vibe.Word.Editor.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Vibe.Office.Markdown.Tests/Vibe.Office.Markdown.Tests.csproj" />
     <Project Path="tests/Vibe.Office.Layout.Tests/Vibe.Office.Layout.Tests.csproj" />
     <Project Path="tests/Vibe.Office.OpenXml.Tests/Vibe.Office.OpenXml.Tests.csproj" />
     <Project Path="tests/Vibe.Office.Vba.Runtime.Tests/Vibe.Office.Vba.Runtime.Tests.csproj" />
