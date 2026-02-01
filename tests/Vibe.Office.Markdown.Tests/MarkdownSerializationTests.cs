@@ -124,4 +124,72 @@ public class MarkdownSerializationTests
 
         Assert.Contains("| :--- | ---: |", markdown, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void ToMarkdown_DropsImplicitTrailingEmptyParagraph()
+    {
+        var document = new Document();
+        document.Blocks.Clear();
+        document.Blocks.Add(new ParagraphBlock("Hello"));
+        document.Blocks.Add(new ParagraphBlock());
+
+        var markdown = MarkdownDocumentConverter.ToMarkdown(document, new MarkdownOptions { Flavor = MarkdownFlavor.CommonMark });
+
+        Assert.Equal("Hello", markdown);
+    }
+
+    [Fact]
+    public void ToMarkdown_PreservesExplicitTrailingBlankLines()
+    {
+        var document = new Document();
+        document.Blocks.Clear();
+        document.Blocks.Add(new ParagraphBlock("Hello"));
+        document.Blocks.Add(new ParagraphBlock());
+        document.Blocks.Add(new ParagraphBlock());
+
+        var markdown = MarkdownDocumentConverter.ToMarkdown(document, new MarkdownOptions { Flavor = MarkdownFlavor.CommonMark });
+
+        Assert.Equal("Hello\n\n", markdown);
+    }
+
+    [Fact]
+    public void Serialize_EmptyParagraphs_DoNotEmitContentWhenDocumentIsBlank()
+    {
+        var document = new MarkdownDocument(new MarkdownNodeId(1), MarkdownTextSpan.Unknown);
+        document.Blocks.Add(new MarkdownParagraphBlock(new MarkdownNodeId(2), MarkdownTextSpan.Unknown));
+
+        var serializer = new MarkdownSerializer(new MarkdownOptions { Flavor = MarkdownFlavor.CommonMark });
+        var markdown = serializer.Serialize(document);
+
+        Assert.Equal(string.Empty, markdown);
+    }
+
+    [Fact]
+    public void Serialize_TrailingEmptyParagraphs_EmitTrailingBlankLines()
+    {
+        var document = new MarkdownDocument(new MarkdownNodeId(1), MarkdownTextSpan.Unknown);
+        var paragraph = new MarkdownParagraphBlock(new MarkdownNodeId(2), MarkdownTextSpan.Unknown);
+        paragraph.Inlines.Add(new MarkdownTextInline(new MarkdownNodeId(3), MarkdownTextSpan.Unknown, "Hello"));
+        document.Blocks.Add(paragraph);
+        document.Blocks.Add(new MarkdownParagraphBlock(new MarkdownNodeId(4), MarkdownTextSpan.Unknown));
+        document.Blocks.Add(new MarkdownParagraphBlock(new MarkdownNodeId(5), MarkdownTextSpan.Unknown));
+
+        var serializer = new MarkdownSerializer(new MarkdownOptions { Flavor = MarkdownFlavor.CommonMark });
+        var markdown = serializer.Serialize(document);
+
+        Assert.Equal("Hello\n\n\n", markdown);
+    }
+
+    [Fact]
+    public void Parse_PreservesTrailingBlankLines_WhenContentExists()
+    {
+        var options = new MarkdownOptions { Flavor = MarkdownFlavor.CommonMark };
+        var parser = new MarkdownParser(options);
+        var document = parser.Parse("Hello\n\n");
+        var serializer = new MarkdownSerializer(options);
+
+        var markdown = serializer.Serialize(document);
+
+        Assert.Equal("Hello\n\n", markdown);
+    }
 }

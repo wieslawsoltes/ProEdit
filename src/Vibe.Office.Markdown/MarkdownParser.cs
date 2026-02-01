@@ -23,7 +23,47 @@ public sealed class MarkdownParser
         var document = new MarkdownDocument(_idProvider.NextId(), span);
         var index = 0;
         ParseBlocks(document.Blocks, ref index, untilEnd: true, stopOnIndentLessThan: -1);
+        AppendTrailingBlankLines(document);
         return document;
+    }
+
+    private void AppendTrailingBlankLines(MarkdownDocument document)
+    {
+        if (document.Blocks.Count == 0)
+        {
+            return;
+        }
+
+        var count = 0;
+        for (var i = _lines.Count - 1; i >= 0; i--)
+        {
+            if (!_lines[i].IsBlank)
+            {
+                break;
+            }
+
+            count++;
+        }
+
+        if (count == 0)
+        {
+            return;
+        }
+
+        if (_text.Length > 0 && (_text[^1] == '\n' || _text[^1] == '\r'))
+        {
+            count = Math.Max(0, count - 1);
+        }
+
+        if (count == 0)
+        {
+            return;
+        }
+
+        for (var i = 0; i < count; i++)
+        {
+            document.Blocks.Add(new MarkdownParagraphBlock(_idProvider.NextId(), MarkdownTextSpan.Unknown));
+        }
     }
 
     private void ParseBlocks(List<MarkdownBlock> target, ref int lineIndex, bool untilEnd, int stopOnIndentLessThan)
@@ -750,6 +790,13 @@ public sealed class MarkdownParser
         if (text.Length == 0)
         {
             lines.Add(new MarkdownLine(0, 0, true));
+            return lines;
+        }
+
+        var last = text[^1];
+        if (last == '\n' || last == '\r')
+        {
+            lines.Add(new MarkdownLine(text.Length, 0, true));
         }
 
         return lines;

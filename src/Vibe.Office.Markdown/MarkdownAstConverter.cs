@@ -30,8 +30,61 @@ public static class MarkdownAstConverter
         var provider = idProvider ?? new MarkdownNodeIdProvider();
         var ast = new MarkdownDocument(provider.NextId(), MarkdownTextSpan.Unknown);
         var index = 0;
-        ast.Blocks.AddRange(ConvertBlocks(document.Blocks, provider, effectiveOptions, ref index, stopOnMetadata: null));
+        var blocks = TrimTrailingImplicitParagraph(document.Blocks);
+        ast.Blocks.AddRange(ConvertBlocks(blocks, provider, effectiveOptions, ref index, stopOnMetadata: null));
         return ast;
+    }
+
+    private static IReadOnlyList<Block> TrimTrailingImplicitParagraph(IReadOnlyList<Block> blocks)
+    {
+        if (blocks.Count == 0)
+        {
+            return blocks;
+        }
+
+        var lastIndex = blocks.Count - 1;
+        if (blocks[lastIndex] is not ParagraphBlock paragraph || !IsImplicitTrailingParagraph(paragraph))
+        {
+            return blocks;
+        }
+
+        if (lastIndex == 0)
+        {
+            return Array.Empty<Block>();
+        }
+
+        var trimmed = new List<Block>(lastIndex);
+        for (var i = 0; i < lastIndex; i++)
+        {
+            trimmed.Add(blocks[i]);
+        }
+
+        return trimmed;
+    }
+
+    private static bool IsImplicitTrailingParagraph(ParagraphBlock paragraph)
+    {
+        if (paragraph.ListInfo is not null)
+        {
+            return false;
+        }
+
+        if (paragraph.Inlines.Count > 0)
+        {
+            return false;
+        }
+
+        if (!string.IsNullOrEmpty(paragraph.Text))
+        {
+            return false;
+        }
+
+        if (paragraph.FloatingObjects.Count > 0)
+        {
+            return false;
+        }
+
+        return true;
     }
 
     private static void AppendBlocks(List<Block> target, IReadOnlyList<MarkdownBlock> blocks, MarkdownToDocumentContext context)

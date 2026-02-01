@@ -23,16 +23,43 @@ public sealed class MarkdownSerializer
 
     private void WriteBlocks(StringBuilder builder, IReadOnlyList<MarkdownBlock> blocks, int indentLevel)
     {
+        var hasContent = false;
+        var pendingEmptyParagraphs = 0;
         for (var i = 0; i < blocks.Count; i++)
         {
             var block = blocks[i];
-            WriteBlock(builder, block, indentLevel);
-            if (i < blocks.Count - 1)
+            if (IsEmptyParagraph(block))
             {
-                builder.Append('\n');
-                builder.Append('\n');
+                pendingEmptyParagraphs++;
+                continue;
             }
+
+            if (hasContent)
+            {
+                AppendBlockSeparator(builder, pendingEmptyParagraphs);
+            }
+
+            WriteBlock(builder, block, indentLevel);
+            hasContent = true;
+            pendingEmptyParagraphs = 0;
         }
+
+        if (hasContent && pendingEmptyParagraphs > 0)
+        {
+            builder.Append('\n', pendingEmptyParagraphs + 1);
+        }
+    }
+
+    private static bool IsEmptyParagraph(MarkdownBlock block)
+    {
+        return block is MarkdownParagraphBlock paragraph && paragraph.Inlines.Count == 0;
+    }
+
+    private static void AppendBlockSeparator(StringBuilder builder, int emptyParagraphs)
+    {
+        var blankLines = 1 + emptyParagraphs;
+        var newlineCount = blankLines + 1;
+        builder.Append('\n', newlineCount);
     }
 
     private void WriteBlock(StringBuilder builder, MarkdownBlock block, int indentLevel)
