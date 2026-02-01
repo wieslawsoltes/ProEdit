@@ -2,6 +2,7 @@ namespace Vibe.Office.Markdown;
 
 internal static class MarkdownStyleIds
 {
+    internal const string DefaultParagraphFont = "DefaultParagraphFont";
     internal const string Normal = "Normal";
     internal const string BlockQuote = "BlockQuote";
     internal const string CodeBlock = "CodeBlock";

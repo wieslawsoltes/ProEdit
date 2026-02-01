@@ -22,9 +22,10 @@ internal static class MarkdownStyleSeeder
         styles.CharacterStyles.Clear();
         styles.TableStyles.Clear();
         styles.DefaultParagraphStyleId = MarkdownStyleIds.Normal;
-        styles.DefaultCharacterStyleId = null;
+        styles.DefaultCharacterStyleId = MarkdownStyleIds.DefaultParagraphFont;
         styles.DefaultTableStyleId = null;
 
+        AddCharacterStyle(styles, CreateDefaultParagraphFontStyle());
         AddParagraphStyle(styles, CreateNormalStyle());
         for (var level = 1; level <= 6; level++)
         {
@@ -71,6 +72,23 @@ internal static class MarkdownStyleSeeder
         return style;
     }
 
+    private static CharacterStyleDefinition CreateDefaultParagraphFontStyle()
+    {
+        var style = new CharacterStyleDefinition(MarkdownStyleIds.DefaultParagraphFont)
+        {
+            Name = "Default Paragraph Font",
+            PrimaryStyle = true,
+            Hidden = true,
+            SemiHidden = true
+        };
+        style.RunProperties.FontFamily = "Segoe UI";
+        style.RunProperties.FontSize = MarkdownStyleDefaults.PointsToDips(MarkdownStyleDefaults.NormalFontSizePoints);
+        style.RunProperties.FontWeight = DocFontWeight.Normal;
+        style.RunProperties.FontStyle = DocFontStyle.Normal;
+        style.RunProperties.Color = MarkdownTextColor;
+        return style;
+    }
+
     private static ParagraphStyleDefinition CreateHeadingStyle(int level)
     {
         var index = Math.Clamp(level, 1, 6) - 1;
@@ -86,7 +104,6 @@ internal static class MarkdownStyleSeeder
         style.RunProperties.FontSize = MarkdownStyleDefaults.PointsToDips(sizePoints);
         style.ParagraphProperties.SpacingBefore = MarkdownStyleDefaults.HeadingSpacingBeforeDips;
         style.ParagraphProperties.SpacingAfter = MarkdownStyleDefaults.HeadingSpacingAfterDips;
-        style.ParagraphProperties.KeepWithNext = true;
         if (level <= 2)
         {
             style.ParagraphProperties.Borders.Bottom = CreateParagraphBorder();
@@ -281,5 +298,8 @@ internal static class MarkdownStyleSeeder
         paragraph.SpacingBefore = 0f;
         paragraph.SpacingAfter = MarkdownStyleDefaults.ParagraphSpacingAfterDips;
         paragraph.ContextualSpacing = true;
+
+        // Prefer the greedy line breaker for markdown to avoid expensive Knuth-Plass reflow on long lines.
+        document.Compatibility.UseWord97LineBreakRules = true;
     }
 }

@@ -34,6 +34,7 @@ public class MarkdownStyleTests
 
         var expectedCharacter = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
+            "DefaultParagraphFont",
             "CodeInline",
             "Hyperlink"
         };
@@ -41,7 +42,9 @@ public class MarkdownStyleTests
         Assert.True(expectedCharacter.SetEquals(characterStyles));
         Assert.Empty(document.Styles.TableStyles);
         Assert.Equal("Normal", document.Styles.DefaultParagraphStyleId);
+        Assert.Equal("DefaultParagraphFont", document.Styles.DefaultCharacterStyleId);
         Assert.Null(document.Styles.DefaultTableStyleId);
+        Assert.True(document.Compatibility.UseWord97LineBreakRules);
     }
 
     [Fact]
