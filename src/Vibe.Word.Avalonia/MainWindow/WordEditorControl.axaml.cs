@@ -27,6 +27,7 @@ namespace Vibe.Word.Avalonia;
 
 public partial class WordEditorControl : UserControl
 {
+    private const string WindowTitleBase = "Vibe Word";
     private readonly DocumentView? _editorView;
     private readonly HorizontalRuler? _horizontalRuler;
     private readonly VerticalRuler? _verticalRuler;
@@ -430,6 +431,7 @@ public partial class WordEditorControl : UserControl
         {
             _editorView.LoadDocument(document);
             _currentPath = path;
+            UpdateWindowTitle();
             RefreshStyleGalleryItems();
             AttachStyleManagerEvents();
             _ribbon?.RefreshState();
@@ -448,7 +450,10 @@ public partial class WordEditorControl : UserControl
             {
                 _pendingOpenPath = path;
             }
+            return;
         }
+
+        UpdateWindowTitle();
     }
 
     private TopLevel? ResolveTopLevel()
@@ -459,6 +464,35 @@ public partial class WordEditorControl : UserControl
     private Window? ResolveOwnerWindow()
     {
         return ResolveTopLevel() as Window;
+    }
+
+    private void UpdateWindowTitle()
+    {
+        var owner = ResolveOwnerWindow();
+        if (owner is null)
+        {
+            return;
+        }
+
+        var fileName = string.IsNullOrWhiteSpace(_currentPath)
+            ? "Untitled"
+            : Path.GetFileName(_currentPath);
+        owner.Title = $"{fileName} - {WindowTitleBase}";
+    }
+
+    private string ResolveSuggestedFileName(string? suggestedName)
+    {
+        if (!string.IsNullOrWhiteSpace(suggestedName))
+        {
+            return suggestedName;
+        }
+
+        if (!string.IsNullOrWhiteSpace(_currentPath))
+        {
+            return Path.GetFileNameWithoutExtension(_currentPath);
+        }
+
+        return "Untitled";
     }
 
     private IStorageProvider? ResolveStorageProvider()
@@ -543,6 +577,7 @@ public partial class WordEditorControl : UserControl
         }
 
         _currentPath = null;
+        UpdateWindowTitle();
         var document = DocumentTemplates.CreateDefaultDocument();
         await _editorView.LoadDocumentAsync(document);
         ApplyFormatProfile(isMarkdown: false);
@@ -551,7 +586,7 @@ public partial class WordEditorControl : UserControl
         _ribbon?.RefreshState();
     }
 
-    private async Task SaveDocumentAsync()
+    private async Task SaveDocumentAsync(string? suggestedName = null)
     {
         if (_editorView is null || _isLoading)
         {
@@ -570,7 +605,8 @@ public partial class WordEditorControl : UserControl
             var file = await storageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
             {
                 DefaultExtension = "docx",
-                FileTypeChoices = new[] { DocxFileType, MarkdownFileType }
+                FileTypeChoices = new[] { DocxFileType, MarkdownFileType },
+                SuggestedFileName = ResolveSuggestedFileName(suggestedName)
             });
 
             path = file?.TryGetLocalPath();
@@ -591,16 +627,21 @@ public partial class WordEditorControl : UserControl
             new DocxExporter().Save(_editorView.Document, path);
         }
         _currentPath = path;
+        UpdateWindowTitle();
     }
 
     private async Task SaveDocumentAsAsync()
     {
         var previousPath = _currentPath;
         _currentPath = null;
-        await SaveDocumentAsync();
+        var suggestedName = string.IsNullOrWhiteSpace(previousPath)
+            ? "Untitled"
+            : Path.GetFileNameWithoutExtension(previousPath);
+        await SaveDocumentAsync(suggestedName);
         if (string.IsNullOrWhiteSpace(_currentPath))
         {
             _currentPath = previousPath;
+            UpdateWindowTitle();
         }
     }
 
@@ -702,6 +743,31 @@ public partial class WordEditorControl : UserControl
             return router.CanExecute(commandId, payload);
         }
 
+        bool ShouldRecordHistory(string commandId)
+        {
+            if (_editorView is null)
+            {
+                return true;
+            }
+
+            if (!string.Equals(commandId, EditorHomeCommandIds.Styles.Apply, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            if (_editorView.TryGetService<IEditorFormatProfileService>(out var profileService))
+            {
+                var profileId = profileService.CurrentProfile?.Id;
+                if (!string.IsNullOrWhiteSpace(profileId)
+                    && profileId.StartsWith("markdown", StringComparison.OrdinalIgnoreCase))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
         async ValueTask ExecuteEditorCommandAsync(string commandId, object? payload = null)
         {
             var router = GetCommandRouter();
@@ -710,13 +776,14 @@ public partial class WordEditorControl : UserControl
                 return;
             }
 
+            var recordHistory = ShouldRecordHistory(commandId);
             if (TryGetSnapshot(out var snapshot))
             {
-                await router.ExecuteAsync(commandId, payload, snapshot);
+                await router.ExecuteAsync(commandId, payload, snapshot, recordHistory);
             }
             else
             {
-                await router.ExecuteAsync(commandId, payload);
+                await router.ExecuteAsync(commandId, payload, recordHistory: recordHistory);
             }
 
             _ribbon?.RefreshState();
@@ -2522,7 +2589,7 @@ public partial class WordEditorControl : UserControl
 
         var newCommand = CreateAsyncCommand(NewDocumentAsync, canInteract);
         var openCommand = CreateAsyncCommand(OpenDocumentAsync, canInteract);
-        var saveCommand = CreateAsyncCommand(SaveDocumentAsync, canInteract);
+        var saveCommand = CreateAsyncCommand(() => SaveDocumentAsync(), canInteract);
         var saveAsCommand = CreateAsyncCommand(SaveDocumentAsAsync, canInteract);
 
         var newButton = new RibbonButton(
@@ -7499,6 +7566,7 @@ public partial class WordEditorControl : UserControl
             }
             await _editorView.LoadDocumentAsync(document);
             _currentPath = path;
+            UpdateWindowTitle();
             loaded = true;
         }
         catch (Exception ex)
