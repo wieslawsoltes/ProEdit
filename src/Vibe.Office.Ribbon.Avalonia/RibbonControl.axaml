@@ -1025,7 +1025,7 @@
                 ContextRequested="OnRibbonControlContextRequested">
           <ListBox Classes="ribbon-gallery ribbon-control"
                    ItemsSource="{Binding Items}"
-                   SelectedItem="{Binding SelectedItem}"
+                   SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
                    ItemContainerTheme="{StaticResource RibbonGalleryItemTheme}"
                    SelectionChanged="OnRibbonGallerySelectionChanged"
                    ScrollViewer.VerticalScrollBarVisibility="Disabled"
@@ -1063,7 +1063,7 @@
             <Grid RowDefinitions="Auto,Auto">
               <ListBox Classes="ribbon-gallery-popup"
                        ItemsSource="{Binding Items}"
-                       SelectedItem="{Binding SelectedItem}"
+                       SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
                        ItemContainerTheme="{StaticResource RibbonGalleryPopupItemTheme}"
                        SelectionChanged="OnRibbonGalleryPopupSelectionChanged"
                        ScrollViewer.VerticalScrollBarVisibility="Auto"

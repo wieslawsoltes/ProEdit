@@ -78,6 +78,17 @@ public sealed class RibbonGallery : RibbonControlBase
             return;
         }
 
+        if (item is null)
+        {
+            if (_selectedItem is null)
+            {
+                return;
+            }
+
+            SelectedItem = null;
+            return;
+        }
+
         if (_selectionHandler is not null)
         {
             await _selectionHandler(item);

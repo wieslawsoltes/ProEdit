@@ -4,6 +4,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using System;
 using System.Collections.Generic;
@@ -26,6 +27,7 @@ public partial class RibbonControl : UserControl
     private RibbonTab? _lastLayoutTab;
     private readonly RibbonGroupOverflowController _overflowController = new();
     private int _stateUpdateDepth;
+    private int _suppressGallerySelectionDepth;
 
     public event EventHandler? CustomizeQuickAccessRequested;
 
@@ -75,6 +77,7 @@ public partial class RibbonControl : UserControl
             Model.SelectedTab = Model.Tabs[0];
         }
 
+        SuppressGallerySelection();
         Model?.RefreshState();
     }
 
@@ -260,17 +263,23 @@ public partial class RibbonControl : UserControl
 
     private async void OnRibbonGallerySelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
-        if (sender is not ListBox { DataContext: RibbonGallery gallery })
+        if (sender is not ListBox { DataContext: RibbonGallery gallery } listBox)
         {
             return;
         }
 
-        if (_stateUpdateDepth > 0)
+        if (_stateUpdateDepth > 0 || _suppressGallerySelectionDepth > 0)
         {
             return;
         }
 
-        await gallery.SelectAsync(gallery.SelectedItem as RibbonGalleryItem);
+        var selected = listBox.SelectedItem as RibbonGalleryItem;
+        if (selected is null)
+        {
+            return;
+        }
+
+        await gallery.SelectAsync(selected);
         RefreshState();
     }
 
@@ -281,12 +290,18 @@ public partial class RibbonControl : UserControl
             return;
         }
 
-        if (_stateUpdateDepth > 0)
+        if (_stateUpdateDepth > 0 || _suppressGallerySelectionDepth > 0)
         {
             return;
         }
 
-        await gallery.SelectAsync(listBox.SelectedItem as RibbonGalleryItem);
+        var selected = listBox.SelectedItem as RibbonGalleryItem;
+        if (selected is null)
+        {
+            return;
+        }
+
+        await gallery.SelectAsync(selected);
         if (listBox.Tag is ToggleButton toggle)
         {
             toggle.IsChecked = false;
@@ -551,6 +566,7 @@ public partial class RibbonControl : UserControl
     public void RefreshState()
     {
         using var _ = BeginStateUpdate();
+        SuppressGallerySelection();
         Model?.RefreshState();
     }
 
@@ -573,6 +589,14 @@ public partial class RibbonControl : UserControl
     {
         _stateUpdateDepth++;
         return new StateUpdateScope(this);
+    }
+
+    private void SuppressGallerySelection()
+    {
+        _suppressGallerySelectionDepth++;
+        Dispatcher.UIThread.Post(
+            () => _suppressGallerySelectionDepth = Math.Max(0, _suppressGallerySelectionDepth - 1),
+            DispatcherPriority.Background);
     }
 
     private sealed class StateUpdateScope : IDisposable
