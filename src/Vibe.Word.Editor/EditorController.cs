@@ -7,7 +7,7 @@ using Vibe.Office.Editing;
 
 namespace Vibe.Word.Editor;
 
-public sealed class EditorController : IEditorMutableSession, IContentControlInteractionSession
+public sealed class EditorController : IEditorMutableSession, IContentControlInteractionSession, IEditorLayoutRefreshService
 {
     private readonly EditorLayoutService _layoutService;
     private readonly EditorSelectionService _selectionService;
@@ -46,6 +46,11 @@ public sealed class EditorController : IEditorMutableSession, IContentControlInt
     public void RefreshLayout()
     {
         _layoutService.RefreshLayout(null);
+    }
+
+    public void RefreshLayout(int? dirtyParagraphIndex)
+    {
+        _layoutService.RefreshLayout(dirtyParagraphIndex);
     }
 
     public bool TryGetCaretPoint(out DocPoint point, out int lineIndex)

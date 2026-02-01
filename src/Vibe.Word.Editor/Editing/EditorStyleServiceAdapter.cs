@@ -165,18 +165,18 @@ public sealed class EditorStyleServiceAdapter : IStyleManagerService
             return false;
         }
 
-        if (TryResolveLinkedCharacterStyle(definition, out var linkedStyleId)
-            && TryApplyLinkedCharacterStyle(selection, paragraphCount, linkedStyleId))
-        {
-            _session.RefreshLayout();
-            return true;
-        }
-
         var startIndex = Math.Clamp(selection.Start.ParagraphIndex, 0, paragraphCount - 1);
         var endIndex = Math.Clamp(selection.End.ParagraphIndex, 0, paragraphCount - 1);
         if (startIndex > endIndex)
         {
             (startIndex, endIndex) = (endIndex, startIndex);
+        }
+
+        if (TryResolveLinkedCharacterStyle(definition, out var linkedStyleId)
+            && TryApplyLinkedCharacterStyle(selection, paragraphCount, linkedStyleId))
+        {
+            RefreshLayout(startIndex);
+            return true;
         }
 
         var updated = false;
@@ -194,10 +194,21 @@ public sealed class EditorStyleServiceAdapter : IStyleManagerService
 
         if (updated)
         {
-            _session.RefreshLayout();
+            RefreshLayout(startIndex);
         }
 
         return updated;
+    }
+
+    private void RefreshLayout(int dirtyParagraphIndex)
+    {
+        if (_session is IEditorLayoutRefreshService refresh)
+        {
+            refresh.RefreshLayout(dirtyParagraphIndex);
+            return;
+        }
+
+        _session.RefreshLayout();
     }
 
     private bool TryResolveLinkedCharacterStyle(ParagraphStyleDefinition definition, out string linkedStyleId)
