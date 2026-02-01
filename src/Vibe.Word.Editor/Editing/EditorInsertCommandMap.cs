@@ -664,6 +664,14 @@ public sealed class EditorInsertCommandMap
     {
         var table = new TableBlock();
         table.Properties.CellPadding = DocThickness.Uniform(DefaultTableCellPadding);
+        table.Properties.WidthUnit = TableWidthUnit.Pct;
+        table.Properties.Width = 100f;
+        table.Properties.LayoutMode = TableLayoutMode.Auto;
+        table.Properties.Alignment = TableAlignment.Left;
+        table.Properties.IndentUnit = TableWidthUnit.Dxa;
+        table.Properties.Indent = 0f;
+        table.Properties.CellSpacingUnit = TableWidthUnit.Dxa;
+        table.Properties.CellSpacing = 0f;
         var borderLine = new BorderLine
         {
             Style = DocBorderStyle.Single,
