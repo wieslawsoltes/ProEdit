@@ -40,7 +40,8 @@ public static class EditorHomeServiceRegistry
         var vbaRuntime = new VbaRuntime(vbaHost);
         vbaHost.SetRuntime(vbaRuntime);
         var macroEngine = new MacroEngine(session.Document, vbaRuntime: vbaRuntime);
-        var commandRouter = new EditorCommandRouterAdapter(commands, session, macroEngine);
+        var formatProfileService = new EditorFormatProfileService();
+        var commandRouter = new EditorCommandRouterAdapter(commands, session, macroEngine, formatProfileService);
         commands.History = undoRedoService;
         var ribbonSnapshotProvider = new RibbonContextSnapshotBuilder(
             selectionState,
@@ -77,6 +78,7 @@ public static class EditorHomeServiceRegistry
         }
         services.Register<IEditorCommandRouter>(commandRouter);
         services.Register<IRibbonContextSnapshotProvider>(ribbonSnapshotProvider);
+        services.Register<IEditorFormatProfileService>(formatProfileService);
 
         var commandMap = new EditorHomeCommandMap(
             commandRouter,

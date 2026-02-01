@@ -8,15 +8,18 @@ public sealed class EditorCommandRouterAdapter : IEditorCommandRouter
     private readonly EditorCommandDispatcher _dispatcher;
     private readonly IEditorMutableSession _session;
     private readonly IEditorCommandObserver? _observer;
+    private readonly IEditorFormatProfileService? _formatProfileService;
 
     public EditorCommandRouterAdapter(
         EditorCommandDispatcher dispatcher,
         IEditorMutableSession session,
-        IEditorCommandObserver? observer = null)
+        IEditorCommandObserver? observer = null,
+        IEditorFormatProfileService? formatProfileService = null)
     {
         _dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
         _session = session ?? throw new ArgumentNullException(nameof(session));
         _observer = observer;
+        _formatProfileService = formatProfileService;
     }
 
     public void Register<TCommand>(
@@ -80,6 +83,11 @@ public sealed class EditorCommandRouterAdapter : IEditorCommandRouter
         }
 
         if (!_bindings.TryGetValue(commandId, out var binding))
+        {
+            return false;
+        }
+
+        if (_formatProfileService is not null && !_formatProfileService.CanExecuteCommand(commandId))
         {
             return false;
         }
