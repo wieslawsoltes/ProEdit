@@ -17,6 +17,7 @@
     <local:RibbonFontWeightConverter x:Key="RibbonFontWeightConverter" />
     <local:RibbonFontStyleConverter x:Key="RibbonFontStyleConverter" />
     <local:RibbonFontSizeConverter x:Key="RibbonFontSizeConverter" />
+    <local:RibbonFontFamilyConverter x:Key="RibbonFontFamilyConverter" />
     <local:RibbonUnderlineConverter x:Key="RibbonUnderlineConverter" />
     <local:RibbonParagraphSpacingConverter x:Key="RibbonParagraphSpacingConverter" />
     <local:RibbonLineHeightConverter x:Key="RibbonLineHeightConverter" />
@@ -182,7 +183,7 @@
                     Padding="2,0"
                     CornerRadius="2">
               <TextBlock Text="{Binding PreviewText}"
-                         FontFamily="{Binding PreviewFontFamily}"
+                         FontFamily="{Binding PreviewFontFamily, Converter={StaticResource RibbonFontFamilyConverter}}"
                          FontSize="{Binding PreviewFontSize, Converter={StaticResource RibbonFontSizeConverter}, ConverterParameter=14}"
                          FontWeight="{Binding PreviewBold, Converter={StaticResource RibbonFontWeightConverter}}"
                          FontStyle="{Binding PreviewItalic, Converter={StaticResource RibbonFontStyleConverter}}"
