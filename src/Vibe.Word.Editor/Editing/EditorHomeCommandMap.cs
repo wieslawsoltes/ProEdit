@@ -3,6 +3,7 @@ using Vibe.Office.Documents;
 using Vibe.Office.Editing;
 using Vibe.Office.Primitives;
 using Vibe.Office.Layout;
+using Vibe.Office.Markdown;
 
 namespace Vibe.Word.Editor.Editing;
 
@@ -54,6 +55,7 @@ public sealed class EditorHomeCommandMap
     private readonly IStyleService? _styleService;
     private readonly ISelectionState? _selectionState;
     private readonly IClipboardService? _clipboardService;
+    private readonly IEditorFormatProfileService? _formatProfileService;
     private readonly IFindReplaceService? _findReplaceService;
     private readonly IEditorViewOptionsService? _viewOptions;
 
@@ -94,6 +96,9 @@ public sealed class EditorHomeCommandMap
         _styleService = styleService;
         _clipboardService = clipboardService;
         _findReplaceService = findReplaceService;
+        _formatProfileService = services.TryGet<IEditorFormatProfileService>(out var formatProfileService)
+            ? formatProfileService
+            : null;
         _viewOptions = services.TryGet<IEditorViewOptionsService>(out var viewOptions) ? viewOptions : null;
         _textFormatting = new EditorTextFormattingApplier(_session, textNormalizer);
         _paragraphFormatting = new EditorParagraphApplier(_session);
@@ -120,11 +125,13 @@ public sealed class EditorHomeCommandMap
     private void RegisterClipboardCommands()
     {
         _router.RegisterAction(EditorHomeCommandIds.Clipboard.Copy, (_, __) => CopySelection(), (context, _) => CanCopy(context), isUndoable: false);
+        _router.RegisterAction(EditorHomeCommandIds.Clipboard.CopyAsMarkdown, (_, __) => CopySelectionAsMarkdown(), (context, _) => CanCopy(context), isUndoable: false);
         _router.RegisterAction(EditorHomeCommandIds.Clipboard.Cut, (_, __) => CutSelection(), (context, _) => CanCut(context));
         _router.RegisterAction(EditorHomeCommandIds.Clipboard.Paste, (_, __) => PasteClipboardKeepSource(), (context, _) => CanPaste(context));
         _router.RegisterAction(EditorHomeCommandIds.Clipboard.PasteKeepSource, (_, __) => PasteClipboardKeepSource(), (context, _) => CanPaste(context));
         _router.RegisterAction(EditorHomeCommandIds.Clipboard.PasteMatchDestination, (_, __) => PasteClipboardMatchDestination(), (context, _) => CanPaste(context));
         _router.RegisterAction(EditorHomeCommandIds.Clipboard.PasteTextOnly, (_, __) => PasteClipboardTextOnly(), (context, _) => CanPaste(context));
+        _router.RegisterAction(EditorHomeCommandIds.Clipboard.PasteMarkdown, (_, __) => PasteMarkdownFromClipboard(), (context, _) => CanPaste(context));
         _router.RegisterAction(EditorHomeCommandIds.Clipboard.FormatPainterToggle, (_, __) => ToggleFormatPainter(), (context, _) => HasParagraphs(context), isUndoable: false);
     }
 
@@ -273,6 +280,62 @@ public sealed class EditorHomeCommandMap
         _clipboardController?.CopySelection();
     }
 
+    private void CopySelectionAsMarkdown()
+    {
+        if (_clipboardService is null || _clipboardController is null)
+        {
+            return;
+        }
+
+        var selection = _session.Selection.Normalize();
+        if (selection.IsEmpty)
+        {
+            return;
+        }
+
+        string markdown;
+        if (IsFullDocumentSelection(selection))
+        {
+            markdown = MarkdownDocumentConverter.ToMarkdown(_session.Document, CreateMarkdownOptions());
+        }
+        else
+        {
+            if (!_clipboardController.TryBuildSelectionContent(out var content))
+            {
+                return;
+            }
+
+            var document = ClipboardDocumentConverter.ToDocument(content);
+            markdown = MarkdownDocumentConverter.ToMarkdown(document, CreateMarkdownOptions());
+        }
+
+        _clipboardService.SetText(markdown);
+    }
+
+    private bool IsFullDocumentSelection(TextRange selection)
+    {
+        var document = _session.Document;
+        if (document.ParagraphCount == 0)
+        {
+            return false;
+        }
+
+        if (selection.Start.ParagraphIndex != 0 || selection.Start.Offset != 0)
+        {
+            return false;
+        }
+
+        var lastIndex = document.ParagraphCount - 1;
+        if (selection.End.ParagraphIndex != lastIndex)
+        {
+            return false;
+        }
+
+        var lastParagraph = document.GetParagraph(lastIndex);
+        var lastLength = DocumentEditHelpers.GetParagraphLength(lastParagraph);
+        return selection.End.Offset >= lastLength;
+    }
+
     private void CutSelection()
     {
         _clipboardController?.CutSelection();
@@ -280,6 +343,11 @@ public sealed class EditorHomeCommandMap
 
     private void PasteClipboardKeepSource()
     {
+        if (IsMarkdownMode() && PasteMarkdownFromClipboard())
+        {
+            return;
+        }
+
         _clipboardController?.Paste(ClipboardPasteMode.KeepSource);
     }
 
@@ -291,6 +359,63 @@ public sealed class EditorHomeCommandMap
     private void PasteClipboardTextOnly()
     {
         _clipboardController?.Paste(ClipboardPasteMode.TextOnly);
+    }
+
+    private bool PasteMarkdownFromClipboard()
+    {
+        if (_clipboardController is null || _clipboardService is null)
+        {
+            return false;
+        }
+
+        if (!_clipboardService.TryGetText(out var text) || string.IsNullOrEmpty(text))
+        {
+            return false;
+        }
+
+        var options = CreateMarkdownOptions();
+        var document = MarkdownDocumentConverter.FromMarkdown(text.AsSpan(), options);
+        var content = ClipboardDocumentConverter.FromDocument(document);
+        if (content.Fragment is null)
+        {
+            return false;
+        }
+
+        return _clipboardController.PasteBlocks(content.Fragment, ClipboardPasteMode.KeepSource);
+    }
+
+    private bool IsMarkdownMode()
+    {
+        var profile = _formatProfileService?.CurrentProfile;
+        if (profile is null || string.IsNullOrWhiteSpace(profile.Id))
+        {
+            return false;
+        }
+
+        return profile.Id.StartsWith("markdown", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private MarkdownOptions CreateMarkdownOptions()
+    {
+        var profileId = _formatProfileService?.CurrentProfile?.Id;
+        if (string.Equals(profileId, MarkdownProfiles.CommonMark.Id, StringComparison.OrdinalIgnoreCase))
+        {
+            return new MarkdownOptions
+            {
+                Flavor = MarkdownFlavor.CommonMark,
+                UseGfmTables = false,
+                UseTaskLists = false,
+                UseStrikethrough = false
+            };
+        }
+
+        return new MarkdownOptions
+        {
+            Flavor = MarkdownFlavor.GitHub,
+            UseGfmTables = true,
+            UseTaskLists = true,
+            UseStrikethrough = true
+        };
     }
 
     private void ToggleFormatPainter()

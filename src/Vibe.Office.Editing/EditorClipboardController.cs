@@ -45,6 +45,19 @@ public sealed class EditorClipboardController
         return true;
     }
 
+    public bool TryBuildSelectionContent(out ClipboardContent content)
+    {
+        var built = BuildClipboardContent();
+        if (built is null || built.Kind == ClipboardContentKind.None)
+        {
+            content = ClipboardContent.Empty();
+            return false;
+        }
+
+        content = built;
+        return true;
+    }
+
     public bool CutSelection()
     {
         if (!CopySelection())
@@ -214,7 +227,7 @@ public sealed class EditorClipboardController
                     return false;
                 }
 
-                return PasteBlocks(content.Fragment, mode);
+                return PasteBlocksInternal(content.Fragment, mode);
             default:
                 return false;
         }
@@ -276,7 +289,13 @@ public sealed class EditorClipboardController
         return true;
     }
 
-    private bool PasteBlocks(ClipboardDocumentFragment fragment, ClipboardPasteMode mode)
+    public bool PasteBlocks(ClipboardDocumentFragment fragment, ClipboardPasteMode mode)
+    {
+        ArgumentNullException.ThrowIfNull(fragment);
+        return PasteBlocksInternal(fragment, mode);
+    }
+
+    private bool PasteBlocksInternal(ClipboardDocumentFragment fragment, ClipboardPasteMode mode)
     {
         var blocks = CloneBlocks(fragment.Blocks);
         if (blocks.Count == 0)

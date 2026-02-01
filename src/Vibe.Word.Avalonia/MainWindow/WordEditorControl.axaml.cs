@@ -2708,7 +2708,11 @@ public partial class WordEditorControl : UserControl
                 new RibbonMenuItem(
                     "paste-text-only",
                     "Keep Text Only",
-                    CreateEditorCommand(EditorHomeCommandIds.Clipboard.PasteTextOnly))
+                    CreateEditorCommand(EditorHomeCommandIds.Clipboard.PasteTextOnly)),
+                new RibbonMenuItem(
+                    "paste-markdown",
+                    "Paste Markdown",
+                    CreateEditorCommand(EditorHomeCommandIds.Clipboard.PasteMarkdown))
             });
 
             var pasteSplit = new RibbonSplitButton(
@@ -2736,6 +2740,13 @@ public partial class WordEditorControl : UserControl
                 iconKey: "RibbonIcon.Copy",
                 size: RibbonControlSize.Small);
 
+            var copyMarkdownButton = new RibbonButton(
+                "copy-markdown",
+                "Copy as Markdown",
+                CreateEditorCommand(EditorHomeCommandIds.Clipboard.CopyAsMarkdown),
+                iconKey: "RibbonIcon.Copy",
+                size: RibbonControlSize.Small);
+
             var formatPainter = new RibbonToggleButton(
                 "format-painter",
                 "Format Painter",
@@ -2753,6 +2764,7 @@ public partial class WordEditorControl : UserControl
                     pasteSplit,
                     cutButton,
                     copyButton,
+                    copyMarkdownButton,
                     formatPainter
                 },
                 keyTip: "CL");

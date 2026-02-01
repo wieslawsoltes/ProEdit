@@ -8,8 +8,10 @@ public static class EditorHomeCommandIds
         public const string PasteKeepSource = "clipboard.paste.keepSource";
         public const string PasteMatchDestination = "clipboard.paste.matchDest";
         public const string PasteTextOnly = "clipboard.paste.textOnly";
+        public const string PasteMarkdown = "clipboard.paste.markdown";
         public const string Cut = "clipboard.cut";
         public const string Copy = "clipboard.copy";
+        public const string CopyAsMarkdown = "clipboard.copy.markdown";
         public const string FormatPainterToggle = "clipboard.formatPainter.toggle";
     }
 

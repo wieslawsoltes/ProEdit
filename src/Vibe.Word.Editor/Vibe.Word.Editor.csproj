@@ -11,6 +11,7 @@
     <ProjectReference Include="..\\Vibe.Office.Documents\\Vibe.Office.Documents.csproj" />
     <ProjectReference Include="..\\Vibe.Office.Layout\\Vibe.Office.Layout.csproj" />
     <ProjectReference Include="..\\Vibe.Office.Macros\\Vibe.Office.Macros.csproj" />
+    <ProjectReference Include="..\\Vibe.Office.Markdown\\Vibe.Office.Markdown.csproj" />
     <ProjectReference Include="..\\Vibe.Office.OpenXml\\Vibe.Office.OpenXml.csproj" />
     <ProjectReference Include="..\\Vibe.Office.Vba.Runtime\\Vibe.Office.Vba.Runtime.csproj" />
     <ProjectReference Include="..\\Vibe.Office.Primitives\\Vibe.Office.Primitives.csproj" />
