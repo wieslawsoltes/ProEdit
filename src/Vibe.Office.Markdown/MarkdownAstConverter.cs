@@ -1,5 +1,6 @@
 using System.Globalization;
 using Vibe.Office.Documents;
+using Vibe.Office.Html;
 using Vibe.Office.Markdown.Ast;
 
 namespace Vibe.Office.Markdown;
@@ -10,7 +11,7 @@ public static class MarkdownAstConverter
     {
         ArgumentNullException.ThrowIfNull(document);
         var effectiveOptions = options ?? new MarkdownOptions();
-        var context = new MarkdownToDocumentContext();
+        var context = new MarkdownToDocumentContext(effectiveOptions);
         var doc = new Document();
         MarkdownStyleSeeder.Seed(doc, effectiveOptions);
         doc.Blocks.Clear();
@@ -106,7 +107,7 @@ public static class MarkdownAstConverter
                     AppendList(target, list, context, level: 0);
                     break;
                 case MarkdownTableBlock table:
-                    AppendTable(target, table);
+                    AppendTable(target, table, context);
                     break;
                 case MarkdownCodeBlock code:
                     AppendCodeBlock(target, code, context);
@@ -115,6 +116,11 @@ public static class MarkdownAstConverter
                     AppendThematicBreak(target);
                     break;
                 case MarkdownHtmlBlock html:
+                    if (context.Options.AllowHtmlBlocks && TryAppendHtmlBlock(target, html.Html, context.HtmlOptions))
+                    {
+                        break;
+                    }
+
                     target.Add(new ParagraphBlock(html.Html));
                     break;
             }
@@ -126,7 +132,7 @@ public static class MarkdownAstConverter
         var paragraph = new ParagraphBlock();
         var level = Math.Clamp(heading.Level, 1, 6);
         paragraph.StyleId = MarkdownStyleIds.Heading(level);
-        AppendInlines(paragraph.Inlines, heading.Inlines, style: null, hyperlink: null);
+        AppendInlines(paragraph.Inlines, heading.Inlines, style: null, hyperlink: null, context);
         ApplyBlockQuoteIndentIfNeeded(paragraph, context);
         return paragraph;
     }
@@ -138,7 +144,7 @@ public static class MarkdownAstConverter
         {
             block.StyleId = MarkdownStyleIds.BlockQuote;
         }
-        AppendInlines(block.Inlines, paragraph.Inlines, style: null, hyperlink: null);
+        AppendInlines(block.Inlines, paragraph.Inlines, style: null, hyperlink: null, context);
         ApplyBlockQuoteIndentIfNeeded(block, context);
         return block;
     }
@@ -227,7 +233,7 @@ public static class MarkdownAstConverter
         }
     }
 
-    private static void AppendTable(List<Block> target, MarkdownTableBlock table)
+    private static void AppendTable(List<Block> target, MarkdownTableBlock table, MarkdownToDocumentContext context)
     {
         var docTable = new TableBlock
         {
@@ -242,7 +248,7 @@ public static class MarkdownAstConverter
                 {
                     StyleId = row.IsHeader ? MarkdownStyleIds.TableHeader : MarkdownStyleIds.TableCell
                 };
-                AppendInlines(paragraph.Inlines, cell.Inlines, style: null, hyperlink: null);
+                AppendInlines(paragraph.Inlines, cell.Inlines, style: null, hyperlink: null, context);
                 ApplyTableAlignment(table, paragraph, docRow.Cells.Count);
                 var docCell = new TableCell(new[] { paragraph });
                 docRow.Cells.Add(docCell);
@@ -288,7 +294,8 @@ public static class MarkdownAstConverter
         List<Inline> target,
         IReadOnlyList<MarkdownInline> inlines,
         TextStyleProperties? style,
-        HyperlinkInfo? hyperlink)
+        HyperlinkInfo? hyperlink,
+        MarkdownToDocumentContext context)
     {
         foreach (var inline in inlines)
         {
@@ -309,14 +316,14 @@ public static class MarkdownAstConverter
                         nextStyle.FontStyle = DocFontStyle.Italic;
                     }
 
-                    AppendInlines(target, emphasis.Inlines, nextStyle, hyperlink);
+                    AppendInlines(target, emphasis.Inlines, nextStyle, hyperlink, context);
                     break;
                 }
                 case MarkdownStrikethroughInline strike:
                 {
                     var nextStyle = CloneStyle(style);
                     nextStyle.Strikethrough = true;
-                    AppendInlines(target, strike.Inlines, nextStyle, hyperlink);
+                    AppendInlines(target, strike.Inlines, nextStyle, hyperlink, context);
                     break;
                 }
                 case MarkdownCodeInline code:
@@ -339,7 +346,7 @@ public static class MarkdownAstConverter
                 case MarkdownLinkInline link:
                 {
                     var linkInfo = new HyperlinkInfo(link.Url, null, link.Title);
-                    AppendInlines(target, link.Inlines, style, linkInfo);
+                    AppendInlines(target, link.Inlines, style, linkInfo, context);
                     break;
                 }
                 case MarkdownImageInline image:
@@ -365,6 +372,11 @@ public static class MarkdownAstConverter
                     AppendRun(target, "\n", style, hyperlink);
                     break;
                 case MarkdownHtmlInline html:
+                    if (context.Options.AllowHtmlInlines && TryAppendHtmlInline(target, html.Html, context.HtmlOptions))
+                    {
+                        break;
+                    }
+
                     AppendRun(target, html.Html, style, hyperlink);
                     break;
             }
@@ -1069,8 +1081,117 @@ public static class MarkdownAstConverter
 
     private sealed class MarkdownToDocumentContext
     {
+        public MarkdownToDocumentContext(MarkdownOptions options)
+        {
+            Options = options ?? new MarkdownOptions();
+            HtmlOptions = CreateHtmlOptions(Options);
+        }
+
         public int ListIdCounter;
         public int BlockQuoteDepth;
+        public MarkdownOptions Options;
+        public HtmlOptions HtmlOptions;
+    }
+
+    private static bool TryAppendHtmlBlock(List<Block> target, string html, HtmlOptions htmlOptions)
+    {
+        if (string.IsNullOrWhiteSpace(html))
+        {
+            return false;
+        }
+
+        var document = HtmlDocumentConverter.FromHtml(html.AsSpan(), htmlOptions);
+        if (document.Blocks.Count == 0)
+        {
+            return false;
+        }
+
+        foreach (var block in document.Blocks)
+        {
+            target.Add(DocumentClone.CloneBlock(block));
+        }
+
+        return true;
+    }
+
+    private static bool TryAppendHtmlInline(List<Inline> target, string html, HtmlOptions htmlOptions)
+    {
+        if (string.IsNullOrWhiteSpace(html))
+        {
+            return false;
+        }
+
+        var document = HtmlDocumentConverter.FromHtml(html.AsSpan(), htmlOptions);
+        if (document.Blocks.Count != 1 || document.Blocks[0] is not ParagraphBlock paragraph)
+        {
+            return false;
+        }
+
+        if (paragraph.Inlines.Count == 0)
+        {
+            if (string.IsNullOrWhiteSpace(paragraph.Text))
+            {
+                return false;
+            }
+
+            target.Add(new RunInline(paragraph.Text));
+            return true;
+        }
+
+        foreach (var inline in paragraph.Inlines)
+        {
+            if (TryCloneHtmlInline(inline, out var clone))
+            {
+                target.Add(clone);
+            }
+        }
+
+        return true;
+    }
+
+    private static bool TryCloneHtmlInline(Inline source, out Inline clone)
+    {
+        switch (source)
+        {
+            case RunInline run:
+                clone = new RunInline(run.Text.GetText(), run.Style?.Clone())
+                {
+                    StyleId = run.StyleId,
+                    Hyperlink = run.Hyperlink
+                };
+                return true;
+            case ImageInline image:
+                clone = CloneHtmlImage(image);
+                return true;
+        }
+
+        clone = null!;
+        return false;
+    }
+
+    private static ImageInline CloneHtmlImage(ImageInline source)
+    {
+        var data = new byte[source.Data.Length];
+        Array.Copy(source.Data, data, data.Length);
+        var clone = new ImageInline(data, source.Width, source.Height, source.ContentType)
+        {
+            Rotation = source.Rotation,
+            Effects = source.Effects?.Clone(),
+            Crop = source.Crop?.Clone()
+        };
+        return clone;
+    }
+
+    private static HtmlOptions CreateHtmlOptions(MarkdownOptions options)
+    {
+        _ = options;
+        return new HtmlOptions
+        {
+            AllowScripts = false,
+            AllowStyles = true,
+            NormalizeLineEndings = true,
+            PreserveUnknownElements = true
+        };
     }
 
     private static void ApplyBlockQuoteIndentIfNeeded(ParagraphBlock paragraph, MarkdownToDocumentContext context)

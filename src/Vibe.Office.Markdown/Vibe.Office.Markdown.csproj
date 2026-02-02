@@ -9,6 +9,7 @@
   <ItemGroup>
     <ProjectReference Include="..\\Vibe.Office.Documents\\Vibe.Office.Documents.csproj" />
     <ProjectReference Include="..\\Vibe.Office.Editing\\Vibe.Office.Editing.csproj" />
+    <ProjectReference Include="..\\Vibe.Office.Html\\Vibe.Office.Html.csproj" />
   </ItemGroup>
 
 </Project>
