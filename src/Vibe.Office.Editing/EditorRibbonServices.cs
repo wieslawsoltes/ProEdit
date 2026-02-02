@@ -264,6 +264,12 @@ public interface IEditorDialogService
     ValueTask<string?> PromptAsync(string title, string prompt, string? initialValue = null);
 }
 
+public interface IProofingDialogService
+{
+    ValueTask ShowSpellingGrammarAsync();
+    ValueTask ShowThesaurusAsync();
+}
+
 public interface IMacroManagerService
 {
     ValueTask OpenMacroManagerAsync();

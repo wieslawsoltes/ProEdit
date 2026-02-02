@@ -42,6 +42,7 @@ public partial class WordEditorControl : UserControl
     private readonly Border? _reviewPane;
     private readonly ListBox? _reviewCommentsList;
     private readonly ListBox? _reviewChangesList;
+    private readonly ListBox? _reviewProofingList;
     private readonly TextBox? _reviewCommentEditor;
     private readonly Button? _reviewCommentApplyButton;
     private readonly Button? _reviewCommentDeleteButton;
@@ -51,6 +52,11 @@ public partial class WordEditorControl : UserControl
     private readonly Button? _reviewChangeRejectButton;
     private readonly Button? _reviewChangePreviousButton;
     private readonly Button? _reviewChangeNextButton;
+    private readonly Button? _reviewProofingPreviousButton;
+    private readonly Button? _reviewProofingNextButton;
+    private readonly Button? _reviewProofingApplyButton;
+    private readonly Button? _reviewProofingIgnoreButton;
+    private readonly Button? _reviewProofingAddButton;
     private readonly Button? _reviewPaneCloseButton;
     private readonly Border? _loadingOverlay;
     private readonly TextBlock? _loadingText;
@@ -71,6 +77,9 @@ public partial class WordEditorControl : UserControl
     private readonly ObservableCollection<PageNavigationItem> _pageItems = new();
     private readonly ObservableCollection<ReviewCommentItem> _reviewCommentItems = new();
     private readonly ObservableCollection<ReviewRevisionItem> _reviewRevisionItems = new();
+    private readonly ObservableCollection<ReviewProofingItem> _reviewProofingItems = new();
+    private IProofingService? _proofingService;
+    private bool _proofingRefreshPending;
     private string? _currentPath;
     private DocumentLayout? _navigationLayout;
     private Document? _navigationDocument;
@@ -147,6 +156,7 @@ public partial class WordEditorControl : UserControl
         _reviewPane = this.FindControl<Border>("ReviewPane");
         _reviewCommentsList = this.FindControl<ListBox>("ReviewCommentsList");
         _reviewChangesList = this.FindControl<ListBox>("ReviewChangesList");
+        _reviewProofingList = this.FindControl<ListBox>("ReviewProofingList");
         _reviewCommentEditor = this.FindControl<TextBox>("ReviewCommentEditor");
         _reviewCommentApplyButton = this.FindControl<Button>("ReviewCommentApplyButton");
         _reviewCommentDeleteButton = this.FindControl<Button>("ReviewCommentDeleteButton");
@@ -156,6 +166,11 @@ public partial class WordEditorControl : UserControl
         _reviewChangeRejectButton = this.FindControl<Button>("ReviewChangeRejectButton");
         _reviewChangePreviousButton = this.FindControl<Button>("ReviewChangePreviousButton");
         _reviewChangeNextButton = this.FindControl<Button>("ReviewChangeNextButton");
+        _reviewProofingPreviousButton = this.FindControl<Button>("ReviewProofingPreviousButton");
+        _reviewProofingNextButton = this.FindControl<Button>("ReviewProofingNextButton");
+        _reviewProofingApplyButton = this.FindControl<Button>("ReviewProofingApplyButton");
+        _reviewProofingIgnoreButton = this.FindControl<Button>("ReviewProofingIgnoreButton");
+        _reviewProofingAddButton = this.FindControl<Button>("ReviewProofingAddButton");
         _reviewPaneCloseButton = this.FindControl<Button>("ReviewPaneCloseButton");
         var equationEditor = this.FindControl<EquationEditor>("EquationEditor");
         _equationPanel = this.FindControl<Border>("EquationEditorPanel");
@@ -261,6 +276,12 @@ public partial class WordEditorControl : UserControl
             _reviewChangesList.SelectionChanged += OnReviewChangeSelectionChanged;
         }
 
+        if (_reviewProofingList is not null)
+        {
+            _reviewProofingList.ItemsSource = _reviewProofingItems;
+            _reviewProofingList.SelectionChanged += OnReviewProofingSelectionChanged;
+        }
+
         if (_reviewCommentApplyButton is not null)
         {
             _reviewCommentApplyButton.Click += OnReviewCommentApplyClicked;
@@ -301,6 +322,31 @@ public partial class WordEditorControl : UserControl
             _reviewChangeNextButton.Click += OnReviewChangeNextClicked;
         }
 
+        if (_reviewProofingPreviousButton is not null)
+        {
+            _reviewProofingPreviousButton.Click += OnReviewProofingPreviousClicked;
+        }
+
+        if (_reviewProofingNextButton is not null)
+        {
+            _reviewProofingNextButton.Click += OnReviewProofingNextClicked;
+        }
+
+        if (_reviewProofingApplyButton is not null)
+        {
+            _reviewProofingApplyButton.Click += OnReviewProofingApplyClicked;
+        }
+
+        if (_reviewProofingIgnoreButton is not null)
+        {
+            _reviewProofingIgnoreButton.Click += OnReviewProofingIgnoreClicked;
+        }
+
+        if (_reviewProofingAddButton is not null)
+        {
+            _reviewProofingAddButton.Click += OnReviewProofingAddClicked;
+        }
+
         if (_reviewPaneCloseButton is not null)
         {
             _reviewPaneCloseButton.Click += (_, _) => SetReviewPaneVisible(false);
@@ -326,6 +372,7 @@ public partial class WordEditorControl : UserControl
         var dialogService = new WordEditorDialogService(ResolveOwnerWindow);
         _editorView.RegisterService<IEditorDialogService>(dialogService);
         _editorView.RegisterService<IContentControlInteractionService>(new WordEditorContentControlInteractionService(dialogService));
+        _editorView.RegisterService<IProofingDialogService>(new WordEditorProofingDialogService(ResolveOwnerWindow, _editorView));
         _editorView.RegisterService<IEditorWindowService>(
             new WordEditorWindowService(
                 ResolveOwnerWindow,
@@ -393,6 +440,7 @@ public partial class WordEditorControl : UserControl
         {
             _editorView.EditorStateChanged += (_, _) =>
             {
+                AttachProofingService();
                 _ribbon?.RefreshState();
                 UpdateStatusBar();
                 RefreshNavigationPaneItems();
@@ -695,7 +743,8 @@ public partial class WordEditorControl : UserControl
     {
         return new HtmlOptions
         {
-            Flavor = HtmlFlavor.Html5
+            Flavor = HtmlFlavor.Html5,
+            PrettyPrint = true
         };
     }
 
@@ -748,6 +797,67 @@ public partial class WordEditorControl : UserControl
             }
 
             return _editorView.TryGetService<IRibbonContextSnapshotProvider>(out var provider) ? provider : null;
+        }
+
+        IProofingToggleService? GetProofingToggle()
+        {
+            if (!canInteract() || _editorView is null)
+            {
+                return null;
+            }
+
+            return _editorView.TryGetService<IProofingToggleService>(out var toggle) ? toggle : null;
+        }
+
+        bool IsProofingSpellingEnabled()
+        {
+            var toggle = GetProofingToggle();
+            return toggle is not null && toggle.IsEnabled && toggle.IsSpellingEnabled;
+        }
+
+        bool IsProofingGrammarEnabled()
+        {
+            var toggle = GetProofingToggle();
+            return toggle is not null && toggle.IsEnabled && toggle.IsGrammarEnabled;
+        }
+
+        bool IsProofingStyleEnabled()
+        {
+            var toggle = GetProofingToggle();
+            return toggle is not null && toggle.IsEnabled && toggle.IsStyleEnabled;
+        }
+
+        ValueTask ToggleProofingSpellingAsync(bool value)
+        {
+            var toggle = GetProofingToggle();
+            if (toggle is not null)
+            {
+                toggle.SetSpellingEnabled(value);
+            }
+
+            return ValueTask.CompletedTask;
+        }
+
+        ValueTask ToggleProofingGrammarAsync(bool value)
+        {
+            var toggle = GetProofingToggle();
+            if (toggle is not null)
+            {
+                toggle.SetGrammarEnabled(value);
+            }
+
+            return ValueTask.CompletedTask;
+        }
+
+        ValueTask ToggleProofingStyleAsync(bool value)
+        {
+            var toggle = GetProofingToggle();
+            if (toggle is not null)
+            {
+                toggle.SetStyleEnabled(value);
+            }
+
+            return ValueTask.CompletedTask;
         }
 
         bool TryGetSnapshot(out RibbonContextSnapshot snapshot)
@@ -6117,6 +6227,33 @@ public partial class WordEditorControl : UserControl
             iconKey: "RibbonIcon.WordCount",
             size: RibbonControlSize.Medium);
 
+        var spellingToggle = new RibbonToggleButton(
+            "review-proofing-spelling-toggle",
+            "Check Spelling as You Type",
+            IsProofingSpellingEnabled,
+            ToggleProofingSpellingAsync,
+            keyTip: "CS",
+            iconKey: "RibbonIcon.Check",
+            size: RibbonControlSize.Small);
+
+        var grammarToggle = new RibbonToggleButton(
+            "review-proofing-grammar-toggle",
+            "Mark Grammar Errors as You Type",
+            IsProofingGrammarEnabled,
+            ToggleProofingGrammarAsync,
+            keyTip: "MG",
+            iconKey: "RibbonIcon.Alert",
+            size: RibbonControlSize.Small);
+
+        var styleToggle = new RibbonToggleButton(
+            "review-proofing-style-toggle",
+            "Mark Style Issues as You Type",
+            IsProofingStyleEnabled,
+            ToggleProofingStyleAsync,
+            keyTip: "MS",
+            iconKey: "RibbonIcon.Star",
+            size: RibbonControlSize.Small);
+
         var proofingGroup = new RibbonGroup(
             "review-proofing",
             "Proofing",
@@ -6124,7 +6261,10 @@ public partial class WordEditorControl : UserControl
             {
                 spellingButton,
                 thesaurusButton,
-                wordCountButton
+                wordCountButton,
+                spellingToggle,
+                grammarToggle,
+                styleToggle
             },
             keyTip: "PF");
 
@@ -7226,6 +7366,45 @@ public partial class WordEditorControl : UserControl
         _styleManagerService.StylesChanged += OnStylesChanged;
     }
 
+    private void AttachProofingService()
+    {
+        if (_editorView is null)
+        {
+            DetachProofingService();
+            return;
+        }
+
+        if (!_editorView.TryGetService<IProofingService>(out var proofing))
+        {
+            DetachProofingService();
+            return;
+        }
+
+        if (ReferenceEquals(_proofingService, proofing))
+        {
+            return;
+        }
+
+        if (_proofingService is not null)
+        {
+            _proofingService.Updated -= OnProofingUpdated;
+        }
+
+        _proofingService = proofing;
+        _proofingService.Updated += OnProofingUpdated;
+    }
+
+    private void DetachProofingService()
+    {
+        if (_proofingService is null)
+        {
+            return;
+        }
+
+        _proofingService.Updated -= OnProofingUpdated;
+        _proofingService = null;
+    }
+
     private void DetachStyleManagerEvents()
     {
         if (_styleManagerService is null)
@@ -7235,6 +7414,21 @@ public partial class WordEditorControl : UserControl
 
         _styleManagerService.StylesChanged -= OnStylesChanged;
         _styleManagerService = null;
+    }
+
+    private void OnProofingUpdated(object? sender, ProofingUpdatedEventArgs e)
+    {
+        if (_proofingRefreshPending)
+        {
+            return;
+        }
+
+        _proofingRefreshPending = true;
+        Dispatcher.UIThread.Post(() =>
+        {
+            _proofingRefreshPending = false;
+            RefreshReviewPaneItems();
+        });
     }
 
     private void OnStylesChanged(object? sender, EventArgs e)
@@ -8015,6 +8209,26 @@ public partial class WordEditorControl : UserControl
             _reviewChangesList.SelectedItem = revisionSelection;
         }
 
+        var proofingItems = BuildReviewProofingItems();
+        var caretProofing = ResolveProofingSelection(caret);
+        ReviewProofingItem? selectedProofing = null;
+        if (caretProofing.HasValue)
+        {
+            selectedProofing = FindReviewProofingItem(proofingItems, caretProofing.Value);
+        }
+
+        selectedProofing ??= _reviewProofingList?.SelectedItem as ReviewProofingItem;
+        _reviewProofingItems.Clear();
+        foreach (var item in proofingItems)
+        {
+            _reviewProofingItems.Add(item);
+        }
+
+        if (_reviewProofingList is not null)
+        {
+            _reviewProofingList.SelectedItem = FindReviewProofingItem(selectedProofing);
+        }
+
         _suppressReviewSelection = false;
         UpdateReviewCommentEditor(_reviewCommentsList?.SelectedItem as ReviewCommentItem, force: false);
         UpdateReviewPaneButtonState();
@@ -8240,6 +8454,120 @@ public partial class WordEditorControl : UserControl
         return items;
     }
 
+    private List<ReviewProofingItem> BuildReviewProofingItems()
+    {
+        if (_editorView is null)
+        {
+            return new List<ReviewProofingItem>();
+        }
+
+        var proofing = _proofingService;
+        if (proofing is null && !_editorView.TryGetService<IProofingService>(out proofing))
+        {
+            return new List<ReviewProofingItem>();
+        }
+
+        var document = _editorView.Document;
+        if (document.ParagraphCount == 0)
+        {
+            return new List<ReviewProofingItem>();
+        }
+
+        var items = new List<ReviewProofingItem>();
+        for (var i = 0; i < document.ParagraphCount; i++)
+        {
+            var diagnostics = proofing.GetParagraphDiagnostics(i);
+            if (diagnostics.Count == 0)
+            {
+                continue;
+            }
+
+            foreach (var diagnostic in diagnostics)
+            {
+                var suggestions = diagnostic.Suggestions;
+                if (suggestions is null && diagnostic.Kind == ProofingIssueKind.Spelling)
+                {
+                    suggestions = proofing.GetSuggestions(diagnostic, 3);
+                }
+
+                var header = $"{diagnostic.Kind}: {diagnostic.Message ?? diagnostic.Text}";
+                var preview = diagnostic.Text;
+                var suggestionPreview = BuildSuggestionPreview(suggestions);
+                items.Add(new ReviewProofingItem(
+                    diagnostic.ParagraphIndex,
+                    diagnostic.StartOffset,
+                    diagnostic.Length,
+                    diagnostic.Kind,
+                    header,
+                    preview,
+                    suggestionPreview,
+                    suggestions ?? Array.Empty<string>()));
+            }
+        }
+
+        items.Sort(static (left, right) =>
+        {
+            var cmp = left.ParagraphIndex.CompareTo(right.ParagraphIndex);
+            return cmp != 0 ? cmp : left.StartOffset.CompareTo(right.StartOffset);
+        });
+        return items;
+    }
+
+    private static string BuildSuggestionPreview(IReadOnlyList<string>? suggestions)
+    {
+        if (suggestions is null || suggestions.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        var count = Math.Min(3, suggestions.Count);
+        var preview = string.Join(", ", suggestions.Take(count));
+        return $"Suggestions: {preview}";
+    }
+
+    private ProofingDiagnostic? ResolveProofingSelection(TextPosition caret)
+    {
+        if (_proofingService is null)
+        {
+            return null;
+        }
+
+        return _proofingService.TryGetDiagnosticAt(caret, out var diagnostic) ? diagnostic : null;
+    }
+
+    private static ReviewProofingItem? FindReviewProofingItem(
+        IReadOnlyList<ReviewProofingItem> items,
+        ProofingDiagnostic diagnostic)
+    {
+        foreach (var item in items)
+        {
+            if (item.Matches(diagnostic))
+            {
+                return item;
+            }
+        }
+
+        return null;
+    }
+
+    private ReviewProofingItem? FindReviewProofingItem(ReviewProofingItem? selected)
+    {
+        if (selected is null)
+        {
+            return null;
+        }
+
+        foreach (var item in _reviewProofingItems)
+        {
+            if (item.Matches(selected))
+            {
+                return item;
+            }
+        }
+
+        return null;
+    }
+
     private static CommentDefinition ResolveThreadRoot(
         int threadId,
         IReadOnlyList<CommentDefinition> comments,
@@ -8431,6 +8759,33 @@ public partial class WordEditorControl : UserControl
         {
             _reviewChangeNextButton.IsEnabled = hasRevisions;
         }
+
+        var selectedProofing = _reviewProofingList?.SelectedItem as ReviewProofingItem;
+        var hasProofing = _reviewProofingItems.Count > 0;
+        if (_reviewProofingPreviousButton is not null)
+        {
+            _reviewProofingPreviousButton.IsEnabled = hasProofing;
+        }
+
+        if (_reviewProofingNextButton is not null)
+        {
+            _reviewProofingNextButton.IsEnabled = hasProofing;
+        }
+
+        if (_reviewProofingApplyButton is not null)
+        {
+            _reviewProofingApplyButton.IsEnabled = selectedProofing?.HasSuggestion == true;
+        }
+
+        if (_reviewProofingIgnoreButton is not null)
+        {
+            _reviewProofingIgnoreButton.IsEnabled = selectedProofing is not null;
+        }
+
+        if (_reviewProofingAddButton is not null)
+        {
+            _reviewProofingAddButton.IsEnabled = selectedProofing is not null;
+        }
     }
 
     private bool IsThreadResolved(ReviewCommentItem? item)
@@ -8490,6 +8845,51 @@ public partial class WordEditorControl : UserControl
         }
 
         UpdateReviewPaneButtonState();
+    }
+
+    private void OnReviewProofingSelectionChanged(object? sender, global::Avalonia.Controls.SelectionChangedEventArgs e)
+    {
+        if (_suppressReviewSelection)
+        {
+            return;
+        }
+
+        if (_reviewProofingList?.SelectedItem is ReviewProofingItem item)
+        {
+            _editorView?.SelectRange(item.Range, ensureVisible: true);
+        }
+
+        UpdateReviewPaneButtonState();
+    }
+
+    private void OnReviewProofingPreviousClicked(object? sender, RoutedEventArgs e)
+    {
+        SelectAdjacentProofingItem(-1);
+    }
+
+    private void OnReviewProofingNextClicked(object? sender, RoutedEventArgs e)
+    {
+        SelectAdjacentProofingItem(1);
+    }
+
+    private void SelectAdjacentProofingItem(int delta)
+    {
+        if (_reviewProofingItems.Count == 0 || _reviewProofingList is null)
+        {
+            return;
+        }
+
+        var index = _reviewProofingList.SelectedIndex;
+        if (index < 0)
+        {
+            index = 0;
+        }
+        else
+        {
+            index = (index + delta + _reviewProofingItems.Count) % _reviewProofingItems.Count;
+        }
+
+        _reviewProofingList.SelectedIndex = index;
     }
 
     private void EnsureReviewChangeCaret()
@@ -8579,6 +8979,47 @@ public partial class WordEditorControl : UserControl
     {
         EnsureReviewChangeCaret();
         await ExecuteEditorCommandFromPaneAsync(EditorReviewCommandIds.Changes.NextChange);
+    }
+
+    private async void OnReviewProofingApplyClicked(object? sender, RoutedEventArgs e)
+    {
+        if (_reviewProofingList?.SelectedItem is not ReviewProofingItem item)
+        {
+            return;
+        }
+
+        if (!item.TryGetPrimarySuggestion(out var suggestion))
+        {
+            return;
+        }
+
+        _editorView?.SelectRange(item.Range, ensureVisible: true);
+        await ExecuteEditorCommandFromPaneAsync(EditorReviewCommandIds.Proofing.ApplySuggestion, suggestion);
+        RefreshReviewPaneItems();
+    }
+
+    private async void OnReviewProofingIgnoreClicked(object? sender, RoutedEventArgs e)
+    {
+        if (_reviewProofingList?.SelectedItem is not ReviewProofingItem item)
+        {
+            return;
+        }
+
+        _editorView?.SelectRange(item.Range, ensureVisible: true);
+        await ExecuteEditorCommandFromPaneAsync(EditorReviewCommandIds.Proofing.IgnoreWord);
+        RefreshReviewPaneItems();
+    }
+
+    private async void OnReviewProofingAddClicked(object? sender, RoutedEventArgs e)
+    {
+        if (_reviewProofingList?.SelectedItem is not ReviewProofingItem item)
+        {
+            return;
+        }
+
+        _editorView?.SelectRange(item.Range, ensureVisible: true);
+        await ExecuteEditorCommandFromPaneAsync(EditorReviewCommandIds.Proofing.AddToDictionary);
+        RefreshReviewPaneItems();
     }
 
     private async ValueTask ExecuteEditorCommandFromPaneAsync(string commandId, object? payload = null)
@@ -8960,6 +9401,70 @@ public partial class WordEditorControl : UserControl
             Header = header;
             Preview = preview;
             Anchor = anchor;
+        }
+    }
+
+    private sealed class ReviewProofingItem
+    {
+        public int ParagraphIndex { get; }
+        public int StartOffset { get; }
+        public int Length { get; }
+        public ProofingIssueKind Kind { get; }
+        public string Header { get; }
+        public string Preview { get; }
+        public string SuggestionPreview { get; }
+        public IReadOnlyList<string> Suggestions { get; }
+        public TextRange Range { get; }
+
+        public bool HasSuggestion => Suggestions.Count > 0;
+
+        public ReviewProofingItem(
+            int paragraphIndex,
+            int startOffset,
+            int length,
+            ProofingIssueKind kind,
+            string header,
+            string preview,
+            string suggestionPreview,
+            IReadOnlyList<string> suggestions)
+        {
+            ParagraphIndex = paragraphIndex;
+            StartOffset = startOffset;
+            Length = length;
+            Kind = kind;
+            Header = header;
+            Preview = preview;
+            SuggestionPreview = suggestionPreview;
+            Suggestions = suggestions;
+            Range = new TextRange(new TextPosition(paragraphIndex, startOffset), new TextPosition(paragraphIndex, startOffset + length));
+        }
+
+        public bool TryGetPrimarySuggestion(out string suggestion)
+        {
+            if (Suggestions.Count > 0)
+            {
+                suggestion = Suggestions[0];
+                return true;
+            }
+
+            suggestion = string.Empty;
+            return false;
+        }
+
+        public bool Matches(ReviewProofingItem other)
+        {
+            return ParagraphIndex == other.ParagraphIndex
+                   && StartOffset == other.StartOffset
+                   && Length == other.Length
+                   && Kind == other.Kind;
+        }
+
+        public bool Matches(ProofingDiagnostic diagnostic)
+        {
+            return ParagraphIndex == diagnostic.ParagraphIndex
+                   && StartOffset == diagnostic.StartOffset
+                   && Length == diagnostic.Length
+                   && Kind == diagnostic.Kind;
         }
     }
 }

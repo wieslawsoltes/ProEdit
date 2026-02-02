@@ -2491,6 +2491,15 @@ public sealed class DocumentView : Control, ILogicalScrollable
         }
     }
 
+    public void SelectRange(TextRange range, bool ensureVisible = true)
+    {
+        _editor.SetSelection(range, SelectionUpdateMode.Replace);
+        if (ensureVisible)
+        {
+            EnsurePositionVisible(range.Start);
+        }
+    }
+
     public void SetLoading(bool isLoading)
     {
         _isLoading = isLoading;

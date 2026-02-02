@@ -7,6 +7,9 @@ public static class EditorReviewCommandIds
         public const string SpellingGrammar = "review.proofing.spelling";
         public const string Thesaurus = "review.proofing.thesaurus";
         public const string WordCount = "review.proofing.wordCount";
+        public const string ApplySuggestion = "review.proofing.applySuggestion";
+        public const string IgnoreWord = "review.proofing.ignoreWord";
+        public const string AddToDictionary = "review.proofing.addToDictionary";
     }
 
     public static class Speech

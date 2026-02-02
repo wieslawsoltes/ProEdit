@@ -54,6 +54,22 @@ public static class EditorHomeServiceRegistry
             findReplaceService,
             session);
 
+        var spellRegistry = SpellDictionaryRegistry.CreateDefault();
+        var spellEngine = new HunspellSpellEngine(spellRegistry);
+        var languageToolEngine = CreateLanguageToolEngine();
+        var languageDetector = new ScriptLanguageDetector("en-US");
+        var spellProfile = new ProofingProfile(
+            "Offline",
+            spellEngine,
+            spellRegistry,
+            "en-US",
+            grammarEngine: languageToolEngine,
+            styleEngine: languageToolEngine);
+        var proofingProfiles = new ProofingProfileRegistry(spellProfile);
+        proofingProfiles.RegisterProfile(spellProfile, "en-US");
+        var proofingService = new EditorProofingService(session, proofingProfiles, session as IEditorLayoutRefreshService, languageDetector);
+        var autoCorrectService = AutoCorrectService.CreateDefault();
+
         services.Register<ISelectionState>(selectionState);
         services.Register<IFormattingState>(formattingState);
         services.Register<IParagraphService>(paragraphState);
@@ -76,9 +92,20 @@ public static class EditorHomeServiceRegistry
         {
             services.Register<IEditorViewOptionsService>(viewOptionsService);
         }
+        services.Register<IProofingService>(proofingService);
+        services.Register<IProofingToggleService>(proofingService);
+        services.Register<IProofingProfileRegistry>(proofingProfiles);
+        services.Register<ISpellDictionaryRegistry>(spellRegistry);
+        services.Register<ILanguageDetector>(languageDetector);
+        services.Register<IAutoCorrectService>(autoCorrectService);
         services.Register<IEditorCommandRouter>(commandRouter);
         services.Register<IRibbonContextSnapshotProvider>(ribbonSnapshotProvider);
         services.Register<IEditorFormatProfileService>(formatProfileService);
+
+        if (session is IProofingSpanProviderHost proofingHost)
+        {
+            proofingHost.SetProofingSpanProvider(proofingService);
+        }
 
         var commandMap = new EditorHomeCommandMap(
             commandRouter,
@@ -121,5 +148,30 @@ public static class EditorHomeServiceRegistry
         viewCommandMap.Register();
 
         return commandRouter;
+    }
+
+    private static LanguageToolEngine? CreateLanguageToolEngine()
+    {
+        var endpointText = Environment.GetEnvironmentVariable("VIBE_LANGUAGETOOL_URL");
+        if (string.IsNullOrWhiteSpace(endpointText))
+        {
+            return null;
+        }
+
+        if (!Uri.TryCreate(endpointText, UriKind.Absolute, out var endpoint))
+        {
+            return null;
+        }
+
+        var hostOptions = new LanguageToolHttpHostOptions(endpoint);
+        var host = new LanguageToolHttpHost(hostOptions);
+        var engineOptions = new LanguageToolEngineOptions
+        {
+            IncludeSpelling = false,
+            IncludeGrammar = true,
+            IncludeStyle = true
+        };
+
+        return new LanguageToolEngine(host, engineOptions);
     }
 }

@@ -1,6 +1,7 @@
 using System.Text;
 using Vibe.Office.Documents;
 using Vibe.Office.Editing;
+using Vibe.Office.Primitives;
 
 namespace Vibe.Word.Editor.Editing;
 
@@ -21,9 +22,13 @@ public sealed class EditorReviewCommandMap
 
     public void Register()
     {
-        _router.RegisterAction(EditorReviewCommandIds.Proofing.SpellingGrammar, (_, __) => ShowNotImplemented("Spelling & Grammar", "Spelling and grammar checking is not available yet."), (context, _) => HasParagraphs(context), isUndoable: false);
-        _router.RegisterAction(EditorReviewCommandIds.Proofing.Thesaurus, (_, __) => ShowNotImplemented("Thesaurus", "Thesaurus lookup is not available yet."), (context, _) => HasParagraphs(context), isUndoable: false);
+        _router.RegisterAction(EditorReviewCommandIds.Proofing.SpellingGrammar, (_, __) => ShowSpellingGrammar(), (context, _) => HasParagraphs(context), isUndoable: false);
+        _router.RegisterAction(EditorReviewCommandIds.Proofing.Thesaurus, (_, __) => ShowThesaurus(), (context, _) => HasParagraphs(context), isUndoable: false);
         _router.RegisterAction(EditorReviewCommandIds.Proofing.WordCount, (_, __) => ShowWordCount(), (context, _) => HasParagraphs(context), isUndoable: false);
+
+        _router.RegisterAction(EditorReviewCommandIds.Proofing.ApplySuggestion, (_, payload) => ApplySuggestion(payload), (context, _) => HasParagraphs(context));
+        _router.RegisterAction(EditorReviewCommandIds.Proofing.IgnoreWord, (_, __) => IgnoreWord(), (context, _) => HasParagraphs(context));
+        _router.RegisterAction(EditorReviewCommandIds.Proofing.AddToDictionary, (_, __) => AddWordToDictionary(), (context, _) => HasParagraphs(context));
 
         _router.RegisterAction(EditorReviewCommandIds.Speech.ReadAloud, (_, __) => ShowNotImplemented("Read Aloud", "Read Aloud is not available yet."), (context, _) => HasParagraphs(context), isUndoable: false);
         _router.RegisterAction(EditorReviewCommandIds.Accessibility.CheckAccessibility, (_, __) => ShowNotImplemented("Accessibility", "Accessibility checks are not available yet."), (context, _) => HasParagraphs(context), isUndoable: false);
@@ -128,6 +133,11 @@ public sealed class EditorReviewCommandMap
         return _services.TryGet(out service);
     }
 
+    private bool TryGetProofingService(out IProofingService service)
+    {
+        return _services.TryGet(out service);
+    }
+
     private static bool TryParseMarkupMode(string label, out ReviewMarkupMode mode)
     {
         mode = ReviewMarkupMode.All;
@@ -184,6 +194,154 @@ public sealed class EditorReviewCommandMap
         AccumulateDocument(_session.Document, ref totals);
         var message = BuildWordCountMessage(totals);
         _ = dialog.ShowMessageAsync("Word Count", message);
+    }
+
+    private void ShowSpellingGrammar()
+    {
+        if (_services.TryGet<IProofingToggleService>(out var toggle))
+        {
+            toggle.SetEnabled(true);
+            toggle.SetSpellingEnabled(true);
+            toggle.SetGrammarEnabled(true);
+        }
+
+        if (_services.TryGet<IProofingDialogService>(out var proofingDialog))
+        {
+            _ = proofingDialog.ShowSpellingGrammarAsync();
+            return;
+        }
+
+        if (!TryGetProofingService(out var proofing))
+        {
+            ShowNotImplemented("Spelling & Grammar", "Spelling and grammar checking is not available yet.");
+            return;
+        }
+
+        proofing.RefreshAll();
+        var total = proofing.GetTotalDiagnostics();
+        if (!TryGetDialogService(out var dialog))
+        {
+            return;
+        }
+
+        var message = total == 0
+            ? "No spelling issues found."
+            : $"Found {total} spelling issue{(total == 1 ? string.Empty : "s")}.";
+        _ = dialog.ShowMessageAsync("Spelling & Grammar", message);
+    }
+
+    private void ShowThesaurus()
+    {
+        if (_services.TryGet<IProofingDialogService>(out var proofingDialog))
+        {
+            _ = proofingDialog.ShowThesaurusAsync();
+            return;
+        }
+
+        ShowNotImplemented("Thesaurus", "Thesaurus lookup is not available yet.");
+    }
+
+    private void ApplySuggestion(object? payload)
+    {
+        if (payload is not string suggestion || string.IsNullOrWhiteSpace(suggestion))
+        {
+            return;
+        }
+
+        if (!TryGetActiveWord(out _, out var range))
+        {
+            return;
+        }
+
+        _session.SetSelection(range);
+        _session.InsertText(suggestion.AsSpan());
+    }
+
+    private void IgnoreWord()
+    {
+        if (!TryGetProofingService(out var proofing))
+        {
+            return;
+        }
+
+        if (!TryGetActiveWord(out var word, out _))
+        {
+            return;
+        }
+
+        proofing.IgnoreWord(word);
+    }
+
+    private void AddWordToDictionary()
+    {
+        if (!TryGetProofingService(out var proofing))
+        {
+            return;
+        }
+
+        if (!TryGetActiveWord(out var word, out _))
+        {
+            return;
+        }
+
+        proofing.AddToUserDictionary(word);
+    }
+
+    private bool TryGetActiveWord(out string word, out TextRange range)
+    {
+        word = string.Empty;
+        range = default;
+
+        var selection = _session.Selection;
+        if (selection.Start.ParagraphIndex != selection.End.ParagraphIndex)
+        {
+            return false;
+        }
+
+        var paragraphIndex = selection.Start.ParagraphIndex;
+        var paragraph = _session.Document.GetParagraph(paragraphIndex);
+        var text = DocumentEditHelpers.GetParagraphText(paragraph);
+        if (string.IsNullOrEmpty(text))
+        {
+            return false;
+        }
+
+        var start = Math.Clamp(selection.Start.Offset, 0, text.Length);
+        var end = Math.Clamp(selection.End.Offset, 0, text.Length);
+        if (end > start)
+        {
+            var selectionSpan = text.AsSpan(start, end - start);
+            var trimmedStartOffset = 0;
+            while (trimmedStartOffset < selectionSpan.Length && char.IsWhiteSpace(selectionSpan[trimmedStartOffset]))
+            {
+                trimmedStartOffset++;
+            }
+
+            var trimmedEndOffset = selectionSpan.Length;
+            while (trimmedEndOffset > trimmedStartOffset && char.IsWhiteSpace(selectionSpan[trimmedEndOffset - 1]))
+            {
+                trimmedEndOffset--;
+            }
+
+            if (trimmedEndOffset > trimmedStartOffset)
+            {
+                var wordStart = start + trimmedStartOffset;
+                var wordEnd = start + trimmedEndOffset;
+                word = text.Substring(wordStart, wordEnd - wordStart);
+                range = new TextRange(new TextPosition(paragraphIndex, wordStart), new TextPosition(paragraphIndex, wordEnd));
+                return true;
+            }
+        }
+
+        var caretOffset = Math.Clamp(_session.Caret.Offset, 0, text.Length - 1);
+        if (!ProofingTokenizer.TryGetWordAtOffset(text.AsSpan(), caretOffset, out var span))
+        {
+            return false;
+        }
+
+        word = text.Substring(span.Start, span.Length);
+        range = new TextRange(new TextPosition(paragraphIndex, span.Start), new TextPosition(paragraphIndex, span.Start + span.Length));
+        return true;
     }
 
     private void SetLanguage(object? payload)
