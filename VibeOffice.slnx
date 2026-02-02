@@ -19,6 +19,7 @@
     <Project Path="src/Vibe.Word.Editor/Vibe.Word.Editor.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Vibe.Office.Html.Tests/Vibe.Office.Html.Tests.csproj" />
     <Project Path="tests/Vibe.Office.Markdown.Tests/Vibe.Office.Markdown.Tests.csproj" />
     <Project Path="tests/Vibe.Office.Layout.Tests/Vibe.Office.Layout.Tests.csproj" />
     <Project Path="tests/Vibe.Office.OpenXml.Tests/Vibe.Office.OpenXml.Tests.csproj" />
