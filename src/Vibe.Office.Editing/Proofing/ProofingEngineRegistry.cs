@@ -116,6 +116,11 @@ public sealed class ProofingEngineRegistry : IProofingEngineRegistry
     public bool TryCreateSpellEngine(string id, out ISpellEngine engine)
     {
         engine = null!;
+        if (!TryGet(id, out var descriptor))
+        {
+            return false;
+        }
+
         if (!TryCreateEngine(id, out var instance))
         {
             return false;
@@ -124,6 +129,12 @@ public sealed class ProofingEngineRegistry : IProofingEngineRegistry
         if (instance is ISpellEngine spell)
         {
             engine = spell;
+            return true;
+        }
+
+        if (descriptor.Kind.HasFlag(ProofingEngineKind.Spell) && instance is IProofingEngine proofing)
+        {
+            engine = new ProofingSpellEngineAdapter(proofing);
             return true;
         }
 
@@ -269,6 +280,37 @@ public sealed class ProofingEngineRegistry : IProofingEngineRegistry
         public ProofingEngineAdapter(IProofingEngine engine)
         {
             _engine = engine;
+        }
+
+        public Task<IReadOnlyList<ProofingMatch>> CheckAsync(
+            string text,
+            string language,
+            CancellationToken cancellationToken = default)
+        {
+            return _engine.CheckAsync(text, language, cancellationToken);
+        }
+    }
+
+    private sealed class ProofingSpellEngineAdapter : ISpellEngine, IProofingEngine
+    {
+        private readonly IProofingEngine _engine;
+
+        public string EngineId => _engine.EngineId;
+
+        public ProofingSpellEngineAdapter(IProofingEngine engine)
+        {
+            _engine = engine ?? throw new ArgumentNullException(nameof(engine));
+        }
+
+        public bool Check(ReadOnlySpan<char> word, string language)
+        {
+            // Proofing engines are evaluated in batch via CheckAsync; avoid per-word remote calls here.
+            return true;
+        }
+
+        public IReadOnlyList<string> Suggest(ReadOnlySpan<char> word, string language, int maxSuggestions = 5)
+        {
+            return Array.Empty<string>();
         }
 
         public Task<IReadOnlyList<ProofingMatch>> CheckAsync(

@@ -6,11 +6,13 @@ public sealed class ProofingProfileRegistry : IProofingProfileRegistry
 
     public IProofingProfile DefaultProfile { get; }
     public bool HasGrammarOrStyle { get; private set; }
+    public bool HasProofingSpelling { get; private set; }
 
     public ProofingProfileRegistry(IProofingProfile defaultProfile)
     {
         DefaultProfile = defaultProfile ?? throw new ArgumentNullException(nameof(defaultProfile));
         HasGrammarOrStyle = HasGrammarOrStyleFor(defaultProfile);
+        HasProofingSpelling = HasProofingSpellingFor(defaultProfile);
     }
 
     public void RegisterProfile(IProofingProfile profile, params string[] languages)
@@ -35,6 +37,11 @@ public sealed class ProofingProfileRegistry : IProofingProfileRegistry
         {
             HasGrammarOrStyle = HasGrammarOrStyleFor(profile);
         }
+
+        if (!HasProofingSpelling)
+        {
+            HasProofingSpelling = HasProofingSpellingFor(profile);
+        }
     }
 
     public IProofingProfile ResolveProfile(string? language)
@@ -44,7 +51,7 @@ public sealed class ProofingProfileRegistry : IProofingProfileRegistry
             return DefaultProfile;
         }
 
-        return _profilesByLanguage.TryGetValue(language.Trim(), out var profile)
+        return TryResolveProfile(language, out var profile)
             ? profile
             : DefaultProfile;
     }
@@ -57,11 +64,83 @@ public sealed class ProofingProfileRegistry : IProofingProfileRegistry
             return false;
         }
 
-        return _profilesByLanguage.TryGetValue(language.Trim(), out profile!);
+        return TryResolveProfile(language, out profile);
+    }
+
+    private bool TryResolveProfile(string language, out IProofingProfile profile)
+    {
+        profile = DefaultProfile;
+        var normalized = NormalizeLanguageTag(language);
+        if (TryFindProfileByNormalizedLanguage(normalized, out profile))
+        {
+            return true;
+        }
+
+        var alternate = normalized.Contains('-') ? normalized.Replace('-', '_') : normalized;
+        if (!string.Equals(alternate, normalized, StringComparison.OrdinalIgnoreCase)
+            && TryFindProfileByNormalizedLanguage(alternate, out profile))
+        {
+            return true;
+        }
+
+        var baseLanguage = GetBaseLanguage(normalized);
+        if (string.IsNullOrEmpty(baseLanguage))
+        {
+            return false;
+        }
+
+        if (TryFindProfileByNormalizedLanguage(baseLanguage, out profile))
+        {
+            return true;
+        }
+
+        foreach (var key in _profilesByLanguage.Keys.OrderBy(static key => key, StringComparer.OrdinalIgnoreCase))
+        {
+            var normalizedKey = NormalizeLanguageTag(key);
+            if (normalizedKey.StartsWith(baseLanguage + "-", StringComparison.OrdinalIgnoreCase)
+                || normalizedKey.StartsWith(baseLanguage + "_", StringComparison.OrdinalIgnoreCase))
+            {
+                profile = _profilesByLanguage[key];
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool TryFindProfileByNormalizedLanguage(string normalized, out IProofingProfile profile)
+    {
+        foreach (var (key, value) in _profilesByLanguage)
+        {
+            if (string.Equals(NormalizeLanguageTag(key), normalized, StringComparison.OrdinalIgnoreCase))
+            {
+                profile = value;
+                return true;
+            }
+        }
+
+        profile = DefaultProfile;
+        return false;
+    }
+
+    private static string NormalizeLanguageTag(string language)
+    {
+        return language.Trim().Replace('_', '-');
+    }
+
+    private static string GetBaseLanguage(string language)
+    {
+        var separatorIndex = language.IndexOf('-');
+        return separatorIndex > 0 ? language.Substring(0, separatorIndex) : language;
     }
 
     private static bool HasGrammarOrStyleFor(IProofingProfile profile)
     {
         return profile.GrammarEngine is not null || profile.StyleEngine is not null;
+    }
+
+    private static bool HasProofingSpellingFor(IProofingProfile profile)
+    {
+        return profile.SpellEngine is IProofingEngine;
     }
 }

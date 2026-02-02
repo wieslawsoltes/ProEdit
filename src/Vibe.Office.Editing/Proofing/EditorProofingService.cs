@@ -391,6 +391,11 @@ public sealed class EditorProofingService : IProofingService, IProofingSpanProvi
         _paragraphTextCache[paragraphIndex] = text;
         var language = ResolveParagraphLanguage(paragraph, text);
         var profile = _profiles.ResolveProfile(language);
+        if (profile.SpellEngine is NullSpellEngine || profile.SpellEngine is IProofingEngine)
+        {
+            return ClearSpelling(paragraphIndex);
+        }
+
         var wordSpans = ProofingTokenizer.CollectWordSpans(text.AsSpan());
         var diagnostics = new List<ProofingDiagnostic>();
         var spans = new List<ProofingUnderlineSpan>();
@@ -434,12 +439,12 @@ public sealed class EditorProofingService : IProofingService, IProofingSpanProvi
             return;
         }
 
-        if (!_grammarEnabled && !_styleEnabled)
+        if (!_grammarEnabled && !_styleEnabled && !(_spellingEnabled && _profiles.HasProofingSpelling))
         {
             return;
         }
 
-        if (!_profiles.HasGrammarOrStyle)
+        if (!_profiles.HasGrammarOrStyle && !_profiles.HasProofingSpelling)
         {
             return;
         }
@@ -518,12 +523,29 @@ public sealed class EditorProofingService : IProofingService, IProofingSpanProvi
         var language = ResolveParagraphLanguage(paragraph, text);
         var profile = _profiles.ResolveProfile(language);
 
-        if (!HasGrammarOrStyle(profile))
+        var spellProofingEngine = _spellingEnabled ? profile.SpellEngine as IProofingEngine : null;
+        var grammarEngine = _grammarEnabled ? profile.GrammarEngine : null;
+        var styleEngine = _styleEnabled ? profile.StyleEngine : null;
+        var includeSpelling = spellProofingEngine is not null;
+        var includeGrammar = grammarEngine is not null;
+        var includeStyle = styleEngine is not null;
+
+        if (!includeSpelling && !includeGrammar && !includeStyle)
         {
             return ClearGrammarStyle(paragraphIndex);
         }
 
-        var matches = await CollectGrammarStyleMatchesAsync(text, language, profile, cancellationToken).ConfigureAwait(false);
+        var matches = await CollectProofingMatchesAsync(
+                text,
+                language,
+                spellProofingEngine,
+                includeSpelling,
+                grammarEngine,
+                includeGrammar,
+                styleEngine,
+                includeStyle,
+                cancellationToken)
+            .ConfigureAwait(false);
         var diagnostics = new List<ProofingDiagnostic>(matches.Count);
         var spans = new List<ProofingUnderlineSpan>(matches.Count);
 
@@ -552,10 +574,15 @@ public sealed class EditorProofingService : IProofingService, IProofingSpanProvi
         return MergeGrammarStyle(paragraphIndex, diagnostics, spans);
     }
 
-    private async Task<List<ProofingMatch>> CollectGrammarStyleMatchesAsync(
+    private async Task<List<ProofingMatch>> CollectProofingMatchesAsync(
         string text,
         string language,
-        IProofingProfile profile,
+        IProofingEngine? spellingEngine,
+        bool includeSpelling,
+        IGrammarEngine? grammarEngine,
+        bool includeGrammar,
+        IStyleEngine? styleEngine,
+        bool includeStyle,
         CancellationToken cancellationToken)
     {
         var result = new List<ProofingMatch>();
@@ -564,34 +591,80 @@ public sealed class EditorProofingService : IProofingService, IProofingSpanProvi
             return result;
         }
 
-        var grammarEngine = profile.GrammarEngine;
-        var styleEngine = profile.StyleEngine;
+        var requests = new Dictionary<string, ProofingEngineRequest>(StringComparer.OrdinalIgnoreCase);
+        AddEngineRequest(requests, spellingEngine, includeSpelling, includeGrammar: false, includeStyle: false);
+        AddEngineRequest(requests, grammarEngine, includeSpelling: false, includeGrammar, includeStyle: false);
+        AddEngineRequest(requests, styleEngine, includeSpelling: false, includeGrammar: false, includeStyle);
 
-        if (_grammarEnabled && grammarEngine is not null)
+        foreach (var request in requests.Values)
         {
-            var matches = await grammarEngine.CheckAsync(text, language, cancellationToken).ConfigureAwait(false);
-            AddMatches(result, matches);
-        }
+            var matches = await request.Engine.CheckAsync(text, language, cancellationToken).ConfigureAwait(false);
+            if (matches.Count == 0)
+            {
+                continue;
+            }
 
-        if (_styleEnabled && styleEngine is not null && !ReferenceEquals(styleEngine, grammarEngine))
-        {
-            var matches = await styleEngine.CheckAsync(text, language, cancellationToken).ConfigureAwait(false);
-            AddMatches(result, matches);
+            for (var i = 0; i < matches.Count; i++)
+            {
+                var match = matches[i];
+                if (match.Kind == ProofingIssueKind.Spelling && !request.IncludeSpelling)
+                {
+                    continue;
+                }
+
+                if (match.Kind == ProofingIssueKind.Grammar && !request.IncludeGrammar)
+                {
+                    continue;
+                }
+
+                if (match.Kind == ProofingIssueKind.Style && !request.IncludeStyle)
+                {
+                    continue;
+                }
+
+                result.Add(match);
+            }
         }
 
         return result;
     }
 
-    private static void AddMatches(List<ProofingMatch> target, IReadOnlyList<ProofingMatch> matches)
+    private static void AddEngineRequest(
+        Dictionary<string, ProofingEngineRequest> requests,
+        IProofingEngine? engine,
+        bool includeSpelling,
+        bool includeGrammar,
+        bool includeStyle)
     {
-        if (matches.Count == 0)
+        if (engine is null || (!includeSpelling && !includeGrammar && !includeStyle))
         {
             return;
         }
 
-        for (var i = 0; i < matches.Count; i++)
+        if (requests.TryGetValue(engine.EngineId, out var existing))
         {
-            target.Add(matches[i]);
+            existing.IncludeSpelling |= includeSpelling;
+            existing.IncludeGrammar |= includeGrammar;
+            existing.IncludeStyle |= includeStyle;
+            return;
+        }
+
+        requests[engine.EngineId] = new ProofingEngineRequest(engine, includeSpelling, includeGrammar, includeStyle);
+    }
+
+    private sealed class ProofingEngineRequest
+    {
+        public IProofingEngine Engine { get; }
+        public bool IncludeSpelling { get; set; }
+        public bool IncludeGrammar { get; set; }
+        public bool IncludeStyle { get; set; }
+
+        public ProofingEngineRequest(IProofingEngine engine, bool includeSpelling, bool includeGrammar, bool includeStyle)
+        {
+            Engine = engine;
+            IncludeSpelling = includeSpelling;
+            IncludeGrammar = includeGrammar;
+            IncludeStyle = includeStyle;
         }
     }
 
@@ -670,6 +743,30 @@ public sealed class EditorProofingService : IProofingService, IProofingSpanProvi
         }
     }
 
+    private bool ClearSpelling(int paragraphIndex)
+    {
+        lock (_sync)
+        {
+            var changed = false;
+
+            if (_diagnostics.TryGetValue(paragraphIndex, out var existingDiagnostics))
+            {
+                var filtered = existingDiagnostics.Where(static item => item.Kind != ProofingIssueKind.Spelling).ToList();
+                changed = filtered.Count != existingDiagnostics.Count;
+                _diagnostics[paragraphIndex] = filtered;
+            }
+
+            if (_underlineSpans.TryGetValue(paragraphIndex, out var existingSpans))
+            {
+                var filtered = existingSpans.Where(static item => item.Kind != ProofingIssueKind.Spelling).ToList();
+                changed |= filtered.Count != existingSpans.Count;
+                _underlineSpans[paragraphIndex] = filtered;
+            }
+
+            return changed;
+        }
+    }
+
     private static ProofingUnderlineSpan CreateUnderlineSpan(ProofingMatch match)
     {
         return match.Kind switch
@@ -693,11 +790,6 @@ public sealed class EditorProofingService : IProofingService, IProofingSpanProvi
                 DocUnderlineStyle.Wave,
                 SpellingUnderlineColor)
         };
-    }
-
-    private static bool HasGrammarOrStyle(IProofingProfile profile)
-    {
-        return profile.GrammarEngine is not null || profile.StyleEngine is not null;
     }
 
     private string ResolveLanguage(string? overrideLanguage)
@@ -848,6 +940,7 @@ public sealed class EditorProofingService : IProofingService, IProofingSpanProvi
 
         _spellingEnabled = enabled;
         _paragraphTextCache.Clear();
+        _grammarTextCache.Clear();
 
         if (enabled)
         {
