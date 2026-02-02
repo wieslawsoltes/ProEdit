@@ -12,4 +12,13 @@
     <ProjectReference Include="..\\Vibe.Office.Primitives\\Vibe.Office.Primitives.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="WeCantSpell.Hunspell" Version="1.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Proofing\\Resources\\*.aff" />
+    <EmbeddedResource Include="Proofing\\Resources\\*.dic" />
+  </ItemGroup>
+
 </Project>
