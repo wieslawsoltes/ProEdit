@@ -12,6 +12,7 @@ public sealed class EditorProofingService : IProofingService, IProofingSpanProvi
     private readonly IEditorSession _session;
     private readonly IEditorLayoutRefreshService? _layoutRefresh;
     private readonly IProofingProfileRegistry _profiles;
+    private readonly IProofingProfileManager? _profileManager;
     private readonly ILanguageDetector? _languageDetector;
     private readonly Dictionary<int, string> _paragraphTextCache = new();
     private readonly Dictionary<int, string> _grammarTextCache = new();
@@ -54,6 +55,12 @@ public sealed class EditorProofingService : IProofingService, IProofingSpanProvi
         _languageDetector = languageDetector;
         _syncContext = SynchronizationContext.Current;
         _session.Changed += OnSessionChanged;
+
+        if (profiles is IProofingProfileManager manager)
+        {
+            _profileManager = manager;
+            _profileManager.OptionsChanged += OnProfileOptionsChanged;
+        }
     }
 
     public IReadOnlyList<ProofingDiagnostic> GetParagraphDiagnostics(int paragraphIndex)
@@ -277,6 +284,20 @@ public sealed class EditorProofingService : IProofingService, IProofingSpanProvi
     {
         _session.Changed -= OnSessionChanged;
         CancelRefreshes();
+        if (_profileManager is not null)
+        {
+            _profileManager.OptionsChanged -= OnProfileOptionsChanged;
+        }
+    }
+
+    private void OnProfileOptionsChanged(object? sender, EventArgs e)
+    {
+        if (!_isEnabled)
+        {
+            return;
+        }
+
+        RefreshAll();
     }
 
     private void OnSessionChanged(object? sender, EventArgs e)
