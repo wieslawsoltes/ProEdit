@@ -809,6 +809,26 @@ public partial class WordEditorControl : UserControl
             return _editorView.TryGetService<IProofingToggleService>(out var toggle) ? toggle : null;
         }
 
+        IProofingProfileManager? GetProofingManager()
+        {
+            if (!canInteract() || _editorView is null)
+            {
+                return null;
+            }
+
+            return _editorView.TryGetService<IProofingProfileManager>(out var manager) ? manager : null;
+        }
+
+        IProofingOptionsStore? GetProofingOptionsStore()
+        {
+            if (!canInteract() || _editorView is null)
+            {
+                return null;
+            }
+
+            return _editorView.TryGetService<IProofingOptionsStore>(out var store) ? store : null;
+        }
+
         bool IsProofingSpellingEnabled()
         {
             var toggle = GetProofingToggle();
@@ -858,6 +878,75 @@ public partial class WordEditorControl : UserControl
             }
 
             return ValueTask.CompletedTask;
+        }
+
+        bool IsUsingSelectedEngine()
+        {
+            var manager = GetProofingManager();
+            return manager?.Options.UseSelectedEngines ?? true;
+        }
+
+        void RefreshProofingIfNeeded()
+        {
+            if (_editorView is null)
+            {
+                return;
+            }
+
+            if (!_editorView.TryGetService<IProofingService>(out var proofing))
+            {
+                return;
+            }
+
+            if (_editorView.TryGetService<IProofingToggleService>(out var toggle) && toggle.IsEnabled)
+            {
+                proofing.RefreshAll();
+            }
+        }
+
+        void ApplyProofingOptions(ProofingOptions options)
+        {
+            var manager = GetProofingManager();
+            if (manager is null)
+            {
+                return;
+            }
+
+            manager.UpdateOptions(options);
+            var store = GetProofingOptionsStore();
+            store?.Save(options);
+            RefreshProofingIfNeeded();
+            _ribbon?.RefreshState();
+        }
+
+        ValueTask ToggleUseSelectedEngineAsync(bool value)
+        {
+            var manager = GetProofingManager();
+            if (manager is null)
+            {
+                return ValueTask.CompletedTask;
+            }
+
+            var options = manager.Options.Clone();
+            options.UseSelectedEngines = value;
+            ApplyProofingOptions(options);
+            return ValueTask.CompletedTask;
+        }
+
+        async ValueTask OpenProofingOptionsAsync()
+        {
+            var manager = GetProofingManager();
+            if (manager is null)
+            {
+                return;
+            }
+
+            var dialog = new ProofingOptionsWindow(manager.Options, manager.Profiles, manager.Engines);
+            var result = await ShowDialogAsync<ProofingOptions?>(dialog);
+            if (result is not null)
+            {
+                ApplyProofingOptions(result);
+            }
         }
 
         bool TryGetSnapshot(out RibbonContextSnapshot snapshot)
@@ -6254,6 +6343,23 @@ public partial class WordEditorControl : UserControl
             iconKey: "RibbonIcon.Star",
             size: RibbonControlSize.Small);
 
+        var useEngineToggle = new RibbonToggleButton(
+            "review-proofing-engine-toggle",
+            "Use This Engine",
+            IsUsingSelectedEngine,
+            ToggleUseSelectedEngineAsync,
+            keyTip: "UE",
+            iconKey: "RibbonIcon.Settings",
+            size: RibbonControlSize.Small);
+
+        var proofingOptionsButton = new RibbonButton(
+            "review-proofing-options",
+            "Proofing Options...",
+            new RibbonCommand(OpenProofingOptionsAsync, canInteract),
+            keyTip: "PO",
+            iconKey: "RibbonIcon.Settings",
+            size: RibbonControlSize.Small);
+
         var proofingGroup = new RibbonGroup(
             "review-proofing",
             "Proofing",
@@ -6264,7 +6370,9 @@ public partial class WordEditorControl : UserControl
                 wordCountButton,
                 spellingToggle,
                 grammarToggle,
-                styleToggle
+                styleToggle,
+                useEngineToggle,
+                proofingOptionsButton
             },
             keyTip: "PF");
 
