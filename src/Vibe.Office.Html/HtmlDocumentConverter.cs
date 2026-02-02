@@ -20,7 +20,8 @@ public static class HtmlDocumentConverter
     public static string ToHtml(Document document, HtmlOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(document);
-        return ClipboardHtmlSerializer.ToHtml(document);
+        var prettyPrint = options?.PrettyPrint == true;
+        return ClipboardHtmlSerializer.ToHtml(document, prettyPrint);
     }
 
     public static HtmlDocument ParseAst(ReadOnlySpan<char> html, HtmlOptions? options = null, HtmlNodeIdProvider? idProvider = null)

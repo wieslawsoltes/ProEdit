@@ -192,7 +192,8 @@ public partial class HtmlSourceWindow : Window
             AllowScripts = false,
             AllowStyles = true,
             NormalizeLineEndings = true,
-            PreserveUnknownElements = true
+            PreserveUnknownElements = true,
+            PrettyPrint = true
         };
     }
 }

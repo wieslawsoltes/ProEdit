@@ -9,4 +9,5 @@ public sealed class HtmlOptions : DocumentFormatOptions
     public bool AllowStyles { get; set; } = true;
     public bool NormalizeLineEndings { get; set; } = true;
     public bool PreserveUnknownElements { get; set; } = true;
+    public bool PrettyPrint { get; set; }
 }

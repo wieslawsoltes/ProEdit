@@ -11,6 +11,11 @@ public static class ClipboardHtmlSerializer
 
     public static string ToHtml(Document document)
     {
+        return ToHtml(document, false);
+    }
+
+    public static string ToHtml(Document document, bool prettyPrint)
+    {
         ArgumentNullException.ThrowIfNull(document);
 
         var builder = new StringBuilder(2048);
@@ -35,7 +40,13 @@ public static class ClipboardHtmlSerializer
 
         CloseLists(builder, listStack);
         builder.Append("</body></html>");
-        return builder.ToString();
+        var html = builder.ToString();
+        if (prettyPrint)
+        {
+            html = PrettyPrintHtml(html);
+        }
+
+        return html;
     }
 
     public static string ToClipboardHtml(Document document)
@@ -105,7 +116,7 @@ public static class ClipboardHtmlSerializer
         builder.Append('<').Append(tag);
         if (!string.IsNullOrEmpty(paragraphStyle))
         {
-            builder.Append(" style=\"").Append(paragraphStyle).Append('"');
+            builder.Append(" style=\"").Append(EscapeHtmlAttribute(paragraphStyle)).Append('"');
         }
         builder.Append('>');
 
@@ -255,7 +266,7 @@ public static class ClipboardHtmlSerializer
 
         if (!string.IsNullOrEmpty(runStyle))
         {
-            builder.Append("<span style=\"").Append(runStyle).Append("\">");
+            builder.Append("<span style=\"").Append(EscapeHtmlAttribute(runStyle)).Append("\">");
         }
 
         AppendHtmlText(builder, text);
@@ -281,7 +292,7 @@ public static class ClipboardHtmlSerializer
         builder.Append("<table");
         if (!string.IsNullOrEmpty(tableStyle))
         {
-            builder.Append(" style=\"").Append(tableStyle).Append('"');
+            builder.Append(" style=\"").Append(EscapeHtmlAttribute(tableStyle)).Append('"');
         }
         builder.Append('>');
 
@@ -313,7 +324,7 @@ public static class ClipboardHtmlSerializer
         }
         if (!string.IsNullOrEmpty(cellStyle))
         {
-            builder.Append(" style=\"").Append(cellStyle).Append('"');
+            builder.Append(" style=\"").Append(EscapeHtmlAttribute(cellStyle)).Append('"');
         }
         builder.Append('>');
 
@@ -440,7 +451,11 @@ public static class ClipboardHtmlSerializer
         var builder = new StringBuilder();
         if (!string.IsNullOrWhiteSpace(style.FontFamily))
         {
-            AppendCss(builder, "font-family", $"\"{EscapeHtmlAttribute(style.FontFamily)}\"");
+            var fontFamily = FormatFontFamily(style.FontFamily);
+            if (!string.IsNullOrEmpty(fontFamily))
+            {
+                AppendCss(builder, "font-family", fontFamily);
+            }
         }
 
         if (style.FontSize > 0f)
@@ -508,6 +523,67 @@ public static class ClipboardHtmlSerializer
         }
 
         return builder.ToString();
+    }
+
+    private static string FormatFontFamily(string fontFamily)
+    {
+        if (string.IsNullOrWhiteSpace(fontFamily))
+        {
+            return string.Empty;
+        }
+
+        var parts = fontFamily.Split(',', StringSplitOptions.RemoveEmptyEntries);
+        var formatted = new List<string>(parts.Length);
+        foreach (var part in parts)
+        {
+            var trimmed = part.Trim();
+            if (trimmed.Length == 0)
+            {
+                continue;
+            }
+
+            formatted.Add(FormatFontFamilyPart(trimmed));
+        }
+
+        return string.Join(", ", formatted);
+    }
+
+    private static string FormatFontFamilyPart(string value)
+    {
+        var trimmed = value.Trim();
+        if (trimmed.Length == 0)
+        {
+            return string.Empty;
+        }
+
+        if ((trimmed.StartsWith('\'') && trimmed.EndsWith('\'')) || (trimmed.StartsWith('\"') && trimmed.EndsWith('\"')))
+        {
+            trimmed = trimmed.Substring(1, trimmed.Length - 2).Trim();
+            if (trimmed.Length == 0)
+            {
+                return string.Empty;
+            }
+        }
+
+        var needsQuotes = false;
+        for (var i = 0; i < trimmed.Length; i++)
+        {
+            var ch = trimmed[i];
+            if (char.IsWhiteSpace(ch) || ch is ',' or '"' or '\'')
+            {
+                needsQuotes = true;
+                break;
+            }
+        }
+
+        if (!needsQuotes)
+        {
+            return trimmed;
+        }
+
+        var escaped = trimmed.Replace("\\", "\\\\", StringComparison.Ordinal)
+            .Replace("'", "\\'", StringComparison.Ordinal);
+        return $"'{escaped}'";
     }
 
     private static string BuildTableStyle(TableProperties properties)
@@ -673,6 +749,235 @@ public static class ClipboardHtmlSerializer
         return value.ToString("0.##", CultureInfo.InvariantCulture) + "px";
     }
 
+    private static string PrettyPrintHtml(string html)
+    {
+        if (string.IsNullOrEmpty(html))
+        {
+            return string.Empty;
+        }
+
+        var builder = new StringBuilder(html.Length + 128);
+        var indent = 0;
+        var index = 0;
+        var wroteNewline = true;
+
+        while (index < html.Length)
+        {
+            if (html[index] != '<')
+            {
+                builder.Append(html[index]);
+                wroteNewline = html[index] == '\n';
+                index++;
+                continue;
+            }
+
+            var tagEnd = FindTagEnd(html, index + 1);
+            if (tagEnd < 0)
+            {
+                builder.Append(html.AsSpan(index));
+                break;
+            }
+
+            var tag = html.AsSpan(index, tagEnd - index + 1);
+            var tagName = GetTagName(tag);
+            var isClosing = tag.Length > 1 && tag[1] == '/';
+            var isVoid = IsVoidTag(tagName) || (tag.Length > 2 && tag[^2] == '/');
+            var isBlock = IsBlockTag(tagName);
+            var isSingleLine = IsSingleLineTag(tagName);
+
+            if (isClosing)
+            {
+                if (isBlock && !isSingleLine)
+                {
+                    indent = Math.Max(0, indent - 1);
+                    AppendLineBreak(builder, ref wroteNewline);
+                    AppendIndent(builder, indent);
+                    wroteNewline = false;
+                }
+            }
+            else if (isBlock)
+            {
+                AppendLineBreak(builder, ref wroteNewline);
+                AppendIndent(builder, indent);
+                wroteNewline = false;
+            }
+
+            builder.Append(tag);
+            wroteNewline = false;
+
+            if (isBlock)
+            {
+                if (!isClosing && isSingleLine)
+                {
+                    // Keep inline content on the same line for single-line blocks.
+                }
+                else if (!isSingleLine && !isVoid && !isClosing)
+                {
+                    AppendLineBreak(builder, ref wroteNewline);
+                    indent++;
+                }
+                else
+                {
+                    AppendLineBreak(builder, ref wroteNewline);
+                }
+            }
+
+            index = tagEnd + 1;
+        }
+
+        if (!wroteNewline)
+        {
+            builder.Append('\n');
+        }
+
+        return builder.ToString();
+    }
+
+    private static int FindTagEnd(string html, int startIndex)
+    {
+        var quote = '\0';
+        for (var i = startIndex; i < html.Length; i++)
+        {
+            var ch = html[i];
+            if (quote != '\0')
+            {
+                if (ch == quote)
+                {
+                    quote = '\0';
+                }
+                continue;
+            }
+
+            if (ch == '\'' || ch == '"')
+            {
+                quote = ch;
+                continue;
+            }
+
+            if (ch == '>')
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    private static string GetTagName(ReadOnlySpan<char> tag)
+    {
+        var index = 1;
+        if (index < tag.Length && tag[index] == '/')
+        {
+            index++;
+        }
+
+        while (index < tag.Length && char.IsWhiteSpace(tag[index]))
+        {
+            index++;
+        }
+
+        var start = index;
+        while (index < tag.Length)
+        {
+            var ch = tag[index];
+            if (char.IsWhiteSpace(ch) || ch == '>' || ch == '/')
+            {
+                break;
+            }
+            index++;
+        }
+
+        if (index <= start)
+        {
+            return string.Empty;
+        }
+
+        return tag.Slice(start, index - start).ToString();
+    }
+
+    private static void AppendIndent(StringBuilder builder, int indent)
+    {
+        if (indent <= 0)
+        {
+            return;
+        }
+
+        builder.Append(' ', indent * 2);
+    }
+
+    private static void AppendLineBreak(StringBuilder builder, ref bool wroteNewline)
+    {
+        if (wroteNewline)
+        {
+            return;
+        }
+
+        builder.Append('\n');
+        wroteNewline = true;
+    }
+
+    private static bool IsBlockTag(string tagName)
+    {
+        return BlockTags.Contains(tagName);
+    }
+
+    private static bool IsSingleLineTag(string tagName)
+    {
+        return SingleLineTags.Contains(tagName);
+    }
+
+    private static bool IsVoidTag(string tagName)
+    {
+        return VoidTags.Contains(tagName);
+    }
+
+    private static readonly HashSet<string> BlockTags = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "html",
+        "head",
+        "body",
+        "meta",
+        "p",
+        "ul",
+        "ol",
+        "li",
+        "table",
+        "thead",
+        "tbody",
+        "tfoot",
+        "tr",
+        "td",
+        "th",
+        "h1",
+        "h2",
+        "h3",
+        "h4",
+        "h5",
+        "h6"
+    };
+
+    private static readonly HashSet<string> SingleLineTags = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "p",
+        "li",
+        "td",
+        "th",
+        "h1",
+        "h2",
+        "h3",
+        "h4",
+        "h5",
+        "h6",
+        "meta"
+    };
+
+    private static readonly HashSet<string> VoidTags = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "meta",
+        "img",
+        "br",
+        "hr"
+    };
     private static void AppendCss(StringBuilder builder, string name, string value)
     {
         builder.Append(name).Append(':').Append(value).Append(';');
