@@ -2,6 +2,7 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Vibe.Office.Documents;
+using Vibe.Office.Editing;
 using Vibe.Office.Html;
 
 namespace Vibe.Word.Avalonia;
@@ -14,6 +15,7 @@ public partial class HtmlSourceWindow : Window
     private readonly CheckBox _autoSyncCheckBox;
     private readonly DispatcherTimer _applyTimer;
     private readonly DispatcherTimer _refreshTimer;
+    private readonly DispatcherTimer _proofingTimer;
 
     private DocumentView? _view;
     private HtmlDualViewSync _sync;
@@ -21,6 +23,8 @@ public partial class HtmlSourceWindow : Window
     private bool _suppressTextChange;
     private bool _suppressDocumentRefresh;
     private bool _pendingApply;
+    private CancellationTokenSource? _proofingCts;
+    private IReadOnlyList<ProofingSourceDiagnostic> _proofingDiagnostics = Array.Empty<ProofingSourceDiagnostic>();
 
     public HtmlSourceWindow()
     {
@@ -46,6 +50,12 @@ public partial class HtmlSourceWindow : Window
             Interval = TimeSpan.FromMilliseconds(250)
         };
         _refreshTimer.Tick += OnRefreshTimerTick;
+
+        _proofingTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(350)
+        };
+        _proofingTimer.Tick += OnProofingTimerTick;
 
         _sync = new HtmlDualViewSync(CreateHtmlOptions());
     }
@@ -74,6 +84,8 @@ public partial class HtmlSourceWindow : Window
         DetachView();
         _applyTimer.Stop();
         _refreshTimer.Stop();
+        _proofingTimer.Stop();
+        CancelProofing();
         base.OnClosed(e);
     }
 
@@ -117,6 +129,7 @@ public partial class HtmlSourceWindow : Window
         _state = new HtmlSyncState(html, ast, DocumentClone.Clone(_view.Document));
         SetEditorText(html);
         SetDirty(false);
+        ScheduleProofing();
     }
 
     private void OnHtmlTextChanged(object? sender, RoutedEventArgs e)
@@ -127,6 +140,7 @@ public partial class HtmlSourceWindow : Window
         }
 
         SetDirty(true);
+        ScheduleProofing();
         if (_autoSyncCheckBox.IsChecked == true)
         {
             _applyTimer.Stop();
@@ -170,6 +184,7 @@ public partial class HtmlSourceWindow : Window
 
         SetEditorText(_state.HtmlText);
         SetDirty(false);
+        ScheduleProofing();
     }
 
     private void SetEditorText(string text)
@@ -183,6 +198,66 @@ public partial class HtmlSourceWindow : Window
     {
         _pendingApply = isDirty;
         _applyButton.IsEnabled = isDirty;
+    }
+
+    private void ScheduleProofing()
+    {
+        _proofingTimer.Stop();
+        _proofingTimer.Start();
+    }
+
+    private async void OnProofingTimerTick(object? sender, EventArgs e)
+    {
+        _proofingTimer.Stop();
+        await RefreshProofingAsync();
+    }
+
+    private async Task RefreshProofingAsync()
+    {
+        if (_view is null)
+        {
+            _proofingDiagnostics = Array.Empty<ProofingSourceDiagnostic>();
+            return;
+        }
+
+        if (!_view.TryGetService<IProofingProfileRegistry>(out var profiles))
+        {
+            _proofingDiagnostics = Array.Empty<ProofingSourceDiagnostic>();
+            return;
+        }
+
+        _view.TryGetService<ILanguageDetector>(out var detector);
+        var html = _htmlEditor.Text ?? string.Empty;
+        CancelProofing();
+        _proofingCts = new CancellationTokenSource();
+
+        try
+        {
+            var diagnostics = await HtmlSourceProofing.AnalyzeAsync(
+                html,
+                profiles,
+                CreateHtmlOptions(),
+                language: null,
+                languageDetector: detector,
+                cancellationToken: _proofingCts.Token);
+            _proofingDiagnostics = diagnostics;
+        }
+        catch (OperationCanceledException)
+        {
+            // Ignore canceled refreshes.
+        }
+    }
+
+    private void CancelProofing()
+    {
+        if (_proofingCts is null)
+        {
+            return;
+        }
+
+        _proofingCts.Cancel();
+        _proofingCts.Dispose();
+        _proofingCts = null;
     }
 
     private static HtmlOptions CreateHtmlOptions()
