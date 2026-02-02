@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <PluginOutputDirs>$(MSBuildThisFileDirectory)..\Vibe.Word.App\bin\$(Configuration)\$(TargetFramework)\Plugins\;$(MSBuildThisFileDirectory)..\Vibe.Word.Avalonia\bin\$(Configuration)\$(TargetFramework)\Plugins\</PluginOutputDirs>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Vibe.Office.Editing\Vibe.Office.Editing.csproj" />
+  </ItemGroup>
+
+  <Target Name="CopyPluginToOutputs" AfterTargets="Build" Condition="'$(DesignTimeBuild)' != 'true'">
+    <ItemGroup>
+      <PluginOutputDir Include="$(PluginOutputDirs)" />
+    </ItemGroup>
+    <MakeDir Directories="@(PluginOutputDir)" />
+    <Copy SourceFiles="$(TargetPath)"
+          DestinationFolder="%(PluginOutputDir.Identity)"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+</Project>

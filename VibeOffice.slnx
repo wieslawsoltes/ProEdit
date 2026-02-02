@@ -8,6 +8,7 @@
     <Project Path="src/Vibe.Office.Macros/Vibe.Office.Macros.csproj" />
     <Project Path="src/Vibe.Office.OpenXml/Vibe.Office.OpenXml.csproj" />
     <Project Path="src/Vibe.Office.Primitives/Vibe.Office.Primitives.csproj" />
+    <Project Path="src/Vibe.Office.Proofing.GrammarApi.Plugin/Vibe.Office.Proofing.GrammarApi.Plugin.csproj" />
     <Project Path="src/Vibe.Office.Ribbon.Avalonia/Vibe.Office.Ribbon.Avalonia.csproj" />
     <Project Path="src/Vibe.Office.Ribbon/Vibe.Office.Ribbon.csproj" />
     <Project Path="src/Vibe.Office.Rendering.Skia/Vibe.Office.Rendering.Skia.csproj" />
