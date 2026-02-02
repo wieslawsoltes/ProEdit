@@ -73,14 +73,24 @@ public sealed class DocumentLayouter
         FloatingObject Floating,
         HeaderFooterLine AnchorLine);
 
-    public DocumentLayout Layout(Document document, LayoutSettings settings, ITextMeasurer measurer)
+    public DocumentLayout Layout(
+        Document document,
+        LayoutSettings settings,
+        ITextMeasurer measurer,
+        IProofingSpanProvider? proofingSpans = null)
     {
-        return LayoutWithFieldEvaluation(document, settings, measurer, null, null);
+        return LayoutWithFieldEvaluation(document, settings, measurer, null, null, proofingSpans);
     }
 
-    public DocumentLayout Layout(Document document, LayoutSettings settings, ITextMeasurer measurer, DocumentLayout? previousLayout, int? dirtyParagraphIndex)
+    public DocumentLayout Layout(
+        Document document,
+        LayoutSettings settings,
+        ITextMeasurer measurer,
+        DocumentLayout? previousLayout,
+        int? dirtyParagraphIndex,
+        IProofingSpanProvider? proofingSpans = null)
     {
-        return LayoutWithFieldEvaluation(document, settings, measurer, previousLayout, dirtyParagraphIndex);
+        return LayoutWithFieldEvaluation(document, settings, measurer, previousLayout, dirtyParagraphIndex, proofingSpans);
     }
 
     private DocumentLayout LayoutWithFieldEvaluation(
@@ -88,17 +98,18 @@ public sealed class DocumentLayouter
         LayoutSettings settings,
         ITextMeasurer measurer,
         DocumentLayout? previousLayout,
-        int? dirtyParagraphIndex)
+        int? dirtyParagraphIndex,
+        IProofingSpanProvider? proofingSpans)
     {
-        var baseLayout = LayoutInternal(document, settings, measurer, previousLayout, dirtyParagraphIndex, null, out var scanState, null);
+        var baseLayout = LayoutInternal(document, settings, measurer, previousLayout, dirtyParagraphIndex, null, out var scanState, null, proofingSpans);
         var fieldContext = FieldEvaluationContext.TryCreate(document, baseLayout, scanState);
         if (fieldContext is null)
         {
-            return LayoutWithFootnotePageRestart(document, settings, measurer, baseLayout, scanState, null);
+            return LayoutWithFootnotePageRestart(document, settings, measurer, baseLayout, scanState, null, proofingSpans);
         }
 
-        var evaluatedLayout = LayoutInternal(document, settings, measurer, null, null, fieldContext, out var evaluatedScanState, null);
-        return LayoutWithFootnotePageRestart(document, settings, measurer, evaluatedLayout, evaluatedScanState, fieldContext);
+        var evaluatedLayout = LayoutInternal(document, settings, measurer, null, null, fieldContext, out var evaluatedScanState, null, proofingSpans);
+        return LayoutWithFootnotePageRestart(document, settings, measurer, evaluatedLayout, evaluatedScanState, fieldContext, proofingSpans);
     }
 
     private DocumentLayout LayoutWithFootnotePageRestart(
@@ -107,7 +118,8 @@ public sealed class DocumentLayouter
         ITextMeasurer measurer,
         DocumentLayout layout,
         ParagraphScanState scanState,
-        FieldEvaluationContext? fieldContext)
+        FieldEvaluationContext? fieldContext,
+        IProofingSpanProvider? proofingSpans)
     {
         if (!RequiresFootnotePageRestart(document))
         {
@@ -120,7 +132,7 @@ public sealed class DocumentLayouter
             return layout;
         }
 
-        return LayoutInternal(document, settings, measurer, null, null, fieldContext, out _, noteNumbers);
+        return LayoutInternal(document, settings, measurer, null, null, fieldContext, out _, noteNumbers, proofingSpans);
     }
 
     private DocumentLayout LayoutInternal(
@@ -131,7 +143,8 @@ public sealed class DocumentLayouter
         int? dirtyParagraphIndex,
         FieldEvaluationContext? fieldContext,
         out ParagraphScanState scanState,
-        NoteNumberingContext? noteNumbersOverride)
+        NoteNumberingContext? noteNumbersOverride,
+        IProofingSpanProvider? proofingSpans)
     {
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(settings);
@@ -1410,6 +1423,7 @@ public sealed class DocumentLayouter
                 paragraphStyle,
                 styleResolver,
                 document,
+                proofingSpans,
                 fieldContext,
                 blockRevision,
                 showRevisions,
@@ -2558,7 +2572,7 @@ public sealed class DocumentLayouter
             var keepLinesTogether = properties.KeepLinesTogether == true;
             var widowControl = properties.WidowControl ?? true;
             var nextBlockMinHeight = keepWithNext
-                ? EstimateNextBlockMinHeight(blockIndex, blocks, document, styleResolver, settings, measurer, style, spacingMetricsCache, columnWidth, lineHeight, ascent, pageSettings.DocGrid, lineBreakOptions, fieldContext, showRevisions, noteNumbers)
+                ? EstimateNextBlockMinHeight(blockIndex, blocks, document, proofingSpans, styleResolver, settings, measurer, style, spacingMetricsCache, columnWidth, lineHeight, ascent, pageSettings.DocGrid, lineBreakOptions, fieldContext, showRevisions, noteNumbers)
                 : 0f;
 
             var canReflow = paragraph.FloatingObjects.Count > 0;
@@ -2716,6 +2730,7 @@ public sealed class DocumentLayouter
                 plan.ParagraphStyle,
                 styleResolver,
                 document,
+                proofingSpans,
                 fieldContext,
                 blockRevision,
                 showRevisions,
@@ -2844,6 +2859,7 @@ public sealed class DocumentLayouter
             var data = ComputeTableLayoutData(
                 table,
                 document,
+                proofingSpans,
                 resolvedTableProperties,
                 table.Properties,
                 tableStyle,
@@ -2881,7 +2897,8 @@ public sealed class DocumentLayouter
                 includeTopSpacing: true,
                 includeBottomSpacing: true,
                 continuesFromPrevious: false,
-                continuesOnNext: false);
+                continuesOnNext: false,
+                proofingSpans);
 
             var tableWidth = baseLayout.Bounds.Width;
             var tableHeight = baseLayout.Bounds.Height;
@@ -3003,6 +3020,7 @@ public sealed class DocumentLayouter
             var data = ComputeTableLayoutData(
                 table,
                 document,
+                proofingSpans,
                 resolvedTableProperties,
                 table.Properties,
                 tableStyle,
@@ -3051,7 +3069,8 @@ public sealed class DocumentLayouter
                     includeTopSpacing: true,
                     includeBottomSpacing: true,
                     continuesFromPrevious: false,
-                    continuesOnNext: false);
+                    continuesOnNext: false,
+                    proofingSpans);
                 tables.Add(emptyLayout);
                 cursorY += emptyLayout.Bounds.Height + settings.BlockSpacing;
                 return;
@@ -3115,7 +3134,8 @@ public sealed class DocumentLayouter
                         includeTopSpacing: !continuesFromPrevious,
                         includeBottomSpacing: !continuesOnNext,
                         continuesFromPrevious: continuesFromPrevious,
-                        continuesOnNext: continuesOnNext);
+                        continuesOnNext: continuesOnNext,
+                        proofingSpans);
                 }
                 else
                 {
@@ -3130,7 +3150,8 @@ public sealed class DocumentLayouter
                         includeTopSpacing: !continuesFromPrevious,
                         includeBottomSpacing: !continuesOnNext,
                         continuesFromPrevious: continuesFromPrevious,
-                        continuesOnNext: continuesOnNext);
+                        continuesOnNext: continuesOnNext,
+                        proofingSpans);
                 }
                 tables.Add(tableLayout);
                 AddTableLines(tableLayout);
@@ -3297,6 +3318,7 @@ public sealed class DocumentLayouter
                 var headerLayout = LayoutHeaderFooterBlocks(
                     headerBlocks,
                     document,
+                    proofingSpans,
                     settings,
                     measurer,
                     style,
@@ -3317,6 +3339,7 @@ public sealed class DocumentLayouter
                 var footerLayout = LayoutHeaderFooterBlocks(
                     footerBlocks,
                     document,
+                    proofingSpans,
                     settings,
                     measurer,
                     style,
@@ -4571,6 +4594,7 @@ public sealed class DocumentLayouter
         var data = ComputeTableLayoutData(
             table,
             document,
+            null,
             resolvedTableProperties,
             table.Properties,
             tableStyle,
@@ -4670,6 +4694,7 @@ public sealed class DocumentLayouter
     private static TableLayoutData ComputeTableLayoutData(
         TableBlock table,
         Document document,
+        IProofingSpanProvider? proofingSpans,
         TableProperties resolvedTableProperties,
         TableProperties directTableProperties,
         TableStyleDefinition? tableStyle,
@@ -4859,6 +4884,7 @@ public sealed class DocumentLayouter
                     var cellLayout = LayoutCellBlocks(
                         placement.Cell,
                         document,
+                        proofingSpans,
                         spanWidth,
                         placement.Padding,
                         settings,
@@ -4970,7 +4996,8 @@ public sealed class DocumentLayouter
         bool includeTopSpacing,
         bool includeBottomSpacing,
         bool continuesFromPrevious,
-        bool continuesOnNext)
+        bool continuesOnNext,
+        IProofingSpanProvider? proofingSpans = null)
     {
         var columnCount = data.Columns;
         var rowCount = slices.Count;
@@ -5161,11 +5188,12 @@ public sealed class DocumentLayouter
         bool includeTopSpacing,
         bool includeBottomSpacing,
         bool continuesFromPrevious,
-        bool continuesOnNext)
+        bool continuesOnNext,
+        IProofingSpanProvider? proofingSpans = null)
     {
         if (headerRowCount <= 0 || bodySlices.Count == 0)
         {
-            return BuildTableLayout(table, tableProperties, data, tableX, tableY, bodySlices, settings, includeTopSpacing, includeBottomSpacing, continuesFromPrevious, continuesOnNext);
+            return BuildTableLayout(table, tableProperties, data, tableX, tableY, bodySlices, settings, includeTopSpacing, includeBottomSpacing, continuesFromPrevious, continuesOnNext, proofingSpans);
         }
 
         var slices = new List<TableRowSlice>(headerRowCount + bodySlices.Count);
@@ -5175,7 +5203,7 @@ public sealed class DocumentLayouter
         }
 
         slices.AddRange(bodySlices);
-        return BuildTableLayout(table, tableProperties, data, tableX, tableY, slices, settings, includeTopSpacing, includeBottomSpacing, continuesFromPrevious, continuesOnNext);
+        return BuildTableLayout(table, tableProperties, data, tableX, tableY, slices, settings, includeTopSpacing, includeBottomSpacing, continuesFromPrevious, continuesOnNext, proofingSpans);
     }
 
     private static int[] BuildRowIndexMap(int rowCount, IReadOnlyList<TableRowSlice> slices)
@@ -5725,6 +5753,7 @@ public sealed class DocumentLayouter
     private static TableCellLayoutResult LayoutCellBlocks(
         TableCell cell,
         Document document,
+        IProofingSpanProvider? proofingSpans,
         float columnWidth,
         DocThickness padding,
         LayoutSettings settings,
@@ -5821,6 +5850,7 @@ public sealed class DocumentLayouter
                     var data = ComputeTableLayoutData(
                         nestedTable,
                         document,
+                        proofingSpans,
                         resolvedTableProperties,
                         nestedTable.Properties,
                         tableStyle,
@@ -5934,6 +5964,7 @@ public sealed class DocumentLayouter
                     paragraphStyle,
                     styleResolver,
                     document,
+                    proofingSpans,
                     fieldContext,
                     currentBlockRevision,
                     showRevisions,
@@ -6093,6 +6124,7 @@ public sealed class DocumentLayouter
                 paragraphStyle,
                 styleResolver,
                 document,
+                proofingSpans,
                 fieldContext,
                 currentBlockRevision,
                 showRevisions,
@@ -6351,6 +6383,7 @@ public sealed class DocumentLayouter
                         paragraphStyle,
                         styleResolver,
                         document,
+                        null,
                         fieldContext,
                         ResolveCurrentRevision(),
                         showRevisions,
@@ -6413,6 +6446,7 @@ public sealed class DocumentLayouter
         var data = ComputeTableLayoutData(
             table,
             document,
+            null,
             resolvedTableProperties,
             table.Properties,
             tableStyle,
@@ -7069,6 +7103,7 @@ public sealed class DocumentLayouter
         int blockIndex,
         IReadOnlyList<Block> blocks,
         Document document,
+        IProofingSpanProvider? proofingSpans,
         DocumentStyleResolver styleResolver,
         LayoutSettings settings,
         ITextMeasurer measurer,
@@ -7130,6 +7165,7 @@ public sealed class DocumentLayouter
                 paragraphStyle,
                 styleResolver,
                 document,
+                proofingSpans,
                 fieldContext,
                 null,
                 showRevisions,
@@ -7190,6 +7226,7 @@ public sealed class DocumentLayouter
             var data = ComputeTableLayoutData(
                 table,
                 document,
+                proofingSpans,
                 resolvedTableProperties,
                 table.Properties,
                 tableStyle,
@@ -7236,6 +7273,7 @@ public sealed class DocumentLayouter
         TextStyle paragraphStyle,
         DocumentStyleResolver styleResolver,
         Document document,
+        IProofingSpanProvider? proofingSpans,
         FieldEvaluationContext? fieldContext,
         RevisionInfo? blockRevision,
         bool showRevisions,
@@ -7475,6 +7513,10 @@ public sealed class DocumentLayouter
         if (paragraph.Inlines.Count == 0)
         {
             AppendText(paragraph.Text ?? string.Empty, paragraphStyle);
+            if (proofingSpans is not null && paragraphIndex >= 0)
+            {
+                ApplyProofingSpans(paragraphIndex, spansList, proofingSpans);
+            }
             return (builder.ToString(), spansList);
         }
 
@@ -7820,6 +7862,11 @@ public sealed class DocumentLayouter
         if (builder.Length == 0)
         {
             AppendText(paragraph.Text ?? string.Empty, paragraphStyle);
+        }
+
+        if (proofingSpans is not null && paragraphIndex >= 0)
+        {
+            ApplyProofingSpans(paragraphIndex, spansList, proofingSpans);
         }
 
         return (builder.ToString(), spansList);
@@ -8618,6 +8665,173 @@ public sealed class DocumentLayouter
         FlushSegment();
     }
 
+    private readonly record struct ProofingStyleKey(TextStyleKey BaseStyle, DocUnderlineStyle UnderlineStyle, DocColor Color);
+
+    private static void ApplyProofingSpans(
+        int paragraphIndex,
+        List<InlineSpan> spans,
+        IProofingSpanProvider proofingSpans)
+    {
+        if (spans.Count == 0 || !proofingSpans.TryGetParagraphSpans(paragraphIndex, out var paragraphSpans) || paragraphSpans.Count == 0)
+        {
+            return;
+        }
+
+        var sorted = EnsureSortedProofingSpans(paragraphSpans);
+        if (sorted.Count == 0)
+        {
+            return;
+        }
+
+        var result = new List<InlineSpan>(spans.Count + sorted.Count);
+        var styleCache = new Dictionary<ProofingStyleKey, TextStyle>();
+        var proofingIndex = 0;
+
+        foreach (var span in spans)
+        {
+            if (span.Length <= 0 || span.Text.Length == 0)
+            {
+                result.Add(span);
+                continue;
+            }
+
+            var spanStart = span.Start;
+            var spanEnd = spanStart + span.Length;
+            while (proofingIndex < sorted.Count && sorted[proofingIndex].Start + sorted[proofingIndex].Length <= spanStart)
+            {
+                proofingIndex++;
+            }
+
+            if (proofingIndex >= sorted.Count || sorted[proofingIndex].Start >= spanEnd)
+            {
+                result.Add(span);
+                continue;
+            }
+
+            var cursor = spanStart;
+            var textIndex = 0;
+            var localIndex = proofingIndex;
+            while (localIndex < sorted.Count)
+            {
+                var proofing = sorted[localIndex];
+                var proofStart = Math.Max(proofing.Start, spanStart);
+                var proofEnd = Math.Min(proofing.Start + proofing.Length, spanEnd);
+                if (proofStart >= spanEnd)
+                {
+                    break;
+                }
+
+                if (proofEnd <= spanStart)
+                {
+                    localIndex++;
+                    continue;
+                }
+
+                if (proofStart > cursor)
+                {
+                    var len = proofStart - cursor;
+                    var text = span.Text.Substring(textIndex, len);
+                    result.Add(CloneTextSpan(span, cursor, len, text, span.Style));
+                    textIndex += len;
+                    cursor += len;
+                }
+
+                if (proofEnd > cursor)
+                {
+                    var len = proofEnd - cursor;
+                    var text = span.Text.Substring(textIndex, len);
+                    var proofStyle = ResolveProofingStyle(span.Style, proofing, styleCache);
+                    result.Add(CloneTextSpan(span, cursor, len, text, proofStyle));
+                    textIndex += len;
+                    cursor += len;
+                }
+
+                if (proofing.Start + proofing.Length <= spanEnd)
+                {
+                    localIndex++;
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            if (cursor < spanEnd)
+            {
+                var len = spanEnd - cursor;
+                var text = span.Text.Substring(textIndex, len);
+                result.Add(CloneTextSpan(span, cursor, len, text, span.Style));
+            }
+
+            proofingIndex = localIndex;
+        }
+
+        spans.Clear();
+        spans.AddRange(result);
+    }
+
+    private static List<ProofingUnderlineSpan> EnsureSortedProofingSpans(IReadOnlyList<ProofingUnderlineSpan> spans)
+    {
+        if (spans.Count <= 1)
+        {
+            return spans as List<ProofingUnderlineSpan> ?? new List<ProofingUnderlineSpan>(spans);
+        }
+
+        var isSorted = true;
+        var lastStart = spans[0].Start;
+        for (var i = 1; i < spans.Count; i++)
+        {
+            var currentStart = spans[i].Start;
+            if (currentStart < lastStart)
+            {
+                isSorted = false;
+                break;
+            }
+
+            lastStart = currentStart;
+        }
+
+        if (isSorted)
+        {
+            return spans as List<ProofingUnderlineSpan> ?? new List<ProofingUnderlineSpan>(spans);
+        }
+
+        var sorted = new List<ProofingUnderlineSpan>(spans);
+        sorted.Sort(static (left, right) => left.Start.CompareTo(right.Start));
+        return sorted;
+    }
+
+    private static InlineSpan CloneTextSpan(InlineSpan source, int start, int length, string text, TextStyle style)
+    {
+        return new InlineSpan(start, length, text, style, source.Image, source.Shape, source.Chart, source.Equation, source.Ruby, source.RubyStyle, source.BaselineOffset)
+        {
+            ContentControl = source.ContentControl,
+            ContentControlIsPlaceholder = source.ContentControlIsPlaceholder
+        };
+    }
+
+    private static TextStyle ResolveProofingStyle(
+        TextStyle baseStyle,
+        ProofingUnderlineSpan proofing,
+        Dictionary<ProofingStyleKey, TextStyle> cache)
+    {
+        var key = new ProofingStyleKey(new TextStyleKey(baseStyle), proofing.UnderlineStyle, proofing.Color);
+        if (cache.TryGetValue(key, out var cached))
+        {
+            return cached;
+        }
+
+        var style = baseStyle.Clone();
+        style.Underline = true;
+        style.UnderlineStyle = proofing.UnderlineStyle;
+        style.UnderlineColor = proofing.Color;
+        style.UnderlineThemeColor = null;
+        style.UnderlineThemeTint = null;
+        style.UnderlineThemeShade = null;
+        cache[key] = style;
+        return style;
+    }
+
     private static bool TryPrepareDropCap(
         string text,
         IReadOnlyList<InlineSpan> spans,
@@ -9213,6 +9427,7 @@ public sealed class DocumentLayouter
     private static HeaderFooterLayoutResult LayoutHeaderFooterBlocks(
         IReadOnlyList<Block> blocks,
         Document document,
+        IProofingSpanProvider? proofingSpans,
         LayoutSettings settings,
         ITextMeasurer measurer,
         TextStyle style,
@@ -9260,6 +9475,7 @@ public sealed class DocumentLayouter
             var data = ComputeTableLayoutData(
                 table,
                 document,
+                proofingSpans,
                 resolvedTableProperties,
                 table.Properties,
                 tableStyle,
@@ -9332,6 +9548,7 @@ public sealed class DocumentLayouter
                 paragraphStyle,
                 styleResolver,
                 document,
+                proofingSpans,
                 fieldContext,
                 null,
                 showRevisions,
@@ -9513,6 +9730,7 @@ public sealed class DocumentLayouter
                     paragraphStyle,
                     styleResolver,
                     document,
+                    proofingSpans,
                     fieldContext,
                     null,
                     showRevisions,
@@ -9666,6 +9884,7 @@ public sealed class DocumentLayouter
                 paragraphStyle,
                 styleResolver,
                 document,
+                proofingSpans,
                 fieldContext,
                 null,
                 showRevisions,
@@ -10297,6 +10516,7 @@ public sealed class DocumentLayouter
                 var candidate = LayoutHeaderFooterBlocks(
                     document.FootnoteSeparators.SeparatorBlocks,
                     document,
+                    null,
                     settings,
                     measurer,
                     style,
@@ -10323,6 +10543,7 @@ public sealed class DocumentLayouter
             var layout = LayoutHeaderFooterBlocks(
                 blocks,
                 document,
+                null,
                 settings,
                 measurer,
                 style,
@@ -10481,6 +10702,7 @@ public sealed class DocumentLayouter
             var candidate = LayoutHeaderFooterBlocks(
                 document.EndnoteSeparators.SeparatorBlocks,
                 document,
+                null,
                 settings,
                 measurer,
                 style,
@@ -10507,6 +10729,7 @@ public sealed class DocumentLayouter
         var layout = LayoutHeaderFooterBlocks(
             blocks,
             document,
+            null,
             settings,
             measurer,
             style,

@@ -7,7 +7,7 @@ using Vibe.Office.Editing;
 
 namespace Vibe.Word.Editor;
 
-public sealed class EditorController : IEditorMutableSession, IContentControlInteractionSession, IEditorLayoutRefreshService
+public sealed class EditorController : IEditorMutableSession, IContentControlInteractionSession, IEditorLayoutRefreshService, IProofingSpanProviderHost, IEditorChangeInfo
 {
     private readonly EditorLayoutService _layoutService;
     private readonly EditorSelectionService _selectionService;
@@ -23,6 +23,8 @@ public sealed class EditorController : IEditorMutableSession, IContentControlInt
     public IReadOnlyList<Guid> SelectedFloatingObjectIds => _selectionService.SelectedFloatingObjectIds;
     public IReadOnlyList<int> DirtyPages { get; private set; } = Array.Empty<int>();
     public long DirtyVersion { get; private set; }
+    public EditorChangeKind LastChangeKind { get; private set; } = EditorChangeKind.Content;
+    public int? LastDirtyParagraphIndex { get; private set; }
 
     public event EventHandler? Changed;
 
@@ -51,6 +53,12 @@ public sealed class EditorController : IEditorMutableSession, IContentControlInt
     public void RefreshLayout(int? dirtyParagraphIndex)
     {
         _layoutService.RefreshLayout(dirtyParagraphIndex);
+    }
+
+    public void SetProofingSpanProvider(IProofingSpanProvider? provider)
+    {
+        _layoutService.ProofingSpans = provider;
+        _layoutService.RefreshLayout(null);
     }
 
     public bool TryGetCaretPoint(out DocPoint point, out int lineIndex)
@@ -518,6 +526,8 @@ public sealed class EditorController : IEditorMutableSession, IContentControlInt
     }
     private void Reflow(int? dirtyParagraphIndex)
     {
+        LastDirtyParagraphIndex = dirtyParagraphIndex;
+        LastChangeKind = EditorChangeKind.Content;
         _layoutService.RefreshLayout(dirtyParagraphIndex);
     }
 
@@ -1603,6 +1613,7 @@ public sealed class EditorController : IEditorMutableSession, IContentControlInt
     {
         DirtyPages = e.DirtyPages;
         DirtyVersion++;
+        LastChangeKind = EditorChangeKind.Content;
         OnChanged();
     }
 
@@ -1610,6 +1621,8 @@ public sealed class EditorController : IEditorMutableSession, IContentControlInt
     {
         DirtyPages = e.DirtyPages;
         DirtyVersion++;
+        LastChangeKind = EditorChangeKind.Selection;
+        LastDirtyParagraphIndex = null;
         OnChanged();
     }
 

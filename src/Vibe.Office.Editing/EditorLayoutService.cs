@@ -12,6 +12,7 @@ public sealed class EditorLayoutService
 
     public LayoutSettings Settings { get; } = new LayoutSettings();
     public DocumentLayout Layout { get; private set; }
+    public IProofingSpanProvider? ProofingSpans { get; set; }
 
     public event EventHandler<LayoutChangedEventArgs>? LayoutChanged;
 
@@ -19,7 +20,7 @@ public sealed class EditorLayoutService
     {
         _document = document ?? throw new ArgumentNullException(nameof(document));
         _measurer = measurer ?? throw new ArgumentNullException(nameof(measurer));
-        Layout = _layouter.Layout(_document, Settings, _measurer);
+        Layout = _layouter.Layout(_document, Settings, _measurer, ProofingSpans);
     }
 
     public IReadOnlyList<int> UpdateViewport(float viewportWidth, float viewportHeight)
@@ -52,7 +53,7 @@ public sealed class EditorLayoutService
     private IReadOnlyList<int> Reflow(int? dirtyParagraphIndex)
     {
         var previousLayout = Layout;
-        Layout = _layouter.Layout(_document, Settings, _measurer, previousLayout, dirtyParagraphIndex);
+        Layout = _layouter.Layout(_document, Settings, _measurer, previousLayout, dirtyParagraphIndex, ProofingSpans);
         var dirtyPages = ComputeDirtyPages(previousLayout, Layout, dirtyParagraphIndex);
         LayoutChanged?.Invoke(this, new LayoutChangedEventArgs(dirtyPages));
         return dirtyPages;
