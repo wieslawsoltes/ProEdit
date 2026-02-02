@@ -16,7 +16,7 @@ public sealed class ProofingOptions
 
     public static ProofingOptions CreateDefault()
     {
-        return new ProofingOptions
+        var options = new ProofingOptions
         {
             DefaultProfileId = "offline",
             UseSelectedEngines = true,
@@ -44,6 +44,35 @@ public sealed class ProofingOptions
                 }
             }
         };
+        return options;
+    }
+
+    public static ProofingOptions Normalize(ProofingOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        var defaults = CreateDefault();
+        if (options.Version <= 0)
+        {
+            options.Version = defaults.Version;
+            options.UseSelectedEngines = defaults.UseSelectedEngines;
+        }
+
+        if (string.IsNullOrWhiteSpace(options.DefaultProfileId))
+        {
+            options.DefaultProfileId = defaults.DefaultProfileId;
+        }
+
+        if (options.Profiles.Count == 0)
+        {
+            options.Profiles = defaults.Profiles.Select(static profile => profile.Clone()).ToList();
+        }
+
+        if (options.LanguageProfiles.Count == 0)
+        {
+            options.LanguageProfiles = new Dictionary<string, string>(defaults.LanguageProfiles, StringComparer.OrdinalIgnoreCase);
+        }
+
+        return options;
     }
 
     public ProofingOptions Clone()
@@ -69,4 +98,5 @@ public sealed class ProofingOptions
 
         return clone;
     }
+
 }
