@@ -5051,7 +5051,8 @@ public sealed class DocumentView : Control, ILogicalScrollable
         _kernel.Services.TryGet<IClipboardService>(out var clipboard);
         _kernel.Services.TryGet<ITableSelectionSnapshotProvider>(out var tableSelectionProvider);
         _kernel.Services.TryGet<IContentControlInteractionService>(out var contentControls);
-        var commandRouter = new EditorCommandInputRouter(_kernel.Commands, editor, undoRedo, clipboard, tableSelectionProvider, contentControls);
+        _kernel.Services.TryGet<IAutoCorrectService>(out var autoCorrect);
+        var commandRouter = new EditorCommandInputRouter(_kernel.Commands, editor, undoRedo, clipboard, tableSelectionProvider, contentControls, autoCorrect);
         _inputAdapter = new AvaloniaEditorInputAdapter(commandRouter);
     }
 
@@ -5591,7 +5592,8 @@ public sealed class DocumentView : Control, ILogicalScrollable
             services.Register(contentControls);
         }
 
-        var inputRouter = new EditorCommandInputRouter(dispatcher, editor, undoRedo, clipboard, tableSelectionProvider, contentControls);
+        services.TryGet<IAutoCorrectService>(out var autoCorrect);
+        var inputRouter = new EditorCommandInputRouter(dispatcher, editor, undoRedo, clipboard, tableSelectionProvider, contentControls, autoCorrect);
         var inputAdapter = new AvaloniaEditorInputAdapter(inputRouter);
         session = new HeaderFooterEditSession(hit.Mode, hit.Target, document, editor, inputAdapter);
         return true;

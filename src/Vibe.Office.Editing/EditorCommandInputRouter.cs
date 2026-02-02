@@ -10,6 +10,7 @@ public sealed class EditorCommandInputRouter : IEditorInputRouter
     private readonly IClipboardService? _clipboard;
     private readonly EditorClipboardController? _clipboardController;
     private readonly IContentControlInteractionService? _contentControls;
+    private readonly IAutoCorrectService? _autoCorrect;
 
     public EditorCommandInputRouter(
         EditorCommandDispatcher dispatcher,
@@ -17,13 +18,15 @@ public sealed class EditorCommandInputRouter : IEditorInputRouter
         IUndoRedoService? undoRedo = null,
         IClipboardService? clipboard = null,
         ITableSelectionSnapshotProvider? tableSelectionProvider = null,
-        IContentControlInteractionService? contentControls = null)
+        IContentControlInteractionService? contentControls = null,
+        IAutoCorrectService? autoCorrect = null)
     {
         _dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
         _session = session ?? throw new ArgumentNullException(nameof(session));
         _undoRedo = undoRedo;
         _clipboard = clipboard;
         _contentControls = contentControls;
+        _autoCorrect = autoCorrect;
         if (clipboard is not null)
         {
             _clipboardController = new EditorClipboardController(session, clipboard, tableSelectionProvider);
@@ -55,7 +58,26 @@ public sealed class EditorCommandInputRouter : IEditorInputRouter
         }
 
         _dispatcher.Dispatch(new InsertTextCommand(text.ToString()), _session);
+        TryApplyAutoCorrect(text);
         return true;
+    }
+
+    private void TryApplyAutoCorrect(ReadOnlySpan<char> insertedText)
+    {
+        if (_autoCorrect is null)
+        {
+            return;
+        }
+
+        if (!_autoCorrect.TryGetReplacement(_session, insertedText, out var replacement))
+        {
+            return;
+        }
+
+        var start = new TextPosition(replacement.ParagraphIndex, replacement.StartOffset);
+        var end = new TextPosition(replacement.ParagraphIndex, replacement.StartOffset + replacement.Length);
+        _session.SetSelection(new TextRange(start, end), SelectionUpdateMode.Replace);
+        _dispatcher.Dispatch(new InsertTextCommand(replacement.Replacement), _session);
     }
 
     public bool HandleKey(EditorKey key, EditorKeyEventKind kind, EditorModifiers modifiers)
