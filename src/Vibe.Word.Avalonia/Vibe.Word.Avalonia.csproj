@@ -17,6 +17,7 @@
     <ProjectReference Include="..\\Vibe.Office.Rendering.Skia\\Vibe.Office.Rendering.Skia.csproj" />
     <ProjectReference Include="..\\Vibe.Office.Ribbon.Avalonia\\Vibe.Office.Ribbon.Avalonia.csproj" />
     <ProjectReference Include="..\\Vibe.Office.Editing\\Vibe.Office.Editing.csproj" />
+    <ProjectReference Include="..\\Vibe.Office.Html\\Vibe.Office.Html.csproj" />
     <ProjectReference Include="..\\Vibe.Office.Markdown\\Vibe.Office.Markdown.csproj" />
     <ProjectReference Include="..\\Vibe.Office.Macros\\Vibe.Office.Macros.csproj" />
     <ProjectReference Include="..\\Vibe.Word.Editor\\Vibe.Word.Editor.csproj" />

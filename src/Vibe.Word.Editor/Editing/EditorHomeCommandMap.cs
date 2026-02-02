@@ -1,6 +1,7 @@
 using System.Globalization;
 using Vibe.Office.Documents;
 using Vibe.Office.Editing;
+using Vibe.Office.Html;
 using Vibe.Office.Primitives;
 using Vibe.Office.Layout;
 using Vibe.Office.Markdown;
@@ -348,11 +349,21 @@ public sealed class EditorHomeCommandMap
             return;
         }
 
+        if (IsHtmlMode() && PasteHtmlFromClipboard(ClipboardPasteMode.KeepSource))
+        {
+            return;
+        }
+
         _clipboardController?.Paste(ClipboardPasteMode.KeepSource);
     }
 
     private void PasteClipboardMatchDestination()
     {
+        if (IsHtmlMode() && PasteHtmlFromClipboard(ClipboardPasteMode.MatchDestination))
+        {
+            return;
+        }
+
         _clipboardController?.Paste(ClipboardPasteMode.MatchDestination);
     }
 
@@ -384,6 +395,28 @@ public sealed class EditorHomeCommandMap
         return _clipboardController.PasteBlocks(content.Fragment, ClipboardPasteMode.KeepSource);
     }
 
+    private bool PasteHtmlFromClipboard(ClipboardPasteMode mode)
+    {
+        if (_clipboardController is null || _clipboardService is null)
+        {
+            return false;
+        }
+
+        if (!_clipboardService.TryGetContent(out var content))
+        {
+            return false;
+        }
+
+        var document = ClipboardDocumentConverter.ToDocument(content);
+        var options = CreateHtmlOptions();
+        var html = HtmlDocumentConverter.ToHtml(document, options);
+        var filtered = HtmlDocumentConverter.FromHtml(html.AsSpan(), options);
+        var filteredContent = ClipboardDocumentConverter.FromDocument(filtered);
+
+        return filteredContent.Fragment is not null
+               && _clipboardController.PasteBlocks(filteredContent.Fragment, mode);
+    }
+
     private bool IsMarkdownMode()
     {
         var profile = _formatProfileService?.CurrentProfile;
@@ -393,6 +426,17 @@ public sealed class EditorHomeCommandMap
         }
 
         return profile.Id.StartsWith("markdown", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool IsHtmlMode()
+    {
+        var profile = _formatProfileService?.CurrentProfile;
+        if (profile is null || string.IsNullOrWhiteSpace(profile.Id))
+        {
+            return false;
+        }
+
+        return profile.Id.StartsWith("html", StringComparison.OrdinalIgnoreCase);
     }
 
     private MarkdownOptions CreateMarkdownOptions()
@@ -415,6 +459,18 @@ public sealed class EditorHomeCommandMap
             UseGfmTables = true,
             UseTaskLists = true,
             UseStrikethrough = true
+        };
+    }
+
+    private HtmlOptions CreateHtmlOptions()
+    {
+        return new HtmlOptions
+        {
+            Flavor = HtmlFlavor.Html5,
+            AllowScripts = false,
+            AllowStyles = true,
+            NormalizeLineEndings = true,
+            PreserveUnknownElements = false
         };
     }
 

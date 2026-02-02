@@ -13,6 +13,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Vibe.Office.Documents;
 using Vibe.Office.Editing;
+using Vibe.Office.Html;
 using Vibe.Office.Layout;
 using Vibe.Office.Markdown;
 using Vibe.Office.Macros;
@@ -62,6 +63,7 @@ public partial class WordEditorControl : UserControl
     private FindReplaceDialog? _findReplaceDialog;
     private VbaToolingWindow? _vbaToolingWindow;
     private NotesPaneWindow? _notesPaneWindow;
+    private HtmlSourceWindow? _htmlSourceWindow;
     private readonly RibbonQuickAccessStore _quickAccessStore = new();
     private readonly ObservableCollection<RibbonGalleryItem> _styleGalleryItems = new();
     private readonly Dictionary<string, RibbonGalleryItem> _styleGalleryItemMap = new(StringComparer.OrdinalIgnoreCase);
@@ -85,11 +87,15 @@ public partial class WordEditorControl : UserControl
     };
     private static readonly FilePickerFileType SupportedFileType = new("Supported Files")
     {
-        Patterns = new[] { "*.docx", "*.docm", "*.md", "*.markdown" }
+        Patterns = new[] { "*.docx", "*.docm", "*.md", "*.markdown", "*.html", "*.htm" }
     };
     private static readonly FilePickerFileType MarkdownFileType = new("Markdown")
     {
         Patterns = new[] { "*.md", "*.markdown" }
+    };
+    private static readonly FilePickerFileType HtmlFileType = new("HTML")
+    {
+        Patterns = new[] { "*.html", "*.htm" }
     };
     private static readonly FilePickerFileType ImageFileType = new("Images")
     {
@@ -552,7 +558,7 @@ public partial class WordEditorControl : UserControl
         var result = await storageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
             AllowMultiple = false,
-            FileTypeFilter = new[] { SupportedFileType, DocxFileType, MarkdownFileType }
+            FileTypeFilter = new[] { SupportedFileType, DocxFileType, MarkdownFileType, HtmlFileType }
         });
 
         if (result.Count == 0)
@@ -580,7 +586,7 @@ public partial class WordEditorControl : UserControl
         UpdateWindowTitle();
         var document = DocumentTemplates.CreateDefaultDocument();
         await _editorView.LoadDocumentAsync(document);
-        ApplyFormatProfile(isMarkdown: false);
+        ApplyFormatProfile(null);
         RefreshStyleGalleryItems();
         AttachStyleManagerEvents();
         _ribbon?.RefreshState();
@@ -605,7 +611,7 @@ public partial class WordEditorControl : UserControl
             var file = await storageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
             {
                 DefaultExtension = "docx",
-                FileTypeChoices = new[] { DocxFileType, MarkdownFileType },
+                FileTypeChoices = new[] { DocxFileType, MarkdownFileType, HtmlFileType },
                 SuggestedFileName = ResolveSuggestedFileName(suggestedName)
             });
 
@@ -621,6 +627,11 @@ public partial class WordEditorControl : UserControl
         {
             var markdown = MarkdownDocumentConverter.ToMarkdown(_editorView.Document, CreateMarkdownOptions());
             await File.WriteAllTextAsync(path, markdown);
+        }
+        else if (IsHtmlPath(path))
+        {
+            var html = HtmlDocumentConverter.ToHtml(_editorView.Document, CreateHtmlOptions());
+            await File.WriteAllTextAsync(path, html);
         }
         else
         {
@@ -645,11 +656,28 @@ public partial class WordEditorControl : UserControl
         }
     }
 
-    private static bool IsMarkdownPath(string path)
+    private static bool IsMarkdownPath(string? path)
     {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return false;
+        }
+
         var extension = Path.GetExtension(path);
         return extension.Equals(".md", StringComparison.OrdinalIgnoreCase)
                || extension.Equals(".markdown", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsHtmlPath(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return false;
+        }
+
+        var extension = Path.GetExtension(path);
+        return extension.Equals(".html", StringComparison.OrdinalIgnoreCase)
+               || extension.Equals(".htm", StringComparison.OrdinalIgnoreCase);
     }
 
     private static MarkdownOptions CreateMarkdownOptions()
@@ -663,7 +691,15 @@ public partial class WordEditorControl : UserControl
         };
     }
 
-    private void ApplyFormatProfile(bool isMarkdown)
+    private static HtmlOptions CreateHtmlOptions()
+    {
+        return new HtmlOptions
+        {
+            Flavor = HtmlFlavor.Html5
+        };
+    }
+
+    private void ApplyFormatProfile(string? path)
     {
         if (_editorView is null)
         {
@@ -672,10 +708,15 @@ public partial class WordEditorControl : UserControl
 
         if (_editorView.TryGetService<IEditorFormatProfileService>(out var profileService))
         {
-            if (isMarkdown)
+            if (IsMarkdownPath(path))
             {
                 profileService.CurrentProfile = MarkdownProfiles.GitHub;
                 profileService.CommandPolicy = MarkdownCommandPolicy.Create(MarkdownProfiles.GitHub);
+            }
+            else if (IsHtmlPath(path))
+            {
+                profileService.CurrentProfile = HtmlProfiles.Html5;
+                profileService.CommandPolicy = HtmlCommandPolicy.Create(HtmlProfiles.Html5);
             }
             else
             {
@@ -1064,6 +1105,43 @@ public partial class WordEditorControl : UserControl
             ShowOwnedWindow(_notesPaneWindow);
             _notesPaneWindow.Activate();
             return Task.CompletedTask;
+        }
+
+        async ValueTask ToggleHtmlSourceAsync(bool isChecked)
+        {
+            if (!canInteract() || _editorView is null)
+            {
+                return;
+            }
+
+            if (!isChecked)
+            {
+                if (_htmlSourceWindow is not null)
+                {
+                    _htmlSourceWindow.Close();
+                    _htmlSourceWindow = null;
+                }
+
+                return;
+            }
+
+            if (_htmlSourceWindow is null)
+            {
+                _htmlSourceWindow = new HtmlSourceWindow(_editorView);
+                _htmlSourceWindow.Closed += (_, _) =>
+                {
+                    _htmlSourceWindow = null;
+                    _ribbon?.RefreshState();
+                };
+            }
+            else
+            {
+                _htmlSourceWindow.SetDocumentView(_editorView);
+            }
+
+            ShowOwnedWindow(_htmlSourceWindow);
+            _htmlSourceWindow.Activate();
+            await Task.CompletedTask;
         }
 
         VbaDebugSession? GetActiveDebugSession()
@@ -6374,6 +6452,20 @@ public partial class WordEditorControl : UserControl
             canExecute: canInteract,
             size: RibbonControlSize.Medium);
 
+        bool IsHtmlSourceOpen()
+        {
+            return _htmlSourceWindow is not null && _htmlSourceWindow.IsVisible;
+        }
+
+        var htmlSourceToggle = new RibbonToggleButton(
+            "view-html-source",
+            "HTML Source",
+            IsHtmlSourceOpen,
+            ToggleHtmlSourceAsync,
+            iconKey: "RibbonIcon.Text",
+            canExecute: canInteract,
+            size: RibbonControlSize.Medium);
+
         var viewsGroup = new RibbonGroup(
             "view-views",
             "Views",
@@ -6386,6 +6478,15 @@ public partial class WordEditorControl : UserControl
                 draftViewToggle
             },
             keyTip: "VW");
+
+        var sourceGroup = new RibbonGroup(
+            "view-source",
+            "Source",
+            new IRibbonControl[]
+            {
+                htmlSourceToggle
+            },
+            keyTip: "SR");
 
         var rulerToggle = new RibbonToggleButton(
             "view-ruler",
@@ -6852,6 +6953,7 @@ public partial class WordEditorControl : UserControl
             .AddGroups(new[]
             {
                 viewsGroup,
+                sourceGroup,
                 showGroup,
                 pageMovementGroup,
                 zoomGroup,
@@ -7572,6 +7674,11 @@ public partial class WordEditorControl : UserControl
                 var markdown = await File.ReadAllTextAsync(path);
                 document = MarkdownDocumentConverter.FromMarkdown(markdown.AsSpan(), CreateMarkdownOptions());
             }
+            else if (IsHtmlPath(path))
+            {
+                var html = await File.ReadAllTextAsync(path);
+                document = HtmlDocumentConverter.FromHtml(html.AsSpan(), CreateHtmlOptions());
+            }
             else
             {
                 document = await Task.Run(() => new DocxImporter().Load(path));
@@ -7592,7 +7699,7 @@ public partial class WordEditorControl : UserControl
 
         if (loaded)
         {
-            ApplyFormatProfile(IsMarkdownPath(path));
+            ApplyFormatProfile(path);
             RefreshStyleGalleryItems();
             AttachStyleManagerEvents();
             _ribbon?.RefreshState();
@@ -7610,6 +7717,11 @@ public partial class WordEditorControl : UserControl
         if (_notesPaneWindow is not null)
         {
             _notesPaneWindow.SetDocumentView(_editorView);
+        }
+
+        if (_htmlSourceWindow is not null)
+        {
+            _htmlSourceWindow.SetDocumentView(_editorView);
         }
 
         if (_vbaToolingWindow is null)
