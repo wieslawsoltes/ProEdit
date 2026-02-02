@@ -37,7 +37,8 @@ public sealed class ProofingOptionsStore : IProofingOptionsStore
         {
             var json = File.ReadAllText(_filePath);
             var options = JsonSerializer.Deserialize<ProofingOptions>(json, SerializerOptions);
-            return options ?? ProofingOptions.CreateDefault();
+            var loaded = options ?? ProofingOptions.CreateDefault();
+            return ProofingOptions.Normalize(loaded);
         }
         catch
         {

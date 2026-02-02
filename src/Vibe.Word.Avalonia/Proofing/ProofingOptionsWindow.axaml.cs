@@ -288,7 +288,14 @@ public partial class ProofingOptionsWindow : Window
                          ?? _profiles.Select(item => item.SpellEngine).FirstOrDefault()
                          ?? _engines.FirstOrDefault(item => item.Kind.HasFlag(ProofingEngineKind.Spell))
                          ?? new EngineItem("hunspell", "Hunspell (Offline)", ProofingEngineKind.Spell);
-        var profile = new ProfileItem(id, "Custom Profile", spellEngine, new EngineItem(string.Empty, "(None)", ProofingEngineKind.None), new EngineItem(string.Empty, "(None)", ProofingEngineKind.None));
+        var defaultLanguage = _languages.FirstOrDefault()?.Language ?? "en-US";
+        var profile = new ProfileItem(
+            id,
+            "Custom Profile",
+            spellEngine,
+            new EngineItem(string.Empty, "(None)", ProofingEngineKind.None),
+            new EngineItem(string.Empty, "(None)", ProofingEngineKind.None),
+            defaultLanguage);
         _profiles.Add(profile);
         _profilesList.SelectedItem = profile;
     }
@@ -471,6 +478,7 @@ public partial class ProofingOptionsWindow : Window
         private EngineItem _spellEngine;
         private EngineItem _grammarEngine;
         private EngineItem _styleEngine;
+        private string? _defaultLanguage;
 
         public string Id { get; }
 
@@ -498,13 +506,26 @@ public partial class ProofingOptionsWindow : Window
             set => SetField(ref _styleEngine, value);
         }
 
-        public ProfileItem(string id, string name, EngineItem spellEngine, EngineItem grammarEngine, EngineItem styleEngine)
+        public string? DefaultLanguage
+        {
+            get => _defaultLanguage;
+            set => SetField(ref _defaultLanguage, value);
+        }
+
+        public ProfileItem(
+            string id,
+            string name,
+            EngineItem spellEngine,
+            EngineItem grammarEngine,
+            EngineItem styleEngine,
+            string? defaultLanguage)
         {
             Id = id;
             _name = name;
             _spellEngine = spellEngine;
             _grammarEngine = grammarEngine;
             _styleEngine = styleEngine;
+            _defaultLanguage = defaultLanguage;
         }
 
         public static ProfileItem FromDefinition(
@@ -516,7 +537,7 @@ public partial class ProofingOptionsWindow : Window
             var spell = ResolveEngine(spellEngines, definition.SpellEngineId) ?? spellEngines.FirstOrDefault()!;
             var grammar = ResolveEngine(grammarEngines, definition.GrammarEngineId) ?? grammarEngines.FirstOrDefault()!;
             var style = ResolveEngine(styleEngines, definition.StyleEngineId) ?? styleEngines.FirstOrDefault()!;
-            return new ProfileItem(definition.Id, definition.Name, spell, grammar, style);
+            return new ProfileItem(definition.Id, definition.Name, spell, grammar, style, definition.DefaultLanguage);
         }
 
         public ProofingProfileDefinition ToDefinition()
@@ -527,7 +548,8 @@ public partial class ProofingOptionsWindow : Window
                 Name = Name,
                 SpellEngineId = SpellEngine.Id,
                 GrammarEngineId = string.IsNullOrWhiteSpace(GrammarEngine.Id) ? null : GrammarEngine.Id,
-                StyleEngineId = string.IsNullOrWhiteSpace(StyleEngine.Id) ? null : StyleEngine.Id
+                StyleEngineId = string.IsNullOrWhiteSpace(StyleEngine.Id) ? null : StyleEngine.Id,
+                DefaultLanguage = DefaultLanguage
             };
         }
 
