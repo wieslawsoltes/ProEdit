@@ -55,19 +55,14 @@ public static class EditorHomeServiceRegistry
             session);
 
         var spellRegistry = SpellDictionaryRegistry.CreateDefault();
-        var spellEngine = new HunspellSpellEngine(spellRegistry);
-        var languageToolEngine = CreateLanguageToolEngine();
         var languageDetector = new ScriptLanguageDetector("en-US");
-        var spellProfile = new ProofingProfile(
-            "Offline",
-            spellEngine,
-            spellRegistry,
-            "en-US",
-            grammarEngine: languageToolEngine,
-            styleEngine: languageToolEngine);
-        var proofingProfiles = new ProofingProfileRegistry(spellProfile);
-        proofingProfiles.RegisterProfile(spellProfile, "en-US");
-        var proofingService = new EditorProofingService(session, proofingProfiles, session as IEditorLayoutRefreshService, languageDetector);
+        var proofingOptionsStore = new ProofingOptionsStore();
+        var proofingOptions = proofingOptionsStore.Load();
+        var engineRegistry = new ProofingEngineRegistry(spellRegistry, new EditorServicesAdapter(services));
+        engineRegistry.RegisterBuiltIn(new HunspellSpellEngineFactory());
+        engineRegistry.RegisterBuiltIn(new LanguageToolEngineFactory());
+        var profileManager = new ProofingProfileManager(engineRegistry, spellRegistry, proofingOptions);
+        var proofingService = new EditorProofingService(session, profileManager, session as IEditorLayoutRefreshService, languageDetector);
         var autoCorrectService = AutoCorrectService.CreateDefault();
 
         services.Register<ISelectionState>(selectionState);
@@ -94,7 +89,10 @@ public static class EditorHomeServiceRegistry
         }
         services.Register<IProofingService>(proofingService);
         services.Register<IProofingToggleService>(proofingService);
-        services.Register<IProofingProfileRegistry>(proofingProfiles);
+        services.Register<IProofingProfileRegistry>(profileManager);
+        services.Register<IProofingProfileManager>(profileManager);
+        services.Register<IProofingEngineRegistry>(engineRegistry);
+        services.Register<IProofingOptionsStore>(proofingOptionsStore);
         services.Register<ISpellDictionaryRegistry>(spellRegistry);
         services.Register<ILanguageDetector>(languageDetector);
         services.Register<IAutoCorrectService>(autoCorrectService);
@@ -150,28 +148,18 @@ public static class EditorHomeServiceRegistry
         return commandRouter;
     }
 
-    private static LanguageToolEngine? CreateLanguageToolEngine()
+    private sealed class EditorServicesAdapter : IServiceProvider
     {
-        var endpointText = Environment.GetEnvironmentVariable("VIBE_LANGUAGETOOL_URL");
-        if (string.IsNullOrWhiteSpace(endpointText))
+        private readonly EditorServices _services;
+
+        public EditorServicesAdapter(EditorServices services)
         {
-            return null;
+            _services = services ?? throw new ArgumentNullException(nameof(services));
         }
 
-        if (!Uri.TryCreate(endpointText, UriKind.Absolute, out var endpoint))
+        public object? GetService(Type serviceType)
         {
-            return null;
+            return _services.TryGet(serviceType, out var service) ? service : null;
         }
-
-        var hostOptions = new LanguageToolHttpHostOptions(endpoint);
-        var host = new LanguageToolHttpHost(hostOptions);
-        var engineOptions = new LanguageToolEngineOptions
-        {
-            IncludeSpelling = false,
-            IncludeGrammar = true,
-            IncludeStyle = true
-        };
-
-        return new LanguageToolEngine(host, engineOptions);
     }
 }
