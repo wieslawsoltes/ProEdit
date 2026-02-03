@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\\Vibe.Office.Printing\\Vibe.Office.Printing.csproj" />
+    <ProjectReference Include="..\\Vibe.Office.Documents\\Vibe.Office.Documents.csproj" />
+    <ProjectReference Include="..\\Vibe.Office.Editing\\Vibe.Office.Editing.csproj" />
+    <ProjectReference Include="..\\Vibe.Office.Layout\\Vibe.Office.Layout.csproj" />
+  </ItemGroup>
+</Project>
