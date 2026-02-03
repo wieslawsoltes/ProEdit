@@ -7,6 +7,10 @@
     <Project Path="src/Vibe.Office.Markdown/Vibe.Office.Markdown.csproj" />
     <Project Path="src/Vibe.Office.Macros/Vibe.Office.Macros.csproj" />
     <Project Path="src/Vibe.Office.OpenXml/Vibe.Office.OpenXml.csproj" />
+    <Project Path="src/Vibe.Office.Pdf/Vibe.Office.Pdf.csproj" />
+    <Project Path="src/Vibe.Office.Pdf.Documents/Vibe.Office.Pdf.Documents.csproj" />
+    <Project Path="src/Vibe.Office.Pdf.PdfPig/Vibe.Office.Pdf.PdfPig.csproj" />
+    <Project Path="src/Vibe.Office.Pdf.PdfSharp/Vibe.Office.Pdf.PdfSharp.csproj" />
     <Project Path="src/Vibe.Office.Printing/Vibe.Office.Printing.csproj" />
     <Project Path="src/Vibe.Office.Printing.Avalonia/Vibe.Office.Printing.Avalonia.csproj" />
     <Project Path="src/Vibe.Office.Printing.Documents/Vibe.Office.Printing.Documents.csproj" />
