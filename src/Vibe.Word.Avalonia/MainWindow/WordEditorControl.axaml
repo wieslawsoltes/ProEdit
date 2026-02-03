@@ -89,6 +89,25 @@
                         <TextBlock x:Name="StatusPageText"
                                    Text="Page 1 of 1"
                                    Foreground="#404040" />
+                        <Border x:Name="PdfFixedLayoutBadge"
+                                Background="#FCE8B2"
+                                BorderBrush="#E0C779"
+                                BorderThickness="1"
+                                CornerRadius="10"
+                                Padding="8,2"
+                                IsVisible="False"
+                                ToolTip.Tip="This PDF was imported as fixed layout. Editing is constrained.">
+                            <TextBlock x:Name="PdfFixedLayoutText"
+                                       Text="PDF Fixed Layout"
+                                       FontSize="11"
+                                       Foreground="#5A4A00" />
+                        </Border>
+                        <Button x:Name="PdfReimportButton"
+                                Content="Reimport PDF"
+                                FontSize="11"
+                                Padding="8,2"
+                                IsVisible="False"
+                                ToolTip.Tip="Re-import this PDF with different options." />
                     </StackPanel>
                     <StackPanel Grid.Column="2"
                                 Orientation="Horizontal"

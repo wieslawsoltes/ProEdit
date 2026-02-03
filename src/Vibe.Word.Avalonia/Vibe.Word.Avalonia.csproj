@@ -23,6 +23,10 @@
     <ProjectReference Include="..\\Vibe.Office.Html\\Vibe.Office.Html.csproj" />
     <ProjectReference Include="..\\Vibe.Office.Markdown\\Vibe.Office.Markdown.csproj" />
     <ProjectReference Include="..\\Vibe.Office.Macros\\Vibe.Office.Macros.csproj" />
+    <ProjectReference Include="..\\Vibe.Office.Pdf\\Vibe.Office.Pdf.csproj" />
+    <ProjectReference Include="..\\Vibe.Office.Pdf.Documents\\Vibe.Office.Pdf.Documents.csproj" />
+    <ProjectReference Include="..\\Vibe.Office.Pdf.PdfPig\\Vibe.Office.Pdf.PdfPig.csproj" />
+    <ProjectReference Include="..\\Vibe.Office.Pdf.PdfSharp\\Vibe.Office.Pdf.PdfSharp.csproj" />
     <ProjectReference Include="..\\Vibe.Office.Printing.Avalonia\\Vibe.Office.Printing.Avalonia.csproj" />
     <ProjectReference Include="..\\Vibe.Office.Printing.Documents\\Vibe.Office.Printing.Documents.csproj" />
     <ProjectReference Include="..\\Vibe.Office.Printing.Skia\\Vibe.Office.Printing.Skia.csproj" />

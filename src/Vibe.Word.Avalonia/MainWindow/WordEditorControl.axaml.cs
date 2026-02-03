@@ -3,7 +3,9 @@ using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Text;
+using SkiaSharp;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
@@ -18,6 +20,11 @@ using Vibe.Office.Html;
 using Vibe.Office.Layout;
 using Vibe.Office.Markdown;
 using Vibe.Office.Macros;
+using Vibe.Office.Pdf;
+using Vibe.Office.Pdf.Documents;
+using Vibe.Office.Pdf.PdfPig;
+using Vibe.Office.Pdf.PdfSharp;
+using Vibe.Office.Printing;
 using Vibe.Office.Printing.Avalonia;
 using Vibe.Office.Printing.Documents;
 using Vibe.Office.Printing.Skia;
@@ -34,6 +41,8 @@ namespace Vibe.Word.Avalonia;
 public partial class WordEditorControl : UserControl
 {
     private const string WindowTitleBase = "Vibe Word";
+    private const float PdfIncrementalOverlayDpi = 144f;
+    private const int PdfIncrementalOverlayJpegQuality = 85;
     private readonly DocumentView? _editorView;
     private readonly HorizontalRuler? _horizontalRuler;
     private readonly VerticalRuler? _verticalRuler;
@@ -67,6 +76,9 @@ public partial class WordEditorControl : UserControl
     private readonly TextBlock? _loadingText;
     private readonly RibbonControl? _ribbon;
     private readonly TextBlock? _statusPageText;
+    private readonly Border? _pdfFixedLayoutBadge;
+    private readonly TextBlock? _pdfFixedLayoutText;
+    private readonly Button? _pdfReimportButton;
     private readonly Slider? _zoomSlider;
     private readonly Button? _zoomInButton;
     private readonly Button? _zoomOutButton;
@@ -76,6 +88,8 @@ public partial class WordEditorControl : UserControl
     private NotesPaneWindow? _notesPaneWindow;
     private HtmlSourceWindow? _htmlSourceWindow;
     private readonly RibbonQuickAccessStore _quickAccessStore = new();
+    private readonly PdfImportPreferencesStore _pdfImportPreferencesStore = new();
+    private readonly PdfEngine _pdfEngine;
     private readonly ObservableCollection<RibbonGalleryItem> _styleGalleryItems = new();
     private readonly Dictionary<string, RibbonGalleryItem> _styleGalleryItemMap = new(StringComparer.OrdinalIgnoreCase);
     private readonly ObservableCollection<NavigationPaneItem> _navigationItems = new();
@@ -95,13 +109,19 @@ public partial class WordEditorControl : UserControl
     private bool _suppressZoomUpdate;
     private bool _suppressPageSelection;
     private bool _suppressReviewSelection;
+    private bool _fixedLayoutWarningShown;
+    private bool _pdfDiagnosticsShown;
     private static readonly FilePickerFileType DocxFileType = new("Word Documents")
     {
         Patterns = new[] { "*.docx", "*.docm" }
     };
+    private static readonly FilePickerFileType PdfFileType = new("PDF")
+    {
+        Patterns = new[] { "*.pdf" }
+    };
     private static readonly FilePickerFileType SupportedFileType = new("Supported Files")
     {
-        Patterns = new[] { "*.docx", "*.docm", "*.md", "*.markdown", "*.html", "*.htm" }
+        Patterns = new[] { "*.docx", "*.docm", "*.md", "*.markdown", "*.html", "*.htm", "*.pdf" }
     };
     private static readonly FilePickerFileType MarkdownFileType = new("Markdown")
     {
@@ -148,6 +168,8 @@ public partial class WordEditorControl : UserControl
     {
         InitializeComponent();
 
+        _pdfEngine = CreatePdfEngine();
+
         _ribbon = this.FindControl<RibbonControl>("Ribbon");
         _editorView = this.FindControl<DocumentView>("EditorView");
         _horizontalRuler = this.FindControl<HorizontalRuler>("HorizontalRuler");
@@ -182,6 +204,9 @@ public partial class WordEditorControl : UserControl
         _loadingOverlay = this.FindControl<Border>("LoadingOverlay");
         _loadingText = this.FindControl<TextBlock>("LoadingText");
         _statusPageText = this.FindControl<TextBlock>("StatusPageText");
+        _pdfFixedLayoutBadge = this.FindControl<Border>("PdfFixedLayoutBadge");
+        _pdfFixedLayoutText = this.FindControl<TextBlock>("PdfFixedLayoutText");
+        _pdfReimportButton = this.FindControl<Button>("PdfReimportButton");
         _zoomSlider = this.FindControl<Slider>("ZoomSlider");
         _zoomInButton = this.FindControl<Button>("ZoomInButton");
         _zoomOutButton = this.FindControl<Button>("ZoomOutButton");
@@ -219,6 +244,11 @@ public partial class WordEditorControl : UserControl
                 _editorView?.ZoomIn();
                 UpdateZoomUi();
             };
+        }
+
+        if (_pdfReimportButton is not null)
+        {
+            _pdfReimportButton.Click += async (_, _) => await ReimportPdfAsync();
         }
 
         if (_zoomOutButton is not null)
@@ -676,6 +706,104 @@ public partial class WordEditorControl : UserControl
         }
     }
 
+    private async Task<PdfImportOptions?> ShowPdfImportDialogAsync()
+    {
+        var preferencesResult = await _pdfImportPreferencesStore.LoadAsync();
+        if (preferencesResult.HasValue && preferencesResult.Preferences is { SkipDialog: true } stored)
+        {
+            return CreatePdfImportOptions(stored.ImportMode, stored.PreservationMode);
+        }
+
+        var viewModel = new PdfImportDialogViewModel();
+        if (preferencesResult.HasValue && preferencesResult.Preferences is { } preferences)
+        {
+            viewModel.ImportMode = preferences.ImportMode;
+            viewModel.PreservationMode = preferences.PreservationMode;
+            viewModel.SkipDialog = preferences.SkipDialog;
+        }
+
+        var dialog = new PdfImportDialog(viewModel);
+
+        void CloseDialog(PdfImportOptions? result) => dialog.Close(result);
+        viewModel.RequestClose += CloseDialog;
+
+        dialog.Closed += (_, _) =>
+        {
+            viewModel.RequestClose -= CloseDialog;
+        };
+
+        var result = await ShowDialogAsync<PdfImportOptions?>(dialog);
+        if (result is not null)
+        {
+            var preferencesToSave = new PdfImportPreferences
+            {
+                ImportMode = result.Mode,
+                PreservationMode = result.PreservationMode,
+                SkipDialog = viewModel.SkipDialog
+            };
+            await _pdfImportPreferencesStore.SaveAsync(preferencesToSave);
+        }
+
+        return result;
+    }
+
+    private static PdfImportOptions CreatePdfImportOptions(PdfImportMode mode, PdfPreservationMode preservationMode)
+    {
+        var options = new PdfImportOptions
+        {
+            Mode = mode,
+            PreservationMode = preservationMode
+        };
+
+        if (options.PreservationMode != PdfPreservationMode.None)
+        {
+            options.ParserOptions.PreserveSourceBytes = true;
+        }
+
+        if (mode == PdfImportMode.FixedLayout)
+        {
+            options.ParserOptions.ExtractPaths = true;
+            options.ParserOptions.NormalizeFontNames = true;
+        }
+
+        return options;
+    }
+
+    private async Task<PdfDocumentAst?> LoadPdfAsync(string path, PdfImportOptions options)
+    {
+        try
+        {
+            await using var stream = File.OpenRead(path);
+            var document = await Task.Run(() => _pdfEngine.Parse(stream, options.ParserOptions));
+            document.SourcePath = path;
+            return document;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to load PDF: {ex.Message}");
+            return null;
+        }
+    }
+
+    private static PdfEngine CreatePdfEngine()
+    {
+        var registry = new PdfProviderRegistry();
+        registry.RegisterParser(new PdfPigParser());
+        registry.RegisterWriter(new PdfSharpWriter());
+
+        if (!registry.TryGetParser(PdfProviderIds.PdfPig, out var parser))
+        {
+            throw new InvalidOperationException("PDF parser provider is not registered.");
+        }
+
+        if (!registry.TryGetWriter(PdfProviderIds.PdfSharp, out var writer))
+        {
+            throw new InvalidOperationException("PDF writer provider is not registered.");
+        }
+
+        return new PdfEngine(parser, writer);
+    }
+
     private async Task OpenDocumentAsync()
     {
         if (_isLoading)
@@ -692,7 +820,7 @@ public partial class WordEditorControl : UserControl
         var result = await storageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
             AllowMultiple = false,
-            FileTypeFilter = new[] { SupportedFileType, DocxFileType, MarkdownFileType, HtmlFileType }
+            FileTypeFilter = new[] { SupportedFileType, DocxFileType, PdfFileType, MarkdownFileType, HtmlFileType }
         });
 
         if (result.Count == 0)
@@ -724,6 +852,7 @@ public partial class WordEditorControl : UserControl
         RefreshStyleGalleryItems();
         AttachStyleManagerEvents();
         _ribbon?.RefreshState();
+        ResetPdfIndicators();
     }
 
     private async Task SaveDocumentAsync(string? suggestedName = null)
@@ -745,7 +874,7 @@ public partial class WordEditorControl : UserControl
             var file = await storageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
             {
                 DefaultExtension = "docx",
-                FileTypeChoices = new[] { DocxFileType, MarkdownFileType, HtmlFileType },
+                FileTypeChoices = new[] { DocxFileType, PdfFileType, MarkdownFileType, HtmlFileType },
                 SuggestedFileName = ResolveSuggestedFileName(suggestedName)
             });
 
@@ -767,12 +896,333 @@ public partial class WordEditorControl : UserControl
             var html = HtmlDocumentConverter.ToHtml(_editorView.Document, CreateHtmlOptions());
             await File.WriteAllTextAsync(path, html);
         }
+        else if (IsPdfPath(path))
+        {
+            var saved = await ExportPdfAsync(path);
+            if (!saved)
+            {
+                return;
+            }
+        }
         else
         {
             new DocxExporter().Save(_editorView.Document, path);
         }
         _currentPath = path;
         UpdateWindowTitle();
+    }
+
+    private async Task<bool> ExportPdfAsync(string path)
+    {
+        if (_editorView is null)
+        {
+            return false;
+        }
+
+        var document = _editorView.Document;
+        PdfPreservedData? preservedData = null;
+        var hasPreservedData = PdfPreservationStore.TryRead(document, out preservedData) && preservedData is not null;
+        var preservationMode = preservedData?.Manifest.PreservationMode ?? PdfPreservationMode.None;
+        var hasChanges = hasPreservedData && HasPdfContentChanges(document, preservedData!);
+        PdfIncrementalUpdatePlan? incrementalPlan = null;
+        if (hasPreservedData && preservationMode == PdfPreservationMode.Incremental && preservedData is not null)
+        {
+            incrementalPlan = PdfIncrementalUpdatePlanner.Build(document, preservedData);
+        }
+
+        PdfExportOptions exportOptions;
+        if (hasPreservedData)
+        {
+            var dialogResult = await ShowPdfExportDialogAsync(
+                hasPreservedData,
+                hasChanges,
+                preservationMode,
+                incrementalPlan?.CanApply ?? false,
+                incrementalPlan?.Issues);
+            if (dialogResult is null)
+            {
+                return false;
+            }
+
+            exportOptions = dialogResult;
+        }
+        else
+        {
+            exportOptions = new PdfExportOptions { ExportMode = PdfExportMode.Regenerate };
+        }
+
+        if (exportOptions.ExportMode == PdfExportMode.Preserve
+            && preservedData is not null
+            && (!hasChanges || exportOptions.AllowPreserveWithChanges))
+        {
+            if (preservationMode == PdfPreservationMode.Incremental && hasChanges)
+            {
+                if (incrementalPlan is not null && incrementalPlan.Issues.Count > 0)
+                {
+                    var message = string.Join(Environment.NewLine, incrementalPlan.Issues.Select(issue => $"- {issue}"));
+                    message = $"Incremental preservation cannot be applied:{Environment.NewLine}{message}";
+                    var dialog = new MessageDialog("PDF Preserve Not Available", message);
+                    await ShowDialogAsync(dialog);
+                }
+
+                var overlays = incrementalPlan?.Overlays ?? (IReadOnlyList<PdfIncrementalOverlay>)Array.Empty<PdfIncrementalOverlay>();
+                var overlayBuildIssues = new List<string>();
+                if (incrementalPlan is not null && overlays.Count > 0)
+                {
+                    var overlayResult = await BuildIncrementalImageOverlaysAsync(
+                        document,
+                        _editorView.LayoutSettingsSnapshot,
+                        overlays);
+                    overlays = overlayResult.Overlays;
+                    overlayBuildIssues.AddRange(overlayResult.Issues);
+                }
+
+                string? overlayError = null;
+                if (overlays.Count == 0 && overlayBuildIssues.Count > 0)
+                {
+                    var details = string.Join(Environment.NewLine, overlayBuildIssues.Select(issue => $"- {issue}"));
+                    var dialog = new MessageDialog("PDF Incremental Overlay Failed", details);
+                    await ShowDialogAsync(dialog);
+                }
+                else if (PdfIncrementalWriter.TryAppendOverlayIncrementalUpdate(
+                             preservedData.Bytes,
+                             overlays,
+                             out var updatedBytes,
+                             out overlayError,
+                             out var overlayIssues))
+                {
+                    if (overlayBuildIssues.Count > 0)
+                    {
+                        overlayIssues.AddRange(overlayBuildIssues);
+                    }
+
+                    if (overlayIssues.Count > 0)
+                    {
+                        var details = string.Join(Environment.NewLine, overlayIssues.Select(issue => $"- {issue}"));
+                        var dialog = new MessageDialog("PDF Incremental Overlay Issues", details);
+                        await ShowDialogAsync(dialog);
+                    }
+
+                    await File.WriteAllBytesAsync(path, updatedBytes);
+                    return true;
+                }
+
+                if (!string.IsNullOrWhiteSpace(overlayError))
+                {
+                    var dialog = new MessageDialog("PDF Incremental Update Failed", overlayError);
+                    await ShowDialogAsync(dialog);
+                }
+            }
+            else if (preservationMode == PdfPreservationMode.Incremental && !hasChanges)
+            {
+                if (PdfIncrementalWriter.TryAppendPlaceholderIncrementalUpdate(
+                        preservedData.Bytes,
+                        out var updatedBytes,
+                        out var error))
+                {
+                    await File.WriteAllBytesAsync(path, updatedBytes);
+                    return true;
+                }
+
+                if (!string.IsNullOrWhiteSpace(error))
+                {
+                    var dialog = new MessageDialog("PDF Incremental Update Failed", error);
+                    await ShowDialogAsync(dialog);
+                }
+            }
+            else
+            {
+                await File.WriteAllBytesAsync(path, preservedData.Bytes);
+                return true;
+            }
+        }
+
+        _editorView.UpdateFieldsForPrint();
+        var documentInfo = new DocumentPrintContext(document, _editorView.LayoutSettingsSnapshot)
+        {
+            CurrentPageIndex = _editorView.CurrentPageIndex
+        };
+
+        var systemPrintService = new SystemPrintService();
+        var printService = new SkiaPrintService(systemPrintService, systemPrintService);
+        var settings = new PrintSettings
+        {
+            OutputKind = PrintOutputKind.Pdf,
+            OutputPath = path,
+            RangeKind = PrintRangeKind.All,
+            Copies = 1,
+            Collate = true
+        };
+
+        var result = await printService.PrintAsync(documentInfo, settings);
+        if (!result.Succeeded)
+        {
+            Console.WriteLine($"PDF export failed: {result.Message}");
+            return false;
+        }
+
+        return true;
+    }
+
+    private async Task<(List<PdfIncrementalOverlay> Overlays, List<string> Issues)> BuildIncrementalImageOverlaysAsync(
+        Document document,
+        LayoutSettings layoutSettings,
+        IReadOnlyList<PdfIncrementalOverlay> planOverlays)
+    {
+        var issues = new List<string>();
+        var overlays = new List<PdfIncrementalOverlay>();
+
+        if (planOverlays.Count == 0)
+        {
+            return (overlays, issues);
+        }
+
+        var requestedPages = planOverlays
+            .Select(overlay => overlay.PageIndex)
+            .Distinct()
+            .OrderBy(index => index)
+            .ToList();
+
+        var documentInfo = new DocumentPrintContext(document, layoutSettings)
+        {
+            CurrentPageIndex = _editorView?.CurrentPageIndex
+        };
+
+        var settings = new PrintSettings
+        {
+            OutputKind = PrintOutputKind.Pdf,
+            RangeKind = PrintRangeKind.All,
+            Copies = 1,
+            Collate = true
+        };
+
+        var systemPrintService = new SystemPrintService();
+        var printService = new SkiaPrintService(systemPrintService, systemPrintService);
+        var request = new PrintPreviewRequest(documentInfo, settings)
+        {
+            PageIndices = requestedPages,
+            Dpi = PdfIncrementalOverlayDpi
+        };
+
+        PrintPreviewResult previewResult;
+        try
+        {
+            previewResult = await printService.BuildPreviewAsync(request);
+        }
+        catch (Exception ex)
+        {
+            issues.Add($"Failed to render preview overlays: {ex.Message}");
+            return (overlays, issues);
+        }
+
+        var pageWidthPoints = PdfUnits.DipToPoints(layoutSettings.PageWidth);
+        var pageHeightPoints = PdfUnits.DipToPoints(layoutSettings.PageHeight);
+
+        foreach (var preview in previewResult.Pages)
+        {
+            if (!TryEncodePreviewAsJpeg(preview, out var jpegBytes, out var width, out var height))
+            {
+                issues.Add($"Failed to encode preview image for page {preview.PageNumber}.");
+                continue;
+            }
+
+            overlays.Add(new PdfIncrementalOverlay
+            {
+                PageIndex = preview.PageNumber - 1,
+                Kind = PdfIncrementalOverlayKind.Image,
+                ImageBytes = jpegBytes,
+                ImageWidth = width,
+                ImageHeight = height,
+                ImageEncoding = PdfImageEncoding.Jpeg,
+                Bounds = new PdfRect(0, 0, pageWidthPoints, pageHeightPoints),
+                Description = "Incremental overlay preview"
+            });
+        }
+
+        var overlayPageSet = overlays.Select(overlay => overlay.PageIndex).ToHashSet();
+        foreach (var pageIndex in requestedPages)
+        {
+            if (!overlayPageSet.Contains(pageIndex))
+            {
+                issues.Add($"Missing preview overlay for page {pageIndex + 1}.");
+            }
+        }
+
+        return (overlays, issues);
+    }
+
+    private static bool TryEncodePreviewAsJpeg(
+        PrintPreviewPage preview,
+        out byte[] jpegBytes,
+        out int width,
+        out int height)
+    {
+        jpegBytes = Array.Empty<byte>();
+        width = 0;
+        height = 0;
+
+        if (preview.ImageBytes is null || preview.ImageBytes.Length == 0)
+        {
+            return false;
+        }
+
+        using var image = SKImage.FromEncodedData(preview.ImageBytes);
+        if (image is null)
+        {
+            return false;
+        }
+
+        width = image.Width;
+        height = image.Height;
+
+        using var encoded = image.Encode(SKEncodedImageFormat.Jpeg, PdfIncrementalOverlayJpegQuality);
+        if (encoded is null)
+        {
+            return false;
+        }
+
+        jpegBytes = encoded.ToArray();
+        return jpegBytes.Length > 0;
+    }
+
+    private async Task<PdfExportOptions?> ShowPdfExportDialogAsync(
+        bool hasPreservedData,
+        bool hasChanges,
+        PdfPreservationMode preservationMode,
+        bool supportsIncremental,
+        IReadOnlyList<string>? incrementalIssues)
+    {
+        var details = incrementalIssues is { Count: > 0 }
+            ? string.Join(Environment.NewLine, incrementalIssues.Select(issue => $"- {issue}"))
+            : null;
+        var viewModel = new PdfExportDialogViewModel(
+            hasPreservedData,
+            hasChanges,
+            preservationMode,
+            supportsIncremental,
+            details);
+        var dialog = new PdfExportDialog(viewModel);
+
+        void CloseDialog(PdfExportOptions? result) => dialog.Close(result);
+        viewModel.RequestClose += CloseDialog;
+
+        dialog.Closed += (_, _) =>
+        {
+            viewModel.RequestClose -= CloseDialog;
+        };
+
+        return await ShowDialogAsync<PdfExportOptions?>(dialog);
+    }
+
+    private static bool HasPdfContentChanges(Document document, PdfPreservedData preservedData)
+    {
+        if (string.IsNullOrWhiteSpace(preservedData.Manifest.ContentHash))
+        {
+            return true;
+        }
+
+        var currentHash = PdfDocumentHash.Compute(document);
+        return !string.Equals(currentHash, preservedData.Manifest.ContentHash, StringComparison.Ordinal);
     }
 
     private async Task SaveDocumentAsAsync()
@@ -812,6 +1262,17 @@ public partial class WordEditorControl : UserControl
         var extension = Path.GetExtension(path);
         return extension.Equals(".html", StringComparison.OrdinalIgnoreCase)
                || extension.Equals(".htm", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsPdfPath(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return false;
+        }
+
+        var extension = Path.GetExtension(path);
+        return extension.Equals(".pdf", StringComparison.OrdinalIgnoreCase);
     }
 
     private static MarkdownOptions CreateMarkdownOptions()
@@ -8125,8 +8586,21 @@ public partial class WordEditorControl : UserControl
             return;
         }
 
+        _fixedLayoutWarningShown = false;
+        _pdfDiagnosticsShown = false;
+        PdfImportOptions? pdfImportOptions = null;
+        if (IsPdfPath(path))
+        {
+            pdfImportOptions = await ShowPdfImportDialogAsync();
+            if (pdfImportOptions is null)
+            {
+                return;
+            }
+        }
+
         SetLoadingState(true, $"Loading {Path.GetFileName(path)}...");
         var loaded = false;
+        Document? loadedDocument = null;
         try
         {
             Document document;
@@ -8140,6 +8614,17 @@ public partial class WordEditorControl : UserControl
                 var html = await File.ReadAllTextAsync(path);
                 document = HtmlDocumentConverter.FromHtml(html.AsSpan(), CreateHtmlOptions());
             }
+            else if (IsPdfPath(path))
+            {
+                var options = pdfImportOptions ?? new PdfImportOptions();
+                var pdfDocument = await LoadPdfAsync(path, options);
+                if (pdfDocument is null)
+                {
+                    return;
+                }
+
+                document = PdfDocumentConverter.FromPdf(pdfDocument, options);
+            }
             else
             {
                 document = await Task.Run(() => new DocxImporter().Load(path));
@@ -8147,6 +8632,7 @@ public partial class WordEditorControl : UserControl
             await _editorView.LoadDocumentAsync(document);
             _currentPath = path;
             UpdateWindowTitle();
+            loadedDocument = document;
             loaded = true;
         }
         catch (Exception ex)
@@ -8165,6 +8651,100 @@ public partial class WordEditorControl : UserControl
             AttachStyleManagerEvents();
             _ribbon?.RefreshState();
             UpdateOpenAuxiliaryWindows();
+            if (loadedDocument is not null)
+            {
+                await UpdatePdfImportIndicatorsAsync(loadedDocument);
+            }
+        }
+    }
+
+    private async Task ReimportPdfAsync()
+    {
+        if (_editorView is null)
+        {
+            return;
+        }
+
+        var currentDocument = _editorView.Document;
+        if (currentDocument is null)
+        {
+            return;
+        }
+
+        var options = await ShowPdfImportDialogAsync();
+        if (options is null)
+        {
+            return;
+        }
+
+        byte[]? sourceBytes = null;
+        string? sourcePath = null;
+        if (PdfPreservationStore.TryRead(currentDocument, out var preserved) && preserved is not null)
+        {
+            sourceBytes = preserved.Bytes;
+        }
+
+        if (sourceBytes is null && !string.IsNullOrWhiteSpace(_currentPath) && IsPdfPath(_currentPath))
+        {
+            sourcePath = _currentPath;
+        }
+
+        if (sourceBytes is null && sourcePath is null)
+        {
+            var dialog = new MessageDialog("PDF Reimport Unavailable", "No original PDF source is available to re-import.");
+            await ShowDialogAsync(dialog);
+            return;
+        }
+
+        SetLoadingState(true, "Re-importing PDF...");
+        var loaded = false;
+        Document? loadedDocument = null;
+        try
+        {
+            PdfDocumentAst pdfDocument;
+            if (sourceBytes is not null)
+            {
+                using var stream = new MemoryStream(sourceBytes);
+                pdfDocument = _pdfEngine.Parse(stream, options.ParserOptions);
+            }
+            else
+            {
+                pdfDocument = await LoadPdfAsync(sourcePath!, options) ?? throw new InvalidOperationException("Failed to reload PDF.");
+            }
+
+            var document = PdfDocumentConverter.FromPdf(pdfDocument, options);
+            await _editorView.LoadDocumentAsync(document);
+            loadedDocument = document;
+            loaded = true;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to re-import PDF: {ex.Message}");
+        }
+        finally
+        {
+            SetLoadingState(false);
+        }
+
+        if (loaded)
+        {
+            if (!string.IsNullOrWhiteSpace(sourcePath))
+            {
+                _currentPath = sourcePath;
+            }
+
+            UpdateWindowTitle();
+            ApplyFormatProfile(_currentPath ?? string.Empty);
+            RefreshStyleGalleryItems();
+            AttachStyleManagerEvents();
+            _ribbon?.RefreshState();
+            UpdateOpenAuxiliaryWindows();
+            if (loadedDocument is not null)
+            {
+                _fixedLayoutWarningShown = false;
+                _pdfDiagnosticsShown = false;
+                await UpdatePdfImportIndicatorsAsync(loadedDocument);
+            }
         }
     }
 
@@ -8255,6 +8835,93 @@ public partial class WordEditorControl : UserControl
         var totalPages = Math.Max(1, layout.Pages.Count);
         var currentPage = ResolveCurrentPage(layout, _editorView.Caret);
         _statusPageText.Text = $"Page {currentPage} of {totalPages}";
+    }
+
+    private async Task UpdatePdfImportIndicatorsAsync(Document document)
+    {
+        if (TryResolvePdfImportMode(document, out var importMode))
+        {
+            if (_pdfFixedLayoutBadge is not null)
+            {
+                _pdfFixedLayoutBadge.IsVisible = true;
+            }
+
+            if (_pdfFixedLayoutText is not null)
+            {
+                _pdfFixedLayoutText.Text = importMode == PdfImportMode.FixedLayout ? "PDF Fixed Layout" : "PDF Reflow";
+            }
+
+            if (_pdfReimportButton is not null)
+            {
+                _pdfReimportButton.IsVisible = true;
+            }
+
+            if (importMode == PdfImportMode.FixedLayout && !_fixedLayoutWarningShown)
+            {
+                _fixedLayoutWarningShown = true;
+                var dialog = new MessageDialog(
+                    "Fixed Layout PDF",
+                    "This PDF was imported in fixed layout mode. Editing is constrained to preserve the original page geometry.");
+                await ShowDialogAsync(dialog);
+            }
+
+            await ShowPdfDiagnosticsAsync(document);
+            return;
+        }
+
+        ResetPdfIndicators();
+    }
+
+    private void ResetPdfIndicators()
+    {
+        if (_pdfFixedLayoutBadge is not null)
+        {
+            _pdfFixedLayoutBadge.IsVisible = false;
+        }
+
+        if (_pdfReimportButton is not null)
+        {
+            _pdfReimportButton.IsVisible = false;
+        }
+    }
+
+    private async Task ShowPdfDiagnosticsAsync(Document document)
+    {
+        if (_pdfDiagnosticsShown)
+        {
+            return;
+        }
+
+        if (!PdfImportDiagnosticsStore.TryRead(document, out var diagnostics)
+            || diagnostics is null
+            || diagnostics.Issues.Count == 0)
+        {
+            _pdfDiagnosticsShown = true;
+            return;
+        }
+
+        _pdfDiagnosticsShown = true;
+        var message = string.Join(Environment.NewLine, diagnostics.Issues.Select(issue => $"• {issue}"));
+        var dialog = new MessageDialog("PDF Import Diagnostics", message);
+        await ShowDialogAsync(dialog);
+    }
+
+    private static bool TryResolvePdfImportMode(Document document, out PdfImportMode importMode)
+    {
+        if (PdfPreservationStore.TryRead(document, out var preservedData) && preservedData?.Manifest is not null)
+        {
+            importMode = preservedData.Manifest.ImportMode;
+            return true;
+        }
+
+        if (PdfImportMetadataStore.TryRead(document, out var metadata) && metadata is not null)
+        {
+            importMode = metadata.ImportMode;
+            return true;
+        }
+
+        importMode = PdfImportMode.Reflow;
+        return false;
     }
 
     private void RefreshNavigationPaneItems(bool force = false)
