@@ -116,7 +116,7 @@ public sealed partial class SkiaDocumentRenderer
             if (textBox is not null)
             {
                 var textRect = ResolveShapeTextRect(properties, width, height);
-                DrawShapeText(canvas, textBox, textRect, options, document, defaultStyle, layoutSettings);
+                DrawShapeText(canvas, textBox, textRect, options, document, defaultStyle, layoutSettings, shape.Id);
             }
 
             if (effects?.Reflection is not null && (hasFill || hasOutline))
@@ -307,30 +307,8 @@ public sealed partial class SkiaDocumentRenderer
 
     private static SKRect ResolveShapeTextRect(ShapeProperties properties, float width, float height)
     {
-        var geometry = ShapeGeometryEvaluator.ResolveGeometry(properties);
-        if (geometry?.TextRectangle is null)
-        {
-            return new SKRect(0f, 0f, width, height);
-        }
-
-        var context = new ShapeGeometryContext(geometry, properties, width, height);
-        var textRect = geometry.TextRectangle;
-        var left = (float)context.GetValue(textRect.Left);
-        var top = (float)context.GetValue(textRect.Top);
-        var right = (float)context.GetValue(textRect.Right);
-        var bottom = (float)context.GetValue(textRect.Bottom);
-
-        left = MathF.Max(0f, left);
-        top = MathF.Max(0f, top);
-        right = MathF.Min(width, right);
-        bottom = MathF.Min(height, bottom);
-
-        if (right <= left || bottom <= top)
-        {
-            return new SKRect(0f, 0f, width, height);
-        }
-
-        return new SKRect(left, top, right, bottom);
+        var rect = ShapeGeometryEvaluator.ResolveTextRectangle(properties, width, height);
+        return new SKRect(rect.X, rect.Y, rect.Right, rect.Bottom);
     }
 
     private void DrawShapePaths(
@@ -367,7 +345,7 @@ public sealed partial class SkiaDocumentRenderer
                 IsAntialias = true,
                 StrokeCap = ToSkStrokeCap(cap),
                 StrokeJoin = ToSkStrokeJoin(outline.LineJoin),
-                PathEffect = CreateBorderEffect(outline.Style, thickness)
+                PathEffect = CreateBorderEffect(outline, thickness)
             };
             if (outline.LineJoin == DocLineJoin.Miter && outline.MiterLimit.HasValue && outline.MiterLimit.Value > 0f)
             {
@@ -406,7 +384,7 @@ public sealed partial class SkiaDocumentRenderer
                 IsAntialias = true,
                 StrokeCap = ToSkStrokeCap(cap),
                 StrokeJoin = ToSkStrokeJoin(border.LineJoin),
-                PathEffect = CreateBorderEffect(border.Style, thickness)
+                PathEffect = CreateBorderEffect(border, thickness)
             };
             if (border.LineJoin == DocLineJoin.Miter && border.MiterLimit.HasValue && border.MiterLimit.Value > 0f)
             {
@@ -597,7 +575,10 @@ public sealed partial class SkiaDocumentRenderer
 
     private static SKPath CreateSkiaPath(ShapePathData data)
     {
-        var path = new SKPath();
+        var path = new SKPath
+        {
+            FillType = data.FillRule == ShapePathFillRule.EvenOdd ? SKPathFillType.EvenOdd : SKPathFillType.Winding
+        };
         foreach (var segment in data.Segments)
         {
             switch (segment.Kind)
@@ -1288,7 +1269,8 @@ public sealed partial class SkiaDocumentRenderer
         RenderOptions options,
         Document document,
         TextStyle defaultStyle,
-        LayoutSettings layoutSettings)
+        LayoutSettings layoutSettings,
+        Guid shapeId)
     {
         var padding = textBox.Properties.Padding;
         var left = textBounds.Left + padding.Left;
@@ -1332,97 +1314,15 @@ public sealed partial class SkiaDocumentRenderer
             return;
         }
 
-        var contentLeft = float.PositiveInfinity;
-        var contentTop = float.PositiveInfinity;
-        var contentRight = 0f;
-        var contentBottom = 0f;
-        var hasContent = false;
-
-        void TrackBounds(float boundLeft, float boundTop, float boundRight, float boundBottom)
-        {
-            if (boundRight <= boundLeft || boundBottom <= boundTop)
-            {
-                return;
-            }
-
-            if (boundLeft < contentLeft)
-            {
-                contentLeft = boundLeft;
-            }
-
-            if (boundTop < contentTop)
-            {
-                contentTop = boundTop;
-            }
-
-            if (boundRight > contentRight)
-            {
-                contentRight = boundRight;
-            }
-
-            if (boundBottom > contentBottom)
-            {
-                contentBottom = boundBottom;
-            }
-
-            hasContent = true;
-        }
-
-        foreach (var line in layout.Lines)
-        {
-            if (line.IsInTable)
-            {
-                continue;
-            }
-
-            var lineLeft = line.X - (line.Prefix is null ? 0f : line.PrefixWidth);
-            var lineRight = line.X + line.Width;
-            var lineBottom = line.Y + line.LineHeight;
-            TrackBounds(lineLeft, line.Y, lineRight, lineBottom);
-        }
-
-        foreach (var table in layout.Tables)
-        {
-            var tableBounds = table.Bounds;
-            TrackBounds(tableBounds.X, tableBounds.Y, tableBounds.Right, tableBounds.Bottom);
-        }
-
-        foreach (var floating in layout.FloatingObjects)
-        {
-            var floatingBounds = floating.Bounds;
-            TrackBounds(floatingBounds.X, floatingBounds.Y, floatingBounds.Right, floatingBounds.Bottom);
-        }
-
-        if (!hasContent)
+        var textArea = new DocRect(left, top, width, height);
+        if (!ShapeTextLayoutHelper.TryComputeMetrics(layout, textBox, textArea, out var metrics))
         {
             return;
         }
 
-        var contentWidth = MathF.Max(0f, contentRight - contentLeft);
-        var contentHeight = MathF.Max(0f, contentBottom - contentTop);
-        var scale = 1f;
-        if (autoFit == ShapeTextAutoFit.TextToFitShape && contentWidth > 0f && contentHeight > 0f)
-        {
-            var scaleX = width / contentWidth;
-            var scaleY = height / contentHeight;
-            var targetScale = MathF.Min(scaleX, scaleY);
-            if (targetScale > 0f && targetScale < 1f)
-            {
-                scale = targetScale;
-            }
-        }
-
-        var effectiveContentHeight = contentHeight * scale;
-        var startY = top;
-        if (effectiveContentHeight < height)
-        {
-            startY = textBox.Properties.VerticalAlignment switch
-            {
-                ShapeTextVerticalAlignment.Center => top + (height - effectiveContentHeight) / 2f,
-                ShapeTextVerticalAlignment.Bottom => top + (height - effectiveContentHeight),
-                _ => top
-            };
-        }
+        var scale = metrics.Scale;
+        var startY = metrics.OriginY;
+        left = metrics.OriginX;
 
         var styleResolver = new DocumentStyleResolver(shapeDocument);
         var paintCache = new Dictionary<TextStyleKey, SKPaint>();
@@ -1436,6 +1336,47 @@ public sealed partial class SkiaDocumentRenderer
         var canShapeText = options.UseHarfBuzz;
         var fallbackResolver = TypefaceResolver as ISkiaTypefaceFallbackResolver;
         var commentHighlightsByParagraph = layout.CommentHighlightsByParagraph;
+        var isShapeTextEditing = options.ShapeTextEditingShapeId.HasValue && options.ShapeTextEditingShapeId.Value == shapeId;
+
+        var selectionRanges = Array.Empty<TextRange>();
+        if (isShapeTextEditing)
+        {
+            if (options.ShapeTextSelectionRanges is { Count: > 0 } providedRanges)
+            {
+                var list = new List<TextRange>(providedRanges.Count);
+                for (var i = 0; i < providedRanges.Count; i++)
+                {
+                    var normalized = providedRanges[i].Normalize();
+                    if (!normalized.IsEmpty)
+                    {
+                        list.Add(normalized);
+                    }
+                }
+
+                if (list.Count > 0)
+                {
+                    list.Sort(static (left, right) =>
+                    {
+                        var startCompare = left.Start.CompareTo(right.Start);
+                        return startCompare != 0 ? startCompare : left.End.CompareTo(right.End);
+                    });
+                    selectionRanges = list.ToArray();
+                }
+            }
+
+            if (selectionRanges.Length == 0 && options.ShapeTextSelection is { } singleSelection)
+            {
+                var normalized = singleSelection.Normalize();
+                if (!normalized.IsEmpty)
+                {
+                    selectionRanges = new[] { normalized };
+                }
+            }
+        }
+
+        var drawSelection = isShapeTextEditing && selectionRanges.Length > 0;
+        var caretPosition = options.ShapeTextCaret;
+        var drawCaret = isShapeTextEditing && options.ShowShapeTextCaret;
 
         SKPaint GetRunPaint(TextStyle runStyle)
         {
@@ -1706,7 +1647,7 @@ public sealed partial class SkiaDocumentRenderer
             var miterLimit = border.LineJoin == DocLineJoin.Miter && border.MiterLimit.HasValue && border.MiterLimit.Value > 0f
                 ? border.MiterLimit.Value
                 : 0f;
-            var key = new BorderPaintKey(border.Color, thickness, border.Style, cap, border.LineJoin, miterLimit);
+            var key = new BorderPaintKey(border.Color, thickness, border.Style, cap, border.LineJoin, miterLimit, GetDashHash(border));
             if (borderPaintCache.TryGetValue(key, out var cached))
             {
                 return cached;
@@ -1720,7 +1661,7 @@ public sealed partial class SkiaDocumentRenderer
                 IsAntialias = true,
                 StrokeCap = ToSkStrokeCap(cap),
                 StrokeJoin = ToSkStrokeJoin(border.LineJoin),
-                PathEffect = CreateBorderEffect(border.Style, thickness)
+                PathEffect = CreateBorderEffect(border, thickness)
             };
             if (miterLimit > 0f)
             {
@@ -1747,6 +1688,20 @@ public sealed partial class SkiaDocumentRenderer
 
         using var defaultPaint = SkiaTextMeasurer.CreatePaint(defaultStyle, TypefaceResolver);
         defaultPaint.Color = ToSkColor(options.TextColor);
+
+        using var selectionPaint = new SKPaint
+        {
+            Style = SKPaintStyle.Fill,
+            Color = ToSkColor(options.SelectionColor),
+            IsAntialias = true
+        };
+
+        using var caretPaint = new SKPaint
+        {
+            Style = SKPaintStyle.Fill,
+            Color = ToSkColor(options.CaretColor),
+            IsAntialias = true
+        };
 
         using var invisiblesStrokePaint = new SKPaint
         {
@@ -2453,18 +2408,18 @@ public sealed partial class SkiaDocumentRenderer
 
         var clipContent = autoFit != ShapeTextAutoFit.ShapeToFitText
                           && (horizontalOverflow != ShapeTextOverflow.Overflow || verticalOverflow != ShapeTextOverflow.Overflow);
+        var caretDrawn = false;
         canvas.Save();
         if (clipContent)
         {
             canvas.ClipRect(new SKRect(left, top, right, bottom));
         }
 
+        canvas.Translate(left, startY);
         if (scale != 1f)
         {
             canvas.Scale(scale, scale);
         }
-
-        canvas.Translate(left, startY);
 
         DrawFloatingObjects(true);
 
@@ -2502,13 +2457,48 @@ public sealed partial class SkiaDocumentRenderer
                 {
                     canvas.Save();
                     canvas.ClipRect(cellRect);
-                    foreach (var line in cell.Lines)
+                    for (var lineIndex = 0; lineIndex < cell.Lines.Count; lineIndex++)
                     {
+                        var line = cell.Lines[lineIndex];
                         var lineGridSpacing = ResolveLineGridSpacing(line.ParagraphIndex, 0);
                         DrawCommentHighlights(line.ParagraphIndex, line.StartOffset, line.Length, line.X, line.Y, line.LineHeight, line.TextDirection, line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, lineGridSpacing);
                         DrawLineHighlights(line.X, line.Y, line.LineHeight, line.TextDirection, line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, lineGridSpacing);
+                        if (drawSelection)
+                        {
+                            for (var selectionIndex = 0; selectionIndex < selectionRanges.Length; selectionIndex++)
+                            {
+                                var selectionRange = selectionRanges[selectionIndex];
+                                if (!TryGetSelectionSpan(selectionRange, line.ParagraphIndex, line.StartOffset, line.Length, out var startOffset, out var endOffset))
+                                {
+                                    continue;
+                                }
+
+                                var selectionX1 = MeasureLineOffset(line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, startOffset - line.StartOffset, lineGridSpacing, GetRunMetrics);
+                                var selectionX2 = MeasureLineOffset(line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, endOffset - line.StartOffset, lineGridSpacing, GetRunMetrics);
+                                DrawLineRangeRect(line.X, line.Y, line.LineHeight, line.TextDirection, selectionX1, selectionX2, selectionPaint);
+                            }
+                        }
+
                         DrawLineContent(line.X, line.Y, line.LineHeight, line.Ascent, line.Prefix, line.PrefixWidth, line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, line.Rubies, line.TextDirection, lineGridSpacing);
                         DrawLineInvisibles(line.X, line.Y, line.LineHeight, line.Ascent, line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, line.TextDirection, lineGridSpacing, false, 0f);
+
+                        if (drawCaret && !caretDrawn && line.ParagraphIndex == caretPosition.ParagraphIndex)
+                        {
+                            var lineStartOffset = line.StartOffset;
+                            var lineEndOffset = line.StartOffset + line.Length;
+                            if (caretPosition.Offset >= lineStartOffset && caretPosition.Offset <= lineEndOffset)
+                            {
+                                var isLastLine = lineIndex == cell.Lines.Count - 1
+                                                 || cell.Lines[lineIndex + 1].ParagraphIndex != line.ParagraphIndex;
+                                if (caretPosition.Offset != lineEndOffset || isLastLine)
+                                {
+                                    var offsetInLine = Math.Clamp(caretPosition.Offset - line.StartOffset, 0, line.Length);
+                                    var caretX = MeasureLineOffset(line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, offsetInLine, lineGridSpacing, GetRunMetrics);
+                                    DrawLineRangeRect(line.X, line.Y, line.LineHeight, line.TextDirection, caretX, caretX + options.CaretThickness, caretPaint);
+                                    caretDrawn = true;
+                                }
+                            }
+                        }
                     }
 
                     canvas.Restore();
@@ -2532,11 +2522,42 @@ public sealed partial class SkiaDocumentRenderer
             var lineGridSpacing = ResolveLineGridSpacing(line.ParagraphIndex, pageIndex);
             DrawCommentHighlights(line.ParagraphIndex, line.StartOffset, line.Length, line.X, line.Y, line.LineHeight, line.TextDirection, line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, lineGridSpacing);
             DrawLineHighlights(line.X, line.Y, line.LineHeight, line.TextDirection, line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, lineGridSpacing);
+            if (drawSelection)
+            {
+                for (var selectionIndex = 0; selectionIndex < selectionRanges.Length; selectionIndex++)
+                {
+                    var selectionRange = selectionRanges[selectionIndex];
+                    if (!TryGetSelectionSpan(selectionRange, line, out var startOffset, out var endOffset))
+                    {
+                        continue;
+                    }
+
+                    var selectionX1 = MeasureLineOffset(line, startOffset - line.StartOffset, lineGridSpacing, GetRunMetrics);
+                    var selectionX2 = MeasureLineOffset(line, endOffset - line.StartOffset, lineGridSpacing, GetRunMetrics);
+                    DrawLineRangeRect(line.X, line.Y, line.LineHeight, line.TextDirection, selectionX1, selectionX2, selectionPaint);
+                }
+            }
             DrawLineContent(line.X, line.Y, line.LineHeight, line.Ascent, line.Prefix, line.PrefixWidth, line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, line.Rubies, line.TextDirection, lineGridSpacing);
 
             var isLastLine = lineIndex == layout.Lines.Count - 1
                              || layout.Lines[lineIndex + 1].ParagraphIndex != line.ParagraphIndex;
             DrawLineInvisibles(line.X, line.Y, line.LineHeight, line.Ascent, line.TextSpan, line.IsRtl, line.Runs, line.Images, line.Shapes, line.Charts, line.Equations, line.TextDirection, lineGridSpacing, isLastLine, line.Width);
+
+            if (drawCaret && !caretDrawn && line.ParagraphIndex == caretPosition.ParagraphIndex)
+            {
+                var lineStartOffset = line.StartOffset;
+                var lineEndOffset = line.StartOffset + line.Length;
+                if (caretPosition.Offset >= lineStartOffset && caretPosition.Offset <= lineEndOffset)
+                {
+                    if (caretPosition.Offset != lineEndOffset || isLastLine)
+                    {
+                        var offsetInLine = Math.Clamp(caretPosition.Offset - line.StartOffset, 0, line.Length);
+                        var caretX = MeasureLineOffset(line, offsetInLine, lineGridSpacing, GetRunMetrics);
+                        DrawLineRangeRect(line.X, line.Y, line.LineHeight, line.TextDirection, caretX, caretX + options.CaretThickness, caretPaint);
+                        caretDrawn = true;
+                    }
+                }
+            }
         }
 
         DrawFloatingObjects(false);

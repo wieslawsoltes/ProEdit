@@ -50,6 +50,11 @@ public sealed class RenderOptions
     public TextRange? HeaderFooterSelection { get; set; }
     public TextPosition HeaderFooterCaret { get; set; }
     public bool ShowHeaderFooterCaret { get; set; }
+    public Guid? ShapeTextEditingShapeId { get; set; }
+    public TextRange? ShapeTextSelection { get; set; }
+    public IReadOnlyList<TextRange>? ShapeTextSelectionRanges { get; set; }
+    public TextPosition ShapeTextCaret { get; set; }
+    public bool ShowShapeTextCaret { get; set; }
     public IReadOnlyList<int>? DirtyPages { get; set; }
     public long DirtyVersion { get; set; }
     public DocRect? VisibleBounds { get; set; }

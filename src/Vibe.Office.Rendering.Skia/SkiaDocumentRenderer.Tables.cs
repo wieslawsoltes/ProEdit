@@ -356,10 +356,21 @@ public sealed partial class SkiaDocumentRenderer
         return halfWidth > 0f ? halfWidth * 2f : thickness;
     }
 
-    private static SKPathEffect? CreateBorderEffect(DocBorderStyle style, float thickness)
+    private static SKPathEffect? CreateBorderEffect(BorderLine border, float thickness)
     {
+        if (border.DashArray is { Length: > 0 })
+        {
+            var dash = new float[border.DashArray.Length];
+            for (var i = 0; i < border.DashArray.Length; i++)
+            {
+                dash[i] = MathF.Max(0.1f, border.DashArray[i]);
+            }
+
+            return SKPathEffect.CreateDash(dash, border.DashPhase);
+        }
+
         var unit = MathF.Max(1f, thickness);
-        return style switch
+        return border.Style switch
         {
             DocBorderStyle.Dotted => SKPathEffect.CreateDash(new[] { unit, unit }, 0),
             DocBorderStyle.Dashed => SKPathEffect.CreateDash(new[] { unit * 4f, unit * 2f }, 0),
@@ -367,6 +378,28 @@ public sealed partial class SkiaDocumentRenderer
             DocBorderStyle.DotDotDash => SKPathEffect.CreateDash(new[] { unit, unit, unit, unit, unit * 4f, unit * 2f }, 0),
             _ => null
         };
+    }
+
+    private static SKPathEffect? CreateBorderEffect(DocBorderStyle style, float thickness)
+    {
+        return CreateBorderEffect(new BorderLine { Style = style }, thickness);
+    }
+
+    private static int GetDashHash(BorderLine border)
+    {
+        if (border.DashArray is null || border.DashArray.Length == 0)
+        {
+            return 0;
+        }
+
+        var hash = new HashCode();
+        foreach (var value in border.DashArray)
+        {
+            hash.Add(value);
+        }
+
+        hash.Add(border.DashPhase);
+        return hash.ToHashCode();
     }
 
     private static DocCompoundLine ResolveCompoundLine(BorderLine border)
@@ -636,5 +669,6 @@ public sealed partial class SkiaDocumentRenderer
         DocBorderStyle Style,
         DocLineCap LineCap,
         DocLineJoin LineJoin,
-        float MiterLimit);
+        float MiterLimit,
+        int DashHash);
 }

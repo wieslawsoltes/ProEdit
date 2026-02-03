@@ -11,6 +11,8 @@ public sealed class BorderLine
     public DocLineCap LineCap { get; set; } = DocLineCap.Flat;
     public DocLineJoin LineJoin { get; set; } = DocLineJoin.Miter;
     public float? MiterLimit { get; set; }
+    public float[]? DashArray { get; set; }
+    public float DashPhase { get; set; }
     public DocCompoundLine Compound { get; set; } = DocCompoundLine.Single;
     public float? CompoundSpacing { get; set; }
     public DocLineArrow HeadArrow { get; set; } = new DocLineArrow
@@ -39,6 +41,8 @@ public sealed class BorderLine
             LineCap = LineCap,
             LineJoin = LineJoin,
             MiterLimit = MiterLimit,
+            DashArray = DashArray is not null ? (float[])DashArray.Clone() : null,
+            DashPhase = DashPhase,
             Compound = Compound,
             CompoundSpacing = CompoundSpacing,
             HeadArrow = HeadArrow,

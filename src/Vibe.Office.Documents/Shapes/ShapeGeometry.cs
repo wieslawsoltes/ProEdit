@@ -75,11 +75,18 @@ public enum ShapePathFillMode
     DarkenLess
 }
 
+public enum ShapePathFillRule
+{
+    NonZero,
+    EvenOdd
+}
+
 public sealed class ShapePath
 {
     public long Width { get; set; } = -1;
     public long Height { get; set; } = -1;
     public ShapePathFillMode FillMode { get; set; } = ShapePathFillMode.Normal;
+    public ShapePathFillRule FillRule { get; set; } = ShapePathFillRule.NonZero;
     public bool IsStroked { get; set; } = true;
     public bool IsExtrusionOk { get; set; }
     public List<ShapePathCommand> Commands { get; } = new List<ShapePathCommand>();
@@ -93,6 +100,7 @@ public sealed class ShapePath
             Width = Width,
             Height = Height,
             FillMode = FillMode,
+            FillRule = FillRule,
             IsStroked = IsStroked,
             IsExtrusionOk = IsExtrusionOk
         };

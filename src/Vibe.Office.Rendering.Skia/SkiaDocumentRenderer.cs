@@ -607,7 +607,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
             var miterLimit = border.LineJoin == DocLineJoin.Miter && border.MiterLimit.HasValue && border.MiterLimit.Value > 0f
                 ? border.MiterLimit.Value
                 : 0f;
-            var key = new BorderPaintKey(border.Color, thickness, border.Style, cap, border.LineJoin, miterLimit);
+            var key = new BorderPaintKey(border.Color, thickness, border.Style, cap, border.LineJoin, miterLimit, GetDashHash(border));
             if (borderPaintCache.TryGetValue(key, out var cached))
             {
                 return cached;
@@ -621,7 +621,7 @@ public sealed partial class SkiaDocumentRenderer : IDocumentRenderer<SKCanvas>
                 IsAntialias = true,
                 StrokeCap = ToSkStrokeCap(cap),
                 StrokeJoin = ToSkStrokeJoin(border.LineJoin),
-                PathEffect = CreateBorderEffect(border.Style, thickness)
+                PathEffect = CreateBorderEffect(border, thickness)
             };
             if (miterLimit > 0f)
             {

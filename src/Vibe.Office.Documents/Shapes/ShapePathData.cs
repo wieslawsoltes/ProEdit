@@ -3,13 +3,15 @@ namespace Vibe.Office.Documents;
 public sealed class ShapePathData
 {
     public ShapePathFillMode FillMode { get; }
+    public ShapePathFillRule FillRule { get; }
     public bool IsStroked { get; }
     public bool IsFilled { get; }
     public List<ShapePathSegment> Segments { get; } = new List<ShapePathSegment>();
 
-    public ShapePathData(ShapePathFillMode fillMode, bool isStroked, bool isFilled)
+    public ShapePathData(ShapePathFillMode fillMode, ShapePathFillRule fillRule, bool isStroked, bool isFilled)
     {
         FillMode = fillMode;
+        FillRule = fillRule;
         IsStroked = isStroked;
         IsFilled = isFilled;
     }

@@ -158,6 +158,11 @@ public sealed class DocumentView : Control, ILogicalScrollable
     private EditorSessionSnapshot? _headerFooterSnapshot;
     private bool _headerFooterDirty;
     private bool _isHeaderFooterSelecting;
+    private ShapeTextEditSession? _shapeTextSession;
+    private EditorServices? _shapeTextServices;
+    private EditorSessionSnapshot? _shapeTextSnapshot;
+    private bool _shapeTextDirty;
+    private bool _isShapeTextSelecting;
     private bool _isTableResizing;
     private TableResizeHandle? _activeTableResizeHandle;
     private TableResizeHandle? _hoverTableResizeHandle;
@@ -533,6 +538,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
 
         UpdateScrollMetrics();
         UpdateHeaderFooterSessionLayout();
+        UpdateShapeTextSessionLayout();
     }
 
     protected override void OnTextInput(TextInputEventArgs e)
@@ -548,6 +554,17 @@ public sealed class DocumentView : Control, ILogicalScrollable
             if (_headerFooterSession.InputAdapter.HandleTextInput(e))
             {
                 MarkHeaderFooterDirty();
+                e.Handled = true;
+            }
+
+            return;
+        }
+
+        if (_shapeTextSession is not null)
+        {
+            if (_shapeTextSession.InputAdapter.HandleTextInput(e))
+            {
+                MarkShapeTextDirty();
                 e.Handled = true;
             }
 
@@ -604,6 +621,29 @@ public sealed class DocumentView : Control, ILogicalScrollable
             return;
         }
 
+        if (_shapeTextSession is not null)
+        {
+            if (e.Key == Key.Escape)
+            {
+                EndShapeTextEdit();
+                e.Handled = true;
+                return;
+            }
+
+            var isEditKey = IsShapeTextEditKey(e);
+            if (_shapeTextSession.InputAdapter.HandleKeyDown(e))
+            {
+                if (isEditKey)
+                {
+                    MarkShapeTextDirty();
+                }
+
+                e.Handled = true;
+            }
+
+            return;
+        }
+
         if (_inputAdapter.HandleKeyDown(e))
         {
             e.Handled = true;
@@ -642,6 +682,16 @@ public sealed class DocumentView : Control, ILogicalScrollable
         }
         Focus();
 
+        if (_shapeTextSession is not null)
+        {
+            if (TryHandleShapeTextPointerPressed(e))
+            {
+                return;
+            }
+
+            EndShapeTextEdit();
+        }
+
         if (_headerFooterSession is null && TryHandleInkPointerPressed(e))
         {
             return;
@@ -655,6 +705,11 @@ public sealed class DocumentView : Control, ILogicalScrollable
             }
         }
         else if (TryBeginHeaderFooterEditFromPoint(e))
+        {
+            return;
+        }
+
+        if (_headerFooterSession is null && _shapeTextSession is null && TryBeginShapeTextEditFromPoint(e))
         {
             return;
         }
@@ -728,6 +783,17 @@ public sealed class DocumentView : Control, ILogicalScrollable
 
             return;
         }
+        if (_isShapeTextSelecting && _shapeTextSession is not null)
+        {
+            var offset = BuildShapeTextScrollOffset(_shapeTextSession.Metrics);
+            var zoom = BuildShapeTextZoomFactor(_shapeTextSession.Metrics);
+            if (_shapeTextSession.InputAdapter.HandlePointerMoved(e, offset, zoom, this))
+            {
+                e.Handled = true;
+            }
+
+            return;
+        }
         if (!_isSelecting)
         {
             UpdateHoverState(e);
@@ -794,6 +860,17 @@ public sealed class DocumentView : Control, ILogicalScrollable
             _isHeaderFooterSelecting = false;
             var offset = BuildHeaderFooterScrollOffset(_headerFooterHit.Value);
             _headerFooterSession.InputAdapter.HandlePointerReleased(e, offset, _zoomFactor, this);
+            e.Pointer.Capture(null);
+            e.Handled = true;
+            return;
+        }
+
+        if (_isShapeTextSelecting && _shapeTextSession is not null)
+        {
+            _isShapeTextSelecting = false;
+            var offset = BuildShapeTextScrollOffset(_shapeTextSession.Metrics);
+            var zoom = BuildShapeTextZoomFactor(_shapeTextSession.Metrics);
+            _shapeTextSession.InputAdapter.HandlePointerReleased(e, offset, zoom, this);
             e.Pointer.Capture(null);
             e.Handled = true;
             return;
@@ -2038,7 +2115,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
 
     private void UpdateHoverState(PointerEventArgs e)
     {
-        if (_headerFooterSession is not null)
+        if (_headerFooterSession is not null || _shapeTextSession is not null)
         {
             return;
         }
@@ -2345,6 +2422,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
         base.Render(context);
         var effectiveOffset = GetEffectiveScrollOffset();
         UpdateHeaderFooterRenderOptions();
+        UpdateShapeTextRenderOptions();
         context.Custom(new SkiaDrawOperation(Bounds, _editor, _renderer, _renderOptions, effectiveOffset));
         DrawTableSelectionOverlay(context, effectiveOffset);
         DrawTableResizeHandles(context, effectiveOffset);
@@ -2361,6 +2439,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
     public void LoadDocument(Document document)
     {
         ArgumentNullException.ThrowIfNull(document);
+        EndShapeTextEdit();
         EndHeaderFooterEdit();
         StopInkReplay();
         _editor.Changed -= OnEditorChanged;
@@ -2374,6 +2453,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
     {
         ArgumentNullException.ThrowIfNull(document);
 
+        EndShapeTextEdit();
         EndHeaderFooterEdit();
         StopInkReplay();
         _editor.Changed -= OnEditorChanged;
@@ -4958,6 +5038,31 @@ public sealed class DocumentView : Control, ILogicalScrollable
         }
     }
 
+    private sealed class ShapeTextEditSession
+    {
+        public ShapeInline Shape { get; }
+        public ShapeTextBox TextBox { get; }
+        public Document Document { get; }
+        public EditorController Editor { get; }
+        public AvaloniaEditorInputAdapter InputAdapter { get; }
+        public ShapeTextLayoutMetrics Metrics { get; set; }
+
+        public ShapeTextEditSession(
+            ShapeInline shape,
+            ShapeTextBox textBox,
+            Document document,
+            EditorController editor,
+            AvaloniaEditorInputAdapter inputAdapter)
+        {
+            Shape = shape ?? throw new ArgumentNullException(nameof(shape));
+            TextBox = textBox ?? throw new ArgumentNullException(nameof(textBox));
+            Document = document ?? throw new ArgumentNullException(nameof(document));
+            Editor = editor ?? throw new ArgumentNullException(nameof(editor));
+            InputAdapter = inputAdapter ?? throw new ArgumentNullException(nameof(inputAdapter));
+            Metrics = default;
+        }
+    }
+
     private readonly record struct HeaderFooterHit(
         HeaderFooterEditMode Mode,
         int PageIndex,
@@ -5096,6 +5201,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
         UpdatePictureCropState();
         UpdateInlineObjectSelection();
         UpdateHeaderFooterSessionLayout();
+        UpdateShapeTextSessionLayout();
         UpdateCommentAnchors();
         UpdateRevisionAnchors();
         InvalidateVisual();
@@ -5110,6 +5216,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
         UpdatePictureCropState();
         UpdateInlineObjectSelection();
         UpdateHeaderFooterSessionLayout();
+        UpdateShapeTextSessionLayout();
         UpdateCommentAnchors();
         UpdateRevisionAnchors();
         InvalidateVisual();
@@ -5118,6 +5225,13 @@ public sealed class DocumentView : Control, ILogicalScrollable
 
     public bool TryGetService<T>(out T service) where T : class
     {
+        if (_shapeTextSession is not null
+            && _shapeTextServices is not null
+            && _shapeTextServices.TryGet(out service))
+        {
+            return true;
+        }
+
         if (_headerFooterSession is not null
             && _headerFooterServices is not null
             && _headerFooterServices.TryGet(out service))
@@ -5130,6 +5244,13 @@ public sealed class DocumentView : Control, ILogicalScrollable
 
     public bool TryGetService(Type serviceType, out object? service)
     {
+        if (_shapeTextSession is not null
+            && _shapeTextServices is not null
+            && _shapeTextServices.TryGet(serviceType, out service))
+        {
+            return true;
+        }
+
         if (_headerFooterSession is not null
             && _headerFooterServices is not null
             && _headerFooterServices.TryGet(serviceType, out service))
@@ -5354,6 +5475,27 @@ public sealed class DocumentView : Control, ILogicalScrollable
         _renderOptions.ShowHeaderFooterCaret = true;
     }
 
+    private void UpdateShapeTextRenderOptions()
+    {
+        if (_shapeTextSession is null)
+        {
+            _renderOptions.ShapeTextEditingShapeId = null;
+            _renderOptions.ShapeTextSelection = null;
+            _renderOptions.ShapeTextSelectionRanges = null;
+            _renderOptions.ShapeTextCaret = default;
+            _renderOptions.ShowShapeTextCaret = false;
+            return;
+        }
+
+        _renderOptions.ShapeTextEditingShapeId = _shapeTextSession.Shape.Id;
+        _renderOptions.ShapeTextSelection = _shapeTextSession.Editor.Selection.IsEmpty
+            ? null
+            : _shapeTextSession.Editor.Selection;
+        _renderOptions.ShapeTextSelectionRanges = _shapeTextSession.Editor.SelectionRanges;
+        _renderOptions.ShapeTextCaret = _shapeTextSession.Editor.Caret;
+        _renderOptions.ShowShapeTextCaret = true;
+    }
+
     public void BeginHeaderFooterEdit(HeaderFooterEditMode mode)
     {
         if (mode == HeaderFooterEditMode.None)
@@ -5504,6 +5646,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
 
     private bool BeginHeaderFooterEdit(HeaderFooterHit hit)
     {
+        EndShapeTextEdit();
         if (_headerFooterSession is not null && _headerFooterSession.Target.Equals(hit.Target))
         {
             _headerFooterHit = hit;
@@ -5531,7 +5674,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
         }
 
         UpdateHeaderFooterSessionLayout(hit);
-        UpdateDirtyPages(GetAllPages());
+        UpdateDirtyPages(GetShapeTextDirtyPages());
         InvalidateVisual();
         EditorStateChanged?.Invoke(this, EventArgs.Empty);
         return true;
@@ -5558,7 +5701,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
         _headerFooterDirty = false;
         _isHeaderFooterSelecting = false;
         UpdateHeaderFooterRenderOptions();
-        UpdateDirtyPages(GetAllPages());
+        UpdateDirtyPages(GetShapeTextDirtyPages());
         InvalidateVisual();
         EditorStateChanged?.Invoke(this, EventArgs.Empty);
     }
@@ -5784,6 +5927,426 @@ public sealed class DocumentView : Control, ILogicalScrollable
         }
 
         return false;
+    }
+
+    private bool TryBeginShapeTextEditFromPoint(PointerPressedEventArgs e)
+    {
+        var point = e.GetCurrentPoint(this);
+        if (!point.Properties.IsLeftButtonPressed)
+        {
+            return false;
+        }
+
+        if (e.ClickCount < 2)
+        {
+            return false;
+        }
+
+        if (!TryGetDocumentPoint(e, out var docX, out var docY))
+        {
+            return false;
+        }
+
+        if (!TryResolveShapeTextTarget(docX, docY, out var shape, out var textBox, out var shapeBounds, out var textBounds))
+        {
+            return false;
+        }
+
+        if (!BeginShapeTextEdit(shape, textBox, shapeBounds, textBounds))
+        {
+            return false;
+        }
+
+        return StartShapeTextSelection(e);
+    }
+
+    private bool TryHandleShapeTextPointerPressed(PointerPressedEventArgs e)
+    {
+        var point = e.GetCurrentPoint(this);
+        if (!point.Properties.IsLeftButtonPressed)
+        {
+            return false;
+        }
+
+        if (_shapeTextSession is null)
+        {
+            return false;
+        }
+
+        if (!TryGetDocumentPoint(e, out var docX, out var docY))
+        {
+            return false;
+        }
+
+        if (!_shapeTextSession.Metrics.TextBounds.Contains(docX, docY))
+        {
+            return false;
+        }
+
+        return StartShapeTextSelection(e);
+    }
+
+    private bool BeginShapeTextEdit(ShapeInline shape, ShapeTextBox textBox, DocRect shapeBounds, DocRect textBounds)
+    {
+        if (_shapeTextSession is not null && ReferenceEquals(_shapeTextSession.Shape, shape))
+        {
+            UpdateShapeTextSessionLayout(shape, textBox, shapeBounds, textBounds);
+            UpdateShapeTextRenderOptions();
+            InvalidateVisual();
+            return true;
+        }
+
+        EndShapeTextEdit();
+
+        if (!TryCreateShapeTextSession(shape, textBox, out var session, out var services))
+        {
+            return false;
+        }
+
+        _shapeTextSession = session;
+        _shapeTextServices = services;
+        _shapeTextSession.Editor.Changed += OnShapeTextEditorChanged;
+        _shapeTextDirty = false;
+
+        if (_kernel.Services.TryGet<IEditorHistorySnapshotService>(out var history))
+        {
+            _shapeTextSnapshot = history.CaptureSnapshot();
+        }
+
+        UpdateShapeTextSessionLayout(shape, textBox, shapeBounds, textBounds);
+        UpdateShapeTextRenderOptions();
+        UpdateDirtyPages(GetShapeTextDirtyPages());
+        InvalidateVisual();
+        EditorStateChanged?.Invoke(this, EventArgs.Empty);
+        return true;
+    }
+
+    public void EndShapeTextEdit()
+    {
+        if (_shapeTextSession is null)
+        {
+            return;
+        }
+
+        _shapeTextSession.Editor.Changed -= OnShapeTextEditorChanged;
+        if (_shapeTextDirty && _shapeTextSnapshot.HasValue
+            && _kernel.Services.TryGet<IEditorHistorySnapshotService>(out var history))
+        {
+            history.RecordSnapshot(_shapeTextSnapshot.Value);
+        }
+
+        _shapeTextSession = null;
+        _shapeTextServices = null;
+        _shapeTextSnapshot = null;
+        _shapeTextDirty = false;
+        _isShapeTextSelecting = false;
+        UpdateShapeTextRenderOptions();
+        UpdateDirtyPages(GetAllPages());
+        InvalidateVisual();
+        EditorStateChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void OnShapeTextEditorChanged(object? sender, EventArgs e)
+    {
+        if (_shapeTextSession is null)
+        {
+            return;
+        }
+
+        RefreshShapeTextMetrics();
+        UpdateShapeTextRenderOptions();
+
+        if (_shapeTextSession.Editor.LastChangeKind == EditorChangeKind.Content)
+        {
+            MarkShapeTextDirty();
+            return;
+        }
+
+        UpdateDirtyPages(GetAllPages());
+        InvalidateVisual();
+        EditorStateChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private bool TryCreateShapeTextSession(ShapeInline shape, ShapeTextBox textBox, out ShapeTextEditSession session, out EditorServices services)
+    {
+        session = null!;
+        services = null!;
+        var document = BuildShapeTextDocument(_editor.Document, textBox);
+        var editor = new EditorController(_textMeasurer, document);
+        services = new EditorServices();
+        var dispatcher = new EditorCommandDispatcher();
+        new BasicEditingModule().Register(new EditorModuleContext(services, dispatcher));
+        var viewOptions = _kernel.Services.TryGet<IEditorViewOptionsService>(out var resolvedViewOptions)
+            ? resolvedViewOptions
+            : null;
+        _ = EditorHomeServiceRegistry.Register(
+            services,
+            dispatcher,
+            editor,
+            CreateFontService(editor),
+            CreateClipboardService(editor),
+            viewOptions,
+            documentFactory: DocumentTemplates.CreateDefaultDocument);
+        var undoRedo = services.GetRequired<IUndoRedoService>();
+        var clipboard = services.GetRequired<IClipboardService>();
+        var tableSelectionProvider = services.GetRequired<ITableSelectionSnapshotProvider>();
+        if (_kernel.Services.TryGet<IContentControlInteractionService>(out var contentControls))
+        {
+            services.Register(contentControls);
+        }
+
+        services.TryGet<IAutoCorrectService>(out var autoCorrect);
+        var inputRouter = new EditorCommandInputRouter(dispatcher, editor, undoRedo, clipboard, tableSelectionProvider, contentControls, autoCorrect);
+        var inputAdapter = new AvaloniaEditorInputAdapter(inputRouter);
+        session = new ShapeTextEditSession(shape, textBox, document, editor, inputAdapter);
+        return true;
+    }
+
+    private void MarkShapeTextDirty()
+    {
+        if (_shapeTextSession is null)
+        {
+            return;
+        }
+
+        _shapeTextDirty = true;
+        ApplyShapeTextChanges();
+    }
+
+    private void ApplyShapeTextChanges()
+    {
+        if (_shapeTextSession is null)
+        {
+            return;
+        }
+
+        var textBox = _shapeTextSession.TextBox;
+        textBox.Blocks.Clear();
+        var blocks = _shapeTextSession.Editor.Document.Blocks;
+        if (blocks.Count == 0)
+        {
+            textBox.Blocks.Add(new ParagraphBlock());
+        }
+        else
+        {
+            for (var i = 0; i < blocks.Count; i++)
+            {
+                textBox.Blocks.Add(DocumentClone.CloneBlock(blocks[i]));
+            }
+        }
+
+        MergeRevisions(_shapeTextSession.Editor.Document.Revisions, _editor.Document.Revisions);
+        UpdateDirtyPages(GetAllPages());
+        InvalidateVisual();
+        EditorStateChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void UpdateShapeTextSessionLayout()
+    {
+        if (_shapeTextSession is null)
+        {
+            return;
+        }
+
+        if (!TryResolveShapeTextBounds(_shapeTextSession.Shape, _shapeTextSession.TextBox, out var shapeBounds, out var textBounds))
+        {
+            EndShapeTextEdit();
+            return;
+        }
+
+        UpdateShapeTextSessionLayout(_shapeTextSession.Shape, _shapeTextSession.TextBox, shapeBounds, textBounds);
+        UpdateShapeTextRenderOptions();
+    }
+
+    private void UpdateShapeTextSessionLayout(ShapeInline shape, ShapeTextBox textBox, DocRect shapeBounds, DocRect textBounds)
+    {
+        if (_shapeTextSession is null || !ReferenceEquals(_shapeTextSession.Shape, shape))
+        {
+            return;
+        }
+
+        ApplyShapeTextLayoutSettings(_shapeTextSession.Editor.LayoutSettings, _editor.Layout.Settings, textBounds.Width, textBounds.Height);
+        _shapeTextSession.Editor.UpdateLayout(textBounds.Width, textBounds.Height);
+        if (ShapeTextLayoutHelper.TryComputeMetrics(_shapeTextSession.Editor.Layout, textBox, textBounds, out var metrics))
+        {
+            _shapeTextSession.Metrics = metrics;
+        }
+    }
+
+    private void RefreshShapeTextMetrics()
+    {
+        if (_shapeTextSession is null)
+        {
+            return;
+        }
+
+        var bounds = _shapeTextSession.Metrics.TextBounds;
+        if (bounds.Width <= 1f || bounds.Height <= 1f)
+        {
+            UpdateShapeTextSessionLayout();
+            return;
+        }
+
+        if (ShapeTextLayoutHelper.TryComputeMetrics(_shapeTextSession.Editor.Layout, _shapeTextSession.TextBox, bounds, out var metrics))
+        {
+            _shapeTextSession.Metrics = metrics;
+        }
+    }
+
+    private bool TryResolveShapeTextTarget(
+        float docX,
+        float docY,
+        out ShapeInline shape,
+        out ShapeTextBox textBox,
+        out DocRect shapeBounds,
+        out DocRect textBounds)
+    {
+        shape = null!;
+        textBox = null!;
+        shapeBounds = default;
+        textBounds = default;
+
+        var docPoint = new DocPoint(docX, docY);
+        if (!TryGetFloatingShapeAtPoint(docPoint, out var layoutObject, out _, out var hitShape))
+        {
+            return false;
+        }
+
+        textBox = hitShape.TextBox ?? new ShapeTextBox();
+        if (hitShape.TextBox is null)
+        {
+            hitShape.TextBox = textBox;
+        }
+
+        if (!TryGetShapeTextBounds(hitShape, textBox, layoutObject.Bounds, out textBounds))
+        {
+            return false;
+        }
+
+        if (!textBounds.Contains(docX, docY))
+        {
+            return false;
+        }
+
+        shape = hitShape;
+        shapeBounds = layoutObject.Bounds;
+        return true;
+    }
+
+    private bool TryResolveShapeTextBounds(ShapeInline shape, ShapeTextBox textBox, out DocRect shapeBounds, out DocRect textBounds)
+    {
+        shapeBounds = default;
+        textBounds = default;
+        var floats = _editor.Layout.FloatingObjects;
+        for (var i = 0; i < floats.Count; i++)
+        {
+            var floating = floats[i];
+            if (floating.Object.Content is ShapeInline candidate && ReferenceEquals(candidate, shape))
+            {
+                shapeBounds = floating.Bounds;
+                return TryGetShapeTextBounds(shape, textBox, shapeBounds, out textBounds);
+            }
+        }
+
+        return false;
+    }
+
+    private static bool TryGetShapeTextBounds(ShapeInline shape, ShapeTextBox textBox, DocRect shapeBounds, out DocRect textBounds)
+    {
+        textBounds = default;
+        if (MathF.Abs(shape.Properties.Rotation) > 0.01f)
+        {
+            return false;
+        }
+
+        var textRect = ShapeGeometryEvaluator.ResolveTextRectangle(shape.Properties, shape.Width, shape.Height);
+        var padding = textBox.Properties.Padding;
+        var left = shapeBounds.X + textRect.X + padding.Left;
+        var top = shapeBounds.Y + textRect.Y + padding.Top;
+        var width = textRect.Width - padding.Left - padding.Right;
+        var height = textRect.Height - padding.Top - padding.Bottom;
+        if (width <= 1f || height <= 1f)
+        {
+            return false;
+        }
+
+        textBounds = new DocRect(left, top, width, height);
+        return true;
+    }
+
+    private bool StartShapeTextSelection(PointerPressedEventArgs e)
+    {
+        if (_shapeTextSession is null)
+        {
+            return false;
+        }
+
+        _isSelecting = false;
+        _isShapeTextSelecting = true;
+        RefreshShapeTextMetrics();
+        var offset = BuildShapeTextScrollOffset(_shapeTextSession.Metrics);
+        var zoom = BuildShapeTextZoomFactor(_shapeTextSession.Metrics);
+        if (_shapeTextSession.InputAdapter.HandlePointerPressed(e, offset, zoom, this))
+        {
+            e.Pointer.Capture(this);
+            e.Handled = true;
+            return true;
+        }
+
+        return false;
+    }
+
+    private Vector BuildShapeTextScrollOffset(ShapeTextLayoutMetrics metrics)
+    {
+        var effectiveOffset = GetEffectiveScrollOffset();
+        var zoom = _zoomFactor <= 0f ? 1f : _zoomFactor;
+        return new Vector(
+            effectiveOffset.X - metrics.OriginX * zoom,
+            effectiveOffset.Y - metrics.OriginY * zoom);
+    }
+
+    private float BuildShapeTextZoomFactor(ShapeTextLayoutMetrics metrics)
+    {
+        var scale = _zoomFactor <= 0f ? 1f : _zoomFactor;
+        return scale * MathF.Max(0.01f, metrics.Scale);
+    }
+
+    private static void MergeRevisions(DocumentRevisions source, DocumentRevisions target)
+    {
+        if (source.Timeline.Count == 0)
+        {
+            return;
+        }
+
+        for (var i = 0; i < source.Timeline.Count; i++)
+        {
+            target.AddOrUpdate(source.Timeline[i]);
+        }
+    }
+
+    private IReadOnlyList<int> GetShapeTextDirtyPages()
+    {
+        if (_shapeTextSession is null)
+        {
+            return GetAllPages();
+        }
+
+        var floats = _editor.Layout.FloatingObjects;
+        for (var i = 0; i < floats.Count; i++)
+        {
+            var floating = floats[i];
+            if (floating.Object.Content is ShapeInline candidate && ReferenceEquals(candidate, _shapeTextSession.Shape))
+            {
+                if (floating.PageIndex >= 0)
+                {
+                    return new[] { floating.PageIndex };
+                }
+
+                break;
+            }
+        }
+
+        return GetAllPages();
     }
 
     private bool TryGetDocumentPoint(PointerEventArgs e, out float docX, out float docY)
@@ -6127,6 +6690,11 @@ public sealed class DocumentView : Control, ILogicalScrollable
         return e.Key == Key.V || e.Key == Key.X || e.Key == Key.Z || e.Key == Key.Y;
     }
 
+    private static bool IsShapeTextEditKey(KeyEventArgs e)
+    {
+        return IsHeaderFooterEditKey(e);
+    }
+
     private static Document BuildHeaderFooterDocument(Document source, HeaderFooterTarget target, HeaderFooterEditMode mode)
     {
         var clone = DocumentClone.Clone(source);
@@ -6140,6 +6708,30 @@ public sealed class DocumentView : Control, ILogicalScrollable
         else
         {
             clone.Blocks.AddRange(blocks);
+        }
+
+        return clone;
+    }
+
+    private static Document BuildShapeTextDocument(Document source, ShapeTextBox textBox)
+    {
+        var clone = DocumentClone.Clone(source);
+        clone.Blocks.Clear();
+        if (textBox.Blocks.Count == 0)
+        {
+            clone.Blocks.Add(new ParagraphBlock());
+        }
+        else
+        {
+            for (var i = 0; i < textBox.Blocks.Count; i++)
+            {
+                clone.Blocks.Add(DocumentClone.CloneBlock(textBox.Blocks[i]));
+            }
+        }
+
+        if (textBox.Properties.TextDirection.HasValue)
+        {
+            clone.DefaultParagraphStyleProperties.TextDirection = textBox.Properties.TextDirection;
         }
 
         return clone;
@@ -6185,6 +6777,11 @@ public sealed class DocumentView : Control, ILogicalScrollable
         target.ColumnGap = source.ColumnGap;
         target.TableCellPadding = source.TableCellPadding;
         target.TableBorderThickness = source.TableBorderThickness;
+    }
+
+    private static void ApplyShapeTextLayoutSettings(LayoutSettings target, LayoutSettings source, float width, float height)
+    {
+        ApplyHeaderFooterLayoutSettings(target, source, width, height);
     }
 
     private int ResolveHeaderFooterPageIndex()
@@ -6888,7 +7485,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
             var viewportHeight = MathF.Max(0f, (float)(_bounds.Height / _options.ZoomFactor));
             _options.VisibleBounds = new DocRect(offsetDocX, offsetDocY, viewportWidth, viewportHeight);
 
-            if (_options.HeaderFooterMode == HeaderFooterEditMode.None)
+            if (_options.HeaderFooterMode == HeaderFooterEditMode.None && !_options.ShapeTextEditingShapeId.HasValue)
             {
                 _options.Caret = _editor.Caret;
                 _options.Selection = _editor.Selection.IsEmpty ? null : _editor.Selection;
