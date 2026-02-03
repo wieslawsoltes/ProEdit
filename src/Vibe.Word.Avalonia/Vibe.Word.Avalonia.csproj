@@ -10,6 +10,9 @@
     <PackageReference Include="Avalonia.Skia" Version="11.3.10" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.10" />
     <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.10" />
+    <PackageReference Include="ReactiveUI" Version="22.3.1" />
+    <PackageReference Include="ReactiveUI.Avalonia" Version="11.3.8" />
+    <PackageReference Include="ReactiveUI.SourceGenerators" Version="2.6.1" PrivateAssets="all" />
   </ItemGroup>
 
   <ItemGroup>
@@ -20,6 +23,10 @@
     <ProjectReference Include="..\\Vibe.Office.Html\\Vibe.Office.Html.csproj" />
     <ProjectReference Include="..\\Vibe.Office.Markdown\\Vibe.Office.Markdown.csproj" />
     <ProjectReference Include="..\\Vibe.Office.Macros\\Vibe.Office.Macros.csproj" />
+    <ProjectReference Include="..\\Vibe.Office.Printing.Avalonia\\Vibe.Office.Printing.Avalonia.csproj" />
+    <ProjectReference Include="..\\Vibe.Office.Printing.Documents\\Vibe.Office.Printing.Documents.csproj" />
+    <ProjectReference Include="..\\Vibe.Office.Printing.Skia\\Vibe.Office.Printing.Skia.csproj" />
+    <ProjectReference Include="..\\Vibe.Office.Printing.System\\Vibe.Office.Printing.System.csproj" />
     <ProjectReference Include="..\\Vibe.Word.Editor\\Vibe.Word.Editor.csproj" />
     <ProjectReference Include="..\\Vibe.Office.OpenXml\\Vibe.Office.OpenXml.csproj" />
   </ItemGroup>

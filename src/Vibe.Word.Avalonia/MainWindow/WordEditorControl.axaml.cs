@@ -11,12 +11,17 @@ using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using ReactiveUI;
 using Vibe.Office.Documents;
 using Vibe.Office.Editing;
 using Vibe.Office.Html;
 using Vibe.Office.Layout;
 using Vibe.Office.Markdown;
 using Vibe.Office.Macros;
+using Vibe.Office.Printing.Avalonia;
+using Vibe.Office.Printing.Documents;
+using Vibe.Office.Printing.Skia;
+using Vibe.Office.Printing.System;
 using Vibe.Office.Vba.Runtime;
 using Vibe.Office.OpenXml;
 using Vibe.Office.Primitives;
@@ -528,10 +533,29 @@ public partial class WordEditorControl : UserControl
             return;
         }
 
-        var fileName = string.IsNullOrWhiteSpace(_currentPath)
-            ? "Untitled"
-            : Path.GetFileName(_currentPath);
+        var fileName = ResolveRibbonDocumentTitle();
         owner.Title = $"{fileName} - {WindowTitleBase}";
+        UpdateRibbonTopBarTitle(fileName);
+    }
+
+    private string ResolveRibbonDocumentTitle()
+    {
+        if (!string.IsNullOrWhiteSpace(_currentPath))
+        {
+            return Path.GetFileName(_currentPath);
+        }
+
+        return "Untitled";
+    }
+
+    private void UpdateRibbonTopBarTitle(string? title = null)
+    {
+        if (_ribbon?.Model is not { } model)
+        {
+            return;
+        }
+
+        model.TopBarTitle = string.IsNullOrWhiteSpace(title) ? ResolveRibbonDocumentTitle() : title;
     }
 
     private string ResolveSuggestedFileName(string? suggestedName)
@@ -588,6 +612,68 @@ public partial class WordEditorControl : UserControl
         }
 
         window.Show();
+    }
+
+    private async Task ShowPrintDialogAsync()
+    {
+        if (_editorView is null || _isLoading)
+        {
+            return;
+        }
+
+        _editorView.UpdateFieldsForPrint();
+        var selection = _editorView.Selection;
+        var documentInfo = new DocumentPrintContext(_editorView.Document, _editorView.LayoutSettingsSnapshot)
+        {
+            Selection = selection.IsEmpty ? null : selection,
+            CurrentPageIndex = _editorView.CurrentPageIndex
+        };
+
+        var systemPrintService = new SystemPrintService();
+        var printService = new SkiaPrintService(systemPrintService, systemPrintService);
+        var viewModel = new PrintDialogViewModel(printService, documentInfo);
+        var dialog = new PrintDialog(viewModel);
+
+        void CloseDialog(bool result) => dialog.Close(result);
+        viewModel.RequestClose += CloseDialog;
+
+        var browseHandler = viewModel.BrowseOutputPath.RegisterHandler(async interaction =>
+        {
+            var path = await BrowsePdfOutputPathAsync();
+            interaction.SetOutput(path);
+        });
+
+        dialog.Closed += (_, _) =>
+        {
+            viewModel.RequestClose -= CloseDialog;
+            browseHandler.Dispose();
+        };
+
+        await viewModel.InitializeAsync();
+        await ShowDialogAsync(dialog);
+
+        async Task<string?> BrowsePdfOutputPathAsync()
+        {
+            var storageProvider = ResolveStorageProvider();
+            if (storageProvider is null)
+            {
+                return null;
+            }
+
+            var result = await storageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+            {
+                FileTypeChoices = new[]
+                {
+                    new FilePickerFileType("PDF")
+                    {
+                        Patterns = new[] { "*.pdf" }
+                    }
+                },
+                SuggestedFileName = ResolveSuggestedFileName("Document")
+            });
+
+            return result?.TryGetLocalPath();
+        }
     }
 
     private async Task OpenDocumentAsync()
@@ -2868,6 +2954,7 @@ public partial class WordEditorControl : UserControl
         var openCommand = CreateAsyncCommand(OpenDocumentAsync, canInteract);
         var saveCommand = CreateAsyncCommand(() => SaveDocumentAsync(), canInteract);
         var saveAsCommand = CreateAsyncCommand(SaveDocumentAsAsync, canInteract);
+        var printCommand = CreateAsyncCommand(ShowPrintDialogAsync, canInteract);
 
         var newButton = new RibbonButton(
             "new",
@@ -2910,6 +2997,15 @@ public partial class WordEditorControl : UserControl
             iconKey: "RibbonIcon.Save",
             canExecute: canInteract);
 
+        var printButton = new RibbonButton(
+            "print",
+            "Print",
+            printCommand,
+            keyTip: "P",
+            iconKey: "RibbonIcon.Print",
+            canExecute: canInteract,
+            toolTipDescription: "Print the current document.");
+
         var undoButton = new RibbonButton(
             "undo",
             "Undo",
@@ -2943,7 +3039,8 @@ public partial class WordEditorControl : UserControl
             {
                 newButton,
                 openButton,
-                saveSplit
+                saveSplit,
+                printButton
             },
             keyTip: "FI");
 
@@ -3119,7 +3216,9 @@ public partial class WordEditorControl : UserControl
                 changeCaseMenu,
                 keyTip: "CC",
                 iconKey: "RibbonIcon.ChangeCase",
-                size: RibbonControlSize.Small);
+                size: RibbonControlSize.Small,
+                compactLabel: "Case",
+                labelMode: RibbonLabelMode.ForceVisible);
 
             var clearFormatting = new RibbonButton(
                 "font-clear",
@@ -3331,6 +3430,13 @@ public partial class WordEditorControl : UserControl
                 iconKey: "RibbonIcon.Multilevel",
                 size: RibbonControlSize.Small);
 
+            var listToggleGroup = new RibbonToggleGroup(
+                "para-lists",
+                "Lists",
+                new[] { bulletsToggle, numberingToggle, multilevelToggle },
+                columns: 3,
+                size: RibbonControlSize.Small);
+
             var indentDecrease = new RibbonButton(
                 "para-indent-decrease",
                 "Decrease Indent",
@@ -3372,7 +3478,8 @@ public partial class WordEditorControl : UserControl
                 command: CreateEditorCommand(EditorHomeCommandIds.Paragraph.AlignLeft),
                 keyTip: "AL",
                 iconKey: "RibbonIcon.AlignLeft",
-                size: RibbonControlSize.Small);
+                size: RibbonControlSize.Small,
+                compactLabel: "Left");
 
             var alignCenter = new RibbonToggleButton(
                 "para-align-center",
@@ -3381,7 +3488,8 @@ public partial class WordEditorControl : UserControl
                 command: CreateEditorCommand(EditorHomeCommandIds.Paragraph.AlignCenter),
                 keyTip: "AC",
                 iconKey: "RibbonIcon.AlignCenter",
-                size: RibbonControlSize.Small);
+                size: RibbonControlSize.Small,
+                compactLabel: "Center");
 
             var alignRight = new RibbonToggleButton(
                 "para-align-right",
@@ -3390,7 +3498,8 @@ public partial class WordEditorControl : UserControl
                 command: CreateEditorCommand(EditorHomeCommandIds.Paragraph.AlignRight),
                 keyTip: "AR",
                 iconKey: "RibbonIcon.AlignRight",
-                size: RibbonControlSize.Small);
+                size: RibbonControlSize.Small,
+                compactLabel: "Right");
 
             var alignJustify = new RibbonToggleButton(
                 "para-align-justify",
@@ -3399,7 +3508,15 @@ public partial class WordEditorControl : UserControl
                 command: CreateEditorCommand(EditorHomeCommandIds.Paragraph.AlignJustify),
                 keyTip: "AJ",
                 iconKey: "RibbonIcon.AlignJustify",
-                size: RibbonControlSize.Small);
+                size: RibbonControlSize.Small,
+                compactLabel: "Just");
+
+            var alignToggleGroup = new RibbonToggleGroup(
+                "para-align",
+                "Alignment",
+                new[] { alignLeft, alignCenter, alignRight, alignJustify },
+                columns: 2,
+                size: RibbonControlSize.Medium);
 
             var lineSpacingMenu = new RibbonMenu(new IRibbonMenuEntry[]
             {
@@ -3526,17 +3643,12 @@ public partial class WordEditorControl : UserControl
                 "Paragraph",
                 new IRibbonControl[]
                 {
-                    bulletsToggle,
-                    numberingToggle,
-                    multilevelToggle,
+                    listToggleGroup,
                     indentDecrease,
                     indentIncrease,
                     sortParagraph,
                     showParagraphMarks,
-                    alignLeft,
-                    alignCenter,
-                    alignRight,
-                    alignJustify,
+                    alignToggleGroup,
                     lineSpacing,
                     shading,
                     borders
@@ -3661,7 +3773,8 @@ public partial class WordEditorControl : UserControl
                 CreateAsyncCommand(() => ShowFindReplaceDialogAsync(false), CanUseFindReplace),
                 keyTip: "FD",
                 iconKey: "RibbonIcon.Find",
-                size: RibbonControlSize.Small);
+                size: RibbonControlSize.Small,
+                compactLabel: "Find");
 
             var replaceButton = new RibbonButton(
                 "edit-replace",
@@ -3669,7 +3782,8 @@ public partial class WordEditorControl : UserControl
                 CreateAsyncCommand(() => ShowFindReplaceDialogAsync(true), CanUseFindReplace),
                 keyTip: "RP",
                 iconKey: "RibbonIcon.Replace",
-                size: RibbonControlSize.Small);
+                size: RibbonControlSize.Small,
+                compactLabel: "Repl");
 
             var selectMenu = new RibbonMenu(new IRibbonMenuEntry[]
             {
@@ -3693,7 +3807,9 @@ public partial class WordEditorControl : UserControl
                 selectMenu,
                 keyTip: "SL",
                 iconKey: "RibbonIcon.Select",
-                size: RibbonControlSize.Small);
+                size: RibbonControlSize.Small,
+                compactLabel: "Select",
+                labelMode: RibbonLabelMode.ForceVisible);
 
             return new RibbonGroup(
                 "editing",
@@ -7129,7 +7245,40 @@ public partial class WordEditorControl : UserControl
             return selection.Kind == EditorSelectionKind.Range && !selection.IsCollapsed;
         }
 
+        async ValueTask SubmitTopBarSearchAsync(string? query)
+        {
+            if (!CanUseFindReplace())
+            {
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(query))
+            {
+                await ShowFindReplaceDialogAsync(false);
+                return;
+            }
+
+            await ExecuteEditorCommandAsync(EditorHomeCommandIds.Editing.Find, query);
+        }
+
+        var topBarSearch = new RibbonTextBox(
+            "topbar-search",
+            "Search tools",
+            placeholder: "Search tools, help, and more",
+            submitHandler: SubmitTopBarSearchAsync,
+            keyTip: "Q",
+            iconKey: "RibbonIcon.Search",
+            canExecute: CanUseFindReplace,
+            size: RibbonControlSize.Medium,
+            toolTipDescription: "Search commands or find text in the document.");
+
         var builder = new RibbonModelBuilder();
+        builder.SetTopBarSearch(topBarSearch);
+        builder.SetTopBarAppBadge("W");
+        builder.SetTopBarAppName("Vibe Word");
+        builder.SetTopBarTitle(ResolveRibbonDocumentTitle());
+        builder.SetTopBarStatus("Saved", "RibbonIcon.Check");
+        builder.SetTopBarProfileInitials("WS");
         builder.AddTab("file", "File", keyTip: "F")
             .AddGroup(fileGroup);
         builder.AddTab("home", "Home", keyTip: "H")
@@ -7675,6 +7824,16 @@ public partial class WordEditorControl : UserControl
             {
                 foreach (var control in group.Controls)
                 {
+                    if (control is RibbonToggleGroup toggleGroup)
+                    {
+                        foreach (var item in toggleGroup.Items)
+                        {
+                            yield return (tab, group, item);
+                        }
+
+                        continue;
+                    }
+
                     yield return (tab, group, control);
                 }
             }

@@ -258,11 +258,15 @@ public sealed class DocumentView : Control, ILogicalScrollable
 
     public Document Document => _editor.Document;
     public DocumentLayout Layout => _editor.Layout;
+    public LayoutSettings LayoutSettingsSnapshot => _editor.LayoutSettings.Clone();
+    public TextRange Selection => _editor.Selection;
+    public IReadOnlyList<TextRange> SelectionRanges => _editor.SelectionRanges;
     public TextPosition Caret => _editor.Caret;
     public float ZoomFactor => _zoomFactor;
     public DocumentZoomMode ZoomMode => _zoomMode;
     public Vector ScrollOffset => _scrollOffset;
     public Vector EffectiveScrollOffset => GetEffectiveScrollOffset();
+    public int CurrentPageIndex => ResolveCurrentPageIndex();
 
     public EquationInline? SelectedEquation => _selectedEquation;
     public bool IsHeaderFooterEditing => _headerFooterSession is not null;
@@ -6227,6 +6231,24 @@ public sealed class DocumentView : Control, ILogicalScrollable
     {
         var section = _editor.Document.GetSection(ResolveHeaderFooterSectionIndex());
         return section.Properties.DifferentFirstPageHeaderFooter == true;
+    }
+
+    private int ResolveCurrentPageIndex()
+    {
+        var layout = _editor.Layout;
+        if (layout.Pages.Count == 0 || layout.Lines.Count == 0)
+        {
+            return 0;
+        }
+
+        var lineIndex = EditorSelectionService.FindLineIndexForPosition(layout, _editor.Caret, out _);
+        var pageIndex = layout.LineIndex.GetPageForLine(lineIndex);
+        if (pageIndex < 0)
+        {
+            return 0;
+        }
+
+        return Math.Min(pageIndex, layout.Pages.Count - 1);
     }
 
     private int ResolveHeaderFooterPageIndexForVariant(int sectionIndex, HeaderFooterVariant variant)

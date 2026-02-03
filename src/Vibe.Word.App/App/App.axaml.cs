@@ -2,6 +2,8 @@ using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Markup.Xaml.Styling;
+using ReactiveUI;
+using ReactiveUI.Avalonia;
 using System.IO;
 namespace Vibe.Word.App;
 
@@ -9,6 +11,7 @@ public partial class App : Application
 {
     public override void Initialize()
     {
+        RxApp.MainThreadScheduler = AvaloniaScheduler.Instance;
         AvaloniaXamlLoader.Load(this);
         Resources.MergedDictionaries.Add(new ResourceInclude(new Uri("avares://Vibe.Word.Avalonia/"))
         {
