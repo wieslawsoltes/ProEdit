@@ -48,12 +48,18 @@ public sealed class RibbonSizeConverter : IValueConverter
                 RibbonControlSize.Medium => GetResource("RibbonButtonMediumPadding", new Thickness(8, 4)),
                 _ => GetResource("RibbonButtonSmallPadding", new Thickness(6, 2))
             },
+            "SegmentedPadding" => size == RibbonControlSize.Small
+                ? GetResource("RibbonSegmentedCompactPadding", new Thickness(4, 2))
+                : GetResource("RibbonSegmentedPadding", new Thickness(6, 2)),
             "MinWidth" => size switch
             {
                 RibbonControlSize.Large => GetResource("RibbonButtonLargeMinWidth", 88d),
                 RibbonControlSize.Medium => GetResource("RibbonButtonMediumMinWidth", 76d),
                 _ => GetResource("RibbonButtonSmallMinWidth", 64d)
             },
+            "SegmentedMinWidth" => size == RibbonControlSize.Small
+                ? GetResource("RibbonSegmentedCompactMinWidth", 26d)
+                : GetResource("RibbonSegmentedMinWidth", 32d),
             "MinHeight" => size switch
             {
                 RibbonControlSize.Large => GetResource("RibbonButtonLargeMinHeight", 80d),
@@ -78,13 +84,23 @@ public sealed class RibbonSizeConverter : IValueConverter
                 : TextWrapping.NoWrap,
             "TextTrimming" => size == RibbonControlSize.Large
                 ? TextTrimming.None
-                : TextTrimming.None,
+                : TextTrimming.CharacterEllipsis,
+            "TextMaxWidth" => size switch
+            {
+                RibbonControlSize.Large => double.PositiveInfinity,
+                RibbonControlSize.Medium => GetResource("RibbonButtonMediumLabelMaxWidth", 90d),
+                _ => GetResource("RibbonButtonSmallLabelMaxWidth", 64d)
+            },
             "HorizontalAlignment" => size == RibbonControlSize.Large
                 ? HorizontalAlignment.Center
-                : HorizontalAlignment.Left,
+                : size == RibbonControlSize.Small
+                    ? HorizontalAlignment.Center
+                    : HorizontalAlignment.Left,
             "IconRow" => size == RibbonControlSize.Large ? 0 : 0,
             "IconColumn" => size == RibbonControlSize.Large ? 0 : 0,
-            "IconColumnSpan" => size == RibbonControlSize.Large ? 2 : 1,
+            "IconColumnSpan" => size == RibbonControlSize.Large
+                ? 2
+                : 1,
             "TextRow" => size == RibbonControlSize.Large ? 1 : 0,
             "TextColumn" => size == RibbonControlSize.Large ? 0 : 1,
             "TextColumnSpan" => size == RibbonControlSize.Large ? 2 : 1,

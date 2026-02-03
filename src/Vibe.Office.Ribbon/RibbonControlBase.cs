@@ -14,7 +14,9 @@ public abstract class RibbonControlBase : RibbonStateNode, IRibbonControl
         bool isVisible = true,
         Func<bool>? isEnabledEvaluator = null,
         Func<bool>? isVisibleEvaluator = null,
-        string? toolTipDescription = null)
+        string? toolTipDescription = null,
+        string? compactLabel = null,
+        RibbonLabelMode labelMode = RibbonLabelMode.Auto)
         : base(isEnabled, isVisible, isEnabledEvaluator, isVisibleEvaluator)
     {
         Id = id ?? throw new ArgumentNullException(nameof(id));
@@ -23,6 +25,8 @@ public abstract class RibbonControlBase : RibbonStateNode, IRibbonControl
         IconKey = iconKey;
         Size = size;
         _layoutSize = size;
+        CompactLabel = string.IsNullOrWhiteSpace(compactLabel) ? null : compactLabel;
+        LabelMode = labelMode;
         ToolTipDescription = NormalizeToolTipDescription(toolTipDescription);
         ToolTipShortcut = BuildToolTipShortcut(keyTip);
         ToolTip = ToolTipDescription ?? Label;
@@ -33,6 +37,8 @@ public abstract class RibbonControlBase : RibbonStateNode, IRibbonControl
     public string? KeyTip { get; }
     public string? IconKey { get; }
     public RibbonControlSize Size { get; }
+    public string? CompactLabel { get; }
+    public RibbonLabelMode LabelMode { get; }
     public string ToolTip { get; }
     public string? ToolTipDescription { get; }
     public string? ToolTipShortcut { get; }

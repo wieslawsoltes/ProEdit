@@ -21,7 +21,9 @@ public sealed class RibbonColorButton : RibbonControlBase
         Func<bool>? canExecute = null,
         Func<bool>? isVisibleEvaluator = null,
         RibbonControlSize size = RibbonControlSize.Medium,
-        string? toolTipDescription = null)
+        string? toolTipDescription = null,
+        string? compactLabel = null,
+        RibbonLabelMode labelMode = RibbonLabelMode.Auto)
         : base(
             id,
             label,
@@ -32,7 +34,9 @@ public sealed class RibbonColorButton : RibbonControlBase
             isVisible,
             canExecute ?? (command is null ? null : () => command.CanExecute()),
             isVisibleEvaluator,
-            toolTipDescription)
+            toolTipDescription,
+            compactLabel,
+            labelMode)
     {
         Palette = palette ?? throw new ArgumentNullException(nameof(palette));
         _selectedColorEvaluator = selectedColorEvaluator;

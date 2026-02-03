@@ -19,7 +19,9 @@ public sealed class RibbonToggleButton : RibbonControlBase
         Func<bool>? canExecute = null,
         Func<bool>? isVisibleEvaluator = null,
         RibbonControlSize size = RibbonControlSize.Medium,
-        string? toolTipDescription = null)
+        string? toolTipDescription = null,
+        string? compactLabel = null,
+        RibbonLabelMode labelMode = RibbonLabelMode.Auto)
         : base(
             id,
             label,
@@ -30,7 +32,9 @@ public sealed class RibbonToggleButton : RibbonControlBase
             isVisible,
             canExecute ?? (command is null ? null : () => command.CanExecute()),
             isVisibleEvaluator,
-            toolTipDescription)
+            toolTipDescription,
+            compactLabel,
+            labelMode)
     {
         _isCheckedEvaluator = isCheckedEvaluator;
         _toggleHandler = toggleHandler;

@@ -235,6 +235,23 @@ public partial class RibbonControl : UserControl
         RefreshState();
     }
 
+    private async void OnRibbonTextBoxKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key is not (Key.Enter or Key.Return))
+        {
+            return;
+        }
+
+        if (sender is not TextBox { DataContext: RibbonTextBox textBox })
+        {
+            return;
+        }
+
+        await textBox.SubmitAsync();
+        RefreshState();
+        e.Handled = true;
+    }
+
     private async void OnRibbonSpinnerLostFocus(object? sender, RoutedEventArgs e)
     {
         if (sender is not TextBox { DataContext: RibbonSpinner spinner } textBox)

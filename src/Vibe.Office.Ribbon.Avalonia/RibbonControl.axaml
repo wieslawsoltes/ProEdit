@@ -22,6 +22,9 @@
     <local:RibbonParagraphSpacingConverter x:Key="RibbonParagraphSpacingConverter" />
     <local:RibbonLineHeightConverter x:Key="RibbonLineHeightConverter" />
     <local:RibbonContextualAccentConverter x:Key="RibbonContextualAccentConverter" />
+    <local:RibbonLabelVisibilityConverter x:Key="RibbonLabelVisibilityConverter" />
+    <local:RibbonLabelTextConverter x:Key="RibbonLabelTextConverter" />
+    <local:RibbonStringNotEmptyConverter x:Key="RibbonStringNotEmptyConverter" />
 
     <DataTemplate x:Key="RibbonGroupHeaderTemplate">
       <TextBlock Classes="ribbon-group-header"
@@ -117,15 +120,70 @@
                    Grid.Row="{Binding LayoutSize, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=IconRow}"
                    Grid.Column="{Binding LayoutSize, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=IconColumn}"
                    Grid.ColumnSpan="{Binding LayoutSize, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=IconColumnSpan}" />
-        <TextBlock Text="{Binding Label}"
+        <TextBlock Text="{Binding ., Converter={StaticResource RibbonLabelTextConverter}}"
                    TextWrapping="{Binding LayoutSize, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=TextWrapping}"
                    TextTrimming="{Binding LayoutSize, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=TextTrimming}"
+                   MaxWidth="{Binding LayoutSize, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=TextMaxWidth}"
                    TextAlignment="{Binding LayoutSize, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=TextAlignment}"
                    HorizontalAlignment="{Binding LayoutSize, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=HorizontalAlignment}"
                    VerticalAlignment="Center"
                    Grid.Row="{Binding LayoutSize, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=TextRow}"
                    Grid.Column="{Binding LayoutSize, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=TextColumn}"
-                   Grid.ColumnSpan="{Binding LayoutSize, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=TextColumnSpan}" />
+                   Grid.ColumnSpan="{Binding LayoutSize, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=TextColumnSpan}"
+                   IsVisible="{Binding ., Converter={StaticResource RibbonLabelVisibilityConverter}}" />
+      </Grid>
+    </DataTemplate>
+
+    <DataTemplate x:Key="RibbonDropdownButtonContentTemplate">
+      <Grid RowDefinitions="Auto,Auto"
+            ColumnDefinitions="Auto,*"
+            RowSpacing="{Binding LayoutSize, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=RowSpacing}"
+            ColumnSpacing="{Binding LayoutSize, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=ColumnSpacing}"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Center">
+        <TextBlock Text="{Binding IconKey, Converter={StaticResource RibbonIconConverter}}"
+                   FontFamily="Segoe UI Emoji, Apple Color Emoji, Noto Color Emoji"
+                   FontSize="{Binding LayoutSize, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=IconFontSize}"
+                   IsVisible="{Binding IconKey, Converter={StaticResource RibbonIconConverter}, ConverterParameter=HasValue}"
+                   HorizontalAlignment="Left"
+                   VerticalAlignment="Center"
+                   Grid.Row="{Binding LayoutSize, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=IconRow}"
+                   Grid.Column="{Binding LayoutSize, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=IconColumn}"
+                   Grid.ColumnSpan="{Binding LayoutSize, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=IconColumnSpan}" />
+        <TextBlock Text="{Binding ., Converter={StaticResource RibbonLabelTextConverter}}"
+                   TextWrapping="{Binding LayoutSize, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=TextWrapping}"
+                   TextTrimming="{Binding LayoutSize, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=TextTrimming}"
+                   MaxWidth="{Binding LayoutSize, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=TextMaxWidth}"
+                   TextAlignment="Left"
+                   HorizontalAlignment="Left"
+                   VerticalAlignment="Center"
+                   Grid.Row="{Binding LayoutSize, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=TextRow}"
+                   Grid.Column="{Binding LayoutSize, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=TextColumn}"
+                   Grid.ColumnSpan="{Binding LayoutSize, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=TextColumnSpan}"
+                   IsVisible="{Binding ., Converter={StaticResource RibbonLabelVisibilityConverter}}" />
+      </Grid>
+    </DataTemplate>
+
+    <DataTemplate x:Key="RibbonToggleGroupItemContentTemplate">
+      <Grid ColumnDefinitions="Auto,*"
+            ColumnSpacing="{DynamicResource RibbonSegmentedItemSpacing}"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center">
+        <TextBlock Text="{Binding IconKey, Converter={StaticResource RibbonIconConverter}}"
+                   FontFamily="Segoe UI Emoji, Apple Color Emoji, Noto Color Emoji"
+                   FontSize="{Binding LayoutSize, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=IconFontSize}"
+                   IsVisible="{Binding IconKey, Converter={StaticResource RibbonIconConverter}, ConverterParameter=HasValue}"
+                   Grid.Column="0"
+                   VerticalAlignment="Center" />
+        <TextBlock Text="{Binding ., Converter={StaticResource RibbonLabelTextConverter}}"
+                   FontSize="{DynamicResource RibbonSegmentedLabelFontSize}"
+                   MaxWidth="{DynamicResource RibbonSegmentedLabelMaxWidth}"
+                   TextTrimming="CharacterEllipsis"
+                   TextWrapping="NoWrap"
+                   TextAlignment="Left"
+                   Grid.Column="1"
+                   VerticalAlignment="Center"
+                   IsVisible="{Binding ., Converter={StaticResource RibbonLabelVisibilityConverter}}" />
       </Grid>
     </DataTemplate>
 
@@ -135,13 +193,22 @@
             HorizontalAlignment="Stretch">
         <Border ClipToBounds="True">
           <ContentPresenter Content="{Binding}"
-                            ContentTemplate="{StaticResource RibbonButtonContentTemplate}" />
+                            ContentTemplate="{StaticResource RibbonDropdownButtonContentTemplate}" />
         </Border>
-        <TextBlock Text="{DynamicResource RibbonIcon.Dropdown}"
+        <TextBlock Grid.Column="1"
+                   Text="{DynamicResource RibbonIcon.Dropdown}"
                    FontFamily="Segoe UI Emoji, Apple Color Emoji, Noto Color Emoji"
                    FontSize="11"
                    VerticalAlignment="Center" />
       </Grid>
+    </DataTemplate>
+
+    <DataTemplate x:Key="RibbonIconOnlyTemplate">
+      <TextBlock Text="{Binding IconKey, Converter={StaticResource RibbonIconConverter}}"
+                 FontFamily="Segoe UI Emoji, Apple Color Emoji, Noto Color Emoji"
+                 FontSize="{Binding LayoutSize, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=IconFontSize}"
+                 HorizontalAlignment="Center"
+                 VerticalAlignment="Center" />
     </DataTemplate>
 
     <DataTemplate x:Key="RibbonColorButtonContentTemplate">
@@ -237,14 +304,14 @@
                       Background="{DynamicResource RibbonTabStripBrush}"
                       BorderBrush="{DynamicResource RibbonTabStripBorderBrush}"
                       BorderThickness="0,0,0,1"
-                      Padding="8,4,8,3">
+                      Padding="6,3,6,2">
                 <ItemsPresenter Name="PART_ItemsPresenter"
                                 ItemsPanel="{TemplateBinding ItemsPanel}" />
               </Border>
               <Border Background="{DynamicResource RibbonContentBrush}"
                       BorderBrush="{DynamicResource RibbonBorderBrush}"
                       BorderThickness="1"
-                      Padding="8,3,8,5"
+                      Padding="6,2,6,4"
                       MinHeight="100"
                       CornerRadius="0,0,6,6"
                       ClipToBounds="True">
@@ -335,7 +402,8 @@
                   Background="{TemplateBinding Background}"
                   BorderBrush="{TemplateBinding BorderBrush}"
                   BorderThickness="{TemplateBinding BorderThickness}"
-                  CornerRadius="{TemplateBinding CornerRadius}">
+                  CornerRadius="{TemplateBinding CornerRadius}"
+                  ClipToBounds="True">
             <Border.Transitions>
               <Transitions>
                 <BrushTransition Property="Background" Duration="0:0:0.08" />
@@ -387,7 +455,8 @@
                   Background="{TemplateBinding Background}"
                   BorderBrush="{TemplateBinding BorderBrush}"
                   BorderThickness="{TemplateBinding BorderThickness}"
-                  CornerRadius="{TemplateBinding CornerRadius}">
+                  CornerRadius="{TemplateBinding CornerRadius}"
+                  ClipToBounds="True">
             <Border.Transitions>
               <Transitions>
                 <BrushTransition Property="Background" Duration="0:0:0.08" />
@@ -588,6 +657,61 @@
   </UserControl.Resources>
 
   <UserControl.Styles>
+    <Style Selector="Border.ribbon-topbar">
+      <Setter Property="Background" Value="{DynamicResource RibbonTopBarBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource RibbonTopBarBorderBrush}" />
+      <Setter Property="BorderThickness" Value="0,0,0,1" />
+      <Setter Property="Padding" Value="{DynamicResource RibbonTopBarPadding}" />
+      <Setter Property="MinHeight" Value="{DynamicResource RibbonTopBarMinHeight}" />
+    </Style>
+    <Style Selector="Border.ribbon-app-badge">
+      <Setter Property="Background" Value="{DynamicResource RibbonTopBarBadgeBrush}" />
+      <Setter Property="CornerRadius" Value="{DynamicResource RibbonTopBarBadgeCornerRadius}" />
+      <Setter Property="Padding" Value="6,2" />
+      <Setter Property="MinWidth" Value="20" />
+      <Setter Property="HorizontalAlignment" Value="Center" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="TextBlock.ribbon-app-badge-text">
+      <Setter Property="Foreground" Value="{DynamicResource RibbonTopBarBadgeForegroundBrush}" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="FontSize" Value="11" />
+    </Style>
+    <Style Selector="TextBlock.ribbon-doc-title">
+      <Setter Property="FontSize" Value="{DynamicResource RibbonTopBarTitleFontSize}" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{DynamicResource RibbonTopBarTitleBrush}" />
+      <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+      <Setter Property="MaxWidth" Value="240" />
+    </Style>
+    <Style Selector="TextBlock.ribbon-app-name">
+      <Setter Property="FontSize" Value="{DynamicResource RibbonTopBarAppNameFontSize}" />
+      <Setter Property="Foreground" Value="{DynamicResource RibbonTopBarAppNameBrush}" />
+    </Style>
+    <Style Selector="Border.ribbon-status-pill">
+      <Setter Property="Background" Value="{DynamicResource RibbonTopBarPillBackgroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource RibbonTopBarPillBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="{DynamicResource RibbonTopBarPillCornerRadius}" />
+      <Setter Property="Padding" Value="6,2" />
+    </Style>
+    <Style Selector="TextBlock.ribbon-status-text">
+      <Setter Property="FontSize" Value="{DynamicResource RibbonTopBarStatusFontSize}" />
+      <Setter Property="Foreground" Value="{DynamicResource RibbonTopBarStatusBrush}" />
+    </Style>
+    <Style Selector="Border.ribbon-profile-pill">
+      <Setter Property="Background" Value="{DynamicResource RibbonTopBarProfileBrush}" />
+      <Setter Property="CornerRadius" Value="{DynamicResource RibbonTopBarPillCornerRadius}" />
+      <Setter Property="Padding" Value="6,2" />
+      <Setter Property="MinWidth" Value="28" />
+      <Setter Property="HorizontalAlignment" Value="Center" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="TextBlock.ribbon-profile-text">
+      <Setter Property="FontSize" Value="{DynamicResource RibbonTopBarProfileFontSize}" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{DynamicResource RibbonTopBarProfileForegroundBrush}" />
+    </Style>
     <Style Selector="Border.ribbon-qat">
       <Setter Property="Background" Value="{DynamicResource RibbonQatBackgroundBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource RibbonQatBorderBrush}" />
@@ -613,7 +737,7 @@
 
     <Style Selector="local|RibbonGroupContainer">
       <Setter Property="Theme" Value="{StaticResource RibbonGroupContainerTheme}" />
-      <Setter Property="Margin" Value="0,2,0,2" />
+      <Setter Property="Margin" Value="0,1,0,1" />
     </Style>
     <Style Selector="local|RibbonGroupContainer[Tag=Medium]">
       <Setter Property="MinWidth" Value="{DynamicResource RibbonGroupMinWidthMedium}" />
@@ -704,6 +828,24 @@
       <Setter Property="VerticalContentAlignment" Value="Center" />
       <Setter Property="FontSize" Value="{DynamicResource RibbonComboFontSize}" />
     </Style>
+    <Style Selector="Border.ribbon-textbox">
+      <Setter Property="Background" Value="{DynamicResource RibbonContentBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource RibbonGroupBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="{DynamicResource RibbonTextBoxCornerRadius}" />
+      <Setter Property="MinHeight" Value="{DynamicResource RibbonTextBoxMinHeight}" />
+      <Setter Property="Padding" Value="0" />
+    </Style>
+    <Style Selector="Border.ribbon-textbox:focus-within">
+      <Setter Property="BorderBrush" Value="{DynamicResource RibbonFocusBorderBrush}" />
+    </Style>
+    <Style Selector="TextBox.ribbon-textbox">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="{DynamicResource RibbonTextBoxPadding}" />
+      <Setter Property="FontSize" Value="{DynamicResource RibbonTextBoxFontSize}" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
     <Style Selector="Border.ribbon-gallery">
       <Setter Property="Background" Value="{DynamicResource RibbonContentBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource RibbonGroupBorderBrush}" />
@@ -784,6 +926,29 @@
       <Setter Property="FontSize" Value="{DynamicResource RibbonSpinnerArrowFontSize}" />
       <Setter Property="HorizontalContentAlignment" Value="Center" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Border.ribbon-segmented">
+      <Setter Property="Background" Value="{DynamicResource RibbonContentBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource RibbonGroupBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="{DynamicResource RibbonSegmentedCornerRadius}" />
+      <Setter Property="Padding" Value="0" />
+    </Style>
+    <Style Selector="Border.ribbon-segmented-item">
+      <Setter Property="BorderBrush" Value="{DynamicResource RibbonGroupBorderBrush}" />
+      <Setter Property="BorderThickness" Value="0,0,1,0" />
+    </Style>
+    <Style Selector="Border.ribbon-segmented-item:last-child">
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="ToggleButton.ribbon-segmented">
+      <Setter Property="Theme" Value="{StaticResource RibbonToggleButtonTheme}" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="CornerRadius" Value="0" />
+      <Setter Property="Padding" Value="{DynamicResource RibbonSegmentedPadding}" />
+      <Setter Property="MinWidth" Value="32" />
+      <Setter Property="MinHeight" Value="{DynamicResource RibbonGroupRowHeight}" />
     </Style>
 
     <Style Selector="Button.ribbon-button">
@@ -971,7 +1136,8 @@
               IsVisible="{Binding IsVisible}"
               MinWidth="{Binding LayoutSize, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=MinWidth}"
               MinHeight="{Binding LayoutSize, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=MinHeight}"
-              ContextRequested="OnRibbonControlContextRequested">
+              ContextRequested="OnRibbonControlContextRequested"
+              ToolTip.Tip="{Binding ToolTipContent}">
         <ComboBox Classes="ribbon-combo ribbon-control"
                   ItemsSource="{Binding Items}"
                   SelectedItem="{Binding SelectedItem, Mode=OneWay}"
@@ -994,7 +1160,8 @@
               IsVisible="{Binding IsVisible}"
               MinWidth="{Binding LayoutSize, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=MinWidth}"
               MinHeight="{Binding LayoutSize, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=MinHeight}"
-              ContextRequested="OnRibbonControlContextRequested">
+              ContextRequested="OnRibbonControlContextRequested"
+              ToolTip.Tip="{Binding ToolTipContent}">
         <Grid ColumnDefinitions="*,Auto">
           <TextBox Classes="ribbon-spinner ribbon-control"
                    Text="{Binding Value, Mode=OneWay}"
@@ -1013,13 +1180,79 @@
         </Grid>
       </Border>
     </DataTemplate>
+    <DataTemplate DataType="ribbon:RibbonTextBox">
+      <Border Classes="ribbon-textbox"
+              local:RibbonGroupPanel.ItemSize="{Binding LayoutSize}"
+              IsEnabled="{Binding IsEnabled}"
+              IsVisible="{Binding IsVisible}"
+              MinWidth="{DynamicResource RibbonTextBoxMinWidth}"
+              MinHeight="{DynamicResource RibbonTextBoxMinHeight}"
+              ContextRequested="OnRibbonControlContextRequested"
+              ToolTip.Tip="{Binding ToolTipContent}">
+        <Grid ColumnDefinitions="Auto,*"
+              VerticalAlignment="Center">
+          <TextBlock Text="{Binding IconKey, Converter={StaticResource RibbonIconConverter}}"
+                     FontFamily="Segoe UI Emoji, Apple Color Emoji, Noto Color Emoji"
+                     FontSize="14"
+                     VerticalAlignment="Center"
+                     Margin="6,0,4,0"
+                     IsVisible="{Binding IconKey, Converter={StaticResource RibbonIconConverter}, ConverterParameter=HasValue}" />
+          <TextBox Classes="ribbon-textbox ribbon-control"
+                   Grid.Column="1"
+                   Text="{Binding Text, Mode=TwoWay}"
+                   Watermark="{Binding Placeholder}"
+                   IsReadOnly="{Binding IsEditable, Converter={StaticResource RibbonBooleanNegateConverter}}"
+                   KeyDown="OnRibbonTextBoxKeyDown"
+                   ContextRequested="OnRibbonControlContextRequested" />
+        </Grid>
+      </Border>
+    </DataTemplate>
+    <DataTemplate DataType="ribbon:RibbonToggleGroup">
+      <Border Classes="ribbon-segmented"
+              local:RibbonGroupPanel.ItemSize="{Binding LayoutSize}"
+              IsEnabled="{Binding IsEnabled}"
+              IsVisible="{Binding IsVisible}"
+              MinWidth="{Binding LayoutSize, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=MinWidth}"
+              MinHeight="{Binding LayoutSize, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=MinHeight}"
+              ToolTip.Tip="{Binding ToolTipContent}">
+        <ItemsControl ItemsSource="{Binding Items}"
+                      Classes="ribbon-segmented-items">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <UniformGrid Columns="{Binding Columns}" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <Border Classes="ribbon-segmented-item">
+                <ToggleButton Classes="ribbon-button ribbon-segmented ribbon-control"
+                              Content="{Binding}"
+                              ContentTemplate="{StaticResource RibbonToggleGroupItemContentTemplate}"
+                              IsChecked="{Binding IsChecked}"
+                              IsEnabled="{Binding IsEnabled}"
+                              IsVisible="{Binding IsVisible}"
+                              Padding="{Binding LayoutSize, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=SegmentedPadding}"
+                              MinWidth="{Binding LayoutSize, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=SegmentedMinWidth}"
+                              MinHeight="{Binding LayoutSize, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=MinHeight}"
+                              FontSize="{Binding LayoutSize, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=FontSize}"
+                              HorizontalContentAlignment="Center"
+                              VerticalContentAlignment="Center"
+                              Click="OnRibbonToggleClick"
+                              ContextRequested="OnRibbonControlContextRequested" />
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </Border>
+    </DataTemplate>
     <DataTemplate DataType="ribbon:RibbonGallery">
       <Grid ColumnDefinitions="*,Auto"
             local:RibbonGroupPanel.ItemSize="{Binding LayoutSize}"
             IsEnabled="{Binding IsEnabled}"
             IsVisible="{Binding IsVisible}"
             MinWidth="{Binding LayoutSize, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=MinWidth}"
-            MinHeight="{Binding LayoutSize, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=MinHeight}">
+            MinHeight="{Binding LayoutSize, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=MinHeight}"
+            ToolTip.Tip="{Binding ToolTipContent}">
         <Border Classes="ribbon-gallery"
                 Grid.Column="0"
                 ContextRequested="OnRibbonControlContextRequested">
@@ -1047,7 +1280,8 @@
                       Classes="ribbon-gallery-dropdown"
                       Grid.Column="1"
                       IsVisible="{Binding ShowDropDown}"
-                      IsEnabled="{Binding IsEnabled}">
+                      IsEnabled="{Binding IsEnabled}"
+                      ToolTip.Tip="{Binding ToolTipContent}">
           <TextBlock Text="{DynamicResource RibbonIcon.Dropdown}"
                      FontFamily="Segoe UI Emoji, Apple Color Emoji, Noto Color Emoji"
                      FontSize="12"
@@ -1135,19 +1369,75 @@
           Padding="6,0">
     <Grid>
       <DockPanel>
-      <Border Classes="ribbon-qat" DockPanel.Dock="Top">
-        <ItemsControl ItemsSource="{Binding QuickAccess}">
-          <ItemsControl.ItemsPanel>
-            <ItemsPanelTemplate>
-              <StackPanel Orientation="Horizontal" Spacing="4" />
-            </ItemsPanelTemplate>
-          </ItemsControl.ItemsPanel>
-            <ItemsControl.ItemTemplate>
-              <DataTemplate>
-                <ContentPresenter Content="{Binding Control}" />
-              </DataTemplate>
-            </ItemsControl.ItemTemplate>
-          </ItemsControl>
+        <Border Classes="ribbon-topbar" DockPanel.Dock="Top">
+          <Grid ColumnDefinitions="Auto,*,Auto"
+                VerticalAlignment="Center">
+            <StackPanel Orientation="Horizontal"
+                        Spacing="10"
+                        VerticalAlignment="Center">
+              <Border Classes="ribbon-qat">
+                <ItemsControl ItemsSource="{Binding QuickAccess}">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <StackPanel Orientation="Horizontal" Spacing="4" />
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <ContentPresenter Content="{Binding Control}" />
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </Border>
+              <StackPanel Orientation="Horizontal"
+                          Spacing="8"
+                          VerticalAlignment="Center"
+                          Classes="ribbon-title-block">
+                <Border Classes="ribbon-app-badge"
+                        IsVisible="{Binding TopBarAppBadge, Converter={StaticResource RibbonStringNotEmptyConverter}}">
+                  <TextBlock Text="{Binding TopBarAppBadge}"
+                             Classes="ribbon-app-badge-text" />
+                </Border>
+                <StackPanel Orientation="Vertical"
+                            Spacing="0"
+                            VerticalAlignment="Center">
+                  <TextBlock Text="{Binding TopBarTitle}"
+                             Classes="ribbon-doc-title" />
+                  <TextBlock Text="{Binding TopBarAppName}"
+                             Classes="ribbon-app-name"
+                             IsVisible="{Binding TopBarAppName, Converter={StaticResource RibbonStringNotEmptyConverter}}" />
+                </StackPanel>
+              </StackPanel>
+            </StackPanel>
+            <ContentPresenter Grid.Column="1"
+                              HorizontalAlignment="Center"
+                              VerticalAlignment="Center"
+                              Content="{Binding TopBarSearch}" />
+            <StackPanel Grid.Column="2"
+                        Orientation="Horizontal"
+                        Spacing="8"
+                        VerticalAlignment="Center">
+              <Border Classes="ribbon-status-pill"
+                      IsVisible="{Binding TopBarStatusText, Converter={StaticResource RibbonStringNotEmptyConverter}}">
+                <StackPanel Orientation="Horizontal"
+                            Spacing="4"
+                            VerticalAlignment="Center">
+                  <TextBlock Text="{Binding TopBarStatusIconKey, Converter={StaticResource RibbonIconConverter}}"
+                             FontFamily="Segoe UI Emoji, Apple Color Emoji, Noto Color Emoji"
+                             FontSize="12"
+                             VerticalAlignment="Center"
+                             IsVisible="{Binding TopBarStatusIconKey, Converter={StaticResource RibbonIconConverter}, ConverterParameter=HasValue}" />
+                  <TextBlock Text="{Binding TopBarStatusText}"
+                             Classes="ribbon-status-text" />
+                </StackPanel>
+              </Border>
+              <Border Classes="ribbon-profile-pill"
+                      IsVisible="{Binding TopBarProfileInitials, Converter={StaticResource RibbonStringNotEmptyConverter}}">
+                <TextBlock Text="{Binding TopBarProfileInitials}"
+                           Classes="ribbon-profile-text" />
+              </Border>
+            </StackPanel>
+          </Grid>
         </Border>
 
         <TabControl ItemsSource="{Binding Tabs}"

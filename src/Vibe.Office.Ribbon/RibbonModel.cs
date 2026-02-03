@@ -8,6 +8,13 @@ public sealed class RibbonModel : INotifyPropertyChanged
     private RibbonTab? _selectedTab;
     private RibbonTab? _lastNonContextualTab;
     private HashSet<string> _activeContextualSetIds = new(StringComparer.OrdinalIgnoreCase);
+    private IRibbonControl? _topBarSearch;
+    private string? _topBarAppName;
+    private string? _topBarAppBadge;
+    private string? _topBarTitle;
+    private string? _topBarStatusText;
+    private string? _topBarStatusIconKey;
+    private string? _topBarProfileInitials;
 
     public RibbonModel(
         IEnumerable<RibbonTab> tabs,
@@ -25,6 +32,97 @@ public sealed class RibbonModel : INotifyPropertyChanged
     public ObservableCollection<RibbonTab> Tabs { get; }
     public ObservableCollection<RibbonQuickAccessItem> QuickAccess { get; }
     public ObservableCollection<RibbonContextualTabSet> ContextualSets { get; }
+
+    public IRibbonControl? TopBarSearch
+    {
+        get => _topBarSearch;
+        set
+        {
+            if (!ReferenceEquals(_topBarSearch, value))
+            {
+                _topBarSearch = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TopBarSearch)));
+            }
+        }
+    }
+
+    public string? TopBarAppName
+    {
+        get => _topBarAppName;
+        set
+        {
+            if (!string.Equals(_topBarAppName, value, StringComparison.Ordinal))
+            {
+                _topBarAppName = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TopBarAppName)));
+            }
+        }
+    }
+
+    public string? TopBarAppBadge
+    {
+        get => _topBarAppBadge;
+        set
+        {
+            if (!string.Equals(_topBarAppBadge, value, StringComparison.Ordinal))
+            {
+                _topBarAppBadge = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TopBarAppBadge)));
+            }
+        }
+    }
+
+    public string? TopBarTitle
+    {
+        get => _topBarTitle;
+        set
+        {
+            if (!string.Equals(_topBarTitle, value, StringComparison.Ordinal))
+            {
+                _topBarTitle = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TopBarTitle)));
+            }
+        }
+    }
+
+    public string? TopBarStatusText
+    {
+        get => _topBarStatusText;
+        set
+        {
+            if (!string.Equals(_topBarStatusText, value, StringComparison.Ordinal))
+            {
+                _topBarStatusText = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TopBarStatusText)));
+            }
+        }
+    }
+
+    public string? TopBarStatusIconKey
+    {
+        get => _topBarStatusIconKey;
+        set
+        {
+            if (!string.Equals(_topBarStatusIconKey, value, StringComparison.Ordinal))
+            {
+                _topBarStatusIconKey = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TopBarStatusIconKey)));
+            }
+        }
+    }
+
+    public string? TopBarProfileInitials
+    {
+        get => _topBarProfileInitials;
+        set
+        {
+            if (!string.Equals(_topBarProfileInitials, value, StringComparison.Ordinal))
+            {
+                _topBarProfileInitials = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TopBarProfileInitials)));
+            }
+        }
+    }
 
     public RibbonTab? SelectedTab
     {
@@ -111,6 +209,11 @@ public sealed class RibbonModel : INotifyPropertyChanged
             {
                 stateful.RefreshState();
             }
+        }
+
+        if (TopBarSearch is IRibbonStateful topBarStateful)
+        {
+            topBarStateful.RefreshState();
         }
 
         if (newlyActiveSet is not null)

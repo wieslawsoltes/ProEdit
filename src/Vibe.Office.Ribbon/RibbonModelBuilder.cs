@@ -8,6 +8,13 @@ public sealed class RibbonModelBuilder
     private readonly HashSet<string> _quickAccessIds = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<RibbonContextualTabSet> _contextualSets = new();
     private readonly HashSet<string> _contextualSetIds = new(StringComparer.OrdinalIgnoreCase);
+    private IRibbonControl? _topBarSearch;
+    private string? _topBarAppName;
+    private string? _topBarAppBadge;
+    private string? _topBarTitle;
+    private string? _topBarStatusText;
+    private string? _topBarStatusIconKey;
+    private string? _topBarProfileInitials;
 
     public RibbonTabBuilder AddTab(
         string id,
@@ -70,6 +77,37 @@ public sealed class RibbonModelBuilder
         _contextualSets.Add(contextualSet);
     }
 
+    public void SetTopBarSearch(IRibbonControl? control)
+    {
+        _topBarSearch = control;
+    }
+
+    public void SetTopBarAppName(string? name)
+    {
+        _topBarAppName = name;
+    }
+
+    public void SetTopBarAppBadge(string? badge)
+    {
+        _topBarAppBadge = badge;
+    }
+
+    public void SetTopBarTitle(string? title)
+    {
+        _topBarTitle = title;
+    }
+
+    public void SetTopBarStatus(string? statusText, string? statusIconKey = null)
+    {
+        _topBarStatusText = statusText;
+        _topBarStatusIconKey = statusIconKey;
+    }
+
+    public void SetTopBarProfileInitials(string? initials)
+    {
+        _topBarProfileInitials = initials;
+    }
+
     public void ApplyExtensions(IEnumerable<IRibbonExtension> extensions, RibbonExtensionContext context)
     {
         ArgumentNullException.ThrowIfNull(extensions);
@@ -97,7 +135,17 @@ public sealed class RibbonModelBuilder
             }
         }
 
-        return new RibbonModel(tabs, _quickAccess, contextualSets);
+        var model = new RibbonModel(tabs, _quickAccess, contextualSets)
+        {
+            TopBarSearch = _topBarSearch,
+            TopBarAppName = _topBarAppName,
+            TopBarAppBadge = _topBarAppBadge,
+            TopBarTitle = _topBarTitle,
+            TopBarStatusText = _topBarStatusText,
+            TopBarStatusIconKey = _topBarStatusIconKey,
+            TopBarProfileInitials = _topBarProfileInitials
+        };
+        return model;
     }
 }
 

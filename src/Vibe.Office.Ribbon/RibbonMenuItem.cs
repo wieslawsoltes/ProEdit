@@ -12,7 +12,9 @@ public sealed class RibbonMenuItem : RibbonControlBase, IRibbonMenuEntry
         Func<bool>? canExecute = null,
         Func<bool>? isVisibleEvaluator = null,
         RibbonControlSize size = RibbonControlSize.Medium,
-        string? toolTipDescription = null)
+        string? toolTipDescription = null,
+        string? compactLabel = null,
+        RibbonLabelMode labelMode = RibbonLabelMode.Auto)
         : base(
             id,
             label,
@@ -23,7 +25,9 @@ public sealed class RibbonMenuItem : RibbonControlBase, IRibbonMenuEntry
             isVisible,
             canExecute ?? (command is null ? null : () => command.CanExecute()),
             isVisibleEvaluator,
-            toolTipDescription)
+            toolTipDescription,
+            compactLabel,
+            labelMode)
     {
         Command = command;
     }

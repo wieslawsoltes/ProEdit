@@ -20,7 +20,9 @@ public sealed class RibbonSplitToggleButton : RibbonControlBase
         Func<bool>? canExecute = null,
         Func<bool>? isVisibleEvaluator = null,
         RibbonControlSize size = RibbonControlSize.Medium,
-        string? toolTipDescription = null)
+        string? toolTipDescription = null,
+        string? compactLabel = null,
+        RibbonLabelMode labelMode = RibbonLabelMode.Auto)
         : base(
             id,
             label,
@@ -31,7 +33,9 @@ public sealed class RibbonSplitToggleButton : RibbonControlBase
             isVisible,
             canExecute ?? (command is null ? null : () => command.CanExecute()),
             isVisibleEvaluator,
-            toolTipDescription)
+            toolTipDescription,
+            compactLabel,
+            labelMode)
     {
         Menu = menu ?? throw new ArgumentNullException(nameof(menu));
         _isCheckedEvaluator = isCheckedEvaluator;

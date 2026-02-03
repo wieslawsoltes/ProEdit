@@ -9,6 +9,8 @@ public interface IRibbonControl
     string ToolTip { get; }
     RibbonControlSize Size { get; }
     RibbonControlSize LayoutSize { get; }
+    RibbonLabelMode LabelMode { get; }
+    string? CompactLabel { get; }
     bool IsEnabled { get; }
     bool IsVisible { get; }
 }

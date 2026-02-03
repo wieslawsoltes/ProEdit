@@ -26,7 +26,9 @@ public sealed class RibbonGallery : RibbonControlBase
         double popupMaxHeight = 320,
         double popupItemMinWidth = 200,
         RibbonMenu? popupMenu = null,
-        string? toolTipDescription = null)
+        string? toolTipDescription = null,
+        string? compactLabel = null,
+        RibbonLabelMode labelMode = RibbonLabelMode.Auto)
         : base(
             id,
             label,
@@ -37,7 +39,9 @@ public sealed class RibbonGallery : RibbonControlBase
             isVisible,
             canExecute,
             isVisibleEvaluator,
-            toolTipDescription)
+            toolTipDescription,
+            compactLabel,
+            labelMode)
     {
         Items = items ?? throw new ArgumentNullException(nameof(items));
         _selectedItemEvaluator = selectedItemEvaluator;

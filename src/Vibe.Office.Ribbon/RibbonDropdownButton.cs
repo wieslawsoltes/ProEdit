@@ -13,7 +13,9 @@ public sealed class RibbonDropdownButton : RibbonControlBase
         Func<bool>? canExecute = null,
         Func<bool>? isVisibleEvaluator = null,
         RibbonControlSize size = RibbonControlSize.Medium,
-        string? toolTipDescription = null)
+        string? toolTipDescription = null,
+        string? compactLabel = null,
+        RibbonLabelMode labelMode = RibbonLabelMode.Auto)
         : base(
             id,
             label,
@@ -24,7 +26,9 @@ public sealed class RibbonDropdownButton : RibbonControlBase
             isVisible,
             canExecute,
             isVisibleEvaluator,
-            toolTipDescription)
+            toolTipDescription,
+            compactLabel,
+            labelMode)
     {
         Menu = menu ?? throw new ArgumentNullException(nameof(menu));
     }

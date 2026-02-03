@@ -27,7 +27,9 @@ public sealed class RibbonComboBox : RibbonControlBase
         Func<bool>? canExecute = null,
         Func<bool>? isVisibleEvaluator = null,
         RibbonControlSize size = RibbonControlSize.Medium,
-        string? toolTipDescription = null)
+        string? toolTipDescription = null,
+        string? compactLabel = null,
+        RibbonLabelMode labelMode = RibbonLabelMode.Auto)
         : base(
             id,
             label,
@@ -38,7 +40,9 @@ public sealed class RibbonComboBox : RibbonControlBase
             isVisible,
             canExecute,
             isVisibleEvaluator,
-            toolTipDescription)
+            toolTipDescription,
+            compactLabel,
+            labelMode)
     {
         Items = items ?? throw new ArgumentNullException(nameof(items));
         IsEditable = isEditable;

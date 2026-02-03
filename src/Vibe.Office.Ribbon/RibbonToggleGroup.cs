@@ -1,19 +1,22 @@
+using System;
+using System.Collections.Generic;
+
 namespace Vibe.Office.Ribbon;
 
-public sealed class RibbonSplitButton : RibbonControlBase
+public sealed class RibbonToggleGroup : RibbonControlBase
 {
-    public RibbonSplitButton(
+    public RibbonToggleGroup(
         string id,
         string label,
-        IRibbonCommand? primaryCommand,
-        RibbonMenu menu,
+        IReadOnlyList<RibbonToggleButton> items,
+        int columns = 1,
         string? keyTip = null,
         string? iconKey = null,
         bool isEnabled = true,
         bool isVisible = true,
         Func<bool>? canExecute = null,
         Func<bool>? isVisibleEvaluator = null,
-        RibbonControlSize size = RibbonControlSize.Medium,
+        RibbonControlSize size = RibbonControlSize.Small,
         string? toolTipDescription = null,
         string? compactLabel = null,
         RibbonLabelMode labelMode = RibbonLabelMode.Auto)
@@ -25,35 +28,26 @@ public sealed class RibbonSplitButton : RibbonControlBase
             size,
             isEnabled,
             isVisible,
-            canExecute ?? (primaryCommand is null ? null : () => primaryCommand.CanExecute()),
+            canExecute,
             isVisibleEvaluator,
             toolTipDescription,
             compactLabel,
             labelMode)
     {
-        PrimaryCommand = primaryCommand;
-        Menu = menu ?? throw new ArgumentNullException(nameof(menu));
+        Items = items ?? throw new ArgumentNullException(nameof(items));
+        Columns = Math.Max(1, columns);
     }
 
-    public IRibbonCommand? PrimaryCommand { get; }
-    public RibbonMenu Menu { get; }
-
-    public ValueTask ExecutePrimaryAsync()
-    {
-        if (!IsEnabled || !IsVisible || PrimaryCommand is null)
-        {
-            return ValueTask.CompletedTask;
-        }
-
-        return PrimaryCommand.ExecuteAsync();
-    }
+    public IReadOnlyList<RibbonToggleButton> Items { get; }
+    public int Columns { get; }
 
     public override void RefreshState()
     {
         base.RefreshState();
-        foreach (var entry in Menu.Items)
+
+        foreach (var item in Items)
         {
-            if (entry is IRibbonStateful stateful)
+            if (item is IRibbonStateful stateful)
             {
                 stateful.RefreshState();
             }

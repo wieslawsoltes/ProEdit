@@ -19,7 +19,8 @@ public sealed class RibbonGroupOverflow : RibbonControlBase
             isEnabled: group.IsEnabled,
             isVisible: group.IsVisible,
             isEnabledEvaluator: () => group.IsEnabled,
-            isVisibleEvaluator: () => group.IsVisible)
+            isVisibleEvaluator: () => group.IsVisible,
+            labelMode: RibbonLabelMode.ForceVisible)
     {
         Group = group;
     }

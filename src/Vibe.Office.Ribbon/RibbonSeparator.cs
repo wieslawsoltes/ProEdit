@@ -6,7 +6,8 @@ public sealed class RibbonSeparator : RibbonControlBase
         string id,
         RibbonControlSize size = RibbonControlSize.Small,
         bool isVisible = true,
-        Func<bool>? isVisibleEvaluator = null)
+        Func<bool>? isVisibleEvaluator = null,
+        RibbonLabelMode labelMode = RibbonLabelMode.ForceHidden)
         : base(
             id,
             string.Empty,
@@ -16,7 +17,8 @@ public sealed class RibbonSeparator : RibbonControlBase
             isEnabled: false,
             isVisible: isVisible,
             isEnabledEvaluator: null,
-            isVisibleEvaluator: isVisibleEvaluator)
+            isVisibleEvaluator: isVisibleEvaluator,
+            labelMode: labelMode)
     {
     }
 }
