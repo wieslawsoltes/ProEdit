@@ -7,6 +7,11 @@
     <Project Path="src/Vibe.Office.Markdown/Vibe.Office.Markdown.csproj" />
     <Project Path="src/Vibe.Office.Macros/Vibe.Office.Macros.csproj" />
     <Project Path="src/Vibe.Office.OpenXml/Vibe.Office.OpenXml.csproj" />
+    <Project Path="src/Vibe.Office.Printing/Vibe.Office.Printing.csproj" />
+    <Project Path="src/Vibe.Office.Printing.Avalonia/Vibe.Office.Printing.Avalonia.csproj" />
+    <Project Path="src/Vibe.Office.Printing.Documents/Vibe.Office.Printing.Documents.csproj" />
+    <Project Path="src/Vibe.Office.Printing.Skia/Vibe.Office.Printing.Skia.csproj" />
+    <Project Path="src/Vibe.Office.Printing.System/Vibe.Office.Printing.System.csproj" />
     <Project Path="src/Vibe.Office.Primitives/Vibe.Office.Primitives.csproj" />
     <Project Path="src/Vibe.Office.Proofing.GrammarApi.Plugin/Vibe.Office.Proofing.GrammarApi.Plugin.csproj" />
     <Project Path="src/Vibe.Office.Ribbon.Avalonia/Vibe.Office.Ribbon.Avalonia.csproj" />
@@ -23,6 +28,8 @@
     <Project Path="tests/Vibe.Office.Html.Tests/Vibe.Office.Html.Tests.csproj" />
     <Project Path="tests/Vibe.Office.Markdown.Tests/Vibe.Office.Markdown.Tests.csproj" />
     <Project Path="tests/Vibe.Office.Layout.Tests/Vibe.Office.Layout.Tests.csproj" />
+    <Project Path="tests/Vibe.Office.Printing.Tests/Vibe.Office.Printing.Tests.csproj" />
+    <Project Path="tests/Vibe.Office.Ribbon.Tests/Vibe.Office.Ribbon.Tests.csproj" />
     <Project Path="tests/Vibe.Office.OpenXml.Tests/Vibe.Office.OpenXml.Tests.csproj" />
     <Project Path="tests/Vibe.Office.Vba.Runtime.Tests/Vibe.Office.Vba.Runtime.Tests.csproj" />
     <Project Path="tests/Vibe.Word.Editor.Tests/Vibe.Word.Editor.Tests.csproj" />
