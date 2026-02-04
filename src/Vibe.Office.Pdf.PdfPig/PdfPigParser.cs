@@ -183,6 +183,7 @@ public sealed class PdfPigParser : IPdfParser
         {
             if (path.IsClipping)
             {
+                pathIndex++;
                 continue;
             }
 
@@ -221,9 +222,33 @@ public sealed class PdfPigParser : IPdfParser
 
         var fillAlpha = 1d;
         var strokeAlpha = 1d;
+        var stack = new Stack<PdfGraphicsAlpha>();
         var pathIndex = 0;
         foreach (var op in page.Operations)
         {
+            if (op is Push)
+            {
+                stack.Push(new PdfGraphicsAlpha(fillAlpha, strokeAlpha));
+                continue;
+            }
+
+            if (op is Pop)
+            {
+                if (stack.Count > 0)
+                {
+                    var state = stack.Pop();
+                    fillAlpha = state.FillAlpha ?? 1d;
+                    strokeAlpha = state.StrokeAlpha ?? 1d;
+                }
+                else
+                {
+                    fillAlpha = 1d;
+                    strokeAlpha = 1d;
+                }
+
+                continue;
+            }
+
             if (op is SetGraphicsStateParametersFromDictionary setState)
             {
                 var name = setState.Name?.Data;
@@ -298,17 +323,26 @@ public sealed class PdfPigParser : IPdfParser
     {
         if (style.IsFilled)
         {
-            style.FillColor = ApplyOpacity(style.FillColor, opacity.FillAlpha);
+            style.FillColor = ApplyOpacity(style.FillColor, opacity.FillAlpha, out var fillAlpha);
+            if (fillAlpha.HasValue && fillAlpha.Value == 0)
+            {
+                style.IsFilled = false;
+            }
         }
 
         if (style.IsStroked)
         {
-            style.StrokeColor = ApplyOpacity(style.StrokeColor, opacity.StrokeAlpha);
+            style.StrokeColor = ApplyOpacity(style.StrokeColor, opacity.StrokeAlpha, out var strokeAlpha);
+            if (strokeAlpha.HasValue && strokeAlpha.Value == 0)
+            {
+                style.IsStroked = false;
+            }
         }
     }
 
-    private static PdfColor? ApplyOpacity(PdfColor? color, double? opacity)
+    private static PdfColor? ApplyOpacity(PdfColor? color, double? opacity, out byte? alpha)
     {
+        alpha = color?.A;
         if (color is null || opacity is null)
         {
             return color;
@@ -321,8 +355,9 @@ public sealed class PdfPigParser : IPdfParser
         }
 
         value = Math.Clamp(value, 0d, 1d);
-        var alpha = (byte)Math.Clamp((int)Math.Round(color.Value.A * value, MidpointRounding.AwayFromZero), 0, 255);
-        return new PdfColor(color.Value.R, color.Value.G, color.Value.B, alpha);
+        var computed = (byte)Math.Clamp((int)Math.Round(color.Value.A * value, MidpointRounding.AwayFromZero), 0, 255);
+        alpha = computed;
+        return new PdfColor(color.Value.R, color.Value.G, color.Value.B, computed);
     }
 
     private static bool IsDefaultOpacity(double value)
