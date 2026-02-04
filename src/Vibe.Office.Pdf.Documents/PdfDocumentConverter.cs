@@ -5241,7 +5241,7 @@ public static class PdfDocumentConverter
     {
         var localX = x - bounds.X;
         var localY = (bounds.Y + bounds.Height) - y;
-        return (localX, localY);
+        return (PdfUnits.PointsToDip(localX), PdfUnits.PointsToDip(localY));
     }
 
     private static void RegisterFonts(Document document, IReadOnlyList<PdfTextRun> runs, IReadOnlyList<PdfEmbeddedFont> embeddedFonts)
