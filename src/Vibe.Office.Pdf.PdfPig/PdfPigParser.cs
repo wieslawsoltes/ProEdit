@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Text;
 using UglyToad.PdfPig;
@@ -19,6 +20,8 @@ namespace Vibe.Office.Pdf.PdfPig;
 public sealed class PdfPigParser : IPdfParser
 {
     public string ProviderId => PdfProviderIds.PdfPig;
+    private static readonly uint[] CrcTable = BuildCrcTable();
+    private static readonly byte[] PngSignature = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
 
     public PdfDocumentAst Parse(Stream stream, PdfParserOptions? options = null)
     {
@@ -52,7 +55,7 @@ public sealed class PdfPigParser : IPdfParser
 
             ExtractTextGlyphs(page, pageAst, effectiveOptions);
             ExtractTextRuns(page, pageAst, effectiveOptions);
-            ExtractImages(page, pageAst);
+            ExtractImages(document, page, pageAst);
             ExtractPaths(page, pageAst, effectiveOptions);
             BuildContentOrder(page, pageAst);
 
@@ -146,12 +149,12 @@ public sealed class PdfPigParser : IPdfParser
         }
     }
 
-    private static void ExtractImages(Page page, PdfPageAst pageAst)
+    private static void ExtractImages(PdfDocument document, Page page, PdfPageAst pageAst)
     {
         foreach (var image in page.GetImages())
         {
             var rect = ToRect(image.Bounds);
-            if (!TryResolveImageData(image, out var bytes, out var mimeType))
+            if (!TryResolveImageData(document, image, out var bytes, out var mimeType))
             {
                 continue;
             }
@@ -578,9 +581,15 @@ public sealed class PdfPigParser : IPdfParser
         };
     }
 
-    private static bool TryResolveImageData(IPdfImage image, out byte[] bytes, out string? mimeType)
+    private static bool TryResolveImageData(PdfDocument document, IPdfImage image, out byte[] bytes, out string? mimeType)
     {
         mimeType = null;
+        if (TryResolveSoftMaskImage(document, image, out bytes))
+        {
+            mimeType = "image/png";
+            return true;
+        }
+
         if (image.TryGetPng(out var pngBytes))
         {
             bytes = pngBytes;
@@ -604,6 +613,458 @@ public sealed class PdfPigParser : IPdfParser
 
         bytes = Array.Empty<byte>();
         return false;
+    }
+
+    private static bool TryResolveSoftMaskImage(PdfDocument document, IPdfImage image, out byte[] pngBytes)
+    {
+        pngBytes = Array.Empty<byte>();
+        if (image.ImageDictionary is null)
+        {
+            return false;
+        }
+
+        if (!image.ImageDictionary.ContainsKey(NameToken.Create("SMask")))
+        {
+            return false;
+        }
+
+        if (!TryDecodeSoftMask(document, image, out var alpha, out var maskWidth, out var maskHeight))
+        {
+            return false;
+        }
+
+        if (!image.TryGetBytes(out var baseBytes))
+        {
+            return false;
+        }
+
+        var width = image.WidthInSamples;
+        var height = image.HeightInSamples;
+        if (width <= 0 || height <= 0 || width != maskWidth || height != maskHeight)
+        {
+            return false;
+        }
+
+        var pixelCount = width * height;
+        if (pixelCount <= 0)
+        {
+            return false;
+        }
+
+        var baseData = baseBytes.ToArray();
+        if (image.BitsPerComponent is > 0 and < 8)
+        {
+            baseData = UnpackComponents(baseData, image.BitsPerComponent);
+        }
+
+        var components = image.ColorSpaceDetails.NumberOfColorComponents;
+        if (components <= 0 && baseData.Length >= pixelCount)
+        {
+            components = baseData.Length / pixelCount;
+        }
+
+        if (components <= 0)
+        {
+            return false;
+        }
+
+        if (baseData.Length < pixelCount * components)
+        {
+            return false;
+        }
+
+        if (baseData.Length > pixelCount * components)
+        {
+            components = baseData.Length / pixelCount;
+            if (components <= 0)
+            {
+                return false;
+            }
+        }
+
+        var alphaData = NormalizeAlpha(alpha, pixelCount);
+        if (alphaData.Length != pixelCount)
+        {
+            return false;
+        }
+
+        var rgba = new byte[pixelCount * 4];
+        var dataIndex = 0;
+        var pixelIndex = 0;
+        var rgbaIndex = 0;
+        for (var y = 0; y < height; y++)
+        {
+            for (var x = 0; x < width; x++)
+            {
+                byte r;
+                byte g;
+                byte b;
+
+                if (components == 1)
+                {
+                    r = baseData[dataIndex];
+                    g = r;
+                    b = r;
+                }
+                else if (components >= 3)
+                {
+                    r = baseData[dataIndex];
+                    g = baseData[dataIndex + 1];
+                    b = baseData[dataIndex + 2];
+                }
+                else
+                {
+                    r = baseData[dataIndex];
+                    g = r;
+                    b = r;
+                }
+
+                if (components >= 4)
+                {
+                    var c = baseData[dataIndex] / 255.0;
+                    var m = baseData[dataIndex + 1] / 255.0;
+                    var yk = baseData[dataIndex + 2] / 255.0;
+                    var k = baseData[dataIndex + 3] / 255.0;
+                    r = (byte)Math.Clamp(Math.Round(255 * (1 - c) * (1 - k)), 0, 255);
+                    g = (byte)Math.Clamp(Math.Round(255 * (1 - m) * (1 - k)), 0, 255);
+                    b = (byte)Math.Clamp(Math.Round(255 * (1 - yk) * (1 - k)), 0, 255);
+                }
+
+                rgba[rgbaIndex++] = r;
+                rgba[rgbaIndex++] = g;
+                rgba[rgbaIndex++] = b;
+                rgba[rgbaIndex++] = alphaData[pixelIndex];
+
+                dataIndex += components;
+                pixelIndex++;
+            }
+        }
+
+        if (!TryEncodePng(width, height, rgba, out pngBytes))
+        {
+            return false;
+        }
+        return pngBytes.Length > 0;
+    }
+
+    private static bool TryDecodeSoftMask(
+        PdfDocument document,
+        IPdfImage image,
+        out byte[] alpha,
+        out int width,
+        out int height)
+    {
+        alpha = Array.Empty<byte>();
+        width = 0;
+        height = 0;
+
+        if (image.ImageDictionary is null)
+        {
+            return false;
+        }
+
+        if (!TryResolveStream(document, image.ImageDictionary, "SMask", out var stream))
+        {
+            return false;
+        }
+
+        if (!TryGetInt(document, stream.StreamDictionary, "Width", out width)
+            || !TryGetInt(document, stream.StreamDictionary, "Height", out height))
+        {
+            return false;
+        }
+
+        if (!TryDecodeStream(document, stream, out var maskBytes))
+        {
+            return false;
+        }
+
+        var bitsPerComponent = TryGetInt(document, stream.StreamDictionary, "BitsPerComponent", out var bits)
+            ? bits
+            : 8;
+
+        if (bitsPerComponent is > 0 and < 8)
+        {
+            maskBytes = UnpackComponents(maskBytes, bitsPerComponent);
+        }
+
+        if (TryGetDecode(document, stream.StreamDictionary, out var decode) && decode.Length >= 2 && decode[0] > decode[1])
+        {
+            for (var i = 0; i < maskBytes.Length; i++)
+            {
+                maskBytes[i] = (byte)(255 - maskBytes[i]);
+            }
+        }
+
+        alpha = maskBytes;
+        return true;
+    }
+
+    private static bool TryDecodeStream(PdfDocument document, StreamToken stream, out byte[] decoded)
+    {
+        decoded = Array.Empty<byte>();
+        var data = stream.Data?.ToArray();
+        if (data is null || data.Length == 0)
+        {
+            return false;
+        }
+
+        var filters = DefaultFilterProvider.Instance.GetFilters(stream.StreamDictionary);
+        foreach (var filter in filters)
+        {
+            if (!filter.IsSupported)
+            {
+                return false;
+            }
+
+            data = filter.Decode(data, stream.StreamDictionary, data.Length);
+        }
+
+        decoded = data;
+        return decoded.Length > 0;
+    }
+
+    private static bool TryGetInt(PdfDocument document, DictionaryToken dictionary, string key, out int value)
+    {
+        value = 0;
+        if (!dictionary.TryGet(NameToken.Create(key), out var token) || token is null)
+        {
+            return false;
+        }
+
+        var resolved = ResolveToken(document, token) ?? token;
+        return TryGetInt(resolved, out value);
+    }
+
+    private static bool TryGetInt(IToken token, out int value)
+    {
+        value = 0;
+        if (token is NumericToken number)
+        {
+            value = (int)Math.Round(number.Double);
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryGetDecode(PdfDocument document, DictionaryToken dictionary, out double[] decode)
+    {
+        decode = Array.Empty<double>();
+        if (!dictionary.TryGet(NameToken.Create("Decode"), out var token) || token is null)
+        {
+            return false;
+        }
+
+        var resolved = ResolveToken(document, token) ?? token;
+        if (resolved is not ArrayToken array || array.Data.Count == 0)
+        {
+            return false;
+        }
+
+        var values = new List<double>(array.Data.Count);
+        foreach (var item in array.Data)
+        {
+            if (item is NumericToken number)
+            {
+                values.Add(number.Double);
+            }
+        }
+
+        if (values.Count == 0)
+        {
+            return false;
+        }
+
+        decode = values.ToArray();
+        return true;
+    }
+
+    private static byte[] NormalizeAlpha(byte[] data, int pixelCount)
+    {
+        if (data.Length == pixelCount)
+        {
+            return data;
+        }
+
+        if (data.Length < pixelCount || pixelCount <= 0)
+        {
+            return Array.Empty<byte>();
+        }
+
+        var components = data.Length / pixelCount;
+        if (components <= 0)
+        {
+            return Array.Empty<byte>();
+        }
+
+        var result = new byte[pixelCount];
+        var sourceIndex = 0;
+        for (var i = 0; i < pixelCount; i++)
+        {
+            result[i] = data[sourceIndex];
+            sourceIndex += components;
+        }
+
+        return result;
+    }
+
+    private static bool TryEncodePng(int width, int height, byte[] rgba, out byte[] pngBytes)
+    {
+        pngBytes = Array.Empty<byte>();
+        if (width <= 0 || height <= 0 || rgba.Length != width * height * 4)
+        {
+            return false;
+        }
+
+        var stride = width * 4;
+        var scanlineLength = stride + 1;
+        var rawLength = scanlineLength * height;
+        var raw = new byte[rawLength];
+        var srcIndex = 0;
+        var destIndex = 0;
+        for (var y = 0; y < height; y++)
+        {
+            raw[destIndex++] = 0; // no filter
+            Buffer.BlockCopy(rgba, srcIndex, raw, destIndex, stride);
+            srcIndex += stride;
+            destIndex += stride;
+        }
+
+        byte[] compressed;
+        using (var compressedStream = new MemoryStream())
+        {
+            using (var zlib = new System.IO.Compression.ZLibStream(compressedStream, System.IO.Compression.CompressionLevel.SmallestSize, leaveOpen: true))
+            {
+                zlib.Write(raw, 0, raw.Length);
+            }
+
+            compressed = compressedStream.ToArray();
+        }
+
+        using var output = new MemoryStream();
+        output.Write(PngSignature, 0, PngSignature.Length);
+
+        Span<byte> ihdr = stackalloc byte[13];
+        WriteUInt32BigEndian(ihdr, 0, (uint)width);
+        WriteUInt32BigEndian(ihdr, 4, (uint)height);
+        ihdr[8] = 8; // bit depth
+        ihdr[9] = 6; // color type RGBA
+        ihdr[10] = 0; // compression
+        ihdr[11] = 0; // filter
+        ihdr[12] = 0; // interlace
+        WriteChunk(output, "IHDR", ihdr);
+        WriteChunk(output, "IDAT", compressed);
+        WriteChunk(output, "IEND", ReadOnlySpan<byte>.Empty);
+
+        pngBytes = output.ToArray();
+        return pngBytes.Length > 0;
+    }
+
+    private static void WriteChunk(Stream output, string type, ReadOnlySpan<byte> data)
+    {
+        Span<byte> lengthBytes = stackalloc byte[4];
+        WriteUInt32BigEndian(lengthBytes, 0, (uint)data.Length);
+        output.Write(lengthBytes);
+
+        Span<byte> typeBytes = stackalloc byte[4];
+        typeBytes[0] = (byte)type[0];
+        typeBytes[1] = (byte)type[1];
+        typeBytes[2] = (byte)type[2];
+        typeBytes[3] = (byte)type[3];
+        output.Write(typeBytes);
+
+        if (data.Length > 0)
+        {
+            output.Write(data);
+        }
+
+        var crc = ComputeCrc(typeBytes, data);
+        Span<byte> crcBytes = stackalloc byte[4];
+        WriteUInt32BigEndian(crcBytes, 0, crc);
+        output.Write(crcBytes);
+    }
+
+    private static void WriteUInt32BigEndian(Span<byte> buffer, int offset, uint value)
+    {
+        buffer[offset] = (byte)(value >> 24);
+        buffer[offset + 1] = (byte)(value >> 16);
+        buffer[offset + 2] = (byte)(value >> 8);
+        buffer[offset + 3] = (byte)value;
+    }
+
+    private static uint ComputeCrc(ReadOnlySpan<byte> typeBytes, ReadOnlySpan<byte> data)
+    {
+        var crc = 0xFFFFFFFFu;
+        for (var i = 0; i < typeBytes.Length; i++)
+        {
+            crc = CrcTable[(crc ^ typeBytes[i]) & 0xFF] ^ (crc >> 8);
+        }
+
+        for (var i = 0; i < data.Length; i++)
+        {
+            crc = CrcTable[(crc ^ data[i]) & 0xFF] ^ (crc >> 8);
+        }
+
+        return crc ^ 0xFFFFFFFFu;
+    }
+
+    private static uint[] BuildCrcTable()
+    {
+        var table = new uint[256];
+        for (uint i = 0; i < table.Length; i++)
+        {
+            var value = i;
+            for (var j = 0; j < 8; j++)
+            {
+                value = (value & 1) == 1 ? (value >> 1) ^ 0xEDB88320u : value >> 1;
+            }
+
+            table[i] = value;
+        }
+
+        return table;
+    }
+
+    private static byte[] UnpackComponents(byte[] data, int bitsPerComponent)
+    {
+        if (bitsPerComponent >= 8 || bitsPerComponent <= 0)
+        {
+            return data;
+        }
+
+        var mask = (1 << bitsPerComponent) - 1;
+        var totalBits = data.Length * 8;
+        var componentCount = totalBits / bitsPerComponent;
+        if (componentCount <= 0)
+        {
+            return Array.Empty<byte>();
+        }
+
+        var result = new byte[componentCount];
+        var outIndex = 0;
+        var buffer = 0;
+        var bitsInBuffer = 0;
+
+        foreach (var value in data)
+        {
+            buffer = (buffer << 8) | value;
+            bitsInBuffer += 8;
+            while (bitsInBuffer >= bitsPerComponent && outIndex < result.Length)
+            {
+                bitsInBuffer -= bitsPerComponent;
+                var component = (buffer >> bitsInBuffer) & mask;
+                result[outIndex++] = (byte)(component * 255 / mask);
+            }
+        }
+
+        if (outIndex == result.Length)
+        {
+            return result;
+        }
+
+        Array.Resize(ref result, outIndex);
+        return result;
     }
 
     private static string? DetectImageMimeType(ReadOnlySpan<byte> bytes)
