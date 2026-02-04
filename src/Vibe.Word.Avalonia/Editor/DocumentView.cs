@@ -163,6 +163,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
     private EditorSessionSnapshot? _shapeTextSnapshot;
     private bool _shapeTextDirty;
     private bool _isShapeTextSelecting;
+    private bool _isShapeTextLayoutUpdating;
     private bool _isTableResizing;
     private TableResizeHandle? _activeTableResizeHandle;
     private TableResizeHandle? _hoverTableResizeHandle;
@@ -6053,6 +6054,11 @@ public sealed class DocumentView : Control, ILogicalScrollable
             return;
         }
 
+        if (_isShapeTextLayoutUpdating && _shapeTextSession.Editor.LastChangeKind != EditorChangeKind.Content)
+        {
+            return;
+        }
+
         RefreshShapeTextMetrics();
         UpdateShapeTextRenderOptions();
 
@@ -6165,17 +6171,35 @@ public sealed class DocumentView : Control, ILogicalScrollable
             return;
         }
 
-        ApplyShapeTextLayoutSettings(_shapeTextSession.Editor.LayoutSettings, _editor.Layout.Settings, textBounds.Width, textBounds.Height);
-        _shapeTextSession.Editor.UpdateLayout(textBounds.Width, textBounds.Height);
-        if (ShapeTextLayoutHelper.TryComputeMetrics(_shapeTextSession.Editor.Layout, textBox, textBounds, out var metrics))
+        if (_isShapeTextLayoutUpdating)
         {
-            _shapeTextSession.Metrics = metrics;
+            return;
+        }
+
+        try
+        {
+            _isShapeTextLayoutUpdating = true;
+            ApplyShapeTextLayoutSettings(_shapeTextSession.Editor.LayoutSettings, _editor.Layout.Settings, textBounds.Width, textBounds.Height);
+            _shapeTextSession.Editor.UpdateLayout(textBounds.Width, textBounds.Height);
+            if (ShapeTextLayoutHelper.TryComputeMetrics(_shapeTextSession.Editor.Layout, textBox, textBounds, out var metrics))
+            {
+                _shapeTextSession.Metrics = metrics;
+            }
+        }
+        finally
+        {
+            _isShapeTextLayoutUpdating = false;
         }
     }
 
     private void RefreshShapeTextMetrics()
     {
         if (_shapeTextSession is null)
+        {
+            return;
+        }
+
+        if (_isShapeTextLayoutUpdating)
         {
             return;
         }
