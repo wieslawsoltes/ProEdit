@@ -4987,7 +4987,12 @@ public static class PdfDocumentConverter
                 continue;
             }
 
-            var bounds = path.Bounds;
+            if (!path.Style.IsFilled && !path.Style.IsStroked)
+            {
+                continue;
+            }
+
+            var bounds = ResolvePathBounds(path);
             var width = PdfUnits.PointsToDip(bounds.Width);
             var height = PdfUnits.PointsToDip(bounds.Height);
             if (width <= 0 || height <= 0)
@@ -5071,6 +5076,84 @@ public static class PdfDocumentConverter
         }
 
         return geometry;
+    }
+
+    private static PdfRect ResolvePathBounds(PdfPathObject path)
+    {
+        var minX = double.MaxValue;
+        var minY = double.MaxValue;
+        var maxX = double.MinValue;
+        var maxY = double.MinValue;
+
+        void Include(double x, double y)
+        {
+            if (x < minX)
+            {
+                minX = x;
+            }
+
+            if (x > maxX)
+            {
+                maxX = x;
+            }
+
+            if (y < minY)
+            {
+                minY = y;
+            }
+
+            if (y > maxY)
+            {
+                maxY = y;
+            }
+        }
+
+        foreach (var segment in path.Segments)
+        {
+            switch (segment.Kind)
+            {
+                case PdfPathSegmentKind.MoveTo:
+                case PdfPathSegmentKind.LineTo:
+                    Include(segment.X1, segment.Y1);
+                    break;
+                case PdfPathSegmentKind.CubicTo:
+                    Include(segment.X1, segment.Y1);
+                    Include(segment.X2, segment.Y2);
+                    Include(segment.X3, segment.Y3);
+                    break;
+            }
+        }
+
+        if (minX == double.MaxValue || minY == double.MaxValue || maxX == double.MinValue || maxY == double.MinValue)
+        {
+            return path.Bounds;
+        }
+
+        var stroke = path.Style.IsStroked ? path.Style.LineWidth : 0;
+        var pad = Math.Max(stroke, 0.5);
+        var half = pad * 0.5;
+        minX -= half;
+        minY -= half;
+        maxX += half;
+        maxY += half;
+
+        var width = maxX - minX;
+        var height = maxY - minY;
+        if (width < pad)
+        {
+            var center = (minX + maxX) * 0.5;
+            minX = center - pad * 0.5;
+            width = pad;
+        }
+
+        if (height < pad)
+        {
+            var center = (minY + maxY) * 0.5;
+            minY = center - pad * 0.5;
+            height = pad;
+        }
+
+        return new PdfRect(minX, minY, width, height);
     }
 
     private static ShapePath CreateShapePath(PdfPathStyle style)

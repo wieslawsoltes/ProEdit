@@ -431,6 +431,35 @@ public sealed class PdfDocumentConverterTests
         Assert.Equal("Hello World", text);
     }
 
+    [Fact]
+    public void FixedLayoutHandlesZeroHeightPaths()
+    {
+        var pdf = new PdfDocumentAst();
+        var page = new PdfPageAst { Index = 0, Width = 612, Height = 792 };
+
+        var path = new PdfPathObject
+        {
+            Bounds = new PdfRect(50, 100, 120, 0),
+            Style = new PdfPathStyle
+            {
+                IsStroked = true,
+                LineWidth = 0.5
+            }
+        };
+        path.Segments.Add(PdfPathSegment.MoveTo(50, 100));
+        path.Segments.Add(PdfPathSegment.LineTo(170, 100));
+        page.Paths.Add(path);
+        pdf.Pages.Add(page);
+
+        var document = PdfDocumentConverter.FromPdf(pdf, new PdfImportOptions { Mode = PdfImportMode.FixedLayout });
+        var paragraph = Assert.IsType<ParagraphBlock>(document.Blocks.First());
+        var floating = Assert.Single(paragraph.FloatingObjects);
+        var shape = Assert.IsType<ShapeInline>(floating.Content);
+
+        Assert.True(shape.Width > 0);
+        Assert.True(shape.Height > 0);
+    }
+
     private static string ExtractParagraphText(ParagraphBlock paragraph)
     {
         return string.Concat(paragraph.Inlines.OfType<RunInline>().Select(run => run.GetText())).Trim();
