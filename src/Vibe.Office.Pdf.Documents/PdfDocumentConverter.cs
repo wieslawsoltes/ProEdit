@@ -330,6 +330,11 @@ public static class PdfDocumentConverter
             return blocks;
         }
 
+        if (IsGlyphLineQualityPoor(lines) && page.TextRuns.Count > 0)
+        {
+            return blocks;
+        }
+
         AssignGlyphLineAlignment(lines);
         var filtered = FilterHeaderFooterLines(lines, page, headerFooter);
         var footnoteInfo = DetectFootnotesForPage(document, footnoteState, page, filtered);
@@ -1412,6 +1417,54 @@ public static class PdfDocumentConverter
     private static bool IsGlyphOrientationSupported(PdfTextOrientation orientation)
         => orientation is PdfTextOrientation.Horizontal or PdfTextOrientation.Rotate180;
 
+    private static bool IsGlyphLineQualityPoor(IReadOnlyList<PdfGlyphLine> lines)
+    {
+        if (lines.Count < 12)
+        {
+            return false;
+        }
+
+        var shortLines = 0;
+        var singleGlyphLines = 0;
+        var narrowLines = 0;
+        var totalChars = 0;
+
+        for (var i = 0; i < lines.Count; i++)
+        {
+            var line = lines[i];
+            var text = line.Text?.Trim() ?? string.Empty;
+            totalChars += text.Length;
+
+            if (text.Length <= 2)
+            {
+                shortLines++;
+            }
+
+            if (line.Glyphs.Count <= 2)
+            {
+                singleGlyphLines++;
+            }
+
+            var lineHeight = line.LineHeight > 0 ? line.LineHeight : line.Bounds.Height;
+            if (lineHeight > 0 && line.Bounds.Width <= lineHeight * 1.6)
+            {
+                narrowLines++;
+            }
+        }
+
+        var avgChars = totalChars / (double)Math.Max(1, lines.Count);
+        var shortRatio = shortLines / (double)lines.Count;
+        var singleRatio = singleGlyphLines / (double)lines.Count;
+        var narrowRatio = narrowLines / (double)lines.Count;
+
+        if (avgChars <= 3.5 && shortRatio > 0.55 && singleRatio > 0.35)
+        {
+            return true;
+        }
+
+        return avgChars <= 4.0 && shortRatio > 0.5 && narrowRatio > 0.6;
+    }
+
     private static List<PdfGlyphLine> GroupGlyphsIntoLines(IReadOnlyList<PdfTextGlyph> glyphs)
     {
         if (glyphs.Count == 0)
@@ -1872,6 +1925,18 @@ public static class PdfDocumentConverter
         if (lines.Count == 0)
         {
             return new List<PdfGlyphLine>();
+        }
+
+        var regions = SplitGlyphLinesIntoRegions(lines);
+        if (regions.Count > 1)
+        {
+            var orderedRegions = new List<PdfGlyphLine>(lines.Count);
+            foreach (var region in regions)
+            {
+                orderedRegions.AddRange(region.Lines);
+            }
+
+            return orderedRegions;
         }
 
         var ordered = new List<PdfGlyphLine>(lines.Count);
@@ -3150,6 +3215,8 @@ public static class PdfDocumentConverter
         var headerCounts = new Dictionary<string, int>(StringComparer.Ordinal);
         var footerCounts = new Dictionary<string, int>(StringComparer.Ordinal);
         var heightSamples = new List<double>();
+        var topMargins = new List<double>();
+        var bottomMargins = new List<double>();
         var pageLines = new List<(PdfPageAst Page, List<PdfGlyphLine> Lines)>();
 
         foreach (var page in pdf.Pages)
@@ -3167,6 +3234,19 @@ public static class PdfDocumentConverter
 
             AssignGlyphLineAlignment(lines);
             pageLines.Add((page, lines));
+            var maxBottom = lines.Max(line => line.Bounds.Bottom);
+            var minTop = lines.Min(line => line.Bounds.Y);
+            var topMargin = Math.Max(0, page.Height - maxBottom);
+            var bottomMargin = Math.Max(0, minTop);
+            if (topMargin > 0)
+            {
+                topMargins.Add(topMargin);
+            }
+
+            if (bottomMargin > 0)
+            {
+                bottomMargins.Add(bottomMargin);
+            }
             for (var index = 0; index < lines.Count; index++)
             {
                 var lineHeight = lines[index].LineHeight > 0 ? lines[index].LineHeight : lines[index].Bounds.Height;
@@ -3179,11 +3259,14 @@ public static class PdfDocumentConverter
 
         var medianHeight = heightSamples.Count > 0 ? Median(heightSamples) : 10;
         info.MedianLineHeight = medianHeight;
+        info.MedianTopMargin = topMargins.Count > 0 ? Median(topMargins) : 0;
+        info.MedianBottomMargin = bottomMargins.Count > 0 ? Median(bottomMargins) : 0;
         var anchorTolerance = ResolveHeaderFooterAnchorTolerance(medianHeight);
 
         foreach (var (page, lines) in pageLines)
         {
-            var band = ResolveHeaderFooterBand(page.Height, medianHeight);
+            var headerBand = ResolveHeaderFooterBand(page.Height, medianHeight, info.MedianTopMargin);
+            var footerBand = ResolveHeaderFooterBand(page.Height, medianHeight, info.MedianBottomMargin);
 
             foreach (var line in lines)
             {
@@ -3198,13 +3281,13 @@ public static class PdfDocumentConverter
                     continue;
                 }
 
-                if (line.Bounds.Bottom >= page.Height - band)
+                if (line.Bounds.Bottom >= page.Height - headerBand)
                 {
                     IncrementCount(headerCounts, key);
                     info.HeaderSamples.TryAdd(key, line);
                 }
 
-                if (line.Bounds.Y <= band)
+                if (line.Bounds.Y <= footerBand)
                 {
                     IncrementCount(footerCounts, key);
                     info.FooterSamples.TryAdd(key, line);
@@ -3278,16 +3361,17 @@ public static class PdfDocumentConverter
 
         var result = new List<PdfGlyphLine>(lines.Count);
         var medianHeight = info.MedianLineHeight > 0 ? info.MedianLineHeight : ResolveMedianLineHeight(lines);
-        var band = ResolveHeaderFooterBand(page.Height, medianHeight);
+        var headerBand = ResolveHeaderFooterBand(page.Height, medianHeight, info.MedianTopMargin);
+        var footerBand = ResolveHeaderFooterBand(page.Height, medianHeight, info.MedianBottomMargin);
         var anchorTolerance = ResolveHeaderFooterAnchorTolerance(medianHeight);
         foreach (var line in lines)
         {
             var key = BuildHeaderFooterKey(line, anchorTolerance);
             var isHeader = info.HasHeaders
-                           && line.Bounds.Bottom >= page.Height - band
+                           && line.Bounds.Bottom >= page.Height - headerBand
                            && info.HeaderKeys.Contains(key);
             var isFooter = info.HasFooters
-                           && line.Bounds.Y <= band
+                           && line.Bounds.Y <= footerBand
                            && info.FooterKeys.Contains(key);
             if (isHeader || isFooter)
             {
@@ -3300,12 +3384,19 @@ public static class PdfDocumentConverter
         return result;
     }
 
-    private static double ResolveHeaderFooterBand(double pageHeight, double medianLineHeight)
+    private static double ResolveHeaderFooterBand(double pageHeight, double medianLineHeight, double? margin)
     {
         var minBand = Math.Max(medianLineHeight * 2.5, pageHeight * 0.03);
         var targetBand = Math.Max(medianLineHeight * 5.0, pageHeight * 0.04);
         var maxBand = pageHeight * 0.12;
-        return Math.Clamp(targetBand, minBand, maxBand);
+        var band = Math.Clamp(targetBand, minBand, maxBand);
+        if (margin.HasValue && margin.Value > 0)
+        {
+            var marginBand = margin.Value + medianLineHeight * 0.5;
+            band = Math.Min(band, Math.Max(minBand, marginBand));
+        }
+
+        return band;
     }
 
     private static double ResolveHeaderFooterAnchorTolerance(double medianLineHeight)
@@ -4639,6 +4730,8 @@ public static class PdfDocumentConverter
         public Dictionary<string, PdfGlyphLine> HeaderSamples { get; } = new Dictionary<string, PdfGlyphLine>(StringComparer.Ordinal);
         public Dictionary<string, PdfGlyphLine> FooterSamples { get; } = new Dictionary<string, PdfGlyphLine>(StringComparer.Ordinal);
         public double MedianLineHeight { get; set; }
+        public double MedianTopMargin { get; set; }
+        public double MedianBottomMargin { get; set; }
 
         public bool HasHeaders => HeaderKeys.Count > 0;
         public bool HasFooters => FooterKeys.Count > 0;

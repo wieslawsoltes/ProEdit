@@ -390,6 +390,47 @@ public sealed class PdfDocumentConverterTests
         Assert.Equal("Footnote", footnoteText);
     }
 
+    [Fact]
+    public void ReflowFallsBackToRunsWhenGlyphLinesAreFragmented()
+    {
+        var pdf = new PdfDocumentAst();
+        var page = new PdfPageAst { Index = 0, Width = 612, Height = 792 };
+
+        for (var i = 0; i < 12; i++)
+        {
+            var baselineY = 700 - i * 20;
+            page.Glyphs.Add(new PdfTextGlyph(
+                ((char)('A' + i)).ToString(),
+                new PdfRect(72, baselineY - 10, 5, 10),
+                new PdfFontInfo("Test", false, false),
+                10,
+                72,
+                baselineY,
+                5,
+                PdfTextOrientation.Horizontal,
+                null,
+                0,
+                i));
+        }
+
+        page.TextRuns.Add(new PdfTextRun(
+            "Hello World",
+            new PdfRect(72, 700, 160, 12),
+            new PdfFontInfo("Test", false, false),
+            10,
+            708,
+            0,
+            null));
+
+        pdf.Pages.Add(page);
+
+        var document = PdfDocumentConverter.FromPdf(pdf, new PdfImportOptions { Mode = PdfImportMode.Reflow });
+        var paragraph = Assert.IsType<ParagraphBlock>(document.Blocks.First());
+        var text = ExtractParagraphText(paragraph);
+
+        Assert.Equal("Hello World", text);
+    }
+
     private static string ExtractParagraphText(ParagraphBlock paragraph)
     {
         return string.Concat(paragraph.Inlines.OfType<RunInline>().Select(run => run.GetText())).Trim();
