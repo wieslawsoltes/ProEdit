@@ -5937,13 +5937,26 @@ public sealed class DocumentView : Control, ILogicalScrollable
         {
             return false;
         }
-
         if (!TryGetDocumentPoint(e, out var docX, out var docY))
         {
             return false;
         }
 
-        if (!TryResolveShapeTextTarget(docX, docY, out var shape, out var textBox, out var shapeBounds, out var textBounds))
+        if (!TryResolveShapeTextTarget(
+                docX,
+                docY,
+                out var floating,
+                out var shape,
+                out var textBox,
+                out var shapeBounds,
+                out var textBounds))
+        {
+            return false;
+        }
+
+        var isSelected = _editor.SelectedFloatingObjectId.HasValue
+                         && _editor.SelectedFloatingObjectId.Value == floating.Id;
+        if (e.ClickCount < 2 && !isSelected)
         {
             return false;
         }
@@ -6215,22 +6228,25 @@ public sealed class DocumentView : Control, ILogicalScrollable
     private bool TryResolveShapeTextTarget(
         float docX,
         float docY,
+        out FloatingObject floating,
         out ShapeInline shape,
         out ShapeTextBox textBox,
         out DocRect shapeBounds,
         out DocRect textBounds)
     {
+        floating = null!;
         shape = null!;
         textBox = null!;
         shapeBounds = default;
         textBounds = default;
 
         var docPoint = new DocPoint(docX, docY);
-        if (!TryGetFloatingShapeAtPoint(docPoint, out var layoutObject, out _, out var hitShape))
+        if (!TryGetFloatingShapeAtPoint(docPoint, out var layoutObject, out var hitFloating, out var hitShape))
         {
             return false;
         }
 
+        floating = hitFloating;
         textBox = hitShape.TextBox ?? new ShapeTextBox();
         if (hitShape.TextBox is null)
         {
