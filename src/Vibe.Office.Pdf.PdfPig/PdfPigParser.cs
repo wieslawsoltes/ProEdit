@@ -1924,6 +1924,11 @@ public sealed class PdfPigParser : IPdfParser
 
     private static bool ClipContainsPath(ClipState clipState, PdfPathObject path)
     {
+        if (!clipState.Path.IsRect)
+        {
+            return false;
+        }
+
         var bounds = path.Bounds;
         if (path.Style.IsStroked)
         {
@@ -2111,6 +2116,8 @@ public sealed class PdfPigParser : IPdfParser
         {
             return null;
         }
+
+        style.FillRule = path.FillType == SKPathFillType.EvenOdd ? PdfFillRule.EvenOdd : PdfFillRule.NonZero;
 
         var segments = BuildSegmentsFromSkPath(path);
         if (segments.Count == 0)
