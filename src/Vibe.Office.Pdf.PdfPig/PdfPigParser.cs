@@ -1894,6 +1894,12 @@ public sealed class PdfPigParser : IPdfParser
             yield break;
         }
 
+        if (ClipContainsPath(clipState, path))
+        {
+            yield return path;
+            yield break;
+        }
+
         var clipped = ClipFilledPath(path, clipState.Path);
         if (clipped is not null)
         {
@@ -1914,6 +1920,39 @@ public sealed class PdfPigParser : IPdfParser
         {
             yield return stroke;
         }
+    }
+
+    private static bool ClipContainsPath(ClipState clipState, PdfPathObject path)
+    {
+        var bounds = path.Bounds;
+        if (path.Style.IsStroked)
+        {
+            var pad = Math.Max(path.Style.LineWidth, 0.25) * 0.5;
+            bounds = ExpandRect(bounds, pad);
+        }
+
+        return RectContains(clipState.Bounds, bounds, 0.25);
+    }
+
+    private static PdfRect ExpandRect(PdfRect rect, double padding)
+    {
+        if (padding <= 0)
+        {
+            return rect;
+        }
+
+        var width = rect.Width + padding * 2;
+        var height = rect.Height + padding * 2;
+        return new PdfRect(rect.X - padding, rect.Y - padding, width, height);
+    }
+
+    private static bool RectContains(PdfRect outer, PdfRect inner, double tolerance)
+    {
+        var leftOk = outer.X - tolerance <= inner.X;
+        var bottomOk = outer.Y - tolerance <= inner.Y;
+        var rightOk = outer.Right + tolerance >= inner.Right;
+        var topOk = outer.Bottom + tolerance >= inner.Bottom;
+        return leftOk && bottomOk && rightOk && topOk;
     }
 
     private static PdfPathObject? ClipFilledPath(PdfPathObject path, SKPath clipPath)
