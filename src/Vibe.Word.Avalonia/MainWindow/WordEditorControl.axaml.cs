@@ -8,6 +8,7 @@ using System.Text;
 using SkiaSharp;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Notifications;
 using Avalonia.Interactivity;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
@@ -83,6 +84,7 @@ public partial class WordEditorControl : UserControl
     private readonly Button? _zoomInButton;
     private readonly Button? _zoomOutButton;
     private readonly Button? _zoomResetButton;
+    private WindowNotificationManager? _notificationManager;
     private FindReplaceDialog? _findReplaceDialog;
     private VbaToolingWindow? _vbaToolingWindow;
     private NotesPaneWindow? _notesPaneWindow;
@@ -111,6 +113,7 @@ public partial class WordEditorControl : UserControl
     private bool _suppressReviewSelection;
     private bool _fixedLayoutWarningShown;
     private bool _pdfDiagnosticsShown;
+    private bool _pdfImportNotificationShown;
     private static readonly FilePickerFileType DocxFileType = new("Word Documents")
     {
         Patterns = new[] { "*.docx", "*.docm" }
@@ -555,6 +558,41 @@ public partial class WordEditorControl : UserControl
         return ResolveTopLevel() as Window;
     }
 
+    private WindowNotificationManager? ResolveNotificationManager()
+    {
+        if (_notificationManager is not null)
+        {
+            return _notificationManager;
+        }
+
+        var topLevel = ResolveTopLevel();
+        if (topLevel is null)
+        {
+            return null;
+        }
+
+        _notificationManager = new WindowNotificationManager(topLevel)
+        {
+            Position = NotificationPosition.TopRight,
+            MaxItems = 3,
+            Margin = new Thickness(0, 56, 16, 16)
+        };
+
+        return _notificationManager;
+    }
+
+    private void ShowNotification(string title, string message, NotificationType type = NotificationType.Information, TimeSpan? expiration = null)
+    {
+        var manager = ResolveNotificationManager();
+        if (manager is null)
+        {
+            return;
+        }
+
+        var duration = expiration ?? TimeSpan.FromSeconds(6);
+        manager.Show(new Notification(title, message, type, duration));
+    }
+
     private void UpdateWindowTitle()
     {
         var owner = ResolveOwnerWindow();
@@ -709,42 +747,48 @@ public partial class WordEditorControl : UserControl
     private async Task<PdfImportOptions?> ShowPdfImportDialogAsync()
     {
         var preferencesResult = await _pdfImportPreferencesStore.LoadAsync();
-        if (preferencesResult.HasValue && preferencesResult.Preferences is { SkipDialog: true } stored)
-        {
-            return CreatePdfImportOptions(stored.ImportMode, stored.PreservationMode);
-        }
+        PdfImportMode importMode;
+        PdfPreservationMode preservationMode;
 
-        var viewModel = new PdfImportDialogViewModel();
         if (preferencesResult.HasValue && preferencesResult.Preferences is { } preferences)
         {
-            viewModel.ImportMode = preferences.ImportMode;
-            viewModel.PreservationMode = preferences.PreservationMode;
-            viewModel.SkipDialog = preferences.SkipDialog;
+            importMode = preferences.ImportMode;
+            preservationMode = preferences.PreservationMode;
         }
-
-        var dialog = new PdfImportDialog(viewModel);
-
-        void CloseDialog(PdfImportOptions? result) => dialog.Close(result);
-        viewModel.RequestClose += CloseDialog;
-
-        dialog.Closed += (_, _) =>
+        else
         {
-            viewModel.RequestClose -= CloseDialog;
-        };
-
-        var result = await ShowDialogAsync<PdfImportOptions?>(dialog);
-        if (result is not null)
-        {
-            var preferencesToSave = new PdfImportPreferences
+            importMode = PdfImportMode.Reflow;
+            preservationMode = PdfPreservationMode.None;
+            var defaults = new PdfImportPreferences
             {
-                ImportMode = result.Mode,
-                PreservationMode = result.PreservationMode,
-                SkipDialog = viewModel.SkipDialog
+                ImportMode = importMode,
+                PreservationMode = preservationMode,
+                SkipDialog = true
             };
-            await _pdfImportPreferencesStore.SaveAsync(preferencesToSave);
+            await _pdfImportPreferencesStore.SaveAsync(defaults);
         }
 
-        return result;
+        var options = CreatePdfImportOptions(importMode, preservationMode);
+        if (!_pdfImportNotificationShown)
+        {
+            _pdfImportNotificationShown = true;
+            ShowNotification(
+                "PDF Import",
+                $"Imported using {importMode} layout with {DescribePdfPreservation(preservationMode)}.",
+                NotificationType.Information);
+        }
+
+        return options;
+    }
+
+    private static string DescribePdfPreservation(PdfPreservationMode preservationMode)
+    {
+        return preservationMode switch
+        {
+            PdfPreservationMode.StoreOriginal => "original PDF preservation",
+            PdfPreservationMode.Incremental => "incremental preservation",
+            _ => "no preservation"
+        };
     }
 
     private static PdfImportOptions CreatePdfImportOptions(PdfImportMode mode, PdfPreservationMode preservationMode)
@@ -8859,10 +8903,10 @@ public partial class WordEditorControl : UserControl
             if (importMode == PdfImportMode.FixedLayout && !_fixedLayoutWarningShown)
             {
                 _fixedLayoutWarningShown = true;
-                var dialog = new MessageDialog(
+                ShowNotification(
                     "Fixed Layout PDF",
-                    "This PDF was imported in fixed layout mode. Editing is constrained to preserve the original page geometry.");
-                await ShowDialogAsync(dialog);
+                    "This PDF was imported in fixed layout mode. Editing is constrained to preserve the original page geometry.",
+                    NotificationType.Information);
             }
 
             await ShowPdfDiagnosticsAsync(document);
@@ -8885,11 +8929,11 @@ public partial class WordEditorControl : UserControl
         }
     }
 
-    private async Task ShowPdfDiagnosticsAsync(Document document)
+    private Task ShowPdfDiagnosticsAsync(Document document)
     {
         if (_pdfDiagnosticsShown)
         {
-            return;
+            return Task.CompletedTask;
         }
 
         if (!PdfImportDiagnosticsStore.TryRead(document, out var diagnostics)
@@ -8897,13 +8941,13 @@ public partial class WordEditorControl : UserControl
             || diagnostics.Issues.Count == 0)
         {
             _pdfDiagnosticsShown = true;
-            return;
+            return Task.CompletedTask;
         }
 
         _pdfDiagnosticsShown = true;
         var message = string.Join(Environment.NewLine, diagnostics.Issues.Select(issue => $"• {issue}"));
-        var dialog = new MessageDialog("PDF Import Diagnostics", message);
-        await ShowDialogAsync(dialog);
+        ShowNotification("PDF Import Diagnostics", message, NotificationType.Warning, TimeSpan.FromSeconds(10));
+        return Task.CompletedTask;
     }
 
     private static bool TryResolvePdfImportMode(Document document, out PdfImportMode importMode)
