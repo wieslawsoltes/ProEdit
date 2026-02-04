@@ -5,10 +5,11 @@
         x:Class="Vibe.Word.Avalonia.PdfImportDialog"
         x:DataType="local:PdfImportDialogViewModel"
         Width="440"
+        Height="520"
         MinWidth="420"
         MinHeight="360"
         MaxHeight="720"
-        SizeToContent="Height"
+        SizeToContent="Width"
         WindowStartupLocation="CenterOwner"
         Title="Import PDF">
   <Window.Resources>
@@ -16,54 +17,49 @@
     <local:EnumEqualsConverter x:Key="EnumEqualsConverter" />
   </Window.Resources>
 
-  <ScrollViewer VerticalScrollBarVisibility="Auto"
-                HorizontalScrollBarVisibility="Disabled"
-                Padding="20">
-    <StackPanel Spacing="14">
-      <StackPanel Spacing="6">
-        <TextBlock Text="Import PDF" FontSize="18" FontWeight="SemiBold" />
-        <TextBlock Text="Choose how to import this PDF into the document model." Foreground="{DynamicResource ThemeForegroundLowBrush}" />
-      </StackPanel>
-
-      <Border BorderBrush="{DynamicResource ThemeBorderLowBrush}" BorderThickness="1" CornerRadius="8" Padding="12">
-        <StackPanel Spacing="8">
-          <TextBlock Text="Layout" FontWeight="SemiBold" />
-          <RadioButton Content="Reflow (editable)"
-                       GroupName="ImportMode"
-                       IsChecked="{Binding ImportMode, Mode=TwoWay, Converter={StaticResource EnumEqualsConverter}, ConverterParameter=Reflow}" />
-          <RadioButton Content="Fixed layout (preserve geometry)"
-                       GroupName="ImportMode"
-                       IsChecked="{Binding ImportMode, Mode=TwoWay, Converter={StaticResource EnumEqualsConverter}, ConverterParameter=FixedLayout}" />
+  <Grid RowDefinitions="*,Auto"
+        Margin="20">
+    <ScrollViewer Grid.Row="0"
+                  VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled">
+      <StackPanel Spacing="14">
+        <StackPanel Spacing="6">
+          <TextBlock Text="Import PDF" FontSize="18" FontWeight="SemiBold" />
+          <TextBlock Text="Choose how to import this PDF into the document model." Foreground="{DynamicResource ThemeForegroundLowBrush}" />
         </StackPanel>
-      </Border>
 
-      <Border BorderBrush="{DynamicResource ThemeBorderLowBrush}" BorderThickness="1" CornerRadius="8" Padding="12">
-        <StackPanel Spacing="8">
-          <TextBlock Text="Preservation" FontWeight="SemiBold" />
-          <ComboBox ItemsSource="{Binding PreservationOptions}"
-                    SelectedItem="{Binding PreservationMode, Mode=TwoWay}">
-            <ComboBox.ItemTemplate>
-              <DataTemplate x:DataType="sys:Enum">
-                <TextBlock Text="{Binding ., Converter={StaticResource PdfEnumDisplayConverter}}" />
-              </DataTemplate>
-            </ComboBox.ItemTemplate>
-          </ComboBox>
-          <TextBlock Text="Preserve original PDF data for optional incremental updates." Foreground="{DynamicResource ThemeForegroundLowBrush}" />
-        </StackPanel>
-      </Border>
+        <Border BorderBrush="{DynamicResource ThemeBorderLowBrush}" BorderThickness="1" CornerRadius="8" Padding="12">
+          <StackPanel Spacing="8">
+            <TextBlock Text="Layout" FontWeight="SemiBold" />
+            <RadioButton Content="Reflow (editable)"
+                         GroupName="ImportMode"
+                         IsChecked="{Binding ImportMode, Mode=TwoWay, Converter={StaticResource EnumEqualsConverter}, ConverterParameter=Reflow}" />
+            <RadioButton Content="Fixed layout (preserve geometry)"
+                         GroupName="ImportMode"
+                         IsChecked="{Binding ImportMode, Mode=TwoWay, Converter={StaticResource EnumEqualsConverter}, ConverterParameter=FixedLayout}" />
+          </StackPanel>
+        </Border>
 
-      <StackPanel Spacing="4">
-        <CheckBox Content="Use these settings for future PDF imports"
-                  IsChecked="{Binding SkipDialog, Mode=TwoWay}" />
-        <TextBlock Text="When enabled, PDF files open with the last choice without asking."
-                   Foreground="{DynamicResource ThemeForegroundLowBrush}"
-                   TextWrapping="Wrap" />
+        <Border BorderBrush="{DynamicResource ThemeBorderLowBrush}" BorderThickness="1" CornerRadius="8" Padding="12">
+          <StackPanel Spacing="8">
+            <TextBlock Text="Preservation" FontWeight="SemiBold" />
+            <ComboBox ItemsSource="{Binding PreservationOptions}"
+                      SelectedItem="{Binding PreservationMode, Mode=TwoWay}">
+              <ComboBox.ItemTemplate>
+                <DataTemplate x:DataType="sys:Enum">
+                  <TextBlock Text="{Binding ., Converter={StaticResource PdfEnumDisplayConverter}}" />
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
+            <TextBlock Text="Preserve original PDF data for optional incremental updates." Foreground="{DynamicResource ThemeForegroundLowBrush}" />
+          </StackPanel>
+        </Border>
       </StackPanel>
+    </ScrollViewer>
 
-      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
-        <Button Content="Cancel" Command="{Binding CancelCommand}" />
-        <Button Content="Import" Command="{Binding ConfirmCommand}" IsDefault="True" />
-      </StackPanel>
+    <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,12,0,0">
+      <Button Content="Cancel" Command="{Binding CancelCommand}" />
+      <Button Content="Import" Command="{Binding ConfirmCommand}" IsDefault="True" />
     </StackPanel>
-  </ScrollViewer>
+  </Grid>
 </Window>

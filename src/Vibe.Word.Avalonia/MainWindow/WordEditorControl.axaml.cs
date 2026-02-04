@@ -113,7 +113,6 @@ public partial class WordEditorControl : UserControl
     private bool _suppressReviewSelection;
     private bool _fixedLayoutWarningShown;
     private bool _pdfDiagnosticsShown;
-    private bool _pdfImportNotificationShown;
     private static readonly FilePickerFileType DocxFileType = new("Word Documents")
     {
         Patterns = new[] { "*.docx", "*.docm" }
@@ -747,48 +746,37 @@ public partial class WordEditorControl : UserControl
     private async Task<PdfImportOptions?> ShowPdfImportDialogAsync()
     {
         var preferencesResult = await _pdfImportPreferencesStore.LoadAsync();
-        PdfImportMode importMode;
-        PdfPreservationMode preservationMode;
-
+        var viewModel = new PdfImportDialogViewModel();
         if (preferencesResult.HasValue && preferencesResult.Preferences is { } preferences)
         {
-            importMode = preferences.ImportMode;
-            preservationMode = preferences.PreservationMode;
-        }
-        else
-        {
-            importMode = PdfImportMode.Reflow;
-            preservationMode = PdfPreservationMode.None;
-            var defaults = new PdfImportPreferences
-            {
-                ImportMode = importMode,
-                PreservationMode = preservationMode,
-                SkipDialog = true
-            };
-            await _pdfImportPreferencesStore.SaveAsync(defaults);
+            viewModel.ImportMode = preferences.ImportMode;
+            viewModel.PreservationMode = preferences.PreservationMode;
+            viewModel.SkipDialog = preferences.SkipDialog;
         }
 
-        var options = CreatePdfImportOptions(importMode, preservationMode);
-        if (!_pdfImportNotificationShown)
-        {
-            _pdfImportNotificationShown = true;
-            ShowNotification(
-                "PDF Import",
-                $"Imported using {importMode} layout with {DescribePdfPreservation(preservationMode)}.",
-                NotificationType.Information);
-        }
+        var dialog = new PdfImportDialog(viewModel);
 
-        return options;
-    }
+        void CloseDialog(PdfImportOptions? result) => dialog.Close(result);
+        viewModel.RequestClose += CloseDialog;
 
-    private static string DescribePdfPreservation(PdfPreservationMode preservationMode)
-    {
-        return preservationMode switch
+        dialog.Closed += (_, _) =>
         {
-            PdfPreservationMode.StoreOriginal => "original PDF preservation",
-            PdfPreservationMode.Incremental => "incremental preservation",
-            _ => "no preservation"
+            viewModel.RequestClose -= CloseDialog;
         };
+
+        var result = await ShowDialogAsync<PdfImportOptions?>(dialog);
+        if (result is not null)
+        {
+            var preferencesToSave = new PdfImportPreferences
+            {
+                ImportMode = result.Mode,
+                PreservationMode = result.PreservationMode,
+                SkipDialog = viewModel.SkipDialog
+            };
+            await _pdfImportPreferencesStore.SaveAsync(preferencesToSave);
+        }
+
+        return result;
     }
 
     private static PdfImportOptions CreatePdfImportOptions(PdfImportMode mode, PdfPreservationMode preservationMode)
