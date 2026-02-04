@@ -5938,11 +5938,6 @@ public sealed class DocumentView : Control, ILogicalScrollable
             return false;
         }
 
-        if (e.ClickCount < 2)
-        {
-            return false;
-        }
-
         if (!TryGetDocumentPoint(e, out var docX, out var docY))
         {
             return false;
