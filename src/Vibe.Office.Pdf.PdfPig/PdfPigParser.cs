@@ -182,32 +182,14 @@ public sealed class PdfPigParser : IPdfParser
 
         if (page.Operations is null || page.Operations.Count == 0)
         {
-            var pathOpacities = BuildPathOpacities(document, page);
-            var pathIndex = 0;
-            foreach (var path in paths)
-            {
-                if (path.IsClipping)
-                {
-                    pathIndex++;
-                    continue;
-                }
+            ExtractPathsWithoutOperations(document, page, pageAst, paths);
+            return;
+        }
 
-                var pathObject = BuildPathObject(path);
-                if (pathObject is null)
-                {
-                    pathIndex++;
-                    continue;
-                }
-
-                if (pathOpacities.TryGetValue(pathIndex, out var opacity))
-                {
-                    ApplyOpacity(pathObject.Style, opacity);
-                }
-
-                pageAst.Paths.Add(pathObject);
-                pathIndex++;
-            }
-
+        if (!ShouldUseOperationMapping(page, paths.Count))
+        {
+            pageAst.PathOrderMatchesOperations = false;
+            ExtractPathsWithHeuristicClipping(document, page, pageAst, paths);
             return;
         }
 
@@ -218,6 +200,7 @@ public sealed class PdfPigParser : IPdfParser
         ClipState? clipState = null;
         PdfFillRule? pendingClipRule = null;
         var pathIndexWithOps = 0;
+        var paintIndex = 0;
 
         foreach (var op in page.Operations)
         {
@@ -296,12 +279,13 @@ public sealed class PdfPigParser : IPdfParser
                 if (isPaint)
                 {
                     pageAst.PathPaintCounts.Add(0);
+                    paintIndex++;
                 }
 
                 continue;
             }
 
-            if (!IsDefaultOpacity(fillAlpha) || !IsDefaultOpacity(strokeAlpha))
+            if (isPaint && (!IsDefaultOpacity(fillAlpha) || !IsDefaultOpacity(strokeAlpha)))
             {
                 ApplyOpacity(pathObject.Style, new PdfGraphicsAlpha(fillAlpha, strokeAlpha));
             }
@@ -324,8 +308,158 @@ public sealed class PdfPigParser : IPdfParser
                 }
 
                 pageAst.PathPaintCounts.Add(added);
+                paintIndex++;
             }
         }
+    }
+
+    private static void ExtractPathsWithoutOperations(
+        PdfDocument document,
+        Page page,
+        PdfPageAst pageAst,
+        IReadOnlyList<PdfPath> paths)
+    {
+        var pathOpacities = BuildPathOpacities(document, page);
+        var paintIndex = 0;
+        foreach (var path in paths)
+        {
+            if (path.IsClipping)
+            {
+                continue;
+            }
+
+            var pathObject = BuildPathObject(path);
+            if (pathObject is null)
+            {
+                continue;
+            }
+
+            if (path.IsFilled || path.IsStroked)
+            {
+                if (pathOpacities.TryGetValue(paintIndex, out var opacity))
+                {
+                    ApplyOpacity(pathObject.Style, opacity);
+                }
+
+                paintIndex++;
+            }
+
+            pageAst.Paths.Add(pathObject);
+        }
+    }
+
+    private static bool ShouldUseOperationMapping(Page page, int pathCount)
+    {
+        if (page.Operations is null || page.Operations.Count == 0)
+        {
+            return false;
+        }
+
+        var paintOps = 0;
+        var endOps = 0;
+        foreach (var op in page.Operations)
+        {
+            if (op is EndPath)
+            {
+                endOps++;
+                continue;
+            }
+
+            if (IsPathPaintOperation(op))
+            {
+                paintOps++;
+            }
+        }
+
+        var expected = paintOps + endOps;
+        if (expected == 0)
+        {
+            return false;
+        }
+
+        var tolerance = Math.Max(10, (int)Math.Round(expected * 0.1, MidpointRounding.AwayFromZero));
+        return pathCount <= expected + tolerance;
+    }
+
+    private static void ExtractPathsWithHeuristicClipping(
+        PdfDocument document,
+        Page page,
+        PdfPageAst pageAst,
+        IReadOnlyList<PdfPath> paths)
+    {
+        var pathOpacities = BuildPathOpacities(document, page);
+        var clipStack = new Stack<ClipState>();
+        ClipState? currentClip = null;
+        var paintIndex = 0;
+
+        foreach (var path in paths)
+        {
+            var pathObject = BuildPathObject(path);
+            if (pathObject is null)
+            {
+                continue;
+            }
+
+            if (path.IsClipping)
+            {
+                var rule = path.FillingRule == FillingRule.EvenOdd ? PdfFillRule.EvenOdd : PdfFillRule.NonZero;
+                var clipPath = BuildSkPath(pathObject, rule);
+                var intersected = IntersectClip(currentClip, clipPath);
+                if (intersected is not null)
+                {
+                    clipStack.Push(intersected);
+                    currentClip = intersected;
+                }
+
+                continue;
+            }
+
+            if (path.IsFilled || path.IsStroked)
+            {
+                if (pathOpacities.TryGetValue(paintIndex, out var opacity))
+                {
+                    ApplyOpacity(pathObject.Style, opacity);
+                }
+
+                paintIndex++;
+            }
+
+            currentClip = ResolveClipForBounds(clipStack, pathObject.Bounds);
+            foreach (var clipped in ApplyClip(pathObject, currentClip))
+            {
+                pageAst.Paths.Add(clipped);
+            }
+        }
+    }
+
+    private static ClipState? ResolveClipForBounds(Stack<ClipState> stack, PdfRect bounds)
+    {
+        while (stack.Count > 0)
+        {
+            var clip = stack.Peek();
+            if (RectIntersects(bounds, clip.Bounds))
+            {
+                return clip;
+            }
+
+            stack.Pop();
+        }
+
+        return null;
+    }
+
+    private static bool RectIntersects(PdfRect a, PdfRect b)
+    {
+        var left = Math.Max(a.X, b.X);
+        var right = Math.Min(a.Right, b.Right);
+        if (right <= left)
+        {
+            return false;
+        }
+
+        var bottom = Math.Max(a.Y, b.Y);
+        var top = Math.Min(a.Bottom, b.Bottom);
+        return top > bottom;
     }
 
     private readonly record struct PdfGraphicsAlpha(double? FillAlpha, double? StrokeAlpha);
@@ -334,16 +468,14 @@ public sealed class PdfPigParser : IPdfParser
 
     private sealed class ClipState
     {
-        public ClipState(SKPath? path, bool isEmpty)
+        public ClipState(SKPath path, PdfRect bounds)
         {
             Path = path;
-            IsEmpty = isEmpty;
+            Bounds = bounds;
         }
 
-        public SKPath? Path { get; }
-        public bool IsEmpty { get; }
-
-        public static ClipState Empty { get; } = new(null, true);
+        public SKPath Path { get; }
+        public PdfRect Bounds { get; }
     }
 
     private static Dictionary<int, PdfGraphicsAlpha> BuildPathOpacities(PdfDocument document, Page page)
@@ -506,6 +638,11 @@ public sealed class PdfPigParser : IPdfParser
     private static void BuildContentOrder(Page page, PdfPageAst pageAst)
     {
         if (pageAst.TextRuns.Count == 0 && pageAst.Images.Count == 0 && pageAst.Paths.Count == 0)
+        {
+            return;
+        }
+
+        if (!pageAst.PathOrderMatchesOperations)
         {
             return;
         }
@@ -1732,31 +1869,21 @@ public sealed class PdfPigParser : IPdfParser
     {
         if (clipPath is null || clipPath.IsEmpty)
         {
-            return ClipState.Empty;
+            return null;
         }
 
         if (current is null)
         {
-            return new ClipState(clipPath, isEmpty: false);
-        }
-
-        if (current.IsEmpty)
-        {
-            return current;
-        }
-
-        if (current.Path is null)
-        {
-            return ClipState.Empty;
+            return CreateClipState(clipPath);
         }
 
         var result = current.Path.Op(clipPath, SKPathOp.Intersect);
         if (result is null || result.IsEmpty)
         {
-            return ClipState.Empty;
+            return null;
         }
 
-        return new ClipState(result, isEmpty: false);
+        return CreateClipState(result);
     }
 
     private static IEnumerable<PdfPathObject> ApplyClip(PdfPathObject path, ClipState? clipState)
@@ -1764,11 +1891,6 @@ public sealed class PdfPigParser : IPdfParser
         if (clipState is null)
         {
             yield return path;
-            yield break;
-        }
-
-        if (clipState.IsEmpty || clipState.Path is null)
-        {
             yield break;
         }
 
@@ -1817,6 +1939,15 @@ public sealed class PdfPigParser : IPdfParser
         style.IsFilled = true;
         style.IsStroked = false;
         return BuildPathObjectFromSkPath(result, style);
+    }
+
+    private static ClipState CreateClipState(SKPath path)
+    {
+        var bounds = path.Bounds;
+        var width = Math.Max(0.1, bounds.Width);
+        var height = Math.Max(0.1, bounds.Height);
+        var rect = new PdfRect(bounds.Left, bounds.Top, width, height);
+        return new ClipState(path, rect);
     }
 
     private static PdfPathObject? ClipStrokedPath(PdfPathObject path, SKPath clipPath)
