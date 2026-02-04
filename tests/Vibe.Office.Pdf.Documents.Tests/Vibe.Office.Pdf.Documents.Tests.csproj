@@ -7,6 +7,7 @@
   <ItemGroup>
     <ProjectReference Include="..\\..\\src\\Vibe.Office.Pdf.Documents\\Vibe.Office.Pdf.Documents.csproj" />
     <ProjectReference Include="..\\..\\src\\Vibe.Office.Pdf\\Vibe.Office.Pdf.csproj" />
+    <ProjectReference Include="..\\..\\src\\Vibe.Office.Pdf.PdfPig\\Vibe.Office.Pdf.PdfPig.csproj" />
     <ProjectReference Include="..\\..\\src\\Vibe.Office.Documents\\Vibe.Office.Documents.csproj" />
   </ItemGroup>
 

@@ -1448,14 +1448,34 @@ public sealed class PdfPigParser : IPdfParser
         };
     }
 
-    private static PdfColor? ToPdfColor(IColor? color)
+    internal static PdfColor? ToPdfColor(IColor? color)
     {
         if (color is null)
         {
             return null;
         }
 
-        var (r, g, b) = color.ToRGBValues();
+        if (color is PatternColor)
+        {
+            return null;
+        }
+
+        double r;
+        double g;
+        double b;
+        try
+        {
+            (r, g, b) = color.ToRGBValues();
+        }
+        catch (InvalidOperationException)
+        {
+            return null;
+        }
+        catch (NotSupportedException)
+        {
+            return null;
+        }
+
         return new PdfColor(
             (byte)Math.Clamp(r * 255.0, 0, 255),
             (byte)Math.Clamp(g * 255.0, 0, 255),
