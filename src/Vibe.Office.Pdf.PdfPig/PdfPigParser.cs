@@ -11,6 +11,7 @@ using UglyToad.PdfPig.Graphics.Colors;
 using UglyToad.PdfPig.Graphics.Core;
 using UglyToad.PdfPig.Graphics.Operations;
 using UglyToad.PdfPig.Graphics.Operations.InlineImages;
+using UglyToad.PdfPig.Graphics.Operations.SpecialGraphicsState;
 using UglyToad.PdfPig.Filters;
 using UglyToad.PdfPig.Tokens;
 using Vibe.Office.Pdf;
@@ -56,7 +57,7 @@ public sealed class PdfPigParser : IPdfParser
             ExtractTextGlyphs(page, pageAst, effectiveOptions);
             ExtractTextRuns(page, pageAst, effectiveOptions);
             ExtractImages(document, page, pageAst);
-            ExtractPaths(page, pageAst, effectiveOptions);
+            ExtractPaths(document, page, pageAst, effectiveOptions);
             BuildContentOrder(page, pageAst);
 
             result.Pages.Add(pageAst);
@@ -163,7 +164,7 @@ public sealed class PdfPigParser : IPdfParser
         }
     }
 
-    private static void ExtractPaths(Page page, PdfPageAst pageAst, PdfParserOptions options)
+    private static void ExtractPaths(PdfDocument document, Page page, PdfPageAst pageAst, PdfParserOptions options)
     {
         if (!options.ExtractPaths)
         {
@@ -175,6 +176,9 @@ public sealed class PdfPigParser : IPdfParser
         {
             return;
         }
+
+        var pathOpacities = BuildPathOpacities(document, page);
+        var pathIndex = 0;
         foreach (var path in paths)
         {
             if (path.IsClipping)
@@ -185,12 +189,144 @@ public sealed class PdfPigParser : IPdfParser
             var pathObject = BuildPathObject(path);
             if (pathObject is null)
             {
+                pathIndex++;
                 continue;
             }
 
+            if (pathOpacities.TryGetValue(pathIndex, out var opacity))
+            {
+                ApplyOpacity(pathObject.Style, opacity);
+            }
+
             pageAst.Paths.Add(pathObject);
+            pathIndex++;
         }
     }
+
+    private readonly record struct PdfGraphicsAlpha(double? FillAlpha, double? StrokeAlpha);
+
+    private static Dictionary<int, PdfGraphicsAlpha> BuildPathOpacities(PdfDocument document, Page page)
+    {
+        var result = new Dictionary<int, PdfGraphicsAlpha>();
+        if (page.Operations is null || page.Operations.Count == 0)
+        {
+            return result;
+        }
+
+        var graphicsStates = BuildGraphicsStateLookup(document, page.Dictionary);
+        if (graphicsStates.Count == 0)
+        {
+            return result;
+        }
+
+        var fillAlpha = 1d;
+        var strokeAlpha = 1d;
+        var pathIndex = 0;
+        foreach (var op in page.Operations)
+        {
+            if (op is SetGraphicsStateParametersFromDictionary setState)
+            {
+                var name = setState.Name?.Data;
+                if (!string.IsNullOrEmpty(name) && graphicsStates.TryGetValue(name, out var state))
+                {
+                    if (state.FillAlpha.HasValue)
+                    {
+                        fillAlpha = state.FillAlpha.Value;
+                    }
+
+                    if (state.StrokeAlpha.HasValue)
+                    {
+                        strokeAlpha = state.StrokeAlpha.Value;
+                    }
+                }
+            }
+
+            if (IsPathPaintOperation(op))
+            {
+                if (!IsDefaultOpacity(fillAlpha) || !IsDefaultOpacity(strokeAlpha))
+                {
+                    result[pathIndex] = new PdfGraphicsAlpha(fillAlpha, strokeAlpha);
+                }
+
+                pathIndex++;
+            }
+        }
+
+        return result;
+    }
+
+    private static Dictionary<string, PdfGraphicsAlpha> BuildGraphicsStateLookup(PdfDocument document, DictionaryToken pageDictionary)
+    {
+        var lookup = new Dictionary<string, PdfGraphicsAlpha>(StringComparer.Ordinal);
+        if (!TryResolveDictionary(document, pageDictionary, "Resources", out var resources) || resources is null)
+        {
+            return lookup;
+        }
+
+        if (!TryResolveDictionary(document, resources, "ExtGState", out var extGState) || extGState is null)
+        {
+            return lookup;
+        }
+
+        foreach (var entry in extGState.Data)
+        {
+            if (entry.Key is null || entry.Value is null)
+            {
+                continue;
+            }
+
+            var stateDict = ResolveToken(document, entry.Value) as DictionaryToken;
+            if (stateDict is null)
+            {
+                continue;
+            }
+
+            var fill = TryGetNumber(document, stateDict, "ca");
+            var stroke = TryGetNumber(document, stateDict, "CA");
+            if (fill is null && stroke is null)
+            {
+                continue;
+            }
+
+            lookup[entry.Key] = new PdfGraphicsAlpha(fill, stroke);
+        }
+
+        return lookup;
+    }
+
+    private static void ApplyOpacity(PdfPathStyle style, PdfGraphicsAlpha opacity)
+    {
+        if (style.IsFilled)
+        {
+            style.FillColor = ApplyOpacity(style.FillColor, opacity.FillAlpha);
+        }
+
+        if (style.IsStroked)
+        {
+            style.StrokeColor = ApplyOpacity(style.StrokeColor, opacity.StrokeAlpha);
+        }
+    }
+
+    private static PdfColor? ApplyOpacity(PdfColor? color, double? opacity)
+    {
+        if (color is null || opacity is null)
+        {
+            return color;
+        }
+
+        var value = opacity.Value;
+        if (!double.IsFinite(value))
+        {
+            return color;
+        }
+
+        value = Math.Clamp(value, 0d, 1d);
+        var alpha = (byte)Math.Clamp((int)Math.Round(color.Value.A * value, MidpointRounding.AwayFromZero), 0, 255);
+        return new PdfColor(color.Value.R, color.Value.G, color.Value.B, alpha);
+    }
+
+    private static bool IsDefaultOpacity(double value)
+        => !double.IsFinite(value) || Math.Abs(value - 1d) < 0.0001d;
 
     private static void BuildContentOrder(Page page, PdfPageAst pageAst)
     {
