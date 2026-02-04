@@ -4597,29 +4597,19 @@ public static class PdfDocumentConverter
     private static PdfRect ResolveFixedRunBounds(PdfTextRun run)
     {
         var bounds = run.Bounds;
-        var baseline = ResolveRunBaseline(run);
-        if (!double.IsFinite(baseline))
-        {
-            return bounds;
-        }
-
         var lineHeight = run.FontSize > 0 ? run.FontSize : bounds.Height;
         if (lineHeight <= 0)
         {
             return bounds;
         }
-
-        var topGap = Math.Max(0, bounds.Bottom - baseline);
-        var bottomGap = Math.Max(0, baseline - bounds.Y);
-        var ascent = Math.Max(topGap, lineHeight * 0.7);
-        var descent = Math.Max(bottomGap, lineHeight * 0.25);
-        var height = ascent + descent;
-        if (height <= 0 || bounds.Width <= 0)
+        if (bounds.Width <= 0)
         {
             return bounds;
         }
 
-        var bottom = baseline - descent;
+        var height = Math.Max(bounds.Height, lineHeight);
+        var top = bounds.Bottom;
+        var bottom = top - height;
         return new PdfRect(bounds.X, bottom, bounds.Width, height);
     }
 
