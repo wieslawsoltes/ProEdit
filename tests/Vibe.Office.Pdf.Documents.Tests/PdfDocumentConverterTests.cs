@@ -280,6 +280,36 @@ public sealed class PdfDocumentConverterTests
     }
 
     [Fact]
+    public void ReflowUsesBaselineGapWhenBoundsOverlap()
+    {
+        var pdf = new PdfDocumentAst();
+        var page = new PdfPageAst
+        {
+            Index = 0,
+            Width = 612,
+            Height = 792
+        };
+
+        var font = new PdfFontInfo("Test", false, false);
+        var glyphs = new List<PdfTextGlyph>
+        {
+            new("A", new PdfRect(0, 690, 20, 10), font, 10, 0, 700, 5, PdfTextOrientation.Horizontal),
+            new("B", new PdfRect(6, 690, 20, 10), font, 10, 6, 700, 5, PdfTextOrientation.Horizontal),
+            new("C", new PdfRect(20, 690, 20, 10), font, 10, 20, 700, 5, PdfTextOrientation.Horizontal),
+            new("D", new PdfRect(26, 690, 20, 10), font, 10, 26, 700, 5, PdfTextOrientation.Horizontal)
+        };
+
+        page.Glyphs.AddRange(glyphs);
+        pdf.Pages.Add(page);
+
+        var document = PdfDocumentConverter.FromPdf(pdf, new PdfImportOptions { Mode = PdfImportMode.Reflow });
+        var paragraph = Assert.IsType<ParagraphBlock>(document.Blocks.First());
+        var text = ExtractParagraphText(paragraph);
+
+        Assert.Equal("AB CD", text);
+    }
+
+    [Fact]
     public void ReflowMergesHyphenatedLineBreaks()
     {
         var pdf = new PdfDocumentAst();

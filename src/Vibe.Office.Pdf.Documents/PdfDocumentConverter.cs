@@ -1683,6 +1683,26 @@ public static class PdfDocumentConverter
         return glyph.Bounds.Y + glyph.Bounds.Height / 2;
     }
 
+    private static double ResolveGlyphGap(PdfTextGlyph left, PdfTextGlyph right)
+    {
+        var boundsGap = right.Bounds.X - left.Bounds.Right;
+        if (double.IsFinite(left.BaselineX) && double.IsFinite(right.BaselineX) && left.Advance > 0)
+        {
+            var baselineGap = right.BaselineX - (left.BaselineX + left.Advance);
+            if (double.IsFinite(baselineGap))
+            {
+                if (!double.IsFinite(boundsGap))
+                {
+                    return baselineGap;
+                }
+
+                return Math.Max(baselineGap, boundsGap);
+            }
+        }
+
+        return boundsGap;
+    }
+
     private static void BuildGlyphLineSpans(PdfGlyphLine line)
     {
         line.Spans.Clear();
@@ -1754,7 +1774,7 @@ public static class PdfDocumentConverter
 
             if (previous is not null)
             {
-                var gap = glyph.Bounds.X - previous.Bounds.Right;
+                var gap = ResolveGlyphGap(previous, glyph);
                 if (gap > spaceThreshold)
                 {
                     AppendSpace();
@@ -1798,7 +1818,7 @@ public static class PdfDocumentConverter
 
             if (i > 0)
             {
-                var gap = glyph.Bounds.X - line.Glyphs[i - 1].Bounds.Right;
+                var gap = ResolveGlyphGap(line.Glyphs[i - 1], glyph);
                 if (gap > 0)
                 {
                     gaps.Add(gap);
@@ -1823,7 +1843,7 @@ public static class PdfDocumentConverter
         current.Add(line.Glyphs[0]);
         for (var i = 1; i < line.Glyphs.Count; i++)
         {
-            var gap = line.Glyphs[i].Bounds.X - line.Glyphs[i - 1].Bounds.Right;
+            var gap = ResolveGlyphGap(line.Glyphs[i - 1], line.Glyphs[i]);
             if (gap > gapThreshold && current.Glyphs.Count > 0)
             {
                 segments.Add(current);
@@ -1851,6 +1871,7 @@ public static class PdfDocumentConverter
         var gaps = new List<double>(glyphs.Count);
         var widths = new List<double>(glyphs.Count);
         var sizes = new List<double>(glyphs.Count);
+        var advances = new List<double>(glyphs.Count);
         for (var i = 0; i < glyphs.Count; i++)
         {
             var glyph = glyphs[i];
@@ -1859,22 +1880,57 @@ public static class PdfDocumentConverter
             {
                 sizes.Add(glyph.FontSize);
             }
+            else if (glyph.Bounds.Height > 0)
+            {
+                sizes.Add(glyph.Bounds.Height);
+            }
+
+            if (glyph.Advance > 0)
+            {
+                advances.Add(glyph.Advance);
+            }
 
             if (i > 0)
             {
-                var gap = glyph.Bounds.X - glyphs[i - 1].Bounds.Right;
-                if (gap > 0)
+                var gap = ResolveGlyphGap(glyphs[i - 1], glyph);
+                if (gap > 0 && double.IsFinite(gap))
                 {
                     gaps.Add(gap);
                 }
             }
         }
 
-        var medianGap = gaps.Count > 0 ? Median(gaps) : 0.0;
         var medianWidth = widths.Count > 0 ? Median(widths) : 0.0;
         var medianSize = sizes.Count > 0 ? Median(sizes) : 0.0;
-        var threshold = Math.Max(medianGap * 1.6, Math.Max(medianWidth * 0.5, medianSize * 0.25));
-        return Math.Max(threshold, 1.5);
+        var medianAdvance = advances.Count > 0 ? Median(advances) : 0.0;
+        var baseThreshold = Math.Max(0.75, Math.Max(medianSize * 0.12, Math.Max(medianWidth * 0.2, medianAdvance * 0.2)));
+        if (gaps.Count == 0)
+        {
+            return baseThreshold;
+        }
+
+        gaps.Sort();
+        var medianGap = PercentileSorted(gaps, 0.5);
+        var p75 = PercentileSorted(gaps, 0.75);
+        var p90 = PercentileSorted(gaps, 0.9);
+
+        var threshold = Math.Max(medianGap * 1.3, baseThreshold);
+        if (p90 > medianGap * 2.0 && p90 > baseThreshold * 1.25)
+        {
+            threshold = (medianGap + p90) / 2.0;
+        }
+        else if (p75 > medianGap * 1.6 && p75 > baseThreshold)
+        {
+            threshold = (medianGap + p75) / 2.0;
+        }
+
+        var maxThreshold = Math.Max(medianSize * 0.8, Math.Max(medianWidth * 1.2, medianAdvance * 1.2));
+        if (maxThreshold > 0)
+        {
+            threshold = Math.Min(threshold, maxThreshold);
+        }
+
+        return Math.Max(threshold, 0.75);
     }
 
     private static double ResolveGlyphLineHeight(PdfGlyphLine line)
@@ -1898,6 +1954,26 @@ public static class PdfDocumentConverter
         values.Sort();
         var mid = values.Count / 2;
         return values.Count % 2 == 0 ? (values[mid - 1] + values[mid]) / 2 : values[mid];
+    }
+
+    private static double PercentileSorted(List<double> values, double percentile)
+    {
+        if (values.Count == 0)
+        {
+            return 0;
+        }
+
+        var clamped = Math.Clamp(percentile, 0.0, 1.0);
+        var position = (values.Count - 1) * clamped;
+        var lower = (int)Math.Floor(position);
+        var upper = (int)Math.Ceiling(position);
+        if (lower == upper)
+        {
+            return values[lower];
+        }
+
+        var weight = position - lower;
+        return values[lower] + (values[upper] - values[lower]) * weight;
     }
 
     private static PdfRect UnionRect(PdfRect left, PdfRect right)
