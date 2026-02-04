@@ -471,25 +471,20 @@ public static class PdfDocumentConverter
     private static TextRunLayout BuildTextRunBoxes(PdfPageAst page)
     {
         var layout = new TextRunLayout();
-        var lineGroups = GroupRunsIntoLines(page.TextRuns);
-        if (lineGroups.Count == 0)
+        if (page.TextRuns.Count == 0)
         {
             return layout;
         }
 
-        var orderedLines = lineGroups
-            .OrderByDescending(line => line.CenterY)
-            .ThenBy(line => line.Bounds.X)
+        var orderedRuns = page.TextRuns
+            .Where(run => !string.IsNullOrWhiteSpace(run.Text))
+            .OrderByDescending(run => ResolveRunBaseline(run))
+            .ThenBy(run => run.Bounds.X)
             .ToList();
 
-        foreach (var line in orderedLines)
+        foreach (var run in orderedRuns)
         {
-            if (line.Runs.Count == 0)
-            {
-                continue;
-            }
-
-            var bounds = ResolveFixedLineBounds(line);
+            var bounds = ResolveFixedRunBounds(run);
             var width = PdfUnits.PointsToDip(bounds.Width);
             var height = PdfUnits.PointsToDip(bounds.Height);
             if (width <= 0 || height <= 0)
@@ -498,7 +493,12 @@ public static class PdfDocumentConverter
             }
 
             var paragraph = new ParagraphBlock();
-            AppendLineInlines(paragraph, line, addLineBreak: false, useNonBreakingSpaces: true);
+            var text = NormalizeFixedRunText(run.Text);
+            if (!string.IsNullOrEmpty(text))
+            {
+                paragraph.Inlines.Add(new RunInline(text, BuildRunStyle(run)));
+            }
+
             paragraph.Text = string.Empty;
             ApplyFixedLineSpacing(paragraph, height);
 
@@ -514,16 +514,25 @@ public static class PdfDocumentConverter
             var floating = CreatePageAnchoredObject(shape, page, bounds, behindText: false);
             layout.Objects.Add(floating);
 
-            foreach (var run in line.Runs)
+            if (run.Index >= 0)
             {
-                if (run.Index >= 0)
-                {
-                    layout.RunMap[run.Index] = floating;
-                }
+                layout.RunMap[run.Index] = floating;
             }
         }
 
         return layout;
+    }
+
+    private static string NormalizeFixedRunText(string text)
+    {
+        if (string.IsNullOrEmpty(text))
+        {
+            return string.Empty;
+        }
+
+        return text.IndexOf(' ') >= 0
+            ? text.Replace(' ', '\u00A0')
+            : text;
     }
 
     private static void AddObjects(ParagraphBlock hostParagraph, IReadOnlyList<FloatingObject> objects, ref uint order)
@@ -4566,6 +4575,35 @@ public static class PdfDocumentConverter
         }
 
         var lineHeight = ResolveLineHeight(line);
+        if (lineHeight <= 0)
+        {
+            return bounds;
+        }
+
+        var topGap = Math.Max(0, bounds.Bottom - baseline);
+        var bottomGap = Math.Max(0, baseline - bounds.Y);
+        var ascent = Math.Max(topGap, lineHeight * 0.7);
+        var descent = Math.Max(bottomGap, lineHeight * 0.25);
+        var height = ascent + descent;
+        if (height <= 0 || bounds.Width <= 0)
+        {
+            return bounds;
+        }
+
+        var bottom = baseline - descent;
+        return new PdfRect(bounds.X, bottom, bounds.Width, height);
+    }
+
+    private static PdfRect ResolveFixedRunBounds(PdfTextRun run)
+    {
+        var bounds = run.Bounds;
+        var baseline = ResolveRunBaseline(run);
+        if (!double.IsFinite(baseline))
+        {
+            return bounds;
+        }
+
+        var lineHeight = run.FontSize > 0 ? run.FontSize : bounds.Height;
         if (lineHeight <= 0)
         {
             return bounds;
