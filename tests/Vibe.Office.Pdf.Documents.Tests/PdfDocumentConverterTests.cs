@@ -103,6 +103,42 @@ public sealed class PdfDocumentConverterTests
     }
 
     [Fact]
+    public void FixedLayoutUsesNonBreakingSpacesAndAutoFit()
+    {
+        var pdf = new PdfDocumentAst();
+        var page = new PdfPageAst
+        {
+            Index = 0,
+            Width = 612,
+            Height = 792
+        };
+
+        page.TextRuns.Add(new PdfTextRun(
+            "Hello World",
+            new PdfRect(72, 700, 160, 12),
+            new PdfFontInfo("Test", false, false),
+            10,
+            708,
+            0,
+            null));
+
+        pdf.Pages.Add(page);
+
+        var document = PdfDocumentConverter.FromPdf(pdf, new PdfImportOptions { Mode = PdfImportMode.FixedLayout });
+        var paragraph = Assert.IsType<ParagraphBlock>(document.Blocks.First());
+        var floating = Assert.Single(paragraph.FloatingObjects);
+        var shape = Assert.IsType<ShapeInline>(floating.Content);
+        Assert.NotNull(shape.TextBox);
+        var textBox = shape.TextBox!;
+
+        Assert.Equal(ShapeTextAutoFit.TextToFitShape, textBox.Properties.AutoFit);
+
+        var lineParagraph = Assert.IsType<ParagraphBlock>(textBox.Blocks.First());
+        var text = ExtractParagraphText(lineParagraph);
+        Assert.Equal("Hello\u00A0World", text);
+    }
+
+    [Fact]
     public void ReflowUsesGlyphSpacingForWordBoundaries()
     {
         var pdf = new PdfDocumentAst();

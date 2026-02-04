@@ -489,7 +489,7 @@ public static class PdfDocumentConverter
                 continue;
             }
 
-            var bounds = line.Bounds;
+            var bounds = ResolveFixedLineBounds(line);
             var width = PdfUnits.PointsToDip(bounds.Width);
             var height = PdfUnits.PointsToDip(bounds.Height);
             if (width <= 0 || height <= 0)
@@ -498,11 +498,12 @@ public static class PdfDocumentConverter
             }
 
             var paragraph = new ParagraphBlock();
-            AppendLineInlines(paragraph, line, addLineBreak: false);
+            AppendLineInlines(paragraph, line, addLineBreak: false, useNonBreakingSpaces: true);
             paragraph.Text = string.Empty;
             ApplyFixedLineSpacing(paragraph, height);
 
             var textBox = new ShapeTextBox();
+            textBox.Properties.AutoFit = ShapeTextAutoFit.TextToFitShape;
             textBox.Blocks.Add(paragraph);
 
             var shape = new ShapeInline(width, height)
@@ -575,12 +576,17 @@ public static class PdfDocumentConverter
         return (int)Math.Max(1, Math.Round(dip * 15.0));
     }
 
-    private static void AppendLineInlines(ParagraphBlock paragraph, PdfLineGroup line, bool addLineBreak)
+    private static void AppendLineInlines(
+        ParagraphBlock paragraph,
+        PdfLineGroup line,
+        bool addLineBreak,
+        bool useNonBreakingSpaces = false)
     {
         var spaceThreshold = ResolveSpaceThreshold(line.Runs);
         PdfTextRun? previous = null;
         RunInline? lastRunInline = null;
         TextStyleProperties? lastStyle = null;
+        var spaceText = useNonBreakingSpaces ? "\u00A0" : " ";
 
         if (addLineBreak)
         {
@@ -601,7 +607,7 @@ public static class PdfDocumentConverter
                 var gap = run.Bounds.X - previous.Bounds.Right;
                 if (gap > spaceThreshold)
                 {
-                    AppendText(" ", lastStyle ?? BuildRunStyle(previous));
+                    AppendText(spaceText, lastStyle ?? BuildRunStyle(previous));
                 }
             }
 
@@ -615,6 +621,11 @@ public static class PdfDocumentConverter
             if (string.IsNullOrEmpty(text))
             {
                 return;
+            }
+
+            if (useNonBreakingSpaces && text.Contains(' '))
+            {
+                text = text.Replace(' ', '\u00A0');
             }
 
             if (lastRunInline is not null && AreStylesEquivalent(lastStyle, style))
@@ -4465,6 +4476,40 @@ public static class PdfDocumentConverter
 
         var average = line.Runs.Average(run => run.FontSize > 0 ? run.FontSize : run.Bounds.Height);
         return Math.Max(average, line.Bounds.Height);
+    }
+
+    private static PdfRect ResolveFixedLineBounds(PdfLineGroup line)
+    {
+        var bounds = line.Bounds;
+        if (line.Runs.Count == 0)
+        {
+            return bounds;
+        }
+
+        var baseline = line.CenterY;
+        if (!double.IsFinite(baseline))
+        {
+            return bounds;
+        }
+
+        var lineHeight = ResolveLineHeight(line);
+        if (lineHeight <= 0)
+        {
+            return bounds;
+        }
+
+        var topGap = Math.Max(0, bounds.Bottom - baseline);
+        var bottomGap = Math.Max(0, baseline - bounds.Y);
+        var ascent = Math.Max(topGap, lineHeight * 0.7);
+        var descent = Math.Max(bottomGap, lineHeight * 0.25);
+        var height = ascent + descent;
+        if (height <= 0 || bounds.Width <= 0)
+        {
+            return bounds;
+        }
+
+        var bottom = baseline - descent;
+        return new PdfRect(bounds.X, bottom, bounds.Width, height);
     }
 
     private static List<FloatingObject> BuildImageObjects(PdfPageAst page)
