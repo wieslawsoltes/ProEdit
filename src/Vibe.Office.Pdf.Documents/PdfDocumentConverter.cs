@@ -470,6 +470,15 @@ public static class PdfDocumentConverter
 
     private static TextRunLayout BuildTextRunBoxes(PdfPageAst page)
     {
+        if (page.Glyphs.Count > 0)
+        {
+            var glyphLayout = BuildGlyphLineBoxes(page);
+            if (glyphLayout.Objects.Count > 0)
+            {
+                return glyphLayout;
+            }
+        }
+
         var layout = new TextRunLayout();
         if (page.TextRuns.Count == 0)
         {
@@ -523,6 +532,67 @@ public static class PdfDocumentConverter
         return layout;
     }
 
+    private static TextRunLayout BuildGlyphLineBoxes(PdfPageAst page)
+    {
+        var layout = new TextRunLayout();
+        var glyphs = page.Glyphs
+            .Where(glyph => !string.IsNullOrWhiteSpace(glyph.Text) && IsGlyphOrientationSupported(glyph.Orientation))
+            .ToList();
+        if (glyphs.Count == 0)
+        {
+            return layout;
+        }
+
+        var lines = GroupGlyphsIntoLines(glyphs);
+        if (lines.Count == 0)
+        {
+            return layout;
+        }
+
+        var orderedLines = lines
+            .OrderByDescending(line => line.BaselineY)
+            .ThenBy(line => line.Bounds.X)
+            .ToList();
+
+        var lineLayouts = new List<GlyphLineLayout>(orderedLines.Count);
+        foreach (var line in orderedLines)
+        {
+            if (line.Glyphs.Count == 0)
+            {
+                continue;
+            }
+
+            var bounds = ResolveFixedGlyphLineBounds(line);
+            var width = PdfUnits.PointsToDip(bounds.Width);
+            var height = PdfUnits.PointsToDip(bounds.Height);
+            if (width <= 0 || height <= 0)
+            {
+                continue;
+            }
+
+            var paragraph = new ParagraphBlock();
+            AppendLineSpans(paragraph, line.Spans, useNonBreakingSpaces: true);
+            paragraph.Text = string.Empty;
+            ApplyFixedLineSpacing(paragraph, height);
+
+            var textBox = new ShapeTextBox();
+            textBox.Properties.AutoFit = ShapeTextAutoFit.TextToFitShape;
+            textBox.Blocks.Add(paragraph);
+
+            var shape = new ShapeInline(width, height)
+            {
+                TextBox = textBox
+            };
+
+            var floating = CreatePageAnchoredObject(shape, page, bounds, behindText: false);
+            layout.Objects.Add(floating);
+            lineLayouts.Add(new GlyphLineLayout(line, bounds, floating));
+        }
+
+        MapRunsToGlyphLines(layout, page.TextRuns, lineLayouts);
+        return layout;
+    }
+
     private static string NormalizeFixedRunText(string text)
     {
         if (string.IsNullOrEmpty(text))
@@ -533,6 +603,58 @@ public static class PdfDocumentConverter
         return text.IndexOf(' ') >= 0
             ? text.Replace(' ', '\u00A0')
             : text;
+    }
+
+    private static void MapRunsToGlyphLines(
+        TextRunLayout layout,
+        IReadOnlyList<PdfTextRun> runs,
+        IReadOnlyList<GlyphLineLayout> lineLayouts)
+    {
+        if (runs.Count == 0 || lineLayouts.Count == 0)
+        {
+            return;
+        }
+
+        var tolerance = ResolveLineTolerance(runs);
+        var pad = Math.Max(tolerance * 0.6, 2.0);
+
+        foreach (var run in runs)
+        {
+            if (run.Index < 0)
+            {
+                continue;
+            }
+
+            var baseline = ResolveRunBaseline(run);
+            var best = -1;
+            var bestDelta = double.MaxValue;
+            for (var i = 0; i < lineLayouts.Count; i++)
+            {
+                var line = lineLayouts[i].Line;
+                var delta = Math.Abs(line.BaselineY - baseline);
+                if (delta > tolerance)
+                {
+                    continue;
+                }
+
+                var bounds = lineLayouts[i].Bounds;
+                if (run.Bounds.Right < bounds.X - pad || run.Bounds.X > bounds.Right + pad)
+                {
+                    continue;
+                }
+
+                if (delta < bestDelta)
+                {
+                    bestDelta = delta;
+                    best = i;
+                }
+            }
+
+            if (best >= 0)
+            {
+                layout.RunMap[run.Index] = lineLayouts[best].Object;
+            }
+        }
     }
 
     private static void AddObjects(ParagraphBlock hostParagraph, IReadOnlyList<FloatingObject> objects, ref uint order)
@@ -2628,7 +2750,7 @@ public static class PdfDocumentConverter
         }
     }
 
-    private static void AppendLineSpans(ParagraphBlock paragraph, IReadOnlyList<PdfTextSpan> spans)
+    private static void AppendLineSpans(ParagraphBlock paragraph, IReadOnlyList<PdfTextSpan> spans, bool useNonBreakingSpaces = false)
     {
         RunInline? lastRunInline = null;
         TextStyleProperties? lastStyle = null;
@@ -2640,13 +2762,17 @@ public static class PdfDocumentConverter
                 continue;
             }
 
+            var text = useNonBreakingSpaces && span.Text.IndexOf(' ') >= 0
+                ? span.Text.Replace(' ', '\u00A0')
+                : span.Text;
+
             if (lastRunInline is not null && AreStylesEquivalent(lastStyle, span.Style))
             {
-                lastRunInline.Text.Insert(lastRunInline.Text.Length, span.Text);
+                lastRunInline.Text.Insert(lastRunInline.Text.Length, text);
                 continue;
             }
 
-            var inline = new RunInline(span.Text, span.Style);
+            var inline = new RunInline(text, span.Style);
             paragraph.Inlines.Add(inline);
             lastRunInline = inline;
             lastStyle = span.Style;
@@ -4165,6 +4291,8 @@ public static class PdfDocumentConverter
         public Dictionary<int, FloatingObject> RunMap { get; } = new();
     }
 
+    private readonly record struct GlyphLineLayout(PdfGlyphLine Line, PdfRect Bounds, FloatingObject Object);
+
     private sealed class PdfLineGroup
     {
         public PdfLineGroup(double centerY)
@@ -4611,6 +4739,70 @@ public static class PdfDocumentConverter
         var top = bounds.Bottom;
         var bottom = top - height;
         return new PdfRect(bounds.X, bottom, bounds.Width, height);
+    }
+
+    private static PdfRect ResolveFixedGlyphLineBounds(PdfGlyphLine line)
+    {
+        if (line.Glyphs.Count == 0)
+        {
+            return line.Bounds;
+        }
+
+        var baseline = line.BaselineY;
+        if (!double.IsFinite(baseline))
+        {
+            return line.Bounds;
+        }
+
+        var minX = double.MaxValue;
+        var maxX = double.MinValue;
+        var ascent = 0.0;
+        var descent = 0.0;
+
+        foreach (var glyph in line.Glyphs)
+        {
+            var bounds = glyph.Bounds;
+            if (bounds.Width <= 0 || bounds.Height <= 0)
+            {
+                continue;
+            }
+
+            if (bounds.X < minX)
+            {
+                minX = bounds.X;
+            }
+
+            if (bounds.Right > maxX)
+            {
+                maxX = bounds.Right;
+            }
+
+            var glyphAscent = Math.Max(0, bounds.Bottom - glyph.BaselineY);
+            var glyphDescent = Math.Max(0, glyph.BaselineY - bounds.Y);
+            if (glyphAscent > ascent)
+            {
+                ascent = glyphAscent;
+            }
+
+            if (glyphDescent > descent)
+            {
+                descent = glyphDescent;
+            }
+        }
+
+        if (minX == double.MaxValue || maxX == double.MinValue)
+        {
+            return line.Bounds;
+        }
+
+        var height = ascent + descent;
+        if (height <= 0)
+        {
+            height = line.LineHeight > 0 ? line.LineHeight : line.Bounds.Height;
+        }
+
+        var bottom = baseline - descent;
+        return new PdfRect(minX, bottom, Math.Max(0.1, maxX - minX), height);
     }
 
     private static List<FloatingObject> BuildImageObjects(PdfPageAst page)
