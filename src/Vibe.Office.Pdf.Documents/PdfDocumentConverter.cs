@@ -458,9 +458,18 @@ public static class PdfDocumentConverter
         if (page.ContentOrder.Count == 0)
         {
             uint zOrder = 0;
-            AddObjects(hostParagraph, textLayout.Objects, ref zOrder);
-            AddObjects(hostParagraph, pathObjects, ref zOrder);
-            AddObjects(hostParagraph, imageObjects, ref zOrder);
+            if (!page.PathOrderMatchesOperations && textLayout.Objects.Count > 0)
+            {
+                AddObjects(hostParagraph, pathObjects, ref zOrder);
+                AddObjects(hostParagraph, imageObjects, ref zOrder);
+                AddObjects(hostParagraph, textLayout.Objects, ref zOrder);
+            }
+            else
+            {
+                AddObjects(hostParagraph, textLayout.Objects, ref zOrder);
+                AddObjects(hostParagraph, pathObjects, ref zOrder);
+                AddObjects(hostParagraph, imageObjects, ref zOrder);
+            }
             return;
         }
 
