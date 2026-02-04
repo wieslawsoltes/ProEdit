@@ -31,6 +31,7 @@ public sealed class PdfPageAst
     public List<PdfTextGlyph> Glyphs { get; } = new();
     public List<PdfImageObject> Images { get; } = new();
     public List<PdfPathObject> Paths { get; } = new();
+    public List<int> PathPaintCounts { get; } = new();
     public List<PdfContentItem> ContentOrder { get; } = new();
 }
 

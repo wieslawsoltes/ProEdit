@@ -10,10 +10,13 @@ using UglyToad.PdfPig.Graphics;
 using UglyToad.PdfPig.Graphics.Colors;
 using UglyToad.PdfPig.Graphics.Core;
 using UglyToad.PdfPig.Graphics.Operations;
+using UglyToad.PdfPig.Graphics.Operations.ClippingPaths;
 using UglyToad.PdfPig.Graphics.Operations.InlineImages;
+using UglyToad.PdfPig.Graphics.Operations.PathPainting;
 using UglyToad.PdfPig.Graphics.Operations.SpecialGraphicsState;
 using UglyToad.PdfPig.Filters;
 using UglyToad.PdfPig.Tokens;
+using SkiaSharp;
 using Vibe.Office.Pdf;
 
 namespace Vibe.Office.Pdf.PdfPig;
@@ -177,34 +180,171 @@ public sealed class PdfPigParser : IPdfParser
             return;
         }
 
-        var pathOpacities = BuildPathOpacities(document, page);
-        var pathIndex = 0;
-        foreach (var path in paths)
+        if (page.Operations is null || page.Operations.Count == 0)
         {
-            if (path.IsClipping)
+            var pathOpacities = BuildPathOpacities(document, page);
+            var pathIndex = 0;
+            foreach (var path in paths)
             {
+                if (path.IsClipping)
+                {
+                    pathIndex++;
+                    continue;
+                }
+
+                var pathObject = BuildPathObject(path);
+                if (pathObject is null)
+                {
+                    pathIndex++;
+                    continue;
+                }
+
+                if (pathOpacities.TryGetValue(pathIndex, out var opacity))
+                {
+                    ApplyOpacity(pathObject.Style, opacity);
+                }
+
+                pageAst.Paths.Add(pathObject);
                 pathIndex++;
+            }
+
+            return;
+        }
+
+        var graphicsStates = BuildGraphicsStateLookup(document, page.Dictionary);
+        var fillAlpha = 1d;
+        var strokeAlpha = 1d;
+        var stack = new Stack<PdfGraphicsStateSnapshot>();
+        ClipState? clipState = null;
+        PdfFillRule? pendingClipRule = null;
+        var pathIndexWithOps = 0;
+
+        foreach (var op in page.Operations)
+        {
+            if (op is Push)
+            {
+                stack.Push(new PdfGraphicsStateSnapshot(fillAlpha, strokeAlpha, clipState));
                 continue;
             }
 
+            if (op is Pop)
+            {
+                if (stack.Count > 0)
+                {
+                    var state = stack.Pop();
+                    fillAlpha = state.FillAlpha;
+                    strokeAlpha = state.StrokeAlpha;
+                    clipState = state.ClipState;
+                }
+                else
+                {
+                    fillAlpha = 1d;
+                    strokeAlpha = 1d;
+                    clipState = null;
+                }
+
+                continue;
+            }
+
+            if (op is SetGraphicsStateParametersFromDictionary setState)
+            {
+                var name = setState.Name?.Data;
+                if (!string.IsNullOrEmpty(name) && graphicsStates.TryGetValue(name, out var state))
+                {
+                    if (state.FillAlpha.HasValue)
+                    {
+                        fillAlpha = state.FillAlpha.Value;
+                    }
+
+                    if (state.StrokeAlpha.HasValue)
+                    {
+                        strokeAlpha = state.StrokeAlpha.Value;
+                    }
+                }
+
+                continue;
+            }
+
+            if (op is ModifyClippingByEvenOddIntersect)
+            {
+                pendingClipRule = PdfFillRule.EvenOdd;
+                continue;
+            }
+
+            if (op is ModifyClippingByNonZeroWindingIntersect)
+            {
+                pendingClipRule = PdfFillRule.NonZero;
+                continue;
+            }
+
+            var isPaint = IsPathPaintOperation(op);
+            if (!isPaint && op is not EndPath)
+            {
+                continue;
+            }
+
+            if (pathIndexWithOps >= paths.Count)
+            {
+                continue;
+            }
+
+            var path = paths[pathIndexWithOps++];
             var pathObject = BuildPathObject(path);
             if (pathObject is null)
             {
-                pathIndex++;
+                pendingClipRule = null;
+                if (isPaint)
+                {
+                    pageAst.PathPaintCounts.Add(0);
+                }
+
                 continue;
             }
 
-            if (pathOpacities.TryGetValue(pathIndex, out var opacity))
+            if (!IsDefaultOpacity(fillAlpha) || !IsDefaultOpacity(strokeAlpha))
             {
-                ApplyOpacity(pathObject.Style, opacity);
+                ApplyOpacity(pathObject.Style, new PdfGraphicsAlpha(fillAlpha, strokeAlpha));
             }
 
-            pageAst.Paths.Add(pathObject);
-            pathIndex++;
+            if (pendingClipRule.HasValue || path.IsClipping)
+            {
+                var rule = pendingClipRule ?? pathObject.Style.FillRule;
+                var clipPath = BuildSkPath(pathObject, rule);
+                clipState = IntersectClip(clipState, clipPath);
+                pendingClipRule = null;
+            }
+
+            if (isPaint)
+            {
+                var added = 0;
+                foreach (var clipped in ApplyClip(pathObject, clipState))
+                {
+                    pageAst.Paths.Add(clipped);
+                    added++;
+                }
+
+                pageAst.PathPaintCounts.Add(added);
+            }
         }
     }
 
     private readonly record struct PdfGraphicsAlpha(double? FillAlpha, double? StrokeAlpha);
+
+    private readonly record struct PdfGraphicsStateSnapshot(double FillAlpha, double StrokeAlpha, ClipState? ClipState);
+
+    private sealed class ClipState
+    {
+        public ClipState(SKPath? path, bool isEmpty)
+        {
+            Path = path;
+            IsEmpty = isEmpty;
+        }
+
+        public SKPath? Path { get; }
+        public bool IsEmpty { get; }
+
+        public static ClipState Empty { get; } = new(null, true);
+    }
 
     private static Dictionary<int, PdfGraphicsAlpha> BuildPathOpacities(PdfDocument document, Page page)
     {
@@ -373,6 +513,8 @@ public sealed class PdfPigParser : IPdfParser
         var textQueue = BuildTextQueue(pageAst);
         var imageQueue = new Queue<int>(Enumerable.Range(0, pageAst.Images.Count));
         var pathQueue = new Queue<int>(Enumerable.Range(0, pageAst.Paths.Count));
+        var pathPaintCounts = pageAst.PathPaintCounts;
+        var pathPaintIndex = 0;
 
         if (page.Operations is { Count: > 0 })
         {
@@ -392,7 +534,18 @@ public sealed class PdfPigParser : IPdfParser
 
                 if (IsPathPaintOperation(op))
                 {
-                    EnqueueContent(pathQueue, pageAst.ContentOrder, PdfContentItemKind.Path);
+                    var count = 1;
+                    if (pathPaintIndex < pathPaintCounts.Count)
+                    {
+                        count = Math.Max(0, pathPaintCounts[pathPaintIndex]);
+                    }
+
+                    for (var i = 0; i < count; i++)
+                    {
+                        EnqueueContent(pathQueue, pageAst.ContentOrder, PdfContentItemKind.Path);
+                    }
+
+                    pathPaintIndex++;
                 }
             }
         }
@@ -1575,6 +1728,134 @@ public sealed class PdfPigParser : IPdfParser
         }
     }
 
+    private static ClipState? IntersectClip(ClipState? current, SKPath? clipPath)
+    {
+        if (clipPath is null || clipPath.IsEmpty)
+        {
+            return ClipState.Empty;
+        }
+
+        if (current is null)
+        {
+            return new ClipState(clipPath, isEmpty: false);
+        }
+
+        if (current.IsEmpty)
+        {
+            return current;
+        }
+
+        if (current.Path is null)
+        {
+            return ClipState.Empty;
+        }
+
+        var result = current.Path.Op(clipPath, SKPathOp.Intersect);
+        if (result is null || result.IsEmpty)
+        {
+            return ClipState.Empty;
+        }
+
+        return new ClipState(result, isEmpty: false);
+    }
+
+    private static IEnumerable<PdfPathObject> ApplyClip(PdfPathObject path, ClipState? clipState)
+    {
+        if (clipState is null)
+        {
+            yield return path;
+            yield break;
+        }
+
+        if (clipState.IsEmpty || clipState.Path is null)
+        {
+            yield break;
+        }
+
+        var clipped = ClipFilledPath(path, clipState.Path);
+        if (clipped is not null)
+        {
+            yield return clipped;
+        }
+        else if (!path.Style.IsFilled && !path.Style.IsStroked)
+        {
+            yield break;
+        }
+
+        if (!path.Style.IsStroked)
+        {
+            yield break;
+        }
+
+        var stroke = ClipStrokedPath(path, clipState.Path);
+        if (stroke is not null)
+        {
+            yield return stroke;
+        }
+    }
+
+    private static PdfPathObject? ClipFilledPath(PdfPathObject path, SKPath clipPath)
+    {
+        if (!path.Style.IsFilled)
+        {
+            return null;
+        }
+
+        using var skPath = BuildSkPath(path, path.Style.FillRule);
+        if (skPath.IsEmpty)
+        {
+            return null;
+        }
+
+        using var result = skPath.Op(clipPath, SKPathOp.Intersect);
+        if (result is null || result.IsEmpty)
+        {
+            return null;
+        }
+
+        var style = CopyPathStyle(path.Style);
+        style.IsFilled = true;
+        style.IsStroked = false;
+        return BuildPathObjectFromSkPath(result, style);
+    }
+
+    private static PdfPathObject? ClipStrokedPath(PdfPathObject path, SKPath clipPath)
+    {
+        if (!path.Style.IsStroked)
+        {
+            return null;
+        }
+
+        using var skPath = BuildSkPath(path, path.Style.FillRule);
+        if (skPath.IsEmpty)
+        {
+            return null;
+        }
+
+        using var paint = CreateStrokePaint(path.Style);
+        using var strokeOutline = paint.GetFillPath(skPath);
+        if (strokeOutline is null || strokeOutline.IsEmpty)
+        {
+            return null;
+        }
+
+        using var result = strokeOutline.Op(clipPath, SKPathOp.Intersect);
+        if (result is null || result.IsEmpty)
+        {
+            return null;
+        }
+
+        var style = new PdfPathStyle
+        {
+            IsFilled = true,
+            IsStroked = false,
+            FillColor = path.Style.StrokeColor,
+            FillRule = PdfFillRule.NonZero
+        };
+
+        return BuildPathObjectFromSkPath(result, style);
+    }
+
     private static PdfPathStyle BuildPathStyle(PdfPath path)
     {
         var style = new PdfPathStyle
@@ -1597,6 +1878,197 @@ public sealed class PdfPigParser : IPdfParser
         }
 
         return style;
+    }
+
+    private static PdfPathStyle CopyPathStyle(PdfPathStyle style)
+    {
+        return new PdfPathStyle
+        {
+            IsFilled = style.IsFilled,
+            IsStroked = style.IsStroked,
+            FillColor = style.FillColor,
+            StrokeColor = style.StrokeColor,
+            LineWidth = style.LineWidth,
+            LineCap = style.LineCap,
+            LineJoin = style.LineJoin,
+            MiterLimit = style.MiterLimit,
+            DashArray = style.DashArray,
+            DashPhase = style.DashPhase,
+            FillRule = style.FillRule
+        };
+    }
+
+    private static SKPath BuildSkPath(PdfPathObject path, PdfFillRule? fillRule = null)
+    {
+        var skPath = new SKPath
+        {
+            FillType = (fillRule ?? path.Style.FillRule) == PdfFillRule.EvenOdd
+                ? SKPathFillType.EvenOdd
+                : SKPathFillType.Winding
+        };
+
+        foreach (var segment in path.Segments)
+        {
+            switch (segment.Kind)
+            {
+                case PdfPathSegmentKind.MoveTo:
+                    skPath.MoveTo((float)segment.X1, (float)segment.Y1);
+                    break;
+                case PdfPathSegmentKind.LineTo:
+                    skPath.LineTo((float)segment.X1, (float)segment.Y1);
+                    break;
+                case PdfPathSegmentKind.CubicTo:
+                    skPath.CubicTo(
+                        (float)segment.X1,
+                        (float)segment.Y1,
+                        (float)segment.X2,
+                        (float)segment.Y2,
+                        (float)segment.X3,
+                        (float)segment.Y3);
+                    break;
+                case PdfPathSegmentKind.Close:
+                    skPath.Close();
+                    break;
+            }
+        }
+
+        return skPath;
+    }
+
+    private static PdfPathObject? BuildPathObjectFromSkPath(SKPath path, PdfPathStyle style)
+    {
+        if (path.IsEmpty)
+        {
+            return null;
+        }
+
+        var segments = BuildSegmentsFromSkPath(path);
+        if (segments.Count == 0)
+        {
+            return null;
+        }
+
+        var bounds = path.Bounds;
+        var width = Math.Max(0.1, bounds.Width);
+        var height = Math.Max(0.1, bounds.Height);
+        var rect = new PdfRect(bounds.Left, bounds.Top, width, height);
+
+        var pathObject = new PdfPathObject
+        {
+            Bounds = rect,
+            Style = style
+        };
+
+        pathObject.Segments.AddRange(segments);
+        return pathObject;
+    }
+
+    private static List<PdfPathSegment> BuildSegmentsFromSkPath(SKPath path)
+    {
+        var segments = new List<PdfPathSegment>();
+        using var iterator = path.CreateRawIterator();
+        var points = new SKPoint[4];
+        while (true)
+        {
+            var verb = iterator.Next(points);
+            switch (verb)
+            {
+                case SKPathVerb.Move:
+                    segments.Add(PdfPathSegment.MoveTo(points[0].X, points[0].Y));
+                    break;
+                case SKPathVerb.Line:
+                    segments.Add(PdfPathSegment.LineTo(points[1].X, points[1].Y));
+                    break;
+                case SKPathVerb.Cubic:
+                    segments.Add(PdfPathSegment.CubicTo(
+                        points[1].X,
+                        points[1].Y,
+                        points[2].X,
+                        points[2].Y,
+                        points[3].X,
+                        points[3].Y));
+                    break;
+                case SKPathVerb.Quad:
+                    AppendQuadAsCubic(segments, points[0], points[1], points[2]);
+                    break;
+                case SKPathVerb.Conic:
+                    AppendConicAsCubics(segments, points[0], points[1], points[2], iterator.ConicWeight());
+                    break;
+                case SKPathVerb.Close:
+                    segments.Add(PdfPathSegment.Close());
+                    break;
+                case SKPathVerb.Done:
+                    return segments;
+            }
+        }
+    }
+
+    private static void AppendQuadAsCubic(List<PdfPathSegment> segments, SKPoint p0, SKPoint p1, SKPoint p2)
+    {
+        var c1 = new SKPoint(
+            p0.X + (2f / 3f) * (p1.X - p0.X),
+            p0.Y + (2f / 3f) * (p1.Y - p0.Y));
+        var c2 = new SKPoint(
+            p2.X + (2f / 3f) * (p1.X - p2.X),
+            p2.Y + (2f / 3f) * (p1.Y - p2.Y));
+
+        segments.Add(PdfPathSegment.CubicTo(c1.X, c1.Y, c2.X, c2.Y, p2.X, p2.Y));
+    }
+
+    private static void AppendConicAsCubics(List<PdfPathSegment> segments, SKPoint p0, SKPoint p1, SKPoint p2, float weight)
+    {
+        const int pow2 = 2;
+        var quadPoints = new SKPoint[1 + 2 * (1 << pow2)];
+        var quadCount = SKPath.ConvertConicToQuads(p0, p1, p2, weight, quadPoints, pow2);
+        if (quadCount <= 0)
+        {
+            AppendQuadAsCubic(segments, p0, p1, p2);
+            return;
+        }
+
+        var start = quadPoints[0];
+        for (var i = 0; i < quadCount; i++)
+        {
+            var control = quadPoints[1 + i * 2];
+            var end = quadPoints[2 + i * 2];
+            AppendQuadAsCubic(segments, start, control, end);
+            start = end;
+        }
+    }
+
+    private static SKPaint CreateStrokePaint(PdfPathStyle style)
+    {
+        var paint = new SKPaint
+        {
+            Style = SKPaintStyle.Stroke,
+            StrokeWidth = (float)Math.Max(style.LineWidth, 0.25),
+            StrokeMiter = style.MiterLimit.HasValue ? (float)style.MiterLimit.Value : 4f,
+            StrokeCap = style.LineCap switch
+            {
+                PdfLineCap.Round => SKStrokeCap.Round,
+                PdfLineCap.Square => SKStrokeCap.Square,
+                _ => SKStrokeCap.Butt
+            },
+            StrokeJoin = style.LineJoin switch
+            {
+                PdfLineJoin.Round => SKStrokeJoin.Round,
+                PdfLineJoin.Bevel => SKStrokeJoin.Bevel,
+                _ => SKStrokeJoin.Miter
+            }
+        };
+
+        if (style.DashArray is { Count: > 0 })
+        {
+            var dash = new float[style.DashArray.Count];
+            for (var i = 0; i < style.DashArray.Count; i++)
+            {
+                dash[i] = (float)style.DashArray[i];
+            }
+
+            paint.PathEffect = SKPathEffect.CreateDash(dash, (float)style.DashPhase);
+        }
+
+        return paint;
     }
 
     private static PdfLineCap MapLineCap(LineCapStyle style)
