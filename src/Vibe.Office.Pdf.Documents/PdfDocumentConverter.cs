@@ -405,7 +405,7 @@ public static class PdfDocumentConverter
             var page = pdf.Pages[pageIndex];
             var hostParagraph = new ParagraphBlock();
 
-            if (page.TextRuns.Count == 0 && page.Images.Count == 0 && page.Paths.Count == 0)
+            if (page.TextRuns.Count == 0 && page.Images.Count == 0 && page.Paths.Count == 0 && page.Glyphs.Count == 0)
             {
                 AddFullPageTextBox(hostParagraph, page);
             }
@@ -1765,51 +1765,71 @@ public static class PdfDocumentConverter
 
     private static List<PdfGlyphLine> SplitGlyphLineByLargeGap(PdfGlyphLine line)
     {
-        if (line.Glyphs.Count < 4)
+        if (line.Glyphs.Count < 2)
         {
             return new List<PdfGlyphLine> { line };
         }
 
-        var maxGap = 0.0;
-        var splitIndex = -1;
-        var averageHeight = 0.0;
+        var gaps = new List<double>(line.Glyphs.Count);
+        var heights = new List<double>(line.Glyphs.Count);
+        var widths = new List<double>(line.Glyphs.Count);
         for (var i = 0; i < line.Glyphs.Count; i++)
         {
-            var glyphHeight = line.Glyphs[i].FontSize > 0 ? line.Glyphs[i].FontSize : line.Glyphs[i].Bounds.Height;
-            averageHeight += glyphHeight;
-            if (i == 0)
+            var glyph = line.Glyphs[i];
+            var size = glyph.FontSize > 0 ? glyph.FontSize : glyph.Bounds.Height;
+            if (size > 0)
             {
-                continue;
+                heights.Add(size);
             }
 
+            if (glyph.Bounds.Width > 0)
+            {
+                widths.Add(glyph.Bounds.Width);
+            }
+
+            if (i > 0)
+            {
+                var gap = glyph.Bounds.X - line.Glyphs[i - 1].Bounds.Right;
+                if (gap > 0)
+                {
+                    gaps.Add(gap);
+                }
+            }
+        }
+
+        var medianGap = gaps.Count > 0 ? Median(gaps) : 0.0;
+        var medianHeight = heights.Count > 0 ? Median(heights) : line.Bounds.Height;
+        var medianWidth = widths.Count > 0 ? Median(widths) : 0.0;
+        var spaceThreshold = ResolveGlyphSpaceThreshold(line.Glyphs);
+        var gapThreshold = Math.Max(spaceThreshold * 3.5, Math.Max(medianHeight * 1.5, medianWidth * 1.5));
+        if (medianGap > 0)
+        {
+            gapThreshold = Math.Max(gapThreshold, medianGap * 4.0);
+        }
+
+        gapThreshold = Math.Max(gapThreshold, 6.0);
+
+        var segments = new List<PdfGlyphLine>();
+        var current = new PdfGlyphLine(line.BaselineY);
+        current.Add(line.Glyphs[0]);
+        for (var i = 1; i < line.Glyphs.Count; i++)
+        {
             var gap = line.Glyphs[i].Bounds.X - line.Glyphs[i - 1].Bounds.Right;
-            if (gap > maxGap)
+            if (gap > gapThreshold && current.Glyphs.Count > 0)
             {
-                maxGap = gap;
-                splitIndex = i;
+                segments.Add(current);
+                current = new PdfGlyphLine(line.BaselineY);
             }
+
+            current.Add(line.Glyphs[i]);
         }
 
-        averageHeight = averageHeight / line.Glyphs.Count;
-        var threshold = Math.Max(averageHeight * 3.0, line.Bounds.Width * 0.25);
-        if (splitIndex <= 0 || maxGap < threshold)
+        if (current.Glyphs.Count > 0)
         {
-            return new List<PdfGlyphLine> { line };
+            segments.Add(current);
         }
 
-        var left = new PdfGlyphLine(line.BaselineY);
-        for (var i = 0; i < splitIndex; i++)
-        {
-            left.Add(line.Glyphs[i]);
-        }
-
-        var right = new PdfGlyphLine(line.BaselineY);
-        for (var i = splitIndex; i < line.Glyphs.Count; i++)
-        {
-            right.Add(line.Glyphs[i]);
-        }
-
-        return new List<PdfGlyphLine> { left, right };
+        return segments.Count == 0 ? new List<PdfGlyphLine> { line } : segments;
     }
 
     private static double ResolveGlyphSpaceThreshold(IReadOnlyList<PdfTextGlyph> glyphs)

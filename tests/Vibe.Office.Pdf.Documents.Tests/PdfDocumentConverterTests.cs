@@ -140,6 +140,42 @@ public sealed class PdfDocumentConverterTests
     }
 
     [Fact]
+    public void FixedLayoutSplitsGlyphLinesAtLargeGaps()
+    {
+        var pdf = new PdfDocumentAst();
+        var page = new PdfPageAst
+        {
+            Index = 0,
+            Width = 612,
+            Height = 792
+        };
+
+        var glyphs = new List<PdfTextGlyph>();
+        AddGlyphLine(glyphs, "Left", startX: 72, baselineY: 700, gap: 1);
+        AddGlyphLine(glyphs, "Right", startX: 300, baselineY: 700, gap: 1);
+        page.Glyphs.AddRange(glyphs);
+        pdf.Pages.Add(page);
+
+        var document = PdfDocumentConverter.FromPdf(pdf, new PdfImportOptions { Mode = PdfImportMode.FixedLayout });
+        var paragraph = Assert.IsType<ParagraphBlock>(document.Blocks.First());
+
+        var textShapes = paragraph.FloatingObjects
+            .Select(obj => obj.Content)
+            .OfType<ShapeInline>()
+            .Where(shape => shape.TextBox is not null)
+            .ToList();
+
+        Assert.Equal(2, textShapes.Count);
+
+        var texts = textShapes
+            .Select(shape => ExtractParagraphText(Assert.IsType<ParagraphBlock>(shape.TextBox!.Blocks.First())))
+            .OrderBy(text => text)
+            .ToList();
+
+        Assert.Equal(new[] { "Left", "Right" }, texts);
+    }
+
+    [Fact]
     public void FixedLayoutRegistersEmbeddedFontAliases()
     {
         var pdf = new PdfDocumentAst();
