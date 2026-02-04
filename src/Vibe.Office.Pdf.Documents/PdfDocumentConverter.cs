@@ -4748,16 +4748,10 @@ public static class PdfDocumentConverter
             return line.Bounds;
         }
 
-        var baseline = line.BaselineY;
-        if (!double.IsFinite(baseline))
-        {
-            return line.Bounds;
-        }
-
         var minX = double.MaxValue;
         var maxX = double.MinValue;
-        var ascent = 0.0;
-        var descent = 0.0;
+        var minY = double.MaxValue;
+        var maxY = double.MinValue;
 
         foreach (var glyph in line.Glyphs)
         {
@@ -4777,32 +4771,35 @@ public static class PdfDocumentConverter
                 maxX = bounds.Right;
             }
 
-            var glyphAscent = Math.Max(0, bounds.Bottom - glyph.BaselineY);
-            var glyphDescent = Math.Max(0, glyph.BaselineY - bounds.Y);
-            if (glyphAscent > ascent)
+            if (bounds.Y < minY)
             {
-                ascent = glyphAscent;
+                minY = bounds.Y;
             }
 
-            if (glyphDescent > descent)
+            if (bounds.Bottom > maxY)
             {
-                descent = glyphDescent;
+                maxY = bounds.Bottom;
             }
         }
 
-        if (minX == double.MaxValue || maxX == double.MinValue)
+        if (minX == double.MaxValue || maxX == double.MinValue || minY == double.MaxValue || maxY == double.MinValue)
         {
             return line.Bounds;
         }
 
-        var height = ascent + descent;
-        if (height <= 0)
+        var width = Math.Max(0.1, maxX - minX);
+        var height = Math.Max(0.1, maxY - minY);
+        var baseline = line.BaselineY;
+        if (!double.IsFinite(baseline) || baseline < minY || baseline > maxY)
         {
-            height = line.LineHeight > 0 ? line.LineHeight : line.Bounds.Height;
+            return new PdfRect(minX, minY, width, height);
         }
 
+        var ascent = maxY - baseline;
+        var descent = baseline - minY;
+        var lineHeight = Math.Max(height, ascent + descent);
         var bottom = baseline - descent;
-        return new PdfRect(minX, bottom, Math.Max(0.1, maxX - minX), height);
+        return new PdfRect(minX, bottom, width, lineHeight);
     }
 
     private static List<FloatingObject> BuildImageObjects(PdfPageAst page)
