@@ -139,6 +139,79 @@ public sealed class PdfDocumentConverterTests
     }
 
     [Fact]
+    public void FixedLayoutRegistersEmbeddedFontAliases()
+    {
+        var pdf = new PdfDocumentAst();
+        var page = new PdfPageAst
+        {
+            Index = 0,
+            Width = 612,
+            Height = 792
+        };
+
+        page.TextRuns.Add(new PdfTextRun(
+            "Hello",
+            new PdfRect(72, 700, 60, 12),
+            new PdfFontInfo("SuzukiPROBold", true, false),
+            10,
+            708,
+            0,
+            null));
+
+        pdf.Pages.Add(page);
+        pdf.EmbeddedFonts.Add(new PdfEmbeddedFont(
+            "SuzukiPRO Bold",
+            new byte[] { 1, 2, 3 },
+            "font/ttf",
+            true,
+            false,
+            "SuzukiPROBold"));
+
+        var document = PdfDocumentConverter.FromPdf(pdf, new PdfImportOptions { Mode = PdfImportMode.FixedLayout });
+
+        Assert.True(document.Fonts.FontTable.TryGetValue("SuzukiPROBold", out var aliasDefinition));
+        Assert.NotNull(aliasDefinition.Bold);
+
+        Assert.True(document.Fonts.FontTable.TryGetValue("SuzukiPRO Bold", out var familyDefinition));
+        Assert.NotNull(familyDefinition.Bold);
+    }
+
+    [Fact]
+    public void DiagnosticsTreatsPostScriptEmbeddedFontsAsAvailable()
+    {
+        var pdf = new PdfDocumentAst();
+        var page = new PdfPageAst
+        {
+            Index = 0,
+            Width = 612,
+            Height = 792
+        };
+
+        page.TextRuns.Add(new PdfTextRun(
+            "Hello",
+            new PdfRect(72, 700, 60, 12),
+            new PdfFontInfo("SuzukiPROBold", true, false),
+            10,
+            708,
+            0,
+            null));
+
+        pdf.Pages.Add(page);
+        pdf.EmbeddedFonts.Add(new PdfEmbeddedFont(
+            "SuzukiPRO Bold",
+            new byte[] { 1, 2, 3 },
+            "font/ttf",
+            true,
+            false,
+            "SuzukiPROBold"));
+
+        var document = PdfDocumentConverter.FromPdf(pdf, new PdfImportOptions { Mode = PdfImportMode.FixedLayout });
+
+        var hasDiagnostics = PdfImportDiagnosticsStore.TryRead(document, out _);
+        Assert.False(hasDiagnostics);
+    }
+
+    [Fact]
     public void ReflowUsesGlyphSpacingForWordBoundaries()
     {
         var pdf = new PdfDocumentAst();

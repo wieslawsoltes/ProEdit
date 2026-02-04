@@ -95,23 +95,50 @@ public static class PdfDocumentConverter
             issues.Add("Page rotations are not fully applied in fixed-layout mode.");
         }
 
-        var usedFonts = pdf.Pages
-            .SelectMany(page => page.TextRuns)
-            .Select(run => run.Font?.Name)
-            .Where(name => !string.IsNullOrWhiteSpace(name))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        var usedFonts = new List<string>();
+        var usedFontSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var page in pdf.Pages)
+        {
+            foreach (var run in page.TextRuns)
+            {
+                var name = run.Font?.Name;
+                if (string.IsNullOrWhiteSpace(name))
+                {
+                    continue;
+                }
 
+                if (usedFontSet.Add(name))
+                {
+                    usedFonts.Add(name);
+                }
+            }
+
+            foreach (var glyph in page.Glyphs)
+            {
+                var name = glyph.Font?.Name;
+                if (string.IsNullOrWhiteSpace(name))
+                {
+                    continue;
+                }
+
+                if (usedFontSet.Add(name))
+                {
+                    usedFonts.Add(name);
+                }
+            }
+        }
+
+        var embeddedFamilies = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         if (usedFonts.Count > 0)
         {
-            var embeddedFamilies = pdf.EmbeddedFonts
-                .Select(font => font.FamilyName)
-                .Where(name => !string.IsNullOrWhiteSpace(name))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            foreach (var embedded in pdf.EmbeddedFonts)
+            {
+                AddEmbeddedKey(embedded.FamilyName);
+                AddEmbeddedKey(embedded.PostScriptName);
+            }
 
             var missingFonts = usedFonts
-                .Where(font => !embeddedFamilies.Contains(font!))
+                .Where(font => !embeddedFamilies.Contains(NormalizeFontKey(font)))
                 .ToList();
 
             if (missingFonts.Count > 0)
@@ -131,6 +158,17 @@ public static class PdfDocumentConverter
         }
 
         return new PdfImportDiagnostics(issues);
+
+        void AddEmbeddedKey(string? name)
+        {
+            var key = NormalizeFontKey(name);
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                return;
+            }
+
+            embeddedFamilies.Add(key);
+        }
     }
 
     private static void BuildObjectMap(PdfDocumentAst pdf, PdfObjectMap map)
@@ -603,6 +641,25 @@ public static class PdfDocumentConverter
         return text.IndexOf(' ') >= 0
             ? text.Replace(' ', '\u00A0')
             : text;
+    }
+
+    private static string NormalizeFontKey(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return string.Empty;
+        }
+
+        var builder = new StringBuilder(name.Length);
+        foreach (var ch in name)
+        {
+            if (char.IsLetterOrDigit(ch))
+            {
+                builder.Append(char.ToLowerInvariant(ch));
+            }
+        }
+
+        return builder.ToString();
     }
 
     private static void MapRunsToGlyphLines(
@@ -4993,6 +5050,7 @@ public static class PdfDocumentConverter
 
     private static void RegisterFonts(Document document, IReadOnlyList<PdfTextRun> runs, IReadOnlyList<PdfEmbeddedFont> embeddedFonts)
     {
+        var fonts = document.Fonts;
         foreach (var run in runs)
         {
             if (run.Font is null || string.IsNullOrWhiteSpace(run.Font.Name))
@@ -5000,57 +5058,15 @@ public static class PdfDocumentConverter
                 continue;
             }
 
-            if (!document.Fonts.FontTable.ContainsKey(run.Font.Name))
-            {
-                document.Fonts.FontTable[run.Font.Name] = new DocumentFontDefinition(run.Font.Name);
-            }
+            EnsureFontDefinition(fonts, run.Font.Name, null);
         }
 
-        if (embeddedFonts.Count == 0)
-        {
-            return;
-        }
-
-        foreach (var embedded in embeddedFonts)
-        {
-            if (string.IsNullOrWhiteSpace(embedded.FamilyName) || embedded.Data.Length == 0)
-            {
-                continue;
-            }
-
-            if (!document.Fonts.FontTable.TryGetValue(embedded.FamilyName, out var definition))
-            {
-                definition = new DocumentFontDefinition(embedded.FamilyName);
-                document.Fonts.FontTable[embedded.FamilyName] = definition;
-            }
-
-            var fontData = new EmbeddedFontData(embedded.Data, embedded.ContentType, embedded.PostScriptName);
-            if (embedded.IsBold && embedded.IsItalic)
-            {
-                definition.BoldItalic ??= fontData;
-            }
-            else if (embedded.IsBold)
-            {
-                definition.Bold ??= fontData;
-            }
-            else if (embedded.IsItalic)
-            {
-                definition.Italic ??= fontData;
-            }
-            else
-            {
-                definition.Regular ??= fontData;
-            }
-
-            if (string.IsNullOrWhiteSpace(definition.AltName) && !string.IsNullOrWhiteSpace(embedded.PostScriptName))
-            {
-                definition.AltName = embedded.PostScriptName;
-            }
-        }
+        RegisterEmbeddedFonts(fonts, embeddedFonts);
     }
 
     private static void RegisterFonts(Document document, IReadOnlyList<PdfTextGlyph> glyphs, IReadOnlyList<PdfEmbeddedFont> embeddedFonts)
     {
+        var fonts = document.Fonts;
         foreach (var glyph in glyphs)
         {
             if (glyph.Font is null || string.IsNullOrWhiteSpace(glyph.Font.Name))
@@ -5058,16 +5074,20 @@ public static class PdfDocumentConverter
                 continue;
             }
 
-            if (!document.Fonts.FontTable.ContainsKey(glyph.Font.Name))
-            {
-                document.Fonts.FontTable[glyph.Font.Name] = new DocumentFontDefinition(glyph.Font.Name);
-            }
+            EnsureFontDefinition(fonts, glyph.Font.Name, null);
         }
 
+        RegisterEmbeddedFonts(fonts, embeddedFonts);
+    }
+
+    private static void RegisterEmbeddedFonts(DocumentFonts fonts, IReadOnlyList<PdfEmbeddedFont> embeddedFonts)
+    {
         if (embeddedFonts.Count == 0)
         {
             return;
         }
+
+        var normalizedMap = BuildNormalizedFontMap(fonts);
 
         foreach (var embedded in embeddedFonts)
         {
@@ -5076,34 +5096,121 @@ public static class PdfDocumentConverter
                 continue;
             }
 
-            if (!document.Fonts.FontTable.TryGetValue(embedded.FamilyName, out var definition))
-            {
-                definition = new DocumentFontDefinition(embedded.FamilyName);
-                document.Fonts.FontTable[embedded.FamilyName] = definition;
-            }
-
             var fontData = new EmbeddedFontData(embedded.Data, embedded.ContentType, embedded.PostScriptName);
-            if (embedded.IsBold && embedded.IsItalic)
+            var familyDefinition = EnsureFontDefinition(fonts, embedded.FamilyName, normalizedMap);
+            ApplyEmbeddedFont(familyDefinition, fontData, embedded.IsBold, embedded.IsItalic);
+
+            if (!string.IsNullOrWhiteSpace(embedded.PostScriptName)
+                && !string.Equals(embedded.PostScriptName, embedded.FamilyName, StringComparison.OrdinalIgnoreCase))
             {
-                definition.BoldItalic ??= fontData;
-            }
-            else if (embedded.IsBold)
-            {
-                definition.Bold ??= fontData;
-            }
-            else if (embedded.IsItalic)
-            {
-                definition.Italic ??= fontData;
-            }
-            else
-            {
-                definition.Regular ??= fontData;
+                var postScriptDefinition = EnsureFontDefinition(fonts, embedded.PostScriptName, normalizedMap);
+                ApplyEmbeddedFont(postScriptDefinition, fontData, embedded.IsBold, embedded.IsItalic);
+
+                familyDefinition.AltName ??= embedded.PostScriptName;
+                postScriptDefinition.AltName ??= embedded.FamilyName;
             }
 
-            if (string.IsNullOrWhiteSpace(definition.AltName) && !string.IsNullOrWhiteSpace(embedded.PostScriptName))
+            ApplyEmbeddedToMatchingKeys(normalizedMap, embedded.FamilyName, fontData, embedded.IsBold, embedded.IsItalic);
+            if (!string.IsNullOrWhiteSpace(embedded.PostScriptName))
             {
-                definition.AltName = embedded.PostScriptName;
+                ApplyEmbeddedToMatchingKeys(normalizedMap, embedded.PostScriptName, fontData, embedded.IsBold, embedded.IsItalic);
             }
+        }
+    }
+
+    private static Dictionary<string, HashSet<DocumentFontDefinition>> BuildNormalizedFontMap(DocumentFonts fonts)
+    {
+        var map = new Dictionary<string, HashSet<DocumentFontDefinition>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var definition in fonts.FontTable.Values)
+        {
+            AddDefinitionToMap(map, definition);
+        }
+
+        return map;
+    }
+
+    private static DocumentFontDefinition EnsureFontDefinition(
+        DocumentFonts fonts,
+        string name,
+        Dictionary<string, HashSet<DocumentFontDefinition>>? normalizedMap)
+    {
+        if (!fonts.FontTable.TryGetValue(name, out var definition))
+        {
+            definition = new DocumentFontDefinition(name);
+            fonts.FontTable[name] = definition;
+            if (normalizedMap is not null)
+            {
+                AddDefinitionToMap(normalizedMap, definition);
+            }
+        }
+
+        return definition;
+    }
+
+    private static void AddDefinitionToMap(
+        Dictionary<string, HashSet<DocumentFontDefinition>> normalizedMap,
+        DocumentFontDefinition definition)
+    {
+        var key = NormalizeFontKey(definition.Name);
+        if (string.IsNullOrWhiteSpace(key))
+        {
+            return;
+        }
+
+        if (!normalizedMap.TryGetValue(key, out var list))
+        {
+            list = new HashSet<DocumentFontDefinition>();
+            normalizedMap[key] = list;
+        }
+
+        list.Add(definition);
+    }
+
+    private static void ApplyEmbeddedToMatchingKeys(
+        Dictionary<string, HashSet<DocumentFontDefinition>> normalizedMap,
+        string name,
+        EmbeddedFontData fontData,
+        bool isBold,
+        bool isItalic)
+    {
+        var key = NormalizeFontKey(name);
+        if (string.IsNullOrWhiteSpace(key))
+        {
+            return;
+        }
+
+        if (!normalizedMap.TryGetValue(key, out var matches))
+        {
+            return;
+        }
+
+        foreach (var definition in matches)
+        {
+            ApplyEmbeddedFont(definition, fontData, isBold, isItalic);
+        }
+    }
+
+    private static void ApplyEmbeddedFont(
+        DocumentFontDefinition definition,
+        EmbeddedFontData fontData,
+        bool isBold,
+        bool isItalic)
+    {
+        if (isBold && isItalic)
+        {
+            definition.BoldItalic ??= fontData;
+        }
+        else if (isBold)
+        {
+            definition.Bold ??= fontData;
+        }
+        else if (isItalic)
+        {
+            definition.Italic ??= fontData;
+        }
+        else
+        {
+            definition.Regular ??= fontData;
         }
     }
 
