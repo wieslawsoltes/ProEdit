@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using Vibe.Office.Documents;
 using Vibe.Office.Pdf;
@@ -458,6 +459,15 @@ public sealed class PdfDocumentConverterTests
 
         Assert.True(shape.Width > 0);
         Assert.True(shape.Height > 0);
+
+        var geometry = shape.Properties.CustomGeometry;
+        Assert.NotNull(geometry);
+        var geometryPath = Assert.Single(geometry!.Paths);
+        var move = Assert.IsType<ShapeMoveToCommand>(geometryPath.Commands.First());
+        var x = double.Parse(move.Point.X, CultureInfo.InvariantCulture);
+        var y = double.Parse(move.Point.Y, CultureInfo.InvariantCulture);
+        Assert.InRange(x, 0, shape.Width);
+        Assert.InRange(y, 0, shape.Height);
     }
 
     private static string ExtractParagraphText(ParagraphBlock paragraph)

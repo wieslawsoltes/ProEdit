@@ -5000,7 +5000,7 @@ public static class PdfDocumentConverter
                 continue;
             }
 
-            var geometry = BuildShapeGeometryFromPath(path);
+            var geometry = BuildShapeGeometryFromPath(path, bounds);
             if (geometry.Paths.Count == 0)
             {
                 continue;
@@ -5021,7 +5021,7 @@ public static class PdfDocumentConverter
         return objects;
     }
 
-    private static ShapeGeometry BuildShapeGeometryFromPath(PdfPathObject path)
+    private static ShapeGeometry BuildShapeGeometryFromPath(PdfPathObject path, PdfRect bounds)
     {
         var geometry = new ShapeGeometry();
         ShapePath? current = null;
@@ -5035,7 +5035,7 @@ public static class PdfDocumentConverter
                     geometry.Paths.Add(current);
                 }
 
-                var (x, y) = ToLocalPoint(path.Bounds, segment.X1, segment.Y1);
+                var (x, y) = ToLocalPoint(bounds, segment.X1, segment.Y1);
                 current.Commands.Add(new ShapeMoveToCommand(new ShapeAdjustPoint(
                     x.ToString(CultureInfo.InvariantCulture),
                     y.ToString(CultureInfo.InvariantCulture))));
@@ -5052,7 +5052,7 @@ public static class PdfDocumentConverter
             {
                 case PdfPathSegmentKind.LineTo:
                 {
-                    var (x, y) = ToLocalPoint(path.Bounds, segment.X1, segment.Y1);
+                    var (x, y) = ToLocalPoint(bounds, segment.X1, segment.Y1);
                     current.Commands.Add(new ShapeLineToCommand(new ShapeAdjustPoint(
                         x.ToString(CultureInfo.InvariantCulture),
                         y.ToString(CultureInfo.InvariantCulture))));
@@ -5060,9 +5060,9 @@ public static class PdfDocumentConverter
                 }
                 case PdfPathSegmentKind.CubicTo:
                 {
-                    var (c1x, c1y) = ToLocalPoint(path.Bounds, segment.X1, segment.Y1);
-                    var (c2x, c2y) = ToLocalPoint(path.Bounds, segment.X2, segment.Y2);
-                    var (x, y) = ToLocalPoint(path.Bounds, segment.X3, segment.Y3);
+                    var (c1x, c1y) = ToLocalPoint(bounds, segment.X1, segment.Y1);
+                    var (c2x, c2y) = ToLocalPoint(bounds, segment.X2, segment.Y2);
+                    var (x, y) = ToLocalPoint(bounds, segment.X3, segment.Y3);
                     current.Commands.Add(new ShapeCubicBezierToCommand(
                         new ShapeAdjustPoint(c1x.ToString(CultureInfo.InvariantCulture), c1y.ToString(CultureInfo.InvariantCulture)),
                         new ShapeAdjustPoint(c2x.ToString(CultureInfo.InvariantCulture), c2y.ToString(CultureInfo.InvariantCulture)),
