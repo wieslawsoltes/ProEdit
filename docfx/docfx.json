@@ -1,0 +1,99 @@
+{
+  "metadata": [
+    {
+      "src": [
+        {
+          "files": [
+            "src/Vibe.Office.Collaboration.Editor/Vibe.Office.Collaboration.Editor.csproj",
+            "src/Vibe.Office.Collaboration.Protocol/Vibe.Office.Collaboration.Protocol.csproj",
+            "src/Vibe.Office.Collaboration.Server/Vibe.Office.Collaboration.Server.csproj",
+            "src/Vibe.Office.Collaboration.Transports/Vibe.Office.Collaboration.Transports.csproj",
+            "src/Vibe.Office.Collaboration.UI/Vibe.Office.Collaboration.UI.csproj",
+            "src/Vibe.Office.Collaboration/Vibe.Office.Collaboration.csproj",
+            "src/Vibe.Office.Documents/Vibe.Office.Documents.csproj",
+            "src/Vibe.Office.Editing/Vibe.Office.Editing.csproj",
+            "src/Vibe.Office.Html/Vibe.Office.Html.csproj",
+            "src/Vibe.Office.Layout/Vibe.Office.Layout.csproj",
+            "src/Vibe.Office.Macros/Vibe.Office.Macros.csproj",
+            "src/Vibe.Office.Markdown/Vibe.Office.Markdown.csproj",
+            "src/Vibe.Office.OpenXml/Vibe.Office.OpenXml.csproj",
+            "src/Vibe.Office.Pdf.Documents/Vibe.Office.Pdf.Documents.csproj",
+            "src/Vibe.Office.Pdf.PdfPig/Vibe.Office.Pdf.PdfPig.csproj",
+            "src/Vibe.Office.Pdf.PdfSharp/Vibe.Office.Pdf.PdfSharp.csproj",
+            "src/Vibe.Office.Pdf/Vibe.Office.Pdf.csproj",
+            "src/Vibe.Office.Primitives/Vibe.Office.Primitives.csproj",
+            "src/Vibe.Office.Printing.Avalonia/Vibe.Office.Printing.Avalonia.csproj",
+            "src/Vibe.Office.Printing.Documents/Vibe.Office.Printing.Documents.csproj",
+            "src/Vibe.Office.Printing.Skia/Vibe.Office.Printing.Skia.csproj",
+            "src/Vibe.Office.Printing.System/Vibe.Office.Printing.System.csproj",
+            "src/Vibe.Office.Printing/Vibe.Office.Printing.csproj",
+            "src/Vibe.Office.Proofing.GrammarApi.Plugin/Vibe.Office.Proofing.GrammarApi.Plugin.csproj",
+            "src/Vibe.Office.Rendering.Skia/Vibe.Office.Rendering.Skia.csproj",
+            "src/Vibe.Office.Rendering/Vibe.Office.Rendering.csproj",
+            "src/Vibe.Office.Ribbon.Avalonia/Vibe.Office.Ribbon.Avalonia.csproj",
+            "src/Vibe.Office.Ribbon/Vibe.Office.Ribbon.csproj",
+            "src/Vibe.Office.Vba.Runtime/Vibe.Office.Vba.Runtime.csproj",
+            "src/Vibe.Office.Vba/Vibe.Office.Vba.csproj",
+            "src/Vibe.Word.App/Vibe.Word.App.csproj",
+            "src/Vibe.Word.Avalonia/Vibe.Word.Avalonia.csproj",
+            "src/Vibe.Word.Editor/Vibe.Word.Editor.csproj"
+          ],
+          "src": ".."
+        }
+      ],
+      "dest": "api",
+      "disableGitFeatures": false,
+      "disableDefaultFilter": false
+    }
+  ],
+  "build": {
+    "content": [
+      {
+        "files": [
+          "api/**.yml",
+          "api/index.md"
+        ]
+      },
+      {
+        "files": [
+          "articles/**.md",
+          "articles/**/toc.yml",
+          "toc.yml",
+          "*.md"
+        ]
+      }
+    ],
+    "resource": [
+      {
+        "files": [
+          "images/**"
+        ]
+      }
+    ],
+    "overwrite": [
+      {
+        "files": [
+          "apidoc/**.md",
+          "apidoc/**.overwrite"
+        ]
+      }
+    ],
+    "dest": "../_site",
+    "globalMetadata": {
+      "_appTitle": "VibeOffice",
+      "_appLogoPath": "images/logo.svg"
+    },
+    "globalMetadataFiles": [],
+    "fileMetadataFiles": [],
+    "template": [
+      "default",
+      "modern"
+    ],
+    "postProcessors": [],
+    "markdownEngineName": "markdig",
+    "noLangKeyword": false,
+    "keepFileLink": false,
+    "cleanupCacheHistory": false,
+    "disableGitFeatures": false
+  }
+}
