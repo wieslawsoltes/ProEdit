@@ -4,6 +4,8 @@
   href: getting-started.md
 - name: Architecture
   href: architecture.md
+- name: FlowDocument
+  href: flow-document.md
 - name: Projects
   href: projects.md
 - name: Build and Test
