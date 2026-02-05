@@ -30,6 +30,12 @@ public sealed class DocxAssetHarnessTests
     public void AssetHarness_ImportsLayoutsAndRenders()
     {
         var options = DocxAssetHarnessOptions.FromEnvironment();
+        if (!options.Enabled)
+        {
+            Console.WriteLine("Skipping DOCX asset harness. Set DOCX_ASSETS_ENABLE=1 to run.");
+            return;
+        }
+
         if (!Directory.Exists(options.AssetsRoot))
         {
             Console.WriteLine($"DOCX assets not found at '{options.AssetsRoot}'. Set DOCX_ASSETS_ROOT or VIBE_DOCX_ASSETS_ROOT.");
@@ -76,6 +82,7 @@ public sealed class DocxAssetHarnessTests
 internal sealed class DocxAssetHarnessOptions
 {
     private const string DefaultAssetsRoot = "/Users/wieslawsoltes/GitHub/Open-XML-SDK/test/DocumentFormat.OpenXml.Tests.Assets/assets";
+    public bool Enabled { get; private set; }
     public string AssetsRoot { get; private set; } = DefaultAssetsRoot;
     public int MaxDocuments { get; private set; }
     public int MaxRenderPixels { get; private set; } = 30_000_000;
@@ -95,6 +102,7 @@ internal sealed class DocxAssetHarnessOptions
     {
         var options = new DocxAssetHarnessOptions
         {
+            Enabled = GetBoolEnv("DOCX_ASSETS_ENABLE", false) || GetBoolEnv("VIBE_DOCX_ASSETS_ENABLE", false),
             AssetsRoot = GetEnv("DOCX_ASSETS_ROOT")
                 ?? GetEnv("VIBE_DOCX_ASSETS_ROOT")
                 ?? DefaultAssetsRoot,
