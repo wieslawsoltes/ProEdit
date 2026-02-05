@@ -8,6 +8,8 @@ public sealed class CollabWebSocketServerOptions
 
     public int MaxMessageBytes { get; init; } = 4 * 1024 * 1024;
 
+    public int MaxDecompressedBytes { get; init; } = 16 * 1024 * 1024;
+
     public TimeSpan PresenceThrottleInterval { get; init; } = TimeSpan.FromMilliseconds(80);
 
     public TimeSpan MinimumPresenceTimeToLive { get; init; } = TimeSpan.FromSeconds(1);

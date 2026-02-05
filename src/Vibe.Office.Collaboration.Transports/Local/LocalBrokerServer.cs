@@ -66,6 +66,8 @@ public sealed class LocalBrokerServer : IAsyncDisposable
                 break;
             }
 
+            client.NoDelay = true;
+
             var connection = new BrokerConnection(client, this);
             lock (_sync)
             {
@@ -114,7 +116,7 @@ public sealed class LocalBrokerServer : IAsyncDisposable
         private readonly TcpClient _client;
         private readonly NetworkStream _stream;
         private readonly LocalBrokerServer _server;
-        private readonly object _sendSync = new();
+        private readonly SemaphoreSlim _sendLock = new(1, 1);
 
         public BrokerConnection(TcpClient client, LocalBrokerServer server)
         {
@@ -157,17 +159,20 @@ public sealed class LocalBrokerServer : IAsyncDisposable
             }
         }
 
-        public Task SendAsync(ReadOnlyMemory<byte> payload)
+        public async Task SendAsync(ReadOnlyMemory<byte> payload)
         {
-            lock (_sendSync)
+            await _sendLock.WaitAsync();
+            try
             {
                 var lengthBytes = BitConverter.GetBytes(payload.Length);
-                _stream.Write(lengthBytes, 0, lengthBytes.Length);
-                _stream.Write(payload.Span);
-                _stream.Flush();
+                await _stream.WriteAsync(lengthBytes);
+                await _stream.WriteAsync(payload);
+                await _stream.FlushAsync();
             }
-
-            return Task.CompletedTask;
+            finally
+            {
+                _sendLock.Release();
+            }
         }
 
         private async Task<ReadOnlyMemory<byte>?> ReadExactAsync(int length, CancellationToken cancellationToken)
@@ -192,6 +197,7 @@ public sealed class LocalBrokerServer : IAsyncDisposable
         {
             _stream.Dispose();
             _client.Dispose();
+            _sendLock.Dispose();
             return ValueTask.CompletedTask;
         }
     }

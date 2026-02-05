@@ -39,6 +39,16 @@ public sealed class CollabRealtimeSessionOptions
     public string? Compression { get; init; }
 
     /// <summary>
+    /// Gets the minimum payload size before compression is attempted.
+    /// </summary>
+    public int CompressionThresholdBytes { get; init; } = CollabMessageCompression.DefaultThresholdBytes;
+
+    /// <summary>
+    /// Gets the maximum allowed decompressed payload size.
+    /// </summary>
+    public int MaxDecompressedBytes { get; init; } = CollabMessageCompression.DefaultMaxDecompressedBytes;
+
+    /// <summary>
     /// Gets the default presence time to live.
     /// </summary>
     public TimeSpan DefaultPresenceTimeToLive { get; init; } = TimeSpan.FromSeconds(10);
@@ -362,15 +372,22 @@ public sealed class CollabRealtimeSession : ICollabRealtimeSession, IAsyncDispos
             payload);
 
         var bytes = CollabProtocolJsonCodec.Serialize(envelope);
-        return _transport.SendAsync(bytes, cancellationToken);
+        var payloadBytes = CollabMessageCompression.MaybeCompress(bytes, _options.Compression, _options.CompressionThresholdBytes);
+        return _transport.SendAsync(payloadBytes, cancellationToken);
     }
 
     private void OnMessageReceived(object? sender, CollabTransportMessageEventArgs e)
     {
         CollabEnvelope<JsonElement> envelope;
+        ReadOnlyMemory<byte> payload = e.Payload;
         try
         {
-            envelope = CollabProtocolJsonCodec.DeserializeEnvelope(e.Payload.Span);
+            if (CollabMessageCompression.TryDecompress(payload.Span, _options.MaxDecompressedBytes, out var decompressed, out _))
+            {
+                payload = decompressed;
+            }
+
+            envelope = CollabProtocolJsonCodec.DeserializeEnvelope(payload.Span);
         }
         catch (Exception ex)
         {

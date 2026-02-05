@@ -23,7 +23,10 @@ public sealed class LocalBrokerClientTransport : ICollabTransportConnection, IAs
     public async ValueTask ConnectAsync(CancellationToken cancellationToken = default)
     {
         _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        _client = new TcpClient();
+        _client = new TcpClient
+        {
+            NoDelay = true
+        };
         StateChanged?.Invoke(this, new CollabTransportStateChangedEventArgs(CollabTransportState.Connecting));
         await _client.ConnectAsync(_host, _port, cancellationToken);
         _stream = _client.GetStream();
@@ -40,7 +43,7 @@ public sealed class LocalBrokerClientTransport : ICollabTransportConnection, IAs
         return ValueTask.CompletedTask;
     }
 
-    public ValueTask SendAsync(ReadOnlyMemory<byte> payload, CancellationToken cancellationToken = default)
+    public async ValueTask SendAsync(ReadOnlyMemory<byte> payload, CancellationToken cancellationToken = default)
     {
         if (_stream is null)
         {
@@ -48,10 +51,9 @@ public sealed class LocalBrokerClientTransport : ICollabTransportConnection, IAs
         }
 
         var lengthBytes = BitConverter.GetBytes(payload.Length);
-        _stream.Write(lengthBytes, 0, lengthBytes.Length);
-        _stream.Write(payload.Span);
-        _stream.Flush();
-        return ValueTask.CompletedTask;
+        await _stream.WriteAsync(lengthBytes, cancellationToken);
+        await _stream.WriteAsync(payload, cancellationToken);
+        await _stream.FlushAsync(cancellationToken);
     }
 
     private async Task ReadLoopAsync(CancellationToken cancellationToken)

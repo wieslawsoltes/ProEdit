@@ -414,7 +414,7 @@ public sealed class CollabUiState : ReactiveObject, ICollabUiService, IAsyncDisp
             }
 
             var transport = CreateTransport();
-            var realtimeSession = CreateSession(userId, transport);
+            var realtimeSession = CreateSession(userId, transport, enableCompression: TransportMode == CollabTransportMode.Server);
             _transportLifetime = transport as IAsyncDisposable;
             AttachSession(realtimeSession);
             _session = realtimeSession;
@@ -438,7 +438,7 @@ public sealed class CollabUiState : ReactiveObject, ICollabUiService, IAsyncDisp
         }
 
         var transport = new LocalBrokerClientTransport("127.0.0.1", port);
-        var session = CreateSession(userId, transport);
+        var session = CreateSession(userId, transport, enableCompression: false);
         _transportLifetime = transport;
         AttachSession(session);
         _session = session;
@@ -454,7 +454,7 @@ public sealed class CollabUiState : ReactiveObject, ICollabUiService, IAsyncDisp
             await EnsureLocalBrokerAsync(port);
 
             transport = new LocalBrokerClientTransport("127.0.0.1", LocalBrokerPort ?? port);
-            session = CreateSession(userId, transport);
+            session = CreateSession(userId, transport, enableCompression: false);
             _transportLifetime = transport;
             AttachSession(session);
             _session = session;
@@ -693,7 +693,7 @@ public sealed class CollabUiState : ReactiveObject, ICollabUiService, IAsyncDisp
         return LocalBrokerPort.Value;
     }
 
-    private CollabRealtimeSession CreateSession(Guid userId, ICollabTransport transport)
+    private CollabRealtimeSession CreateSession(Guid userId, ICollabTransport transport, bool enableCompression)
     {
         var options = new CollabRealtimeSessionOptions
         {
@@ -702,7 +702,8 @@ public sealed class CollabUiState : ReactiveObject, ICollabUiService, IAsyncDisp
             SenderId = userId,
             ClientName = DefaultClientName,
             DefaultPresenceTimeToLive = DefaultPresenceTimeToLive,
-            PresenceThrottleInterval = DefaultPresenceThrottle
+            PresenceThrottleInterval = DefaultPresenceThrottle,
+            Compression = enableCompression ? CollabMessageCompression.BrotliCompressionId : null
         };
 
         return new CollabRealtimeSession(options, transport);

@@ -1,4 +1,6 @@
 using System.Text.Json;
+using System.Text.Encodings.Web;
+using System.Text.Json.Serialization;
 
 namespace Vibe.Office.Collaboration.Persistence;
 
@@ -6,6 +8,8 @@ public static class CollabOpBatchJsonCodec
 {
     private static readonly JsonSerializerOptions Options = new(JsonSerializerDefaults.General)
     {
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
         Converters = { new CollabOpJsonConverter() }
     };
 

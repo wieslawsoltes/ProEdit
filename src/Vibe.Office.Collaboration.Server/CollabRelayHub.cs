@@ -168,9 +168,17 @@ internal sealed class CollabRelayHub : IAsyncDisposable
         private async Task HandleMessageAsync(ReadOnlyMemory<byte> payload, CancellationToken cancellationToken)
         {
             CollabEnvelope<JsonElement> envelope;
+            ReadOnlyMemory<byte> parsedPayload = payload;
+            CollabCompressionHeader? compressionHeader = null;
             try
             {
-                envelope = CollabProtocolJsonCodec.DeserializeEnvelope(payload.Span);
+                if (CollabMessageCompression.TryDecompress(payload.Span, _options.MaxDecompressedBytes, out var decompressed, out var header))
+                {
+                    parsedPayload = decompressed;
+                    compressionHeader = header;
+                }
+
+                envelope = CollabProtocolJsonCodec.DeserializeEnvelope(parsedPayload.Span);
             }
             catch (Exception ex)
             {
@@ -194,7 +202,7 @@ internal sealed class CollabRelayHub : IAsyncDisposable
                     await HandleJoinAsync(envelope);
                     break;
                 case CollabMessageType.Presence:
-                    await HandlePresenceAsync(envelope, payload);
+                    await HandlePresenceAsync(envelope, payload, compressionHeader);
                     break;
                 case CollabMessageType.Ops:
                 case CollabMessageType.Snapshot:
@@ -304,7 +312,10 @@ internal sealed class CollabRelayHub : IAsyncDisposable
             _joined = true;
         }
 
-        private async Task HandlePresenceAsync(CollabEnvelope<JsonElement> envelope, ReadOnlyMemory<byte> payload)
+        private async Task HandlePresenceAsync(
+            CollabEnvelope<JsonElement> envelope,
+            ReadOnlyMemory<byte> payload,
+            CollabCompressionHeader? compressionHeader)
         {
             if (!_joined)
             {
@@ -344,7 +355,10 @@ internal sealed class CollabRelayHub : IAsyncDisposable
                 presence with { TimeToLive = clampedTtl });
 
             var adjustedPayload = CollabProtocolJsonCodec.Serialize(updatedEnvelope);
-            await _hub.BroadcastAsync(_documentId, this, adjustedPayload);
+            var outgoing = compressionHeader.HasValue
+                ? CollabMessageCompression.MaybeCompress(adjustedPayload, compressionHeader.Value.Algorithm, thresholdBytes: 0)
+                : adjustedPayload;
+            await _hub.BroadcastAsync(_documentId, this, outgoing);
         }
 
         private async Task ForwardAsync(CollabEnvelope<JsonElement> envelope, ReadOnlyMemory<byte> payload)

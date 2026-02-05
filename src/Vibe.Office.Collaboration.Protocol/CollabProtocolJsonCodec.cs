@@ -1,5 +1,6 @@
 using System.IO;
 using System.Text.Json;
+using System.Text.Encodings.Web;
 using System.Text.Json.Serialization;
 using Vibe.Office.Collaboration;
 
@@ -70,7 +71,9 @@ public static class CollabProtocolJsonCodec
     {
         var options = new JsonSerializerOptions(JsonSerializerDefaults.Web)
         {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
         };
 
         options.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
