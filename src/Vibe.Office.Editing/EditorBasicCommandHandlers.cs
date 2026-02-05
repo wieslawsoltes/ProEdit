@@ -14,6 +14,8 @@ public sealed class BasicEditingModule : IEditorModule
         context.Commands.Register(new MoveUpCommandHandler());
         context.Commands.Register(new MoveDownCommandHandler());
         context.Commands.Register(new SetCaretFromPointCommandHandler());
+        context.Commands.Register(new SelectWordFromPointCommandHandler());
+        context.Commands.Register(new SelectParagraphFromPointCommandHandler());
     }
 }
 
@@ -91,5 +93,21 @@ public sealed class SetCaretFromPointCommandHandler : EditorCommandHandler<SetCa
     public override void Handle(IEditorMutableSession session, SetCaretFromPointCommand command)
     {
         session.SetCaretFromPoint(command.X, command.Y, command.Mode);
+    }
+}
+
+public sealed class SelectWordFromPointCommandHandler : EditorCommandHandler<SelectWordFromPointCommand>
+{
+    public override void Handle(IEditorMutableSession session, SelectWordFromPointCommand command)
+    {
+        session.TrySelectWordFromPoint(command.X, command.Y, command.Mode);
+    }
+}
+
+public sealed class SelectParagraphFromPointCommandHandler : EditorCommandHandler<SelectParagraphFromPointCommand>
+{
+    public override void Handle(IEditorMutableSession session, SelectParagraphFromPointCommand command)
+    {
+        session.TrySelectParagraphFromPoint(command.X, command.Y, command.Mode);
     }
 }

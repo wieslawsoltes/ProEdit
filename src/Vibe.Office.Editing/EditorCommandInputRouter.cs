@@ -271,6 +271,24 @@ public sealed class EditorCommandInputRouter : IEditorInputRouter
         if (pointerEvent.Kind == EditorPointerKind.Down)
         {
             var mode = ResolveSelectionMode(pointerEvent.Modifiers);
+            if (pointerEvent.Button == EditorPointerButton.Primary && pointerEvent.ClickCount >= 2)
+            {
+                if (pointerEvent.ClickCount >= 3)
+                {
+                    _dispatcher.Dispatch(
+                        new SelectParagraphFromPointCommand(pointerEvent.X, pointerEvent.Y, SelectionUpdateMode.Replace),
+                        _session);
+                }
+                else
+                {
+                    _dispatcher.Dispatch(
+                        new SelectWordFromPointCommand(pointerEvent.X, pointerEvent.Y, SelectionUpdateMode.Replace),
+                        _session);
+                }
+
+                return true;
+            }
+
             if (pointerEvent.Button == EditorPointerButton.Primary
                 && mode == SelectionUpdateMode.Replace
                 && pointerEvent.ClickCount <= 1

@@ -580,6 +580,16 @@ public sealed class EditorController : IEditorMutableSession, IEditorBatchEdit, 
         _selectionService.SetSelection(selection, mode);
     }
 
+    public bool TrySelectWordFromPoint(float x, float y, SelectionUpdateMode mode)
+    {
+        return _selectionService.TrySelectWordFromPoint(x, y, mode);
+    }
+
+    public bool TrySelectParagraphFromPoint(float x, float y, SelectionUpdateMode mode)
+    {
+        return _selectionService.TrySelectParagraphFromPoint(x, y, mode);
+    }
+
     public bool TrySelectFirstFloatingObject()
     {
         return _selectionService.TrySelectFirstFloatingObject();
