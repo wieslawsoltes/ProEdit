@@ -3,6 +3,7 @@ using System.Reflection;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.Loader;
 
 namespace Vibe.Office.Editing;
 
@@ -210,14 +211,55 @@ public sealed class ProofingEngineRegistry : IProofingEngineRegistry
             return;
         }
 
+        var fullPath = Path.GetFullPath(path);
+        var pluginDirectory = Path.GetDirectoryName(fullPath);
         Assembly? assembly = null;
+        AssemblyLoadContext? loadContext = null;
+        Func<AssemblyLoadContext, AssemblyName, Assembly?>? resolver = null;
+
         try
         {
-            assembly = Assembly.LoadFrom(path);
+            loadContext = AssemblyLoadContext.Default;
+            resolver = (_, name) =>
+            {
+                foreach (var loaded in AppDomain.CurrentDomain.GetAssemblies())
+                {
+                    if (AssemblyName.ReferenceMatchesDefinition(loaded.GetName(), name))
+                    {
+                        return loaded;
+                    }
+                }
+
+                if (!string.IsNullOrWhiteSpace(pluginDirectory))
+                {
+                    var candidate = Path.Combine(pluginDirectory, name.Name + ".dll");
+                    if (File.Exists(candidate))
+                    {
+                        return loadContext.LoadFromAssemblyPath(candidate);
+                    }
+                }
+
+                var appCandidate = Path.Combine(AppContext.BaseDirectory, name.Name + ".dll");
+                if (File.Exists(appCandidate))
+                {
+                    return loadContext.LoadFromAssemblyPath(appCandidate);
+                }
+
+                return null;
+            };
+            loadContext.Resolving += resolver;
+            assembly = loadContext.LoadFromAssemblyPath(fullPath);
         }
         catch
         {
             return;
+        }
+        finally
+        {
+            if (loadContext is not null && resolver is not null)
+            {
+                loadContext.Resolving -= resolver;
+            }
         }
 
         if (assembly is null)
@@ -225,9 +267,23 @@ public sealed class ProofingEngineRegistry : IProofingEngineRegistry
             return;
         }
 
-        foreach (var type in assembly.GetTypes())
+        Type[] types;
+        try
         {
-            if (type.IsAbstract || type.IsInterface)
+            types = assembly.GetTypes();
+        }
+        catch (ReflectionTypeLoadException ex)
+        {
+            types = ex.Types.Where(static type => type is not null).ToArray()!;
+        }
+        catch
+        {
+            return;
+        }
+
+        foreach (var type in types)
+        {
+            if (type is null || type.IsAbstract || type.IsInterface)
             {
                 continue;
             }
@@ -237,12 +293,19 @@ public sealed class ProofingEngineRegistry : IProofingEngineRegistry
                 continue;
             }
 
-            if (Activator.CreateInstance(type) is not IProofingEngineFactory factory)
+            try
             {
-                continue;
-            }
+                if (Activator.CreateInstance(type) is not IProofingEngineFactory factory)
+                {
+                    continue;
+                }
 
-            Register(factory, isBuiltIn: false);
+                Register(factory, isBuiltIn: false);
+            }
+            catch
+            {
+                // Ignore factories that fail to construct.
+            }
         }
     }
 
