@@ -11,7 +11,8 @@ public enum CollabOpKind
     SetInlineProperties,
     InsertBlock,
     DeleteBlock,
-    ReplaceBlock
+    ReplaceBlock,
+    ReplaceDocumentResources
 }
 
 /// <summary>
@@ -76,4 +77,12 @@ public sealed record DeleteBlockOp(Guid ParentNodeId, PositionToken Position, Gu
 public sealed record ReplaceBlockOp(Guid BlockNodeId, byte[] Payload) : ICollabOp
 {
     public CollabOpKind Kind => CollabOpKind.ReplaceBlock;
+}
+
+/// <summary>
+/// Replaces document-level resources (styles, defaults, properties, etc.).
+/// </summary>
+public sealed record ReplaceDocumentResourcesOp(byte[] Payload) : ICollabOp
+{
+    public CollabOpKind Kind => CollabOpKind.ReplaceDocumentResources;
 }

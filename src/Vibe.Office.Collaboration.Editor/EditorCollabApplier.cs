@@ -1,4 +1,5 @@
 using Vibe.Office.Collaboration;
+using Vibe.Office.Collaboration.Persistence;
 using Vibe.Office.Documents;
 using Vibe.Office.Editing;
 using Vibe.Office.Primitives;
@@ -11,6 +12,8 @@ public sealed class EditorCollabApplier
     private readonly DocumentAnchorResolver _resolver = new();
     private readonly CollabBlockOpApplier _blockApplier = new();
     private readonly CollabPropertyOpApplier _propertyApplier = new();
+    private readonly CollabDocumentResourceApplier _resourceApplier = new();
+    private readonly CollabDocumentResourceSerializer _resourceSerializer = new();
 
     public EditorCollabApplier(IEditorMutableSession session)
     {
@@ -86,6 +89,9 @@ public sealed class EditorCollabApplier
                 return _propertyApplier.ApplyParagraph(_session.Document, setParagraph);
             case SetInlinePropertiesOp setInline:
                 return _propertyApplier.ApplyInline(_session.Document, setInline);
+            case ReplaceDocumentResourcesOp replaceResources:
+                ApplyResources(replaceResources);
+                return true;
             default:
                 return false;
         }
@@ -118,6 +124,12 @@ public sealed class EditorCollabApplier
         var range = new TextRange(start, end).Normalize();
         _session.SetSelection(range, SelectionUpdateMode.Replace);
         _session.DeleteForward();
+    }
+
+    private void ApplyResources(ReplaceDocumentResourcesOp op)
+    {
+        var resources = _resourceSerializer.Deserialize(op.Payload);
+        _resourceApplier.Apply(_session.Document, resources);
     }
 
     private bool TryResolvePosition(TextAnchor anchor, out TextPosition position)

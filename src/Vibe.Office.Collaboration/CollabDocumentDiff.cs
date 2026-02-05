@@ -7,10 +7,14 @@ namespace Vibe.Office.Collaboration;
 public sealed class CollabDocumentDiff
 {
     private readonly CollabBlockSerializer _serializer;
+    private readonly CollabDocumentResourceSerializer _resourceSerializer;
 
-    public CollabDocumentDiff(CollabBlockSerializer? serializer = null)
+    public CollabDocumentDiff(
+        CollabBlockSerializer? serializer = null,
+        CollabDocumentResourceSerializer? resourceSerializer = null)
     {
         _serializer = serializer ?? new CollabBlockSerializer();
+        _resourceSerializer = resourceSerializer ?? new CollabDocumentResourceSerializer();
     }
 
     public bool TryBuildOps(
@@ -24,6 +28,14 @@ public sealed class CollabDocumentDiff
 
         var forward = new List<ICollabOp>();
         var inverse = new List<ICollabOp>();
+
+        var beforeResources = _resourceSerializer.Serialize(before);
+        var afterResources = _resourceSerializer.Serialize(after);
+        if (!beforeResources.AsSpan().SequenceEqual(afterResources))
+        {
+            forward.Add(new ReplaceDocumentResourcesOp(afterResources));
+            inverse.Add(new ReplaceDocumentResourcesOp(beforeResources));
+        }
 
         var beforeContainers = CollabContainerCatalog.Enumerate(before);
         var afterContainers = CollabContainerCatalog.Enumerate(after);
@@ -91,7 +103,7 @@ public sealed class CollabDocumentDiff
                 var beforeBlock = beforeBlocks[iBefore];
                 var afterBlock = afterBlocks[iAfter];
 
-                if (!BlocksEquivalent(beforeBlock, afterBlock))
+                if (!BlocksEquivalent(beforeBlock, afterBlock, beforeDocument, afterDocument))
                 {
                     var payloadAfter = _serializer.Serialize(afterBlock, afterDocument);
                     var payloadBefore = _serializer.Serialize(beforeBlock, beforeDocument);
@@ -139,7 +151,7 @@ public sealed class CollabDocumentDiff
         }
     }
 
-    private bool BlocksEquivalent(Block before, Block after)
+    private bool BlocksEquivalent(Block before, Block after, Document beforeDocument, Document afterDocument)
     {
         if (before.GetType() != after.GetType())
         {

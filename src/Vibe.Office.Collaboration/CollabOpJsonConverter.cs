@@ -27,6 +27,7 @@ public sealed class CollabOpJsonConverter : JsonConverter<ICollabOp>
             CollabOpKind.InsertBlock => ReadInsertBlock(root),
             CollabOpKind.DeleteBlock => ReadDeleteBlock(root),
             CollabOpKind.ReplaceBlock => ReadReplaceBlock(root),
+            CollabOpKind.ReplaceDocumentResources => ReadReplaceDocumentResources(root),
             _ => throw new JsonException($"Unsupported op kind: {kind}")
         };
     }
@@ -83,6 +84,9 @@ public sealed class CollabOpJsonConverter : JsonConverter<ICollabOp>
             case ReplaceBlockOp replaceBlock:
                 writer.WriteString("blockNodeId", replaceBlock.BlockNodeId);
                 writer.WriteString("payload", Convert.ToBase64String(replaceBlock.Payload));
+                break;
+            case ReplaceDocumentResourcesOp replaceResources:
+                writer.WriteString("payload", Convert.ToBase64String(replaceResources.Payload));
                 break;
         }
 
@@ -164,6 +168,18 @@ public sealed class CollabOpJsonConverter : JsonConverter<ICollabOp>
 
         var payload = Convert.FromBase64String(payloadString);
         return new ReplaceBlockOp(blockNodeId, payload);
+    }
+
+    private static ReplaceDocumentResourcesOp ReadReplaceDocumentResources(JsonElement element)
+    {
+        var payloadString = element.GetProperty("payload").GetString();
+        if (string.IsNullOrWhiteSpace(payloadString))
+        {
+            throw new JsonException("ReplaceDocumentResources payload is required.");
+        }
+
+        var payload = Convert.FromBase64String(payloadString);
+        return new ReplaceDocumentResourcesOp(payload);
     }
 
     private static void WriteAnchor(Utf8JsonWriter writer, string name, TextAnchor anchor)

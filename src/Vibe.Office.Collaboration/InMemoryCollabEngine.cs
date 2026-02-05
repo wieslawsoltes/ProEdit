@@ -13,6 +13,8 @@ public sealed class InMemoryCollabEngine : ICollabEngine
     private readonly DocumentAnchorResolver _anchorResolver;
     private readonly CollabBlockOpApplier _blockApplier;
     private readonly CollabPropertyOpApplier _propertyApplier;
+    private readonly CollabDocumentResourceApplier _resourceApplier;
+    private readonly Persistence.CollabDocumentResourceSerializer _resourceSerializer;
 
     /// <summary>
     /// Creates a new in-memory engine using a cloned document.
@@ -23,6 +25,8 @@ public sealed class InMemoryCollabEngine : ICollabEngine
         _anchorResolver = new DocumentAnchorResolver();
         _blockApplier = new CollabBlockOpApplier();
         _propertyApplier = new CollabPropertyOpApplier();
+        _resourceApplier = new CollabDocumentResourceApplier();
+        _resourceSerializer = new Persistence.CollabDocumentResourceSerializer();
         Version = initialVersion;
     }
 
@@ -77,6 +81,9 @@ public sealed class InMemoryCollabEngine : ICollabEngine
             case SetInlinePropertiesOp setInline:
                 _propertyApplier.ApplyInline(_document, setInline);
                 break;
+            case ReplaceDocumentResourcesOp replaceResources:
+                ApplyResources(replaceResources);
+                break;
             default:
                 throw new NotSupportedException($"Operation not supported by in-memory engine: {op.Kind}");
         }
@@ -111,6 +118,12 @@ public sealed class InMemoryCollabEngine : ICollabEngine
         }
 
         CollabDocumentEdit.DeleteRange(paragraph, startOffset, endOffset);
+    }
+
+    private void ApplyResources(ReplaceDocumentResourcesOp op)
+    {
+        var resources = _resourceSerializer.Deserialize(op.Payload);
+        _resourceApplier.Apply(_document, resources);
     }
 
     private static class CollabDocumentEdit

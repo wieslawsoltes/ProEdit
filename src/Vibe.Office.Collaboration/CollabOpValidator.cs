@@ -122,6 +122,14 @@ public static class CollabOpValidator
                 }
 
                 break;
+            case ReplaceDocumentResourcesOp replaceResources:
+                if (replaceResources.Payload is null || replaceResources.Payload.Length == 0)
+                {
+                    error = "ReplaceDocumentResources requires payload.";
+                    return false;
+                }
+
+                break;
         }
 
         error = null;
