@@ -1,4 +1,6 @@
+using System.Collections.Concurrent;
 using System.Threading;
+using System.Threading.Tasks;
 using Vibe.Office.Collaboration.Protocol;
 
 namespace Vibe.Office.Collaboration.Editor;
@@ -14,7 +16,10 @@ public sealed class CollabEditorRealtimeBridge : IDisposable
     private readonly SynchronizationContext? _syncContext;
     private readonly Func<Guid, string?>? _authorResolver;
     private readonly Action? _onResyncRequired;
+    private readonly ConcurrentQueue<CollabOpBatch> _pendingBatches = new();
+    private int _flushScheduled;
     private bool _disposed;
+    private static readonly TimeSpan FlushDelay = TimeSpan.FromMilliseconds(16);
 
     public CollabEditorRealtimeBridge(
         ICollabRealtimeSession session,
@@ -35,23 +40,92 @@ public sealed class CollabEditorRealtimeBridge : IDisposable
 
     private void OnOpsReceived(object? sender, CollabOpsReceivedEventArgs e)
     {
-        Dispatch(() =>
+        _pendingBatches.Enqueue(e.Batch);
+        ScheduleFlush();
+    }
+
+    private void ScheduleFlush()
+    {
+        if (Interlocked.Exchange(ref _flushScheduled, 1) == 1)
         {
-            var result = _history.TransformRemote(e.Batch);
-            if (result.RequiresResync)
-            {
-                _onResyncRequired?.Invoke();
-                return;
-            }
+            return;
+        }
 
-            if (result.Ops.Count == 0)
+        _ = Task.Run(async () =>
+        {
+            try
             {
-                return;
-            }
+                if (FlushDelay > TimeSpan.Zero)
+                {
+                    await Task.Delay(FlushDelay).ConfigureAwait(false);
+                }
 
-            var author = _authorResolver?.Invoke(e.Batch.ActorId);
-            _applier.ApplyRemoteOps(result.Ops, author);
+                Dispatch(FlushPending);
+            }
+            catch
+            {
+                Interlocked.Exchange(ref _flushScheduled, 0);
+            }
         });
+    }
+
+    private void FlushPending()
+    {
+        try
+        {
+            if (_disposed)
+            {
+                DrainQueue();
+                return;
+            }
+
+            var applyGroups = new List<(IReadOnlyList<ICollabOp> Ops, string? Author)>();
+            while (_pendingBatches.TryDequeue(out var batch))
+            {
+                var result = _history.TransformRemote(batch);
+                if (result.RequiresResync)
+                {
+                    DrainQueue();
+                    _onResyncRequired?.Invoke();
+                    return;
+                }
+
+                if (result.Ops.Count == 0)
+                {
+                    continue;
+                }
+
+                var author = _authorResolver?.Invoke(batch.ActorId);
+                applyGroups.Add((result.Ops, author));
+            }
+
+            if (applyGroups.Count == 0)
+            {
+                return;
+            }
+
+            for (var i = 0; i < applyGroups.Count; i++)
+            {
+                var group = applyGroups[i];
+                var refresh = i == applyGroups.Count - 1;
+                _applier.ApplyRemoteOpsBatch(group.Ops, group.Author, refresh);
+            }
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _flushScheduled, 0);
+            if (!_pendingBatches.IsEmpty)
+            {
+                ScheduleFlush();
+            }
+        }
+    }
+
+    private void DrainQueue()
+    {
+        while (_pendingBatches.TryDequeue(out _))
+        {
+        }
     }
 
     private void Dispatch(Action action)

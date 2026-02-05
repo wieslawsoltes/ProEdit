@@ -7,10 +7,14 @@ public sealed class CollabOpHistory
 {
     private readonly List<AppliedOp> _history = new();
     private readonly int _maxEntries;
+    private readonly Queue<Guid> _recentBatchQueue = new();
+    private readonly HashSet<Guid> _recentBatchIds = new();
+    private readonly int _maxRecentBatches;
 
     public CollabOpHistory(int maxEntries = 50_000)
     {
         _maxEntries = maxEntries <= 0 ? 1 : maxEntries;
+        _maxRecentBatches = Math.Max(1024, Math.Min(_maxEntries * 2, 200_000));
     }
 
     /// <summary>
@@ -34,6 +38,8 @@ public sealed class CollabOpHistory
         }
 
         _history.Clear();
+        _recentBatchQueue.Clear();
+        _recentBatchIds.Clear();
         Version = version;
     }
 
@@ -43,6 +49,7 @@ public sealed class CollabOpHistory
     public void AppendLocal(CollabOpBatch batch)
     {
         ArgumentNullException.ThrowIfNull(batch);
+        TrackBatch(batch.BatchId);
         AppendBatch(batch, batch.Ops);
     }
 
@@ -52,6 +59,11 @@ public sealed class CollabOpHistory
     public CollabTransformResult TransformRemote(CollabOpBatch batch)
     {
         ArgumentNullException.ThrowIfNull(batch);
+        if (IsDuplicateBatch(batch.BatchId))
+        {
+            return new CollabTransformResult(Array.Empty<ICollabOp>(), RequiresResync: false);
+        }
+
         var result = Transform(batch);
         if (result.RequiresResync || result.Ops.Count == 0)
         {
@@ -59,6 +71,7 @@ public sealed class CollabOpHistory
         }
 
         AppendBatch(batch, result.Ops);
+        TrackBatch(batch.BatchId);
         return result;
     }
 
@@ -82,10 +95,11 @@ public sealed class CollabOpHistory
 
         var transformed = new List<ICollabOp>(batch.Ops.Count);
         var historyCount = _history.Count;
+        var startIndex = GetHistoryStartIndex(batch.BaseVersion, historyCount);
 
         foreach (var op in batch.Ops)
         {
-            var current = TransformOp(op, batch.ActorId, batch.BaseVersion, historyCount);
+            var current = TransformOp(op, batch.ActorId, startIndex, historyCount);
             if (current is null)
             {
                 continue;
@@ -97,17 +111,12 @@ public sealed class CollabOpHistory
         return new CollabTransformResult(transformed, RequiresResync: false);
     }
 
-    private ICollabOp? TransformOp(ICollabOp op, Guid incomingActorId, long baseVersion, int historyCount)
+    private ICollabOp? TransformOp(ICollabOp op, Guid incomingActorId, int startIndex, int historyCount)
     {
         var current = op;
-        for (var i = 0; i < historyCount; i++)
+        for (var i = startIndex; i < historyCount; i++)
         {
             var entry = _history[i];
-            if (entry.Version <= baseVersion)
-            {
-                continue;
-            }
-
             current = CollabOpTransformer.Transform(current, incomingActorId, entry);
             if (current is null)
             {
@@ -116,6 +125,33 @@ public sealed class CollabOpHistory
         }
 
         return current;
+    }
+
+    private int GetHistoryStartIndex(long baseVersion, int historyCount)
+    {
+        if (historyCount == 0)
+        {
+            return 0;
+        }
+
+        var minVersion = _history[0].Version;
+        if (baseVersion < minVersion)
+        {
+            return 0;
+        }
+
+        var offset = baseVersion - minVersion + 1;
+        if (offset <= 0)
+        {
+            return 0;
+        }
+
+        if (offset >= historyCount)
+        {
+            return historyCount;
+        }
+
+        return (int)offset;
     }
 
     private void AppendBatch(CollabOpBatch batch, IReadOnlyList<ICollabOp> ops)
@@ -140,6 +176,35 @@ public sealed class CollabOpHistory
         if (overflow > 0)
         {
             _history.RemoveRange(0, overflow);
+        }
+    }
+
+    private bool IsDuplicateBatch(Guid batchId)
+    {
+        if (batchId == Guid.Empty)
+        {
+            return false;
+        }
+
+        return _recentBatchIds.Contains(batchId);
+    }
+
+    private void TrackBatch(Guid batchId)
+    {
+        if (batchId == Guid.Empty)
+        {
+            return;
+        }
+
+        if (_recentBatchIds.Add(batchId))
+        {
+            _recentBatchQueue.Enqueue(batchId);
+        }
+
+        while (_recentBatchQueue.Count > _maxRecentBatches)
+        {
+            var expired = _recentBatchQueue.Dequeue();
+            _recentBatchIds.Remove(expired);
         }
     }
 

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Threading;
+using System.Threading.Tasks;
 using Vibe.Office.Collaboration;
 using Vibe.Office.Collaboration.Persistence;
 using Vibe.Office.Collaboration.Protocol;
@@ -25,6 +26,7 @@ public sealed class CollabEditorSessionCoordinator : IDisposable
     private readonly ICollabRealtimeSession _collabSession;
     private readonly SynchronizationContext? _syncContext;
     private readonly Dictionary<Guid, GestureSnapshotState> _gestureSnapshots = new();
+    private long _latestSnapshotVersion;
     private bool _disposed;
 
     public CollabEditorSessionCoordinator(
@@ -144,9 +146,35 @@ public sealed class CollabEditorSessionCoordinator : IDisposable
 
     private void OnSnapshotReceived(object? sender, CollabSnapshotReceivedEventArgs e)
     {
-        Dispatch(async () =>
+        _ = ApplySnapshotFromPayloadAsync(e.Payload);
+    }
+
+    private async Task ApplySnapshotFromPayloadAsync(ReadOnlyMemory<byte> payload)
+    {
+        CollabSnapshot snapshot;
+        try
         {
-            var snapshot = _snapshotSerializer.DeserializeSnapshot(e.Payload.Span);
+            snapshot = await Task.Run(() => _snapshotSerializer.DeserializeSnapshot(payload.Span));
+        }
+        catch
+        {
+            return;
+        }
+
+        Dispatch(() =>
+        {
+            if (_disposed || snapshot.Version <= _latestSnapshotVersion)
+            {
+                return;
+            }
+
+            if (snapshot.Version <= _history.Version)
+            {
+                _latestSnapshotVersion = snapshot.Version;
+                return;
+            }
+
+            _latestSnapshotVersion = snapshot.Version;
             DocumentClone.Copy(snapshot.Document, _session.Document);
             _session.RefreshLayout();
             _history.Reset(snapshot.Version);
@@ -161,10 +189,11 @@ public sealed class CollabEditorSessionCoordinator : IDisposable
         _session.SetSelection(snapshot.Selection);
 
         var version = _history.Version + 1;
-        var collabSnapshot = CollabSnapshot.Create(version, _session.Document);
-        var payload = _snapshotSerializer.Serialize(collabSnapshot);
+        var collabSnapshot = new CollabSnapshot(Guid.NewGuid(), version, snapshot.Document, DateTimeOffset.UtcNow);
+        var payload = await Task.Run(() => _snapshotSerializer.Serialize(collabSnapshot));
         await _collabSession.SendSnapshotAsync(new SnapshotMessage(collabSnapshot.SnapshotId, collabSnapshot.Version, payload));
         _history.Reset(collabSnapshot.Version);
+        _latestSnapshotVersion = collabSnapshot.Version;
     }
 
     private EditorSessionSnapshot CaptureSnapshot()
