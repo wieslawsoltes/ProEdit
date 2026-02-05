@@ -5,6 +5,8 @@ using System.Linq;
 using System.Text;
 using System.Xml.Linq;
 using DocumentFormat.OpenXml;
+using DocumentFormat.OpenXml.CustomProperties;
+using DocumentFormat.OpenXml.CustomXmlDataProperties;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using OpenXmlTableBorders = DocumentFormat.OpenXml.Wordprocessing.TableBorders;
@@ -106,6 +108,7 @@ public sealed class DocxExporter
         ApplyDocumentBackground(mainPart.Document, document);
         SaveMacros(mainPart, document);
         SaveBibliography(mainPart, document);
+        SaveCustomXmlParts(mainPart, document);
 
         SectionPartInfo EnsureSectionParts(int sectionIndex)
         {
@@ -430,6 +433,59 @@ public sealed class DocxExporter
         var part = mainPart.AddCustomXmlPart(CustomXmlPartType.Bibliography);
         using var stream = part.GetStream(FileMode.Create, FileAccess.Write);
         xml.Save(stream);
+    }
+
+    private static void SaveCustomXmlParts(MainDocumentPart mainPart, VibeDocument document)
+    {
+        if (document.CustomXmlParts.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var pair in document.CustomXmlParts)
+        {
+            var itemId = pair.Key;
+            var xml = pair.Value;
+            if (string.IsNullOrWhiteSpace(itemId) || xml is null)
+            {
+                continue;
+            }
+
+            try
+            {
+                var part = mainPart.AddCustomXmlPart(CustomXmlPartType.CustomXml);
+                using (var stream = part.GetStream(FileMode.Create, FileAccess.Write))
+                {
+                    xml.Save(stream);
+                }
+
+                var props = part.AddNewPart<CustomXmlPropertiesPart>();
+                props.DataStoreItem = new DataStoreItem
+                {
+                    ItemId = FormatItemId(itemId)
+                };
+            }
+            catch
+            {
+                // Ignore invalid custom XML parts to avoid blocking export.
+            }
+        }
+    }
+
+    private static string FormatItemId(string itemId)
+    {
+        var trimmed = itemId.Trim();
+        if (trimmed.Length == 0)
+        {
+            return trimmed;
+        }
+
+        if (trimmed[0] == '{' && trimmed[^1] == '}')
+        {
+            return trimmed;
+        }
+
+        return "{" + trimmed + "}";
     }
 
     private static XElement BuildBibliographySourceElement(CitationSource source)

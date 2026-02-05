@@ -257,7 +257,7 @@ public static class DocumentClone
 
     public static Block CloneBlock(Block block)
     {
-        return block switch
+        Block clone = block switch
         {
             ParagraphBlock paragraph => CloneParagraphBlock(paragraph),
             TableBlock table => CloneTableBlock(table),
@@ -273,6 +273,8 @@ public static class DocumentClone
             RevisionEndBlock revisionEnd => new RevisionEndBlock(revisionEnd.Kind, revisionEnd.Id),
             _ => throw new NotSupportedException($"Unsupported block type: {block.GetType().Name}")
         };
+        clone.NodeId = block.NodeId;
+        return clone;
     }
 
     private static ParagraphBlock CloneParagraphBlock(ParagraphBlock source)
@@ -421,6 +423,7 @@ public static class DocumentClone
             _ => throw new NotSupportedException($"Unsupported inline type: {inline.GetType().Name}")
         };
         clone.Hyperlink = CloneHyperlink(inline.Hyperlink);
+        clone.NodeId = inline.NodeId;
         return clone;
     }
 

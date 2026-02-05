@@ -33,6 +33,7 @@ public sealed class Document
     public NoteSeparatorDefinition EndnoteSeparators { get; } = new NoteSeparatorDefinition();
     public Dictionary<int, CommentDefinition> Comments { get; } = new();
     public bool TrackChangesEnabled { get; set; }
+    public string? RevisionAuthorOverride { get; set; }
     public string? CitationStyle { get; set; }
     public CitationSourceCatalog CitationSources { get; } = new CitationSourceCatalog();
     public MailMergeData? MailMergeData { get; set; }
