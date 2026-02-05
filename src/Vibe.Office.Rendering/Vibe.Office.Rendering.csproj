@@ -5,11 +5,14 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
+  <PropertyGroup>
+    <PackageDescription>Rendering abstractions and composition for VibeOffice.</PackageDescription>
+    <PackageTags>vibeoffice;rendering;composition</PackageTags>
+  </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\\Vibe.Office.Documents\\Vibe.Office.Documents.csproj" />
     <ProjectReference Include="..\\Vibe.Office.Layout\\Vibe.Office.Layout.csproj" />
     <ProjectReference Include="..\\Vibe.Office.Primitives\\Vibe.Office.Primitives.csproj" />
   </ItemGroup>
-
 </Project>

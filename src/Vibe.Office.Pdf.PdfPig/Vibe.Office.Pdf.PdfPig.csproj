@@ -3,10 +3,14 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
   </PropertyGroup>
+  <PropertyGroup>
+    <PackageDescription>PDF parsing via PdfPig for VibeOffice.</PackageDescription>
+    <PackageTags>vibeoffice;pdf;pdfpig;parsing</PackageTags>
+  </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="UglyToad.PdfPig" Version="1.7.0-custom-5" />
-    <PackageReference Include="SkiaSharp" Version="2.88.9" />
+    <PackageReference Include="UglyToad.PdfPig" />
+    <PackageReference Include="SkiaSharp" />
   </ItemGroup>
 
   <ItemGroup>

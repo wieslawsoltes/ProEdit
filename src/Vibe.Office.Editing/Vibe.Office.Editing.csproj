@@ -5,6 +5,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
+  <PropertyGroup>
+    <PackageDescription>Editing services, selection, and proofing utilities for VibeOffice.</PackageDescription>
+    <PackageTags>vibeoffice;editing;proofing;spelling</PackageTags>
+  </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\\Vibe.Office.Documents\\Vibe.Office.Documents.csproj" />
@@ -13,12 +17,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="WeCantSpell.Hunspell" Version="1.0.0" />
+    <PackageReference Include="WeCantSpell.Hunspell" />
   </ItemGroup>
 
   <ItemGroup>
     <EmbeddedResource Include="Proofing\\Resources\\*.aff" />
     <EmbeddedResource Include="Proofing\\Resources\\*.dic" />
   </ItemGroup>
-
 </Project>

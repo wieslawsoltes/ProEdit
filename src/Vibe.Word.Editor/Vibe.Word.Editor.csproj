@@ -5,6 +5,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
+  <PropertyGroup>
+    <PackageDescription>Word-processing editor core built on VibeOffice.</PackageDescription>
+    <PackageTags>vibeoffice;editor;word</PackageTags>
+  </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\\Vibe.Office.Editing\\Vibe.Office.Editing.csproj" />
@@ -17,5 +21,4 @@
     <ProjectReference Include="..\\Vibe.Office.Vba.Runtime\\Vibe.Office.Vba.Runtime.csproj" />
     <ProjectReference Include="..\\Vibe.Office.Primitives\\Vibe.Office.Primitives.csproj" />
   </ItemGroup>
-
 </Project>

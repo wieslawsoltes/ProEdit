@@ -3,6 +3,10 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
   </PropertyGroup>
+  <PropertyGroup>
+    <PackageDescription>PDF document integration with the VibeOffice document model.</PackageDescription>
+    <PackageTags>vibeoffice;pdf;documents</PackageTags>
+  </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\\Vibe.Office.Pdf\\Vibe.Office.Pdf.csproj" />

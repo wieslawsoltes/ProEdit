@@ -5,9 +5,12 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
+  <PropertyGroup>
+    <PackageDescription>Ribbon abstractions and models for VibeOffice.</PackageDescription>
+    <PackageTags>vibeoffice;ribbon;ui</PackageTags>
+  </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Vibe.Office.Primitives\Vibe.Office.Primitives.csproj" />
   </ItemGroup>
-
 </Project>

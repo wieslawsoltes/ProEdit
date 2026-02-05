@@ -3,6 +3,10 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
   </PropertyGroup>
+  <PropertyGroup>
+    <PackageDescription>Document-to-print conversion for VibeOffice.</PackageDescription>
+    <PackageTags>vibeoffice;printing;documents</PackageTags>
+  </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\\Vibe.Office.Printing\\Vibe.Office.Printing.csproj" />

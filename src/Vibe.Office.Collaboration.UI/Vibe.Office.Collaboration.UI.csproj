@@ -2,14 +2,14 @@
   <PropertyGroup>
     <IsPackable>true</IsPackable>
     <PackageId>Vibe.Office.Collaboration.UI</PackageId>
-    <Version>0.1.0</Version>
-    <Authors>VibeOffice</Authors>
-    <Description>UI state and view models for Vibe Office collaboration.</Description>
-    <PackageTags>collaboration;ui;viewmodels;vibeoffice</PackageTags>
+  </PropertyGroup>
+  <PropertyGroup>
+    <PackageDescription>Collaboration ViewModels and UI state for VibeOffice.</PackageDescription>
+    <PackageTags>vibeoffice;collaboration;ui</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="ReactiveUI" Version="22.3.1" />
+    <PackageReference Include="ReactiveUI" />
   </ItemGroup>
 
   <ItemGroup>

@@ -2,6 +2,10 @@
   <PropertyGroup>
     <IsPackable>false</IsPackable>
   </PropertyGroup>
+  <PropertyGroup>
+    <PackageDescription>Editor integration for VibeOffice collaboration.</PackageDescription>
+    <PackageTags>vibeoffice;collaboration;editor</PackageTags>
+  </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Vibe.Office.Collaboration\Vibe.Office.Collaboration.csproj" />

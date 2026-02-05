@@ -3,4 +3,8 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
   </PropertyGroup>
+  <PropertyGroup>
+    <PackageDescription>Printing abstractions for VibeOffice.</PackageDescription>
+    <PackageTags>vibeoffice;printing</PackageTags>
+  </PropertyGroup>
 </Project>

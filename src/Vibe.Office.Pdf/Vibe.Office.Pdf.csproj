@@ -3,4 +3,8 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
   </PropertyGroup>
+  <PropertyGroup>
+    <PackageDescription>PDF domain abstractions for VibeOffice.</PackageDescription>
+    <PackageTags>vibeoffice;pdf;document</PackageTags>
+  </PropertyGroup>
 </Project>

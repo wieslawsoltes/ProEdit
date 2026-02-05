@@ -5,6 +5,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
+  <PropertyGroup>
+    <PackageDescription>Core document model and shared structures for VibeOffice.</PackageDescription>
+    <PackageTags>vibeoffice;documents;model</PackageTags>
+  </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\\Vibe.Office.Primitives\\Vibe.Office.Primitives.csproj" />
@@ -13,5 +17,4 @@
   <ItemGroup>
     <EmbeddedResource Include="Shapes\\presetShapeDefinitions.xml" />
   </ItemGroup>
-
 </Project>

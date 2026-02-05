@@ -5,5 +5,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
-
+  <PropertyGroup>
+    <PackageDescription>Primitive types and low-level structures for VibeOffice documents and rendering.</PackageDescription>
+    <PackageTags>vibeoffice;primitives;geometry;document</PackageTags>
+  </PropertyGroup>
 </Project>

@@ -5,6 +5,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
+  <PropertyGroup>
+    <PackageDescription>Layout and pagination engine for VibeOffice documents.</PackageDescription>
+    <PackageTags>vibeoffice;layout;pagination;document</PackageTags>
+  </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\\Vibe.Office.Documents\\Vibe.Office.Documents.csproj" />
@@ -14,5 +18,4 @@
   <ItemGroup>
     <EmbeddedResource Include="Hyphenation\\*.pat.txt" />
   </ItemGroup>
-
 </Project>

@@ -6,6 +6,10 @@
     <Nullable>enable</Nullable>
     <PluginOutputDirs>$(MSBuildThisFileDirectory)..\Vibe.Word.App\bin\$(Configuration)\$(TargetFramework)\Plugins\;$(MSBuildThisFileDirectory)..\Vibe.Word.Avalonia\bin\$(Configuration)\$(TargetFramework)\Plugins\</PluginOutputDirs>
   </PropertyGroup>
+  <PropertyGroup>
+    <PackageDescription>Grammar API plugin integration for VibeOffice proofing.</PackageDescription>
+    <PackageTags>vibeoffice;proofing;grammar</PackageTags>
+  </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Vibe.Office.Editing\Vibe.Office.Editing.csproj" />
@@ -20,5 +24,4 @@
           DestinationFolder="%(PluginOutputDir.Identity)"
           SkipUnchangedFiles="true" />
   </Target>
-
 </Project>

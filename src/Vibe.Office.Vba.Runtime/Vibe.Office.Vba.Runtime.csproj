@@ -5,9 +5,12 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
+  <PropertyGroup>
+    <PackageDescription>VBA runtime support for VibeOffice.</PackageDescription>
+    <PackageTags>vibeoffice;vba;runtime</PackageTags>
+  </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\\Vibe.Office.Vba\\Vibe.Office.Vba.csproj" />
   </ItemGroup>
-
 </Project>

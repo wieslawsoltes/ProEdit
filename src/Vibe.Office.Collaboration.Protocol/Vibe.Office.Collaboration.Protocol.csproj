@@ -2,10 +2,10 @@
   <PropertyGroup>
     <IsPackable>true</IsPackable>
     <PackageId>Vibe.Office.Collaboration.Protocol</PackageId>
-    <Version>0.1.0</Version>
-    <Authors>VibeOffice</Authors>
-    <Description>Wire protocol types for Vibe Office collaboration.</Description>
-    <PackageTags>collaboration;protocol;vibeoffice</PackageTags>
+  </PropertyGroup>
+  <PropertyGroup>
+    <PackageDescription>Wire protocol types for VibeOffice collaboration.</PackageDescription>
+    <PackageTags>vibeoffice;collaboration;protocol</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>

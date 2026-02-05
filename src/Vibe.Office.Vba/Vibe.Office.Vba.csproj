@@ -5,5 +5,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
-
+  <PropertyGroup>
+    <PackageDescription>VBA core types for VibeOffice.</PackageDescription>
+    <PackageTags>vibeoffice;vba</PackageTags>
+  </PropertyGroup>
 </Project>

@@ -5,11 +5,14 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
+  <PropertyGroup>
+    <PackageDescription>Markdown import and export helpers for VibeOffice documents.</PackageDescription>
+    <PackageTags>vibeoffice;markdown;import;export</PackageTags>
+  </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\\Vibe.Office.Documents\\Vibe.Office.Documents.csproj" />
     <ProjectReference Include="..\\Vibe.Office.Editing\\Vibe.Office.Editing.csproj" />
     <ProjectReference Include="..\\Vibe.Office.Html\\Vibe.Office.Html.csproj" />
   </ItemGroup>
-
 </Project>

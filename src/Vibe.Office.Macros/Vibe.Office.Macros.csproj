@@ -5,6 +5,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
+  <PropertyGroup>
+    <PackageDescription>Macro orchestration and scripting integration for VibeOffice.</PackageDescription>
+    <PackageTags>vibeoffice;macros;automation</PackageTags>
+  </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\\Vibe.Office.Documents\\Vibe.Office.Documents.csproj" />
@@ -12,5 +16,4 @@
     <ProjectReference Include="..\\Vibe.Office.Vba\\Vibe.Office.Vba.csproj" />
     <ProjectReference Include="..\\Vibe.Office.Vba.Runtime\\Vibe.Office.Vba.Runtime.csproj" />
   </ItemGroup>
-
 </Project>
