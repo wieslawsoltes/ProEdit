@@ -270,7 +270,7 @@ public sealed class CollabCommandObserver : IEditorCommandExecutionObserver
 
     private sealed class CommandSnapshot
     {
-        private readonly string _paragraphText;
+        private readonly string? _paragraphText;
 
         private CommandSnapshot(
             Guid paragraphNodeId,
@@ -278,7 +278,7 @@ public sealed class CollabCommandObserver : IEditorCommandExecutionObserver
             int selectionEndOffset,
             bool selectionIsEmpty,
             int paragraphTextLength,
-            string paragraphText)
+            string? paragraphText)
         {
             ParagraphNodeId = paragraphNodeId;
             SelectionStartOffset = selectionStartOffset;
@@ -312,8 +312,11 @@ public sealed class CollabCommandObserver : IEditorCommandExecutionObserver
             }
 
             var paragraph = session.Document.GetParagraph(paragraphIndex);
-            var text = DocumentEditHelpers.GetParagraphText(paragraph);
-            var length = text.Length;
+            var needsParagraphText = !selection.IsEmpty
+                || command is BackspaceCommand
+                || command is DeleteForwardCommand;
+            var text = needsParagraphText ? DocumentEditHelpers.GetParagraphText(paragraph) : null;
+            var length = needsParagraphText ? text!.Length : DocumentEditHelpers.GetParagraphLength(paragraph);
 
             var startOffset = Math.Clamp(selection.Start.Offset, 0, length);
             var endOffset = Math.Clamp(selection.End.Offset, 0, length);
@@ -343,6 +346,11 @@ public sealed class CollabCommandObserver : IEditorCommandExecutionObserver
 
         public string? GetTextSlice(int start, int end)
         {
+            if (_paragraphText is null)
+            {
+                return null;
+            }
+
             if (end < start)
             {
                 return null;
