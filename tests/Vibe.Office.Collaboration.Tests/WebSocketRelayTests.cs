@@ -31,6 +31,7 @@ public sealed class WebSocketRelayTests
         var senderB = Guid.NewGuid();
 
         var received = new TaskCompletionSource<CollabEnvelope<JsonElement>>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var ready = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         clientB.MessageReceived += (_, args) =>
         {
             var envelope = CollabProtocolJsonCodec.DeserializeEnvelope(args.Payload.Span);
@@ -39,12 +40,36 @@ public sealed class WebSocketRelayTests
                 received.TrySetResult(envelope);
             }
         };
+        clientA.MessageReceived += (_, args) =>
+        {
+            var envelope = CollabProtocolJsonCodec.DeserializeEnvelope(args.Payload.Span);
+            if (envelope.MessageType == CollabMessageType.Presence && envelope.SenderId == senderB)
+            {
+                ready.TrySetResult();
+            }
+        };
 
         await clientA.ConnectAsync();
         await clientB.ConnectAsync();
 
         await SendHelloJoinAsync(clientA, docId, sessionA, senderA);
         await SendHelloJoinAsync(clientB, docId, sessionB, senderB);
+
+        // Ensure both joins are processed before asserting ops relay.
+        var presenceEnvelope = new CollabEnvelope<PresenceMessage>(
+            CollabProtocolVersion.V1,
+            docId,
+            sessionB,
+            senderB,
+            3,
+            3,
+            DateTimeOffset.UtcNow,
+            CollabMessageType.Presence,
+            new PresenceMessage(
+                new PresenceState(senderB, "User B", null, null, DateTimeOffset.UtcNow, "#00FF00"),
+                TimeSpan.FromSeconds(5)));
+        await clientB.SendAsync(CollabProtocolJsonCodec.Serialize(presenceEnvelope));
+        await ready.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
         var anchor = TextAnchor.Before(Guid.NewGuid(), 0);
         var batch = CollabOpBatch.Create(senderA, 0, 1, 1, new ICollabOp[] { new InsertTextOp(anchor, "hi", senderA) });
