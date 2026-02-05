@@ -12,6 +12,8 @@ public enum TextScriptKind
 
 public static class TextScript
 {
+    private static readonly TextScriptData.ScriptRange[] SortedScriptRanges = CreateSortedScriptRanges();
+
     public static bool IsLatinChar(char ch)
     {
         return IsLatinRune(new Rune(ch));
@@ -189,7 +191,7 @@ public static class TextScript
 
     private static UnicodeScript GetScript(int codepoint)
     {
-        var ranges = TextScriptData.ScriptRanges;
+        var ranges = SortedScriptRanges;
         var lo = 0;
         var hi = ranges.Length - 1;
         while (lo <= hi)
@@ -211,5 +213,19 @@ public static class TextScript
         }
 
         return TextScriptData.DefaultScript;
+    }
+
+    private static TextScriptData.ScriptRange[] CreateSortedScriptRanges()
+    {
+        var source = TextScriptData.ScriptRanges;
+        var ranges = new TextScriptData.ScriptRange[source.Length];
+        Array.Copy(source, ranges, source.Length);
+        Array.Sort(ranges, static (left, right) =>
+        {
+            var compare = left.Start.CompareTo(right.Start);
+            return compare != 0 ? compare : left.End.CompareTo(right.End);
+        });
+
+        return ranges;
     }
 }
