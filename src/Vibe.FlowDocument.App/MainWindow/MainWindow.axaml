@@ -1,0 +1,209 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:flow="clr-namespace:Vibe.Office.FlowDocument.Avalonia;assembly=Vibe.Office.FlowDocument.Avalonia"
+        xmlns:fd="clr-namespace:Vibe.Office.FlowDocument;assembly=Vibe.Office.FlowDocument"
+        xmlns:vm="clr-namespace:Vibe.FlowDocument.App.ViewModels"
+        x:Class="Vibe.FlowDocument.App.MainWindow"
+        x:DataType="vm:FlowDocumentSampleViewModel"
+        Width="1360"
+        Height="900"
+        Title="FlowDocument Sample">
+  <Window.Resources>
+    <fd:FlowDocument x:Key="SampleDocument"
+                     PageWidth="816"
+                     PageHeight="1056"
+                     PagePadding="72,72,72,72"
+                     ColumnWidth="360"
+                     ColumnGap="32"
+                     ColumnRuleWidth="1"
+                     ColumnRuleBrush="#D2D8E8">
+      <fd:Section Background="#FAFBFF">
+        <fd:Paragraph FontSize="24" FontWeight="Bold" TextAlignment="Center">
+          <fd:Run Text="FlowDocument Rich Sample" />
+        </fd:Paragraph>
+
+        <fd:Paragraph TextAlignment="Left">
+          <fd:Run Text="This sample demonstrates " />
+          <fd:Bold>
+            <fd:Run Text="inline formatting" />
+          </fd:Bold>
+          <fd:Run Text=", " />
+          <fd:Italic>
+            <fd:Run Text="text styling" />
+          </fd:Italic>
+          <fd:Run Text=", hyperlinks, floating content, table row spans, and UI containers." />
+        </fd:Paragraph>
+
+        <fd:Paragraph>
+          <fd:Run TextDecorations="Underline" Text="Decorated text" />
+          <fd:Run Text=" and a " />
+          <fd:Hyperlink NavigateUri="https://learn.microsoft.com/dotnet/desktop/wpf/advanced/flow-document-overview">
+            <fd:Run Text="FlowDocument reference link" />
+          </fd:Hyperlink>
+          <fd:Run Text=" inside the same paragraph." />
+        </fd:Paragraph>
+
+        <fd:Paragraph>
+          <fd:Run Text="Inline UI: " />
+          <fd:InlineUIContainer BaselineAlignment="Center">
+            <fd:InlineUIContainer.Child>
+              <Border Background="#FFE5B4" BorderBrush="#D39A3E" BorderThickness="1" CornerRadius="3" Padding="6,2,6,2">
+                <TextBlock Text="INLINE CHIP" FontSize="11" FontWeight="SemiBold" />
+              </Border>
+            </fd:InlineUIContainer.Child>
+          </fd:InlineUIContainer>
+          <fd:Run Text=" followed by regular text." />
+        </fd:Paragraph>
+
+        <fd:Paragraph>
+          <fd:Figure Width="240" Height="120" Background="GhostWhite" HorizontalAnchor="PageLeft">
+            <fd:Paragraph Background="Beige" Foreground="DarkGreen" Padding="6,6,6,6">
+              <fd:Run Text="Figure: anchored block content rendered through floating conversion." />
+            </fd:Paragraph>
+          </fd:Figure>
+
+          <fd:Floater Width="220" HorizontalAlignment="Right" Background="#F4F8FF" Padding="6,6,6,6">
+            <fd:Paragraph>
+              <fd:Run Text="Floater: secondary floating block sample." />
+            </fd:Paragraph>
+          </fd:Floater>
+
+          <fd:Run Text="Main body text wraps around the Figure/Floater metadata converted to floating shapes in the document model." />
+        </fd:Paragraph>
+
+        <fd:BlockUIContainer Margin="0,8,0,8">
+          <fd:BlockUIContainer.Child>
+            <StackPanel Spacing="6">
+              <TextBlock Text="Block UI container host" FontWeight="SemiBold" />
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button Content="Action" />
+                <ComboBox SelectedIndex="1" Width="120">
+                  <ComboBoxItem Content="One" />
+                  <ComboBoxItem Content="Two" />
+                  <ComboBoxItem Content="Three" />
+                </ComboBox>
+                <TextBox Width="180" Text="Embedded editor" />
+              </StackPanel>
+            </StackPanel>
+          </fd:BlockUIContainer.Child>
+        </fd:BlockUIContainer>
+
+        <fd:List MarkerStyle="UpperRoman" StartIndex="3" Margin="0,8,0,8">
+          <fd:ListItem>
+            <fd:Paragraph>
+              <fd:Run Text="List item one" />
+            </fd:Paragraph>
+          </fd:ListItem>
+          <fd:ListItem>
+            <fd:Paragraph>
+              <fd:Run Text="List item two" />
+            </fd:Paragraph>
+          </fd:ListItem>
+          <fd:ListItem>
+            <fd:Paragraph>
+              <fd:Run Text="List item three" />
+            </fd:Paragraph>
+          </fd:ListItem>
+        </fd:List>
+
+        <fd:Paragraph FontWeight="Bold">
+          <fd:Run Text="Row-span table sample" />
+        </fd:Paragraph>
+
+        <fd:Table CellSpacing="3">
+          <fd:Table.Columns>
+            <fd:TableColumn Width="170" />
+            <fd:TableColumn Width="170" />
+            <fd:TableColumn Width="170" />
+          </fd:Table.Columns>
+
+          <fd:TableRowGroup>
+            <fd:TableRow>
+              <fd:TableCell RowSpan="2" BorderBrush="#AAB4CC" BorderThickness="1,1,1,1" Padding="6,4,6,4" Background="#EEF3FF">
+                <fd:Paragraph>
+                  <fd:Run Text="Group A (row span 2)" />
+                </fd:Paragraph>
+              </fd:TableCell>
+              <fd:TableCell BorderBrush="#AAB4CC" BorderThickness="1,1,1,1" Padding="6,4,6,4">
+                <fd:Paragraph>
+                  <fd:Run Text="Q1" />
+                </fd:Paragraph>
+              </fd:TableCell>
+              <fd:TableCell BorderBrush="#AAB4CC" BorderThickness="1,1,1,1" Padding="6,4,6,4">
+                <fd:Paragraph>
+                  <fd:Run Text="120" />
+                </fd:Paragraph>
+              </fd:TableCell>
+            </fd:TableRow>
+
+            <fd:TableRow>
+              <fd:TableCell BorderBrush="#AAB4CC" BorderThickness="1,1,1,1" Padding="6,4,6,4">
+                <fd:Paragraph>
+                  <fd:Run Text="Q2" />
+                </fd:Paragraph>
+              </fd:TableCell>
+              <fd:TableCell BorderBrush="#AAB4CC" BorderThickness="1,1,1,1" Padding="6,4,6,4">
+                <fd:Paragraph>
+                  <fd:Run Text="145" />
+                </fd:Paragraph>
+              </fd:TableCell>
+            </fd:TableRow>
+
+            <fd:TableRow>
+              <fd:TableCell BorderBrush="#AAB4CC" BorderThickness="1,1,1,1" Padding="6,4,6,4" Background="#EEF3FF">
+                <fd:Paragraph>
+                  <fd:Run Text="Group B" />
+                </fd:Paragraph>
+              </fd:TableCell>
+              <fd:TableCell BorderBrush="#AAB4CC" BorderThickness="1,1,1,1" Padding="6,4,6,4">
+                <fd:Paragraph>
+                  <fd:Run Text="Q3" />
+                </fd:Paragraph>
+              </fd:TableCell>
+              <fd:TableCell BorderBrush="#AAB4CC" BorderThickness="1,1,1,1" Padding="6,4,6,4">
+                <fd:Paragraph>
+                  <fd:Run Text="132" />
+                </fd:Paragraph>
+              </fd:TableCell>
+            </fd:TableRow>
+          </fd:TableRowGroup>
+        </fd:Table>
+      </fd:Section>
+    </fd:FlowDocument>
+  </Window.Resources>
+
+  <Grid RowDefinitions="Auto,*">
+    <Border Background="#1C1E2B" Padding="16">
+      <StackPanel Spacing="4">
+        <TextBlock Text="FlowDocument Rich Sample" Foreground="#F5F7FF" FontSize="20" FontWeight="SemiBold" />
+        <TextBlock Text="XAML sample and code sample" Foreground="#C7CAD9" FontSize="12" />
+      </StackPanel>
+    </Border>
+
+    <TabControl Grid.Row="1" Margin="12">
+      <TabItem Header="XAML Sample">
+        <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                      VerticalScrollBarVisibility="Auto">
+          <flow:FlowDocumentView FlowDocument="{StaticResource SampleDocument}"
+                                 UsePagination="True"
+                                 ZoomFactor="1"
+                                 Background="#F8F9FD"
+                                 InlineUiPlaceholderText="[Inline UI]"
+                                 BlockUiPlaceholderText="[Block UI]" />
+        </ScrollViewer>
+      </TabItem>
+
+      <TabItem Header="Code Sample">
+        <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                      VerticalScrollBarVisibility="Auto">
+          <flow:FlowDocumentView FlowDocument="{Binding Document}"
+                                 UsePagination="True"
+                                 ZoomFactor="{Binding ZoomFactor}"
+                                 Background="#F8F9FD"
+                                 InlineUiPlaceholderText="[Inline UI]"
+                                 BlockUiPlaceholderText="[Block UI]" />
+        </ScrollViewer>
+      </TabItem>
+    </TabControl>
+  </Grid>
+</Window>
