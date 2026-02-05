@@ -107,6 +107,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
     private static readonly Cursor CropBottomRightCursor = new Cursor(StandardCursorType.BottomRightCorner);
     private static readonly Cursor ShapeMoveCursor = new Cursor(StandardCursorType.SizeAll);
     private static readonly Cursor ShapeRotateCursor = new Cursor(StandardCursorType.Hand);
+    private static readonly Cursor TextCursor = new Cursor(StandardCursorType.Ibeam);
 
     public static readonly StyledProperty<Color> SurfaceColorProperty =
         AvaloniaProperty.Register<DocumentView, Color>(nameof(SurfaceColor), new Color(255, 238, 241, 245));
@@ -2346,6 +2347,24 @@ public sealed class DocumentView : Control, ILogicalScrollable
             return;
         }
 
+        if (!_isPictureCropMode && TryGetFloatingShapeAtPoint(docPoint, out _, out _, out _))
+        {
+            UpdatePointerCursor(ShapeMoveCursor);
+            return;
+        }
+
+        if (!_isPictureCropMode && TryGetFloatingImageAtPoint(docPoint, out _, out _))
+        {
+            UpdatePointerCursor(ShapeMoveCursor);
+            return;
+        }
+
+        if (!_isPictureCropMode && TryGetInlineObjectAtPoint(docPoint, out _))
+        {
+            UpdatePointerCursor(ShapeMoveCursor);
+            return;
+        }
+
         if (TryGetTableResizeHandleAtPoint(docPoint, out var tableHandle))
         {
             if (!_hoverTableResizeHandle.HasValue || !_hoverTableResizeHandle.Value.Equals(tableHandle))
@@ -2364,7 +2383,27 @@ public sealed class DocumentView : Control, ILogicalScrollable
             InvalidateVisual();
         }
 
+        if (IsOverDocumentPage(docPoint))
+        {
+            UpdatePointerCursor(TextCursor);
+            return;
+        }
+
         UpdatePointerCursor(null);
+    }
+
+    private bool IsOverDocumentPage(DocPoint point)
+    {
+        var pages = _editor.Layout.Pages;
+        for (var i = 0; i < pages.Count; i++)
+        {
+            if (pages[i].Bounds.Contains(point.X, point.Y))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private bool TryGetTableResizeHandleAtPoint(DocPoint point, out TableResizeHandle handle)
