@@ -8,6 +8,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Globalization;
 using System.Linq;
 using Vibe.Office.Ribbon;
@@ -19,15 +20,20 @@ public partial class RibbonControl : UserControl
 {
     private readonly Dictionary<string, Control> _keyTipTargets = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<ComboBox> _comboBoxUserInput = new();
+    private readonly Dictionary<string, Vector> _tabScrollOffsets = new(StringComparer.OrdinalIgnoreCase);
     private Canvas? _keyTipOverlay;
     private bool _keyTipsVisible;
     private string _keyTipBuffer = string.Empty;
     private ScrollViewer? _groupScrollViewer;
     private bool _isUpdatingGroupLayout;
     private RibbonTab? _lastLayoutTab;
+    private RibbonTab? _lastScrollTab;
+    private RibbonModel? _activeModel;
     private readonly RibbonGroupOverflowController _overflowController = new();
     private int _stateUpdateDepth;
     private int _suppressGallerySelectionDepth;
+    private bool _isRestoringScrollOffset;
+    private const double RibbonHorizontalScrollStep = 48d;
 
     public event EventHandler? CustomizeQuickAccessRequested;
 
@@ -58,18 +64,36 @@ public partial class RibbonControl : UserControl
         set => SetValue(OverflowExpandThresholdProperty, value);
     }
 
+    public Control? FocusReturnTarget { get; set; }
+
     public RibbonControl()
     {
         InitializeComponent();
         ModelProperty.Changed.AddClassHandler<RibbonControl>((control, _) => control.OnModelChanged());
         _keyTipOverlay = this.FindControl<Canvas>("KeyTipOverlay");
         _groupScrollViewer = this.FindControl<ScrollViewer>("RibbonGroupsScrollViewer");
+        if (_groupScrollViewer is not null)
+        {
+            _groupScrollViewer.ScrollChanged += OnGroupScrollChanged;
+            _groupScrollViewer.PointerWheelChanged += OnGroupScrollWheelChanged;
+        }
         LayoutUpdated += OnLayoutUpdated;
     }
 
     private void OnModelChanged()
     {
         using var _ = BeginStateUpdate();
+
+        if (_activeModel is not null)
+        {
+            _activeModel.PropertyChanged -= OnModelPropertyChanged;
+        }
+
+        _activeModel = Model;
+        if (_activeModel is not null)
+        {
+            _activeModel.PropertyChanged += OnModelPropertyChanged;
+        }
 
         DataContext = Model;
         if (Model is { SelectedTab: null, Tabs.Count: > 0 })
@@ -79,6 +103,78 @@ public partial class RibbonControl : UserControl
 
         SuppressGallerySelection();
         Model?.RefreshState();
+
+        _lastScrollTab = Model?.SelectedTab;
+        RestoreScrollForSelectedTab();
+    }
+
+    private void OnModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(RibbonModel.SelectedTab))
+        {
+            OnSelectedTabChanged();
+        }
+    }
+
+    private void OnSelectedTabChanged()
+    {
+        if (_groupScrollViewer is null)
+        {
+            return;
+        }
+
+        if (_lastScrollTab is not null)
+        {
+            _tabScrollOffsets[_lastScrollTab.Id] = _groupScrollViewer.Offset;
+        }
+
+        _lastScrollTab = Model?.SelectedTab;
+        RestoreScrollForSelectedTab();
+    }
+
+    private void OnGroupScrollChanged(object? sender, ScrollChangedEventArgs e)
+    {
+        if (_isRestoringScrollOffset || _groupScrollViewer is null)
+        {
+            return;
+        }
+
+        var tab = Model?.SelectedTab;
+        if (tab is null)
+        {
+            return;
+        }
+
+        _tabScrollOffsets[tab.Id] = _groupScrollViewer.Offset;
+    }
+
+    private void RestoreScrollForSelectedTab()
+    {
+        if (_groupScrollViewer is null)
+        {
+            return;
+        }
+
+        var tab = Model?.SelectedTab;
+        if (tab is null)
+        {
+            return;
+        }
+
+        var target = _tabScrollOffsets.TryGetValue(tab.Id, out var offset)
+            ? offset
+            : default;
+
+        _isRestoringScrollOffset = true;
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (_groupScrollViewer is not null)
+            {
+                _groupScrollViewer.Offset = new Vector(target.X, 0);
+            }
+
+            _isRestoringScrollOffset = false;
+        }, DispatcherPriority.Background);
     }
 
     private async void OnRibbonButtonClick(object? sender, RoutedEventArgs e)
@@ -87,6 +183,7 @@ public partial class RibbonControl : UserControl
         {
             await button.ExecuteAsync();
             RefreshState();
+            RestoreFocusAfterAction();
         }
     }
 
@@ -96,6 +193,7 @@ public partial class RibbonControl : UserControl
         {
             await toggle.ToggleAsync(button.IsChecked ?? false);
             RefreshState();
+            RestoreFocusAfterAction();
         }
     }
 
@@ -105,6 +203,7 @@ public partial class RibbonControl : UserControl
         {
             await split.ExecutePrimaryAsync();
             RefreshState();
+            RestoreFocusAfterAction();
         }
     }
 
@@ -125,6 +224,7 @@ public partial class RibbonControl : UserControl
         {
             await split.ToggleAsync(button.IsChecked ?? false);
             RefreshState();
+            RestoreFocusAfterAction();
         }
     }
 
@@ -178,6 +278,7 @@ public partial class RibbonControl : UserControl
 
         await combo.SelectAsync(combo.SelectedItem as RibbonComboBoxItem);
         RefreshState();
+        RestoreFocusAfterAction();
     }
 
     private void OnRibbonComboBoxPointerPressed(object? sender, PointerPressedEventArgs e)
@@ -211,6 +312,7 @@ public partial class RibbonControl : UserControl
         var comboBox = (ComboBox)sender;
         await combo.UpdateTextAsync(comboBox.Text);
         RefreshState();
+        RestoreFocusAfterAction();
     }
 
     private async void OnRibbonSpinnerIncreaseClick(object? sender, RoutedEventArgs e)
@@ -222,6 +324,7 @@ public partial class RibbonControl : UserControl
 
         await spinner.IncreaseAsync();
         RefreshState();
+        RestoreFocusAfterAction();
     }
 
     private async void OnRibbonSpinnerDecreaseClick(object? sender, RoutedEventArgs e)
@@ -233,6 +336,7 @@ public partial class RibbonControl : UserControl
 
         await spinner.DecreaseAsync();
         RefreshState();
+        RestoreFocusAfterAction();
     }
 
     private async void OnRibbonTextBoxKeyDown(object? sender, KeyEventArgs e)
@@ -249,6 +353,7 @@ public partial class RibbonControl : UserControl
 
         await textBox.SubmitAsync();
         RefreshState();
+        RestoreFocusAfterAction();
         e.Handled = true;
     }
 
@@ -268,6 +373,7 @@ public partial class RibbonControl : UserControl
         {
             await spinner.SetValueAsync(null);
             RefreshState();
+            RestoreFocusAfterAction();
             return;
         }
 
@@ -275,6 +381,7 @@ public partial class RibbonControl : UserControl
         {
             await spinner.SetValueAsync(value);
             RefreshState();
+            RestoreFocusAfterAction();
         }
     }
 
@@ -298,6 +405,7 @@ public partial class RibbonControl : UserControl
 
         await gallery.SelectAsync(selected);
         RefreshState();
+        RestoreFocusAfterAction();
     }
 
     private async void OnRibbonGalleryPopupSelectionChanged(object? sender, SelectionChangedEventArgs e)
@@ -325,6 +433,7 @@ public partial class RibbonControl : UserControl
         }
 
         RefreshState();
+        RestoreFocusAfterAction();
     }
 
     private async void OnRibbonGalleryPopupMenuItemClick(object? sender, RoutedEventArgs e)
@@ -342,6 +451,7 @@ public partial class RibbonControl : UserControl
         await item.ExecuteAsync();
         CloseGalleryPopup(button);
         RefreshState();
+        RestoreFocusAfterAction();
     }
 
     private static void CloseGalleryPopup(Control control)
@@ -359,6 +469,7 @@ public partial class RibbonControl : UserControl
         {
             await button.ExecutePrimaryAsync();
             RefreshState();
+            RestoreFocusAfterAction();
         }
     }
 
@@ -572,10 +683,12 @@ public partial class RibbonControl : UserControl
             case MenuItem { DataContext: RibbonMenuItem item }:
                 await item.ExecuteAsync();
                 RefreshState();
+                RestoreFocusAfterAction();
                 break;
             case MenuItem { DataContext: RibbonMenuToggleItem toggle }:
                 await toggle.ExecuteAsync();
                 RefreshState();
+                RestoreFocusAfterAction();
                 break;
         }
     }
@@ -614,6 +727,58 @@ public partial class RibbonControl : UserControl
         Dispatcher.UIThread.Post(
             () => _suppressGallerySelectionDepth = Math.Max(0, _suppressGallerySelectionDepth - 1),
             DispatcherPriority.Background);
+    }
+
+    private void RestoreFocusAfterAction()
+    {
+        var target = FocusReturnTarget;
+        if (target is null)
+        {
+            return;
+        }
+
+        if (!target.IsEffectivelyVisible || !target.Focusable)
+        {
+            return;
+        }
+
+        Dispatcher.UIThread.Post(() => target.Focus(), DispatcherPriority.Background);
+    }
+
+    private void OnGroupScrollWheelChanged(object? sender, PointerWheelEventArgs e)
+    {
+        if (_groupScrollViewer is null)
+        {
+            return;
+        }
+
+        if (_groupScrollViewer.Extent.Width <= _groupScrollViewer.Viewport.Width)
+        {
+            return;
+        }
+
+        var delta = e.Delta;
+        if (delta.X == 0 && delta.Y == 0)
+        {
+            return;
+        }
+
+        var horizontalDelta = Math.Abs(delta.X) > 0 ? delta.X : -delta.Y;
+        if (horizontalDelta == 0)
+        {
+            return;
+        }
+
+        var maxOffset = Math.Max(0, _groupScrollViewer.Extent.Width - _groupScrollViewer.Viewport.Width);
+        var nextX = _groupScrollViewer.Offset.X - horizontalDelta * RibbonHorizontalScrollStep;
+        nextX = Math.Clamp(nextX, 0, maxOffset);
+        if (Math.Abs(nextX - _groupScrollViewer.Offset.X) < 0.01)
+        {
+            return;
+        }
+
+        _groupScrollViewer.Offset = new Vector(nextX, 0);
+        e.Handled = true;
     }
 
     private sealed class StateUpdateScope : IDisposable

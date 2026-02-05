@@ -60,7 +60,7 @@ internal sealed class CollaborationRibbonExtension : IRibbonExtension
             new IRibbonControl[] { joinButton, shareButton, leaveButton, paneButton },
             keyTip: "CO");
 
-        builder.AddTab("review", "Review", keyTip: "E")
+        builder.AddTab("collaboration", "Collaboration", keyTip: "Y")
             .AddGroup(group);
     }
 }

@@ -229,6 +229,11 @@ public partial class WordEditorControl : UserControl
         _zoomOutButton = this.FindControl<Button>("ZoomOutButton");
         _zoomResetButton = this.FindControl<Button>("ZoomResetButton");
 
+        if (_ribbon is not null)
+        {
+            _ribbon.FocusReturnTarget = _editorView;
+        }
+
         InitializeCollaborationUi();
 
         if (_navigationPane is not null)
