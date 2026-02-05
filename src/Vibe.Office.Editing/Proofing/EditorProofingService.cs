@@ -524,11 +524,11 @@ public sealed class EditorProofingService : IProofingService, IProofingSpanProvi
         var profile = _profiles.ResolveProfile(language);
 
         var spellProofingEngine = _spellingEnabled ? profile.SpellEngine as IProofingEngine : null;
-        var grammarEngine = _grammarEnabled ? profile.GrammarEngine : null;
-        var styleEngine = _styleEnabled ? profile.StyleEngine : null;
+        var grammarEngine = (_grammarEnabled || _styleEnabled) ? profile.GrammarEngine : null;
+        var styleEngine = (_styleEnabled || _grammarEnabled) ? profile.StyleEngine : null;
         var includeSpelling = spellProofingEngine is not null;
-        var includeGrammar = grammarEngine is not null;
-        var includeStyle = styleEngine is not null;
+        var includeGrammar = _grammarEnabled && (grammarEngine is not null || styleEngine is not null);
+        var includeStyle = _styleEnabled && (styleEngine is not null || grammarEngine is not null);
 
         if (!includeSpelling && !includeGrammar && !includeStyle)
         {
@@ -593,8 +593,18 @@ public sealed class EditorProofingService : IProofingService, IProofingSpanProvi
 
         var requests = new Dictionary<string, ProofingEngineRequest>(StringComparer.OrdinalIgnoreCase);
         AddEngineRequest(requests, spellingEngine, includeSpelling, includeGrammar: false, includeStyle: false);
-        AddEngineRequest(requests, grammarEngine, includeSpelling: false, includeGrammar, includeStyle: false);
-        AddEngineRequest(requests, styleEngine, includeSpelling: false, includeGrammar: false, includeStyle);
+        AddEngineRequest(
+            requests,
+            grammarEngine,
+            includeSpelling: false,
+            includeGrammar,
+            includeStyle: includeStyle && styleEngine is null);
+        AddEngineRequest(
+            requests,
+            styleEngine,
+            includeSpelling: false,
+            includeGrammar: includeGrammar && grammarEngine is null,
+            includeStyle);
 
         foreach (var request in requests.Values)
         {

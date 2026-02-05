@@ -18,6 +18,7 @@ public class ProofingServiceTests
         var registry = SpellDictionaryRegistry.CreateDefault();
         var engine = new HunspellSpellEngine(registry);
         using var proofing = new EditorProofingService(session, engine, registry);
+        proofing.SetEnabled(true);
 
         proofing.RefreshAll();
         var diagnostics = proofing.GetParagraphDiagnostics(0);

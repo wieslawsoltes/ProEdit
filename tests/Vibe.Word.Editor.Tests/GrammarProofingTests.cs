@@ -25,6 +25,9 @@ public class GrammarProofingTests
 
         var session = new EditorController(new EditorTestTextMeasurer(), document);
         using var proofing = new EditorProofingService(session, profiles);
+        proofing.SetEnabled(true);
+        proofing.SetGrammarEnabled(true);
+        proofing.SetStyleEnabled(true);
 
         await WaitForDiagnosticsAsync(proofing, d => d.Any(item => item.Kind != ProofingIssueKind.Spelling));
 
@@ -54,6 +57,9 @@ public class GrammarProofingTests
 
         var session = new EditorController(new EditorTestTextMeasurer(), document);
         using var proofing = new EditorProofingService(session, profiles);
+        proofing.SetEnabled(true);
+        proofing.SetGrammarEnabled(true);
+        proofing.SetStyleEnabled(true);
 
         await WaitForDiagnosticsAsync(proofing, d => d.Any(item => item.Kind != ProofingIssueKind.Spelling));
 
