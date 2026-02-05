@@ -19,7 +19,6 @@ public sealed class CollabEditorRealtimeBridge : IDisposable
     private readonly ConcurrentQueue<CollabOpBatch> _pendingBatches = new();
     private int _flushScheduled;
     private bool _disposed;
-    private static readonly TimeSpan FlushDelay = TimeSpan.FromMilliseconds(16);
 
     public CollabEditorRealtimeBridge(
         ICollabRealtimeSession session,
@@ -51,22 +50,13 @@ public sealed class CollabEditorRealtimeBridge : IDisposable
             return;
         }
 
-        _ = Task.Run(async () =>
+        if (_syncContext is null)
         {
-            try
-            {
-                if (FlushDelay > TimeSpan.Zero)
-                {
-                    await Task.Delay(FlushDelay).ConfigureAwait(false);
-                }
+            _ = Task.Run(FlushPending);
+            return;
+        }
 
-                Dispatch(FlushPending);
-            }
-            catch
-            {
-                Interlocked.Exchange(ref _flushScheduled, 0);
-            }
-        });
+        _syncContext.Post(_ => FlushPending(), null);
     }
 
     private void FlushPending()
@@ -104,12 +94,7 @@ public sealed class CollabEditorRealtimeBridge : IDisposable
                 return;
             }
 
-            for (var i = 0; i < applyGroups.Count; i++)
-            {
-                var group = applyGroups[i];
-                var refresh = i == applyGroups.Count - 1;
-                _applier.ApplyRemoteOpsBatch(group.Ops, group.Author, refresh);
-            }
+            _applier.ApplyRemoteOpGroups(applyGroups, refreshLayout: true);
         }
         finally
         {
@@ -126,17 +111,6 @@ public sealed class CollabEditorRealtimeBridge : IDisposable
         while (_pendingBatches.TryDequeue(out _))
         {
         }
-    }
-
-    private void Dispatch(Action action)
-    {
-        if (_syncContext is null || SynchronizationContext.Current == _syncContext)
-        {
-            action();
-            return;
-        }
-
-        _syncContext.Post(_ => action(), null);
     }
 
     public void Dispose()
