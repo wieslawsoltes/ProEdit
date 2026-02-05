@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>Vibe.Office.Collaboration.Server</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>VibeOffice</Authors>
+    <Description>WebSocket relay server for Vibe Office collaboration.</Description>
+    <PackageTags>collaboration;server;websocket;vibeoffice</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Vibe.Office.Collaboration.Protocol\Vibe.Office.Collaboration.Protocol.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>Vibe.Office.Collaboration</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>VibeOffice</Authors>
+    <Description>CRDT collaboration core for Vibe Office documents.</Description>
+    <PackageTags>collaboration;crdt;vibeoffice</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Vibe.Office.Documents\Vibe.Office.Documents.csproj" />
+    <ProjectReference Include="..\Vibe.Office.OpenXml\Vibe.Office.OpenXml.csproj" />
+    <ProjectReference Include="..\Vibe.Office.Primitives\Vibe.Office.Primitives.csproj" />
+  </ItemGroup>
+</Project>

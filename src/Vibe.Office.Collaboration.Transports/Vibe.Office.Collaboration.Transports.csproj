@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>Vibe.Office.Collaboration.Transports</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>VibeOffice</Authors>
+    <Description>Transport abstractions and implementations for Vibe Office collaboration.</Description>
+    <PackageTags>collaboration;transport;vibeoffice</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Vibe.Office.Collaboration\Vibe.Office.Collaboration.csproj" />
+    <ProjectReference Include="..\Vibe.Office.Collaboration.Protocol\Vibe.Office.Collaboration.Protocol.csproj" />
+  </ItemGroup>
+</Project>
