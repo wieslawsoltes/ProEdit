@@ -87,10 +87,12 @@ public sealed partial class PrintDialogViewModel : ReactiveObject
         UpdateThumbnailScale();
         UpdateThumbnailScale();
         PageNumberText = "1";
+        PageDisplayText = "Page 0 of 0";
         RangeStartText = "1";
         RangeEndText = "1";
         AllPagesLabel = "All Pages";
         PrimaryActionText = "Print";
+        OutputPath = string.Empty;
         SelectedPaperSize = ResolveDefaultPaperSize(documentInfo.DefaultPaperSize, PaperSizeOptions);
         IsSelectionRangeAvailable = true;
         PreviewSelectionMode = PreviewSelectionMode.Single;
@@ -226,15 +228,15 @@ public sealed partial class PrintDialogViewModel : ReactiveObject
     [Reactive] public partial int Copies { get; set; }
     [Reactive] public partial bool Collate { get; set; }
     [Reactive] public partial PrintRangeKind RangeKind { get; set; }
-    [Reactive] public partial string RangeStartText { get; set; } = string.Empty;
-    [Reactive] public partial string RangeEndText { get; set; } = string.Empty;
+    [Reactive] public partial string RangeStartText { get; set; }
+    [Reactive] public partial string RangeEndText { get; set; }
     [Reactive] public partial PrintDuplexMode Duplex { get; set; }
     [Reactive] public partial PrintColorMode ColorMode { get; set; }
     [Reactive] public partial PrintOrientationMode Orientation { get; set; }
     [Reactive] public partial PrintScalingMode Scaling { get; set; }
     [Reactive] public partial float CustomScale { get; set; }
     [Reactive] public partial PrintOutputKind OutputKind { get; set; }
-    [Reactive] public partial string OutputPath { get; set; } = string.Empty;
+    [Reactive] public partial string OutputPath { get; set; }
     [Reactive] public partial bool IsBusy { get; set; }
     [Reactive] public partial string? StatusMessage { get; set; }
     [Reactive] public partial bool HasRangeError { get; set; }
@@ -246,16 +248,16 @@ public sealed partial class PrintDialogViewModel : ReactiveObject
     [Reactive] public partial bool CanNavigateNext { get; set; }
     [Reactive] public partial int TotalPages { get; set; }
     [Reactive] public partial PrintPreviewItem? SelectedPreviewPage { get; set; }
-    [Reactive] public partial string PageDisplayText { get; set; } = "Page 0 of 0";
+    [Reactive] public partial string PageDisplayText { get; set; }
     [Reactive] public partial float PreviewZoom { get; set; }
-    [Reactive] public partial string PageNumberText { get; set; } = "1";
+    [Reactive] public partial string PageNumberText { get; set; }
     [Reactive] public partial double PreviewWidth { get; set; }
     [Reactive] public partial double PreviewHeight { get; set; }
     [Reactive] public partial double PreviewThumbnailWidth { get; set; }
     [Reactive] public partial double PreviewThumbnailHeight { get; set; }
     [Reactive] public partial bool IsSelectionRangeAvailable { get; set; }
-    [Reactive] public partial string AllPagesLabel { get; set; } = "All Pages";
-    [Reactive] public partial string PrimaryActionText { get; set; } = "Print";
+    [Reactive] public partial string AllPagesLabel { get; set; }
+    [Reactive] public partial string PrimaryActionText { get; set; }
     [Reactive] public partial PreviewSelectionMode PreviewSelectionMode { get; set; }
 
     public ReactiveCommand<Unit, Unit> PrintCommand { get; }
