@@ -342,6 +342,34 @@ public sealed class EditorSelectionService
         return true;
     }
 
+    /// <summary>
+    /// Attempts to resolve a caret point for an arbitrary position without mutating selection state.
+    /// </summary>
+    public bool TryGetCaretPoint(TextPosition position, out DocPoint point, out int lineIndex)
+    {
+        point = default;
+        lineIndex = -1;
+        var layout = _layoutService.Layout;
+        if (layout.Lines.Count == 0)
+        {
+            return false;
+        }
+
+        var clamped = ClampPosition(position);
+        lineIndex = FindLineIndexForPosition(layout, clamped, out var line);
+        if (lineIndex < 0 || lineIndex >= layout.Lines.Count)
+        {
+            lineIndex = -1;
+            return false;
+        }
+
+        var offsetInLine = Math.Clamp(clamped.Offset - line.StartOffset, 0, line.Length);
+        var localX = MeasureLineOffset(line, offsetInLine);
+        var (worldX, worldY) = GetLineWorldPoint(line.X, line.Y, line.TextDirection, localX, 0f);
+        point = new DocPoint(worldX, worldY);
+        return true;
+    }
+
     public void SetCaret(TextPosition position, bool extendSelection)
     {
         var mode = extendSelection ? SelectionUpdateMode.Extend : SelectionUpdateMode.Replace;

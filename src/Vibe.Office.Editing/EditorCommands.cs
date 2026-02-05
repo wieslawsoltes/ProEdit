@@ -21,6 +21,12 @@ public interface IEditorCommandHandler
     void Handle(IEditorMutableSession session, IEditorCommand command);
 }
 
+public interface IEditorCommandExecutionObserver
+{
+    void OnCommandExecuting(IEditorCommand command, IEditorMutableSession session);
+    void OnCommandExecuted(IEditorCommand command, IEditorMutableSession session, bool recordHistory);
+}
+
 public interface IEditorCommandHandler<in TCommand> : IEditorCommandHandler where TCommand : IEditorCommand
 {
     void Handle(IEditorMutableSession session, TCommand command);
@@ -40,6 +46,7 @@ public sealed class EditorCommandDispatcher
 {
     private readonly Dictionary<Type, object> _handlers = new();
     public IEditorCommandHistory? History { get; set; }
+    public IEditorCommandExecutionObserver? ExecutionObserver { get; set; }
 
     public void Register<TCommand>(IEditorCommandHandler<TCommand> handler) where TCommand : IEditorCommand
     {
@@ -56,17 +63,21 @@ public sealed class EditorCommandDispatcher
         ArgumentNullException.ThrowIfNull(command);
         ArgumentNullException.ThrowIfNull(session);
 
+        ExecutionObserver?.OnCommandExecuting(command, session);
+
         if (recordHistory)
         {
             var history = History;
             if (history is not null && history.ShouldRecord(command))
             {
                 history.ExecuteWithHistory(session, command, () => ExecuteCommand(command, session));
+                ExecutionObserver?.OnCommandExecuted(command, session, recordHistory);
                 return;
             }
         }
 
         ExecuteCommand(command, session);
+        ExecutionObserver?.OnCommandExecuted(command, session, recordHistory);
     }
 
     private void ExecuteCommand(IEditorCommand command, IEditorMutableSession session)

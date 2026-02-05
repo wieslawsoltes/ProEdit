@@ -13,11 +13,15 @@ internal static class EditorRevisionHelper
             return null;
         }
 
+        var author = string.IsNullOrWhiteSpace(document.RevisionAuthorOverride)
+            ? Environment.UserName
+            : document.RevisionAuthorOverride;
+
         var info = new RevisionInfo
         {
             Kind = kind,
             Id = GetNextRevisionId(document.Revisions),
-            Author = Environment.UserName,
+            Author = author,
             Date = DateTimeOffset.UtcNow
         };
 

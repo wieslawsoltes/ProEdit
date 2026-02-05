@@ -14,7 +14,8 @@ public static class EditorHomeServiceRegistry
         IFontService? fontService = null,
         IClipboardService? clipboardService = null,
         IEditorViewOptionsService? viewOptionsService = null,
-        Func<Document>? documentFactory = null)
+        Func<Document>? documentFactory = null,
+        IEditorCommandExecutionObserver? executionObserver = null)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(commands);
@@ -43,6 +44,10 @@ public static class EditorHomeServiceRegistry
         var formatProfileService = new EditorFormatProfileService();
         var commandRouter = new EditorCommandRouterAdapter(commands, session, macroEngine, formatProfileService);
         commands.History = undoRedoService;
+        if (executionObserver is not null)
+        {
+            commands.ExecutionObserver = executionObserver;
+        }
         var ribbonSnapshotProvider = new RibbonContextSnapshotBuilder(
             selectionState,
             formattingState,

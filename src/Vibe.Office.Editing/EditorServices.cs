@@ -10,6 +10,17 @@ public sealed class EditorServices
         _services[typeof(TService)] = service;
     }
 
+    public bool Remove<TService>() where TService : class
+    {
+        return _services.Remove(typeof(TService));
+    }
+
+    public bool Remove(Type serviceType)
+    {
+        ArgumentNullException.ThrowIfNull(serviceType);
+        return _services.Remove(serviceType);
+    }
+
     public bool TryGet<TService>(out TService service) where TService : class
     {
         if (_services.TryGetValue(typeof(TService), out var value))

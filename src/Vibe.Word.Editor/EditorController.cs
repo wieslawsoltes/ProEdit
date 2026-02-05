@@ -66,6 +66,14 @@ public sealed class EditorController : IEditorMutableSession, IContentControlInt
         return _selectionService.TryGetCaretPoint(out point, out lineIndex);
     }
 
+    /// <summary>
+    /// Attempts to resolve a caret point for an arbitrary position without mutating selection state.
+    /// </summary>
+    public bool TryGetCaretPoint(TextPosition position, out DocPoint point, out int lineIndex)
+    {
+        return _selectionService.TryGetCaretPoint(position, out point, out lineIndex);
+    }
+
     public void InsertText(string text)
     {
         if (string.IsNullOrEmpty(text))
