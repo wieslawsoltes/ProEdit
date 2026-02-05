@@ -259,31 +259,27 @@ public sealed class CollabBlockOpApplier
         Dictionary<int, ListDefinition> incoming,
         Block block)
     {
-        var map = new Dictionary<int, int>();
         if (incoming.Count == 0)
         {
-            return map;
+            return new Dictionary<int, int>();
         }
 
-        var nextId = document.ListDefinitions.Count == 0 ? 1 : document.ListDefinitions.Keys.Max() + 1;
+        var map = new Dictionary<int, int>();
 
         foreach (var pair in incoming)
         {
-            if (document.ListDefinitions.ContainsKey(pair.Key))
+            if (document.ListDefinitions.TryGetValue(pair.Key, out var existing))
             {
-                var newId = nextId++;
-                map[pair.Key] = newId;
-                document.ListDefinitions[newId] = CloneListDefinition(pair.Value, newId);
-            }
-            else
-            {
-                document.ListDefinitions[pair.Key] = pair.Value.Clone();
-            }
-        }
+                if (AreListDefinitionsEquivalent(existing, pair.Value))
+                {
+                    continue;
+                }
 
-        if (map.Count > 0)
-        {
-            RemapListIds(block, map);
+                document.ListDefinitions[pair.Key] = pair.Value.Clone();
+                continue;
+            }
+
+            document.ListDefinitions[pair.Key] = pair.Value.Clone();
         }
 
         return map;
@@ -350,5 +346,89 @@ public sealed class CollabBlockOpApplier
         }
 
         return clone;
+    }
+
+    private static bool AreListDefinitionsEquivalent(ListDefinition existing, ListDefinition incoming)
+    {
+        if (existing.Levels.Count != incoming.Levels.Count)
+        {
+            return false;
+        }
+
+        foreach (var pair in existing.Levels)
+        {
+            if (!incoming.Levels.TryGetValue(pair.Key, out var other))
+            {
+                return false;
+            }
+
+            if (!AreListLevelsEquivalent(pair.Value, other))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool AreListLevelsEquivalent(ListLevelDefinition existing, ListLevelDefinition incoming)
+    {
+        if (existing.Level != incoming.Level)
+        {
+            return false;
+        }
+
+        if (existing.Format != incoming.Format)
+        {
+            return false;
+        }
+
+        if (!string.Equals(existing.LevelText, incoming.LevelText, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (!string.Equals(existing.BulletSymbol, incoming.BulletSymbol, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (existing.StartAt != incoming.StartAt)
+        {
+            return false;
+        }
+
+        if (!AreNullableFloatsClose(existing.LeftIndent, incoming.LeftIndent))
+        {
+            return false;
+        }
+
+        if (!AreNullableFloatsClose(existing.HangingIndent, incoming.HangingIndent))
+        {
+            return false;
+        }
+
+        if (!AreNullableFloatsClose(existing.TabStop, incoming.TabStop))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private static bool AreNullableFloatsClose(float? left, float? right)
+    {
+        if (!left.HasValue && !right.HasValue)
+        {
+            return true;
+        }
+
+        if (left.HasValue != right.HasValue)
+        {
+            return false;
+        }
+
+        var delta = MathF.Abs(left!.Value - right!.Value);
+        return delta <= 0.01f;
     }
 }
