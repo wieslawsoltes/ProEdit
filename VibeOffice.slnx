@@ -1,5 +1,11 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/Vibe.Office.Collaboration.Protocol/Vibe.Office.Collaboration.Protocol.csproj" />
+    <Project Path="src/Vibe.Office.Collaboration.Editor/Vibe.Office.Collaboration.Editor.csproj" />
+    <Project Path="src/Vibe.Office.Collaboration.Transports/Vibe.Office.Collaboration.Transports.csproj" />
+    <Project Path="src/Vibe.Office.Collaboration.Server/Vibe.Office.Collaboration.Server.csproj" />
+    <Project Path="src/Vibe.Office.Collaboration.UI/Vibe.Office.Collaboration.UI.csproj" />
+    <Project Path="src/Vibe.Office.Collaboration/Vibe.Office.Collaboration.csproj" />
     <Project Path="src/Vibe.Office.Editing/Vibe.Office.Editing.csproj" />
     <Project Path="src/Vibe.Office.Documents/Vibe.Office.Documents.csproj" />
     <Project Path="src/Vibe.Office.Html/Vibe.Office.Html.csproj" />
@@ -29,6 +35,7 @@
     <Project Path="src/Vibe.Word.Editor/Vibe.Word.Editor.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Vibe.Office.Collaboration.Tests/Vibe.Office.Collaboration.Tests.csproj" />
     <Project Path="tests/Vibe.Office.Html.Tests/Vibe.Office.Html.Tests.csproj" />
     <Project Path="tests/Vibe.Office.Markdown.Tests/Vibe.Office.Markdown.Tests.csproj" />
     <Project Path="tests/Vibe.Office.Layout.Tests/Vibe.Office.Layout.Tests.csproj" />
@@ -36,6 +43,7 @@
     <Project Path="tests/Vibe.Office.Ribbon.Tests/Vibe.Office.Ribbon.Tests.csproj" />
     <Project Path="tests/Vibe.Office.OpenXml.Tests/Vibe.Office.OpenXml.Tests.csproj" />
     <Project Path="tests/Vibe.Office.Vba.Runtime.Tests/Vibe.Office.Vba.Runtime.Tests.csproj" />
+    <Project Path="tests/Vibe.Word.Avalonia.Headless.Tests/Vibe.Word.Avalonia.Headless.Tests.csproj" />
     <Project Path="tests/Vibe.Word.Editor.Tests/Vibe.Word.Editor.Tests.csproj" />
   </Folder>
   <Folder Name="/benchmarks/">
