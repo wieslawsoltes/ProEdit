@@ -132,3 +132,41 @@ public sealed class SetCaretFromPointCommand : IEditorCommand
         session.SetCaretFromPoint(X, Y, Mode);
     }
 }
+
+public sealed class SelectWordFromPointCommand : IEditorCommand
+{
+    public float X { get; }
+    public float Y { get; }
+    public SelectionUpdateMode Mode { get; }
+
+    public SelectWordFromPointCommand(float x, float y, SelectionUpdateMode mode)
+    {
+        X = x;
+        Y = y;
+        Mode = mode;
+    }
+
+    public void Execute(IEditorMutableSession session)
+    {
+        session.TrySelectWordFromPoint(X, Y, Mode);
+    }
+}
+
+public sealed class SelectParagraphFromPointCommand : IEditorCommand
+{
+    public float X { get; }
+    public float Y { get; }
+    public SelectionUpdateMode Mode { get; }
+
+    public SelectParagraphFromPointCommand(float x, float y, SelectionUpdateMode mode)
+    {
+        X = x;
+        Y = y;
+        Mode = mode;
+    }
+
+    public void Execute(IEditorMutableSession session)
+    {
+        session.TrySelectParagraphFromPoint(X, Y, Mode);
+    }
+}

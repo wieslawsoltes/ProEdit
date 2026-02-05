@@ -47,5 +47,7 @@ public interface IEditorMutableSession : IEditorSession
     void SetCaretFromPoint(float x, float y, SelectionUpdateMode mode);
     void SetSelection(TextRange selection);
     void SetSelection(TextRange selection, SelectionUpdateMode mode);
+    bool TrySelectWordFromPoint(float x, float y, SelectionUpdateMode mode);
+    bool TrySelectParagraphFromPoint(float x, float y, SelectionUpdateMode mode);
     bool TrySelectFirstFloatingObject();
 }

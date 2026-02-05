@@ -284,6 +284,65 @@ public sealed class EditorSelectionService
         SetCaret(new TextPosition(line.ParagraphIndex, offset), mode);
     }
 
+    public bool TrySelectWordFromPoint(float x, float y, SelectionUpdateMode mode)
+    {
+        var layout = _layoutService.Layout;
+        if (layout.Lines.Count == 0)
+        {
+            return false;
+        }
+
+        SetCaretFromPoint(x, y, SelectionUpdateMode.Replace);
+        if (SelectedFloatingObjectId is not null)
+        {
+            return true;
+        }
+
+        if (Caret.ParagraphIndex < 0 || Caret.ParagraphIndex >= GetParagraphCount(layout))
+        {
+            return true;
+        }
+
+        var paragraph = GetParagraphAt(layout, Caret.ParagraphIndex);
+        var text = DocumentEditHelpers.GetParagraphText(paragraph);
+        if (!TryGetWordSpanAtOffset(text.AsSpan(), Caret.Offset, out var start, out var length))
+        {
+            return true;
+        }
+
+        var startPosition = new TextPosition(Caret.ParagraphIndex, start);
+        var endPosition = new TextPosition(Caret.ParagraphIndex, start + length);
+        SetSelection(new TextRange(startPosition, endPosition), mode);
+        return true;
+    }
+
+    public bool TrySelectParagraphFromPoint(float x, float y, SelectionUpdateMode mode)
+    {
+        var layout = _layoutService.Layout;
+        if (layout.Lines.Count == 0)
+        {
+            return false;
+        }
+
+        SetCaretFromPoint(x, y, SelectionUpdateMode.Replace);
+        if (SelectedFloatingObjectId is not null)
+        {
+            return true;
+        }
+
+        if (Caret.ParagraphIndex < 0 || Caret.ParagraphIndex >= GetParagraphCount(layout))
+        {
+            return true;
+        }
+
+        var paragraph = GetParagraphAt(layout, Caret.ParagraphIndex);
+        var length = DocumentEditHelpers.GetParagraphLength(paragraph);
+        var startPosition = new TextPosition(Caret.ParagraphIndex, 0);
+        var endPosition = new TextPosition(Caret.ParagraphIndex, length);
+        SetSelection(new TextRange(startPosition, endPosition), mode);
+        return true;
+    }
+
     public bool TrySelectFloatingObject(Guid id)
     {
         var layout = _layoutService.Layout;
@@ -880,6 +939,64 @@ public sealed class EditorSelectionService
         AddDirtyPagesForFloatingSelection(dirty, previousFloating);
         AddDirtyPagesForFloatingSelection(dirty, _selectedFloatingObjectIds);
         RaiseSelectionChanged(dirty);
+    }
+
+    private static bool TryGetWordSpanAtOffset(ReadOnlySpan<char> text, int offset, out int start, out int length)
+    {
+        start = 0;
+        length = 0;
+        if (text.IsEmpty)
+        {
+            return false;
+        }
+
+        if (offset >= text.Length)
+        {
+            offset = text.Length - 1;
+        }
+
+        if (offset < 0)
+        {
+            offset = 0;
+        }
+
+        if (!IsWordChar(text[offset]))
+        {
+            if (offset > 0 && IsWordChar(text[offset - 1]))
+            {
+                offset--;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        var spanStart = offset;
+        while (spanStart > 0 && IsWordChar(text[spanStart - 1]))
+        {
+            spanStart--;
+        }
+
+        var spanEnd = offset;
+        while (spanEnd < text.Length && IsWordChar(text[spanEnd]))
+        {
+            spanEnd++;
+        }
+
+        if (spanEnd <= spanStart)
+        {
+            return false;
+        }
+
+        start = spanStart;
+        length = spanEnd - spanStart;
+        return true;
+    }
+
+    private static bool IsWordChar(char ch)
+    {
+        return char.IsLetterOrDigit(ch) || ch == '_';
     }
 
     private int? ResolveFloatingPageIndex(Guid id)
