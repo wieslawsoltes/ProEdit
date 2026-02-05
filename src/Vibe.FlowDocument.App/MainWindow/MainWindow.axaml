@@ -2,7 +2,9 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:flow="clr-namespace:Vibe.Office.FlowDocument.Avalonia;assembly=Vibe.Office.FlowDocument.Avalonia"
         xmlns:fd="clr-namespace:Vibe.Office.FlowDocument;assembly=Vibe.Office.FlowDocument"
+        xmlns:vm="clr-namespace:Vibe.FlowDocument.App.ViewModels"
         x:Class="Vibe.FlowDocument.App.MainWindow"
+        x:DataType="vm:FlowDocumentSampleViewModel"
         Width="1360"
         Height="900"
         Title="FlowDocument Sample">
@@ -174,20 +176,34 @@
     <Border Background="#1C1E2B" Padding="16">
       <StackPanel Spacing="4">
         <TextBlock Text="FlowDocument Rich Sample" Foreground="#F5F7FF" FontSize="20" FontWeight="SemiBold" />
-        <TextBlock Text="Single complex sample view" Foreground="#C7CAD9" FontSize="12" />
+        <TextBlock Text="XAML sample and code sample" Foreground="#C7CAD9" FontSize="12" />
       </StackPanel>
     </Border>
 
-    <ScrollViewer Grid.Row="1"
-                  Margin="12"
-                  HorizontalScrollBarVisibility="Auto"
-                  VerticalScrollBarVisibility="Auto">
-      <flow:FlowDocumentView FlowDocument="{StaticResource SampleDocument}"
-                             UsePagination="True"
-                             ZoomFactor="1"
-                             Background="#F8F9FD"
-                             InlineUiPlaceholderText="[Inline UI]"
-                             BlockUiPlaceholderText="[Block UI]" />
-    </ScrollViewer>
+    <TabControl Grid.Row="1" Margin="12">
+      <TabItem Header="XAML Sample">
+        <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                      VerticalScrollBarVisibility="Auto">
+          <flow:FlowDocumentView FlowDocument="{StaticResource SampleDocument}"
+                                 UsePagination="True"
+                                 ZoomFactor="1"
+                                 Background="#F8F9FD"
+                                 InlineUiPlaceholderText="[Inline UI]"
+                                 BlockUiPlaceholderText="[Block UI]" />
+        </ScrollViewer>
+      </TabItem>
+
+      <TabItem Header="Code Sample">
+        <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                      VerticalScrollBarVisibility="Auto">
+          <flow:FlowDocumentView FlowDocument="{Binding Document}"
+                                 UsePagination="True"
+                                 ZoomFactor="{Binding ZoomFactor}"
+                                 Background="#F8F9FD"
+                                 InlineUiPlaceholderText="[Inline UI]"
+                                 BlockUiPlaceholderText="[Block UI]" />
+        </ScrollViewer>
+      </TabItem>
+    </TabControl>
   </Grid>
 </Window>
