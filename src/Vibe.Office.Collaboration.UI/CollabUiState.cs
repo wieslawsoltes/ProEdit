@@ -656,7 +656,7 @@ public sealed class CollabUiState : ReactiveObject, ICollabUiService, IAsyncDisp
         };
 
         var transportOptions = new SharedFileTransportOptions(
-            PollInterval: TimeSpan.FromMilliseconds(100),
+            PollInterval: TimeSpan.FromMilliseconds(50),
             WriteLockTimeout: TimeSpan.FromSeconds(5));
 
         var snapshotOptions = new CollabSnapshotStoreOptions(
