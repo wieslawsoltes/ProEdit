@@ -7,8 +7,8 @@
   </PropertyGroup>
   <PropertyGroup>
     <Product>VibeOffice</Product>
-    <VersionPrefix Condition="'$(VersionPrefix)' == ''">0.1.0</VersionPrefix>
-    <VersionSuffix Condition="'$(VersionSuffix)' == ''"></VersionSuffix>
+    <VersionPrefix>0.1.0</VersionPrefix>
+    <VersionSuffix></VersionSuffix>
     <Authors Condition="'$(Authors)' == ''">VibeOffice</Authors>
     <Copyright>Copyright $([System.DateTime]::Now.ToString(`yyyy`)) &#169; Wieslaw Soltes</Copyright>
     <PackageProjectUrl Condition="'$(PackageProjectUrl)' == ''">https://github.com/wieslawsoltes/VibeOffice</PackageProjectUrl>
