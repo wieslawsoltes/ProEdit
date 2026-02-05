@@ -1,3 +1,4 @@
+using System.Threading;
 using Vibe.Office.Documents;
 using Vibe.Office.Layout;
 using Vibe.Office.Primitives;
@@ -7,10 +8,14 @@ using Vibe.Office.Editing;
 
 namespace Vibe.Word.Editor;
 
-public sealed class EditorController : IEditorMutableSession, IContentControlInteractionSession, IEditorLayoutRefreshService, IProofingSpanProviderHost, IEditorChangeInfo
+public sealed class EditorController : IEditorMutableSession, IEditorBatchEdit, IContentControlInteractionSession, IEditorLayoutRefreshService, IProofingSpanProviderHost, IEditorChangeInfo
 {
     private readonly EditorLayoutService _layoutService;
     private readonly EditorSelectionService _selectionService;
+    private int _batchDepth;
+    private bool _pendingReflow;
+    private bool _pendingFullReflow;
+    private int? _pendingDirtyParagraphIndex;
 
     public Document Document { get; }
     public LayoutSettings LayoutSettings => _layoutService.Settings;
@@ -53,6 +58,12 @@ public sealed class EditorController : IEditorMutableSession, IContentControlInt
     public void RefreshLayout(int? dirtyParagraphIndex)
     {
         _layoutService.RefreshLayout(dirtyParagraphIndex);
+    }
+
+    public IDisposable BeginBatchEdit()
+    {
+        _batchDepth++;
+        return new BatchEditScope(this);
     }
 
     public void SetProofingSpanProvider(IProofingSpanProvider? provider)
@@ -536,7 +547,61 @@ public sealed class EditorController : IEditorMutableSession, IContentControlInt
     {
         LastDirtyParagraphIndex = dirtyParagraphIndex;
         LastChangeKind = EditorChangeKind.Content;
+        if (_batchDepth > 0)
+        {
+            _pendingReflow = true;
+            if (dirtyParagraphIndex is null)
+            {
+                _pendingFullReflow = true;
+            }
+            else if (!_pendingFullReflow)
+            {
+                _pendingDirtyParagraphIndex = _pendingDirtyParagraphIndex.HasValue
+                    ? Math.Min(_pendingDirtyParagraphIndex.Value, dirtyParagraphIndex.Value)
+                    : dirtyParagraphIndex;
+            }
+
+            return;
+        }
+
         _layoutService.RefreshLayout(dirtyParagraphIndex);
+    }
+
+    private void EndBatchEdit()
+    {
+        if (_batchDepth <= 0)
+        {
+            _batchDepth = 0;
+            return;
+        }
+
+        _batchDepth--;
+        if (_batchDepth > 0 || !_pendingReflow)
+        {
+            return;
+        }
+
+        var dirtyParagraph = _pendingFullReflow ? null : _pendingDirtyParagraphIndex;
+        _pendingReflow = false;
+        _pendingFullReflow = false;
+        _pendingDirtyParagraphIndex = null;
+        _layoutService.RefreshLayout(dirtyParagraph);
+    }
+
+    private sealed class BatchEditScope : IDisposable
+    {
+        private EditorController? _owner;
+
+        public BatchEditScope(EditorController owner)
+        {
+            _owner = owner;
+        }
+
+        public void Dispose()
+        {
+            var owner = Interlocked.Exchange(ref _owner, null);
+            owner?.EndBatchEdit();
+        }
     }
 
     private bool TryToggleCheckBox(ContentControlProperties properties)

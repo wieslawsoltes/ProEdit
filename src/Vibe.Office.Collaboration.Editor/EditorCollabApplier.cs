@@ -19,9 +19,20 @@ public sealed class EditorCollabApplier
 
     public void ApplyRemoteOps(IReadOnlyList<ICollabOp> ops, string? author = null)
     {
+        ApplyRemoteOpsBatch(ops, author, refreshLayout: true);
+    }
+
+    public bool ApplyRemoteOpsBatch(IReadOnlyList<ICollabOp> ops, string? author, bool refreshLayout)
+    {
         if (ops.Count == 0)
         {
-            return;
+            return false;
+        }
+
+        IDisposable? batchScope = null;
+        if (_session is IEditorBatchEdit batchEdit)
+        {
+            batchScope = batchEdit.BeginBatchEdit();
         }
 
         var document = _session.Document;
@@ -45,13 +56,16 @@ public sealed class EditorCollabApplier
         }
         finally
         {
+            batchScope?.Dispose();
             document.RevisionAuthorOverride = previousAuthor;
         }
 
-        if (requiresRefresh)
+        if (requiresRefresh && refreshLayout)
         {
             _session.RefreshLayout();
         }
+
+        return requiresRefresh;
     }
 
     private bool ApplyOp(ICollabOp op)
