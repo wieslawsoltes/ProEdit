@@ -145,6 +145,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
     private readonly DocumentAnchorResolver _presenceAnchorResolver = new();
     private readonly Dictionary<Guid, IBrush> _presenceCaretBrushes = new();
     private readonly Dictionary<Guid, IBrush> _presenceSelectionBrushes = new();
+    private readonly Dictionary<Guid, Pen> _presenceOutlinePens = new();
     private ICollabUiService? _collabUiService;
     private PresenceSignature? _lastPresenceSignature;
     private CollabEditorSessionCoordinator? _collabCoordinator;
@@ -3674,12 +3675,67 @@ public sealed class DocumentView : Control, ILogicalScrollable
             var color = CollabColorPalette.ResolveColor(state.Color, state.UserId);
             var caretBrush = ResolvePresenceCaretBrush(state.UserId, color);
             var selectionBrush = ResolvePresenceSelectionBrush(state.UserId, color);
+            var outlinePen = ResolvePresenceOutlinePen(state.UserId, color);
 
-            if (state.Selection.HasValue && !state.Selection.Value.IsEmpty)
+            if (state.SelectionRanges is { Count: > 0 })
+            {
+                for (var selectionIndex = 0; selectionIndex < state.SelectionRanges.Count; selectionIndex++)
+                {
+                    var anchorRange = state.SelectionRanges[selectionIndex];
+                    if (anchorRange.IsEmpty)
+                    {
+                        continue;
+                    }
+
+                    if (!TryResolveSelection(anchorRange, out var range))
+                    {
+                        continue;
+                    }
+
+                    DrawPresenceSelection(context, range, selectionBrush, effectiveOffset);
+                    if (TryBuildInlineSelectionInfo(range, out var inlineSelection))
+                    {
+                        DrawPresenceInlineSelection(context, inlineSelection, outlinePen, effectiveOffset);
+                    }
+                }
+            }
+            else if (state.Selection.HasValue && !state.Selection.Value.IsEmpty)
             {
                 if (TryResolveSelection(state.Selection.Value, out var range))
                 {
                     DrawPresenceSelection(context, range, selectionBrush, effectiveOffset);
+                    if (TryBuildInlineSelectionInfo(range, out var inlineSelection))
+                    {
+                        DrawPresenceInlineSelection(context, inlineSelection, outlinePen, effectiveOffset);
+                    }
+                }
+            }
+
+            if (state.TableSelections is { Count: > 0 })
+            {
+                for (var selectionIndex = 0; selectionIndex < state.TableSelections.Count; selectionIndex++)
+                {
+                    var tableRange = state.TableSelections[selectionIndex].Normalize();
+                    if (!TryResolveTableSelection(tableRange, out var resolved))
+                    {
+                        continue;
+                    }
+
+                    DrawPresenceTableSelection(context, resolved, selectionBrush, outlinePen, effectiveOffset);
+                }
+            }
+
+            if (state.FloatingSelections is { Count: > 0 })
+            {
+                for (var selectionIndex = 0; selectionIndex < state.FloatingSelections.Count; selectionIndex++)
+                {
+                    var floatingId = state.FloatingSelections[selectionIndex];
+                    if (!TryResolveFloatingSelection(floatingId, out var bounds, out var rotation))
+                    {
+                        continue;
+                    }
+
+                    DrawPresenceOutline(context, bounds, rotation, outlinePen, effectiveOffset);
                 }
             }
 
@@ -3750,16 +3806,150 @@ public sealed class DocumentView : Control, ILogicalScrollable
             selection = new AnchorRange(selectionStart, selectionEnd);
         }
 
+        List<AnchorRange>? selectionRanges = null;
+        var ranges = _editor.SelectionRanges;
+        if (ranges.Count > 1)
+        {
+            selectionRanges = new List<AnchorRange>(ranges.Count);
+            for (var i = 0; i < ranges.Count; i++)
+            {
+                var range = ranges[i].Normalize();
+                if (range.IsEmpty)
+                {
+                    continue;
+                }
+
+                if (!TryCreateAnchor(range.Start, out var rangeStart)
+                    || !TryCreateAnchor(range.End, out var rangeEnd))
+                {
+                    return false;
+                }
+
+                selectionRanges.Add(new AnchorRange(rangeStart, rangeEnd));
+            }
+
+            if (selectionRanges.Count == 0)
+            {
+                selectionRanges = null;
+            }
+        }
+
+        List<TablePresenceRange>? tableSelections = null;
+        var tableRanges = _editor.TableSelections;
+        if (tableRanges.Count > 0)
+        {
+            tableSelections = new List<TablePresenceRange>(tableRanges.Count);
+            for (var i = 0; i < tableRanges.Count; i++)
+            {
+                var range = tableRanges[i].Normalize();
+                var tableId = range.Table.NodeId;
+                if (tableId == Guid.Empty)
+                {
+                    continue;
+                }
+
+                tableSelections.Add(new TablePresenceRange(
+                    tableId,
+                    range.RowStart,
+                    range.RowEnd,
+                    range.ColumnStart,
+                    range.ColumnEnd));
+            }
+
+            if (tableSelections.Count == 0)
+            {
+                tableSelections = null;
+            }
+        }
+
+        List<Guid>? floatingSelections = null;
+        var floatingIds = _editor.SelectedFloatingObjectIds;
+        if (floatingIds.Count > 0)
+        {
+            floatingSelections = new List<Guid>(floatingIds.Count);
+            for (var i = 0; i < floatingIds.Count; i++)
+            {
+                floatingSelections.Add(floatingIds[i]);
+            }
+        }
+
         presence = new PresenceState(
             identityService.UserId,
             identityService.DisplayName,
             caretAnchor,
             selection,
             DateTimeOffset.UtcNow,
-            identityService.Color);
+            identityService.Color,
+            selectionRanges,
+            tableSelections,
+            floatingSelections);
 
-        signature = new PresenceSignature(caretAnchor, selection);
+        signature = new PresenceSignature(
+            caretAnchor,
+            selection,
+            ComputeAnchorRangeSignature(selectionRanges),
+            ComputeTableSelectionSignature(tableSelections),
+            ComputeGuidSignature(floatingSelections));
         return true;
+    }
+
+    private static ListSignature ComputeAnchorRangeSignature(IReadOnlyList<AnchorRange>? ranges)
+    {
+        if (ranges is null || ranges.Count == 0)
+        {
+            return default;
+        }
+
+        var hash = new HashCode();
+        for (var i = 0; i < ranges.Count; i++)
+        {
+            var range = ranges[i];
+            hash.Add(range.Start.NodeId);
+            hash.Add(range.Start.Offset);
+            hash.Add((int)range.Start.Bias);
+            hash.Add(range.End.NodeId);
+            hash.Add(range.End.Offset);
+            hash.Add((int)range.End.Bias);
+        }
+
+        return new ListSignature(ranges.Count, hash.ToHashCode());
+    }
+
+    private static ListSignature ComputeTableSelectionSignature(IReadOnlyList<TablePresenceRange>? ranges)
+    {
+        if (ranges is null || ranges.Count == 0)
+        {
+            return default;
+        }
+
+        var hash = new HashCode();
+        for (var i = 0; i < ranges.Count; i++)
+        {
+            var range = ranges[i];
+            hash.Add(range.TableId);
+            hash.Add(range.RowStart);
+            hash.Add(range.RowEnd);
+            hash.Add(range.ColumnStart);
+            hash.Add(range.ColumnEnd);
+        }
+
+        return new ListSignature(ranges.Count, hash.ToHashCode());
+    }
+
+    private static ListSignature ComputeGuidSignature(IReadOnlyList<Guid>? ids)
+    {
+        if (ids is null || ids.Count == 0)
+        {
+            return default;
+        }
+
+        var hash = new HashCode();
+        for (var i = 0; i < ids.Count; i++)
+        {
+            hash.Add(ids[i]);
+        }
+
+        return new ListSignature(ids.Count, hash.ToHashCode());
     }
 
     private bool TryCreateAnchor(TextPosition position, out TextAnchor anchor)
@@ -3861,6 +4051,195 @@ public sealed class DocumentView : Control, ILogicalScrollable
         }
     }
 
+    private bool TryBuildInlineSelectionInfo(TextRange range, out InlineObjectSelectionInfo selection)
+    {
+        selection = default;
+        var normalized = range.Normalize();
+        if (normalized.IsEmpty || normalized.Start.ParagraphIndex != normalized.End.ParagraphIndex)
+        {
+            return false;
+        }
+
+        var paragraphIndex = normalized.Start.ParagraphIndex;
+        if (paragraphIndex < 0 || paragraphIndex >= _editor.Document.ParagraphCount)
+        {
+            return false;
+        }
+
+        var paragraph = _editor.Document.GetParagraph(paragraphIndex);
+        if (!TryGetInlineAtOffset(paragraph, normalized.Start.Offset, out var inline, out var inlineIndex, out var inlineStart, out var inlineLength))
+        {
+            return false;
+        }
+
+        if (inlineStart != normalized.Start.Offset || inlineLength != normalized.End.Offset - normalized.Start.Offset)
+        {
+            return false;
+        }
+
+        return TryBuildInlineSelectionInfo(inline, paragraphIndex, inlineIndex, out selection);
+    }
+
+    private void DrawPresenceInlineSelection(DrawingContext context, InlineObjectSelectionInfo selection, Pen pen, Vector effectiveOffset)
+    {
+        DrawPresenceOutline(context, selection.Bounds, selection.Rotation, pen, effectiveOffset);
+    }
+
+    private bool TryResolveTableSelection(TablePresenceRange range, out TableSelectionRange selection)
+    {
+        selection = default;
+        if (!TryGetTableById(range.TableId, out var table))
+        {
+            return false;
+        }
+
+        selection = new TableSelectionRange(table, range.RowStart, range.RowEnd, range.ColumnStart, range.ColumnEnd).Normalize();
+        return true;
+    }
+
+    private void DrawPresenceTableSelection(
+        DrawingContext context,
+        TableSelectionRange range,
+        IBrush fillBrush,
+        Pen outlinePen,
+        Vector effectiveOffset)
+    {
+        if (!TryGetTableLayouts(range.Table, out var layouts))
+        {
+            return;
+        }
+
+        for (var layoutIndex = 0; layoutIndex < layouts.Count; layoutIndex++)
+        {
+            var layout = layouts[layoutIndex];
+            if (layout.Cells.Count == 0 || layout.Rows <= 0)
+            {
+                continue;
+            }
+
+            var rowMap = BuildTableRowIndexMap(layout);
+            foreach (var cell in layout.Cells)
+            {
+                if (!IsCellInSelection(cell, range, rowMap))
+                {
+                    continue;
+                }
+
+                var rect = DocRectToViewRect(cell.Bounds, effectiveOffset);
+                context.FillRectangle(fillBrush, rect);
+                context.DrawRectangle(outlinePen, rect);
+            }
+        }
+    }
+
+    private bool TryResolveFloatingSelection(Guid floatingId, out DocRect bounds, out float rotation)
+    {
+        bounds = default;
+        rotation = 0f;
+        if (!TryGetFloatingLayout(floatingId, out var layoutObject))
+        {
+            return false;
+        }
+
+        bounds = layoutObject.Bounds;
+        switch (layoutObject.Object.Content)
+        {
+            case ShapeInline shape:
+                rotation = shape.Properties.Rotation;
+                break;
+            case ImageInline image:
+                rotation = image.Rotation;
+                break;
+        }
+
+        return true;
+    }
+
+    private void DrawPresenceOutline(DrawingContext context, DocRect bounds, float rotation, Pen pen, Vector effectiveOffset)
+    {
+        if (MathF.Abs(rotation) < 0.01f)
+        {
+            var rect = DocRectToViewRect(bounds, effectiveOffset);
+            context.DrawRectangle(pen, rect);
+            return;
+        }
+
+        var geometry = BuildShapeSelectionGeometry(bounds, rotation, 0f);
+        var topLeft = DocToView(geometry.TopLeft, effectiveOffset);
+        var topRight = DocToView(geometry.TopRight, effectiveOffset);
+        var bottomRight = DocToView(geometry.BottomRight, effectiveOffset);
+        var bottomLeft = DocToView(geometry.BottomLeft, effectiveOffset);
+        context.DrawLine(pen, topLeft, topRight);
+        context.DrawLine(pen, topRight, bottomRight);
+        context.DrawLine(pen, bottomRight, bottomLeft);
+        context.DrawLine(pen, bottomLeft, topLeft);
+    }
+
+    private bool TryGetTableById(Guid tableId, out TableBlock table)
+    {
+        table = null!;
+        if (tableId == Guid.Empty)
+        {
+            return false;
+        }
+
+        return TryGetTableById(_editor.Document.Blocks, tableId, out table);
+    }
+
+    private static bool TryGetTableById(IReadOnlyList<Block> blocks, Guid tableId, out TableBlock table)
+    {
+        table = null!;
+        for (var i = 0; i < blocks.Count; i++)
+        {
+            if (blocks[i] is not TableBlock current)
+            {
+                continue;
+            }
+
+            if (current.NodeId == tableId)
+            {
+                table = current;
+                return true;
+            }
+
+            for (var rowIndex = 0; rowIndex < current.Rows.Count; rowIndex++)
+            {
+                var row = current.Rows[rowIndex];
+                for (var cellIndex = 0; cellIndex < row.Cells.Count; cellIndex++)
+                {
+                    if (TryGetTableById(row.Cells[cellIndex].Blocks, tableId, out table))
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private bool TryGetFloatingLayout(Guid floatingId, out FloatingLayoutObject layoutObject)
+    {
+        layoutObject = null!;
+        var floats = _editor.Layout.FloatingObjects;
+        if (floats.Count == 0)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < floats.Count; i++)
+        {
+            var candidate = floats[i];
+            if (candidate.Object.Id == floatingId)
+            {
+                layoutObject = candidate;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private void DrawPresenceCaret(DrawingContext context, TextPosition caret, string displayName, IBrush brush, Vector effectiveOffset)
     {
         if (!_editor.TryGetCaretPoint(caret, out var caretPoint, out var lineIndex))
@@ -3935,6 +4314,19 @@ public sealed class DocumentView : Control, ILogicalScrollable
         brush = new SolidColorBrush(selectionColor);
         _presenceSelectionBrushes[userId] = brush;
         return brush;
+    }
+
+    private Pen ResolvePresenceOutlinePen(Guid userId, string color)
+    {
+        if (_presenceOutlinePens.TryGetValue(userId, out var pen))
+        {
+            return pen;
+        }
+
+        var resolved = ResolvePresenceColor(color);
+        pen = new Pen(new SolidColorBrush(resolved), 1);
+        _presenceOutlinePens[userId] = pen;
+        return pen;
     }
 
     private static Color ResolvePresenceColor(string color)
@@ -8105,7 +8497,14 @@ public sealed class DocumentView : Control, ILogicalScrollable
         Rotate
     }
 
-    private readonly record struct PresenceSignature(TextAnchor? Caret, AnchorRange? Selection);
+    private readonly record struct PresenceSignature(
+        TextAnchor? Caret,
+        AnchorRange? Selection,
+        ListSignature SelectionRanges,
+        ListSignature TableSelections,
+        ListSignature FloatingSelections);
+
+    private readonly record struct ListSignature(int Count, int Hash);
 
     private readonly record struct ShapeHandleInfo(ShapeHandleKind Kind, DocRect Bounds);
     private readonly record struct ShapeSelectionInfo(ShapeInline Shape, DocRect Bounds, float Rotation);
