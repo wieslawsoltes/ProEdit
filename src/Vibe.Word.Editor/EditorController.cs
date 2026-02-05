@@ -8,7 +8,7 @@ using Vibe.Office.Editing;
 
 namespace Vibe.Word.Editor;
 
-public sealed class EditorController : IEditorMutableSession, IEditorBatchEdit, IContentControlInteractionSession, IEditorLayoutRefreshService, IProofingSpanProviderHost, IEditorChangeInfo
+public sealed class EditorController : IEditorMutableSession, IEditorBatchEdit, IEditorDirectTextEdit, IContentControlInteractionSession, IEditorLayoutRefreshService, IProofingSpanProviderHost, IEditorChangeInfo
 {
     private readonly EditorLayoutService _layoutService;
     private readonly EditorSelectionService _selectionService;
@@ -116,6 +116,96 @@ public sealed class EditorController : IEditorMutableSession, IEditorBatchEdit, 
         }
 
         InsertText(text.ToString());
+    }
+
+    public void InsertTextAt(TextPosition position, ReadOnlySpan<char> text)
+    {
+        if (text.IsEmpty)
+        {
+            return;
+        }
+
+        var paragraphCount = this.GetParagraphCountFast();
+        if (paragraphCount <= 0)
+        {
+            return;
+        }
+
+        var paragraphIndex = Math.Clamp(position.ParagraphIndex, 0, paragraphCount - 1);
+        var paragraph = this.GetParagraphFast(paragraphIndex);
+        var length = DocumentEditHelpers.GetParagraphLength(paragraph);
+        var offset = Math.Clamp(position.Offset, 0, length);
+
+        if (Document.TrackChangesEnabled)
+        {
+            InsertTextWithRevision(paragraph, offset, text.ToString());
+        }
+        else
+        {
+            InsertTextAtPosition(paragraph, offset, text.ToString());
+        }
+
+        Reflow(paragraphIndex);
+    }
+
+    public void DeleteRange(TextRange range)
+    {
+        var normalized = range.Normalize();
+        var paragraphCount = this.GetParagraphCountFast();
+        if (paragraphCount <= 0)
+        {
+            return;
+        }
+
+        var startIndex = normalized.Start.ParagraphIndex;
+        var endIndex = normalized.End.ParagraphIndex;
+        if (startIndex < 0 || endIndex < 0 || startIndex >= paragraphCount || endIndex >= paragraphCount)
+        {
+            return;
+        }
+
+        if (Document.TrackChangesEnabled)
+        {
+            if (ApplyDeletionRevision(normalized))
+            {
+                Reflow(Math.Min(startIndex, endIndex));
+                return;
+            }
+        }
+
+        if (startIndex == endIndex)
+        {
+            var paragraph = Document.GetParagraph(startIndex);
+            DeleteRangeInParagraph(paragraph, normalized.Start.Offset, normalized.End.Offset);
+        }
+        else
+        {
+            var startLocation = Document.GetParagraphLocation(startIndex);
+            var endLocation = Document.GetParagraphLocation(endIndex);
+            var startParagraph = startLocation.Paragraph;
+            var endParagraph = endLocation.Paragraph;
+            var startLength = DocumentEditHelpers.GetParagraphLength(startParagraph);
+            DeleteRangeInParagraph(startParagraph, normalized.Start.Offset, startLength);
+            DeleteRangeInParagraph(endParagraph, 0, normalized.End.Offset);
+            if (startLocation.IsSameContainer(endLocation))
+            {
+                AppendParagraphContent(startParagraph, endParagraph);
+
+                for (var i = endIndex; i > startIndex; i--)
+                {
+                    Document.RemoveParagraphAt(i);
+                }
+            }
+            else
+            {
+                for (var i = endIndex - 1; i > startIndex; i--)
+                {
+                    Document.RemoveParagraphAt(i);
+                }
+            }
+        }
+
+        Reflow(Math.Min(startIndex, endIndex));
     }
 
     public void InsertEquation(MathElement root, TextStyleProperties? style = null, string? styleId = null)
