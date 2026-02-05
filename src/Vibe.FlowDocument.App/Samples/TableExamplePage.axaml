@@ -1,0 +1,66 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:flow="clr-namespace:Vibe.Office.FlowDocument.Avalonia;assembly=Vibe.Office.FlowDocument.Avalonia"
+             xmlns:fd="clr-namespace:Vibe.Office.FlowDocument;assembly=Vibe.Office.FlowDocument"
+             x:Class="Vibe.FlowDocument.App.Samples.TableExamplePage">
+  <UserControl.Resources>
+    <fd:FlowDocument x:Key="SampleDocument"
+                     PageWidth="816"
+                     PageHeight="1056"
+                     PagePadding="72,72,72,72">
+      <fd:Paragraph>
+        <fd:Run Text="The WPF overview references Table in this class family (full examples are in Table Overview)." />
+      </fd:Paragraph>
+      <fd:Table CellSpacing="3">
+        <fd:Table.Columns>
+          <fd:TableColumn Width="220" />
+          <fd:TableColumn Width="220" />
+        </fd:Table.Columns>
+        <fd:TableRowGroup>
+          <fd:TableRow>
+            <fd:TableCell BorderBrush="#B0B8D1" BorderThickness="1,1,1,1">
+              <fd:Paragraph>
+                <fd:Run Text="Header A" />
+              </fd:Paragraph>
+            </fd:TableCell>
+            <fd:TableCell BorderBrush="#B0B8D1" BorderThickness="1,1,1,1">
+              <fd:Paragraph>
+                <fd:Run Text="Header B" />
+              </fd:Paragraph>
+            </fd:TableCell>
+          </fd:TableRow>
+          <fd:TableRow>
+            <fd:TableCell>
+              <fd:Paragraph>
+                <fd:Run Text="Value 1" />
+              </fd:Paragraph>
+            </fd:TableCell>
+            <fd:TableCell>
+              <fd:Paragraph>
+                <fd:Run Text="Value 2" />
+              </fd:Paragraph>
+            </fd:TableCell>
+          </fd:TableRow>
+        </fd:TableRowGroup>
+      </fd:Table>
+    </fd:FlowDocument>
+  </UserControl.Resources>
+
+  <Grid RowDefinitions="Auto,*">
+    <Border Background="#1F2333" Padding="12">
+      <StackPanel Spacing="3">
+        <TextBlock Text="Table" Foreground="#F6F8FF" FontSize="16" FontWeight="SemiBold" />
+        <TextBlock Text="Flow-related class reference companion example" Foreground="#C9CFDE" FontSize="12" />
+      </StackPanel>
+    </Border>
+
+    <flow:FlowDocumentView Grid.Row="1"
+                           Margin="12"
+                           FlowDocument="{StaticResource SampleDocument}"
+                           UsePagination="True"
+                           ZoomFactor="1"
+                           Background="#F8F9FD"
+                           InlineUiPlaceholderText="[Inline UI]"
+                           BlockUiPlaceholderText="[Block UI]" />
+  </Grid>
+</UserControl>
