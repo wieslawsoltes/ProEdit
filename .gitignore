@@ -403,3 +403,6 @@ FodyWeavers.xsd
 # JetBrains Rider
 *.sln.iml
 /.idea
+
+# Local planning docs
+/plan/
