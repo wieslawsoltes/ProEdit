@@ -1,4 +1,5 @@
 using Vibe.Office.Collaboration;
+using Vibe.Office.Collaboration.Persistence;
 using Vibe.Office.Documents;
 using Vibe.Office.Editing;
 
@@ -16,6 +17,8 @@ public sealed class CollabCommandObserver : IEditorCommandExecutionObserver
     private EditorSessionSnapshot? _snapshotBefore;
     private readonly Func<EditorSessionSnapshot, ValueTask>? _snapshotPublisher;
     private readonly CollabDocumentDiff _documentDiff = new();
+    private readonly CollabBlockSerializer _blockSerializer = new();
+    private BlockMutationSnapshot? _blockSnapshot;
 
     public CollabCommandObserver(
         IEditorMutableSession session,
@@ -39,10 +42,15 @@ public sealed class CollabCommandObserver : IEditorCommandExecutionObserver
     {
         _snapshot = CommandSnapshot.Capture(_session, command);
         _snapshotBefore = null;
+        _blockSnapshot = null;
 
         if (_snapshot is null && command is IEditorUndoableCommand undoable && undoable.IsUndoable && !_undoRedo.IsReplaying)
         {
-            _snapshotBefore = CaptureSnapshot(_session);
+            _blockSnapshot = BlockMutationSnapshot.Capture(_session, _blockSerializer);
+            if (!_blockSnapshot.HasValue || !_blockSnapshot.Value.IsTable)
+            {
+                _snapshotBefore = CaptureSnapshot(_session);
+            }
         }
     }
 
@@ -79,10 +87,25 @@ public sealed class CollabCommandObserver : IEditorCommandExecutionObserver
             return;
         }
 
+        if (_blockSnapshot.HasValue
+            && _blockSnapshot.Value.IsTable
+            && _blockSnapshot.Value.TryBuildOps(_session.Document, _blockSerializer, out var blockForward, out var blockInverse))
+        {
+            var batch = _batchFactory.Create(blockForward);
+            _undoRedo.Record(blockForward, blockInverse, batch.BaseVersion);
+            _ = _collabSession.SubmitLocalAsync(batch);
+            _onLocalBatch?.Invoke(batch);
+            _onLocalApplied?.Invoke(blockForward.Count);
+            _snapshotBefore = null;
+            _blockSnapshot = null;
+            return;
+        }
+
         if (_snapshotBefore.HasValue)
         {
             var before = _snapshotBefore.Value;
             var after = CaptureSnapshot(_session);
+
             if (_documentDiff.TryBuildOps(before.Document, after.Document, out var forwardOps, out var inverseOps)
                 && forwardOps.Count > 0
                 && inverseOps.Count > 0)
@@ -103,6 +126,7 @@ public sealed class CollabCommandObserver : IEditorCommandExecutionObserver
             }
 
             _snapshotBefore = null;
+            _blockSnapshot = null;
         }
     }
 
@@ -330,6 +354,144 @@ public sealed class CollabCommandObserver : IEditorCommandExecutionObserver
             }
 
             return _paragraphText.Substring(start, end - start);
+        }
+    }
+
+    private readonly record struct BlockMutationSnapshot(
+        Guid ParentNodeId,
+        int BlockIndex,
+        Guid BlockNodeId,
+        string BlockType,
+        byte[] PayloadBefore)
+    {
+        public bool IsTable => string.Equals(BlockType, nameof(TableBlock), StringComparison.Ordinal);
+
+        public static BlockMutationSnapshot? Capture(IEditorMutableSession session, CollabBlockSerializer serializer)
+        {
+            ArgumentNullException.ThrowIfNull(session);
+            ArgumentNullException.ThrowIfNull(serializer);
+
+            var selection = session.Selection.Normalize();
+            if (selection.Start.ParagraphIndex < 0)
+            {
+                return null;
+            }
+
+            ParagraphLocation location;
+            try
+            {
+                location = session.Document.GetParagraphLocation(selection.Start.ParagraphIndex);
+            }
+            catch (ArgumentOutOfRangeException)
+            {
+                return null;
+            }
+
+            if (location.IsInTable && location.Table is not null)
+            {
+                return CreateFromBlock(
+                    CollabContainerIds.Body,
+                    location.BlockIndex,
+                    location.Table,
+                    serializer,
+                    session.Document);
+            }
+
+            if (selection.Start.ParagraphIndex != selection.End.ParagraphIndex)
+            {
+                return null;
+            }
+
+            return CreateFromBlock(
+                CollabContainerIds.Body,
+                location.BlockIndex,
+                location.Paragraph,
+                serializer,
+                session.Document);
+        }
+
+        private static BlockMutationSnapshot CreateFromBlock(
+            Guid parentNodeId,
+            int blockIndex,
+            Block block,
+            CollabBlockSerializer serializer,
+            Document document)
+        {
+            var payload = serializer.Serialize(block, document);
+            return new BlockMutationSnapshot(parentNodeId, blockIndex, block.NodeId, block.GetType().Name, payload);
+        }
+
+        public bool TryBuildOps(
+            Document document,
+            CollabBlockSerializer serializer,
+            out IReadOnlyList<ICollabOp> forwardOps,
+            out IReadOnlyList<ICollabOp> inverseOps)
+        {
+            forwardOps = Array.Empty<ICollabOp>();
+            inverseOps = Array.Empty<ICollabOp>();
+
+            if (!CollabContainerCatalog.TryResolve(document, ParentNodeId, out var blocks))
+            {
+                return false;
+            }
+
+            var blockIndex = FindBlockIndex(blocks, BlockNodeId);
+            if (blockIndex >= 0)
+            {
+                var current = blocks[blockIndex];
+                var payloadAfter = serializer.Serialize(current, document);
+                if (payloadAfter.AsSpan().SequenceEqual(PayloadBefore))
+                {
+                    return false;
+                }
+
+                forwardOps = new ICollabOp[]
+                {
+                    new ReplaceBlockOp(BlockNodeId, payloadAfter)
+                };
+
+                inverseOps = new ICollabOp[]
+                {
+                    new ReplaceBlockOp(BlockNodeId, PayloadBefore)
+                };
+
+                return true;
+            }
+
+            var forward = new List<ICollabOp>
+            {
+                new DeleteBlockOp(ParentNodeId, CollabPositionToken.FromIndex(BlockIndex), BlockNodeId)
+            };
+
+            var inverse = new List<ICollabOp>
+            {
+                new InsertBlockOp(ParentNodeId, CollabPositionToken.FromIndex(BlockIndex), BlockType, PayloadBefore)
+            };
+
+            if (BlockIndex >= 0 && BlockIndex < blocks.Count)
+            {
+                var inserted = blocks[BlockIndex];
+                var insertPayload = serializer.Serialize(inserted, document);
+                forward.Add(new InsertBlockOp(ParentNodeId, CollabPositionToken.FromIndex(BlockIndex), inserted.GetType().Name, insertPayload));
+                inverse.Add(new DeleteBlockOp(ParentNodeId, CollabPositionToken.FromIndex(BlockIndex), inserted.NodeId));
+            }
+
+            forwardOps = forward;
+            inverseOps = inverse;
+            return true;
+        }
+
+        private static int FindBlockIndex(IList<Block> blocks, Guid nodeId)
+        {
+            for (var i = 0; i < blocks.Count; i++)
+            {
+                if (blocks[i].NodeId == nodeId)
+                {
+                    return i;
+                }
+            }
+
+            return -1;
         }
     }
 
