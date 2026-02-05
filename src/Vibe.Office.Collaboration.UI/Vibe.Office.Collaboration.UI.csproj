@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>Vibe.Office.Collaboration.UI</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>VibeOffice</Authors>
+    <Description>UI state and view models for Vibe Office collaboration.</Description>
+    <PackageTags>collaboration;ui;viewmodels;vibeoffice</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ReactiveUI" Version="22.3.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Vibe.Office.Collaboration\Vibe.Office.Collaboration.csproj" />
+    <ProjectReference Include="..\Vibe.Office.Collaboration.Protocol\Vibe.Office.Collaboration.Protocol.csproj" />
+    <ProjectReference Include="..\Vibe.Office.Collaboration.Transports\Vibe.Office.Collaboration.Transports.csproj" />
+  </ItemGroup>
+</Project>

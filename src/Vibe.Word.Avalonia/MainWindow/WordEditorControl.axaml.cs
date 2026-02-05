@@ -15,6 +15,10 @@ using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using ReactiveUI;
+using Vibe.Office.Collaboration;
+using Vibe.Office.Collaboration.UI;
+using Vibe.Office.Collaboration.UI.ViewModels;
+using Vibe.Office.Collaboration.Persistence;
 using Vibe.Office.Documents;
 using Vibe.Office.Editing;
 using Vibe.Office.Html;
@@ -80,6 +84,9 @@ public partial class WordEditorControl : UserControl
     private readonly Border? _pdfFixedLayoutBadge;
     private readonly TextBlock? _pdfFixedLayoutText;
     private readonly Button? _pdfReimportButton;
+    private readonly CollabStatusChip? _collabStatusChip;
+    private readonly CollabPane? _collabPane;
+    private readonly CollabBanner? _collabBanner;
     private readonly Slider? _zoomSlider;
     private readonly Button? _zoomInButton;
     private readonly Button? _zoomOutButton;
@@ -113,6 +120,11 @@ public partial class WordEditorControl : UserControl
     private bool _suppressReviewSelection;
     private bool _fixedLayoutWarningShown;
     private bool _pdfDiagnosticsShown;
+    private CollabUiState? _collabUiState;
+    private CollabShellViewModel? _collabViewModel;
+    private ICollabIdentityService? _collabIdentityService;
+    private EventHandler? _collabSessionChangedHandler;
+    private PropertyChangedEventHandler? _collabViewModelChangedHandler;
     private static readonly FilePickerFileType DocxFileType = new("Word Documents")
     {
         Patterns = new[] { "*.docx", "*.docm" }
@@ -209,10 +221,15 @@ public partial class WordEditorControl : UserControl
         _pdfFixedLayoutBadge = this.FindControl<Border>("PdfFixedLayoutBadge");
         _pdfFixedLayoutText = this.FindControl<TextBlock>("PdfFixedLayoutText");
         _pdfReimportButton = this.FindControl<Button>("PdfReimportButton");
+        _collabStatusChip = this.FindControl<CollabStatusChip>("CollabStatusChip");
+        _collabPane = this.FindControl<CollabPane>("CollabPane");
+        _collabBanner = this.FindControl<CollabBanner>("CollabBanner");
         _zoomSlider = this.FindControl<Slider>("ZoomSlider");
         _zoomInButton = this.FindControl<Button>("ZoomInButton");
         _zoomOutButton = this.FindControl<Button>("ZoomOutButton");
         _zoomResetButton = this.FindControl<Button>("ZoomResetButton");
+
+        InitializeCollaborationUi();
 
         if (_navigationPane is not null)
         {
@@ -522,6 +539,7 @@ public partial class WordEditorControl : UserControl
         {
             _editorView.LoadDocument(document);
             _currentPath = path;
+            UpdateCollaborationDocumentPath();
             UpdateWindowTitle();
             RefreshStyleGalleryItems();
             AttachStyleManagerEvents();
@@ -877,6 +895,7 @@ public partial class WordEditorControl : UserControl
         }
 
         _currentPath = null;
+        UpdateCollaborationDocumentPath();
         UpdateWindowTitle();
         var document = DocumentTemplates.CreateDefaultDocument();
         await _editorView.LoadDocumentAsync(document);
@@ -941,6 +960,7 @@ public partial class WordEditorControl : UserControl
             new DocxExporter().Save(_editorView.Document, path);
         }
         _currentPath = path;
+        UpdateCollaborationDocumentPath();
         UpdateWindowTitle();
     }
 
@@ -1261,6 +1281,7 @@ public partial class WordEditorControl : UserControl
     {
         var previousPath = _currentPath;
         _currentPath = null;
+        UpdateCollaborationDocumentPath();
         var suggestedName = string.IsNullOrWhiteSpace(previousPath)
             ? "Untitled"
             : Path.GetFileNameWithoutExtension(previousPath);
@@ -1268,6 +1289,7 @@ public partial class WordEditorControl : UserControl
         if (string.IsNullOrWhiteSpace(_currentPath))
         {
             _currentPath = previousPath;
+            UpdateCollaborationDocumentPath();
             UpdateWindowTitle();
         }
     }
@@ -7908,7 +7930,8 @@ public partial class WordEditorControl : UserControl
                 RefreshEquationLayoutAsync,
                 canInteract),
             new HeaderFooterRibbonExtension(canInteract),
-            new TableRibbonExtension(OpenTablePropertiesDialogAsync)
+            new TableRibbonExtension(OpenTablePropertiesDialogAsync),
+            new CollaborationRibbonExtension()
         };
 
         var extensionContext = new RibbonExtensionContext(ResolveService);
@@ -8663,6 +8686,7 @@ public partial class WordEditorControl : UserControl
             }
             await _editorView.LoadDocumentAsync(document);
             _currentPath = path;
+            UpdateCollaborationDocumentPath();
             UpdateWindowTitle();
             loadedDocument = document;
             loaded = true;
@@ -8763,6 +8787,7 @@ public partial class WordEditorControl : UserControl
             if (!string.IsNullOrWhiteSpace(sourcePath))
             {
                 _currentPath = sourcePath;
+                UpdateCollaborationDocumentPath();
             }
 
             UpdateWindowTitle();
@@ -9117,7 +9142,9 @@ public partial class WordEditorControl : UserControl
             return;
         }
 
-        var showPane = (_reviewPane?.IsVisible ?? false) || (_equationPanel?.IsVisible ?? false);
+        var showPane = (_reviewPane?.IsVisible ?? false)
+                       || (_equationPanel?.IsVisible ?? false)
+                       || (_collabViewModel?.IsPaneVisible ?? false);
         if (_rightPane is not null)
         {
             _rightPane.IsVisible = showPane;
@@ -10161,6 +10188,116 @@ public partial class WordEditorControl : UserControl
         }
 
         return pageIndex + 1;
+    }
+
+    private void InitializeCollaborationUi()
+    {
+        if (_editorView is null)
+        {
+            return;
+        }
+
+        _collabIdentityService ??= new DefaultCollabIdentityService();
+        _collabUiState ??= new CollabUiState(_collabIdentityService);
+        _collabViewModel ??= new CollabShellViewModel(_collabUiState);
+        UpdateCollaborationDocumentPath();
+        _collabUiState.ConfigureSnapshotSeedProvider(BuildCollabSnapshotPayload);
+
+        var localParticipant = new CollabParticipant(
+            _collabIdentityService.UserId,
+            _collabIdentityService.DisplayName,
+            _collabIdentityService.Color,
+            DateTimeOffset.UtcNow,
+            IsLocal: true);
+        _collabUiState.UpdateParticipants(new[] { localParticipant });
+
+        if (_collabStatusChip is not null)
+        {
+            _collabStatusChip.DataContext = _collabViewModel.Session;
+        }
+
+        if (_collabPane is not null)
+        {
+            _collabPane.DataContext = _collabViewModel;
+        }
+
+        if (_collabBanner is not null)
+        {
+            _collabBanner.DataContext = _collabViewModel.Conflict;
+        }
+
+        _editorView.RegisterService<ICollabUiService>(_collabUiState);
+        _editorView.RegisterService<ICollabIdentityService>(_collabIdentityService);
+        _editorView.RegisterService(_collabViewModel);
+
+        if (_collabSessionChangedHandler is null)
+        {
+            _collabSessionChangedHandler = (_, _) => OnCollabSessionChanged();
+            _collabUiState.SessionChanged += _collabSessionChangedHandler;
+        }
+
+        if (_collabViewModelChangedHandler is null)
+        {
+            _collabViewModelChangedHandler = (_, e) =>
+            {
+                if (e.PropertyName == nameof(CollabShellViewModel.IsPaneVisible))
+                {
+                    UpdateRightPaneVisibility();
+                }
+            };
+            _collabViewModel.PropertyChanged += _collabViewModelChangedHandler;
+        }
+
+        OnCollabSessionChanged();
+    }
+
+    private void UpdateCollaborationDocumentPath()
+    {
+        if (_collabUiState is null)
+        {
+            return;
+        }
+
+        _collabUiState.UpdateDocumentPath(_currentPath);
+    }
+
+    private byte[]? BuildCollabSnapshotPayload()
+    {
+        if (_editorView?.Document is null)
+        {
+            return null;
+        }
+
+        var snapshot = CollabSnapshot.Create(0, _editorView.Document);
+        var serializer = new CollabSnapshotSerializer();
+        return serializer.Serialize(snapshot);
+    }
+
+    private void OnCollabSessionChanged()
+    {
+        if (_editorView is null || _collabUiState is null)
+        {
+            return;
+        }
+
+        var session = _collabUiState.ActiveSession;
+        if (session is null)
+        {
+            _editorView.DisableCollaboration();
+            return;
+        }
+
+        _editorView.EnableCollaboration(session, ResolveCollaboratorName);
+    }
+
+    private string? ResolveCollaboratorName(Guid userId)
+    {
+        if (_collabUiState is null)
+        {
+            return null;
+        }
+
+        return _collabUiState.Participants.FirstOrDefault(p => p.UserId == userId)?.DisplayName;
     }
 
     private sealed class NavigationPaneItem

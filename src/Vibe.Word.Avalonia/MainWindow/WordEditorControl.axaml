@@ -89,6 +89,8 @@
                         <TextBlock x:Name="StatusPageText"
                                    Text="Page 1 of 1"
                                    Foreground="#404040" />
+                        <local:CollabStatusChip x:Name="CollabStatusChip"
+                                                Margin="8,0,0,0" />
                         <Border x:Name="PdfFixedLayoutBadge"
                                 Background="#FCE8B2"
                                 BorderBrush="#E0C779"
@@ -219,13 +221,18 @@
                                          Grid.Column="0"
                                          Width="26"
                                          SurfaceColor="{DynamicResource RibbonSurfaceColor}" />
-                    <ScrollViewer Grid.Row="1"
-                                  Grid.Column="1"
-                                  HorizontalScrollBarVisibility="Auto"
-                                  VerticalScrollBarVisibility="Auto">
-                        <local:DocumentView x:Name="EditorView"
-                                            SurfaceColor="{DynamicResource RibbonSurfaceColor}" />
-                    </ScrollViewer>
+                    <Grid Grid.Row="1"
+                          Grid.Column="1"
+                          RowDefinitions="Auto,*">
+                        <local:CollabBanner x:Name="CollabBanner"
+                                            Grid.Row="0" />
+                        <ScrollViewer Grid.Row="1"
+                                      HorizontalScrollBarVisibility="Auto"
+                                      VerticalScrollBarVisibility="Auto">
+                            <local:DocumentView x:Name="EditorView"
+                                                SurfaceColor="{DynamicResource RibbonSurfaceColor}" />
+                        </ScrollViewer>
+                    </Grid>
                 </Grid>
                 <Grid x:Name="RightPane"
                       Grid.Column="2"
@@ -413,6 +420,8 @@
                             </TabControl>
                         </DockPanel>
                     </Border>
+                    <local:CollabPane x:Name="CollabPane"
+                                      Grid.Row="1" />
                     <Border x:Name="EquationEditorPanel"
                             Grid.Row="1"
                             Width="320"

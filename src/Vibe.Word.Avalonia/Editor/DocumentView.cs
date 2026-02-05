@@ -1,6 +1,7 @@
 using System.Buffers;
 using System.Globalization;
 using System.Text;
+using System.Threading;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -11,6 +12,10 @@ using Avalonia.Rendering.SceneGraph;
 using Avalonia.Skia;
 using Avalonia.Threading;
 using SkiaSharp;
+using Vibe.Office.Collaboration;
+using Vibe.Office.Collaboration.Editor;
+using Vibe.Office.Collaboration.Protocol;
+using Vibe.Office.Collaboration.UI;
 using Vibe.Office.Documents;
 using Vibe.Office.Editing;
 using Vibe.Office.Layout;
@@ -46,6 +51,12 @@ public sealed class DocumentView : Control, ILogicalScrollable
     private const float RevisionBalloonSpacing = 6f;
     private const float RevisionBalloonCornerRadius = 4f;
     private const float RevisionBalloonFontSize = 11f;
+    private const float PresenceTagFontSize = 11f;
+    private const float PresenceTagPadding = 4f;
+    private const float PresenceTagCornerRadius = 4f;
+    private const float PresenceCaretThickness = 1.5f;
+    private const float PresenceSelectionOpacity = 0.25f;
+    private static readonly TimeSpan PresenceTimeToLive = TimeSpan.FromSeconds(10);
     private const float TableResizeHandleSize = 8f;
     private const float TableResizeMinRowHeight = 8f;
     private const float TableSelectionOutlineThickness = 1f;
@@ -72,6 +83,8 @@ public sealed class DocumentView : Control, ILogicalScrollable
     private static readonly IBrush RevisionBalloonBorderBrush = new SolidColorBrush(Color.Parse("#A8C3E8"));
     private static readonly IBrush RevisionBalloonTextBrush = new SolidColorBrush(Color.Parse("#203040"));
     private static readonly Typeface RevisionBalloonTypeface = new Typeface("Calibri");
+    private static readonly IBrush PresenceTagTextBrush = new SolidColorBrush(Colors.White);
+    private static readonly Typeface PresenceTagTypeface = new Typeface("Calibri");
     private static readonly IBrush TableSelectionFillBrush = new SolidColorBrush(Color.FromArgb(64, 45, 125, 240));
     private static readonly Pen TableSelectionBorderPen = new Pen(new SolidColorBrush(Color.FromArgb(160, 45, 125, 240)), TableSelectionOutlineThickness);
     private static readonly IBrush TableResizeHandleFillBrush = new SolidColorBrush(Color.Parse("#FFFFFF"));
@@ -129,6 +142,12 @@ public sealed class DocumentView : Control, ILogicalScrollable
     private ReviewMarkupMode _reviewMarkupMode = ReviewMarkupMode.All;
     private readonly List<CommentAnchorInfo> _commentAnchors = new();
     private readonly List<RevisionAnchorInfo> _revisionAnchors = new();
+    private readonly DocumentAnchorResolver _presenceAnchorResolver = new();
+    private readonly Dictionary<Guid, IBrush> _presenceCaretBrushes = new();
+    private readonly Dictionary<Guid, IBrush> _presenceSelectionBrushes = new();
+    private ICollabUiService? _collabUiService;
+    private PresenceSignature? _lastPresenceSignature;
+    private CollabEditorSessionCoordinator? _collabCoordinator;
 
     private bool _isSelecting;
     private bool _isLoading;
@@ -156,11 +175,13 @@ public sealed class DocumentView : Control, ILogicalScrollable
     private HeaderFooterHit? _headerFooterHit;
     private EditorServices? _headerFooterServices;
     private EditorSessionSnapshot? _headerFooterSnapshot;
+    private CollabGestureToken? _headerFooterGesture;
     private bool _headerFooterDirty;
     private bool _isHeaderFooterSelecting;
     private ShapeTextEditSession? _shapeTextSession;
     private EditorServices? _shapeTextServices;
     private EditorSessionSnapshot? _shapeTextSnapshot;
+    private CollabGestureToken? _shapeTextGesture;
     private bool _shapeTextDirty;
     private bool _isShapeTextSelecting;
     private bool _isShapeTextLayoutUpdating;
@@ -174,6 +195,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
     private float _tableResizeStartRowHeight;
     private float? _tableResizePreviewPosition;
     private EditorSessionSnapshot? _tableResizeSnapshot;
+    private CollabGestureToken? _tableResizeGesture;
     private bool _tableResizeDirty;
     private bool _isPictureCropMode;
     private bool _isCropping;
@@ -184,6 +206,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
     private DocPoint _cropStartPoint;
     private DocRect _cropBounds;
     private EditorSessionSnapshot? _cropSnapshot;
+    private CollabGestureToken? _cropGesture;
     private bool _cropDirty;
     private bool _isShapeEditing;
     private ShapeDragMode _shapeDragMode;
@@ -200,6 +223,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
     private float _shapeStartPointerAngle;
     private float _shapeStartAspectRatio;
     private EditorSessionSnapshot? _shapeSnapshot;
+    private CollabGestureToken? _shapeGesture;
     private bool _shapeDirty;
     private DocRect? _shapePreviewBounds;
     private bool _shapeLayoutRefreshPending;
@@ -218,6 +242,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
     private float _imageStartPointerAngle;
     private float _imageStartAspectRatio;
     private EditorSessionSnapshot? _imageSnapshot;
+    private CollabGestureToken? _imageGesture;
     private bool _imageDirty;
     private DocRect? _imagePreviewBounds;
     private bool _imageLayoutRefreshPending;
@@ -234,6 +259,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
     private float _inlineStartPointerAngle;
     private float _inlineStartAspectRatio;
     private EditorSessionSnapshot? _inlineSnapshot;
+    private CollabGestureToken? _inlineGesture;
     private bool _inlineDirty;
     private DocRect? _inlinePreviewBounds;
     private bool _inlineLayoutRefreshPending;
@@ -409,6 +435,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
         _cropImage = null;
         _cropStartValues = null;
         _cropSnapshot = null;
+        _cropGesture = null;
         _cropDirty = false;
         UpdatePointerCursor(null);
         InvalidateVisual();
@@ -902,7 +929,12 @@ public sealed class DocumentView : Control, ILogicalScrollable
         }
 
         _tableResizeSnapshot = null;
-        if (_kernel.Services.TryGet<IEditorHistorySnapshotService>(out var history))
+        _tableResizeGesture = null;
+        if (_kernel.Services.TryGet<ICollabGestureRecorder>(out var gestureRecorder))
+        {
+            _tableResizeGesture = gestureRecorder.BeginGesture("table-resize");
+        }
+        else if (_kernel.Services.TryGet<IEditorHistorySnapshotService>(out var history))
         {
             _tableResizeSnapshot = history.CaptureSnapshot();
         }
@@ -977,10 +1009,17 @@ public sealed class DocumentView : Control, ILogicalScrollable
         e.Pointer.Capture(null);
         e.Handled = true;
 
-        if (_tableResizeDirty && _tableResizeSnapshot.HasValue
-            && _kernel.Services.TryGet<IEditorHistorySnapshotService>(out var history))
+        if (_tableResizeDirty)
         {
-            history.RecordSnapshot(_tableResizeSnapshot.Value);
+            if (_tableResizeGesture.HasValue && _kernel.Services.TryGet<ICollabGestureRecorder>(out var gestureRecorder))
+            {
+                gestureRecorder.EndGesture(_tableResizeGesture.Value);
+            }
+            else if (_tableResizeSnapshot.HasValue
+                     && _kernel.Services.TryGet<IEditorHistorySnapshotService>(out var history))
+            {
+                history.RecordSnapshot(_tableResizeSnapshot.Value);
+            }
         }
 
         ResetTableResizeState();
@@ -1006,6 +1045,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
         _activeTableResizeHandle = null;
         _hoverTableResizeHandle = null;
         _tableResizeSnapshot = null;
+        _tableResizeGesture = null;
         _tableResizeDirty = false;
     }
 
@@ -1102,7 +1142,12 @@ public sealed class DocumentView : Control, ILogicalScrollable
         }
 
         _cropSnapshot = null;
-        if (_kernel.Services.TryGet<IEditorHistorySnapshotService>(out var history))
+        _cropGesture = null;
+        if (_kernel.Services.TryGet<ICollabGestureRecorder>(out var gestureRecorder))
+        {
+            _cropGesture = gestureRecorder.BeginGesture("image-crop");
+        }
+        else if (_kernel.Services.TryGet<IEditorHistorySnapshotService>(out var history))
         {
             _cropSnapshot = history.CaptureSnapshot();
         }
@@ -1146,13 +1191,21 @@ public sealed class DocumentView : Control, ILogicalScrollable
         e.Pointer.Capture(null);
         e.Handled = true;
 
-        if (_cropDirty && _cropSnapshot.HasValue
-            && _kernel.Services.TryGet<IEditorHistorySnapshotService>(out var history))
+        if (_cropDirty)
         {
-            history.RecordSnapshot(_cropSnapshot.Value);
+            if (_cropGesture.HasValue && _kernel.Services.TryGet<ICollabGestureRecorder>(out var gestureRecorder))
+            {
+                gestureRecorder.EndGesture(_cropGesture.Value);
+            }
+            else if (_cropSnapshot.HasValue
+                     && _kernel.Services.TryGet<IEditorHistorySnapshotService>(out var history))
+            {
+                history.RecordSnapshot(_cropSnapshot.Value);
+            }
         }
 
         _cropSnapshot = null;
+        _cropGesture = null;
         _cropDirty = false;
         _activeCropHandle = null;
         _hoverCropHandle = null;
@@ -1206,7 +1259,12 @@ public sealed class DocumentView : Control, ILogicalScrollable
         DocPoint startPoint)
     {
         _shapeSnapshot = null;
-        if (_kernel.Services.TryGet<IEditorHistorySnapshotService>(out var history))
+        _shapeGesture = null;
+        if (_kernel.Services.TryGet<ICollabGestureRecorder>(out var gestureRecorder))
+        {
+            _shapeGesture = gestureRecorder.BeginGesture("shape-edit");
+        }
+        else if (_kernel.Services.TryGet<IEditorHistorySnapshotService>(out var history))
         {
             _shapeSnapshot = history.CaptureSnapshot();
         }
@@ -1334,10 +1392,17 @@ public sealed class DocumentView : Control, ILogicalScrollable
         e.Pointer.Capture(null);
         e.Handled = true;
 
-        if (_shapeDirty && _shapeSnapshot.HasValue
-            && _kernel.Services.TryGet<IEditorHistorySnapshotService>(out var history))
+        if (_shapeDirty)
         {
-            history.RecordSnapshot(_shapeSnapshot.Value);
+            if (_shapeGesture.HasValue && _kernel.Services.TryGet<ICollabGestureRecorder>(out var gestureRecorder))
+            {
+                gestureRecorder.EndGesture(_shapeGesture.Value);
+            }
+            else if (_shapeSnapshot.HasValue
+                     && _kernel.Services.TryGet<IEditorHistorySnapshotService>(out var history))
+            {
+                history.RecordSnapshot(_shapeSnapshot.Value);
+            }
         }
 
         if (_shapeDirty || _shapeLayoutRefreshPending)
@@ -1366,6 +1431,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
         _shapeStartPointerAngle = 0f;
         _shapeStartAspectRatio = 0f;
         _shapeSnapshot = null;
+        _shapeGesture = null;
         _shapeDirty = false;
         _shapePreviewBounds = null;
         _shapeLayoutRefreshPending = false;
@@ -1445,7 +1511,12 @@ public sealed class DocumentView : Control, ILogicalScrollable
         DocPoint startPoint)
     {
         _imageSnapshot = null;
-        if (_kernel.Services.TryGet<IEditorHistorySnapshotService>(out var history))
+        _imageGesture = null;
+        if (_kernel.Services.TryGet<ICollabGestureRecorder>(out var gestureRecorder))
+        {
+            _imageGesture = gestureRecorder.BeginGesture("image-edit");
+        }
+        else if (_kernel.Services.TryGet<IEditorHistorySnapshotService>(out var history))
         {
             _imageSnapshot = history.CaptureSnapshot();
         }
@@ -1573,10 +1644,17 @@ public sealed class DocumentView : Control, ILogicalScrollable
         e.Pointer.Capture(null);
         e.Handled = true;
 
-        if (_imageDirty && _imageSnapshot.HasValue
-            && _kernel.Services.TryGet<IEditorHistorySnapshotService>(out var history))
+        if (_imageDirty)
         {
-            history.RecordSnapshot(_imageSnapshot.Value);
+            if (_imageGesture.HasValue && _kernel.Services.TryGet<ICollabGestureRecorder>(out var gestureRecorder))
+            {
+                gestureRecorder.EndGesture(_imageGesture.Value);
+            }
+            else if (_imageSnapshot.HasValue
+                     && _kernel.Services.TryGet<IEditorHistorySnapshotService>(out var history))
+            {
+                history.RecordSnapshot(_imageSnapshot.Value);
+            }
         }
 
         if (_imageDirty || _imageLayoutRefreshPending)
@@ -1605,6 +1683,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
         _imageStartPointerAngle = 0f;
         _imageStartAspectRatio = 0f;
         _imageSnapshot = null;
+        _imageGesture = null;
         _imageDirty = false;
         _imagePreviewBounds = null;
         _imageLayoutRefreshPending = false;
@@ -1684,7 +1763,12 @@ public sealed class DocumentView : Control, ILogicalScrollable
         Point startView)
     {
         _inlineSnapshot = null;
-        if (_kernel.Services.TryGet<IEditorHistorySnapshotService>(out var history))
+        _inlineGesture = null;
+        if (_kernel.Services.TryGet<ICollabGestureRecorder>(out var gestureRecorder))
+        {
+            _inlineGesture = gestureRecorder.BeginGesture("inline-object-edit");
+        }
+        else if (_kernel.Services.TryGet<IEditorHistorySnapshotService>(out var history))
         {
             _inlineSnapshot = history.CaptureSnapshot();
         }
@@ -1737,6 +1821,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
         _inlineStartPointerAngle = 0f;
         _inlineStartAspectRatio = 0f;
         _inlineSnapshot = null;
+        _inlineGesture = null;
         _inlineDirty = false;
         _inlinePreviewBounds = null;
         _inlineLayoutRefreshPending = false;
@@ -1772,7 +1857,11 @@ public sealed class DocumentView : Control, ILogicalScrollable
                     }
 
                     _inlineDragActive = true;
-                    if (_kernel.Services.TryGet<IEditorHistorySnapshotService>(out var history))
+                    if (_inlineGesture is null && _kernel.Services.TryGet<ICollabGestureRecorder>(out var gestureRecorder))
+                    {
+                        _inlineGesture = gestureRecorder.BeginGesture("inline-object-move");
+                    }
+                    else if (_kernel.Services.TryGet<IEditorHistorySnapshotService>(out var history))
                     {
                         _inlineSnapshot = history.CaptureSnapshot();
                     }
@@ -1867,16 +1956,20 @@ public sealed class DocumentView : Control, ILogicalScrollable
                 CommitInlineObjectMove();
             }
 
+            EndInlineObjectGesture();
             ResetInlineObjectEditState();
             UpdatePointerCursor(null);
             InvalidateVisual();
             return;
         }
 
-        if (_inlineDirty && _inlineSnapshot.HasValue
-            && _kernel.Services.TryGet<IEditorHistorySnapshotService>(out var history))
+        if (_inlineDirty)
         {
-            history.RecordSnapshot(_inlineSnapshot.Value);
+            if (!EndInlineObjectGesture() && _inlineSnapshot.HasValue
+                && _kernel.Services.TryGet<IEditorHistorySnapshotService>(out var history))
+            {
+                history.RecordSnapshot(_inlineSnapshot.Value);
+            }
         }
 
         if (_inlineDirty || _inlineLayoutRefreshPending)
@@ -1931,11 +2024,6 @@ public sealed class DocumentView : Control, ILogicalScrollable
         UpdateDirtyPages(GetAllPages());
         InvalidateVisual();
 
-        if (_inlineSnapshot.HasValue
-            && _kernel.Services.TryGet<IEditorHistorySnapshotService>(out var history))
-        {
-            history.RecordSnapshot(_inlineSnapshot.Value);
-        }
     }
 
     private void ResetInlineObjectEditState()
@@ -1951,12 +2039,24 @@ public sealed class DocumentView : Control, ILogicalScrollable
         _inlineStartPointerAngle = 0f;
         _inlineStartAspectRatio = 0f;
         _inlineSnapshot = null;
+        _inlineGesture = null;
         _inlineDirty = false;
         _inlinePreviewBounds = null;
         _inlineLayoutRefreshPending = false;
         _inlineDragStartView = default;
         _inlineDragActive = false;
         _inlineDragRange = default;
+    }
+
+    private bool EndInlineObjectGesture()
+    {
+        if (_inlineGesture.HasValue && _kernel.Services.TryGet<ICollabGestureRecorder>(out var gestureRecorder))
+        {
+            gestureRecorder.EndGesture(_inlineGesture.Value);
+            return true;
+        }
+
+        return false;
     }
 
     private void RequestInlineLayoutRefresh()
@@ -2431,6 +2531,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
         DrawShapeSelectionOverlay(context, effectiveOffset);
         DrawFloatingImageSelectionOverlay(context, effectiveOffset);
         DrawInlineObjectSelectionOverlay(context, effectiveOffset);
+        DrawCollabPresenceOverlay(context, effectiveOffset);
         DrawCommentBalloons(context, effectiveOffset);
         DrawRevisionBalloons(context, effectiveOffset);
         DrawInkPreview(context, effectiveOffset);
@@ -3540,6 +3641,311 @@ public sealed class DocumentView : Control, ILogicalScrollable
             var start = DocToView(geometry.TopCenter, effectiveOffset);
             var end = DocToView(geometry.RotateHandle, effectiveOffset);
             context.DrawLine(ShapeSelectionBorderPen, start, end);
+        }
+    }
+
+    private void DrawCollabPresenceOverlay(DrawingContext context, Vector effectiveOffset)
+    {
+        if (!_kernel.Services.TryGet<ICollabUiService>(out var collabService))
+        {
+            return;
+        }
+
+        if (!_kernel.Services.TryGet<ICollabIdentityService>(out var identityService))
+        {
+            return;
+        }
+
+        var presence = collabService.Presence;
+        if (presence.Count == 0 || _editor.Layout.Lines.Count == 0)
+        {
+            return;
+        }
+
+        var localUserId = identityService.UserId;
+        for (var i = 0; i < presence.Count; i++)
+        {
+            var state = presence[i];
+            if (state.UserId == localUserId)
+            {
+                continue;
+            }
+
+            var color = CollabColorPalette.ResolveColor(state.Color, state.UserId);
+            var caretBrush = ResolvePresenceCaretBrush(state.UserId, color);
+            var selectionBrush = ResolvePresenceSelectionBrush(state.UserId, color);
+
+            if (state.Selection.HasValue && !state.Selection.Value.IsEmpty)
+            {
+                if (TryResolveSelection(state.Selection.Value, out var range))
+                {
+                    DrawPresenceSelection(context, range, selectionBrush, effectiveOffset);
+                }
+            }
+
+            if (state.Caret.HasValue && TryResolveAnchor(state.Caret.Value, out var caretPosition))
+            {
+                DrawPresenceCaret(context, caretPosition, state.DisplayName, caretBrush, effectiveOffset);
+            }
+        }
+    }
+
+    private void UpdateLocalPresence(bool force = false)
+    {
+        if (!_kernel.Services.TryGet<ICollabUiService>(out var collabService))
+        {
+            return;
+        }
+
+        if (collabService.ConnectionState is CollabConnectionState.Disconnected
+            or CollabConnectionState.Offline
+            or CollabConnectionState.Error)
+        {
+            return;
+        }
+
+        if (!_kernel.Services.TryGet<ICollabIdentityService>(out var identityService))
+        {
+            return;
+        }
+
+        if (!TryBuildPresence(identityService, out var presence, out var signature))
+        {
+            return;
+        }
+
+        if (!force && _lastPresenceSignature.HasValue && _lastPresenceSignature.Value.Equals(signature))
+        {
+            return;
+        }
+
+        _lastPresenceSignature = signature;
+        collabService.UpdatePresence(presence, PresenceTimeToLive);
+    }
+
+    private bool TryBuildPresence(
+        ICollabIdentityService identityService,
+        out PresenceState presence,
+        out PresenceSignature signature)
+    {
+        presence = default!;
+        signature = default;
+
+        var caretPosition = _editor.Caret;
+        if (!TryCreateAnchor(caretPosition, out var caretAnchor))
+        {
+            return false;
+        }
+
+        AnchorRange? selection = null;
+        var normalizedSelection = _editor.Selection.Normalize();
+        if (!normalizedSelection.IsEmpty)
+        {
+            if (!TryCreateAnchor(normalizedSelection.Start, out var selectionStart)
+                || !TryCreateAnchor(normalizedSelection.End, out var selectionEnd))
+            {
+                return false;
+            }
+
+            selection = new AnchorRange(selectionStart, selectionEnd);
+        }
+
+        presence = new PresenceState(
+            identityService.UserId,
+            identityService.DisplayName,
+            caretAnchor,
+            selection,
+            DateTimeOffset.UtcNow,
+            identityService.Color);
+
+        signature = new PresenceSignature(caretAnchor, selection);
+        return true;
+    }
+
+    private bool TryCreateAnchor(TextPosition position, out TextAnchor anchor)
+    {
+        anchor = default;
+        try
+        {
+            var paragraph = _editor.Document.GetParagraph(position.ParagraphIndex);
+            var length = DocumentEditHelpers.GetParagraphLength(paragraph);
+            var offset = Math.Clamp(position.Offset, 0, length);
+            anchor = TextAnchor.Before(paragraph.NodeId, offset);
+            return paragraph.NodeId != Guid.Empty;
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            return false;
+        }
+    }
+
+    private bool TryResolveSelection(AnchorRange range, out TextRange selection)
+    {
+        selection = default;
+        if (!TryResolveAnchor(range.Start, out var start))
+        {
+            return false;
+        }
+
+        if (!TryResolveAnchor(range.End, out var end))
+        {
+            return false;
+        }
+
+        selection = new TextRange(start, end);
+        return true;
+    }
+
+    private bool TryResolveAnchor(TextAnchor anchor, out TextPosition position)
+    {
+        position = default;
+        if (!_presenceAnchorResolver.TryResolveParagraph(_editor.Document, anchor.NodeId, out var paragraph, out var paragraphIndex))
+        {
+            return false;
+        }
+
+        var length = DocumentEditHelpers.GetParagraphLength(paragraph);
+        var offset = Math.Clamp(anchor.Offset, 0, length);
+        position = new TextPosition(paragraphIndex, offset);
+        return true;
+    }
+
+    private void DrawPresenceSelection(DrawingContext context, TextRange selection, IBrush brush, Vector effectiveOffset)
+    {
+        var normalized = selection.Normalize();
+        var lines = _editor.Layout.Lines;
+        for (var i = 0; i < lines.Count; i++)
+        {
+            var line = lines[i];
+            if (line.ParagraphIndex < normalized.Start.ParagraphIndex || line.ParagraphIndex > normalized.End.ParagraphIndex)
+            {
+                continue;
+            }
+
+            var lineStart = line.StartOffset;
+            var lineEnd = line.StartOffset + line.Length;
+            var startOffset = line.ParagraphIndex == normalized.Start.ParagraphIndex
+                ? Math.Max(lineStart, normalized.Start.Offset)
+                : lineStart;
+            var endOffset = line.ParagraphIndex == normalized.End.ParagraphIndex
+                ? Math.Min(lineEnd, normalized.End.Offset)
+                : lineEnd;
+
+            if (endOffset < startOffset)
+            {
+                continue;
+            }
+
+            var startPosition = new TextPosition(line.ParagraphIndex, startOffset);
+            var endPosition = new TextPosition(line.ParagraphIndex, endOffset);
+            if (!_editor.TryGetCaretPoint(startPosition, out var startPoint, out _))
+            {
+                continue;
+            }
+
+            if (!_editor.TryGetCaretPoint(endPosition, out var endPoint, out _))
+            {
+                continue;
+            }
+
+            var x1 = startPoint.X;
+            var x2 = endPoint.X;
+            if (MathF.Abs(x2 - x1) < 0.5f)
+            {
+                x2 = x1 + PresenceCaretThickness;
+            }
+
+            var rect = new DocRect(MathF.Min(x1, x2), line.Y, MathF.Abs(x2 - x1), line.LineHeight);
+            var viewRect = DocRectToViewRect(rect, effectiveOffset);
+            context.FillRectangle(brush, viewRect);
+        }
+    }
+
+    private void DrawPresenceCaret(DrawingContext context, TextPosition caret, string displayName, IBrush brush, Vector effectiveOffset)
+    {
+        if (!_editor.TryGetCaretPoint(caret, out var caretPoint, out var lineIndex))
+        {
+            return;
+        }
+
+        if (lineIndex < 0 || lineIndex >= _editor.Layout.Lines.Count)
+        {
+            return;
+        }
+
+        var line = _editor.Layout.Lines[lineIndex];
+        var rect = new DocRect(caretPoint.X, line.Y, PresenceCaretThickness, line.LineHeight);
+        var viewRect = DocRectToViewRect(rect, effectiveOffset);
+        context.FillRectangle(brush, viewRect);
+
+        DrawPresenceTag(context, displayName, caretPoint, line.LineHeight, brush, effectiveOffset);
+    }
+
+    private void DrawPresenceTag(DrawingContext context, string displayName, DocPoint caretPoint, float lineHeight, IBrush brush, Vector effectiveOffset)
+    {
+        if (string.IsNullOrWhiteSpace(displayName))
+        {
+            return;
+        }
+
+        var zoom = (float)_zoomFactor;
+        var formatted = new FormattedText(
+            displayName,
+            CultureInfo.CurrentCulture,
+            FlowDirection.LeftToRight,
+            PresenceTagTypeface,
+            PresenceTagFontSize * zoom,
+            PresenceTagTextBrush);
+        formatted.TextAlignment = TextAlignment.Left;
+
+        var padding = PresenceTagPadding * zoom;
+        var width = formatted.Width + (2f * padding);
+        var height = formatted.Height + (2f * padding);
+        var viewX = (caretPoint.X * zoom) - effectiveOffset.X;
+        var viewY = (caretPoint.Y * zoom) - effectiveOffset.Y - height - (2f * zoom);
+        var rect = new Rect(viewX, viewY, width, height);
+        var corner = PresenceTagCornerRadius * zoom;
+        context.DrawRectangle(brush, null, rect, corner, corner);
+        context.DrawText(formatted, new Point(rect.X + padding, rect.Y + padding));
+    }
+
+    private IBrush ResolvePresenceCaretBrush(Guid userId, string color)
+    {
+        if (_presenceCaretBrushes.TryGetValue(userId, out var brush))
+        {
+            return brush;
+        }
+
+        var resolved = ResolvePresenceColor(color);
+        brush = new SolidColorBrush(resolved);
+        _presenceCaretBrushes[userId] = brush;
+        return brush;
+    }
+
+    private IBrush ResolvePresenceSelectionBrush(Guid userId, string color)
+    {
+        if (_presenceSelectionBrushes.TryGetValue(userId, out var brush))
+        {
+            return brush;
+        }
+
+        var resolved = ResolvePresenceColor(color);
+        var alpha = (byte)Math.Clamp(PresenceSelectionOpacity * 255f, 0f, 255f);
+        var selectionColor = Color.FromArgb(alpha, resolved.R, resolved.G, resolved.B);
+        brush = new SolidColorBrush(selectionColor);
+        _presenceSelectionBrushes[userId] = brush;
+        return brush;
+    }
+
+    private static Color ResolvePresenceColor(string color)
+    {
+        try
+        {
+            return Color.Parse(color);
+        }
+        catch (Exception)
+        {
+            return Color.Parse("#2D7DF0");
         }
     }
 
@@ -5190,6 +5596,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
         base.OnDetachedFromVisualTree(e);
         _fontResolver?.Dispose();
         _fontResolver = null;
+        DisableCollaboration();
     }
 
     private void ApplyEditorState()
@@ -5206,6 +5613,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
         UpdateCommentAnchors();
         UpdateRevisionAnchors();
         InvalidateVisual();
+        UpdateLocalPresence();
         EditorStateChanged?.Invoke(this, EventArgs.Empty);
     }
 
@@ -5221,7 +5629,36 @@ public sealed class DocumentView : Control, ILogicalScrollable
         UpdateCommentAnchors();
         UpdateRevisionAnchors();
         InvalidateVisual();
+        UpdateLocalPresence();
         EditorStateChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    public void EnableCollaboration(ICollabRealtimeSession session, Func<Guid, string?>? authorResolver = null)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        DisableCollaboration();
+        Action? onResyncRequired = null;
+        if (_collabUiService is not null)
+        {
+            onResyncRequired = () => _collabUiService.SetConnectionState(
+                CollabConnectionState.Error,
+                "Collaboration history is out of date. Please reconnect.");
+        }
+
+        _collabCoordinator = new CollabEditorSessionCoordinator(
+            _kernel.Services,
+            _kernel.Commands,
+            _editor,
+            session,
+            SynchronizationContext.Current,
+            authorResolver,
+            onResyncRequired);
+    }
+
+    public void DisableCollaboration()
+    {
+        _collabCoordinator?.Dispose();
+        _collabCoordinator = null;
     }
 
     public bool TryGetService<T>(out T service) where T : class
@@ -5262,7 +5699,35 @@ public sealed class DocumentView : Control, ILogicalScrollable
         return _kernel.Services.TryGet(serviceType, out service);
     }
 
-    public void RegisterService<T>(T service) where T : class => _kernel.Services.Register(service);
+    public void RegisterService<T>(T service) where T : class
+    {
+        _kernel.Services.Register(service);
+        if (service is ICollabUiService collabService)
+        {
+            AttachCollaborationService(collabService);
+        }
+    }
+
+    private void AttachCollaborationService(ICollabUiService collabService)
+    {
+        if (ReferenceEquals(_collabUiService, collabService))
+        {
+            return;
+        }
+
+        if (_collabUiService is not null)
+        {
+            _collabUiService.StateChanged -= OnCollabStateChanged;
+        }
+
+        _collabUiService = collabService;
+        _collabUiService.StateChanged += OnCollabStateChanged;
+    }
+
+    private void OnCollabStateChanged(object? sender, EventArgs e)
+    {
+        Dispatcher.UIThread.Post(InvalidateVisual, DispatcherPriority.Render);
+    }
 
     private void InvalidateAllPages()
     {
@@ -5668,8 +6133,13 @@ public sealed class DocumentView : Control, ILogicalScrollable
         _headerFooterHit = hit;
         _headerFooterSession.Editor.Changed += OnHeaderFooterEditorChanged;
         _headerFooterDirty = false;
-
-        if (_kernel.Services.TryGet<IEditorHistorySnapshotService>(out var history))
+        _headerFooterSnapshot = null;
+        _headerFooterGesture = null;
+        if (_kernel.Services.TryGet<ICollabGestureRecorder>(out var gestureRecorder))
+        {
+            _headerFooterGesture = gestureRecorder.BeginGesture("header-footer-edit");
+        }
+        else if (_kernel.Services.TryGet<IEditorHistorySnapshotService>(out var history))
         {
             _headerFooterSnapshot = history.CaptureSnapshot();
         }
@@ -5689,16 +6159,24 @@ public sealed class DocumentView : Control, ILogicalScrollable
         }
 
         _headerFooterSession.Editor.Changed -= OnHeaderFooterEditorChanged;
-        if (_headerFooterDirty && _headerFooterSnapshot.HasValue
-            && _kernel.Services.TryGet<IEditorHistorySnapshotService>(out var history))
+        if (_headerFooterDirty)
         {
-            history.RecordSnapshot(_headerFooterSnapshot.Value);
+            if (_headerFooterGesture.HasValue && _kernel.Services.TryGet<ICollabGestureRecorder>(out var gestureRecorder))
+            {
+                gestureRecorder.EndGesture(_headerFooterGesture.Value);
+            }
+            else if (_headerFooterSnapshot.HasValue
+                     && _kernel.Services.TryGet<IEditorHistorySnapshotService>(out var history))
+            {
+                history.RecordSnapshot(_headerFooterSnapshot.Value);
+            }
         }
 
         _headerFooterSession = null;
         _headerFooterHit = null;
         _headerFooterServices = null;
         _headerFooterSnapshot = null;
+        _headerFooterGesture = null;
         _headerFooterDirty = false;
         _isHeaderFooterSelecting = false;
         UpdateHeaderFooterRenderOptions();
@@ -6016,8 +6494,13 @@ public sealed class DocumentView : Control, ILogicalScrollable
         _shapeTextServices = services;
         _shapeTextSession.Editor.Changed += OnShapeTextEditorChanged;
         _shapeTextDirty = false;
-
-        if (_kernel.Services.TryGet<IEditorHistorySnapshotService>(out var history))
+        _shapeTextSnapshot = null;
+        _shapeTextGesture = null;
+        if (_kernel.Services.TryGet<ICollabGestureRecorder>(out var gestureRecorder))
+        {
+            _shapeTextGesture = gestureRecorder.BeginGesture("shape-text-edit");
+        }
+        else if (_kernel.Services.TryGet<IEditorHistorySnapshotService>(out var history))
         {
             _shapeTextSnapshot = history.CaptureSnapshot();
         }
@@ -6038,15 +6521,23 @@ public sealed class DocumentView : Control, ILogicalScrollable
         }
 
         _shapeTextSession.Editor.Changed -= OnShapeTextEditorChanged;
-        if (_shapeTextDirty && _shapeTextSnapshot.HasValue
-            && _kernel.Services.TryGet<IEditorHistorySnapshotService>(out var history))
+        if (_shapeTextDirty)
         {
-            history.RecordSnapshot(_shapeTextSnapshot.Value);
+            if (_shapeTextGesture.HasValue && _kernel.Services.TryGet<ICollabGestureRecorder>(out var gestureRecorder))
+            {
+                gestureRecorder.EndGesture(_shapeTextGesture.Value);
+            }
+            else if (_shapeTextSnapshot.HasValue
+                     && _kernel.Services.TryGet<IEditorHistorySnapshotService>(out var history))
+            {
+                history.RecordSnapshot(_shapeTextSnapshot.Value);
+            }
         }
 
         _shapeTextSession = null;
         _shapeTextServices = null;
         _shapeTextSnapshot = null;
+        _shapeTextGesture = null;
         _shapeTextDirty = false;
         _isShapeTextSelecting = false;
         UpdateShapeTextRenderOptions();
@@ -7613,6 +8104,8 @@ public sealed class DocumentView : Control, ILogicalScrollable
         BottomRight,
         Rotate
     }
+
+    private readonly record struct PresenceSignature(TextAnchor? Caret, AnchorRange? Selection);
 
     private readonly record struct ShapeHandleInfo(ShapeHandleKind Kind, DocRect Bounds);
     private readonly record struct ShapeSelectionInfo(ShapeInline Shape, DocRect Bounds, float Rotation);

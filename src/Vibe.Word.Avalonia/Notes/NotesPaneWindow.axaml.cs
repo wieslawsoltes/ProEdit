@@ -148,14 +148,24 @@ public partial class NotesPaneWindow : Window
         }
 
         var text = _noteEditor.Text ?? string.Empty;
-        var history = ResolveHistoryService();
+        CollabGestureToken? gesture = null;
+        if (_view is not null && _view.TryGetService<ICollabGestureRecorder>(out var gestureRecorder))
+        {
+            gesture = gestureRecorder.BeginGesture("note-edit");
+        }
+
+        var history = gesture.HasValue ? null : ResolveHistoryService();
         var snapshot = history?.CaptureSnapshot();
 
         UpdateNoteBlocks(_currentNote, text);
         NormalizeNoteBlocks(_currentNote);
         _view?.RefreshLayout();
 
-        if (snapshot is not null)
+        if (gesture.HasValue && _view is not null && _view.TryGetService<ICollabGestureRecorder>(out var endRecorder))
+        {
+            endRecorder.EndGesture(gesture.Value);
+        }
+        else if (snapshot is not null)
         {
             history?.RecordSnapshot(snapshot.Value);
         }

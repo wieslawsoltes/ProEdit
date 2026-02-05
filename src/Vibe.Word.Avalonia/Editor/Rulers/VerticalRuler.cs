@@ -38,6 +38,7 @@ public sealed class VerticalRuler : Control
     private IBrush _surfaceBrush = new SolidColorBrush(new Color(255, 238, 241, 245));
     private DragState? _drag;
     private EditorSessionSnapshot? _previewSnapshot;
+    private CollabGestureToken? _previewGesture;
     private bool _previewApplied;
     private float _lastPreviewDocY = float.NaN;
 
@@ -516,17 +517,24 @@ public sealed class VerticalRuler : Control
 
     private bool EnsurePreviewSnapshot(DocumentView view)
     {
-        if (_previewSnapshot.HasValue)
+        if (_previewSnapshot.HasValue || _previewGesture.HasValue)
         {
             return true;
         }
 
-        if (!view.TryGetService<IEditorHistorySnapshotService>(out var snapshotService))
+        if (view.TryGetService<ICollabGestureRecorder>(out var gestureRecorder))
+        {
+            _previewGesture = gestureRecorder.BeginGesture("ruler-preview");
+        }
+        else if (view.TryGetService<IEditorHistorySnapshotService>(out var snapshotService))
+        {
+            _previewSnapshot = snapshotService.CaptureSnapshot();
+        }
+        else
         {
             return false;
         }
 
-        _previewSnapshot = snapshotService.CaptureSnapshot();
         _previewApplied = false;
         _lastPreviewDocY = float.NaN;
         return true;
@@ -542,6 +550,12 @@ public sealed class VerticalRuler : Control
 
         if (!_previewSnapshot.HasValue)
         {
+            if (_previewGesture.HasValue && EditorView.TryGetService<ICollabGestureRecorder>(out var gestureRecorder))
+            {
+                gestureRecorder.EndGesture(_previewGesture.Value);
+                ResetPreview();
+            }
+
             return;
         }
 
@@ -567,6 +581,12 @@ public sealed class VerticalRuler : Control
     {
         if (EditorView is null || !_previewSnapshot.HasValue)
         {
+            if (EditorView is not null && _previewGesture.HasValue
+                && EditorView.TryGetService<ICollabGestureRecorder>(out var gestureRecorder))
+            {
+                gestureRecorder.EndGesture(_previewGesture.Value);
+            }
+
             ResetPreview();
             return;
         }
@@ -582,6 +602,7 @@ public sealed class VerticalRuler : Control
     private void ResetPreview()
     {
         _previewSnapshot = null;
+        _previewGesture = null;
         _previewApplied = false;
         _lastPreviewDocY = float.NaN;
     }
