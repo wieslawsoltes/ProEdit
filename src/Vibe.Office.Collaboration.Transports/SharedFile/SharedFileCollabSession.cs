@@ -1,6 +1,8 @@
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using System.Threading.Channels;
 using Vibe.Office.Collaboration.Persistence;
 using Vibe.Office.Collaboration.Protocol;
 using Vibe.Office.Documents;
@@ -12,14 +14,24 @@ public sealed class SharedFileCollabSession : ICollabRealtimeSession, IAsyncDisp
     private readonly string _basePath;
     private readonly string _opLogPath;
     private readonly string _presencePath;
+    private readonly string _snapshotIndexPath;
     private readonly CollabRealtimeSessionOptions _options;
     private readonly FileCollabSnapshotStore _snapshotStore;
     private readonly CollabSnapshotSerializer _snapshotSerializer = new();
     private readonly SharedFileTransport _opTransport;
     private readonly SharedFileTransport _presenceTransport;
+    private readonly SharedFileTransportOptions _transportOptions;
     private DateTimeOffset _lastPresenceSentUtc;
     private DateTimeOffset _lastCompactionCheckUtc;
     private readonly SemaphoreSlim _compactGate = new(1, 1);
+    private readonly Channel<CollabOpBatch> _outbox;
+    private CancellationTokenSource? _outboxCts;
+    private Task? _outboxTask;
+    private readonly SemaphoreSlim _snapshotGate = new(1, 1);
+    private CancellationTokenSource? _snapshotCts;
+    private Task? _snapshotPollTask;
+    private FileSystemWatcher? _snapshotWatcher;
+    private long _latestSnapshotVersion;
     private bool _connected;
     private bool _disposed;
     private const int MaxPresenceLogBytes = 256 * 1024;
@@ -36,9 +48,17 @@ public sealed class SharedFileCollabSession : ICollabRealtimeSession, IAsyncDisp
         _basePath = CollabPersistedFormat.NormalizeBasePath(basePath);
         _opLogPath = _basePath + CollabPersistedFormat.OpLogExtension;
         _presencePath = _basePath + CollabPersistedFormat.PresenceExtension;
+        _snapshotIndexPath = _basePath + CollabPersistedFormat.SnapshotIndexExtension;
         _snapshotStore = new FileCollabSnapshotStore(_basePath, snapshotOptions);
-        _opTransport = new SharedFileTransport(_opLogPath, transportOptions);
-        _presenceTransport = new SharedFileTransport(_presencePath, transportOptions);
+        _transportOptions = transportOptions ?? SharedFileTransportOptions.Default;
+        _opTransport = new SharedFileTransport(_opLogPath, _transportOptions);
+        _presenceTransport = new SharedFileTransport(_presencePath, _transportOptions);
+        _outbox = Channel.CreateUnbounded<CollabOpBatch>(new UnboundedChannelOptions
+        {
+            SingleReader = true,
+            SingleWriter = false,
+            AllowSynchronousContinuations = false
+        });
 
         _opTransport.MessageReceived += OnOpMessageReceived;
         _opTransport.StateChanged += OnTransportStateChanged;
@@ -73,6 +93,8 @@ public sealed class SharedFileCollabSession : ICollabRealtimeSession, IAsyncDisp
         try
         {
             await InitializeAsync(cancellationToken);
+            EnsureOutbox();
+            EnsureSnapshotWatcher();
             await _opTransport.ConnectAsync(cancellationToken);
             await _presenceTransport.ConnectAsync(cancellationToken);
         }
@@ -93,6 +115,8 @@ public sealed class SharedFileCollabSession : ICollabRealtimeSession, IAsyncDisp
         _connected = false;
         await _opTransport.DisconnectAsync(cancellationToken);
         await _presenceTransport.DisconnectAsync(cancellationToken);
+        await StopSnapshotWatcherAsync(cancellationToken);
+        await StopOutboxAsync(cancellationToken);
     }
 
     public async ValueTask SubmitLocalAsync(CollabOpBatch batch, CancellationToken cancellationToken = default)
@@ -100,8 +124,11 @@ public sealed class SharedFileCollabSession : ICollabRealtimeSession, IAsyncDisp
         ArgumentNullException.ThrowIfNull(batch);
         cancellationToken.ThrowIfCancellationRequested();
 
-        await _snapshotStore.AppendOpsAsync(batch, cancellationToken);
-        await CompactIfNeededAsync();
+        EnsureOutbox();
+        if (!_outbox.Writer.TryWrite(batch))
+        {
+            await _outbox.Writer.WriteAsync(batch, cancellationToken);
+        }
     }
 
     public async ValueTask SendPresenceAsync(
@@ -133,6 +160,7 @@ public sealed class SharedFileCollabSession : ICollabRealtimeSession, IAsyncDisp
 
         var collabSnapshot = _snapshotSerializer.DeserializeSnapshot(snapshot.Payload.AsSpan());
         await _snapshotStore.WriteSnapshotAsync(collabSnapshot, cancellationToken);
+        _latestSnapshotVersion = Math.Max(_latestSnapshotVersion, collabSnapshot.Version);
     }
 
     public async ValueTask DisposeAsync()
@@ -149,12 +177,82 @@ public sealed class SharedFileCollabSession : ICollabRealtimeSession, IAsyncDisp
         _presenceTransport.MessageReceived -= OnPresenceMessageReceived;
         await _opTransport.DisposeAsync();
         await _presenceTransport.DisposeAsync();
+        _snapshotGate.Dispose();
+    }
+
+    private void EnsureOutbox()
+    {
+        if (_outboxTask is not null)
+        {
+            return;
+        }
+
+        _outboxCts = new CancellationTokenSource();
+        _outboxTask = Task.Run(() => ProcessOutboxAsync(_outbox.Reader, _outboxCts.Token));
+    }
+
+    private async Task StopOutboxAsync(CancellationToken cancellationToken)
+    {
+        if (_outboxTask is null)
+        {
+            return;
+        }
+
+        _outbox.Writer.TryComplete();
+        try
+        {
+            await _outboxTask.WaitAsync(cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            _outboxCts?.Cancel();
+        }
+        catch
+        {
+        }
+        finally
+        {
+            _outboxCts?.Dispose();
+            _outboxCts = null;
+            _outboxTask = null;
+        }
+    }
+
+    private async Task ProcessOutboxAsync(ChannelReader<CollabOpBatch> reader, CancellationToken cancellationToken)
+    {
+        try
+        {
+            while (await reader.WaitToReadAsync(cancellationToken))
+            {
+                var batches = new List<CollabOpBatch>();
+                while (reader.TryRead(out var batch))
+                {
+                    batches.Add(batch);
+                }
+
+                if (batches.Count == 0)
+                {
+                    continue;
+                }
+
+                await _snapshotStore.AppendOpsAsync(batches, cancellationToken);
+                await CompactIfNeededAsync();
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex)
+        {
+            ErrorReceived?.Invoke(this, new CollabErrorEventArgs(new ErrorMessage("shared-file", ex.Message), DateTimeOffset.UtcNow));
+        }
     }
 
     private async ValueTask InitializeAsync(CancellationToken cancellationToken)
     {
         var recovery = await RecoverAsync(cancellationToken);
         var snapshot = CollabSnapshot.Create(recovery.Version, recovery.Document);
+        _latestSnapshotVersion = snapshot.Version;
         var payload = _snapshotSerializer.Serialize(snapshot);
         SnapshotReceived?.Invoke(this, new CollabSnapshotReceivedEventArgs(
             new SnapshotMessage(snapshot.SnapshotId, snapshot.Version, payload),
@@ -165,6 +263,122 @@ public sealed class SharedFileCollabSession : ICollabRealtimeSession, IAsyncDisp
 
         var presenceLength = File.Exists(_presencePath) ? new FileInfo(_presencePath).Length : 0;
         _presenceTransport.SetReadPosition(presenceLength);
+    }
+
+    private void EnsureSnapshotWatcher()
+    {
+        if (_snapshotPollTask is not null || _snapshotWatcher is not null)
+        {
+            return;
+        }
+
+        var directory = Path.GetDirectoryName(_snapshotIndexPath);
+        if (!string.IsNullOrWhiteSpace(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+
+        _snapshotWatcher = new FileSystemWatcher(directory ?? string.Empty, Path.GetFileName(_snapshotIndexPath))
+        {
+            IncludeSubdirectories = false,
+            NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size | NotifyFilters.FileName
+        };
+
+        _snapshotWatcher.Changed += (_, _) => _ = CheckForSnapshotAsync(CancellationToken.None);
+        _snapshotWatcher.Created += (_, _) => _ = CheckForSnapshotAsync(CancellationToken.None);
+        _snapshotWatcher.Renamed += (_, _) => _ = CheckForSnapshotAsync(CancellationToken.None);
+        _snapshotWatcher.EnableRaisingEvents = true;
+
+        _snapshotCts = new CancellationTokenSource();
+        _snapshotPollTask = Task.Run(() => SnapshotPollLoopAsync(_snapshotCts.Token));
+    }
+
+    private async Task StopSnapshotWatcherAsync(CancellationToken cancellationToken)
+    {
+        if (_snapshotPollTask is null && _snapshotWatcher is null)
+        {
+            return;
+        }
+
+        _snapshotCts?.Cancel();
+        if (_snapshotPollTask is not null)
+        {
+            try
+            {
+                await _snapshotPollTask.WaitAsync(cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+            }
+        }
+
+        _snapshotCts?.Dispose();
+        _snapshotCts = null;
+        _snapshotPollTask = null;
+        _snapshotWatcher?.Dispose();
+        _snapshotWatcher = null;
+    }
+
+    private async Task SnapshotPollLoopAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                await Task.Delay(_transportOptions.PollInterval, cancellationToken);
+                await CheckForSnapshotAsync(cancellationToken);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private async Task CheckForSnapshotAsync(CancellationToken cancellationToken)
+    {
+        if (_disposed || !_connected)
+        {
+            return;
+        }
+
+        if (!await _snapshotGate.WaitAsync(0, cancellationToken))
+        {
+            return;
+        }
+
+        try
+        {
+            if (!_snapshotStore.TryReadSnapshotIndex(out var index))
+            {
+                return;
+            }
+
+            if (index.Version <= _latestSnapshotVersion)
+            {
+                return;
+            }
+
+            var snapshot = await _snapshotStore.LoadLatestSnapshotAsync(cancellationToken);
+            if (snapshot is null || snapshot.Version <= _latestSnapshotVersion)
+            {
+                return;
+            }
+
+            _latestSnapshotVersion = snapshot.Version;
+
+            var payload = _snapshotSerializer.Serialize(snapshot);
+            SnapshotReceived?.Invoke(this, new CollabSnapshotReceivedEventArgs(
+                new SnapshotMessage(snapshot.SnapshotId, snapshot.Version, payload),
+                DateTimeOffset.UtcNow));
+        }
+        catch (Exception ex) when (ex is IOException or InvalidDataException)
+        {
+            ErrorReceived?.Invoke(this, new CollabErrorEventArgs(new ErrorMessage("shared-file", ex.Message), DateTimeOffset.UtcNow));
+        }
+        finally
+        {
+            _snapshotGate.Release();
+        }
     }
 
     private async ValueTask<CollabRecoveryResult> RecoverAsync(CancellationToken cancellationToken)

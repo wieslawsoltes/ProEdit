@@ -12,17 +12,30 @@ public sealed class CollabOpLogWriter : IDisposable
 
     public void Append(CollabOpBatch batch)
     {
-        var payload = CollabOpBatchJsonCodec.Serialize(batch);
-        var checksum = CollabChecksum.Compute(payload);
+        AppendMany(new[] { batch });
+    }
+
+    public void AppendMany(IReadOnlyList<CollabOpBatch> batches)
+    {
+        if (batches is null || batches.Count == 0)
+        {
+            return;
+        }
 
         lock (_sync)
         {
             using var writer = new BinaryWriter(_stream, System.Text.Encoding.UTF8, leaveOpen: true);
-            writer.Write(CollabPersistedFormat.OpLogMagic);
-            writer.Write(CollabPersistedFormat.OpLogVersion);
-            writer.Write(payload.Length);
-            writer.Write(checksum);
-            writer.Write(payload);
+            foreach (var batch in batches)
+            {
+                var payload = CollabOpBatchJsonCodec.Serialize(batch);
+                var checksum = CollabChecksum.Compute(payload);
+                writer.Write(CollabPersistedFormat.OpLogMagic);
+                writer.Write(CollabPersistedFormat.OpLogVersion);
+                writer.Write(payload.Length);
+                writer.Write(checksum);
+                writer.Write(payload);
+            }
+
             writer.Flush();
         }
     }

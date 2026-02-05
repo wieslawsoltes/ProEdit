@@ -43,13 +43,26 @@ public sealed class FileCollabSnapshotStore : ICollabSnapshotStore
 
     public ValueTask AppendOpsAsync(CollabOpBatch batch, CancellationToken cancellationToken = default)
     {
+        return AppendOpsAsync(new[] { batch }, cancellationToken);
+    }
+
+    public ValueTask AppendOpsAsync(IReadOnlyList<CollabOpBatch> batches, CancellationToken cancellationToken = default)
+    {
         cancellationToken.ThrowIfCancellationRequested();
+        if (batches is null || batches.Count == 0)
+        {
+            return ValueTask.CompletedTask;
+        }
+
         lock (_sync)
         {
             using var fileLock = AcquireLock();
             using var writer = new CollabOpLogWriter(_opLogPath);
-            writer.Append(batch);
-            _opCountSinceSnapshot += batch.Ops.Count;
+            writer.AppendMany(batches);
+            foreach (var batch in batches)
+            {
+                _opCountSinceSnapshot += batch.Ops.Count;
+            }
         }
 
         return ValueTask.CompletedTask;
