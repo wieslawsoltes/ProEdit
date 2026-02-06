@@ -433,22 +433,6 @@
                 </Grid>
             </Grid>
         </DockPanel>
-        <Border x:Name="LoadingOverlay"
-                Background="#80000000"
-                IsVisible="False">
-            <StackPanel HorizontalAlignment="Center"
-                        VerticalAlignment="Center"
-                        Spacing="8">
-                <TextBlock x:Name="LoadingText"
-                           Text="Loading..."
-                           Foreground="White"
-                           FontSize="14"
-                           HorizontalAlignment="Center" />
-                <ProgressBar x:Name="LoadingProgressBar"
-                             Width="240"
-                             Height="6"
-                             IsIndeterminate="True" />
-            </StackPanel>
-        </Border>
+        <ContentControl x:Name="LoadingOverlayHost" />
     </Grid>
 </UserControl>

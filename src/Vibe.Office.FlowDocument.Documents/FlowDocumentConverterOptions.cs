@@ -70,4 +70,11 @@ public sealed class FlowDocumentConverterOptions
     /// Gets or sets a factory for block UI placeholder text.
     /// </summary>
     public Func<object?, string>? BlockUiPlaceholderFactory { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether table cell visual properties
+    /// (padding, borders, shading, alignment metadata) should be exported
+    /// from FlowDocument cells into the document model.
+    /// </summary>
+    public bool ExportCellVisualProperties { get; set; } = true;
 }

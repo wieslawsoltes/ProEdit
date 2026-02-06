@@ -17,10 +17,13 @@
     <PackageReference Include="Avalonia.Themes.Fluent" />
     <PackageReference Include="Avalonia.Fonts.Inter" />
     <PackageReference Include="ReactiveUI" />
+    <PackageReference Include="ReactiveUI.Avalonia" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Vibe.Office.FlowDocument\Vibe.Office.FlowDocument.csproj" />
     <ProjectReference Include="..\Vibe.Office.FlowDocument.Avalonia\Vibe.Office.FlowDocument.Avalonia.csproj" />
+    <ProjectReference Include="..\Vibe.Office.FlowDocument.IO\Vibe.Office.FlowDocument.IO.csproj" />
+    <ProjectReference Include="..\Vibe.Office.RichText.Avalonia\Vibe.Office.RichText.Avalonia.csproj" />
   </ItemGroup>
 </Project>

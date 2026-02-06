@@ -104,6 +104,15 @@ public static class EditorHomeServiceRegistry
         services.Register<IEditorCommandRouter>(commandRouter);
         services.Register<IRibbonContextSnapshotProvider>(ribbonSnapshotProvider);
         services.Register<IEditorFormatProfileService>(formatProfileService);
+        if (session is IEditorBatchEdit batchEdit)
+        {
+            services.Register<IEditorBatchEdit>(batchEdit);
+        }
+
+        if (session is IEditorChangeInfo changeInfo)
+        {
+            services.Register<IEditorChangeInfo>(changeInfo);
+        }
 
         if (session is IProofingSpanProviderHost proofingHost)
         {

@@ -222,9 +222,53 @@ public sealed class FlowDocumentConverter
             target.Properties.IndentRight = (float)source.Margin.Right;
         }
 
+        if (source.LineHeight.HasValue && source.LineHeight.Value > 0d)
+        {
+            target.Properties.LineSpacing = Math.Max(1, (int)Math.Round(source.LineHeight.Value));
+            target.Properties.LineSpacingRule = DocLineSpacingRule.Exactly;
+        }
+
+        if (source.BreakPageBefore.HasValue)
+        {
+            target.Properties.PageBreakBefore = source.BreakPageBefore.Value;
+        }
+
+        // BreakColumnBefore has no dedicated equivalent in the document model;
+        // page breaks are preserved while column-break intent is explicitly degraded.
+        if (!string.IsNullOrWhiteSpace(source.LineStackingStrategy)
+            && Enum.TryParse<DocLineSpacingRule>(source.LineStackingStrategy, ignoreCase: true, out var spacingRule))
+        {
+            target.Properties.LineSpacingRule = spacingRule;
+        }
+
+        if (FlowColorParser.TryParse(source.Background, out var shading))
+        {
+            target.Properties.ShadingColor = shading;
+        }
+
+        if (!source.BorderThickness.IsEmpty)
+        {
+            ApplyFlowBordersToParagraph(source.BorderThickness, source.BorderBrush, target.Properties.Borders);
+        }
+
+        ApplyFlowDirectionToParagraph(source.FlowDirection, target.Properties);
+
         if (source is Vibe.Office.FlowDocument.Paragraph paragraph && paragraph.TextIndent.HasValue)
         {
             target.Properties.FirstLineIndent = (float)paragraph.TextIndent.Value;
+        }
+
+        if (source is Vibe.Office.FlowDocument.Paragraph flowParagraph)
+        {
+            if (flowParagraph.KeepWithNext.HasValue)
+            {
+                target.Properties.KeepWithNext = flowParagraph.KeepWithNext.Value;
+            }
+
+            if (flowParagraph.KeepTogether.HasValue)
+            {
+                target.Properties.KeepLinesTogether = flowParagraph.KeepTogether.Value;
+            }
         }
     }
 
@@ -317,6 +361,12 @@ public sealed class FlowDocumentConverter
     private TableBlock ConvertTable(Vibe.Office.FlowDocument.Table table)
     {
         var tableBlock = new TableBlock();
+        if (table.CellSpacing.HasValue && table.CellSpacing.Value >= 0d)
+        {
+            tableBlock.Properties.CellSpacing = (float)table.CellSpacing.Value;
+            tableBlock.Properties.CellSpacingUnit = TableWidthUnit.Dxa;
+        }
+
         if (table.Columns.Count > 0)
         {
             foreach (var column in table.Columns)
@@ -364,7 +414,7 @@ public sealed class FlowDocumentConverter
                     FlushPendingAtOrBeforeCurrent();
                     var columnSpan = Math.Max(1, cell.ColumnSpan);
                     var rowSpan = Math.Max(1, cell.RowSpan);
-                    var tableCell = ConvertTableCell(cell, columnSpan, rowSpan);
+                    var tableCell = ConvertTableCell(cell, columnSpan, rowSpan, columnIndex);
                     tableRow.Cells.Add(tableCell);
                     if (rowSpan > 1)
                     {
@@ -497,7 +547,11 @@ public sealed class FlowDocumentConverter
         return textBox;
     }
 
-    private DocumentTableCell ConvertTableCell(Vibe.Office.FlowDocument.TableCell cell, int columnSpan, int rowSpan)
+    private DocumentTableCell ConvertTableCell(
+        Vibe.Office.FlowDocument.TableCell cell,
+        int columnSpan,
+        int rowSpan,
+        int columnIndex)
     {
         var tableCell = new DocumentTableCell
         {
@@ -521,7 +575,180 @@ public sealed class FlowDocumentConverter
             }
         }
 
+        if (_options.ExportCellVisualProperties)
+        {
+            ApplyFlowTableCellVisualProperties(cell, tableCell, columnIndex);
+        }
+
         return tableCell;
+    }
+
+    private static void ApplyFlowTableCellVisualProperties(
+        Vibe.Office.FlowDocument.TableCell source,
+        DocumentTableCell target,
+        int columnIndex)
+    {
+        if (!source.Padding.IsEmpty)
+        {
+            target.Properties.Padding = new DocThickness(
+                (float)source.Padding.Left,
+                (float)source.Padding.Top,
+                (float)source.Padding.Right,
+                (float)source.Padding.Bottom);
+        }
+
+        if (FlowColorParser.TryParse(source.Background, out var shading))
+        {
+            target.Properties.ShadingColor = shading;
+        }
+
+        if (!source.BorderThickness.IsEmpty)
+        {
+            ApplyFlowBordersToCell(source.BorderThickness, source.BorderBrush, target.Properties.Borders, columnIndex);
+        }
+
+        if (TryParseDocTextDirection(source.FlowDirection, out var direction))
+        {
+            target.Properties.TextDirection = direction;
+        }
+
+        if (source.TextAlignment.HasValue)
+        {
+            ApplyCellAlignmentToParagraphs(target, ConvertAlignment(source.TextAlignment.Value));
+        }
+    }
+
+    private static void ApplyCellAlignmentToParagraphs(DocumentTableCell cell, ParagraphAlignment alignment)
+    {
+        for (var blockIndex = 0; blockIndex < cell.Blocks.Count; blockIndex++)
+        {
+            if (cell.Blocks[blockIndex] is ParagraphBlock paragraph && !paragraph.Properties.Alignment.HasValue)
+            {
+                paragraph.Properties.Alignment = alignment;
+            }
+        }
+    }
+
+    private static void ApplyFlowBordersToParagraph(
+        Vibe.Office.FlowDocument.FlowThickness thickness,
+        string? brush,
+        ParagraphBorders target)
+    {
+        var hasColor = FlowColorParser.TryParse(brush, out var color);
+        if (thickness.Top > 0d)
+        {
+            target.Top = new BorderLine
+            {
+                Thickness = (float)thickness.Top,
+                Color = hasColor ? color : DocColor.Black
+            };
+        }
+
+        if (thickness.Bottom > 0d)
+        {
+            target.Bottom = new BorderLine
+            {
+                Thickness = (float)thickness.Bottom,
+                Color = hasColor ? color : DocColor.Black
+            };
+        }
+
+        if (thickness.Left > 0d)
+        {
+            target.Left = new BorderLine
+            {
+                Thickness = (float)thickness.Left,
+                Color = hasColor ? color : DocColor.Black
+            };
+        }
+
+        if (thickness.Right > 0d)
+        {
+            target.Right = new BorderLine
+            {
+                Thickness = (float)thickness.Right,
+                Color = hasColor ? color : DocColor.Black
+            };
+        }
+    }
+
+    private static void ApplyFlowBordersToCell(
+        Vibe.Office.FlowDocument.FlowThickness thickness,
+        string? brush,
+        TableCellBorders target,
+        int columnIndex)
+    {
+        var hasColor = FlowColorParser.TryParse(brush, out var color);
+        if (thickness.Top > 0d)
+        {
+            target.Top = new BorderLine
+            {
+                Thickness = (float)thickness.Top,
+                Color = hasColor ? color : DocColor.Black
+            };
+        }
+
+        if (thickness.Bottom > 0d)
+        {
+            target.Bottom = new BorderLine
+            {
+                Thickness = (float)thickness.Bottom,
+                Color = hasColor ? color : DocColor.Black
+            };
+        }
+
+        if (thickness.Left > 0d)
+        {
+            target.Left = new BorderLine
+            {
+                Thickness = (float)thickness.Left,
+                Color = hasColor ? color : DocColor.Black
+            };
+        }
+
+        if (thickness.Right > 0d)
+        {
+            target.Right = new BorderLine
+            {
+                Thickness = (float)thickness.Right,
+                Color = hasColor ? color : DocColor.Black
+            };
+        }
+
+        if (columnIndex == 0 && target.Left is null && thickness.Left > 0d)
+        {
+            target.Left = new BorderLine
+            {
+                Thickness = (float)thickness.Left,
+                Color = hasColor ? color : DocColor.Black
+            };
+        }
+    }
+
+    private static void ApplyFlowDirectionToParagraph(string? flowDirection, ParagraphProperties target)
+    {
+        if (string.IsNullOrWhiteSpace(flowDirection))
+        {
+            return;
+        }
+
+        if (string.Equals(flowDirection, "RightToLeft", StringComparison.OrdinalIgnoreCase))
+        {
+            target.Bidi = true;
+            return;
+        }
+
+        if (TryParseDocTextDirection(flowDirection, out var direction))
+        {
+            target.TextDirection = direction;
+        }
+    }
+
+    private static bool TryParseDocTextDirection(string? text, out DocTextDirection direction)
+    {
+        direction = default;
+        return !string.IsNullOrWhiteSpace(text)
+               && Enum.TryParse(text, ignoreCase: true, out direction);
     }
 
     private static DocumentTableCell CreateRowSpanPlaceholder(int columnSpan)

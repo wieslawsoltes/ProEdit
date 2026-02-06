@@ -150,6 +150,9 @@ public sealed class DocumentView : Control, ILogicalScrollable
     private ICollabUiService? _collabUiService;
     private PresenceSignature? _lastPresenceSignature;
     private CollabEditorSessionCoordinator? _collabCoordinator;
+    private ICollabRealtimeSession? _collabSession;
+    private Func<Guid, string?>? _collabAuthorResolver;
+    private SynchronizationContext? _collabSynchronizationContext;
 
     private bool _isSelecting;
     private bool _isLoading;
@@ -270,6 +273,10 @@ public sealed class DocumentView : Control, ILogicalScrollable
     private TextRange _inlineDragRange;
     private bool _isPromotingInlineShape;
     private Size _pendingLayoutSize;
+    private bool _acceptsReturn = true;
+    private bool _acceptsTab;
+    private bool _isReadOnly;
+    private bool _isReadOnlyCaretVisible;
 
     public DocumentView()
     {
@@ -325,6 +332,57 @@ public sealed class DocumentView : Control, ILogicalScrollable
 
             _renderOptions.ShowInvisibles = value;
             InvalidateAllPages();
+        }
+    }
+
+    public bool AcceptsTab
+    {
+        get => _acceptsTab;
+        set => _acceptsTab = value;
+    }
+
+    public bool AcceptsReturn
+    {
+        get => _acceptsReturn;
+        set => _acceptsReturn = value;
+    }
+
+    public bool IsReadOnly
+    {
+        get => _isReadOnly;
+        set
+        {
+            if (_isReadOnly == value)
+            {
+                return;
+            }
+
+            _isReadOnly = value;
+            if (_isReadOnly)
+            {
+                SetPictureCropMode(false);
+                EndShapeTextEdit();
+                EndHeaderFooterEdit();
+                _isSelecting = false;
+                UpdatePointerCursor(null);
+            }
+
+            InvalidateVisual();
+        }
+    }
+
+    public bool IsReadOnlyCaretVisible
+    {
+        get => _isReadOnlyCaretVisible;
+        set
+        {
+            if (_isReadOnlyCaretVisible == value)
+            {
+                return;
+            }
+
+            _isReadOnlyCaretVisible = value;
+            InvalidateVisual();
         }
     }
 
@@ -574,37 +632,57 @@ public sealed class DocumentView : Control, ILogicalScrollable
     protected override void OnTextInput(TextInputEventArgs e)
     {
         base.OnTextInput(e);
-        if (_isLoading)
+        if (string.IsNullOrEmpty(e.Text))
         {
             return;
+        }
+
+        if (HandleTextInputCore(e.Text.AsSpan()))
+        {
+            e.Handled = true;
+        }
+    }
+
+    public bool HandleHostedTextInput(string? text)
+    {
+        if (string.IsNullOrEmpty(text))
+        {
+            return false;
+        }
+
+        return HandleTextInputCore(text.AsSpan());
+    }
+
+    private bool HandleTextInputCore(ReadOnlySpan<char> text)
+    {
+        if (_isLoading || text.IsEmpty || _isReadOnly)
+        {
+            return false;
         }
 
         if (_headerFooterSession is not null)
         {
-            if (_headerFooterSession.InputAdapter.HandleTextInput(e))
+            if (_headerFooterSession.InputAdapter.HandleTextInput(text, EditorModifiers.None))
             {
                 MarkHeaderFooterDirty();
-                e.Handled = true;
+                return true;
             }
 
-            return;
+            return false;
         }
 
         if (_shapeTextSession is not null)
         {
-            if (_shapeTextSession.InputAdapter.HandleTextInput(e))
+            if (_shapeTextSession.InputAdapter.HandleTextInput(text, EditorModifiers.None))
             {
                 MarkShapeTextDirty();
-                e.Handled = true;
+                return true;
             }
 
-            return;
+            return false;
         }
 
-        if (_inputAdapter.HandleTextInput(e))
-        {
-            e.Handled = true;
-        }
+        return _inputAdapter.HandleTextInput(text, EditorModifiers.None);
     }
 
     protected override void OnKeyDown(KeyEventArgs e)
@@ -722,7 +800,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
             EndShapeTextEdit();
         }
 
-        if (_headerFooterSession is null && TryHandleInkPointerPressed(e))
+        if (_headerFooterSession is null && !_isReadOnly && TryHandleInkPointerPressed(e))
         {
             return;
         }
@@ -734,24 +812,30 @@ public sealed class DocumentView : Control, ILogicalScrollable
                 return;
             }
         }
-        else if (TryBeginHeaderFooterEditFromPoint(e))
+        else if (!_isReadOnly && TryBeginHeaderFooterEditFromPoint(e))
         {
             return;
         }
 
-        if (_headerFooterSession is null && _shapeTextSession is null && TryBeginShapeTextEditFromPoint(e))
+        if (!_isReadOnly
+            && _headerFooterSession is null
+            && _shapeTextSession is null
+            && TryBeginShapeTextEditFromPoint(e))
         {
             return;
         }
 
         if (_headerFooterSession is null)
         {
-            if (TryHandlePictureCropPointerPressed(e) || TryHandleTableResizePointerPressed(e))
+            if (!_isReadOnly && (TryHandlePictureCropPointerPressed(e) || TryHandleTableResizePointerPressed(e)))
             {
                 return;
             }
 
-            if (TryHandleShapePointerPressed(e) || TryHandleFloatingImagePointerPressed(e) || TryHandleInlineObjectPointerPressed(e))
+            if (!_isReadOnly
+                && (TryHandleShapePointerPressed(e)
+                    || TryHandleFloatingImagePointerPressed(e)
+                    || TryHandleInlineObjectPointerPressed(e)))
             {
                 return;
             }
@@ -2564,7 +2648,15 @@ public sealed class DocumentView : Control, ILogicalScrollable
         var effectiveOffset = GetEffectiveScrollOffset();
         UpdateHeaderFooterRenderOptions();
         UpdateShapeTextRenderOptions();
-        context.Custom(new SkiaDrawOperation(Bounds, _editor, _renderer, _renderOptions, effectiveOffset));
+        context.Custom(
+            new SkiaDrawOperation(
+                Bounds,
+                _editor,
+                _renderer,
+                _renderOptions,
+                effectiveOffset,
+                _isReadOnly,
+                _isReadOnlyCaretVisible));
         DrawTableSelectionOverlay(context, effectiveOffset);
         DrawTableResizeHandles(context, effectiveOffset);
         DrawPictureCropOverlay(context, effectiveOffset);
@@ -2587,6 +2679,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
         _editor.Changed -= OnEditorChanged;
         _editor = CreateEditor(document);
         _editor.UpdateLayout((float)Bounds.Width, (float)Bounds.Height);
+        RecreateCollaborationCoordinatorIfNeeded();
         ApplyEditorState();
         TriggerFieldUpdate(FieldUpdateTrigger.Open, recordHistory: false);
     }
@@ -2621,6 +2714,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
             CreateViewOptionsService(),
             documentFactory: DocumentTemplates.CreateDefaultDocument);
         ConfigureInputPipeline(editor);
+        RecreateCollaborationCoordinatorIfNeeded();
         ApplyEditorState();
         TriggerFieldUpdate(FieldUpdateTrigger.Open, recordHistory: false);
     }
@@ -2724,6 +2818,40 @@ public sealed class DocumentView : Control, ILogicalScrollable
         {
             EnsurePositionVisible(range.Start);
         }
+    }
+
+    public void SetCaretFromViewPoint(Point point, bool extendSelection = false)
+    {
+        var docPoint = GetDocumentPoint(point);
+        _editor.SetCaretFromPoint(docPoint.X, docPoint.Y, extendSelection);
+    }
+
+    public bool IsTextHitAtViewPoint(Point point)
+    {
+        var docPoint = GetDocumentPoint(point);
+        var layout = _editor.Layout;
+        var lines = layout.Lines;
+        for (var i = 0; i < lines.Count; i++)
+        {
+            var line = lines[i];
+            if (line.ParagraphIndex < 0)
+            {
+                continue;
+            }
+
+            var width = MathF.Max(1f, line.Width);
+            var height = MathF.Max(1f, line.LineHeight);
+            var left = line.X;
+            var top = line.Y;
+            var right = left + width;
+            var bottom = top + height;
+            if (docPoint.X >= left && docPoint.X <= right && docPoint.Y >= top && docPoint.Y <= bottom)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public void SetLoading(bool isLoading)
@@ -6008,7 +6136,17 @@ public sealed class DocumentView : Control, ILogicalScrollable
         _kernel.Services.TryGet<ITableSelectionSnapshotProvider>(out var tableSelectionProvider);
         _kernel.Services.TryGet<IContentControlInteractionService>(out var contentControls);
         _kernel.Services.TryGet<IAutoCorrectService>(out var autoCorrect);
-        var commandRouter = new EditorCommandInputRouter(_kernel.Commands, editor, undoRedo, clipboard, tableSelectionProvider, contentControls, autoCorrect);
+        var commandRouter = new EditorCommandInputRouter(
+            _kernel.Commands,
+            editor,
+            undoRedo,
+            clipboard,
+            tableSelectionProvider,
+            contentControls,
+            autoCorrect,
+            () => _acceptsTab,
+            () => _acceptsReturn,
+            () => _isReadOnly);
         _inputAdapter = new AvaloniaEditorInputAdapter(commandRouter);
     }
 
@@ -6067,7 +6205,24 @@ public sealed class DocumentView : Control, ILogicalScrollable
     public void EnableCollaboration(ICollabRealtimeSession session, Func<Guid, string?>? authorResolver = null)
     {
         ArgumentNullException.ThrowIfNull(session);
-        DisableCollaboration();
+        _collabSession = session;
+        _collabAuthorResolver = authorResolver;
+        _collabSynchronizationContext ??= SynchronizationContext.Current;
+        _collabCoordinator?.Dispose();
+        _collabCoordinator = null;
+        RecreateCollaborationCoordinatorIfNeeded();
+    }
+
+    private void RecreateCollaborationCoordinatorIfNeeded()
+    {
+        if (_collabSession is null)
+        {
+            _collabCoordinator?.Dispose();
+            _collabCoordinator = null;
+            return;
+        }
+
+        _collabCoordinator?.Dispose();
         Action? onResyncRequired = null;
         if (_collabUiService is not null)
         {
@@ -6080,9 +6235,9 @@ public sealed class DocumentView : Control, ILogicalScrollable
             _kernel.Services,
             _kernel.Commands,
             _editor,
-            session,
-            SynchronizationContext.Current,
-            authorResolver,
+            _collabSession,
+            _collabSynchronizationContext ?? SynchronizationContext.Current,
+            _collabAuthorResolver,
             onResyncRequired);
     }
 
@@ -6090,6 +6245,9 @@ public sealed class DocumentView : Control, ILogicalScrollable
     {
         _collabCoordinator?.Dispose();
         _collabCoordinator = null;
+        _collabSession = null;
+        _collabAuthorResolver = null;
+        _collabSynchronizationContext = null;
     }
 
     public bool TryGetService<T>(out T service) where T : class
@@ -6139,6 +6297,22 @@ public sealed class DocumentView : Control, ILogicalScrollable
         }
     }
 
+    public bool UnregisterService<T>() where T : class
+    {
+        var removed = _kernel.Services.Remove<T>();
+        if (!removed)
+        {
+            return false;
+        }
+
+        if (typeof(T) == typeof(ICollabUiService))
+        {
+            DetachCollaborationService();
+        }
+
+        return true;
+    }
+
     private void AttachCollaborationService(ICollabUiService collabService)
     {
         if (ReferenceEquals(_collabUiService, collabService))
@@ -6146,13 +6320,21 @@ public sealed class DocumentView : Control, ILogicalScrollable
             return;
         }
 
-        if (_collabUiService is not null)
-        {
-            _collabUiService.StateChanged -= OnCollabStateChanged;
-        }
+        DetachCollaborationService();
 
         _collabUiService = collabService;
         _collabUiService.StateChanged += OnCollabStateChanged;
+    }
+
+    private void DetachCollaborationService()
+    {
+        if (_collabUiService is null)
+        {
+            return;
+        }
+
+        _collabUiService.StateChanged -= OnCollabStateChanged;
+        _collabUiService = null;
     }
 
     private void OnCollabStateChanged(object? sender, EventArgs e)
@@ -6659,7 +6841,17 @@ public sealed class DocumentView : Control, ILogicalScrollable
         }
 
         services.TryGet<IAutoCorrectService>(out var autoCorrect);
-        var inputRouter = new EditorCommandInputRouter(dispatcher, editor, undoRedo, clipboard, tableSelectionProvider, contentControls, autoCorrect);
+        var inputRouter = new EditorCommandInputRouter(
+            dispatcher,
+            editor,
+            undoRedo,
+            clipboard,
+            tableSelectionProvider,
+            contentControls,
+            autoCorrect,
+            () => _acceptsTab,
+            () => _acceptsReturn,
+            () => _isReadOnly);
         var inputAdapter = new AvaloniaEditorInputAdapter(inputRouter);
         session = new HeaderFooterEditSession(hit.Mode, hit.Target, document, editor, inputAdapter);
         return true;
@@ -7032,7 +7224,17 @@ public sealed class DocumentView : Control, ILogicalScrollable
         }
 
         services.TryGet<IAutoCorrectService>(out var autoCorrect);
-        var inputRouter = new EditorCommandInputRouter(dispatcher, editor, undoRedo, clipboard, tableSelectionProvider, contentControls, autoCorrect);
+        var inputRouter = new EditorCommandInputRouter(
+            dispatcher,
+            editor,
+            undoRedo,
+            clipboard,
+            tableSelectionProvider,
+            contentControls,
+            autoCorrect,
+            () => _acceptsTab,
+            () => _acceptsReturn,
+            () => _isReadOnly);
         var inputAdapter = new AvaloniaEditorInputAdapter(inputRouter);
         session = new ShapeTextEditSession(shape, textBox, document, editor, inputAdapter);
         return true;
@@ -8410,14 +8612,25 @@ public sealed class DocumentView : Control, ILogicalScrollable
         private readonly SkiaDocumentRenderer _renderer;
         private readonly RenderOptions _options;
         private readonly Vector _offset;
+        private readonly bool _isReadOnly;
+        private readonly bool _isReadOnlyCaretVisible;
 
-        public SkiaDrawOperation(Rect bounds, EditorController editor, SkiaDocumentRenderer renderer, RenderOptions options, Vector offset)
+        public SkiaDrawOperation(
+            Rect bounds,
+            EditorController editor,
+            SkiaDocumentRenderer renderer,
+            RenderOptions options,
+            Vector offset,
+            bool isReadOnly,
+            bool isReadOnlyCaretVisible)
         {
             _bounds = bounds;
             _editor = editor;
             _renderer = renderer;
             _options = options;
             _offset = offset;
+            _isReadOnly = isReadOnly;
+            _isReadOnlyCaretVisible = isReadOnlyCaretVisible;
         }
 
         public Rect Bounds => _bounds;
@@ -8447,7 +8660,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
                 _options.Caret = _editor.Caret;
                 _options.Selection = _editor.Selection.IsEmpty ? null : _editor.Selection;
                 _options.SelectionRanges = _editor.SelectionRanges;
-                _options.ShowCaret = true;
+                _options.ShowCaret = !_isReadOnly || _isReadOnlyCaretVisible;
             }
             else
             {

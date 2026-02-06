@@ -42,6 +42,13 @@ public interface IEditorMutableSession : IEditorSession
     void MoveRight(bool extendSelection);
     void MoveUp(bool extendSelection);
     void MoveDown(bool extendSelection);
+    void MoveLineStart(bool extendSelection);
+    void MoveLineEnd(bool extendSelection);
+    void MoveDocumentStart(bool extendSelection);
+    void MoveDocumentEnd(bool extendSelection);
+    void MovePageUp(bool extendSelection);
+    void MovePageDown(bool extendSelection);
+    void SelectAll();
 
     void SetCaretFromPoint(float x, float y, bool extendSelection);
     void SetCaretFromPoint(float x, float y, SelectionUpdateMode mode);

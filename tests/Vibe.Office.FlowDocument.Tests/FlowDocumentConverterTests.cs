@@ -231,4 +231,120 @@ public sealed class FlowDocumentConverterTests
         Assert.Equal(2, converter.EmbeddedUiElements.Count);
         Assert.Contains(converter.EmbeddedUiElements, element => element.Id == blockId && !element.IsInline);
     }
+
+    [Fact]
+    public void ConvertsTableCellVisualPropertiesToDocumentModel()
+    {
+        var document = new FlowDocument();
+        var table = new Table();
+        var rowGroup = new TableRowGroup();
+        var row = new TableRow();
+        var cell = new TableCell
+        {
+            Padding = new FlowThickness(6, 4, 6, 4),
+            BorderThickness = new FlowThickness(1, 2, 3, 4),
+            BorderBrush = "#102030",
+            Background = "#DDEEFF",
+            TextAlignment = FlowTextAlignment.Center
+        };
+        cell.Blocks.Add(new Paragraph("Cell"));
+        row.Cells.Add(cell);
+        rowGroup.Rows.Add(row);
+        table.RowGroups.Add(rowGroup);
+        document.Blocks.Add(table);
+
+        var converter = new FlowDocumentConverter();
+        var result = converter.Convert(document);
+
+        var tableBlock = Assert.IsType<TableBlock>(result.Blocks[0]);
+        var tableCell = tableBlock.Rows[0].Cells[0];
+        Assert.NotNull(tableCell.Properties.Padding);
+        Assert.Equal(6f, tableCell.Properties.Padding!.Value.Left);
+        Assert.Equal(4f, tableCell.Properties.Padding!.Value.Top);
+        Assert.NotNull(tableCell.Properties.ShadingColor);
+        Assert.Equal(new Vibe.Office.Primitives.DocColor(221, 238, 255), tableCell.Properties.ShadingColor!.Value);
+        Assert.NotNull(tableCell.Properties.Borders.Top);
+        Assert.NotNull(tableCell.Properties.Borders.Bottom);
+        Assert.NotNull(tableCell.Properties.Borders.Left);
+        Assert.NotNull(tableCell.Properties.Borders.Right);
+        Assert.Equal(2f, tableCell.Properties.Borders.Top!.Thickness);
+        Assert.Equal(1f, tableCell.Properties.Borders.Left!.Thickness);
+        Assert.Equal(3f, tableCell.Properties.Borders.Right!.Thickness);
+        Assert.Equal(4f, tableCell.Properties.Borders.Bottom!.Thickness);
+
+        var paragraph = Assert.IsType<ParagraphBlock>(tableCell.Blocks[0]);
+        Assert.Equal(ParagraphAlignment.Center, paragraph.Properties.Alignment);
+    }
+
+    [Fact]
+    public void ConvertsParagraphVisualPropertiesToDocumentModel()
+    {
+        var document = new FlowDocument();
+        var paragraph = new Paragraph("Flow")
+        {
+            TextIndent = 24,
+            KeepTogether = true,
+            KeepWithNext = true,
+            BreakPageBefore = true,
+            LineHeight = 18,
+            LineStackingStrategy = "Exactly",
+            Background = "#F0E0D0",
+            BorderThickness = new FlowThickness(1, 1, 1, 1),
+            BorderBrush = "#223344",
+            FlowDirection = "RightToLeft"
+        };
+        document.Blocks.Add(paragraph);
+
+        var converter = new FlowDocumentConverter();
+        var result = converter.Convert(document);
+
+        var paragraphBlock = Assert.IsType<ParagraphBlock>(result.Blocks[0]);
+        Assert.Equal(24f, paragraphBlock.Properties.FirstLineIndent);
+        Assert.Equal(true, paragraphBlock.Properties.KeepLinesTogether);
+        Assert.Equal(true, paragraphBlock.Properties.KeepWithNext);
+        Assert.Equal(true, paragraphBlock.Properties.PageBreakBefore);
+        Assert.Equal(18, paragraphBlock.Properties.LineSpacing);
+        Assert.Equal(DocLineSpacingRule.Exactly, paragraphBlock.Properties.LineSpacingRule);
+        Assert.Equal(true, paragraphBlock.Properties.Bidi);
+        Assert.Equal(new Vibe.Office.Primitives.DocColor(240, 224, 208), paragraphBlock.Properties.ShadingColor);
+        Assert.NotNull(paragraphBlock.Properties.Borders.Top);
+        Assert.NotNull(paragraphBlock.Properties.Borders.Bottom);
+        Assert.NotNull(paragraphBlock.Properties.Borders.Left);
+        Assert.NotNull(paragraphBlock.Properties.Borders.Right);
+    }
+
+    [Fact]
+    public void DisablesCellVisualExportWhenOptionIsOff()
+    {
+        var document = new FlowDocument();
+        var table = new Table();
+        var group = new TableRowGroup();
+        var row = new TableRow();
+        var cell = new TableCell
+        {
+            Padding = new FlowThickness(4, 4, 4, 4),
+            BorderThickness = new FlowThickness(1, 1, 1, 1),
+            BorderBrush = "#101010",
+            Background = "#EFEFEF"
+        };
+        cell.Blocks.Add(new Paragraph("Cell"));
+        row.Cells.Add(cell);
+        group.Rows.Add(row);
+        table.RowGroups.Add(group);
+        document.Blocks.Add(table);
+
+        var converter = new FlowDocumentConverter(new FlowDocumentConverterOptions
+        {
+            ExportCellVisualProperties = false
+        });
+        var result = converter.Convert(document);
+
+        var tableCell = Assert.IsType<TableBlock>(result.Blocks[0]).Rows[0].Cells[0];
+        Assert.Null(tableCell.Properties.Padding);
+        Assert.Null(tableCell.Properties.ShadingColor);
+        Assert.Null(tableCell.Properties.Borders.Top);
+        Assert.Null(tableCell.Properties.Borders.Bottom);
+        Assert.Null(tableCell.Properties.Borders.Left);
+        Assert.Null(tableCell.Properties.Borders.Right);
+    }
 }

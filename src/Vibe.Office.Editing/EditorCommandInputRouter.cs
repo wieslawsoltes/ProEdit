@@ -11,6 +11,9 @@ public sealed class EditorCommandInputRouter : IEditorInputRouter
     private readonly EditorClipboardController? _clipboardController;
     private readonly IContentControlInteractionService? _contentControls;
     private readonly IAutoCorrectService? _autoCorrect;
+    private readonly Func<bool> _acceptsTabProvider;
+    private readonly Func<bool> _acceptsReturnProvider;
+    private readonly Func<bool> _isReadOnlyProvider;
 
     public EditorCommandInputRouter(
         EditorCommandDispatcher dispatcher,
@@ -19,7 +22,10 @@ public sealed class EditorCommandInputRouter : IEditorInputRouter
         IClipboardService? clipboard = null,
         ITableSelectionSnapshotProvider? tableSelectionProvider = null,
         IContentControlInteractionService? contentControls = null,
-        IAutoCorrectService? autoCorrect = null)
+        IAutoCorrectService? autoCorrect = null,
+        Func<bool>? acceptsTabProvider = null,
+        Func<bool>? acceptsReturnProvider = null,
+        Func<bool>? isReadOnlyProvider = null)
     {
         _dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
         _session = session ?? throw new ArgumentNullException(nameof(session));
@@ -27,6 +33,9 @@ public sealed class EditorCommandInputRouter : IEditorInputRouter
         _clipboard = clipboard;
         _contentControls = contentControls;
         _autoCorrect = autoCorrect;
+        _acceptsTabProvider = acceptsTabProvider ?? (() => false);
+        _acceptsReturnProvider = acceptsReturnProvider ?? (() => true);
+        _isReadOnlyProvider = isReadOnlyProvider ?? (() => false);
         if (clipboard is not null)
         {
             _clipboardController = new EditorClipboardController(session, clipboard, tableSelectionProvider);
@@ -40,8 +49,19 @@ public sealed class EditorCommandInputRouter : IEditorInputRouter
             return false;
         }
 
-        if (text.Length == 1 && (text[0] == '\r' || text[0] == '\n'))
+        if (_isReadOnlyProvider())
         {
+            return false;
+        }
+
+        if ((text.Length == 1 && (text[0] == '\r' || text[0] == '\n'))
+            || (text.Length == 2 && text[0] == '\r' && text[1] == '\n'))
+        {
+            if (!_acceptsReturnProvider())
+            {
+                return false;
+            }
+
             _dispatcher.Dispatch(new InsertParagraphBreakCommand(), _session);
             return true;
         }
@@ -101,12 +121,27 @@ public sealed class EditorCommandInputRouter : IEditorInputRouter
         switch (key)
         {
             case EditorKey.Backspace:
+                if (_isReadOnlyProvider())
+                {
+                    return false;
+                }
+
                 _dispatcher.Dispatch(new BackspaceCommand(), _session);
                 return true;
             case EditorKey.Delete:
+                if (_isReadOnlyProvider())
+                {
+                    return false;
+                }
+
                 _dispatcher.Dispatch(new DeleteForwardCommand(), _session);
                 return true;
             case EditorKey.Enter:
+                if (_isReadOnlyProvider() || !_acceptsReturnProvider())
+                {
+                    return false;
+                }
+
                 _dispatcher.Dispatch(new InsertParagraphBreakCommand(), _session);
                 return true;
             case EditorKey.Left:
@@ -121,9 +156,68 @@ public sealed class EditorCommandInputRouter : IEditorInputRouter
             case EditorKey.Down:
                 _dispatcher.Dispatch(new MoveDownCommand(extend), _session);
                 return true;
+            case EditorKey.Home:
+                if (HasDocumentModifier(modifiers))
+                {
+                    _dispatcher.Dispatch(new MoveDocumentStartCommand(extend), _session);
+                }
+                else
+                {
+                    _dispatcher.Dispatch(new MoveLineStartCommand(extend), _session);
+                }
+
+                return true;
+            case EditorKey.End:
+                if (HasDocumentModifier(modifiers))
+                {
+                    _dispatcher.Dispatch(new MoveDocumentEndCommand(extend), _session);
+                }
+                else
+                {
+                    _dispatcher.Dispatch(new MoveLineEndCommand(extend), _session);
+                }
+
+                return true;
+            case EditorKey.PageUp:
+                _dispatcher.Dispatch(new MovePageUpCommand(extend), _session);
+                return true;
+            case EditorKey.PageDown:
+                _dispatcher.Dispatch(new MovePageDownCommand(extend), _session);
+                return true;
+            case EditorKey.Tab:
+                if (_isReadOnlyProvider() || !ShouldInsertTab(modifiers))
+                {
+                    return false;
+                }
+
+                _dispatcher.Dispatch(new InsertTabCommand(), _session);
+                return true;
+            case EditorKey.A:
+                if (!HasDocumentModifier(modifiers) || (modifiers & EditorModifiers.Alt) != 0)
+                {
+                    return false;
+                }
+
+                _dispatcher.Dispatch(new SelectAllCommand(), _session);
+                return true;
             default:
                 return false;
         }
+    }
+
+    private static bool HasDocumentModifier(EditorModifiers modifiers)
+    {
+        return (modifiers & (EditorModifiers.Control | EditorModifiers.Meta)) != 0;
+    }
+
+    private bool ShouldInsertTab(EditorModifiers modifiers)
+    {
+        if (!_acceptsTabProvider())
+        {
+            return false;
+        }
+
+        return (modifiers & (EditorModifiers.Control | EditorModifiers.Meta | EditorModifiers.Alt)) == 0;
     }
 
     private bool TryHandleClipboard(EditorKey key, EditorModifiers modifiers)
@@ -144,8 +238,18 @@ public sealed class EditorCommandInputRouter : IEditorInputRouter
             case EditorKey.C:
                 return CopySelection();
             case EditorKey.X:
+                if (_isReadOnlyProvider())
+                {
+                    return false;
+                }
+
                 return CutSelection();
             case EditorKey.V:
+                if (_isReadOnlyProvider())
+                {
+                    return false;
+                }
+
                 return PasteClipboard();
             default:
                 return false;
@@ -197,7 +301,7 @@ public sealed class EditorCommandInputRouter : IEditorInputRouter
 
     private bool TryHandleUndoRedo(EditorKey key, EditorModifiers modifiers)
     {
-        if (_undoRedo is null)
+        if (_undoRedo is null || _isReadOnlyProvider())
         {
             return false;
         }
@@ -212,10 +316,20 @@ public sealed class EditorCommandInputRouter : IEditorInputRouter
         {
             if ((modifiers & EditorModifiers.Shift) != 0)
             {
+                if (!_undoRedo.CanRedo)
+                {
+                    return false;
+                }
+
                 _undoRedo.RedoAsync().GetAwaiter().GetResult();
             }
             else
             {
+                if (!_undoRedo.CanUndo)
+                {
+                    return false;
+                }
+
                 _undoRedo.UndoAsync().GetAwaiter().GetResult();
             }
 
@@ -224,6 +338,11 @@ public sealed class EditorCommandInputRouter : IEditorInputRouter
 
         if (key == EditorKey.Y)
         {
+            if (!_undoRedo.CanRedo)
+            {
+                return false;
+            }
+
             _undoRedo.RedoAsync().GetAwaiter().GetResult();
             return true;
         }
@@ -292,6 +411,7 @@ public sealed class EditorCommandInputRouter : IEditorInputRouter
             if (pointerEvent.Button == EditorPointerButton.Primary
                 && mode == SelectionUpdateMode.Replace
                 && pointerEvent.ClickCount <= 1
+                && !_isReadOnlyProvider()
                 && _session is IContentControlInteractionSession contentSession
                 && contentSession.TryGetContentControlAtPoint(pointerEvent.X, pointerEvent.Y, out var hit)
                 && hit.Properties.DataType != ContentControlDataType.None)

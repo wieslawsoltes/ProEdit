@@ -11,6 +11,7 @@
   <ItemGroup>
     <PackageReference Include="UglyToad.PdfPig" />
     <PackageReference Include="SkiaSharp" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" />
   </ItemGroup>
 
   <ItemGroup>

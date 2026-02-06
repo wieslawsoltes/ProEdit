@@ -6,6 +6,8 @@
   href: architecture.md
 - name: FlowDocument
   href: flow-document.md
+- name: RichTextBox
+  href: richtextbox.md
 - name: Projects
   href: projects.md
 - name: Build and Test

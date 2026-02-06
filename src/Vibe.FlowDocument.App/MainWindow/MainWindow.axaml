@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:flow="clr-namespace:Vibe.Office.FlowDocument.Avalonia;assembly=Vibe.Office.FlowDocument.Avalonia"
+        xmlns:rich="clr-namespace:Vibe.Office.RichText.Avalonia;assembly=Vibe.Office.RichText.Avalonia"
         xmlns:fd="clr-namespace:Vibe.Office.FlowDocument;assembly=Vibe.Office.FlowDocument"
         xmlns:vm="clr-namespace:Vibe.FlowDocument.App.ViewModels"
         x:Class="Vibe.FlowDocument.App.MainWindow"
@@ -170,6 +171,7 @@
         </fd:Table>
       </fd:Section>
     </fd:FlowDocument>
+
   </Window.Resources>
 
   <Grid RowDefinitions="Auto,*">
@@ -203,6 +205,50 @@
                                  InlineUiPlaceholderText="[Inline UI]"
                                  BlockUiPlaceholderText="[Block UI]" />
         </ScrollViewer>
+      </TabItem>
+
+      <TabItem Header="RichTextBox Smoke">
+        <Grid RowDefinitions="Auto,*">
+          <Border Background="#EEF2FC"
+                  BorderBrush="#D1D8EC"
+                  BorderThickness="1"
+                  CornerRadius="6"
+                  Padding="10"
+                  Margin="0,0,0,8">
+            <DockPanel LastChildFill="False">
+              <StackPanel Orientation="Horizontal"
+                          Spacing="8"
+                          DockPanel.Dock="Left">
+                <Button Content="Open..."
+                        Command="{Binding OpenRichTextDocumentCommand}" />
+                <Button Content="Save As..."
+                        Command="{Binding SaveRichTextDocumentCommand}" />
+              </StackPanel>
+              <TextBlock DockPanel.Dock="Right"
+                         VerticalAlignment="Center"
+                         Text="{Binding StatusMessage}"
+                         Foreground="#38405A"
+                         FontSize="12" />
+            </DockPanel>
+          </Border>
+
+          <Border Grid.Row="1"
+                  Width="960"
+                  Margin="16"
+                  Padding="8"
+                  HorizontalAlignment="Center"
+                  VerticalAlignment="Stretch"
+                  BorderBrush="#CBD2E6"
+                  BorderThickness="1"
+                  Background="#F8F9FD">
+            <rich:RichTextBox Document="{Binding EditableDocument}"
+                              HorizontalAlignment="Stretch"
+                              VerticalAlignment="Stretch"
+                              Background="White"
+                              BorderBrush="#D9DCE8"
+                              BorderThickness="1" />
+          </Border>
+        </Grid>
       </TabItem>
     </TabControl>
   </Grid>

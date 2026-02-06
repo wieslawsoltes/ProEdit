@@ -559,6 +559,41 @@ public sealed class EditorController : IEditorMutableSession, IEditorBatchEdit, 
         _selectionService.MoveDown(extendSelection);
     }
 
+    public void MoveLineStart(bool extendSelection)
+    {
+        _selectionService.MoveLineStart(extendSelection);
+    }
+
+    public void MoveLineEnd(bool extendSelection)
+    {
+        _selectionService.MoveLineEnd(extendSelection);
+    }
+
+    public void MoveDocumentStart(bool extendSelection)
+    {
+        _selectionService.MoveDocumentStart(extendSelection);
+    }
+
+    public void MoveDocumentEnd(bool extendSelection)
+    {
+        _selectionService.MoveDocumentEnd(extendSelection);
+    }
+
+    public void MovePageUp(bool extendSelection)
+    {
+        _selectionService.MovePageUp(extendSelection);
+    }
+
+    public void MovePageDown(bool extendSelection)
+    {
+        _selectionService.MovePageDown(extendSelection);
+    }
+
+    public void SelectAll()
+    {
+        _selectionService.SelectAll();
+    }
+
     public void SetCaretFromPoint(float x, float y, bool extendSelection)
     {
         var mode = extendSelection ? SelectionUpdateMode.Extend : SelectionUpdateMode.Replace;

@@ -11,5 +11,6 @@
   <ItemGroup>
     <ProjectReference Include="..\Vibe.Office.FlowDocument\Vibe.Office.FlowDocument.csproj" />
     <ProjectReference Include="..\Vibe.Office.Documents\Vibe.Office.Documents.csproj" />
+    <ProjectReference Include="..\Vibe.Office.Layout\Vibe.Office.Layout.csproj" />
   </ItemGroup>
 </Project>

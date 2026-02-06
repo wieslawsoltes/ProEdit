@@ -4,5 +4,6 @@
              RequestedThemeVariant="Light">
   <Application.Styles>
     <FluentTheme />
+    <StyleInclude Source="avares://Vibe.Office.RichText.Avalonia/Themes/Generic.axaml" />
   </Application.Styles>
 </Application>
