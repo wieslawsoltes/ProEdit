@@ -12,7 +12,7 @@ namespace Vibe.Office.Layout.Benchmarks;
 
 [Config(typeof(BenchmarkConfig))]
 [Orderer(SummaryOrderPolicy.FastestToSlowest)]
-public sealed class LargeDocumentBenchmarks
+public class LargeDocumentBenchmarks
 {
     [Params(200, 1000)]
     public int ParagraphCount { get; set; }
