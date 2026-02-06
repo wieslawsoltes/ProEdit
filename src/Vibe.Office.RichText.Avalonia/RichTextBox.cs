@@ -5,6 +5,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Media;
 using System.Text;
+using Vibe.Office.Collaboration.Protocol;
 using Vibe.Office.Documents;
 using Vibe.Office.Editing;
 using Vibe.Office.FlowDocument;
@@ -16,10 +17,13 @@ using FlowDocumentModel = Vibe.Office.FlowDocument.FlowDocument;
 
 namespace Vibe.Office.RichText.Avalonia;
 
-public sealed class RichTextBox : TemplatedControl
+public sealed class RichTextBox : TemplatedControl, IRichTextBoxCollaborationAdapter
 {
     private const string PartDocumentHost = "PART_DocumentHost";
     private const string PartEmbeddedHost = "PART_EmbeddedHost";
+    private const string CollaborationExternalMutationMessage =
+        "External FlowDocument mutations are not supported while collaboration is active. " +
+        "Use RichTextBox editing APIs/commands or replace the entire Document to reload content.";
 
     private static readonly AttachedProperty<WeakReference<RichTextBox>?> DocumentOwnerProperty =
         AvaloniaProperty.RegisterAttached<RichTextBox, FlowDocumentModel, WeakReference<RichTextBox>?>("DocumentOwner");
@@ -124,6 +128,8 @@ public sealed class RichTextBox : TemplatedControl
     private bool _hasEmbeddedViewportSnapshot;
     private bool _suppressProofingSync;
     private bool _isImplicitDocument = true;
+    private bool _isCollaborationAttached;
+    private event EventHandler? EditorSessionRebuiltInternal;
 
     public event EventHandler? TextChanged;
     public event EventHandler? SelectionChanged;
@@ -568,8 +574,23 @@ public sealed class RichTextBox : TemplatedControl
     {
         if (ReferenceEquals(sender, _document) && !_bridge.IsApplyingInternalChange)
         {
+            if (_isCollaborationAttached)
+            {
+                RevertExternalFlowDocumentMutation();
+                throw new InvalidOperationException(CollaborationExternalMutationMessage);
+            }
+
             LoadDocumentIntoEditor(_document, raiseTextChanged: true);
         }
+    }
+
+    private void RevertExternalFlowDocumentMutation()
+    {
+        _bridge.SyncFlowDocumentFromEditor(_documentView.Document, _document);
+        _lastSelection = _documentView.Selection.Normalize();
+        _hasSelectionSnapshot = true;
+        _lastDocumentSignature = CaptureDocumentSignature(_documentView.Document);
+        _hasDocumentSignature = true;
     }
 
     private void SetAcceptsTab(bool value)
@@ -705,6 +726,7 @@ public sealed class RichTextBox : TemplatedControl
         SyncEmbeddedUiLayout(force: true);
         ApplyProofingStateToService();
         SyncProofingStateFromService();
+        EditorSessionRebuiltInternal?.Invoke(this, EventArgs.Empty);
 
         if (raiseTextChanged)
         {
@@ -1809,6 +1831,43 @@ public sealed class RichTextBox : TemplatedControl
     internal static bool TryBuildClipboardContentFromDataTransferForTests(IDataTransfer dataTransfer, out ClipboardContent content)
     {
         return RichTextClipboardDataTransferParser.TryBuildClipboardContent(dataTransfer, out content);
+    }
+
+    event EventHandler? IRichTextBoxCollaborationAdapter.EditorSessionRebuilt
+    {
+        add => EditorSessionRebuiltInternal += value;
+        remove => EditorSessionRebuiltInternal -= value;
+    }
+
+    void IRichTextBoxCollaborationAdapter.AttachSession(
+        ICollabRealtimeSession session,
+        Func<Guid, string?>? authorResolver)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        _documentView.EnableCollaboration(session, authorResolver);
+        _isCollaborationAttached = true;
+    }
+
+    void IRichTextBoxCollaborationAdapter.DetachSession()
+    {
+        _documentView.DisableCollaboration();
+        _isCollaborationAttached = false;
+    }
+
+    void IRichTextBoxCollaborationAdapter.RegisterService<T>(T service)
+    {
+        ArgumentNullException.ThrowIfNull(service);
+        _documentView.RegisterService(service);
+    }
+
+    bool IRichTextBoxCollaborationAdapter.UnregisterService<T>()
+    {
+        return _documentView.UnregisterService<T>();
+    }
+
+    bool IRichTextBoxCollaborationAdapter.TryGetService<T>(out T service)
+    {
+        return _documentView.TryGetService(out service);
     }
 
     internal void ReplaceEditorDocumentForTests(Document document)

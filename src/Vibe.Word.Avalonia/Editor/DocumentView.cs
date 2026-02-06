@@ -150,6 +150,9 @@ public sealed class DocumentView : Control, ILogicalScrollable
     private ICollabUiService? _collabUiService;
     private PresenceSignature? _lastPresenceSignature;
     private CollabEditorSessionCoordinator? _collabCoordinator;
+    private ICollabRealtimeSession? _collabSession;
+    private Func<Guid, string?>? _collabAuthorResolver;
+    private SynchronizationContext? _collabSynchronizationContext;
 
     private bool _isSelecting;
     private bool _isLoading;
@@ -2676,6 +2679,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
         _editor.Changed -= OnEditorChanged;
         _editor = CreateEditor(document);
         _editor.UpdateLayout((float)Bounds.Width, (float)Bounds.Height);
+        RecreateCollaborationCoordinatorIfNeeded();
         ApplyEditorState();
         TriggerFieldUpdate(FieldUpdateTrigger.Open, recordHistory: false);
     }
@@ -2710,6 +2714,7 @@ public sealed class DocumentView : Control, ILogicalScrollable
             CreateViewOptionsService(),
             documentFactory: DocumentTemplates.CreateDefaultDocument);
         ConfigureInputPipeline(editor);
+        RecreateCollaborationCoordinatorIfNeeded();
         ApplyEditorState();
         TriggerFieldUpdate(FieldUpdateTrigger.Open, recordHistory: false);
     }
@@ -6200,7 +6205,24 @@ public sealed class DocumentView : Control, ILogicalScrollable
     public void EnableCollaboration(ICollabRealtimeSession session, Func<Guid, string?>? authorResolver = null)
     {
         ArgumentNullException.ThrowIfNull(session);
-        DisableCollaboration();
+        _collabSession = session;
+        _collabAuthorResolver = authorResolver;
+        _collabSynchronizationContext ??= SynchronizationContext.Current;
+        _collabCoordinator?.Dispose();
+        _collabCoordinator = null;
+        RecreateCollaborationCoordinatorIfNeeded();
+    }
+
+    private void RecreateCollaborationCoordinatorIfNeeded()
+    {
+        if (_collabSession is null)
+        {
+            _collabCoordinator?.Dispose();
+            _collabCoordinator = null;
+            return;
+        }
+
+        _collabCoordinator?.Dispose();
         Action? onResyncRequired = null;
         if (_collabUiService is not null)
         {
@@ -6213,9 +6235,9 @@ public sealed class DocumentView : Control, ILogicalScrollable
             _kernel.Services,
             _kernel.Commands,
             _editor,
-            session,
-            SynchronizationContext.Current,
-            authorResolver,
+            _collabSession,
+            _collabSynchronizationContext ?? SynchronizationContext.Current,
+            _collabAuthorResolver,
             onResyncRequired);
     }
 
@@ -6223,6 +6245,9 @@ public sealed class DocumentView : Control, ILogicalScrollable
     {
         _collabCoordinator?.Dispose();
         _collabCoordinator = null;
+        _collabSession = null;
+        _collabAuthorResolver = null;
+        _collabSynchronizationContext = null;
     }
 
     public bool TryGetService<T>(out T service) where T : class
@@ -6272,6 +6297,22 @@ public sealed class DocumentView : Control, ILogicalScrollable
         }
     }
 
+    public bool UnregisterService<T>() where T : class
+    {
+        var removed = _kernel.Services.Remove<T>();
+        if (!removed)
+        {
+            return false;
+        }
+
+        if (typeof(T) == typeof(ICollabUiService))
+        {
+            DetachCollaborationService();
+        }
+
+        return true;
+    }
+
     private void AttachCollaborationService(ICollabUiService collabService)
     {
         if (ReferenceEquals(_collabUiService, collabService))
@@ -6279,13 +6320,21 @@ public sealed class DocumentView : Control, ILogicalScrollable
             return;
         }
 
-        if (_collabUiService is not null)
-        {
-            _collabUiService.StateChanged -= OnCollabStateChanged;
-        }
+        DetachCollaborationService();
 
         _collabUiService = collabService;
         _collabUiService.StateChanged += OnCollabStateChanged;
+    }
+
+    private void DetachCollaborationService()
+    {
+        if (_collabUiService is null)
+        {
+            return;
+        }
+
+        _collabUiService.StateChanged -= OnCollabStateChanged;
+        _collabUiService = null;
     }
 
     private void OnCollabStateChanged(object? sender, EventArgs e)
