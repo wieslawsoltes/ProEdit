@@ -1,0 +1,16 @@
+{
+  "fixtures": [
+    {
+      "name": "core-structures",
+      "description": "Paragraph inlines, hyperlinks, anchored blocks, row spans, and embedded UI restoration."
+    },
+    {
+      "name": "nested-list",
+      "description": "Nested list reconstruction with list marker style and start index."
+    },
+    {
+      "name": "embedded-block-marker",
+      "description": "Embedded block UI marker conversion from shape placeholder to BlockUIContainer."
+    }
+  ]
+}

@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 import argparse
 import json
+import subprocess
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List, Set, Tuple, Optional
 
 TYPE_RE = re.compile(
     r"public\s+(?:sealed\s+|abstract\s+|partial\s+|static\s+)*"
@@ -66,6 +67,27 @@ class TypeInfo:
 @dataclass
 class ModelInfo:
     types: Dict[str, TypeInfo]
+
+
+@dataclass
+class RoundtripValidationResult:
+    fixtures_path: Path
+    project_path: Path
+    filter_text: str
+    fixture_names: List[str]
+    list_tests_exit_code: int
+    list_tests_output: str
+    missing_fixture_tests: List[str]
+    run_tests_exit_code: int
+    run_tests_output: str
+
+    @property
+    def passed(self) -> bool:
+        return (
+            self.list_tests_exit_code == 0
+            and self.run_tests_exit_code == 0
+            and len(self.missing_fixture_tests) == 0
+        )
 
 
 def load_text(path: Path) -> str:
@@ -191,6 +213,80 @@ def compare_models(wpf: ModelInfo, ours: ModelInfo) -> Tuple[Set[str], Set[str],
     return set(missing_types), set(extra_types), property_diff
 
 
+def run_process(args: List[str], cwd: Path) -> Tuple[int, str]:
+    completed = subprocess.run(
+        args,
+        cwd=str(cwd),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        check=False,
+    )
+    return completed.returncode, completed.stdout
+
+
+def parse_fixture_names(fixtures_path: Path) -> List[str]:
+    payload = json.loads(fixtures_path.read_text(encoding="utf-8"))
+    if isinstance(payload, list):
+        names: List[str] = []
+        for item in payload:
+            if isinstance(item, str) and item.strip():
+                names.append(item.strip())
+        return names
+
+    if isinstance(payload, dict):
+        fixtures = payload.get("fixtures", [])
+        names = []
+        if isinstance(fixtures, list):
+            for item in fixtures:
+                if isinstance(item, str) and item.strip():
+                    names.append(item.strip())
+                    continue
+                if isinstance(item, dict):
+                    name = item.get("name")
+                    if isinstance(name, str) and name.strip():
+                        names.append(name.strip())
+        return names
+
+    return []
+
+
+def run_roundtrip_validation(
+    fixtures_path: Path,
+    project_path: Path,
+    filter_text: str,
+) -> RoundtripValidationResult:
+    fixture_names = parse_fixture_names(fixtures_path)
+    project_root = project_path.parent
+
+    list_args = ["dotnet", "test", str(project_path), "-c", "Debug", "--list-tests"]
+    list_tests_exit_code, list_tests_output = run_process(list_args, project_root)
+    missing_fixture_tests = [name for name in fixture_names if name not in list_tests_output]
+
+    run_args = [
+        "dotnet",
+        "test",
+        str(project_path),
+        "-c",
+        "Debug",
+        "--filter",
+        filter_text,
+    ]
+    run_tests_exit_code, run_tests_output = run_process(run_args, project_root)
+
+    return RoundtripValidationResult(
+        fixtures_path=fixtures_path,
+        project_path=project_path,
+        filter_text=filter_text,
+        fixture_names=fixture_names,
+        list_tests_exit_code=list_tests_exit_code,
+        list_tests_output=list_tests_output,
+        missing_fixture_tests=missing_fixture_tests,
+        run_tests_exit_code=run_tests_exit_code,
+        run_tests_output=run_tests_output,
+    )
+
+
 def write_report(
     out_path: Path,
     wpf_root: Path,
@@ -198,6 +294,7 @@ def write_report(
     missing_types: Set[str],
     extra_types: Set[str],
     property_diff: Dict[str, Dict[str, Set[str]]],
+    roundtrip_result: Optional[RoundtripValidationResult],
 ):
     lines: List[str] = []
     lines.append("# FlowDocument Model Comparison")
@@ -210,6 +307,8 @@ def write_report(
     lines.append(f"- Missing types: {len(missing_types)}")
     lines.append(f"- Extra types: {len(extra_types)}")
     lines.append(f"- Types with property differences: {len(property_diff)}")
+    if roundtrip_result is not None:
+        lines.append(f"- Roundtrip fixture validation: {'PASS' if roundtrip_result.passed else 'FAIL'}")
     lines.append("")
     lines.append("Note: Property comparisons include inherited properties only when the base type is also")
     lines.append("present in the scanned namespace subset. Base types outside the subset are not included.")
@@ -249,6 +348,23 @@ def write_report(
                     lines.append(f"- {prop}")
                 lines.append("")
 
+    if roundtrip_result is not None:
+        lines.append("## Roundtrip Fixture Validation")
+        lines.append("")
+        lines.append(f"- Fixture manifest: `{roundtrip_result.fixtures_path}`")
+        lines.append(f"- Test project: `{roundtrip_result.project_path}`")
+        lines.append(f"- Test filter: `{roundtrip_result.filter_text}`")
+        lines.append(f"- Fixture count: {len(roundtrip_result.fixture_names)}")
+        lines.append(f"- Status: {'PASS' if roundtrip_result.passed else 'FAIL'}")
+        lines.append(f"- `dotnet test --list-tests` exit code: {roundtrip_result.list_tests_exit_code}")
+        lines.append(f"- `dotnet test` exit code: {roundtrip_result.run_tests_exit_code}")
+        lines.append("")
+        if roundtrip_result.missing_fixture_tests:
+            lines.append("Missing fixtures in discovered test names:")
+            for name in roundtrip_result.missing_fixture_tests:
+                lines.append(f"- {name}")
+            lines.append("")
+
     out_path.write_text("\n".join(lines), encoding="utf-8")
 
 
@@ -269,6 +385,19 @@ def main() -> int:
         default="System.Windows.Documents",
         help="Namespace hint for WPF filtering (default: System.Windows.Documents).",
     )
+    parser.add_argument(
+        "--roundtrip-fixtures",
+        help="Optional path to a roundtrip fixture manifest JSON file.",
+    )
+    parser.add_argument(
+        "--roundtrip-project",
+        help="Optional path to the roundtrip test project (defaults to tests/Vibe.Office.FlowDocument.Tests/Vibe.Office.FlowDocument.Tests.csproj).",
+    )
+    parser.add_argument(
+        "--roundtrip-filter",
+        default="Category=FlowRoundtrip",
+        help="Test filter used for roundtrip fixture execution.",
+    )
 
     args = parser.parse_args()
     wpf_root = Path(args.wpf).expanduser().resolve()
@@ -283,7 +412,24 @@ def main() -> int:
 
     missing_types, extra_types, property_diff = compare_models(wpf_model, ours_model)
 
-    write_report(out_path, wpf_root, ours_root, missing_types, extra_types, property_diff)
+    roundtrip_result: Optional[RoundtripValidationResult] = None
+    if args.roundtrip_fixtures:
+        script_root = Path(__file__).resolve().parent
+        repo_root = script_root.parent.parent
+        fixtures_path = Path(args.roundtrip_fixtures).expanduser().resolve()
+        if args.roundtrip_project:
+            project_path = Path(args.roundtrip_project).expanduser().resolve()
+        else:
+            project_path = (
+                repo_root
+                / "tests"
+                / "Vibe.Office.FlowDocument.Tests"
+                / "Vibe.Office.FlowDocument.Tests.csproj"
+            ).resolve()
+
+        roundtrip_result = run_roundtrip_validation(fixtures_path, project_path, args.roundtrip_filter)
+
+    write_report(out_path, wpf_root, ours_root, missing_types, extra_types, property_diff, roundtrip_result)
 
     report = {
         "wpf": str(wpf_root),
@@ -298,6 +444,17 @@ def main() -> int:
             for name, diff in property_diff.items()
         },
     }
+    if roundtrip_result is not None:
+        report["roundtrip_validation"] = {
+            "fixtures_path": str(roundtrip_result.fixtures_path),
+            "project_path": str(roundtrip_result.project_path),
+            "filter": roundtrip_result.filter_text,
+            "fixture_names": roundtrip_result.fixture_names,
+            "missing_fixture_tests": roundtrip_result.missing_fixture_tests,
+            "list_tests_exit_code": roundtrip_result.list_tests_exit_code,
+            "run_tests_exit_code": roundtrip_result.run_tests_exit_code,
+            "passed": roundtrip_result.passed,
+        }
 
     json_path = out_path.with_suffix(".json")
     json_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
