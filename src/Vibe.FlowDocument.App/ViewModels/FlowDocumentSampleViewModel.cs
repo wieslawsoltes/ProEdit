@@ -1,7 +1,8 @@
 using Avalonia.Controls;
 using Avalonia.Media;
+using Avalonia.Threading;
 using ReactiveUI;
-using System.Reactive;
+using System.Windows.Input;
 using Vibe.FlowDocument.App.Services;
 using Vibe.Office.FlowDocument;
 using Vibe.Office.FlowDocument.IO;
@@ -28,12 +29,8 @@ public sealed class FlowDocumentSampleViewModel : ReactiveObject
         Document = BuildSampleDocument();
         _editableDocument = BuildEditableDocument();
 
-        OpenRichTextDocumentCommand = ReactiveCommand.CreateFromTask(
-            OpenRichTextDocumentAsync,
-            outputScheduler: RxApp.MainThreadScheduler);
-        SaveRichTextDocumentCommand = ReactiveCommand.CreateFromTask(
-            SaveRichTextDocumentAsync,
-            outputScheduler: RxApp.MainThreadScheduler);
+        OpenRichTextDocumentCommand = new AsyncUiCommand(OpenRichTextDocumentAsync);
+        SaveRichTextDocumentCommand = new AsyncUiCommand(SaveRichTextDocumentAsync);
     }
 
     public FlowDocumentModel Document { get; }
@@ -50,8 +47,8 @@ public sealed class FlowDocumentSampleViewModel : ReactiveObject
         private set => this.RaiseAndSetIfChanged(ref _statusMessage, value);
     }
 
-    public ReactiveCommand<Unit, Unit> OpenRichTextDocumentCommand { get; }
-    public ReactiveCommand<Unit, Unit> SaveRichTextDocumentCommand { get; }
+    public ICommand OpenRichTextDocumentCommand { get; }
+    public ICommand SaveRichTextDocumentCommand { get; }
 
     public double ZoomFactor
     {
@@ -70,7 +67,8 @@ public sealed class FlowDocumentSampleViewModel : ReactiveObject
         try
         {
             StatusMessage = $"Loading {Path.GetFileName(path)}...";
-            EditableDocument = await _conversionService.LoadAsync(path);
+            var loaded = await _conversionService.LoadAsync(path);
+            EditableDocument = loaded;
             _editableDocumentPath = path;
             StatusMessage = $"Loaded {Path.GetFileName(path)}";
         }
@@ -103,6 +101,55 @@ public sealed class FlowDocumentSampleViewModel : ReactiveObject
         catch (Exception ex)
         {
             StatusMessage = $"Save failed: {ex.Message}";
+        }
+    }
+
+    private sealed class AsyncUiCommand : ICommand
+    {
+        private readonly Func<Task> _executeAsync;
+        private bool _isExecuting;
+
+        public AsyncUiCommand(Func<Task> executeAsync)
+        {
+            _executeAsync = executeAsync ?? throw new ArgumentNullException(nameof(executeAsync));
+        }
+
+        public event EventHandler? CanExecuteChanged;
+
+        public bool CanExecute(object? parameter)
+        {
+            return !_isExecuting;
+        }
+
+        public async void Execute(object? parameter)
+        {
+            if (_isExecuting)
+            {
+                return;
+            }
+
+            _isExecuting = true;
+            RaiseCanExecuteChanged();
+            try
+            {
+                await _executeAsync();
+            }
+            finally
+            {
+                _isExecuting = false;
+                RaiseCanExecuteChanged();
+            }
+        }
+
+        private void RaiseCanExecuteChanged()
+        {
+            if (Dispatcher.UIThread.CheckAccess())
+            {
+                CanExecuteChanged?.Invoke(this, EventArgs.Empty);
+                return;
+            }
+
+            Dispatcher.UIThread.Post(() => CanExecuteChanged?.Invoke(this, EventArgs.Empty));
         }
     }
 

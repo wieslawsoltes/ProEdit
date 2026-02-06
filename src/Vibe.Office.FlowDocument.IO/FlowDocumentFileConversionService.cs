@@ -78,12 +78,12 @@ public sealed class FlowDocumentFileConversionService : IFlowDocumentFileConvers
         switch (extension)
         {
             case ".docx":
-                document = await Task.Run(() => new DocxImporter().Load(path), cancellationToken).ConfigureAwait(false);
+                document = await Task.Run(() => new DocxImporter().Load(path), cancellationToken);
                 break;
             case ".md":
             case ".markdown":
             {
-                var markdown = await File.ReadAllTextAsync(path, cancellationToken).ConfigureAwait(false);
+                var markdown = await File.ReadAllTextAsync(path, cancellationToken);
                 document = MarkdownDocumentConverter.FromMarkdown(markdown.AsSpan(), _options.MarkdownOptions);
                 break;
             }
@@ -93,8 +93,7 @@ public sealed class FlowDocumentFileConversionService : IFlowDocumentFileConvers
                 await using var stream = File.OpenRead(path);
                 var pdfDocument = await Task.Run(
                         () => _pdfParser.Parse(stream, _options.PdfImportOptions.ParserOptions),
-                        cancellationToken)
-                    .ConfigureAwait(false);
+                        cancellationToken);
                 pdfDocument.SourcePath = path;
                 document = PdfDocumentConverter.FromPdf(pdfDocument, _options.PdfImportOptions);
                 break;
@@ -104,7 +103,7 @@ public sealed class FlowDocumentFileConversionService : IFlowDocumentFileConvers
         }
 
         var converter = new DocumentToFlowDocumentConverter(_options.DocumentToFlowOptions);
-        return await Task.Run(() => converter.Convert(document), cancellationToken).ConfigureAwait(false);
+        return converter.Convert(document);
     }
 
     public async Task SaveAsync(FlowDocumentModel flowDocument, string path, CancellationToken cancellationToken = default)
@@ -122,23 +121,23 @@ public sealed class FlowDocumentFileConversionService : IFlowDocumentFileConvers
         }
 
         var converter = new FlowDocumentConverter(_options.FlowToDocumentOptions);
-        var document = await Task.Run(() => converter.Convert(flowDocument), cancellationToken).ConfigureAwait(false);
+        var document = converter.Convert(flowDocument);
 
         switch (extension)
         {
             case ".docx":
-                await Task.Run(() => new DocxExporter().Save(document, path), cancellationToken).ConfigureAwait(false);
+                await Task.Run(() => new DocxExporter().Save(document, path), cancellationToken);
                 return;
             case ".md":
             case ".markdown":
             {
                 var markdown = MarkdownDocumentConverter.ToMarkdown(document, _options.MarkdownOptions);
-                await File.WriteAllTextAsync(path, markdown, cancellationToken).ConfigureAwait(false);
+                await File.WriteAllTextAsync(path, markdown, cancellationToken);
                 return;
             }
             case ".pdf":
             case ".pdx":
-                await SavePdfAsync(document, flowDocument, path, cancellationToken).ConfigureAwait(false);
+                await SavePdfAsync(document, flowDocument, path, cancellationToken);
                 return;
             default:
                 throw new FlowDocumentFileFormatException($"Unsupported save extension '{extension}'.");
@@ -164,7 +163,7 @@ public sealed class FlowDocumentFileConversionService : IFlowDocumentFileConvers
 
         var systemPrintService = new SystemPrintService();
         var printService = new SkiaPrintService(systemPrintService, systemPrintService);
-        var result = await printService.PrintAsync(context, settings, cancellationToken).ConfigureAwait(false);
+        var result = await printService.PrintAsync(context, settings, cancellationToken);
         if (!result.Succeeded)
         {
             throw new IOException($"PDF export failed: {result.Message}");

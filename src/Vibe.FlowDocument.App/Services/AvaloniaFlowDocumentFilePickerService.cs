@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 
 namespace Vibe.FlowDocument.App.Services;
 
@@ -35,6 +36,16 @@ public sealed class AvaloniaFlowDocumentFilePickerService : IFlowDocumentFilePic
 
     public async Task<string?> PickOpenPathAsync()
     {
+        return await InvokeOnUiThreadAsync(PickOpenPathCoreAsync).ConfigureAwait(false);
+    }
+
+    public async Task<string?> PickSavePathAsync(string suggestedFileName)
+    {
+        return await InvokeOnUiThreadAsync(() => PickSavePathCoreAsync(suggestedFileName)).ConfigureAwait(false);
+    }
+
+    private async Task<string?> PickOpenPathCoreAsync()
+    {
         var result = await _window.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
             AllowMultiple = false,
@@ -49,7 +60,7 @@ public sealed class AvaloniaFlowDocumentFilePickerService : IFlowDocumentFilePic
         return result[0].TryGetLocalPath();
     }
 
-    public async Task<string?> PickSavePathAsync(string suggestedFileName)
+    private async Task<string?> PickSavePathCoreAsync(string suggestedFileName)
     {
         var file = await _window.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
@@ -60,5 +71,31 @@ public sealed class AvaloniaFlowDocumentFilePickerService : IFlowDocumentFilePic
         });
 
         return file?.TryGetLocalPath();
+    }
+
+    private static Task<T> InvokeOnUiThreadAsync<T>(Func<Task<T>> callback)
+    {
+        ArgumentNullException.ThrowIfNull(callback);
+
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            return callback();
+        }
+
+        var tcs = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
+        Dispatcher.UIThread.Post(async () =>
+        {
+            try
+            {
+                var result = await callback().ConfigureAwait(true);
+                tcs.TrySetResult(result);
+            }
+            catch (Exception ex)
+            {
+                tcs.TrySetException(ex);
+            }
+        });
+
+        return tcs.Task;
     }
 }

@@ -1,6 +1,8 @@
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using ReactiveUI;
+using ReactiveUI.Avalonia;
 using Vibe.FlowDocument.App.Services;
 using Vibe.FlowDocument.App.ViewModels;
 using Vibe.Office.FlowDocument.IO;
@@ -11,6 +13,7 @@ public partial class App : Application
 {
     public override void Initialize()
     {
+        RxApp.MainThreadScheduler = AvaloniaScheduler.Instance;
         AvaloniaXamlLoader.Load(this);
     }
 

@@ -1,6 +1,5 @@
 using Avalonia;
 using System;
-using ReactiveUI.Avalonia;
 
 namespace Vibe.FlowDocument.App;
 
@@ -13,7 +12,6 @@ public static class Program
     public static AppBuilder BuildAvaloniaApp()
         => AppBuilder.Configure<App>()
             .UsePlatformDetect()
-            .UseReactiveUI()
             .WithInterFont()
             .LogToTrace();
 }
