@@ -5,7 +5,7 @@ import subprocess
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Set, Tuple, Optional
+from typing import Any, Dict, List, Set, Tuple, Optional
 
 TYPE_RE = re.compile(
     r"public\s+(?:sealed\s+|abstract\s+|partial\s+|static\s+)*"
@@ -88,6 +88,62 @@ class RoundtripValidationResult:
             and self.run_tests_exit_code == 0
             and len(self.missing_fixture_tests) == 0
         )
+
+
+@dataclass
+class FeatureValidationResult:
+    project_path: Path
+    test_pattern: str
+    listed: bool
+    run_exit_code: int
+    run_output: str
+
+
+@dataclass
+class FeatureCoverageResult:
+    feature_id: str
+    area: str
+    representable: bool
+    status: str
+    description: str
+    degradation: str
+    validations: List[FeatureValidationResult]
+
+    @property
+    def passed(self) -> bool:
+        normalized_status = self.status.strip().lower()
+        if self.representable:
+            if normalized_status != "supported":
+                return False
+            if len(self.validations) == 0:
+                return False
+        else:
+            if normalized_status not in {"degraded", "unsupported", "n/a"}:
+                return False
+
+        for validation in self.validations:
+            if not validation.listed or validation.run_exit_code != 0:
+                return False
+
+        return True
+
+
+@dataclass
+class FeatureMatrixResult:
+    matrix_path: Path
+    list_tests_exit_codes: Dict[str, int]
+    features: List[FeatureCoverageResult]
+
+    @property
+    def passed(self) -> bool:
+        if any(code != 0 for code in self.list_tests_exit_codes.values()):
+            return False
+
+        for feature in self.features:
+            if not feature.passed:
+                return False
+
+        return True
 
 
 def load_text(path: Path) -> str:
@@ -287,6 +343,146 @@ def run_roundtrip_validation(
     )
 
 
+def parse_feature_entries(matrix_path: Path) -> List[Dict[str, Any]]:
+    payload = json.loads(matrix_path.read_text(encoding="utf-8"))
+    if isinstance(payload, list):
+        return [item for item in payload if isinstance(item, dict)]
+
+    if isinstance(payload, dict):
+        features = payload.get("features", [])
+        if isinstance(features, list):
+            return [item for item in features if isinstance(item, dict)]
+
+    return []
+
+
+def resolve_project_path(project_value: str, repo_root: Path) -> Path:
+    candidate = Path(project_value).expanduser()
+    if candidate.is_absolute():
+        return candidate.resolve()
+    return (repo_root / candidate).resolve()
+
+
+def normalize_validation_specs(feature: Dict[str, Any]) -> List[Dict[str, str]]:
+    specs: List[Dict[str, str]] = []
+    default_project = feature.get("project")
+    validation = feature.get("validation", [])
+    if not isinstance(validation, list):
+        return specs
+
+    for entry in validation:
+        if isinstance(entry, str):
+            if entry.strip():
+                specs.append(
+                    {
+                        "project": str(default_project).strip() if isinstance(default_project, str) else "",
+                        "test": entry.strip(),
+                    }
+                )
+            continue
+
+        if isinstance(entry, dict):
+            test_value = entry.get("test")
+            project_value = entry.get("project", default_project)
+            if isinstance(test_value, str) and test_value.strip():
+                specs.append(
+                    {
+                        "project": str(project_value).strip() if isinstance(project_value, str) else "",
+                        "test": test_value.strip(),
+                    }
+                )
+
+    return specs
+
+
+def run_feature_matrix_validation(matrix_path: Path, repo_root: Path) -> FeatureMatrixResult:
+    entries = parse_feature_entries(matrix_path)
+    list_tests_cache: Dict[Path, Tuple[int, str]] = {}
+    list_tests_exit_codes: Dict[str, int] = {}
+    features: List[FeatureCoverageResult] = []
+
+    for index, entry in enumerate(entries):
+        feature_id = str(entry.get("id", f"feature-{index + 1}")).strip() or f"feature-{index + 1}"
+        area = str(entry.get("area", "unspecified")).strip() or "unspecified"
+        representable = bool(entry.get("representable", True))
+        status = str(entry.get("status", "supported")).strip() or "supported"
+        description = str(entry.get("description", "")).strip()
+        degradation = str(entry.get("degradation", "")).strip()
+        validation_specs = normalize_validation_specs(entry)
+        validation_results: List[FeatureValidationResult] = []
+
+        for spec in validation_specs:
+            project_value = spec["project"]
+            test_pattern = spec["test"]
+            if not project_value:
+                validation_results.append(
+                    FeatureValidationResult(
+                        project_path=Path(),
+                        test_pattern=test_pattern,
+                        listed=False,
+                        run_exit_code=1,
+                        run_output=f"Feature '{feature_id}' validation entry for '{test_pattern}' is missing project path.",
+                    )
+                )
+                continue
+
+            project_path = resolve_project_path(project_value, repo_root)
+            if project_path not in list_tests_cache:
+                list_args = ["dotnet", "test", str(project_path), "-c", "Debug", "--list-tests"]
+                list_tests_cache[project_path] = run_process(list_args, project_path.parent)
+
+            list_exit_code, list_output = list_tests_cache[project_path]
+            list_tests_exit_codes[str(project_path)] = list_exit_code
+            listed = list_exit_code == 0 and test_pattern in list_output
+
+            if listed:
+                run_args = [
+                    "dotnet",
+                    "test",
+                    str(project_path),
+                    "-c",
+                    "Debug",
+                    "--no-build",
+                    "--filter",
+                    f"FullyQualifiedName~{test_pattern}",
+                ]
+                run_exit_code, run_output = run_process(run_args, project_path.parent)
+            else:
+                run_exit_code = 1
+                run_output = (
+                    f"Test pattern '{test_pattern}' was not discovered in "
+                    f"`dotnet test --list-tests` output for '{project_path}'."
+                )
+
+            validation_results.append(
+                FeatureValidationResult(
+                    project_path=project_path,
+                    test_pattern=test_pattern,
+                    listed=listed,
+                    run_exit_code=run_exit_code,
+                    run_output=run_output,
+                )
+            )
+
+        features.append(
+            FeatureCoverageResult(
+                feature_id=feature_id,
+                area=area,
+                representable=representable,
+                status=status,
+                description=description,
+                degradation=degradation,
+                validations=validation_results,
+            )
+        )
+
+    return FeatureMatrixResult(
+        matrix_path=matrix_path,
+        list_tests_exit_codes=list_tests_exit_codes,
+        features=features,
+    )
+
+
 def write_report(
     out_path: Path,
     wpf_root: Path,
@@ -295,6 +491,7 @@ def write_report(
     extra_types: Set[str],
     property_diff: Dict[str, Dict[str, Set[str]]],
     roundtrip_result: Optional[RoundtripValidationResult],
+    feature_matrix_result: Optional[FeatureMatrixResult],
 ):
     lines: List[str] = []
     lines.append("# FlowDocument Model Comparison")
@@ -309,6 +506,8 @@ def write_report(
     lines.append(f"- Types with property differences: {len(property_diff)}")
     if roundtrip_result is not None:
         lines.append(f"- Roundtrip fixture validation: {'PASS' if roundtrip_result.passed else 'FAIL'}")
+    if feature_matrix_result is not None:
+        lines.append(f"- Flow-compatible feature matrix validation: {'PASS' if feature_matrix_result.passed else 'FAIL'}")
     lines.append("")
     lines.append("Note: Property comparisons include inherited properties only when the base type is also")
     lines.append("present in the scanned namespace subset. Base types outside the subset are not included.")
@@ -365,6 +564,48 @@ def write_report(
                 lines.append(f"- {name}")
             lines.append("")
 
+    if feature_matrix_result is not None:
+        representable = [item for item in feature_matrix_result.features if item.representable]
+        degraded = [item for item in feature_matrix_result.features if not item.representable]
+        failed = [item for item in feature_matrix_result.features if not item.passed]
+
+        lines.append("## Flow-Compatible Feature Matrix Validation")
+        lines.append("")
+        lines.append(f"- Feature matrix: `{feature_matrix_result.matrix_path}`")
+        lines.append(f"- Representable features: {len(representable)}")
+        lines.append(f"- Degraded/non-representable features: {len(degraded)}")
+        lines.append(f"- Failing features: {len(failed)}")
+        lines.append(f"- Overall status: {'PASS' if feature_matrix_result.passed else 'FAIL'}")
+        lines.append("")
+
+        if feature_matrix_result.list_tests_exit_codes:
+            lines.append("`dotnet test --list-tests` exit codes by project:")
+            for project, code in sorted(feature_matrix_result.list_tests_exit_codes.items()):
+                lines.append(f"- `{project}`: {code}")
+            lines.append("")
+
+        for item in feature_matrix_result.features:
+            lines.append(f"### {item.feature_id}")
+            lines.append("")
+            lines.append(f"- Area: `{item.area}`")
+            lines.append(f"- Representable by Flow model: {'Yes' if item.representable else 'No'}")
+            lines.append(f"- Declared status: `{item.status}`")
+            lines.append(f"- Validation status: {'PASS' if item.passed else 'FAIL'}")
+            if item.description:
+                lines.append(f"- Description: {item.description}")
+            if item.degradation:
+                lines.append(f"- Degradation note: {item.degradation}")
+
+            if item.validations:
+                lines.append("- Validation checks:")
+                for validation in item.validations:
+                    lines.append(
+                        f"  - `{validation.project_path}` / `{validation.test_pattern}`: "
+                        f"{'DISCOVERED' if validation.listed else 'MISSING'}, "
+                        f"exit={validation.run_exit_code}"
+                    )
+            lines.append("")
+
     out_path.write_text("\n".join(lines), encoding="utf-8")
 
 
@@ -398,11 +639,17 @@ def main() -> int:
         default="Category=FlowRoundtrip",
         help="Test filter used for roundtrip fixture execution.",
     )
+    parser.add_argument(
+        "--feature-matrix",
+        help="Optional path to flow-compatible feature matrix JSON file.",
+    )
 
     args = parser.parse_args()
     wpf_root = Path(args.wpf).expanduser().resolve()
     ours_root = Path(args.ours).expanduser().resolve()
     out_path = Path(args.out).expanduser().resolve()
+    script_root = Path(__file__).resolve().parent
+    repo_root = script_root.parent.parent
 
     allowlist = set(DEFAULT_ALLOWLIST)
     allowlist.update(args.allow)
@@ -414,8 +661,6 @@ def main() -> int:
 
     roundtrip_result: Optional[RoundtripValidationResult] = None
     if args.roundtrip_fixtures:
-        script_root = Path(__file__).resolve().parent
-        repo_root = script_root.parent.parent
         fixtures_path = Path(args.roundtrip_fixtures).expanduser().resolve()
         if args.roundtrip_project:
             project_path = Path(args.roundtrip_project).expanduser().resolve()
@@ -429,7 +674,21 @@ def main() -> int:
 
         roundtrip_result = run_roundtrip_validation(fixtures_path, project_path, args.roundtrip_filter)
 
-    write_report(out_path, wpf_root, ours_root, missing_types, extra_types, property_diff, roundtrip_result)
+    feature_matrix_result: Optional[FeatureMatrixResult] = None
+    if args.feature_matrix:
+        matrix_path = Path(args.feature_matrix).expanduser().resolve()
+        feature_matrix_result = run_feature_matrix_validation(matrix_path, repo_root)
+
+    write_report(
+        out_path,
+        wpf_root,
+        ours_root,
+        missing_types,
+        extra_types,
+        property_diff,
+        roundtrip_result,
+        feature_matrix_result,
+    )
 
     report = {
         "wpf": str(wpf_root),
@@ -454,6 +713,33 @@ def main() -> int:
             "list_tests_exit_code": roundtrip_result.list_tests_exit_code,
             "run_tests_exit_code": roundtrip_result.run_tests_exit_code,
             "passed": roundtrip_result.passed,
+        }
+    if feature_matrix_result is not None:
+        report["feature_matrix_validation"] = {
+            "matrix_path": str(feature_matrix_result.matrix_path),
+            "passed": feature_matrix_result.passed,
+            "list_tests_exit_codes": feature_matrix_result.list_tests_exit_codes,
+            "features": [
+                {
+                    "id": item.feature_id,
+                    "area": item.area,
+                    "representable": item.representable,
+                    "status": item.status,
+                    "description": item.description,
+                    "degradation": item.degradation,
+                    "passed": item.passed,
+                    "validations": [
+                        {
+                            "project": str(validation.project_path),
+                            "test_pattern": validation.test_pattern,
+                            "listed": validation.listed,
+                            "run_exit_code": validation.run_exit_code,
+                        }
+                        for validation in item.validations
+                    ],
+                }
+                for item in feature_matrix_result.features
+            ],
         }
 
     json_path = out_path.with_suffix(".json")
