@@ -28,8 +28,12 @@ public sealed class FlowDocumentSampleViewModel : ReactiveObject
         Document = BuildSampleDocument();
         _editableDocument = BuildEditableDocument();
 
-        OpenRichTextDocumentCommand = ReactiveCommand.CreateFromTask(OpenRichTextDocumentAsync);
-        SaveRichTextDocumentCommand = ReactiveCommand.CreateFromTask(SaveRichTextDocumentAsync);
+        OpenRichTextDocumentCommand = ReactiveCommand.CreateFromTask(
+            OpenRichTextDocumentAsync,
+            outputScheduler: RxApp.MainThreadScheduler);
+        SaveRichTextDocumentCommand = ReactiveCommand.CreateFromTask(
+            SaveRichTextDocumentAsync,
+            outputScheduler: RxApp.MainThreadScheduler);
     }
 
     public FlowDocumentModel Document { get; }
