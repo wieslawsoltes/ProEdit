@@ -10,7 +10,9 @@
     <Project Path="src/Vibe.Office.Documents/Vibe.Office.Documents.csproj" />
     <Project Path="src/Vibe.Office.FlowDocument/Vibe.Office.FlowDocument.csproj" />
     <Project Path="src/Vibe.Office.FlowDocument.Documents/Vibe.Office.FlowDocument.Documents.csproj" />
+    <Project Path="src/Vibe.Office.FlowDocument.IO/Vibe.Office.FlowDocument.IO.csproj" />
     <Project Path="src/Vibe.Office.FlowDocument.Avalonia/Vibe.Office.FlowDocument.Avalonia.csproj" />
+    <Project Path="src/Vibe.Office.RichText.Avalonia.Collaboration/Vibe.Office.RichText.Avalonia.Collaboration.csproj" />
     <Project Path="src/Vibe.Office.RichText.Avalonia/Vibe.Office.RichText.Avalonia.csproj" />
     <Project Path="src/Vibe.FlowDocument.App/Vibe.FlowDocument.App.csproj" />
     <Project Path="src/Vibe.Office.Html/Vibe.Office.Html.csproj" />
@@ -42,6 +44,7 @@
   <Folder Name="/tests/">
     <Project Path="tests/Vibe.Office.Collaboration.Tests/Vibe.Office.Collaboration.Tests.csproj" />
     <Project Path="tests/Vibe.Office.FlowDocument.Tests/Vibe.Office.FlowDocument.Tests.csproj" />
+    <Project Path="tests/Vibe.Office.FlowDocument.IO.Tests/Vibe.Office.FlowDocument.IO.Tests.csproj" />
     <Project Path="tests/Vibe.Office.FlowDocument.Avalonia.Headless.Tests/Vibe.Office.FlowDocument.Avalonia.Headless.Tests.csproj" />
     <Project Path="tests/Vibe.Office.RichText.Avalonia.Headless.Tests/Vibe.Office.RichText.Avalonia.Headless.Tests.csproj" />
     <Project Path="tests/Vibe.Office.Html.Tests/Vibe.Office.Html.Tests.csproj" />
