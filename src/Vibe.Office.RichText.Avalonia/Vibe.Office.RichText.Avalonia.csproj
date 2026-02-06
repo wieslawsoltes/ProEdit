@@ -15,10 +15,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <AvaloniaXaml Include="Themes\Generic.axaml" />
-  </ItemGroup>
-
-  <ItemGroup>
     <ProjectReference Include="..\Vibe.Office.Documents\Vibe.Office.Documents.csproj" />
     <ProjectReference Include="..\Vibe.Office.Editing\Vibe.Office.Editing.csproj" />
     <ProjectReference Include="..\Vibe.Office.FlowDocument\Vibe.Office.FlowDocument.csproj" />
