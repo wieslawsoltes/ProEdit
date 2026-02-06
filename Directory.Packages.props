@@ -25,6 +25,7 @@
   <ItemGroup>
     <PackageVersion Include="SkiaSharp" Version="$(SkiaSharpVersion)" />
     <PackageVersion Include="SkiaSharp.HarfBuzz" Version="$(SkiaSharpVersion)" />
+    <PackageVersion Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="$(SkiaSharpVersion)" />
     <PackageVersion Include="Svg.Skia" Version="3.4.0" />
   </ItemGroup>
   <!-- Document + PDF -->
