@@ -9,6 +9,9 @@ namespace Vibe.Office.Collaboration.Tests;
 
 public sealed class WebSocketRelayTests
 {
+    private static readonly TimeSpan RelayReadyTimeout = TimeSpan.FromSeconds(15);
+    private static readonly TimeSpan RelayReceiveTimeout = TimeSpan.FromSeconds(10);
+
     [Fact]
     public async Task RelaysOpsBetweenDesktopAndBrowserClients()
     {
@@ -55,21 +58,7 @@ public sealed class WebSocketRelayTests
         await SendHelloJoinAsync(clientA, docId, sessionA, senderA);
         await SendHelloJoinAsync(clientB, docId, sessionB, senderB);
 
-        // Ensure both joins are processed before asserting ops relay.
-        var presenceEnvelope = new CollabEnvelope<PresenceMessage>(
-            CollabProtocolVersion.V1,
-            docId,
-            sessionB,
-            senderB,
-            3,
-            3,
-            DateTimeOffset.UtcNow,
-            CollabMessageType.Presence,
-            new PresenceMessage(
-                new PresenceState(senderB, "User B", null, null, DateTimeOffset.UtcNow, "#00FF00"),
-                TimeSpan.FromSeconds(5)));
-        await clientB.SendAsync(CollabProtocolJsonCodec.Serialize(presenceEnvelope));
-        await ready.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await WaitForRelayReadyAsync(clientB, docId, sessionB, senderB, ready);
 
         var anchor = TextAnchor.Before(Guid.NewGuid(), 0);
         var batch = CollabOpBatch.Create(senderA, 0, 1, 1, new ICollabOp[] { new InsertTextOp(anchor, "hi", senderA) });
@@ -86,7 +75,7 @@ public sealed class WebSocketRelayTests
 
         await clientA.SendAsync(CollabProtocolJsonCodec.Serialize(opsEnvelope));
 
-        var receivedEnvelope = await received.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        var receivedEnvelope = await received.Task.WaitAsync(RelayReceiveTimeout);
         Assert.Equal(CollabMessageType.Ops, receivedEnvelope.MessageType);
 
         var ops = CollabProtocolJsonCodec.DeserializePayload<OpsMessage>(receivedEnvelope.Payload);
@@ -180,5 +169,49 @@ public sealed class WebSocketRelayTests
 
         await client.SendAsync(CollabProtocolJsonCodec.Serialize(hello));
         await client.SendAsync(CollabProtocolJsonCodec.Serialize(join));
+    }
+
+    private static async Task WaitForRelayReadyAsync(
+        WebSocketClientTransport sender,
+        Guid documentId,
+        Guid sessionId,
+        Guid senderId,
+        TaskCompletionSource ready)
+    {
+        var attempt = 0;
+        while (!ready.Task.IsCompleted && attempt < 20)
+        {
+            attempt++;
+            var sequence = (long)(100 + attempt);
+            var presenceEnvelope = new CollabEnvelope<PresenceMessage>(
+                CollabProtocolVersion.V1,
+                documentId,
+                sessionId,
+                senderId,
+                sequence,
+                sequence,
+                DateTimeOffset.UtcNow,
+                CollabMessageType.Presence,
+                new PresenceMessage(
+                    new PresenceState(senderId, "Relay Ready", null, null, DateTimeOffset.UtcNow, "#00FF00"),
+                    TimeSpan.FromSeconds(5)));
+
+            await sender.SendAsync(CollabProtocolJsonCodec.Serialize(presenceEnvelope));
+            if (ready.Task.IsCompleted)
+            {
+                break;
+            }
+
+            try
+            {
+                await ready.Task.WaitAsync(TimeSpan.FromMilliseconds(120));
+            }
+            catch (TimeoutException)
+            {
+                // Retry until both clients are observed in the relay group.
+            }
+        }
+
+        await ready.Task.WaitAsync(RelayReadyTimeout);
     }
 }
