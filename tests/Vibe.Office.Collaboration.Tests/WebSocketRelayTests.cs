@@ -105,10 +105,19 @@ public sealed class WebSocketRelayTests
         var senderB = Guid.NewGuid();
 
         var presenceCount = 0;
+        var ready = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        clientA.MessageReceived += (_, args) =>
+        {
+            var envelope = CollabProtocolJsonCodec.DeserializeEnvelope(args.Payload.Span);
+            if (envelope.MessageType == CollabMessageType.Presence && envelope.SenderId == senderB)
+            {
+                ready.TrySetResult();
+            }
+        };
         clientB.MessageReceived += (_, args) =>
         {
             var envelope = CollabProtocolJsonCodec.DeserializeEnvelope(args.Payload.Span);
-            if (envelope.MessageType == CollabMessageType.Presence)
+            if (envelope.MessageType == CollabMessageType.Presence && envelope.SenderId == senderA && envelope.Sequence is 3 or 4)
             {
                 Interlocked.Increment(ref presenceCount);
             }
@@ -119,6 +128,7 @@ public sealed class WebSocketRelayTests
 
         await SendHelloJoinAsync(clientA, docId, sessionA, senderA);
         await SendHelloJoinAsync(clientB, docId, sessionB, senderB);
+        await WaitForRelayReadyAsync(clientB, docId, sessionB, senderB, ready);
 
         var presence = new PresenceState(senderA, "User A", null, null, DateTimeOffset.UtcNow, "#FF0000");
         var message = new PresenceMessage(presence, TimeSpan.FromSeconds(5));
@@ -139,7 +149,13 @@ public sealed class WebSocketRelayTests
         await clientA.SendAsync(CollabProtocolJsonCodec.Serialize(envelope1));
         await clientA.SendAsync(CollabProtocolJsonCodec.Serialize(envelope2));
 
-        await Task.Delay(300);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(2);
+        while (Volatile.Read(ref presenceCount) < 1 && DateTimeOffset.UtcNow < deadline)
+        {
+            await Task.Delay(25);
+        }
+
+        await Task.Delay(serverOptions.PresenceThrottleInterval + TimeSpan.FromMilliseconds(150));
         Assert.Equal(1, Volatile.Read(ref presenceCount));
     }
 
