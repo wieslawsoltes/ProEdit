@@ -47,6 +47,20 @@ dotnet run --project src/Vibe.FlowDocument.App/Vibe.FlowDocument.App.csproj
 
 The app showcases lists, tables with row spans, hyperlinks, figures/floaters, and embedded inline/block UI containers declared in both code and XAML.
 
+## Bidirectional Conversion
+
+The FlowDocument pipeline supports both directions:
+
+- `FlowDocument -> Document` through `FlowDocumentConverter`.
+- `Document -> FlowDocument` through `DocumentToFlowDocumentConverter`.
+
+This enables roundtrip scenarios where editor-hosted updates can be mirrored back into the FlowDocument object model while preserving key structures such as:
+
+- Nested lists and start indices.
+- Tables with row spans.
+- Figures/floaters.
+- Inline and block UI containers via embedded element markers.
+
 ## FlowDocument Overview Parity Samples
 
 `Vibe.FlowDocument.App` includes a strict pass of the official WPF `Flow Document Overview` samples.
@@ -60,3 +74,13 @@ The app showcases lists, tables with row spans, hyperlinks, figures/floaters, an
 Current adaptation note:
 
 - WPF attached typography properties used in `_TextElement_TypogXAML` are represented with equivalent flow content and available FlowDocument styling metadata in the adapted pane.
+
+## Use with RichTextBox
+
+`FlowDocument` is also the document surface for `Vibe.Office.RichText.Avalonia.RichTextBox`.
+
+- Author content in FlowDocument XAML.
+- Bind or assign it to `RichTextBox.Document`.
+- The control handles editing through the shared editor engine and keeps the FlowDocument mirror synchronized.
+
+See: [RichTextBox](richtextbox.md)
