@@ -203,4 +203,108 @@ public sealed class DocumentToFlowDocumentConverterTests
 
         Assert.False(converter.TryConvertTopLevelBlock(document, 0, out _));
     }
+
+    [Fact]
+    public void ConvertsCharacterStyleOnlyRun_ToVisibleFlowFormatting()
+    {
+        var document = new Document();
+        document.Blocks.Clear();
+        var characterStyle = new CharacterStyleDefinition("StrongEmphasis");
+        characterStyle.RunProperties.FontWeight = DocFontWeight.Bold;
+        characterStyle.RunProperties.FontStyle = DocFontStyle.Italic;
+        document.Styles.CharacterStyles[characterStyle.Id] = characterStyle;
+
+        var paragraph = new ParagraphBlock();
+        paragraph.Inlines.Add(new RunInline("Styled") { StyleId = characterStyle.Id });
+        document.Blocks.Add(paragraph);
+
+        var converter = new DocumentToFlowDocumentConverter();
+        var flow = converter.Convert(document);
+
+        var flowParagraph = Assert.IsType<Paragraph>(flow.Blocks[0]);
+        var span = Assert.IsType<Span>(flowParagraph.Inlines[0]);
+        Assert.Equal(FlowFontWeight.Bold, span.FontWeight);
+        Assert.Equal(FlowFontStyle.Italic, span.FontStyle);
+        var run = Assert.IsType<Run>(span.Inlines[0]);
+        Assert.Equal("Styled", run.Text);
+    }
+
+    [Fact]
+    public void ConvertsParagraphStyleInheritance_ToParagraphLevelFlowProperties()
+    {
+        var document = new Document();
+        document.Blocks.Clear();
+        var heading = new ParagraphStyleDefinition("HeadingOne");
+        heading.ParagraphProperties.Alignment = ParagraphAlignment.Center;
+        heading.ParagraphProperties.PageBreakBefore = true;
+        heading.RunProperties.FontStyle = DocFontStyle.Italic;
+        heading.RunProperties.FontWeight = DocFontWeight.Bold;
+        document.Styles.ParagraphStyles[heading.Id] = heading;
+
+        var paragraph = new ParagraphBlock("Heading text") { StyleId = heading.Id };
+        document.Blocks.Add(paragraph);
+
+        var converter = new DocumentToFlowDocumentConverter();
+        var flow = converter.Convert(document);
+
+        var flowParagraph = Assert.IsType<Paragraph>(flow.Blocks[0]);
+        Assert.Equal(FlowTextAlignment.Center, flowParagraph.TextAlignment);
+        Assert.Equal(true, flowParagraph.BreakPageBefore);
+        Assert.Equal(FlowFontStyle.Italic, flowParagraph.FontStyle);
+        Assert.Equal(FlowFontWeight.Bold, flowParagraph.FontWeight);
+    }
+
+    [Fact]
+    public void ConvertsTableStyleConditions_ToFlowTableCellVisuals()
+    {
+        var document = new Document();
+        document.Blocks.Clear();
+
+        var tableStyle = new TableStyleDefinition("TableGrid");
+        tableStyle.TableProperties.Look = new TableLook
+        {
+            FirstRow = true,
+            BandedRows = true
+        };
+        tableStyle.CellProperties.Padding = new Vibe.Office.Primitives.DocThickness(8f, 4f, 8f, 4f);
+        tableStyle.CellProperties.Borders.Bottom = new BorderLine
+        {
+            Thickness = 1f,
+            Color = Vibe.Office.Primitives.DocColor.Black
+        };
+        var firstRowCondition = new TableStyleConditionProperties();
+        firstRowCondition.CellProperties.ShadingColor = new Vibe.Office.Primitives.DocColor(230, 240, 255);
+        tableStyle.Conditions[TableStyleCondition.FirstRow] = firstRowCondition;
+        document.Styles.TableStyles[tableStyle.Id] = tableStyle;
+
+        var table = new TableBlock
+        {
+            StyleId = tableStyle.Id
+        };
+        var row1 = new Vibe.Office.Documents.TableRow();
+        var row1Cell = new Vibe.Office.Documents.TableCell();
+        row1Cell.Blocks.Add(new ParagraphBlock("Header"));
+        row1.Cells.Add(row1Cell);
+        table.Rows.Add(row1);
+
+        var row2 = new Vibe.Office.Documents.TableRow();
+        var row2Cell = new Vibe.Office.Documents.TableCell();
+        row2Cell.Blocks.Add(new ParagraphBlock("Body"));
+        row2.Cells.Add(row2Cell);
+        table.Rows.Add(row2);
+        document.Blocks.Add(table);
+
+        var converter = new DocumentToFlowDocumentConverter();
+        var flow = converter.Convert(document);
+
+        var flowTable = Assert.IsType<Table>(flow.Blocks[0]);
+        var headerCell = flowTable.RowGroups[0].Rows[0].Cells[0];
+        var bodyCell = flowTable.RowGroups[0].Rows[1].Cells[0];
+
+        Assert.False(headerCell.Padding.IsEmpty);
+        Assert.False(headerCell.BorderThickness.IsEmpty);
+        Assert.NotNull(headerCell.BorderBrush);
+        Assert.Equal("#E6F0FF", headerCell.Background);
+        Assert.NotEqual(headerCell.Background, bodyCell.Background);
+    }
 }

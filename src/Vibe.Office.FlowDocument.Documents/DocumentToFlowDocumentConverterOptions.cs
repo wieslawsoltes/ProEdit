@@ -7,6 +7,18 @@ namespace Vibe.Office.FlowDocument.Documents;
 public sealed class DocumentToFlowDocumentConverterOptions
 {
     /// <summary>
+    /// Gets or sets a value indicating whether inherited paragraph/run styles should
+    /// be resolved through the shared document style resolver before FlowDocument projection.
+    /// </summary>
+    public bool ResolveInheritedStyles { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether table style conditions (banding, first/last row/column)
+    /// should be applied when projecting table cell visuals.
+    /// </summary>
+    public bool ApplyTableStyleConditions { get; set; } = true;
+
+    /// <summary>
     /// Gets or sets the shape name prefix used to detect embedded UI container markers.
     /// </summary>
     public string EmbeddedUiShapePrefix { get; set; } = FlowDocumentConverterOptions.DefaultEmbeddedUiShapePrefix;

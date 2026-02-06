@@ -1,5 +1,6 @@
 using System.Globalization;
 using Vibe.Office.Documents;
+using Vibe.Office.Layout;
 using Vibe.Office.Primitives;
 using DocumentBlock = Vibe.Office.Documents.Block;
 using DocumentInline = Vibe.Office.Documents.Inline;
@@ -26,6 +27,8 @@ namespace Vibe.Office.FlowDocument.Documents;
 public sealed class DocumentToFlowDocumentConverter
 {
     private readonly DocumentToFlowDocumentConverterOptions _options;
+    private Document? _currentDocument;
+    private DocumentStyleResolver? _styleResolver;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="DocumentToFlowDocumentConverter"/> class.
@@ -53,16 +56,24 @@ public sealed class DocumentToFlowDocumentConverter
     {
         ArgumentNullException.ThrowIfNull(source);
 
-        var document = new Vibe.Office.FlowDocument.FlowDocument();
-        ApplyDocumentDefaults(source, document);
-        AppendBlocks(source.Blocks, document.Blocks);
-
-        if (document.Blocks.Count == 0)
+        BeginConversion(source);
+        try
         {
-            document.Blocks.Add(new FlowParagraph());
-        }
+            var document = new Vibe.Office.FlowDocument.FlowDocument();
+            ApplyDocumentDefaults(source, document);
+            AppendBlocks(source.Blocks, document.Blocks);
 
-        return document;
+            if (document.Blocks.Count == 0)
+            {
+                document.Blocks.Add(new FlowParagraph());
+            }
+
+            return document;
+        }
+        finally
+        {
+            EndConversion();
+        }
     }
 
     /// <summary>
@@ -79,36 +90,58 @@ public sealed class DocumentToFlowDocumentConverter
     {
         ArgumentNullException.ThrowIfNull(source);
 
-        block = null!;
-        if ((uint)blockIndex >= (uint)source.Blocks.Count)
+        BeginConversion(source);
+        try
         {
-            return false;
-        }
-
-        if (source.Blocks[blockIndex] is DocumentParagraph paragraph)
-        {
-            if (paragraph.ListInfo is not null)
+            block = null!;
+            if ((uint)blockIndex >= (uint)source.Blocks.Count)
             {
                 return false;
             }
 
-            if (TryConvertBlockUiContainer(paragraph, out var blockUiContainer))
+            if (source.Blocks[blockIndex] is DocumentParagraph paragraph)
             {
-                block = blockUiContainer;
+                if (paragraph.ListInfo is not null)
+                {
+                    return false;
+                }
+
+                if (TryConvertBlockUiContainer(paragraph, out var blockUiContainer))
+                {
+                    block = blockUiContainer;
+                    return true;
+                }
+
+                block = ConvertParagraph(paragraph);
                 return true;
             }
 
-            block = ConvertParagraph(paragraph);
-            return true;
-        }
+            if (source.Blocks[blockIndex] is TableBlock table)
+            {
+                block = ConvertTable(table);
+                return true;
+            }
 
-        if (source.Blocks[blockIndex] is TableBlock table)
+            return false;
+        }
+        finally
         {
-            block = ConvertTable(table);
-            return true;
+            EndConversion();
         }
+    }
 
-        return false;
+    private void BeginConversion(Document source)
+    {
+        _currentDocument = source;
+        _styleResolver = _options.ResolveInheritedStyles
+            ? new DocumentStyleResolver(source)
+            : null;
+    }
+
+    private void EndConversion()
+    {
+        _styleResolver = null;
+        _currentDocument = null;
     }
 
     private void ApplyDocumentDefaults(Document source, Vibe.Office.FlowDocument.FlowDocument target)
@@ -349,7 +382,10 @@ public sealed class DocumentToFlowDocumentConverter
     private FlowParagraph ConvertParagraph(DocumentParagraph source)
     {
         var paragraph = new FlowParagraph();
-        ApplyParagraphProperties(source.Properties, paragraph);
+        var resolvedParagraphProperties = ResolveParagraphProperties(source);
+        ApplyParagraphProperties(resolvedParagraphProperties, paragraph);
+        var paragraphStyle = ResolveParagraphTextStyle(source);
+        ApplyResolvedTextStyle(paragraphStyle, paragraph);
 
         if (source.Inlines.Count == 0)
         {
@@ -362,7 +398,7 @@ public sealed class DocumentToFlowDocumentConverter
         {
             for (var inlineIndex = 0; inlineIndex < source.Inlines.Count; inlineIndex++)
             {
-                AppendInline(source.Inlines[inlineIndex], paragraph.Inlines);
+                AppendInline(source, paragraphStyle, source.Inlines[inlineIndex], paragraph.Inlines);
             }
         }
 
@@ -458,11 +494,15 @@ public sealed class DocumentToFlowDocumentConverter
         return anchored;
     }
 
-    private void AppendInline(DocumentInline source, FlowInlineCollection target)
+    private void AppendInline(
+        DocumentParagraph paragraph,
+        TextStyle paragraphStyle,
+        DocumentInline source,
+        FlowInlineCollection target)
     {
         if (source is RunInline runInline)
         {
-            AppendRunInline(runInline, target);
+            AppendRunInline(paragraph, paragraphStyle, runInline, target);
             return;
         }
 
@@ -489,7 +529,11 @@ public sealed class DocumentToFlowDocumentConverter
         }
     }
 
-    private void AppendRunInline(RunInline source, FlowInlineCollection target)
+    private void AppendRunInline(
+        DocumentParagraph paragraph,
+        TextStyle paragraphStyle,
+        RunInline source,
+        FlowInlineCollection target)
     {
         var text = source.GetText();
         if (text.Length == 0)
@@ -497,6 +541,8 @@ public sealed class DocumentToFlowDocumentConverter
             return;
         }
 
+        var runStyle = ResolveRunTextStyle(paragraph, source, paragraphStyle);
+        var runStyleDelta = BuildFlowCompatibleStyleDelta(paragraphStyle, runStyle);
         var parts = text.Split('\n');
         for (var index = 0; index < parts.Length; index++)
         {
@@ -504,13 +550,144 @@ public sealed class DocumentToFlowDocumentConverter
             if (segment.Length > 0)
             {
                 var run = new Vibe.Office.FlowDocument.Run(segment);
-                AddStyledInline(target, run, source.Style, source.Hyperlink);
+                AddStyledInline(target, run, runStyleDelta, source.Hyperlink);
             }
 
             if (index + 1 < parts.Length)
             {
                 var lineBreak = new Vibe.Office.FlowDocument.LineBreak();
-                AddStyledInline(target, lineBreak, source.Style, source.Hyperlink);
+                AddStyledInline(target, lineBreak, runStyleDelta, source.Hyperlink);
+            }
+        }
+    }
+
+    private ParagraphProperties ResolveParagraphProperties(DocumentParagraph source)
+    {
+        if (_styleResolver is null || !_options.ResolveInheritedStyles)
+        {
+            return source.Properties;
+        }
+
+        return _styleResolver.ResolveParagraphProperties(source);
+    }
+
+    private TextStyle ResolveParagraphTextStyle(DocumentParagraph source)
+    {
+        var document = _currentDocument;
+        var defaultStyle = document?.DefaultTextStyle.Clone() ?? new TextStyle();
+        if (_styleResolver is null || !_options.ResolveInheritedStyles)
+        {
+            return defaultStyle;
+        }
+
+        return _styleResolver.ResolveParagraphTextStyle(source, defaultStyle);
+    }
+
+    private TextStyle ResolveRunTextStyle(DocumentParagraph paragraph, RunInline run, TextStyle paragraphStyle)
+    {
+        if (_styleResolver is not null && _options.ResolveInheritedStyles)
+        {
+            return _styleResolver.ResolveRunStyle(paragraph, run, paragraphStyle);
+        }
+
+        var style = paragraphStyle.Clone();
+        run.Style?.ApplyTo(style);
+        return style;
+    }
+
+    private static TextStyleProperties? BuildFlowCompatibleStyleDelta(TextStyle baseStyle, TextStyle runStyle)
+    {
+        var delta = new TextStyleProperties();
+
+        if (!string.Equals(runStyle.FontFamily, baseStyle.FontFamily, StringComparison.Ordinal))
+        {
+            delta.FontFamily = runStyle.FontFamily;
+        }
+
+        if (Math.Abs(runStyle.FontSize - baseStyle.FontSize) > 0.01f)
+        {
+            delta.FontSize = runStyle.FontSize;
+        }
+
+        if (runStyle.FontWeight != baseStyle.FontWeight)
+        {
+            delta.FontWeight = runStyle.FontWeight;
+        }
+
+        if (runStyle.FontStyle != baseStyle.FontStyle)
+        {
+            delta.FontStyle = runStyle.FontStyle;
+        }
+
+        if (runStyle.Color != baseStyle.Color)
+        {
+            delta.Color = runStyle.Color;
+        }
+
+        if (!Nullable.Equals(runStyle.HighlightColor, baseStyle.HighlightColor))
+        {
+            delta.HighlightColor = runStyle.HighlightColor;
+        }
+
+        if (runStyle.VerticalPosition != baseStyle.VerticalPosition)
+        {
+            delta.VerticalPosition = runStyle.VerticalPosition;
+        }
+
+        if (runStyle.Underline != baseStyle.Underline || runStyle.UnderlineStyle != baseStyle.UnderlineStyle)
+        {
+            delta.Underline = runStyle.Underline;
+            delta.UnderlineStyle = runStyle.UnderlineStyle;
+        }
+
+        if (runStyle.Strikethrough != baseStyle.Strikethrough)
+        {
+            delta.Strikethrough = runStyle.Strikethrough;
+        }
+
+        return delta.HasValues ? delta : null;
+    }
+
+    private static void ApplyResolvedTextStyle(TextStyle source, Vibe.Office.FlowDocument.TextElement target)
+    {
+        if (source is null)
+        {
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(source.FontFamily))
+        {
+            target.FontFamily = source.FontFamily;
+        }
+
+        if (source.FontSize > 0f)
+        {
+            target.FontSize = source.FontSize;
+        }
+
+        target.FontWeight = source.FontWeight == DocFontWeight.Bold
+            ? Vibe.Office.FlowDocument.FlowFontWeight.Bold
+            : Vibe.Office.FlowDocument.FlowFontWeight.Normal;
+        target.FontStyle = source.FontStyle == DocFontStyle.Italic
+            ? Vibe.Office.FlowDocument.FlowFontStyle.Italic
+            : Vibe.Office.FlowDocument.FlowFontStyle.Normal;
+        target.Foreground = ToFlowColor(source.Color);
+
+        if (source.HighlightColor.HasValue)
+        {
+            target.Background = ToFlowColor(source.HighlightColor.Value);
+        }
+
+        var decorations = ToFlowTextDecorations(source.Underline, source.UnderlineStyle, source.Strikethrough);
+        if (decorations != Vibe.Office.FlowDocument.FlowTextDecorations.None)
+        {
+            if (target is FlowParagraph paragraph)
+            {
+                paragraph.TextDecorations = decorations;
+            }
+            else if (target is Vibe.Office.FlowDocument.Span span)
+            {
+                span.TextDecorations = decorations;
             }
         }
     }
@@ -700,7 +877,35 @@ public sealed class DocumentToFlowDocumentConverter
             target.LineHeight = source.LineSpacing.Value;
         }
 
+        // The shared document model does not expose a column-break flag, so
+        // BreakColumnBefore cannot be reconstructed on Flow blocks.
         target.BreakPageBefore = source.PageBreakBefore;
+        target.FlowDirection = ResolveFlowDirection(source.Bidi, source.TextDirection);
+        target.LineStackingStrategy = source.LineSpacingRule?.ToString();
+
+        if (source.ShadingColor.HasValue)
+        {
+            target.Background = ToFlowColor(source.ShadingColor.Value);
+        }
+
+        var borderThickness = new Vibe.Office.FlowDocument.FlowThickness(
+            source.Borders.Left?.Thickness ?? 0f,
+            source.Borders.Top?.Thickness ?? 0f,
+            source.Borders.Right?.Thickness ?? 0f,
+            source.Borders.Bottom?.Thickness ?? 0f);
+        if (!borderThickness.IsEmpty)
+        {
+            target.BorderThickness = borderThickness;
+        }
+
+        var borderColor = source.Borders.Left?.Color
+                          ?? source.Borders.Top?.Color
+                          ?? source.Borders.Right?.Color
+                          ?? source.Borders.Bottom?.Color;
+        if (borderColor.HasValue)
+        {
+            target.BorderBrush = ToFlowColor(borderColor.Value);
+        }
 
         if (target is FlowParagraph paragraph)
         {
@@ -708,6 +913,16 @@ public sealed class DocumentToFlowDocumentConverter
             paragraph.KeepWithNext = source.KeepWithNext;
             paragraph.KeepTogether = source.KeepLinesTogether;
         }
+    }
+
+    private static string? ResolveFlowDirection(bool? bidi, DocTextDirection? textDirection)
+    {
+        if (bidi == true)
+        {
+            return "RightToLeft";
+        }
+
+        return textDirection?.ToString();
     }
 
     private static Vibe.Office.FlowDocument.FlowTextAlignment ToFlowAlignment(ParagraphAlignment alignment)
@@ -723,17 +938,25 @@ public sealed class DocumentToFlowDocumentConverter
 
     private Vibe.Office.FlowDocument.Table ConvertTable(TableBlock source)
     {
+        var tableStyle = _styleResolver is not null && _options.ResolveInheritedStyles
+            ? _styleResolver.ResolveTableStyle(source)
+            : null;
+        var mergedTableProperties = MergeTableProperties(tableStyle?.TableProperties, source.Properties);
+        var tableLook = ResolveTableLook(source.Properties.Look ?? mergedTableProperties.Look);
+        var rowCount = source.Rows.Count;
+        var columnCount = ResolveTableColumnCount(source.Rows, mergedTableProperties);
+
         var table = new Vibe.Office.FlowDocument.Table();
-        if (source.Properties.CellSpacing.HasValue && source.Properties.CellSpacing.Value >= 0f)
+        if (mergedTableProperties.CellSpacing.HasValue && mergedTableProperties.CellSpacing.Value >= 0f)
         {
-            table.CellSpacing = source.Properties.CellSpacing.Value;
+            table.CellSpacing = mergedTableProperties.CellSpacing.Value;
         }
 
-        if (source.Properties.ColumnWidths.Count > 0)
+        if (mergedTableProperties.ColumnWidths.Count > 0)
         {
-            for (var columnIndex = 0; columnIndex < source.Properties.ColumnWidths.Count; columnIndex++)
+            for (var columnIndex = 0; columnIndex < mergedTableProperties.ColumnWidths.Count; columnIndex++)
             {
-                var width = source.Properties.ColumnWidths[columnIndex];
+                var width = mergedTableProperties.ColumnWidths[columnIndex];
                 table.Columns.Add(new Vibe.Office.FlowDocument.TableColumn
                 {
                     Width = width > 0f ? width : null
@@ -768,7 +991,17 @@ public sealed class DocumentToFlowDocumentConverter
                     RowSpan = ComputeRowSpan(source.Rows, rowIndex, column, columnSpan)
                 };
 
-                ApplyTableCellProperties(sourceCell, cell);
+                var resolvedProperties = ResolveTableCellProperties(
+                    sourceRow,
+                    sourceCell,
+                    source.Properties,
+                    tableStyle,
+                    tableLook,
+                    rowIndex,
+                    column,
+                    rowCount,
+                    columnCount);
+                ApplyFlowTableCellProperties(sourceCell, resolvedProperties, cell);
                 AppendBlocks(sourceCell.Blocks, cell.Blocks);
                 if (cell.Blocks.Count == 0)
                 {
@@ -781,6 +1014,84 @@ public sealed class DocumentToFlowDocumentConverter
         }
 
         return table;
+    }
+
+    private TableCellProperties ResolveTableCellProperties(
+        DocumentTableRow row,
+        DocumentTableCell cell,
+        TableProperties tableProperties,
+        TableStyleDefinition? tableStyle,
+        TableLook tableLook,
+        int rowIndex,
+        int columnIndex,
+        int rowCount,
+        int columnCount)
+    {
+        var resolved = new TableCellProperties();
+
+        if (tableStyle is not null)
+        {
+            ApplyTablePropertiesToCell(resolved, tableStyle.TableProperties, rowIndex, columnIndex, rowCount, columnCount);
+            ApplyTableCellProperties(resolved, tableStyle.CellProperties);
+
+            if (_options.ApplyTableStyleConditions)
+            {
+                foreach (var condition in GetApplicableTableStyleConditions(tableLook, rowIndex, columnIndex, rowCount, columnCount))
+                {
+                    if (!tableStyle.Conditions.TryGetValue(condition, out var conditionProperties))
+                    {
+                        continue;
+                    }
+
+                    ApplyTablePropertiesToCell(resolved, conditionProperties.TableProperties, rowIndex, columnIndex, rowCount, columnCount);
+                    ApplyTableCellProperties(resolved, conditionProperties.CellProperties);
+                }
+            }
+        }
+
+        ApplyTablePropertiesToCell(resolved, tableProperties, rowIndex, columnIndex, rowCount, columnCount);
+        ApplyTableRowPropertiesToCell(resolved, row.Properties);
+        ApplyTableCellProperties(resolved, cell.Properties);
+        return resolved;
+    }
+
+    private static TableProperties MergeTableProperties(TableProperties? baseProperties, TableProperties overrideProperties)
+    {
+        var merged = baseProperties?.Clone() ?? new TableProperties();
+        ApplyTableProperties(merged, overrideProperties);
+        return merged;
+    }
+
+    private static TableLook ResolveTableLook(TableLook? look)
+    {
+        return look?.Clone() ?? new TableLook();
+    }
+
+    private static int ResolveTableColumnCount(IReadOnlyList<DocumentTableRow> rows, TableProperties properties)
+    {
+        if (properties.ColumnWidths.Count > 0)
+        {
+            return properties.ColumnWidths.Count;
+        }
+
+        var maxColumns = 0;
+        for (var rowIndex = 0; rowIndex < rows.Count; rowIndex++)
+        {
+            var row = rows[rowIndex];
+            var current = Math.Max(0, row.Properties.GridBefore ?? 0);
+            for (var cellIndex = 0; cellIndex < row.Cells.Count; cellIndex++)
+            {
+                current += Math.Max(1, row.Cells[cellIndex].ColumnSpan);
+            }
+
+            current += Math.Max(0, row.Properties.GridAfter ?? 0);
+            if (current > maxColumns)
+            {
+                maxColumns = current;
+            }
+        }
+
+        return Math.Max(1, maxColumns);
     }
 
     private static int ComputeRowSpan(IReadOnlyList<DocumentTableRow> rows, int rowIndex, int column, int columnSpan)
@@ -828,31 +1139,38 @@ public sealed class DocumentToFlowDocumentConverter
         return false;
     }
 
-    private static void ApplyTableCellProperties(DocumentTableCell source, FlowTableCell target)
+    private void ApplyFlowTableCellProperties(DocumentTableCell source, TableCellProperties resolvedProperties, FlowTableCell target)
     {
-        if (source.Properties.Padding.HasValue)
+        if (resolvedProperties.Padding.HasValue)
         {
-            target.Padding = ToFlowThickness(source.Properties.Padding.Value);
+            target.Padding = ToFlowThickness(resolvedProperties.Padding.Value);
+        }
+
+        if (resolvedProperties.ShadingColor.HasValue)
+        {
+            target.Background = ToFlowColor(resolvedProperties.ShadingColor.Value);
         }
 
         var borderThickness = new Vibe.Office.FlowDocument.FlowThickness(
-            source.Properties.Borders.Left?.Thickness ?? 0f,
-            source.Properties.Borders.Top?.Thickness ?? 0f,
-            source.Properties.Borders.Right?.Thickness ?? 0f,
-            source.Properties.Borders.Bottom?.Thickness ?? 0f);
+            resolvedProperties.Borders.Left?.Thickness ?? 0f,
+            resolvedProperties.Borders.Top?.Thickness ?? 0f,
+            resolvedProperties.Borders.Right?.Thickness ?? 0f,
+            resolvedProperties.Borders.Bottom?.Thickness ?? 0f);
         if (!borderThickness.IsEmpty)
         {
             target.BorderThickness = borderThickness;
         }
 
-        var borderColor = source.Properties.Borders.Left?.Color
-                          ?? source.Properties.Borders.Top?.Color
-                          ?? source.Properties.Borders.Right?.Color
-                          ?? source.Properties.Borders.Bottom?.Color;
+        var borderColor = resolvedProperties.Borders.Left?.Color
+                          ?? resolvedProperties.Borders.Top?.Color
+                          ?? resolvedProperties.Borders.Right?.Color
+                          ?? resolvedProperties.Borders.Bottom?.Color;
         if (borderColor.HasValue)
         {
             target.BorderBrush = ToFlowColor(borderColor.Value);
         }
+
+        target.FlowDirection = resolvedProperties.TextDirection?.ToString();
 
         var alignment = InferCellTextAlignment(source.Blocks);
         if (alignment.HasValue)
@@ -861,17 +1179,23 @@ public sealed class DocumentToFlowDocumentConverter
         }
     }
 
-    private static Vibe.Office.FlowDocument.FlowTextAlignment? InferCellTextAlignment(IReadOnlyList<DocumentBlock> blocks)
+    private Vibe.Office.FlowDocument.FlowTextAlignment? InferCellTextAlignment(IReadOnlyList<DocumentBlock> blocks)
     {
         Vibe.Office.FlowDocument.FlowTextAlignment? result = null;
         for (var index = 0; index < blocks.Count; index++)
         {
-            if (blocks[index] is not DocumentParagraph paragraph || !paragraph.Properties.Alignment.HasValue)
+            if (blocks[index] is not DocumentParagraph paragraph)
             {
                 continue;
             }
 
-            var current = ToFlowAlignment(paragraph.Properties.Alignment.Value);
+            var resolved = ResolveParagraphProperties(paragraph);
+            if (!resolved.Alignment.HasValue)
+            {
+                continue;
+            }
+
+            var current = ToFlowAlignment(resolved.Alignment.Value);
             if (!result.HasValue)
             {
                 result = current;
@@ -885,6 +1209,326 @@ public sealed class DocumentToFlowDocumentConverter
         }
 
         return result;
+    }
+
+    private static IEnumerable<TableStyleCondition> GetApplicableTableStyleConditions(
+        TableLook look,
+        int rowIndex,
+        int columnIndex,
+        int rowCount,
+        int columnCount)
+    {
+        var hasFirstRow = look.FirstRow && rowCount > 0;
+        var hasLastRow = look.LastRow && rowCount > 1;
+        var hasFirstColumn = look.FirstColumn && columnCount > 0;
+        var hasLastColumn = look.LastColumn && columnCount > 1;
+
+        if (look.BandedRows)
+        {
+            var bandStart = hasFirstRow ? 1 : 0;
+            var bandEnd = hasLastRow ? rowCount - 1 : rowCount;
+            if (rowIndex >= bandStart && rowIndex < bandEnd)
+            {
+                var bandIndex = rowIndex - bandStart;
+                yield return bandIndex % 2 == 0 ? TableStyleCondition.Band1Horizontal : TableStyleCondition.Band2Horizontal;
+            }
+        }
+
+        if (look.BandedColumns)
+        {
+            var bandStart = hasFirstColumn ? 1 : 0;
+            var bandEnd = hasLastColumn ? columnCount - 1 : columnCount;
+            if (columnIndex >= bandStart && columnIndex < bandEnd)
+            {
+                var bandIndex = columnIndex - bandStart;
+                yield return bandIndex % 2 == 0 ? TableStyleCondition.Band1Vertical : TableStyleCondition.Band2Vertical;
+            }
+        }
+
+        if (look.FirstRow && rowIndex == 0)
+        {
+            yield return TableStyleCondition.FirstRow;
+        }
+
+        if (look.LastRow && rowIndex == rowCount - 1)
+        {
+            yield return TableStyleCondition.LastRow;
+        }
+
+        if (look.FirstColumn && columnIndex == 0)
+        {
+            yield return TableStyleCondition.FirstColumn;
+        }
+
+        if (look.LastColumn && columnIndex == columnCount - 1)
+        {
+            yield return TableStyleCondition.LastColumn;
+        }
+
+        if (look.FirstRow && look.FirstColumn && rowIndex == 0 && columnIndex == 0)
+        {
+            yield return TableStyleCondition.NorthWestCell;
+        }
+
+        if (look.FirstRow && look.LastColumn && rowIndex == 0 && columnIndex == columnCount - 1)
+        {
+            yield return TableStyleCondition.NorthEastCell;
+        }
+
+        if (look.LastRow && look.FirstColumn && rowIndex == rowCount - 1 && columnIndex == 0)
+        {
+            yield return TableStyleCondition.SouthWestCell;
+        }
+
+        if (look.LastRow && look.LastColumn && rowIndex == rowCount - 1 && columnIndex == columnCount - 1)
+        {
+            yield return TableStyleCondition.SouthEastCell;
+        }
+    }
+
+    private static void ApplyTableProperties(TableProperties target, TableProperties source)
+    {
+        if (source.ColumnWidths.Count > 0)
+        {
+            target.ColumnWidths.Clear();
+            target.ColumnWidths.AddRange(source.ColumnWidths);
+        }
+
+        if (source.Width.HasValue)
+        {
+            target.Width = source.Width;
+        }
+
+        if (source.WidthUnit.HasValue)
+        {
+            target.WidthUnit = source.WidthUnit;
+        }
+
+        if (source.Indent.HasValue)
+        {
+            target.Indent = source.Indent;
+        }
+
+        if (source.IndentUnit.HasValue)
+        {
+            target.IndentUnit = source.IndentUnit;
+        }
+
+        if (source.Alignment.HasValue)
+        {
+            target.Alignment = source.Alignment;
+        }
+
+        if (source.LayoutMode.HasValue)
+        {
+            target.LayoutMode = source.LayoutMode;
+        }
+
+        if (source.CellSpacing.HasValue)
+        {
+            target.CellSpacing = source.CellSpacing;
+        }
+
+        if (source.CellSpacingUnit.HasValue)
+        {
+            target.CellSpacingUnit = source.CellSpacingUnit;
+        }
+
+        if (source.CellPadding.HasValue)
+        {
+            target.CellPadding = MergePadding(target.CellPadding, source.CellPadding.Value);
+        }
+
+        if (source.ShadingColor.HasValue)
+        {
+            target.ShadingColor = source.ShadingColor;
+        }
+
+        if (source.Look is not null)
+        {
+            target.Look = source.Look.Clone();
+        }
+
+        ApplyTableBorders(target.Borders, source.Borders);
+    }
+
+    private static void ApplyTablePropertiesToCell(
+        TableCellProperties target,
+        TableProperties source,
+        int rowIndex,
+        int columnIndex,
+        int rowCount,
+        int columnCount)
+    {
+        if (source.CellPadding.HasValue)
+        {
+            target.Padding = MergePadding(target.Padding, source.CellPadding.Value);
+        }
+
+        if (source.ShadingColor.HasValue)
+        {
+            target.ShadingColor = source.ShadingColor;
+        }
+
+        ApplyTableBordersToCell(target.Borders, source.Borders, rowIndex, columnIndex, rowCount, columnCount);
+    }
+
+    private static void ApplyTableRowPropertiesToCell(TableCellProperties target, TableRowProperties source)
+    {
+        if (source.ShadingColor.HasValue)
+        {
+            target.ShadingColor = source.ShadingColor;
+        }
+    }
+
+    private static void ApplyTableCellProperties(TableCellProperties target, TableCellProperties source)
+    {
+        if (source.Padding.HasValue)
+        {
+            target.Padding = MergePadding(target.Padding, source.Padding.Value);
+        }
+
+        if (source.ShadingColor.HasValue)
+        {
+            target.ShadingColor = source.ShadingColor;
+        }
+
+        if (source.VerticalAlignment.HasValue)
+        {
+            target.VerticalAlignment = source.VerticalAlignment;
+        }
+
+        if (source.TextDirection.HasValue)
+        {
+            target.TextDirection = source.TextDirection;
+        }
+
+        if (source.PreferredWidth.HasValue)
+        {
+            target.PreferredWidth = source.PreferredWidth;
+        }
+
+        if (source.PreferredWidthUnit.HasValue)
+        {
+            target.PreferredWidthUnit = source.PreferredWidthUnit;
+        }
+
+        ApplyTableCellBorders(target.Borders, source.Borders);
+    }
+
+    private static void ApplyTableBorders(TableBorders target, TableBorders source)
+    {
+        if (source.Top is not null)
+        {
+            target.Top = source.Top.Clone();
+        }
+
+        if (source.Bottom is not null)
+        {
+            target.Bottom = source.Bottom.Clone();
+        }
+
+        if (source.Left is not null)
+        {
+            target.Left = source.Left.Clone();
+        }
+
+        if (source.Right is not null)
+        {
+            target.Right = source.Right.Clone();
+        }
+
+        if (source.InsideHorizontal is not null)
+        {
+            target.InsideHorizontal = source.InsideHorizontal.Clone();
+        }
+
+        if (source.InsideVertical is not null)
+        {
+            target.InsideVertical = source.InsideVertical.Clone();
+        }
+    }
+
+    private static void ApplyTableBordersToCell(
+        TableCellBorders target,
+        TableBorders source,
+        int rowIndex,
+        int columnIndex,
+        int rowCount,
+        int columnCount)
+    {
+        var isFirstRow = rowIndex == 0;
+        var isLastRow = rowIndex == rowCount - 1;
+        var isFirstColumn = columnIndex == 0;
+        var isLastColumn = columnIndex == columnCount - 1;
+
+        if (isFirstRow && source.Top is not null)
+        {
+            target.Top = source.Top.Clone();
+        }
+
+        if (isLastRow && source.Bottom is not null)
+        {
+            target.Bottom = source.Bottom.Clone();
+        }
+
+        if (isFirstColumn && source.Left is not null)
+        {
+            target.Left = source.Left.Clone();
+        }
+
+        if (isLastColumn && source.Right is not null)
+        {
+            target.Right = source.Right.Clone();
+        }
+
+        if (source.InsideHorizontal is not null && !isLastRow)
+        {
+            target.Bottom = source.InsideHorizontal.Clone();
+        }
+
+        if (source.InsideVertical is not null && !isLastColumn)
+        {
+            target.Right = source.InsideVertical.Clone();
+        }
+    }
+
+    private static void ApplyTableCellBorders(TableCellBorders target, TableCellBorders source)
+    {
+        if (source.Top is not null)
+        {
+            target.Top = source.Top.Clone();
+        }
+
+        if (source.Bottom is not null)
+        {
+            target.Bottom = source.Bottom.Clone();
+        }
+
+        if (source.Left is not null)
+        {
+            target.Left = source.Left.Clone();
+        }
+
+        if (source.Right is not null)
+        {
+            target.Right = source.Right.Clone();
+        }
+    }
+
+    private static DocThickness MergePadding(DocThickness? basePadding, DocThickness overridePadding)
+    {
+        if (!basePadding.HasValue)
+        {
+            return overridePadding;
+        }
+
+        var value = basePadding.Value;
+        return new DocThickness(
+            float.IsNaN(overridePadding.Left) ? value.Left : overridePadding.Left,
+            float.IsNaN(overridePadding.Top) ? value.Top : overridePadding.Top,
+            float.IsNaN(overridePadding.Right) ? value.Right : overridePadding.Right,
+            float.IsNaN(overridePadding.Bottom) ? value.Bottom : overridePadding.Bottom);
     }
 
     private static Vibe.Office.FlowDocument.FlowThickness ToFlowThickness(DocThickness value)
