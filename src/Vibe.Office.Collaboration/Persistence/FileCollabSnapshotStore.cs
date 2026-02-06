@@ -117,14 +117,18 @@ public sealed class FileCollabSnapshotStore : ICollabSnapshotStore
             var engine = new InMemoryCollabEngine(baseDocument, baseSnapshotVersion);
             var tail = new Queue<CollabOpBatch>(Math.Max(0, _options.TailOpCount));
 
-            using var reader = new CollabOpLogReader(_opLogPath);
-            foreach (var batch in reader.ReadAll())
+            // Reader must be disposed before rewriting/deleting the op-log file on Windows.
+            using (var reader = new CollabOpLogReader(_opLogPath))
             {
-                if (TrySliceBatch(batch, baseSnapshotVersion, out var sliced))
+                foreach (var batch in reader.ReadAll())
                 {
-                    engine.Apply(sliced, CollabApplyOrigin.Remote);
+                    if (TrySliceBatch(batch, baseSnapshotVersion, out var sliced))
+                    {
+                        engine.Apply(sliced, CollabApplyOrigin.Remote);
+                    }
+
+                    EnqueueTail(tail, batch);
                 }
-                EnqueueTail(tail, batch);
             }
 
             var snapshot = CollabSnapshot.Create(engine.Version, engine.Document);
