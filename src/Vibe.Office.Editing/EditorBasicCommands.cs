@@ -106,6 +106,114 @@ public sealed class MoveDownCommand : IEditorCommand
     }
 }
 
+public sealed class MoveLineStartCommand : IEditorCommand
+{
+    public bool ExtendSelection { get; }
+
+    public MoveLineStartCommand(bool extendSelection)
+    {
+        ExtendSelection = extendSelection;
+    }
+
+    public void Execute(IEditorMutableSession session)
+    {
+        session.MoveLineStart(ExtendSelection);
+    }
+}
+
+public sealed class MoveLineEndCommand : IEditorCommand
+{
+    public bool ExtendSelection { get; }
+
+    public MoveLineEndCommand(bool extendSelection)
+    {
+        ExtendSelection = extendSelection;
+    }
+
+    public void Execute(IEditorMutableSession session)
+    {
+        session.MoveLineEnd(ExtendSelection);
+    }
+}
+
+public sealed class MoveDocumentStartCommand : IEditorCommand
+{
+    public bool ExtendSelection { get; }
+
+    public MoveDocumentStartCommand(bool extendSelection)
+    {
+        ExtendSelection = extendSelection;
+    }
+
+    public void Execute(IEditorMutableSession session)
+    {
+        session.MoveDocumentStart(ExtendSelection);
+    }
+}
+
+public sealed class MoveDocumentEndCommand : IEditorCommand
+{
+    public bool ExtendSelection { get; }
+
+    public MoveDocumentEndCommand(bool extendSelection)
+    {
+        ExtendSelection = extendSelection;
+    }
+
+    public void Execute(IEditorMutableSession session)
+    {
+        session.MoveDocumentEnd(ExtendSelection);
+    }
+}
+
+public sealed class MovePageUpCommand : IEditorCommand
+{
+    public bool ExtendSelection { get; }
+
+    public MovePageUpCommand(bool extendSelection)
+    {
+        ExtendSelection = extendSelection;
+    }
+
+    public void Execute(IEditorMutableSession session)
+    {
+        session.MovePageUp(ExtendSelection);
+    }
+}
+
+public sealed class MovePageDownCommand : IEditorCommand
+{
+    public bool ExtendSelection { get; }
+
+    public MovePageDownCommand(bool extendSelection)
+    {
+        ExtendSelection = extendSelection;
+    }
+
+    public void Execute(IEditorMutableSession session)
+    {
+        session.MovePageDown(ExtendSelection);
+    }
+}
+
+public sealed class InsertTabCommand : IEditorUndoableCommand
+{
+    public bool IsUndoable => true;
+
+    public void Execute(IEditorMutableSession session)
+    {
+        session.InsertText("\t".AsSpan());
+    }
+}
+
+public sealed class SelectAllCommand : IEditorCommand
+{
+    public void Execute(IEditorMutableSession session)
+    {
+        session.SelectAll();
+    }
+}
+
 public sealed class SetCaretFromPointCommand : IEditorCommand
 {
     public float X { get; }

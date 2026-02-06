@@ -141,6 +141,156 @@ public sealed class EditorSelectionService
         SetCaret(new TextPosition(targetLine.ParagraphIndex, offset), mode);
     }
 
+    public void MoveLineStart(bool extendSelection)
+    {
+        var mode = extendSelection ? SelectionUpdateMode.Extend : SelectionUpdateMode.Replace;
+        var layout = _layoutService.Layout;
+        if (layout.Lines.Count == 0)
+        {
+            return;
+        }
+
+        var lineIndex = FindLineIndexForCaret(out var line);
+        if (lineIndex < 0 || lineIndex >= layout.Lines.Count)
+        {
+            SetCaret(new TextPosition(0, 0), mode);
+            return;
+        }
+
+        SetCaret(new TextPosition(line.ParagraphIndex, line.StartOffset), mode);
+    }
+
+    public void MoveLineEnd(bool extendSelection)
+    {
+        var mode = extendSelection ? SelectionUpdateMode.Extend : SelectionUpdateMode.Replace;
+        var layout = _layoutService.Layout;
+        if (layout.Lines.Count == 0)
+        {
+            return;
+        }
+
+        var lineIndex = FindLineIndexForCaret(out var line);
+        if (lineIndex < 0 || lineIndex >= layout.Lines.Count)
+        {
+            return;
+        }
+
+        SetCaret(new TextPosition(line.ParagraphIndex, line.StartOffset + line.Length), mode);
+    }
+
+    public void MoveDocumentStart(bool extendSelection)
+    {
+        var mode = extendSelection ? SelectionUpdateMode.Extend : SelectionUpdateMode.Replace;
+        SetCaret(new TextPosition(0, 0), mode);
+    }
+
+    public void MoveDocumentEnd(bool extendSelection)
+    {
+        var mode = extendSelection ? SelectionUpdateMode.Extend : SelectionUpdateMode.Replace;
+        var layout = _layoutService.Layout;
+        var paragraphCount = GetParagraphCount(layout);
+        if (paragraphCount <= 0)
+        {
+            return;
+        }
+
+        var lastIndex = paragraphCount - 1;
+        var lastParagraph = GetParagraphAt(layout, lastIndex);
+        var endOffset = DocumentEditHelpers.GetParagraphLength(lastParagraph);
+        SetCaret(new TextPosition(lastIndex, endOffset), mode);
+    }
+
+    public void MovePageUp(bool extendSelection)
+    {
+        MovePage(false, extendSelection);
+    }
+
+    public void MovePageDown(bool extendSelection)
+    {
+        MovePage(true, extendSelection);
+    }
+
+    public void SelectAll()
+    {
+        var layout = _layoutService.Layout;
+        var paragraphCount = GetParagraphCount(layout);
+        if (paragraphCount <= 0)
+        {
+            return;
+        }
+
+        var lastIndex = paragraphCount - 1;
+        var lastParagraph = GetParagraphAt(layout, lastIndex);
+        var endOffset = DocumentEditHelpers.GetParagraphLength(lastParagraph);
+        SetSelection(new TextRange(new TextPosition(0, 0), new TextPosition(lastIndex, endOffset)), SelectionUpdateMode.Replace);
+    }
+
+    private void MovePage(bool down, bool extendSelection)
+    {
+        var mode = extendSelection ? SelectionUpdateMode.Extend : SelectionUpdateMode.Replace;
+        var layout = _layoutService.Layout;
+        if (layout.Lines.Count == 0)
+        {
+            return;
+        }
+
+        if (!TryGetCaretPoint(out var caretPoint, out _))
+        {
+            if (down)
+            {
+                MoveDocumentEnd(extendSelection);
+            }
+            else
+            {
+                MoveDocumentStart(extendSelection);
+            }
+
+            return;
+        }
+
+        var targetX = caretPoint.X;
+        var targetY = caretPoint.Y;
+        var pageIndex = FindPageIndexForPoint(layout.Pages, caretPoint.X, caretPoint.Y, layout.Settings.PageFlow);
+        if (pageIndex < 0 || pageIndex >= layout.Pages.Count)
+        {
+            pageIndex = Math.Clamp(pageIndex, 0, Math.Max(0, layout.Pages.Count - 1));
+        }
+
+        if (layout.Pages.Count > 0 && pageIndex >= 0 && pageIndex < layout.Pages.Count)
+        {
+            var pageBounds = layout.Pages[pageIndex].Bounds;
+            var delta = layout.Settings.PageFlow == PageFlowDirection.Horizontal
+                ? Math.Max(1f, pageBounds.Width)
+                : Math.Max(1f, pageBounds.Height);
+            if (layout.Settings.PageFlow == PageFlowDirection.Horizontal)
+            {
+                targetX += down ? delta : -delta;
+            }
+            else
+            {
+                targetY += down ? delta : -delta;
+            }
+        }
+
+        var targetLineIndex = FindLineIndexFromPoint(targetX, targetY, out var targetLine);
+        if (targetLineIndex < 0 || targetLineIndex >= layout.Lines.Count)
+        {
+            if (down)
+            {
+                MoveDocumentEnd(extendSelection);
+            }
+            else
+            {
+                MoveDocumentStart(extendSelection);
+            }
+
+            return;
+        }
+
+        var targetOffset = GetOffsetFromLine(targetLine, targetX, targetY);
+        SetCaret(new TextPosition(targetLine.ParagraphIndex, targetOffset), mode);
+    }
+
     private bool TryMoveCaretHorizontally(int direction, SelectionUpdateMode mode)
     {
         var layout = _layoutService.Layout;

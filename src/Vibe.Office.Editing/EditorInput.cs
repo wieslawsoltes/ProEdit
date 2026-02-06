@@ -25,6 +25,7 @@ public enum EditorKey
     PageUp,
     PageDown,
     Tab,
+    A,
     Z,
     Y,
     C,

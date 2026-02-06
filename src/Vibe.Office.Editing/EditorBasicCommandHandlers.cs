@@ -13,6 +13,14 @@ public sealed class BasicEditingModule : IEditorModule
         context.Commands.Register(new MoveRightCommandHandler());
         context.Commands.Register(new MoveUpCommandHandler());
         context.Commands.Register(new MoveDownCommandHandler());
+        context.Commands.Register(new MoveLineStartCommandHandler());
+        context.Commands.Register(new MoveLineEndCommandHandler());
+        context.Commands.Register(new MoveDocumentStartCommandHandler());
+        context.Commands.Register(new MoveDocumentEndCommandHandler());
+        context.Commands.Register(new MovePageUpCommandHandler());
+        context.Commands.Register(new MovePageDownCommandHandler());
+        context.Commands.Register(new InsertTabCommandHandler());
+        context.Commands.Register(new SelectAllCommandHandler());
         context.Commands.Register(new SetCaretFromPointCommandHandler());
         context.Commands.Register(new SelectWordFromPointCommandHandler());
         context.Commands.Register(new SelectParagraphFromPointCommandHandler());
@@ -85,6 +93,70 @@ public sealed class MoveDownCommandHandler : EditorCommandHandler<MoveDownComman
     public override void Handle(IEditorMutableSession session, MoveDownCommand command)
     {
         session.MoveDown(command.ExtendSelection);
+    }
+}
+
+public sealed class MoveLineStartCommandHandler : EditorCommandHandler<MoveLineStartCommand>
+{
+    public override void Handle(IEditorMutableSession session, MoveLineStartCommand command)
+    {
+        session.MoveLineStart(command.ExtendSelection);
+    }
+}
+
+public sealed class MoveLineEndCommandHandler : EditorCommandHandler<MoveLineEndCommand>
+{
+    public override void Handle(IEditorMutableSession session, MoveLineEndCommand command)
+    {
+        session.MoveLineEnd(command.ExtendSelection);
+    }
+}
+
+public sealed class MoveDocumentStartCommandHandler : EditorCommandHandler<MoveDocumentStartCommand>
+{
+    public override void Handle(IEditorMutableSession session, MoveDocumentStartCommand command)
+    {
+        session.MoveDocumentStart(command.ExtendSelection);
+    }
+}
+
+public sealed class MoveDocumentEndCommandHandler : EditorCommandHandler<MoveDocumentEndCommand>
+{
+    public override void Handle(IEditorMutableSession session, MoveDocumentEndCommand command)
+    {
+        session.MoveDocumentEnd(command.ExtendSelection);
+    }
+}
+
+public sealed class MovePageUpCommandHandler : EditorCommandHandler<MovePageUpCommand>
+{
+    public override void Handle(IEditorMutableSession session, MovePageUpCommand command)
+    {
+        session.MovePageUp(command.ExtendSelection);
+    }
+}
+
+public sealed class MovePageDownCommandHandler : EditorCommandHandler<MovePageDownCommand>
+{
+    public override void Handle(IEditorMutableSession session, MovePageDownCommand command)
+    {
+        session.MovePageDown(command.ExtendSelection);
+    }
+}
+
+public sealed class InsertTabCommandHandler : EditorCommandHandler<InsertTabCommand>
+{
+    public override void Handle(IEditorMutableSession session, InsertTabCommand command)
+    {
+        session.InsertText("\t".AsSpan());
+    }
+}
+
+public sealed class SelectAllCommandHandler : EditorCommandHandler<SelectAllCommand>
+{
+    public override void Handle(IEditorMutableSession session, SelectAllCommand command)
+    {
+        session.SelectAll();
     }
 }
 
