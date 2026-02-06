@@ -1,26 +1,175 @@
 using Avalonia.Controls;
 using Avalonia.Media;
 using ReactiveUI;
+using System.Reactive;
+using Vibe.FlowDocument.App.Services;
 using Vibe.Office.FlowDocument;
+using Vibe.Office.FlowDocument.IO;
 using FlowDocumentModel = Vibe.Office.FlowDocument.FlowDocument;
 
 namespace Vibe.FlowDocument.App.ViewModels;
 
 public sealed class FlowDocumentSampleViewModel : ReactiveObject
 {
+    private readonly IFlowDocumentFileConversionService _conversionService;
+    private readonly IFlowDocumentFilePickerService _pickerService;
     private double _zoomFactor = 1d;
+    private FlowDocumentModel _editableDocument;
+    private string _statusMessage = "Ready";
+    private string? _editableDocumentPath;
 
-    public FlowDocumentSampleViewModel()
+    public FlowDocumentSampleViewModel(
+        IFlowDocumentFileConversionService conversionService,
+        IFlowDocumentFilePickerService pickerService)
     {
+        _conversionService = conversionService ?? throw new ArgumentNullException(nameof(conversionService));
+        _pickerService = pickerService ?? throw new ArgumentNullException(nameof(pickerService));
+
         Document = BuildSampleDocument();
+        _editableDocument = BuildEditableDocument();
+
+        OpenRichTextDocumentCommand = ReactiveCommand.CreateFromTask(OpenRichTextDocumentAsync);
+        SaveRichTextDocumentCommand = ReactiveCommand.CreateFromTask(SaveRichTextDocumentAsync);
     }
 
     public FlowDocumentModel Document { get; }
+
+    public FlowDocumentModel EditableDocument
+    {
+        get => _editableDocument;
+        private set => this.RaiseAndSetIfChanged(ref _editableDocument, value);
+    }
+
+    public string StatusMessage
+    {
+        get => _statusMessage;
+        private set => this.RaiseAndSetIfChanged(ref _statusMessage, value);
+    }
+
+    public ReactiveCommand<Unit, Unit> OpenRichTextDocumentCommand { get; }
+    public ReactiveCommand<Unit, Unit> SaveRichTextDocumentCommand { get; }
 
     public double ZoomFactor
     {
         get => _zoomFactor;
         set => this.RaiseAndSetIfChanged(ref _zoomFactor, value);
+    }
+
+    private async Task OpenRichTextDocumentAsync()
+    {
+        var path = await _pickerService.PickOpenPathAsync();
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return;
+        }
+
+        try
+        {
+            StatusMessage = $"Loading {Path.GetFileName(path)}...";
+            EditableDocument = await _conversionService.LoadAsync(path);
+            _editableDocumentPath = path;
+            StatusMessage = $"Loaded {Path.GetFileName(path)}";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Open failed: {ex.Message}";
+        }
+    }
+
+    private async Task SaveRichTextDocumentAsync()
+    {
+        var suggestedName = string.IsNullOrWhiteSpace(_editableDocumentPath)
+            ? "flow-document"
+            : Path.GetFileNameWithoutExtension(_editableDocumentPath);
+        var path = await _pickerService.PickSavePathAsync(suggestedName);
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return;
+        }
+
+        path = EnsureKnownExtension(path);
+
+        try
+        {
+            StatusMessage = $"Saving {Path.GetFileName(path)}...";
+            await _conversionService.SaveAsync(EditableDocument, path);
+            _editableDocumentPath = path;
+            StatusMessage = $"Saved {Path.GetFileName(path)}";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Save failed: {ex.Message}";
+        }
+    }
+
+    private static string EnsureKnownExtension(string path)
+    {
+        var extension = Path.GetExtension(path);
+        if (string.IsNullOrWhiteSpace(extension))
+        {
+            return path + ".docx";
+        }
+
+        if (extension.Equals(".docx", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".md", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".markdown", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".pdf", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".pdx", StringComparison.OrdinalIgnoreCase))
+        {
+            return path;
+        }
+
+        return path + ".docx";
+    }
+
+    private static FlowDocumentModel BuildEditableDocument()
+    {
+        var document = new FlowDocumentModel
+        {
+            PageWidth = 816,
+            PageHeight = 1056,
+            PagePadding = new FlowThickness(72, 72, 72, 72),
+            ColumnWidth = 360,
+            ColumnGap = 24
+        };
+
+        var title = new Paragraph
+        {
+            FontSize = 24,
+            FontWeight = FlowFontWeight.Bold,
+            Margin = new FlowThickness(0, 0, 0, 8)
+        };
+        title.Inlines.Add(new Run("RichTextBox Smoke Sample"));
+        document.Blocks.Add(title);
+
+        var intro = new Paragraph
+        {
+            Margin = new FlowThickness(0, 0, 0, 8)
+        };
+        intro.Inlines.Add(new Run("Use Open to load "));
+        var openFormats = new Bold();
+        openFormats.Inlines.Add(new Run(".docx, .md, .pdf"));
+        intro.Inlines.Add(openFormats);
+        intro.Inlines.Add(new Run(" files as FlowDocument and Save As to export "));
+        var saveFormats = new Bold();
+        saveFormats.Inlines.Add(new Run(".docx, .md, .pdf/.pdx"));
+        intro.Inlines.Add(saveFormats);
+        intro.Inlines.Add(new Run("."));
+        document.Blocks.Add(intro);
+
+        var list = new List { MarkerStyle = FlowListMarkerStyle.Disc };
+        var item1 = new ListItem();
+        item1.Blocks.Add(new Paragraph("Type to modify the document."));
+        list.ListItems.Add(item1);
+        var item2 = new ListItem();
+        item2.Blocks.Add(new Paragraph("Select text with pointer or keyboard."));
+        list.ListItems.Add(item2);
+        var item3 = new ListItem();
+        item3.Blocks.Add(new Paragraph("Use undo/redo shortcuts supported by the editor infrastructure."));
+        list.ListItems.Add(item3);
+        document.Blocks.Add(list);
+
+        return document;
     }
 
     private static FlowDocumentModel BuildSampleDocument()
@@ -61,17 +210,17 @@ public sealed class FlowDocumentSampleViewModel : ReactiveObject
         document.Blocks.Add(linkParagraph);
 
         var list = new List { MarkerStyle = FlowListMarkerStyle.Decimal, StartIndex = 1 };
-        var item1 = new ListItem();
-        item1.Blocks.Add(new Paragraph("Numbered list item"));
-        list.ListItems.Add(item1);
-        var item2 = new ListItem();
-        item2.Blocks.Add(new Paragraph("Nested bullets"));
+        var listItem1 = new ListItem();
+        listItem1.Blocks.Add(new Paragraph("Numbered list item"));
+        list.ListItems.Add(listItem1);
+        var listItem2 = new ListItem();
+        listItem2.Blocks.Add(new Paragraph("Nested bullets"));
         var nestedList = new List { MarkerStyle = FlowListMarkerStyle.Disc };
         var nestedItem = new ListItem();
         nestedItem.Blocks.Add(new Paragraph("Bullet item"));
         nestedList.ListItems.Add(nestedItem);
-        item2.Blocks.Add(nestedList);
-        list.ListItems.Add(item2);
+        listItem2.Blocks.Add(nestedList);
+        list.ListItems.Add(listItem2);
         document.Blocks.Add(list);
 
         var table = new Table();

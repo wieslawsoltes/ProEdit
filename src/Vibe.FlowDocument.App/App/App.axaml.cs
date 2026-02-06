@@ -1,7 +1,9 @@
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Vibe.FlowDocument.App.Services;
 using Vibe.FlowDocument.App.ViewModels;
+using Vibe.Office.FlowDocument.IO;
 
 namespace Vibe.FlowDocument.App;
 
@@ -16,10 +18,10 @@ public partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            var window = new MainWindow
-            {
-                DataContext = new FlowDocumentSampleViewModel()
-            };
+            var window = new MainWindow();
+            var pickerService = new AvaloniaFlowDocumentFilePickerService(window);
+            var conversionService = new FlowDocumentFileConversionService();
+            window.DataContext = new FlowDocumentSampleViewModel(conversionService, pickerService);
 
             desktop.MainWindow = window;
         }

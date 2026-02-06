@@ -172,46 +172,6 @@
       </fd:Section>
     </fd:FlowDocument>
 
-    <fd:FlowDocument x:Key="EditableDocument"
-                     PageWidth="816"
-                     PageHeight="1056"
-                     PagePadding="72,72,72,72"
-                     ColumnWidth="360"
-                     ColumnGap="24">
-      <fd:Section>
-        <fd:Paragraph FontSize="24" FontWeight="Bold" Margin="0,0,0,8">
-          <fd:Run Text="RichTextBox Smoke Sample" />
-        </fd:Paragraph>
-        <fd:Paragraph Margin="0,0,0,8">
-          <fd:Run Text="Edit this content to validate the Phase 1 RichTextBox skeleton. " />
-          <fd:Bold>
-            <fd:Run Text="SelectionChanged" />
-          </fd:Bold>
-          <fd:Run Text=" and " />
-          <fd:Bold>
-            <fd:Run Text="TextChanged" />
-          </fd:Bold>
-          <fd:Run Text=" are raised by the internal editor host." />
-        </fd:Paragraph>
-        <fd:List MarkerStyle="Disc">
-          <fd:ListItem>
-            <fd:Paragraph>
-              <fd:Run Text="Type to modify the document." />
-            </fd:Paragraph>
-          </fd:ListItem>
-          <fd:ListItem>
-            <fd:Paragraph>
-              <fd:Run Text="Select text with pointer or keyboard." />
-            </fd:Paragraph>
-          </fd:ListItem>
-          <fd:ListItem>
-            <fd:Paragraph>
-              <fd:Run Text="Use undo/redo shortcuts supported by the editor infrastructure." />
-            </fd:Paragraph>
-          </fd:ListItem>
-        </fd:List>
-      </fd:Section>
-    </fd:FlowDocument>
   </Window.Resources>
 
   <Grid RowDefinitions="Auto,*">
@@ -248,23 +208,49 @@
       </TabItem>
 
       <TabItem Header="RichTextBox Smoke">
-        <ScrollViewer HorizontalScrollBarVisibility="Auto"
-                      VerticalScrollBarVisibility="Auto">
-          <Border Width="960"
-                  Margin="16"
-                  Padding="8"
-                  BorderBrush="#CBD2E6"
+        <Grid RowDefinitions="Auto,*">
+          <Border Background="#EEF2FC"
+                  BorderBrush="#D1D8EC"
                   BorderThickness="1"
-                  Background="#F8F9FD">
-            <rich:RichTextBox Document="{StaticResource EditableDocument}"
-                              HorizontalAlignment="Stretch"
-                              VerticalAlignment="Stretch"
-                              Height="1200"
-                              Background="White"
-                              BorderBrush="#D9DCE8"
-                              BorderThickness="1" />
+                  CornerRadius="6"
+                  Padding="10"
+                  Margin="0,0,0,8">
+            <DockPanel LastChildFill="False">
+              <StackPanel Orientation="Horizontal"
+                          Spacing="8"
+                          DockPanel.Dock="Left">
+                <Button Content="Open..."
+                        Command="{Binding OpenRichTextDocumentCommand}" />
+                <Button Content="Save As..."
+                        Command="{Binding SaveRichTextDocumentCommand}" />
+              </StackPanel>
+              <TextBlock DockPanel.Dock="Right"
+                         VerticalAlignment="Center"
+                         Text="{Binding StatusMessage}"
+                         Foreground="#38405A"
+                         FontSize="12" />
+            </DockPanel>
           </Border>
-        </ScrollViewer>
+
+          <ScrollViewer Grid.Row="1"
+                        HorizontalScrollBarVisibility="Auto"
+                        VerticalScrollBarVisibility="Auto">
+            <Border Width="960"
+                    Margin="16"
+                    Padding="8"
+                    BorderBrush="#CBD2E6"
+                    BorderThickness="1"
+                    Background="#F8F9FD">
+              <rich:RichTextBox Document="{Binding EditableDocument}"
+                                HorizontalAlignment="Stretch"
+                                VerticalAlignment="Stretch"
+                                Height="1200"
+                                Background="White"
+                                BorderBrush="#D9DCE8"
+                                BorderThickness="1" />
+            </Border>
+          </ScrollViewer>
+        </Grid>
       </TabItem>
     </TabControl>
   </Grid>
