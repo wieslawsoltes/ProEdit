@@ -11,7 +11,9 @@
                 BorderThickness="{TemplateBinding BorderThickness}"
                 ClipToBounds="True">
           <Grid>
-            <ContentControl Name="PART_DocumentHost" />
+            <ScrollViewer Name="PART_DocumentHost"
+                          HorizontalScrollBarVisibility="Auto"
+                          VerticalScrollBarVisibility="Auto" />
             <Canvas Name="PART_EmbeddedHost"
                     IsHitTestVisible="False" />
           </Grid>

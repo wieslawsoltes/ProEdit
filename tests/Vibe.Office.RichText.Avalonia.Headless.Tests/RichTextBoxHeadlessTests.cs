@@ -11,6 +11,7 @@ using Avalonia.Markup.Xaml.Styling;
 using Avalonia.Threading;
 using Vibe.Office.Documents;
 using Vibe.Office.Editing;
+using Vibe.Office.FlowDocument.Documents;
 using Vibe.Office.OpenXml;
 using Vibe.Office.RichText.Avalonia;
 using Xunit;
@@ -840,6 +841,55 @@ public sealed class RichTextBoxHeadlessTests
     }
 
     [AvaloniaFact]
+    public async Task AutomationPeer_ExposesScrollProvider_ForDocxLoadedDocument()
+    {
+        var importer = new DocxImporter();
+        var converter = new DocumentToFlowDocumentConverter();
+        var path = Path.Combine(Path.GetTempPath(), $"richtextbox-scroll-{Guid.NewGuid():N}.docx");
+        try
+        {
+            var exporter = new DocxExporter();
+            exporter.Save(BuildLongDocumentModel(180), path);
+
+            var loadedDocument = importer.Load(path);
+            var flowDocument = converter.Convert(loadedDocument);
+            var box = new RichTextBox
+            {
+                Document = flowDocument
+            };
+
+            var (window, style) = await ShowInWindowAsync(box, width: 680, height: 420);
+            try
+            {
+                var peer = ControlAutomationPeer.CreatePeerForElement(box);
+                Assert.NotNull(peer);
+
+                var scrollProvider = peer!.GetProvider<IScrollProvider>();
+                Assert.NotNull(scrollProvider);
+                Assert.True(scrollProvider!.VerticallyScrollable);
+
+                var before = scrollProvider.VerticalScrollPercent;
+                scrollProvider.Scroll(ScrollAmount.NoAmount, ScrollAmount.LargeIncrement);
+                await Dispatcher.UIThread.InvokeAsync(() => { });
+                var after = scrollProvider.VerticalScrollPercent;
+                Assert.True(after > before);
+            }
+            finally
+            {
+                window.Close();
+                Application.Current!.Styles.Remove(style);
+            }
+        }
+        finally
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+    }
+
+    [AvaloniaFact]
     public async Task EmbeddedUiContainers_Mount_AndRespectDocumentEnabled_Gating()
     {
         var inlineButton = new Button
@@ -1034,6 +1084,20 @@ public sealed class RichTextBoxHeadlessTests
         var paragraph = new DocumentParagraphBlock();
         paragraph.Inlines.Add(new DocumentRunInline(text));
         document.Blocks.Add(paragraph);
+        return document;
+    }
+
+    private static DocumentModel BuildLongDocumentModel(int paragraphCount)
+    {
+        var document = new DocumentModel();
+        document.Blocks.Clear();
+        for (var i = 0; i < paragraphCount; i++)
+        {
+            var paragraph = new DocumentParagraphBlock();
+            paragraph.Inlines.Add(new DocumentRunInline($"DOCX paragraph {i:D3} " + new string('x', 64)));
+            document.Blocks.Add(paragraph);
+        }
+
         return document;
     }
 

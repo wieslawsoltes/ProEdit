@@ -232,24 +232,22 @@
             </DockPanel>
           </Border>
 
-          <ScrollViewer Grid.Row="1"
-                        HorizontalScrollBarVisibility="Auto"
-                        VerticalScrollBarVisibility="Auto">
-            <Border Width="960"
-                    Margin="16"
-                    Padding="8"
-                    BorderBrush="#CBD2E6"
-                    BorderThickness="1"
-                    Background="#F8F9FD">
-              <rich:RichTextBox Document="{Binding EditableDocument}"
-                                HorizontalAlignment="Stretch"
-                                VerticalAlignment="Stretch"
-                                Height="1200"
-                                Background="White"
-                                BorderBrush="#D9DCE8"
-                                BorderThickness="1" />
-            </Border>
-          </ScrollViewer>
+          <Border Grid.Row="1"
+                  Width="960"
+                  Margin="16"
+                  Padding="8"
+                  HorizontalAlignment="Center"
+                  VerticalAlignment="Stretch"
+                  BorderBrush="#CBD2E6"
+                  BorderThickness="1"
+                  Background="#F8F9FD">
+            <rich:RichTextBox Document="{Binding EditableDocument}"
+                              HorizontalAlignment="Stretch"
+                              VerticalAlignment="Stretch"
+                              Background="White"
+                              BorderBrush="#D9DCE8"
+                              BorderThickness="1" />
+          </Border>
         </Grid>
       </TabItem>
     </TabControl>
