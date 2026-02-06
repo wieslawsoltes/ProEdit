@@ -10,6 +10,8 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Notifications;
 using Avalonia.Interactivity;
+using Avalonia.Layout;
+using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
@@ -77,6 +79,7 @@ public partial class WordEditorControl : UserControl
     private readonly Button? _reviewProofingIgnoreButton;
     private readonly Button? _reviewProofingAddButton;
     private readonly Button? _reviewPaneCloseButton;
+    private readonly ContentControl? _loadingOverlayHost;
     private readonly Border? _loadingOverlay;
     private readonly TextBlock? _loadingText;
     private readonly RibbonControl? _ribbon;
@@ -215,8 +218,12 @@ public partial class WordEditorControl : UserControl
         _reviewPaneCloseButton = this.FindControl<Button>("ReviewPaneCloseButton");
         var equationEditor = this.FindControl<EquationEditor>("EquationEditor");
         _equationPanel = this.FindControl<Border>("EquationEditorPanel");
-        _loadingOverlay = this.FindControl<Border>("LoadingOverlay");
-        _loadingText = this.FindControl<TextBlock>("LoadingText");
+        _loadingOverlayHost = this.FindControl<ContentControl>("LoadingOverlayHost");
+        if (_loadingOverlayHost is not null)
+        {
+            _loadingOverlay = CreateLoadingOverlay(out var loadingText);
+            _loadingText = loadingText;
+        }
         _statusPageText = this.FindControl<TextBlock>("StatusPageText");
         _pdfFixedLayoutBadge = this.FindControl<Border>("PdfFixedLayoutBadge");
         _pdfFixedLayoutText = this.FindControl<TextBlock>("PdfFixedLayoutText");
@@ -8851,18 +8858,59 @@ public partial class WordEditorControl : UserControl
     {
         _isLoading = isLoading;
         _editorView?.SetLoading(isLoading);
-        if (_loadingOverlay is not null)
-        {
-            _loadingOverlay.IsVisible = isLoading;
-            _loadingOverlay.IsHitTestVisible = isLoading;
-        }
 
-        if (_loadingText is not null && !string.IsNullOrWhiteSpace(message))
+        if (isLoading)
         {
-            _loadingText.Text = message;
+            if (_loadingText is not null && !string.IsNullOrWhiteSpace(message))
+            {
+                _loadingText.Text = message;
+            }
+
+            if (_loadingOverlayHost is not null && _loadingOverlay is not null)
+            {
+                _loadingOverlayHost.Content = _loadingOverlay;
+            }
+        }
+        else if (_loadingOverlayHost is not null)
+        {
+            // Remove the indeterminate progress bar from the visual tree to stop background updates.
+            _loadingOverlayHost.Content = null;
         }
 
         _ribbon?.RefreshState();
+    }
+
+    private static Border CreateLoadingOverlay(out TextBlock loadingText)
+    {
+        loadingText = new TextBlock
+        {
+            Text = "Loading...",
+            Foreground = Brushes.White,
+            FontSize = 14,
+            HorizontalAlignment = HorizontalAlignment.Center
+        };
+
+        var progressBar = new ProgressBar
+        {
+            Width = 240,
+            Height = 6,
+            IsIndeterminate = true
+        };
+
+        var stackPanel = new StackPanel
+        {
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            Spacing = 8
+        };
+        stackPanel.Children.Add(loadingText);
+        stackPanel.Children.Add(progressBar);
+
+        return new Border
+        {
+            Background = new SolidColorBrush(Color.FromArgb(128, 0, 0, 0)),
+            Child = stackPanel
+        };
     }
 
     private void UpdateZoomUi()
