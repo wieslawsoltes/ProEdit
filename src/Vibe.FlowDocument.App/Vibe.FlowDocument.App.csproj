@@ -22,5 +22,6 @@
   <ItemGroup>
     <ProjectReference Include="..\Vibe.Office.FlowDocument\Vibe.Office.FlowDocument.csproj" />
     <ProjectReference Include="..\Vibe.Office.FlowDocument.Avalonia\Vibe.Office.FlowDocument.Avalonia.csproj" />
+    <ProjectReference Include="..\Vibe.Office.RichText.Avalonia\Vibe.Office.RichText.Avalonia.csproj" />
   </ItemGroup>
 </Project>

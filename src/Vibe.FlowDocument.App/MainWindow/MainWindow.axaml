@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:flow="clr-namespace:Vibe.Office.FlowDocument.Avalonia;assembly=Vibe.Office.FlowDocument.Avalonia"
+        xmlns:rich="clr-namespace:Vibe.Office.RichText.Avalonia;assembly=Vibe.Office.RichText.Avalonia"
         xmlns:fd="clr-namespace:Vibe.Office.FlowDocument;assembly=Vibe.Office.FlowDocument"
         xmlns:vm="clr-namespace:Vibe.FlowDocument.App.ViewModels"
         x:Class="Vibe.FlowDocument.App.MainWindow"
@@ -170,6 +171,47 @@
         </fd:Table>
       </fd:Section>
     </fd:FlowDocument>
+
+    <fd:FlowDocument x:Key="EditableDocument"
+                     PageWidth="816"
+                     PageHeight="1056"
+                     PagePadding="72,72,72,72"
+                     ColumnWidth="360"
+                     ColumnGap="24">
+      <fd:Section>
+        <fd:Paragraph FontSize="24" FontWeight="Bold" Margin="0,0,0,8">
+          <fd:Run Text="RichTextBox Smoke Sample" />
+        </fd:Paragraph>
+        <fd:Paragraph Margin="0,0,0,8">
+          <fd:Run Text="Edit this content to validate the Phase 1 RichTextBox skeleton. " />
+          <fd:Bold>
+            <fd:Run Text="SelectionChanged" />
+          </fd:Bold>
+          <fd:Run Text=" and " />
+          <fd:Bold>
+            <fd:Run Text="TextChanged" />
+          </fd:Bold>
+          <fd:Run Text=" are raised by the internal editor host." />
+        </fd:Paragraph>
+        <fd:List MarkerStyle="Disc">
+          <fd:ListItem>
+            <fd:Paragraph>
+              <fd:Run Text="Type to modify the document." />
+            </fd:Paragraph>
+          </fd:ListItem>
+          <fd:ListItem>
+            <fd:Paragraph>
+              <fd:Run Text="Select text with pointer or keyboard." />
+            </fd:Paragraph>
+          </fd:ListItem>
+          <fd:ListItem>
+            <fd:Paragraph>
+              <fd:Run Text="Use undo/redo shortcuts supported by the editor infrastructure." />
+            </fd:Paragraph>
+          </fd:ListItem>
+        </fd:List>
+      </fd:Section>
+    </fd:FlowDocument>
   </Window.Resources>
 
   <Grid RowDefinitions="Auto,*">
@@ -202,6 +244,26 @@
                                  Background="#F8F9FD"
                                  InlineUiPlaceholderText="[Inline UI]"
                                  BlockUiPlaceholderText="[Block UI]" />
+        </ScrollViewer>
+      </TabItem>
+
+      <TabItem Header="RichTextBox Smoke">
+        <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                      VerticalScrollBarVisibility="Auto">
+          <Border Width="960"
+                  Margin="16"
+                  Padding="8"
+                  BorderBrush="#CBD2E6"
+                  BorderThickness="1"
+                  Background="#F8F9FD">
+            <rich:RichTextBox Document="{StaticResource EditableDocument}"
+                              HorizontalAlignment="Stretch"
+                              VerticalAlignment="Stretch"
+                              Height="1200"
+                              Background="White"
+                              BorderBrush="#D9DCE8"
+                              BorderThickness="1" />
+          </Border>
         </ScrollViewer>
       </TabItem>
     </TabControl>
