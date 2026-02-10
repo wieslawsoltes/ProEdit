@@ -43,12 +43,11 @@ internal static class VbaProjectReader
         {
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
             using var stream = new MemoryStream(data, writable: false);
-            using var compound = new CompoundFile(stream);
-            var root = compound.RootStorage;
-            CFStorage vbaStorage;
+            using var root = RootStorage.Open(stream, StorageModeFlags.LeaveOpen);
+            Storage vbaStorage;
             try
             {
-                vbaStorage = root.GetStorage("VBA");
+                vbaStorage = root.OpenStorage("VBA");
             }
             catch (Exception)
             {
@@ -61,7 +60,7 @@ internal static class VbaProjectReader
                 return new VbaProjectInfo(1252, modules);
             }
 
-            var dirCompressed = dirStream.GetData() ?? Array.Empty<byte>();
+            var dirCompressed = ReadAllBytes(dirStream);
             var dirDecompressed = VbaCompression.Decompress(dirCompressed);
             var metadata = ParseDirStream(dirDecompressed);
             projectCodePage = metadata.CodePage;
@@ -81,7 +80,7 @@ internal static class VbaProjectReader
                     continue;
                 }
 
-                var dataBytes = moduleStream.GetData() ?? Array.Empty<byte>();
+                var dataBytes = ReadAllBytes(moduleStream);
                 if (module.TextOffset < 0 || module.TextOffset >= dataBytes.Length)
                 {
                     continue;
@@ -126,16 +125,39 @@ internal static class VbaProjectReader
         }
     }
 
-    private static CFStream? TryGetStream(CFStorage storage, string name)
+    private static CfbStream? TryGetStream(Storage storage, string name)
     {
         try
         {
-            return storage.GetStream(name);
+            return storage.OpenStream(name);
         }
         catch (Exception)
         {
             return null;
         }
+    }
+
+    private static byte[] ReadAllBytes(CfbStream stream)
+    {
+        if (stream.Length <= 0)
+        {
+            return Array.Empty<byte>();
+        }
+
+        var originalPosition = stream.CanSeek ? stream.Position : 0L;
+        if (stream.CanSeek)
+        {
+            stream.Position = 0;
+        }
+
+        using var buffer = new MemoryStream((int)Math.Min(stream.Length, int.MaxValue));
+        stream.CopyTo(buffer);
+        if (stream.CanSeek)
+        {
+            stream.Position = originalPosition;
+        }
+
+        return buffer.ToArray();
     }
 
     private static VbaProjectMetadata ParseDirStream(byte[] data)

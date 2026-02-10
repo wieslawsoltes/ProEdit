@@ -165,19 +165,29 @@ public sealed class DocxMacroTests
         }
 
         var dirStream = BuildDirStream(modules);
-        using var compound = new CompoundFile();
-        var root = compound.RootStorage;
-        var vbaStorage = root.AddStorage("VBA");
-        vbaStorage.AddStream("dir").SetData(dirStream);
+        using var root = RootStorage.CreateInMemory(OpenMcdf.Version.V3, StorageModeFlags.Transacted);
+        var vbaStorage = root.CreateStorage("VBA");
+        using (var dir = vbaStorage.CreateStream("dir"))
+        {
+            dir.Write(dirStream);
+        }
 
         foreach (var module in modules)
         {
             var moduleStream = BuildModuleStream(module.Source);
-            vbaStorage.AddStream(module.StreamName).SetData(moduleStream);
+            using var stream = vbaStorage.CreateStream(module.StreamName);
+            stream.Write(moduleStream);
         }
 
+        root.Commit();
         using var output = new MemoryStream();
-        compound.Save(output);
+        var baseStream = root.BaseStream;
+        if (baseStream.CanSeek)
+        {
+            baseStream.Position = 0;
+        }
+
+        baseStream.CopyTo(output);
         return output.ToArray();
     }
 
