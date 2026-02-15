@@ -249,6 +249,36 @@ public sealed class PdfDocumentConverterTests
     }
 
     [Fact]
+    public void PreservationRequestWithoutSourceBytesAddsDiagnosticAndDoesNotMutateOptions()
+    {
+        var pdf = new PdfDocumentAst();
+        var page = new PdfPageAst
+        {
+            Index = 0,
+            Width = 612,
+            Height = 792,
+            ExtractedText = "Hello"
+        };
+        pdf.Pages.Add(page);
+
+        var options = new PdfImportOptions
+        {
+            Mode = PdfImportMode.Reflow,
+            PreservationMode = PdfPreservationMode.StoreOriginal
+        };
+
+        var document = PdfDocumentConverter.FromPdf(pdf, options);
+
+        Assert.True(PdfImportDiagnosticsStore.TryRead(document, out var diagnostics));
+        Assert.NotNull(diagnostics);
+        Assert.Contains(
+            diagnostics!.Issues,
+            issue => issue.Contains("source bytes were not captured", StringComparison.OrdinalIgnoreCase));
+        Assert.False(PdfPreservationStore.TryRead(document, out _));
+        Assert.False(options.ParserOptions.PreserveSourceBytes);
+    }
+
+    [Fact]
     public void ReflowUsesGlyphSpacingForWordBoundaries()
     {
         var pdf = new PdfDocumentAst();
@@ -499,6 +529,119 @@ public sealed class PdfDocumentConverterTests
     }
 
     [Fact]
+    public void ReflowFallsBackToExtractedTextWhenGlyphOrientationUnsupportedAndNoRuns()
+    {
+        var pdf = new PdfDocumentAst();
+        var page = new PdfPageAst
+        {
+            Index = 0,
+            Width = 612,
+            Height = 792,
+            ExtractedText = "Vertical fallback"
+        };
+
+        AddGlyph(page.Glyphs, "V", 72, 700, 10, PdfTextOrientation.Rotate90);
+        pdf.Pages.Add(page);
+
+        var document = PdfDocumentConverter.FromPdf(pdf, new PdfImportOptions { Mode = PdfImportMode.Reflow });
+        var paragraph = Assert.IsType<ParagraphBlock>(document.Blocks.First());
+
+        Assert.Equal("Vertical fallback", ExtractParagraphText(paragraph));
+    }
+
+    [Fact]
+    public void FixedLayoutFallsBackToExtractedTextWhenGlyphOrientationUnsupportedAndNoRuns()
+    {
+        var pdf = new PdfDocumentAst();
+        var page = new PdfPageAst
+        {
+            Index = 0,
+            Width = 612,
+            Height = 792,
+            ExtractedText = "Vertical fallback"
+        };
+
+        AddGlyph(page.Glyphs, "V", 72, 700, 10, PdfTextOrientation.Rotate270);
+        pdf.Pages.Add(page);
+
+        var document = PdfDocumentConverter.FromPdf(pdf, new PdfImportOptions { Mode = PdfImportMode.FixedLayout });
+        var paragraph = Assert.IsType<ParagraphBlock>(document.Blocks.First());
+        var floating = Assert.Single(paragraph.FloatingObjects);
+        var shape = Assert.IsType<ShapeInline>(floating.Content);
+        var textBox = Assert.IsType<ShapeTextBox>(shape.TextBox);
+        var textParagraph = Assert.IsType<ParagraphBlock>(textBox.Blocks.First());
+
+        Assert.Equal("Vertical fallback", ExtractParagraphText(textParagraph));
+    }
+
+    [Fact]
+    public void FixedLayoutFallsBackToExtractedTextWhenGlyphOrientationsAreMixedAndNoRuns()
+    {
+        var pdf = new PdfDocumentAst();
+        var page = new PdfPageAst
+        {
+            Index = 0,
+            Width = 612,
+            Height = 792,
+            ExtractedText = "Mixed orientation fallback"
+        };
+
+        AddGlyph(page.Glyphs, "A", 72, 700, 10, PdfTextOrientation.Horizontal);
+        AddGlyph(page.Glyphs, "B", 96, 700, 10, PdfTextOrientation.Rotate90);
+        pdf.Pages.Add(page);
+
+        var document = PdfDocumentConverter.FromPdf(pdf, new PdfImportOptions { Mode = PdfImportMode.FixedLayout });
+        var paragraph = Assert.IsType<ParagraphBlock>(document.Blocks.First());
+        var floating = Assert.Single(paragraph.FloatingObjects);
+        var shape = Assert.IsType<ShapeInline>(floating.Content);
+        var textBox = Assert.IsType<ShapeTextBox>(shape.TextBox);
+        var textParagraph = Assert.IsType<ParagraphBlock>(textBox.Blocks.First());
+
+        Assert.Equal("Mixed orientation fallback", ExtractParagraphText(textParagraph));
+    }
+
+    [Fact]
+    public void FixedLayoutRegistersFontsFromGlyphs()
+    {
+        var pdf = new PdfDocumentAst();
+        var page = new PdfPageAst
+        {
+            Index = 0,
+            Width = 612,
+            Height = 792
+        };
+
+        var font = new PdfFontInfo("GlyphFont", false, false);
+        page.Glyphs.Add(new PdfTextGlyph(
+            "A",
+            new PdfRect(72, 690, 5, 10),
+            font,
+            10,
+            72,
+            700,
+            5,
+            PdfTextOrientation.Horizontal,
+            null,
+            0,
+            0));
+
+        pdf.EmbeddedFonts.Add(new PdfEmbeddedFont(
+            "Glyph Font",
+            new byte[] { 1, 2, 3 },
+            "font/ttf",
+            true,
+            false,
+            "GlyphFont"));
+
+        pdf.Pages.Add(page);
+
+        var document = PdfDocumentConverter.FromPdf(pdf, new PdfImportOptions { Mode = PdfImportMode.FixedLayout });
+
+        Assert.True(document.Fonts.FontTable.ContainsKey("GlyphFont"));
+        Assert.True(document.Fonts.FontTable.ContainsKey("Glyph Font"));
+    }
+
+    [Fact]
     public void FixedLayoutHandlesZeroHeightPaths()
     {
         var pdf = new PdfDocumentAst();
@@ -534,6 +677,80 @@ public sealed class PdfDocumentConverterTests
         var y = double.Parse(move.Point.Y, CultureInfo.InvariantCulture);
         Assert.InRange(x, 0, shape.Width);
         Assert.InRange(y, 0, shape.Height);
+    }
+
+    [Fact]
+    public void FixedLayoutAppliesNinetyDegreePageRotationToBoundsAndShapeRotation()
+    {
+        var pdf = new PdfDocumentAst();
+        var page = new PdfPageAst
+        {
+            Index = 0,
+            Width = 200,
+            Height = 100,
+            Rotation = 90
+        };
+
+        page.TextRuns.Add(new PdfTextRun(
+            "Rotated",
+            new PdfRect(10, 20, 40, 10),
+            null,
+            10,
+            28,
+            0,
+            null));
+
+        pdf.Pages.Add(page);
+
+        var document = PdfDocumentConverter.FromPdf(pdf, new PdfImportOptions { Mode = PdfImportMode.FixedLayout });
+
+        Assert.InRange(document.SectionProperties.PageWidth ?? 0f, (float)PdfUnits.PointsToDip(100) - 0.01f, (float)PdfUnits.PointsToDip(100) + 0.01f);
+        Assert.InRange(document.SectionProperties.PageHeight ?? 0f, (float)PdfUnits.PointsToDip(200) - 0.01f, (float)PdfUnits.PointsToDip(200) + 0.01f);
+
+        var paragraph = Assert.IsType<ParagraphBlock>(document.Blocks.First());
+        var floating = Assert.Single(paragraph.FloatingObjects);
+        var shape = Assert.IsType<ShapeInline>(floating.Content);
+
+        Assert.InRange(shape.Properties.Rotation, 89.99f, 90.01f);
+        Assert.InRange(floating.Anchor.OffsetX, (float)PdfUnits.PointsToDip(5) - 0.01f, (float)PdfUnits.PointsToDip(5) + 0.01f);
+        Assert.InRange(floating.Anchor.OffsetY, (float)PdfUnits.PointsToDip(25) - 0.01f, (float)PdfUnits.PointsToDip(25) + 0.01f);
+
+        Assert.False(PdfImportDiagnosticsStore.TryRead(document, out _));
+    }
+
+    [Fact]
+    public void FixedLayoutAppliesTwoSeventyDegreePageRotationToImageAnchors()
+    {
+        var pdf = new PdfDocumentAst();
+        var page = new PdfPageAst
+        {
+            Index = 0,
+            Width = 300,
+            Height = 200,
+            Rotation = 270
+        };
+
+        page.Images.Add(new PdfImageObject(
+            new PdfRect(30, 40, 60, 20),
+            new byte[] { 1, 2, 3 },
+            "image/png"));
+
+        pdf.Pages.Add(page);
+
+        var document = PdfDocumentConverter.FromPdf(pdf, new PdfImportOptions { Mode = PdfImportMode.FixedLayout });
+
+        Assert.InRange(document.SectionProperties.PageWidth ?? 0f, (float)PdfUnits.PointsToDip(200) - 0.01f, (float)PdfUnits.PointsToDip(200) + 0.01f);
+        Assert.InRange(document.SectionProperties.PageHeight ?? 0f, (float)PdfUnits.PointsToDip(300) - 0.01f, (float)PdfUnits.PointsToDip(300) + 0.01f);
+
+        var paragraph = Assert.IsType<ParagraphBlock>(document.Blocks.First());
+        var floating = Assert.Single(paragraph.FloatingObjects);
+        var image = Assert.IsType<ImageInline>(floating.Content);
+
+        Assert.InRange(image.Rotation, 269.99f, 270.01f);
+        Assert.InRange(floating.Anchor.OffsetX, (float)PdfUnits.PointsToDip(120) - 0.01f, (float)PdfUnits.PointsToDip(120) + 0.01f);
+        Assert.InRange(floating.Anchor.OffsetY, (float)PdfUnits.PointsToDip(230) - 0.01f, (float)PdfUnits.PointsToDip(230) + 0.01f);
+
+        Assert.False(PdfImportDiagnosticsStore.TryRead(document, out _));
     }
 
     private static string ExtractParagraphText(ParagraphBlock paragraph)
@@ -591,7 +808,13 @@ public sealed class PdfDocumentConverterTests
         return glyphs;
     }
 
-    private static void AddGlyph(List<PdfTextGlyph> target, string text, double x, double baselineY, double fontSize)
+    private static void AddGlyph(
+        List<PdfTextGlyph> target,
+        string text,
+        double x,
+        double baselineY,
+        double fontSize,
+        PdfTextOrientation orientation = PdfTextOrientation.Horizontal)
     {
         var font = new PdfFontInfo("Test", false, false);
         var width = fontSize * 0.6;
@@ -605,7 +828,7 @@ public sealed class PdfDocumentConverterTests
             x,
             baselineY,
             width,
-            PdfTextOrientation.Horizontal,
+            orientation,
             null,
             0,
             target.Count));

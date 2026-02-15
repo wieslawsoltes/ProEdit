@@ -14,10 +14,6 @@ public static class PdfDocumentConverter
     {
         ArgumentNullException.ThrowIfNull(pdf);
         var effectiveOptions = options ?? new PdfImportOptions();
-        if (effectiveOptions.ShouldPreserveSource && pdf.OriginalBytes is null)
-        {
-            effectiveOptions.ParserOptions.PreserveSourceBytes = true;
-        }
 
         var document = new Document();
         document.Blocks.Clear();
@@ -84,15 +80,20 @@ public static class PdfDocumentConverter
     {
         var issues = new List<string>();
 
+        if (options.ShouldPreserveSource && pdf.OriginalBytes is null)
+        {
+            issues.Add("PDF preservation was requested, but source bytes were not captured during parsing.");
+        }
+
         if (pdf.Pages.Count == 0)
         {
             issues.Add("No pages were detected in the PDF document.");
         }
 
         if (options.Mode == PdfImportMode.FixedLayout
-            && pdf.Pages.Any(page => ((page.Rotation % 360) + 360) % 360 != 0))
+            && pdf.Pages.Any(page => !IsPageRotationSupported(page.Rotation)))
         {
-            issues.Add("Page rotations are not fully applied in fixed-layout mode.");
+            issues.Add("Only right-angle page rotations (0, 90, 180, 270) are supported in fixed-layout mode.");
         }
 
         var usedFonts = new List<string>();
@@ -209,12 +210,34 @@ public static class PdfDocumentConverter
 
     private static void ApplyPageSetup(SectionProperties properties, PdfPageAst page)
     {
-        properties.PageWidth = PdfUnits.PointsToDip(page.Width);
-        properties.PageHeight = PdfUnits.PointsToDip(page.Height);
+        var (pageWidth, pageHeight) = ResolvePageDimensions(page);
+        properties.PageWidth = PdfUnits.PointsToDip(pageWidth);
+        properties.PageHeight = PdfUnits.PointsToDip(pageHeight);
         properties.MarginLeft ??= 0f;
         properties.MarginRight ??= 0f;
         properties.MarginTop ??= 0f;
         properties.MarginBottom ??= 0f;
+    }
+
+    private static (double Width, double Height) ResolvePageDimensions(PdfPageAst page)
+    {
+        var rotation = NormalizePageRotation(page.Rotation);
+        if (rotation is 90 or 270)
+        {
+            return (page.Height, page.Width);
+        }
+
+        return (page.Width, page.Height);
+    }
+
+    private static bool IsPageRotationSupported(int rotation)
+    {
+        return NormalizePageRotation(rotation) is 0 or 90 or 180 or 270;
+    }
+
+    private static int NormalizePageRotation(int rotation)
+    {
+        return ((rotation % 360) + 360) % 360;
     }
 
     private static void BuildReflow(Document document, PdfDocumentAst pdf)
@@ -238,6 +261,11 @@ public static class PdfDocumentConverter
                 {
                     RegisterFonts(document, page.TextRuns, pdf.EmbeddedFonts);
                     BuildReflowFromRuns(document, page);
+                }
+                else
+                {
+                    var paragraphs = BuildParagraphs(page.ExtractedText ?? string.Empty);
+                    document.Blocks.AddRange(paragraphs);
                 }
             }
             else if (page.TextRuns.Count > 0)
@@ -415,7 +443,16 @@ public static class PdfDocumentConverter
                 {
                     RegisterFonts(document, page.TextRuns, pdf.EmbeddedFonts);
                 }
-                AddFixedLayoutObjects(hostParagraph, page);
+                if (page.Glyphs.Count > 0)
+                {
+                    RegisterFonts(document, page.Glyphs, pdf.EmbeddedFonts);
+                }
+
+                var hasTextObjects = AddFixedLayoutObjects(hostParagraph, page);
+                if (!hasTextObjects && ShouldAddFixedLayoutTextFallback(page))
+                {
+                    AddFullPageTextBox(hostParagraph, page);
+                }
             }
 
             document.Blocks.Add(hostParagraph);
@@ -449,7 +486,17 @@ public static class PdfDocumentConverter
         hostParagraph.FloatingObjects.Add(floating);
     }
 
-    private static void AddFixedLayoutObjects(ParagraphBlock hostParagraph, PdfPageAst page)
+    private static bool ShouldAddFixedLayoutTextFallback(PdfPageAst page)
+    {
+        if (string.IsNullOrWhiteSpace(page.ExtractedText))
+        {
+            return false;
+        }
+
+        return page.TextRuns.Count > 0 || page.Glyphs.Count > 0;
+    }
+
+    private static bool AddFixedLayoutObjects(ParagraphBlock hostParagraph, PdfPageAst page)
     {
         var textLayout = BuildTextRunBoxes(page);
         var pathObjects = BuildPathObjects(page);
@@ -470,7 +517,7 @@ public static class PdfDocumentConverter
                 AddObjects(hostParagraph, pathObjects, ref zOrder);
                 AddObjects(hostParagraph, imageObjects, ref zOrder);
             }
-            return;
+            return textLayout.Objects.Count > 0;
         }
 
         var added = new HashSet<FloatingObject>();
@@ -518,16 +565,21 @@ public static class PdfDocumentConverter
         AddRemaining(hostParagraph, textLayout.Objects, added, ref order);
         AddRemaining(hostParagraph, pathObjects, added, ref order);
         AddRemaining(hostParagraph, imageObjects, added, ref order);
+        return textLayout.Objects.Count > 0;
     }
 
     private static TextRunLayout BuildTextRunBoxes(PdfPageAst page)
     {
         if (page.Glyphs.Count > 0)
         {
-            var glyphLayout = BuildGlyphLineBoxes(page);
-            if (glyphLayout.Objects.Count > 0)
+            var hasUnsupportedGlyphOrientation = page.Glyphs.Any(glyph => !IsGlyphOrientationSupported(glyph.Orientation));
+            if (!hasUnsupportedGlyphOrientation)
             {
-                return glyphLayout;
+                var glyphLayout = BuildGlyphLineBoxes(page);
+                if (glyphLayout.Objects.Count > 0)
+                {
+                    return glyphLayout;
+                }
             }
         }
 
@@ -5497,14 +5549,99 @@ public static class PdfDocumentConverter
 
     private static FloatingObject CreatePageAnchoredObject(Inline content, PdfPageAst page, PdfRect bounds, bool behindText)
     {
+        var rotation = NormalizePageRotation(page.Rotation);
+        var supportsRotation = IsPageRotationSupported(page.Rotation);
+        var transformedBounds = supportsRotation
+            ? TransformBoundsForPageRotation(bounds, page.Width, page.Height, rotation)
+            : bounds;
+
+        var (_, pageHeight) = ResolvePageDimensions(page);
+        var offsetX = transformedBounds.X;
+        var offsetY = pageHeight - transformedBounds.Y - transformedBounds.Height;
+
+        if (rotation != 0 && supportsRotation && TryApplyPageRotation(content, rotation))
+        {
+            // Rotation is applied around object center, so anchor offsets must be adjusted from
+            // rotated bounding-box top-left to pre-rotation box top-left.
+            offsetX -= (bounds.Width - transformedBounds.Width) * 0.5;
+            offsetY -= (bounds.Height - transformedBounds.Height) * 0.5;
+        }
+
         var floating = new FloatingObject(content);
         floating.Anchor.HorizontalReference = FloatingHorizontalReference.Page;
         floating.Anchor.VerticalReference = FloatingVerticalReference.Page;
-        floating.Anchor.OffsetX = PdfUnits.PointsToDip(bounds.X);
-        floating.Anchor.OffsetY = PdfUnits.PointsToDip(page.Height - bounds.Y - bounds.Height);
+        floating.Anchor.OffsetX = PdfUnits.PointsToDip(offsetX);
+        floating.Anchor.OffsetY = PdfUnits.PointsToDip(offsetY);
         floating.Anchor.WrapStyle = FloatingWrapStyle.None;
         floating.Anchor.BehindText = behindText;
         return floating;
+    }
+
+    private static bool TryApplyPageRotation(Inline content, int rotation)
+    {
+        if (rotation == 0)
+        {
+            return false;
+        }
+
+        switch (content)
+        {
+            case ShapeInline shape:
+                shape.Properties.Rotation = NormalizeShapeRotation(shape.Properties.Rotation + rotation);
+                return true;
+            case ImageInline image:
+                image.Rotation = NormalizeShapeRotation(image.Rotation + rotation);
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private static float NormalizeShapeRotation(float rotation)
+    {
+        var normalized = rotation % 360f;
+        if (normalized < 0f)
+        {
+            normalized += 360f;
+        }
+
+        return normalized;
+    }
+
+    private static PdfRect TransformBoundsForPageRotation(PdfRect bounds, double pageWidth, double pageHeight, int rotation)
+    {
+        if (rotation == 0)
+        {
+            return bounds;
+        }
+
+        var p1 = TransformPointForPageRotation(bounds.X, bounds.Y, pageWidth, pageHeight, rotation);
+        var p2 = TransformPointForPageRotation(bounds.Right, bounds.Y, pageWidth, pageHeight, rotation);
+        var p3 = TransformPointForPageRotation(bounds.X, bounds.Bottom, pageWidth, pageHeight, rotation);
+        var p4 = TransformPointForPageRotation(bounds.Right, bounds.Bottom, pageWidth, pageHeight, rotation);
+
+        var minX = Math.Min(Math.Min(p1.X, p2.X), Math.Min(p3.X, p4.X));
+        var maxX = Math.Max(Math.Max(p1.X, p2.X), Math.Max(p3.X, p4.X));
+        var minY = Math.Min(Math.Min(p1.Y, p2.Y), Math.Min(p3.Y, p4.Y));
+        var maxY = Math.Max(Math.Max(p1.Y, p2.Y), Math.Max(p3.Y, p4.Y));
+
+        return new PdfRect(minX, minY, Math.Max(0d, maxX - minX), Math.Max(0d, maxY - minY));
+    }
+
+    private static (double X, double Y) TransformPointForPageRotation(
+        double x,
+        double y,
+        double pageWidth,
+        double pageHeight,
+        int rotation)
+    {
+        return rotation switch
+        {
+            90 => (y, pageWidth - x),
+            180 => (pageWidth - x, pageHeight - y),
+            270 => (pageHeight - y, x),
+            _ => (x, y)
+        };
     }
 
     private static List<Block> BuildParagraphs(string text)
