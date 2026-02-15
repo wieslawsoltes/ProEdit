@@ -1303,11 +1303,13 @@ public sealed class DocxExporter
 
     private static void EnsureDocumentSettings(MainDocumentPart mainPart, VibeDocument document, bool includeEvenHeaders)
     {
+        var writeMailMerge = ShouldWriteMailMergeSettings(document);
         if (!document.MirrorMargins
             && !document.GutterAtTop
             && !includeEvenHeaders
             && !document.TrackChangesEnabled
-            && !document.Compatibility.HasValues)
+            && !document.Compatibility.HasValues
+            && !writeMailMerge)
         {
             return;
         }
@@ -1335,6 +1337,11 @@ public sealed class DocxExporter
             settings.AppendChild(new TrackRevisions());
         }
 
+        if (writeMailMerge)
+        {
+            settings.AppendChild(BuildMailMergeSettingsElement(document.MailMergeData));
+        }
+
         if (document.Compatibility.HasValues)
         {
             var compat = new Compatibility();
@@ -1353,6 +1360,80 @@ public sealed class DocxExporter
         }
 
         settingsPart.Settings = settings;
+    }
+
+    private static bool ShouldWriteMailMergeSettings(VibeDocument document)
+    {
+        return document.MailMergeData is not null;
+    }
+
+    private static OpenXmlElement BuildMailMergeSettingsElement(MailMergeData? mailMergeData)
+    {
+        var mailMerge = new OpenXmlUnknownElement("w", "mailMerge", WordprocessingNamespace);
+        mailMerge.AppendChild(CreateMailMergeValueElement("mainDocumentType", ResolveMailMergeMainDocumentType(mailMergeData)));
+        if (mailMergeData is not null)
+        {
+            AppendMailMergeFieldMapData(mailMerge, mailMergeData);
+        }
+
+        return mailMerge;
+    }
+
+    private static string ResolveMailMergeMainDocumentType(MailMergeData? mailMergeData)
+    {
+        if (mailMergeData is null || string.IsNullOrWhiteSpace(mailMergeData.MainDocumentType))
+        {
+            return MailMergeData.DefaultMainDocumentType;
+        }
+
+        return mailMergeData.MainDocumentType.Trim();
+    }
+
+    private static void AppendMailMergeFieldMapData(OpenXmlUnknownElement mailMergeElement, MailMergeData mailMergeData)
+    {
+        var uniqueFieldNames = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var fieldName in mailMergeData.FieldNames)
+        {
+            if (string.IsNullOrWhiteSpace(fieldName))
+            {
+                continue;
+            }
+
+            var trimmed = fieldName.Trim();
+            if (!seen.Add(trimmed))
+            {
+                continue;
+            }
+
+            uniqueFieldNames.Add(trimmed);
+        }
+
+        if (uniqueFieldNames.Count == 0)
+        {
+            return;
+        }
+
+        var odso = new OpenXmlUnknownElement("w", "odso", WordprocessingNamespace);
+        for (var i = 0; i < uniqueFieldNames.Count; i++)
+        {
+            var fieldName = uniqueFieldNames[i];
+            var fieldMapData = new OpenXmlUnknownElement("w", "fieldMapData", WordprocessingNamespace);
+            fieldMapData.AppendChild(CreateMailMergeValueElement("type", "dbColumn"));
+            fieldMapData.AppendChild(CreateMailMergeValueElement("name", fieldName));
+            fieldMapData.AppendChild(CreateMailMergeValueElement("mappedName", fieldName));
+            fieldMapData.AppendChild(CreateMailMergeValueElement("column", (i + 1).ToString(CultureInfo.InvariantCulture)));
+            odso.AppendChild(fieldMapData);
+        }
+
+        mailMergeElement.AppendChild(odso);
+    }
+
+    private static OpenXmlUnknownElement CreateMailMergeValueElement(string localName, string value)
+    {
+        var element = new OpenXmlUnknownElement("w", localName, WordprocessingNamespace);
+        element.SetAttribute(new OpenXmlAttribute("w", "val", WordprocessingNamespace, value));
+        return element;
     }
 
     private static void AppendCompatibilitySetting<T>(Compatibility compat, bool? value, Func<bool, T> factory)
@@ -4217,7 +4298,10 @@ public sealed class DocxExporter
             var segmentStart = 0;
             for (var j = 0; j <= lineSpan.Length; j++)
             {
-                if (j < lineSpan.Length && lineSpan[j] != '\t')
+                if (j < lineSpan.Length
+                    && lineSpan[j] != '\t'
+                    && lineSpan[j] != '\u2011'
+                    && lineSpan[j] != '\u00AD')
                 {
                     continue;
                 }
@@ -4240,7 +4324,18 @@ public sealed class DocxExporter
 
                 if (j < lineSpan.Length)
                 {
-                    run.AppendChild(new TabChar());
+                    switch (lineSpan[j])
+                    {
+                        case '\t':
+                            run.AppendChild(new TabChar());
+                            break;
+                        case '\u2011':
+                            run.AppendChild(new NoBreakHyphen());
+                            break;
+                        case '\u00AD':
+                            run.AppendChild(new SoftHyphen());
+                            break;
+                    }
                 }
 
                 segmentStart = j + 1;

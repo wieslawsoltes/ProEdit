@@ -72,6 +72,7 @@ public sealed class DocxImporter
         if (body is null)
         {
             document.Blocks.Add(new ParagraphBlock());
+            PopulateMailMergeData(document);
             LoadMacros(mainPart, document);
             LoadBibliography(mainPart, document);
             return document;
@@ -178,6 +179,7 @@ public sealed class DocxImporter
             document.Blocks.Add(new ParagraphBlock());
         }
 
+        PopulateMailMergeData(document);
         LoadMacros(mainPart, document);
         LoadBibliography(mainPart, document);
         return document;
@@ -511,7 +513,242 @@ public sealed class DocxImporter
             document.TrackChangesEnabled = trackRevisions.Value;
         }
 
+        var mailMergeElement = settings.ChildElements.FirstOrDefault(IsMailMergeElement);
+        if (mailMergeElement is not null)
+        {
+            var mailMergeData = document.MailMergeData ??= new MailMergeData();
+            var mainDocumentType = ReadMailMergeMainDocumentType(mailMergeElement);
+            if (!string.IsNullOrWhiteSpace(mainDocumentType))
+            {
+                mailMergeData.MainDocumentType = mainDocumentType;
+            }
+
+            AppendMailMergeFieldMapNames(mailMergeElement, mailMergeData);
+        }
+
         LoadCompatibilitySettings(settings, document);
+    }
+
+    private static void PopulateMailMergeData(VibeDocument document)
+    {
+        var mergeFieldNames = new List<string>();
+        var mergeFieldNameSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var hasMergeField = false;
+
+        void AddMergeFieldName(string? name)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                return;
+            }
+
+            var trimmed = name.Trim();
+            if (!mergeFieldNameSet.Add(trimmed))
+            {
+                return;
+            }
+
+            mergeFieldNames.Add(trimmed);
+        }
+
+        void CollectFromInlines(IReadOnlyList<Inline> inlines)
+        {
+            for (var i = 0; i < inlines.Count; i++)
+            {
+                var inline = inlines[i];
+                if (inline is FieldStartInline fieldStart)
+                {
+                    var definition = fieldStart.Definition ?? FieldInstructionParser.Parse(fieldStart.Instruction);
+                    if (definition is not null && IsMailMergeField(definition))
+                    {
+                        hasMergeField = true;
+                        if (definition.Kind == FieldKind.MergeField && definition.Arguments.Count > 0)
+                        {
+                            AddMergeFieldName(definition.Arguments[0].Value);
+                        }
+                    }
+                }
+                else if (inline is ShapeInline { TextBox: { } textBox })
+                {
+                    CollectFromBlocks(textBox.Blocks);
+                }
+            }
+        }
+
+        void CollectFromParagraph(ParagraphBlock paragraph)
+        {
+            CollectFromInlines(paragraph.Inlines);
+            for (var i = 0; i < paragraph.FloatingObjects.Count; i++)
+            {
+                if (paragraph.FloatingObjects[i].Content is ShapeInline { TextBox: { } textBox })
+                {
+                    CollectFromBlocks(textBox.Blocks);
+                }
+            }
+        }
+
+        void CollectFromTable(TableBlock table)
+        {
+            for (var rowIndex = 0; rowIndex < table.Rows.Count; rowIndex++)
+            {
+                var row = table.Rows[rowIndex];
+                for (var cellIndex = 0; cellIndex < row.Cells.Count; cellIndex++)
+                {
+                    CollectFromBlocks(row.Cells[cellIndex].Blocks);
+                }
+            }
+        }
+
+        void CollectFromBlocks(IReadOnlyList<Block> blocks)
+        {
+            for (var i = 0; i < blocks.Count; i++)
+            {
+                switch (blocks[i])
+                {
+                    case ParagraphBlock paragraph:
+                        CollectFromParagraph(paragraph);
+                        break;
+                    case TableBlock table:
+                        CollectFromTable(table);
+                        break;
+                }
+            }
+        }
+
+        void CollectFromHeaderFooter(HeaderFooter headerFooter)
+        {
+            CollectFromBlocks(headerFooter.Blocks);
+        }
+
+        CollectFromBlocks(document.Blocks);
+        for (var sectionIndex = 0; sectionIndex < document.Sections.Count; sectionIndex++)
+        {
+            var section = document.Sections[sectionIndex];
+            CollectFromHeaderFooter(section.Header);
+            CollectFromHeaderFooter(section.Footer);
+            CollectFromHeaderFooter(section.FirstHeader);
+            CollectFromHeaderFooter(section.FirstFooter);
+            CollectFromHeaderFooter(section.EvenHeader);
+            CollectFromHeaderFooter(section.EvenFooter);
+        }
+
+        foreach (var footnote in document.Footnotes.Values)
+        {
+            CollectFromBlocks(footnote.Blocks);
+        }
+
+        foreach (var endnote in document.Endnotes.Values)
+        {
+            CollectFromBlocks(endnote.Blocks);
+        }
+
+        foreach (var comment in document.Comments.Values)
+        {
+            CollectFromBlocks(comment.Blocks);
+        }
+
+        if (!hasMergeField)
+        {
+            return;
+        }
+
+        var mailMergeData = document.MailMergeData ??= new MailMergeData();
+        var existing = new HashSet<string>(mailMergeData.FieldNames, StringComparer.OrdinalIgnoreCase);
+        for (var i = 0; i < mergeFieldNames.Count; i++)
+        {
+            var name = mergeFieldNames[i];
+            if (existing.Add(name))
+            {
+                mailMergeData.FieldNames.Add(name);
+            }
+        }
+    }
+
+    private static bool IsMailMergeElement(OpenXmlElement element)
+    {
+        return string.Equals(element.NamespaceUri, WordprocessingNamespace, StringComparison.OrdinalIgnoreCase)
+               && string.Equals(element.LocalName, "mailMerge", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsMailMergeField(FieldDefinition definition)
+    {
+        return definition.Kind switch
+        {
+            FieldKind.MergeField => true,
+            FieldKind.AddressBlock => true,
+            FieldKind.GreetingLine => true,
+            FieldKind.MergeRule => IsMailMergeRule(definition),
+            _ => false
+        };
+    }
+
+    private static bool IsMailMergeRule(FieldDefinition definition)
+    {
+        if (!string.Equals(definition.Name, "IF", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return definition.RawInstruction.IndexOf("MERGEFIELD", StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
+    private static string? ReadMailMergeMainDocumentType(OpenXmlElement mailMergeElement)
+    {
+        var mainDocumentType = mailMergeElement.ChildElements.FirstOrDefault(IsMainDocumentTypeElement);
+        if (mainDocumentType is null)
+        {
+            return null;
+        }
+
+        var value = GetAttributeValue(mainDocumentType, "val", mainDocumentType.NamespaceUri)
+                    ?? GetAttributeValue(mainDocumentType, "val", WordprocessingNamespace)
+                    ?? GetAttributeValue(mainDocumentType, "val");
+        return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    }
+
+    private static void AppendMailMergeFieldMapNames(OpenXmlElement mailMergeElement, MailMergeData mailMergeData)
+    {
+        var existing = new HashSet<string>(mailMergeData.FieldNames, StringComparer.OrdinalIgnoreCase);
+        foreach (var fieldMapData in mailMergeElement.Descendants().Where(IsFieldMapDataElement))
+        {
+            var nameElement = fieldMapData.ChildElements.FirstOrDefault(IsNameElement);
+            if (nameElement is null)
+            {
+                continue;
+            }
+
+            var value = GetAttributeValue(nameElement, "val", nameElement.NamespaceUri)
+                        ?? GetAttributeValue(nameElement, "val", WordprocessingNamespace)
+                        ?? GetAttributeValue(nameElement, "val");
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                continue;
+            }
+
+            var trimmed = value.Trim();
+            if (existing.Add(trimmed))
+            {
+                mailMergeData.FieldNames.Add(trimmed);
+            }
+        }
+    }
+
+    private static bool IsMainDocumentTypeElement(OpenXmlElement element)
+    {
+        return string.Equals(element.NamespaceUri, WordprocessingNamespace, StringComparison.OrdinalIgnoreCase)
+               && string.Equals(element.LocalName, "mainDocumentType", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsFieldMapDataElement(OpenXmlElement element)
+    {
+        return string.Equals(element.NamespaceUri, WordprocessingNamespace, StringComparison.OrdinalIgnoreCase)
+               && string.Equals(element.LocalName, "fieldMapData", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsNameElement(OpenXmlElement element)
+    {
+        return string.Equals(element.NamespaceUri, WordprocessingNamespace, StringComparison.OrdinalIgnoreCase)
+               && string.Equals(element.LocalName, "name", StringComparison.OrdinalIgnoreCase);
     }
 
     private static void LoadCompatibilitySettings(Settings settings, VibeDocument document)
@@ -2012,6 +2249,33 @@ public sealed class DocxImporter
                             }
                         }
                         break;
+                    case PositionalTab:
+                        if (fieldStack.Count == 0 || fieldStack.Peek().InResult)
+                        {
+                            if (!suppressResultText)
+                            {
+                                buffer.Append('\t');
+                            }
+                        }
+                        break;
+                    case NoBreakHyphen:
+                        if (fieldStack.Count == 0 || fieldStack.Peek().InResult)
+                        {
+                            if (!suppressResultText)
+                            {
+                                buffer.Append('\u2011');
+                            }
+                        }
+                        break;
+                    case SoftHyphen:
+                        if (fieldStack.Count == 0 || fieldStack.Peek().InResult)
+                        {
+                            if (!suppressResultText)
+                            {
+                                buffer.Append('\u00AD');
+                            }
+                        }
+                        break;
                     case FootnoteReference footnoteReference:
                     {
                         if (suppressResultText)
@@ -2062,6 +2326,28 @@ public sealed class DocxImporter
                         break;
                     }
                     case LastRenderedPageBreak:
+                        if (fieldStack.Count > 0 && !fieldStack.Peek().InResult)
+                        {
+                            break;
+                        }
+
+                        if (splitOnPageBreaks)
+                        {
+                            if (IsStandaloneBreak(run, node))
+                            {
+                                FlushRunBuffer(buffer, style, runStyleId, current, builder, hyperlink);
+                                SplitForBreak(new PageBreakBlock());
+                            }
+                            else if (!suppressResultText)
+                            {
+                                buffer.Append('\n');
+                            }
+                        }
+                        else if (!suppressResultText)
+                        {
+                            buffer.Append('\n');
+                        }
+
                         break;
                     case Break:
                     {
@@ -2276,6 +2562,15 @@ public sealed class DocxImporter
                         break;
                     case TabChar:
                         buffer.Append('\t');
+                        break;
+                    case PositionalTab:
+                        buffer.Append('\t');
+                        break;
+                    case NoBreakHyphen:
+                        buffer.Append('\u2011');
+                        break;
+                    case SoftHyphen:
+                        buffer.Append('\u00AD');
                         break;
                     case Break:
                     case CarriageReturn:

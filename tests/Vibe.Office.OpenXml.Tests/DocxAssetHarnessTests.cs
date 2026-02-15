@@ -971,12 +971,12 @@ internal static class DocxFeatureCatalog
         new DocxFeatureDefinition(
             "fields",
             "Fields (fldSimple/fldChar/instrText)",
-            DocxFeatureSupport.NotSupported,
+            DocxFeatureSupport.Partial,
             new[] { "<w:fldSimple", "<w:fldChar", "<w:instrText" }),
         new DocxFeatureDefinition(
             "mail_merge_fields",
             "Mail merge fields",
-            DocxFeatureSupport.NotSupported,
+            DocxFeatureSupport.Partial,
             new[] { "<w:mailMerge", "MERGEFIELD" }),
         new DocxFeatureDefinition(
             "custom_xml_markup",

@@ -2,12 +2,16 @@ namespace Vibe.Office.Documents;
 
 public sealed class MailMergeData
 {
+    public const string DefaultMainDocumentType = "formLetters";
+
+    public string MainDocumentType { get; set; } = DefaultMainDocumentType;
     public List<string> FieldNames { get; } = new List<string>();
     public List<MailMergeRecord> Records { get; } = new List<MailMergeRecord>();
 
     public MailMergeData Clone()
     {
         var clone = new MailMergeData();
+        clone.MainDocumentType = MainDocumentType;
         foreach (var name in FieldNames)
         {
             clone.FieldNames.Add(name);
