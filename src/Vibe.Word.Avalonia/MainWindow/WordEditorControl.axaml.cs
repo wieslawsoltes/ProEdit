@@ -132,13 +132,13 @@ public partial class WordEditorControl : UserControl
     {
         Patterns = new[] { "*.docx", "*.docm" }
     };
-    private static readonly FilePickerFileType PdfFileType = new("PDF")
+    private static readonly FilePickerFileType PdfFileType = new("PDF Documents")
     {
-        Patterns = new[] { "*.pdf" }
+        Patterns = new[] { "*.pdf", "*.pdx" }
     };
     private static readonly FilePickerFileType SupportedFileType = new("Supported Files")
     {
-        Patterns = new[] { "*.docx", "*.docm", "*.md", "*.markdown", "*.html", "*.htm", "*.pdf" }
+        Patterns = new[] { "*.docx", "*.docm", "*.md", "*.markdown", "*.html", "*.htm", "*.pdf", "*.pdx" }
     };
     private static readonly FilePickerFileType MarkdownFileType = new("Markdown")
     {
@@ -763,7 +763,7 @@ public partial class WordEditorControl : UserControl
                 {
                     new FilePickerFileType("PDF")
                     {
-                        Patterns = new[] { "*.pdf" }
+                        Patterns = new[] { "*.pdf", "*.pdx" }
                     }
                 },
                 SuggestedFileName = ResolveSuggestedFileName("Document")
@@ -773,16 +773,53 @@ public partial class WordEditorControl : UserControl
         }
     }
 
-    private async Task<PdfImportOptions?> ShowPdfImportDialogAsync()
+    private async Task<PdfImportOptions?> ShowPdfImportDialogAsync(bool allowSkip = true)
     {
+        async Task TrySavePreferencesAsync(PdfImportPreferences preferences)
+        {
+            try
+            {
+                await _pdfImportPreferencesStore.SaveAsync(preferences);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to save PDF import preferences: {ex.Message}");
+            }
+        }
+
         var preferencesResult = await _pdfImportPreferencesStore.LoadAsync();
-        var viewModel = new PdfImportDialogViewModel();
+        var importMode = PdfImportMode.Reflow;
+        var preservationMode = PdfPreservationMode.None;
+        var skipDialog = false;
+
         if (preferencesResult.HasValue && preferencesResult.Preferences is { } preferences)
         {
-            viewModel.ImportMode = preferences.ImportMode;
-            viewModel.PreservationMode = preferences.PreservationMode;
-            viewModel.SkipDialog = preferences.SkipDialog;
+            importMode = PdfImportOptionHelpers.NormalizeImportMode(preferences.ImportMode);
+            preservationMode = PdfImportOptionHelpers.NormalizePreservationMode(preferences.PreservationMode);
+            skipDialog = preferences.SkipDialog;
+
+            if (importMode != preferences.ImportMode || preservationMode != preferences.PreservationMode)
+            {
+                await TrySavePreferencesAsync(new PdfImportPreferences
+                {
+                    ImportMode = importMode,
+                    PreservationMode = preservationMode,
+                    SkipDialog = skipDialog
+                });
+            }
+
+            if (allowSkip && skipDialog)
+            {
+                return CreatePdfImportOptions(importMode, preservationMode);
+            }
         }
+
+        var viewModel = new PdfImportDialogViewModel
+        {
+            ImportMode = importMode,
+            PreservationMode = preservationMode,
+            SkipDialog = skipDialog
+        };
 
         var dialog = new PdfImportDialog(viewModel);
 
@@ -795,40 +832,26 @@ public partial class WordEditorControl : UserControl
         };
 
         var result = await ShowDialogAsync<PdfImportOptions?>(dialog);
-        if (result is not null)
+        if (result is null)
         {
-            var preferencesToSave = new PdfImportPreferences
-            {
-                ImportMode = result.Mode,
-                PreservationMode = result.PreservationMode,
-                SkipDialog = viewModel.SkipDialog
-            };
-            await _pdfImportPreferencesStore.SaveAsync(preferencesToSave);
+            return null;
         }
 
-        return result;
+        var effectiveOptions = CreatePdfImportOptions(result.Mode, result.PreservationMode);
+        var preferencesToSave = new PdfImportPreferences
+        {
+            ImportMode = effectiveOptions.Mode,
+            PreservationMode = effectiveOptions.PreservationMode,
+            SkipDialog = viewModel.SkipDialog
+        };
+        await TrySavePreferencesAsync(preferencesToSave);
+
+        return effectiveOptions;
     }
 
     private static PdfImportOptions CreatePdfImportOptions(PdfImportMode mode, PdfPreservationMode preservationMode)
     {
-        var options = new PdfImportOptions
-        {
-            Mode = mode,
-            PreservationMode = preservationMode
-        };
-
-        if (options.PreservationMode != PdfPreservationMode.None)
-        {
-            options.ParserOptions.PreserveSourceBytes = true;
-        }
-
-        if (mode == PdfImportMode.FixedLayout)
-        {
-            options.ParserOptions.ExtractPaths = true;
-            options.ParserOptions.NormalizeFontNames = true;
-        }
-
-        return options;
+        return PdfImportOptionHelpers.Create(mode, preservationMode);
     }
 
     private async Task<PdfDocumentAst?> LoadPdfAsync(string path, PdfImportOptions options)
@@ -1332,13 +1355,7 @@ public partial class WordEditorControl : UserControl
 
     private static bool IsPdfPath(string? path)
     {
-        if (string.IsNullOrWhiteSpace(path))
-        {
-            return false;
-        }
-
-        var extension = Path.GetExtension(path);
-        return extension.Equals(".pdf", StringComparison.OrdinalIgnoreCase);
+        return PdfImportOptionHelpers.IsPdfPath(path);
     }
 
     private static MarkdownOptions CreateMarkdownOptions()
@@ -8739,7 +8756,7 @@ public partial class WordEditorControl : UserControl
             return;
         }
 
-        var options = await ShowPdfImportDialogAsync();
+        var options = await ShowPdfImportDialogAsync(allowSkip: false);
         if (options is null)
         {
             return;

@@ -199,7 +199,7 @@ public sealed class FlowDocumentSampleViewModel : ReactiveObject
         };
         intro.Inlines.Add(new Run("Use Open to load "));
         var openFormats = new Bold();
-        openFormats.Inlines.Add(new Run(".docx, .md, .pdf"));
+        openFormats.Inlines.Add(new Run(".docx, .md, .pdf/.pdx"));
         intro.Inlines.Add(openFormats);
         intro.Inlines.Add(new Run(" files as FlowDocument and Save As to export "));
         var saveFormats = new Bold();

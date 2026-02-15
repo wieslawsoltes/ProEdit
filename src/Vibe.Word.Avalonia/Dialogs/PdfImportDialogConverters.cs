@@ -1,5 +1,6 @@
 using System;
 using System.Globalization;
+using Avalonia;
 using Avalonia.Data.Converters;
 using Vibe.Office.Pdf;
 
@@ -28,22 +29,33 @@ public sealed class EnumEqualsConverter : IValueConverter
 {
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
-        if (parameter is string text && value is Enum)
+        if (value is null || parameter is null)
         {
-            var parsed = Enum.Parse(value.GetType(), text);
-            return Equals(value, parsed);
+            return false;
         }
 
-        return false;
+        if (parameter is string text && value is Enum)
+        {
+            return Enum.TryParse(value.GetType(), text, ignoreCase: false, out var parsed) && Equals(value, parsed);
+        }
+
+        return Equals(value, parameter);
     }
 
     public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
-        if (parameter is string text && targetType.IsEnum)
+        if (value is bool isChecked && isChecked && parameter is not null)
         {
-            return Enum.Parse(targetType, text);
+            if (parameter is string text && targetType.IsEnum)
+            {
+                return Enum.TryParse(targetType, text, ignoreCase: false, out var parsed)
+                    ? parsed
+                    : AvaloniaProperty.UnsetValue;
+            }
+
+            return parameter;
         }
 
-        return value;
+        return AvaloniaProperty.UnsetValue;
     }
 }

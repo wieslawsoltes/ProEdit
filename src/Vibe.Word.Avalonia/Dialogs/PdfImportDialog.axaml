@@ -54,6 +54,9 @@
             <TextBlock Text="Preserve original PDF data for optional incremental updates." Foreground="{DynamicResource ThemeForegroundLowBrush}" />
           </StackPanel>
         </Border>
+
+        <CheckBox Content="Remember these PDF import settings and skip this dialog"
+                  IsChecked="{Binding SkipDialog, Mode=TwoWay}" />
       </StackPanel>
     </ScrollViewer>
 
