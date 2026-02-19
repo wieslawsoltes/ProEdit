@@ -55,7 +55,8 @@ public sealed class CompatDocumentContinuationLayout
 
     public CompatDocumentContinuationSegment GetRemainingSegment(int startLineIndex)
     {
-        var lines = _renderDocument.EditorLayout.Lines;
+        var layout = _renderDocument.EditorLayout;
+        var lines = layout.Lines;
         if (lines.Count == 0)
         {
             return CreateEmptySegment(startLineIndex);
@@ -67,12 +68,13 @@ public sealed class CompatDocumentContinuationLayout
             return CreateEmptySegment(start);
         }
 
-        return BuildSegment(lines, start, lines.Count);
+        return BuildSegment(layout, start, lines.Count);
     }
 
     public CompatDocumentContinuationSegment GetSegmentByMaxLines(int startLineIndex, int maxLines)
     {
-        var lines = _renderDocument.EditorLayout.Lines;
+        var layout = _renderDocument.EditorLayout;
+        var lines = layout.Lines;
         if (lines.Count == 0)
         {
             return CreateEmptySegment(startLineIndex);
@@ -86,16 +88,17 @@ public sealed class CompatDocumentContinuationLayout
 
         if (maxLines <= 0)
         {
-            return BuildSegment(lines, start, lines.Count);
+            return BuildSegment(layout, start, lines.Count);
         }
 
         var end = Math.Min(lines.Count, start + maxLines);
-        return BuildSegment(lines, start, end);
+        return BuildSegment(layout, start, end);
     }
 
     public CompatDocumentContinuationSegment GetSegmentByHeight(int startLineIndex, float viewportHeight)
     {
-        var lines = _renderDocument.EditorLayout.Lines;
+        var layout = _renderDocument.EditorLayout;
+        var lines = layout.Lines;
         if (lines.Count == 0)
         {
             return CreateEmptySegment(startLineIndex);
@@ -122,14 +125,15 @@ public sealed class CompatDocumentContinuationLayout
             end = Math.Min(lines.Count, start + 1);
         }
 
-        return BuildSegment(lines, start, end);
+        return BuildSegment(layout, start, end);
     }
 
     private static CompatDocumentContinuationSegment BuildSegment(
-        IReadOnlyList<LayoutLine> lines,
+        DocumentLayout layout,
         int startLineIndex,
         int endLineIndex)
     {
+        var lines = layout.Lines;
         if (lines.Count == 0)
         {
             return CreateEmptySegment(startLineIndex);
@@ -143,12 +147,14 @@ public sealed class CompatDocumentContinuationLayout
         }
 
         var startY = lines[normalizedStart].Y;
-        var endY = normalizedEnd < lines.Count
+        var naturalEndY = normalizedEnd < lines.Count
             ? lines[normalizedEnd].Y
             : lines[^1].Y + lines[^1].LineHeight;
+        var endY = ExtendSegmentBottomForFloatingObjects(layout, startY, naturalEndY);
+        var contentBottom = GetContentBottom(layout);
         var height = Math.Max(1f, endY - startY);
         var lineCount = normalizedEnd - normalizedStart;
-        var hasOverflow = normalizedEnd < lines.Count;
+        var hasOverflow = endY + 0.5f < contentBottom;
 
         return new CompatDocumentContinuationSegment(
             normalizedStart,
@@ -156,6 +162,54 @@ public sealed class CompatDocumentContinuationLayout
             startY,
             height,
             hasOverflow);
+    }
+
+    private static float ExtendSegmentBottomForFloatingObjects(DocumentLayout layout, float startY, float endY)
+    {
+        var extendedEndY = endY;
+        ExtendWithFloatingObjects(layout.FloatingObjects, startY, ref extendedEndY);
+        ExtendWithFloatingObjects(layout.ExtraFloatingObjects, startY, ref extendedEndY);
+        return extendedEndY;
+    }
+
+    private static void ExtendWithFloatingObjects(
+        IReadOnlyList<FloatingLayoutObject> floatingObjects,
+        float startY,
+        ref float endY)
+    {
+        for (var i = 0; i < floatingObjects.Count; i++)
+        {
+            var bounds = floatingObjects[i].Bounds;
+            if (bounds.Top + 0.5f < startY || bounds.Top > endY + 0.5f)
+            {
+                continue;
+            }
+
+            endY = Math.Max(endY, bounds.Bottom);
+        }
+    }
+
+    private static float GetContentBottom(DocumentLayout layout)
+    {
+        var lines = layout.Lines;
+        var contentBottom = 1f;
+        if (lines.Count > 0)
+        {
+            var last = lines[^1];
+            contentBottom = Math.Max(contentBottom, last.Y + last.LineHeight);
+        }
+
+        for (var i = 0; i < layout.FloatingObjects.Count; i++)
+        {
+            contentBottom = Math.Max(contentBottom, layout.FloatingObjects[i].Bounds.Bottom);
+        }
+
+        for (var i = 0; i < layout.ExtraFloatingObjects.Count; i++)
+        {
+            contentBottom = Math.Max(contentBottom, layout.ExtraFloatingObjects[i].Bounds.Bottom);
+        }
+
+        return contentBottom;
     }
 
     private static CompatDocumentContinuationSegment CreateEmptySegment(int startLineIndex)

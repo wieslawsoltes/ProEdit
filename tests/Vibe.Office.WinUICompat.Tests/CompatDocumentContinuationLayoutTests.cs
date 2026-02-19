@@ -57,6 +57,67 @@ public sealed class CompatDocumentContinuationLayoutTests
         Assert.False(segment.HasOverflow);
     }
 
+    [Fact]
+    public void SegmentByHeight_ExtendsForFloatingObjectsAnchoredInSegment()
+    {
+        var source = new RichTextDocument();
+        var paragraph = new Paragraph();
+        var figure = new Figure
+        {
+            Width = 220,
+            Height = 180,
+            HorizontalAnchor = "PageLeft"
+        };
+        figure.Blocks.Add(new Paragraph("floating block"));
+        paragraph.Inlines.Add(figure);
+        paragraph.Inlines.Add(new Run("Body text after floating figure."));
+        source.Blocks.Add(paragraph);
+        source.Blocks.Add(new Paragraph("Trailing paragraph for continuation."));
+
+        var continuation = new CompatDocumentContinuationLayout();
+        continuation.UpdateSource(source, viewportWidth: 600f);
+
+        var floatingCount =
+            continuation.RenderDocument.EditorLayout.FloatingObjects.Count
+            + continuation.RenderDocument.EditorLayout.ExtraFloatingObjects.Count;
+        Assert.True(floatingCount > 0);
+
+        var first = continuation.GetSegmentByHeight(0, viewportHeight: 24f);
+        Assert.True(first.LineCount >= 1);
+        Assert.True(first.Height > 24f);
+    }
+
+    [Fact]
+    public void SegmentByMaxLines_IncludesFloatingExtentInHeight()
+    {
+        var source = new RichTextDocument();
+        var paragraph = new Paragraph();
+        var figure = new Figure
+        {
+            Width = 200,
+            Height = 160,
+            HorizontalAnchor = "PageLeft"
+        };
+        figure.Blocks.Add(new Paragraph("float"));
+        paragraph.Inlines.Add(figure);
+        paragraph.Inlines.Add(new Run("Caption text."));
+        source.Blocks.Add(paragraph);
+        source.Blocks.Add(new Paragraph("Second paragraph."));
+
+        var continuation = new CompatDocumentContinuationLayout();
+        continuation.UpdateSource(source, viewportWidth: 600f);
+
+        var first = continuation.GetSegmentByMaxLines(0, maxLines: 1);
+        var firstLine = continuation.Lines[first.StartLineIndex];
+        Assert.True(first.Height >= firstLine.LineHeight);
+
+        var floatingCount =
+            continuation.RenderDocument.EditorLayout.FloatingObjects.Count
+            + continuation.RenderDocument.EditorLayout.ExtraFloatingObjects.Count;
+        Assert.True(floatingCount > 0);
+        Assert.True(first.Height > firstLine.LineHeight + 0.5f);
+    }
+
     private static RichTextDocument CreateParagraphDocument(params string[] lines)
     {
         var document = new RichTextDocument();
