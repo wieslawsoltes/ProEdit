@@ -177,6 +177,38 @@ public sealed class DocumentToFlowDocumentConverterTests
     }
 
     [Fact]
+    public void ConvertsEmbeddedFloatingShapeMarker_ToAnchoredUiContainer()
+    {
+        var markerId = "77";
+        var floatingChild = new Button { Content = "Floating block" };
+
+        var document = new Document();
+        document.Blocks.Clear();
+
+        var paragraph = new ParagraphBlock();
+        var floatingShape = new ShapeInline(180, 72)
+        {
+            Name = $"{FlowDocumentConverterOptions.DefaultEmbeddedUiShapePrefix}{markerId}"
+        };
+        paragraph.FloatingObjects.Add(new FloatingObject(floatingShape));
+        document.Blocks.Add(paragraph);
+
+        var converter = new DocumentToFlowDocumentConverter(new DocumentToFlowDocumentConverterOptions
+        {
+            EmbeddedUiElementsById = new Dictionary<string, EmbeddedFlowUiElement>(StringComparer.Ordinal)
+            {
+                [markerId] = new EmbeddedFlowUiElement(markerId, floatingChild, isInline: false)
+            }
+        });
+
+        var flow = converter.Convert(document);
+        var flowParagraph = Assert.IsType<Paragraph>(Assert.Single(flow.Blocks));
+        var figure = Assert.IsType<Figure>(Assert.Single(flowParagraph.Inlines));
+        var blockUi = Assert.IsType<BlockUIContainer>(Assert.Single(figure.Blocks));
+        Assert.Same(floatingChild, blockUi.Child);
+    }
+
+    [Fact]
     public void TryConvertTopLevelBlock_ConvertsPlainParagraph()
     {
         var document = new Document();

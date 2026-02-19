@@ -72,6 +72,20 @@ public sealed class FlowDocumentConverterOptions
     public Func<object?, string>? BlockUiPlaceholderFactory { get; set; }
 
     /// <summary>
+    /// Gets or sets a predicate that determines whether a UI container child should be emitted
+    /// as an embedded shape marker when <see cref="EnableEmbeddedUiElements"/> is enabled.
+    /// When unset, Avalonia <c>Control</c> children are treated as embeddable.
+    /// </summary>
+    public Func<object?, bool>? EmbeddedUiElementPredicate { get; set; }
+
+    /// <summary>
+    /// Gets or sets a size resolver for embedded UI children.
+    /// The boolean argument indicates whether the source container is inline.
+    /// Returning <see langword="null"/> falls back to built-in sizing.
+    /// </summary>
+    public Func<object, bool, (double Width, double Height)?>? EmbeddedUiSizeResolver { get; set; }
+
+    /// <summary>
     /// Gets or sets a value indicating whether table cell visual properties
     /// (padding, borders, shading, alignment metadata) should be exported
     /// from FlowDocument cells into the document model.
