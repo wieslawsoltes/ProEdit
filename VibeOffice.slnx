@@ -14,6 +14,10 @@
     <Project Path="src/Vibe.Office.FlowDocument.Avalonia/Vibe.Office.FlowDocument.Avalonia.csproj" />
     <Project Path="src/Vibe.Office.RichText.Avalonia.Collaboration/Vibe.Office.RichText.Avalonia.Collaboration.csproj" />
     <Project Path="src/Vibe.Office.RichText.Avalonia/Vibe.Office.RichText.Avalonia.csproj" />
+    <Project Path="src/Vibe.Office.WinUICompat/Vibe.Office.WinUICompat.csproj" />
+    <Project Path="src/Vibe.Office.WinUICompat.Uno/Vibe.Office.WinUICompat.Uno.csproj" />
+    <Project Path="src/Vibe.Office.WinUICompat.Collaboration/Vibe.Office.WinUICompat.Collaboration.csproj" />
+    <Project Path="src/Vibe.WinUICompat.App/Vibe.WinUICompat.App.csproj" />
     <Project Path="src/Vibe.FlowDocument.App/Vibe.FlowDocument.App.csproj" />
     <Project Path="src/Vibe.Office.Html/Vibe.Office.Html.csproj" />
     <Project Path="src/Vibe.Office.Layout/Vibe.Office.Layout.csproj" />
@@ -53,6 +57,8 @@
     <Project Path="tests/Vibe.Office.Printing.Tests/Vibe.Office.Printing.Tests.csproj" />
     <Project Path="tests/Vibe.Office.Ribbon.Tests/Vibe.Office.Ribbon.Tests.csproj" />
     <Project Path="tests/Vibe.Office.OpenXml.Tests/Vibe.Office.OpenXml.Tests.csproj" />
+    <Project Path="tests/Vibe.Office.WinUICompat.Tests/Vibe.Office.WinUICompat.Tests.csproj" />
+    <Project Path="tests/Vibe.Office.WinUICompat.Uno.Tests/Vibe.Office.WinUICompat.Uno.Tests.csproj" />
     <Project Path="tests/Vibe.Office.Vba.Runtime.Tests/Vibe.Office.Vba.Runtime.Tests.csproj" />
     <Project Path="tests/Vibe.Word.Avalonia.Headless.Tests/Vibe.Word.Avalonia.Headless.Tests.csproj" />
     <Project Path="tests/Vibe.Word.Editor.Tests/Vibe.Word.Editor.Tests.csproj" />

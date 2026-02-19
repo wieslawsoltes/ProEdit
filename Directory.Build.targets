@@ -1,0 +1,9 @@
+<Project>
+  <PropertyGroup>
+    <DisableAvaloniaBuildStats Condition="'$(DisableAvaloniaBuildStats)' == ''">true</DisableAvaloniaBuildStats>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(DisableAvaloniaBuildStats)' == 'true'">
+    <UsedAvaloniaProducts></UsedAvaloniaProducts>
+  </PropertyGroup>
+</Project>
