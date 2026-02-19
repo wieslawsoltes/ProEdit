@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageDescription>WinUI-compatible rich text abstractions and converters for VibeOffice.</PackageDescription>
+    <PackageTags>vibeoffice;winui;richtext;compatibility</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Vibe.Office.Documents\Vibe.Office.Documents.csproj" />
+    <ProjectReference Include="..\Vibe.Office.Editing\Vibe.Office.Editing.csproj" />
+    <ProjectReference Include="..\Vibe.Office.FlowDocument\Vibe.Office.FlowDocument.csproj" />
+    <ProjectReference Include="..\Vibe.Office.FlowDocument.Documents\Vibe.Office.FlowDocument.Documents.csproj" />
+    <ProjectReference Include="..\Vibe.Office.Primitives\Vibe.Office.Primitives.csproj" />
+    <ProjectReference Include="..\Vibe.Office.Rendering.Skia\Vibe.Office.Rendering.Skia.csproj" />
+    <ProjectReference Include="..\Vibe.Word.Editor\Vibe.Word.Editor.csproj" />
+  </ItemGroup>
+</Project>
