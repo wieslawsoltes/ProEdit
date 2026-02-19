@@ -1,6 +1,7 @@
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using SkiaSharp.Views;
 using SkiaSharp.Views.Windows;
@@ -21,8 +22,12 @@ internal sealed class EngineRichEditHost : UserControl
 {
     private const float ScrollStepFallback = 16f;
     private const float ScrollStepLineMultiplier = 3f;
+    private const double ScrollBarWidth = 14d;
+    private const double MultiClickDistanceThreshold = 6d;
+    private static readonly TimeSpan MultiClickTimeThreshold = TimeSpan.FromMilliseconds(500);
     private readonly SKXamlCanvas _canvas;
     private readonly Canvas _embeddedUiOverlay;
+    private readonly ScrollBar _verticalScrollBar;
     private readonly Dictionary<string, UIElement> _embeddedElementsById = new(StringComparer.Ordinal);
     private readonly RenderOptions _renderOptions;
     private RichEditTextDocument? _document;
@@ -39,6 +44,10 @@ internal sealed class EngineRichEditHost : UserControl
     private bool _isScrollEnabled = true;
     private float _verticalScrollOffset;
     private float _contentHeight = 1f;
+    private bool _suppressScrollBarValueChange;
+    private DateTimeOffset _lastPrimaryPointerDownTimestamp = DateTimeOffset.MinValue;
+    private Point _lastPrimaryPointerDownPosition;
+    private int _primaryPointerDownCount;
     private bool _hasRenderSegment;
     private int _segmentStartLineIndex;
     private int _segmentLineCount;
@@ -78,9 +87,30 @@ internal sealed class EngineRichEditHost : UserControl
         _embeddedUiOverlay = new Canvas();
         _embeddedUiOverlay.IsHitTestVisible = false;
 
+        _verticalScrollBar = new ScrollBar
+        {
+            Orientation = Orientation.Vertical,
+            Width = ScrollBarWidth,
+            Minimum = 0d,
+            Maximum = 0d,
+            SmallChange = ScrollStepFallback,
+            LargeChange = 120d,
+            Visibility = Visibility.Collapsed
+        };
+        _verticalScrollBar.ValueChanged += OnVerticalScrollBarValueChanged;
+
         var root = new Grid();
-        root.Children.Add(_canvas);
-        root.Children.Add(_embeddedUiOverlay);
+        root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1d, GridUnitType.Star) });
+        root.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        var contentHost = new Grid();
+        contentHost.Children.Add(_canvas);
+        contentHost.Children.Add(_embeddedUiOverlay);
+        Grid.SetColumn(contentHost, 0);
+        root.Children.Add(contentHost);
+
+        Grid.SetColumn(_verticalScrollBar, 1);
+        root.Children.Add(_verticalScrollBar);
 
         IsTabStop = true;
         Content = root;
@@ -188,6 +218,7 @@ internal sealed class EngineRichEditHost : UserControl
                 ClampVerticalScrollOffset((float)Math.Max(1d, _canvas.ActualHeight));
             }
 
+            UpdateScrollBarState((float)Math.Max(1d, _canvas.ActualHeight));
             _canvas.Invalidate();
         }
     }
@@ -214,6 +245,7 @@ internal sealed class EngineRichEditHost : UserControl
         _segmentStartY = normalizedStartY;
         _segmentHeight = normalizedHeight;
         SetVerticalScrollOffset(0f);
+        UpdateScrollBarState((float)Math.Max(1d, _canvas.ActualHeight));
         ResetEmbeddedUiSnapshot();
         _canvas.Invalidate();
     }
@@ -231,6 +263,7 @@ internal sealed class EngineRichEditHost : UserControl
         _segmentStartY = 0f;
         _segmentHeight = 0f;
         ClampVerticalScrollOffset((float)Math.Max(1d, _canvas.ActualHeight));
+        UpdateScrollBarState((float)Math.Max(1d, _canvas.ActualHeight));
         ResetEmbeddedUiSnapshot();
         _canvas.Invalidate();
     }
@@ -246,6 +279,7 @@ internal sealed class EngineRichEditHost : UserControl
         var viewportHeight = (float)Math.Max(1d, _canvas.ActualHeight);
         ClampVerticalScrollOffset(viewportHeight);
         EnsureCaretVisible(viewportHeight);
+        UpdateScrollBarState(viewportHeight);
         SyncEmbeddedUiLayout(force: false);
         _canvas.Invalidate();
     }
@@ -256,6 +290,7 @@ internal sealed class EngineRichEditHost : UserControl
         var viewportHeight = (float)Math.Max(1d, _canvas.ActualHeight);
         ClampVerticalScrollOffset(viewportHeight);
         EnsureCaretVisible(viewportHeight);
+        UpdateScrollBarState(viewportHeight);
         SyncEmbeddedUiLayout(force: true);
     }
 
@@ -290,6 +325,7 @@ internal sealed class EngineRichEditHost : UserControl
         var viewportHeight = (float)Math.Max(1d, _canvas.ActualHeight);
         RefreshContentHeight();
         ClampVerticalScrollOffset(viewportHeight);
+        UpdateScrollBarState(viewportHeight);
 
         var scaleX = ResolvePixelScale(viewportWidth, e.Info.Width);
         var scaleY = ResolvePixelScale(viewportHeight, e.Info.Height);
@@ -717,6 +753,16 @@ internal sealed class EngineRichEditHost : UserControl
 
         var modifiers = GetCurrentModifiers();
         var hasCommandModifier = (modifiers & (EditorModifiers.Control | EditorModifiers.Meta)) != 0;
+        if (hasCommandModifier
+            && (modifiers & EditorModifiers.Alt) == 0
+            && TryHandleFormattingShortcut(args.Key))
+        {
+            EnsureCaretVisible((float)Math.Max(1d, _canvas.ActualHeight));
+            args.Handled = true;
+            _canvas.Invalidate();
+            return;
+        }
+
         if (TryMapKey(args.Key, hasCommandModifier, out var editorKey))
         {
             if (_document.HandleKey(editorKey, modifiers))
@@ -755,13 +801,14 @@ internal sealed class EngineRichEditHost : UserControl
 
         var point = args.GetCurrentPoint(_canvas);
         var button = ResolveButton(point);
+        var clickCount = ResolveClickCount(point, button);
         var handled = _document.HandlePointer(
             EditorPointerKind.Down,
             (float)point.Position.X,
             ToDocumentY((float)point.Position.Y),
             button,
             GetCurrentModifiers(),
-            clickCount: 1);
+            clickCount);
         if (handled)
         {
             EnsureCaretVisible((float)Math.Max(1d, _canvas.ActualHeight));
@@ -792,6 +839,64 @@ internal sealed class EngineRichEditHost : UserControl
             args.Handled = true;
             _canvas.Invalidate();
         }
+    }
+
+    private void OnVerticalScrollBarValueChanged(object sender, RangeBaseValueChangedEventArgs args)
+    {
+        if (_suppressScrollBarValueChange || _document is null || _hasRenderSegment || !_isScrollEnabled)
+        {
+            return;
+        }
+
+        if (SetVerticalScrollOffset((float)args.NewValue))
+        {
+            SyncEmbeddedUiLayout(force: false);
+            _canvas.Invalidate();
+        }
+    }
+
+    private int ResolveClickCount(Microsoft.UI.Input.PointerPoint point, EditorPointerButton button)
+    {
+        if (button != EditorPointerButton.Primary)
+        {
+            _primaryPointerDownCount = 0;
+            return 1;
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        var position = point.Position;
+        var isMultiClick =
+            _primaryPointerDownCount > 0
+            && now - _lastPrimaryPointerDownTimestamp <= MultiClickTimeThreshold
+            && IsWithinMultiClickDistance(position, _lastPrimaryPointerDownPosition);
+
+        _primaryPointerDownCount = isMultiClick ? Math.Min(3, _primaryPointerDownCount + 1) : 1;
+        _lastPrimaryPointerDownTimestamp = now;
+        _lastPrimaryPointerDownPosition = position;
+        return _primaryPointerDownCount;
+    }
+
+    private static bool IsWithinMultiClickDistance(Point current, Point previous)
+    {
+        var dx = current.X - previous.X;
+        var dy = current.Y - previous.Y;
+        return (dx * dx) + (dy * dy) <= MultiClickDistanceThreshold * MultiClickDistanceThreshold;
+    }
+
+    private bool TryHandleFormattingShortcut(VirtualKey key)
+    {
+        if (_document is null || _document.IsReadOnly)
+        {
+            return false;
+        }
+
+        return key switch
+        {
+            VirtualKey.B => _document.ToggleBold(),
+            VirtualKey.I => _document.ToggleItalic(),
+            VirtualKey.U => _document.ToggleUnderline(),
+            _ => false
+        };
     }
 
     private void OnPointerReleased(object sender, PointerRoutedEventArgs args)
@@ -1038,6 +1143,7 @@ internal sealed class EngineRichEditHost : UserControl
 
         _verticalScrollOffset = clamped;
         ResetEmbeddedUiSnapshot();
+        SyncScrollBarValue();
         return true;
     }
 
@@ -1050,6 +1156,51 @@ internal sealed class EngineRichEditHost : UserControl
         }
 
         return ScrollStepFallback;
+    }
+
+    private void UpdateScrollBarState(float viewportHeight)
+    {
+        if (_hasRenderSegment || !_isScrollEnabled)
+        {
+            _verticalScrollBar.Visibility = Visibility.Collapsed;
+            SyncScrollBarValue();
+            return;
+        }
+
+        var viewport = Math.Max(1f, viewportHeight);
+        var maxOffset = Math.Max(0f, _contentHeight - viewport);
+        if (maxOffset <= 0.5f)
+        {
+            _verticalScrollBar.Visibility = Visibility.Collapsed;
+            _verticalScrollBar.Maximum = 0d;
+            _verticalScrollBar.ViewportSize = viewport;
+            SyncScrollBarValue();
+            return;
+        }
+
+        _verticalScrollBar.Visibility = Visibility.Visible;
+        _verticalScrollBar.Minimum = 0d;
+        _verticalScrollBar.Maximum = maxOffset;
+        _verticalScrollBar.ViewportSize = viewport;
+        _verticalScrollBar.SmallChange = Math.Max(1f, ResolveScrollStep());
+        _verticalScrollBar.LargeChange = Math.Max(1f, viewport * 0.9f);
+        SyncScrollBarValue();
+    }
+
+    private void SyncScrollBarValue()
+    {
+        var minimum = _verticalScrollBar.Minimum;
+        var maximum = Math.Max(minimum, _verticalScrollBar.Maximum);
+        var clamped = Math.Clamp((double)_verticalScrollOffset, minimum, maximum);
+        _suppressScrollBarValueChange = true;
+        try
+        {
+            _verticalScrollBar.Value = clamped;
+        }
+        finally
+        {
+            _suppressScrollBarValueChange = false;
+        }
     }
 
     private void EnsureCaretVisible(float viewportHeight)
