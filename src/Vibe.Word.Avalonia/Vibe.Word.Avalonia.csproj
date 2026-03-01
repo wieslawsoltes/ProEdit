@@ -39,6 +39,9 @@
     <ProjectReference Include="..\\Vibe.Office.Collaboration.Editor\\Vibe.Office.Collaboration.Editor.csproj" />
     <ProjectReference Include="..\\Vibe.Office.Collaboration.UI\\Vibe.Office.Collaboration.UI.csproj" />
     <ProjectReference Include="..\\Vibe.Office.Editing\\Vibe.Office.Editing.csproj" />
+    <ProjectReference Include="..\\Vibe.Office.Documents.Rtf\\Vibe.Office.Documents.Rtf.csproj" />
+    <ProjectReference Include="..\\Vibe.Office.PostScript\\Vibe.Office.PostScript.csproj" />
+    <ProjectReference Include="..\\Vibe.Office.Xps\\Vibe.Office.Xps.csproj" />
     <ProjectReference Include="..\\Vibe.Office.Html\\Vibe.Office.Html.csproj" />
     <ProjectReference Include="..\\Vibe.Office.Markdown\\Vibe.Office.Markdown.csproj" />
     <ProjectReference Include="..\\Vibe.Office.Macros\\Vibe.Office.Macros.csproj" />

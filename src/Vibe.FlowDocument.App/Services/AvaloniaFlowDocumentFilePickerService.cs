@@ -20,11 +20,32 @@ public sealed class AvaloniaFlowDocumentFilePickerService : IFlowDocumentFilePic
         MimeTypes = ["text/markdown", "text/plain"]
     };
 
+    private static readonly FilePickerFileType RtfFileType = new("Rich Text Format (*.rtf)")
+    {
+        Patterns = ["*.rtf"],
+        AppleUniformTypeIdentifiers = ["public.rtf"],
+        MimeTypes = ["text/rtf", "application/rtf"]
+    };
+
     private static readonly FilePickerFileType PdfFileType = new("Portable Document (*.pdf;*.pdx)")
     {
         Patterns = ["*.pdf", "*.pdx"],
         AppleUniformTypeIdentifiers = ["com.adobe.pdf"],
         MimeTypes = ["application/pdf"]
+    };
+
+    private static readonly FilePickerFileType PostScriptFileType = new("PostScript (*.ps;*.eps)")
+    {
+        Patterns = ["*.ps", "*.eps"],
+        AppleUniformTypeIdentifiers = ["com.adobe.postscript", "com.adobe.encapsulated-postscript"],
+        MimeTypes = ["application/postscript"]
+    };
+
+    private static readonly FilePickerFileType XpsFileType = new("XML Paper Specification (*.xps;*.oxps)")
+    {
+        Patterns = ["*.xps", "*.oxps"],
+        AppleUniformTypeIdentifiers = ["org.openxps.xps-document"],
+        MimeTypes = ["application/oxps", "application/vnd.ms-xpsdocument"]
     };
 
     private readonly Window _window;
@@ -49,7 +70,7 @@ public sealed class AvaloniaFlowDocumentFilePickerService : IFlowDocumentFilePic
         var result = await _window.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
             AllowMultiple = false,
-            FileTypeFilter = [DocxFileType, MarkdownFileType, PdfFileType]
+            FileTypeFilter = [DocxFileType, MarkdownFileType, RtfFileType, PdfFileType, PostScriptFileType, XpsFileType]
         });
 
         if (result.Count == 0)
@@ -67,7 +88,7 @@ public sealed class AvaloniaFlowDocumentFilePickerService : IFlowDocumentFilePic
             DefaultExtension = "docx",
             SuggestedFileName = string.IsNullOrWhiteSpace(suggestedFileName) ? "flow-document" : suggestedFileName,
             ShowOverwritePrompt = true,
-            FileTypeChoices = [DocxFileType, MarkdownFileType, PdfFileType]
+            FileTypeChoices = [DocxFileType, MarkdownFileType, RtfFileType, PdfFileType, PostScriptFileType, XpsFileType]
         });
 
         return file?.TryGetLocalPath();

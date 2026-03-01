@@ -23,6 +23,7 @@ using Vibe.Office.Collaboration.UI.ViewModels;
 using Vibe.Office.Collaboration.Persistence;
 using Vibe.Office.Documents;
 using Vibe.Office.Editing;
+using Vibe.Office.FlowDocument.IO;
 using Vibe.Office.Html;
 using Vibe.Office.Layout;
 using Vibe.Office.Markdown;
@@ -102,6 +103,8 @@ public partial class WordEditorControl : UserControl
     private readonly RibbonQuickAccessStore _quickAccessStore = new();
     private readonly PdfImportPreferencesStore _pdfImportPreferencesStore = new();
     private readonly PdfEngine _pdfEngine;
+    private readonly IPostScriptDocumentConversionService _postScriptDocumentConversionService;
+    private readonly IXpsDocumentConversionService _xpsDocumentConversionService;
     private readonly ObservableCollection<RibbonGalleryItem> _styleGalleryItems = new();
     private readonly Dictionary<string, RibbonGalleryItem> _styleGalleryItemMap = new(StringComparer.OrdinalIgnoreCase);
     private readonly ObservableCollection<NavigationPaneItem> _navigationItems = new();
@@ -136,9 +139,21 @@ public partial class WordEditorControl : UserControl
     {
         Patterns = new[] { "*.pdf", "*.pdx" }
     };
+    private static readonly FilePickerFileType RtfFileType = new("Rich Text Format")
+    {
+        Patterns = new[] { "*.rtf" }
+    };
+    private static readonly FilePickerFileType PostScriptFileType = new("PostScript")
+    {
+        Patterns = new[] { "*.ps", "*.eps" }
+    };
+    private static readonly FilePickerFileType XpsFileType = new("XPS")
+    {
+        Patterns = new[] { "*.xps", "*.oxps" }
+    };
     private static readonly FilePickerFileType SupportedFileType = new("Supported Files")
     {
-        Patterns = new[] { "*.docx", "*.docm", "*.md", "*.markdown", "*.html", "*.htm", "*.pdf", "*.pdx" }
+        Patterns = new[] { "*.docx", "*.docm", "*.md", "*.markdown", "*.rtf", "*.html", "*.htm", "*.pdf", "*.pdx", "*.ps", "*.eps", "*.xps", "*.oxps" }
     };
     private static readonly FilePickerFileType MarkdownFileType = new("Markdown")
     {
@@ -177,15 +192,32 @@ public partial class WordEditorControl : UserControl
     public Func<Document?, Window>? WindowFactory { get; set; }
 
     public WordEditorControl()
-        : this(null, null)
+        : this(null, null, postScriptDocumentConversionService: null, xpsDocumentConversionService: null)
     {
     }
 
     public WordEditorControl(Document? document, string? path)
+        : this(document, path, postScriptDocumentConversionService: null, xpsDocumentConversionService: null)
+    {
+    }
+
+    internal WordEditorControl(
+        Document? document,
+        string? path,
+        IPostScriptDocumentConversionService? postScriptDocumentConversionService,
+        IXpsDocumentConversionService? xpsDocumentConversionService)
     {
         InitializeComponent();
 
         _pdfEngine = CreatePdfEngine();
+        _postScriptDocumentConversionService = postScriptDocumentConversionService
+            ?? new PostScriptDocumentConversionService(
+                postScriptBridge: new GhostscriptPostScriptBridge(PostScriptRuntimeOptions.CreateFromEnvironment()),
+                pdfParser: new PdfPigParser());
+        _xpsDocumentConversionService = xpsDocumentConversionService
+            ?? new XpsDocumentConversionService(
+                xpsBridge: new GhostscriptXpsBridge(XpsRuntimeOptions.CreateFromEnvironment()),
+                pdfParser: new PdfPigParser());
 
         _ribbon = this.FindControl<RibbonControl>("Ribbon");
         _editorView = this.FindControl<DocumentView>("EditorView");
@@ -870,6 +902,34 @@ public partial class WordEditorControl : UserControl
         }
     }
 
+    private async Task<Document?> LoadPostScriptAsync(string path, PdfImportOptions options)
+    {
+        var kind = ResolvePostScriptKind(path);
+        try
+        {
+            return await _postScriptDocumentConversionService.LoadAsync(path, kind, options);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to load PostScript: {ex.Message}");
+            return null;
+        }
+    }
+
+    private async Task<Document?> LoadXpsAsync(string path, PdfImportOptions options)
+    {
+        var flavor = ResolveXpsFlavor(path);
+        try
+        {
+            return await _xpsDocumentConversionService.LoadAsync(path, flavor, options);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to load XPS/OXPS: {ex.Message}");
+            return null;
+        }
+    }
+
     private static PdfEngine CreatePdfEngine()
     {
         var registry = new PdfProviderRegistry();
@@ -905,7 +965,7 @@ public partial class WordEditorControl : UserControl
         var result = await storageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
             AllowMultiple = false,
-            FileTypeFilter = new[] { SupportedFileType, DocxFileType, PdfFileType, MarkdownFileType, HtmlFileType }
+            FileTypeFilter = new[] { SupportedFileType, DocxFileType, PdfFileType, PostScriptFileType, XpsFileType, RtfFileType, MarkdownFileType, HtmlFileType }
         });
 
         if (result.Count == 0)
@@ -960,7 +1020,7 @@ public partial class WordEditorControl : UserControl
             var file = await storageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
             {
                 DefaultExtension = "docx",
-                FileTypeChoices = new[] { DocxFileType, PdfFileType, MarkdownFileType, HtmlFileType },
+                FileTypeChoices = new[] { DocxFileType, PdfFileType, PostScriptFileType, XpsFileType, RtfFileType, MarkdownFileType, HtmlFileType },
                 SuggestedFileName = ResolveSuggestedFileName(suggestedName)
             });
 
@@ -982,9 +1042,30 @@ public partial class WordEditorControl : UserControl
             var html = HtmlDocumentConverter.ToHtml(_editorView.Document, CreateHtmlOptions());
             await File.WriteAllTextAsync(path, html);
         }
+        else if (IsRtfPath(path))
+        {
+            var rtf = DocumentRtfSerializer.ToRtf(_editorView.Document);
+            await File.WriteAllTextAsync(path, rtf);
+        }
         else if (IsPdfPath(path))
         {
             var saved = await ExportPdfAsync(path);
+            if (!saved)
+            {
+                return;
+            }
+        }
+        else if (IsPostScriptPath(path))
+        {
+            var saved = await ExportPostScriptAsync(path);
+            if (!saved)
+            {
+                return;
+            }
+        }
+        else if (IsXpsPath(path))
+        {
+            var saved = await ExportXpsAsync(path);
             if (!saved)
             {
                 return;
@@ -1124,6 +1205,67 @@ public partial class WordEditorControl : UserControl
             }
         }
 
+        return await RenderDocumentToPdfAsync(path);
+    }
+
+    private async Task<bool> ExportPostScriptAsync(string path)
+    {
+        if (_editorView is null)
+        {
+            return false;
+        }
+
+        var kind = ResolvePostScriptKind(path);
+        try
+        {
+            _editorView.UpdateFieldsForPrint();
+            await _postScriptDocumentConversionService.SaveAsync(
+                _editorView.Document,
+                _editorView.LayoutSettingsSnapshot,
+                path,
+                kind);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"PostScript export failed: {ex.Message}");
+            return false;
+        }
+    }
+
+    private async Task<bool> ExportXpsAsync(string path)
+    {
+        if (_editorView is null)
+        {
+            return false;
+        }
+
+        var flavor = ResolveXpsFlavor(path);
+        try
+        {
+            _editorView.UpdateFieldsForPrint();
+            await _xpsDocumentConversionService.SaveAsync(
+                _editorView.Document,
+                _editorView.LayoutSettingsSnapshot,
+                path,
+                flavor);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"XPS/OXPS export failed: {ex.Message}");
+            return false;
+        }
+    }
+
+    private async Task<bool> RenderDocumentToPdfAsync(string path)
+    {
+        if (_editorView is null)
+        {
+            return false;
+        }
+
+        var document = _editorView.Document;
         _editorView.UpdateFieldsForPrint();
         var documentInfo = new DocumentPrintContext(document, _editorView.LayoutSettingsSnapshot)
         {
@@ -1356,6 +1498,57 @@ public partial class WordEditorControl : UserControl
     private static bool IsPdfPath(string? path)
     {
         return PdfImportOptionHelpers.IsPdfPath(path);
+    }
+
+    private static bool IsPostScriptPath(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return false;
+        }
+
+        var extension = Path.GetExtension(path);
+        return extension.Equals(".ps", StringComparison.OrdinalIgnoreCase)
+               || extension.Equals(".eps", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsXpsPath(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return false;
+        }
+
+        var extension = Path.GetExtension(path);
+        return extension.Equals(".xps", StringComparison.OrdinalIgnoreCase)
+               || extension.Equals(".oxps", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsRtfPath(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return false;
+        }
+
+        var extension = Path.GetExtension(path);
+        return extension.Equals(".rtf", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static PostScriptKind ResolvePostScriptKind(string path)
+    {
+        var extension = Path.GetExtension(path);
+        return extension.Equals(".eps", StringComparison.OrdinalIgnoreCase)
+            ? PostScriptKind.Eps
+            : PostScriptKind.Ps;
+    }
+
+    private static XpsFlavor ResolveXpsFlavor(string path)
+    {
+        var extension = Path.GetExtension(path);
+        return extension.Equals(".oxps", StringComparison.OrdinalIgnoreCase)
+            ? XpsFlavor.Oxps
+            : XpsFlavor.Xps;
     }
 
     private static MarkdownOptions CreateMarkdownOptions()
@@ -2335,30 +2528,49 @@ public partial class WordEditorControl : UserControl
 
         static IReadOnlyList<PickerItem> BuildShapePickerItems()
         {
-            return new[]
+            var previews = new Dictionary<string, (string Label, string GeometryData)>(StringComparer.OrdinalIgnoreCase)
             {
-                new PickerItem("rect", "Rectangle", GeometryData: "M0,0 L100,0 100,100 0,100 Z"),
-                new PickerItem("roundrect", "Rounded Rectangle", GeometryData: "M15,0 L85,0 Q100,0 100,15 L100,85 Q100,100 85,100 L15,100 Q0,100 0,85 L0,15 Q0,0 15,0 Z"),
-                new PickerItem("ellipse", "Oval", GeometryData: "M50,0 A50,50 0 1 1 49.9,0 Z"),
-                new PickerItem("line", "Line", GeometryData: "M0,100 L100,0"),
-                new PickerItem("triangle", "Triangle", GeometryData: "M50,0 L100,100 0,100 Z"),
-                new PickerItem("rightTriangle", "Right Triangle", GeometryData: "M0,0 L100,0 0,100 Z"),
-                new PickerItem("diamond", "Diamond", GeometryData: "M50,0 L100,50 50,100 0,50 Z"),
-                new PickerItem("parallelogram", "Parallelogram", GeometryData: "M20,0 L100,0 80,100 0,100 Z"),
-                new PickerItem("trapezoid", "Trapezoid", GeometryData: "M20,0 L80,0 100,100 0,100 Z"),
-                new PickerItem("pentagon", "Pentagon", GeometryData: "M50,0 L100,40 80,100 20,100 0,40 Z"),
-                new PickerItem("hexagon", "Hexagon", GeometryData: "M25,0 L75,0 100,50 75,100 25,100 0,50 Z"),
-                new PickerItem("octagon", "Octagon", GeometryData: "M30,0 L70,0 100,30 100,70 70,100 30,100 0,70 0,30 Z"),
-                new PickerItem("star5", "5-Point Star", GeometryData: "M50,0 L61,35 98,35 68,57 79,91 50,70 21,91 32,57 2,35 39,35 Z"),
-                new PickerItem("star8", "8-Point Star", GeometryData: "M50,0 L62,32 98,32 68,50 98,68 62,68 50,100 38,68 2,68 32,50 2,32 38,32 Z"),
-                new PickerItem("rightArrow", "Right Arrow", GeometryData: "M0,40 L60,40 60,20 100,50 60,80 60,60 0,60 Z"),
-                new PickerItem("leftArrow", "Left Arrow", GeometryData: "M100,40 L40,40 40,20 0,50 40,80 40,60 100,60 Z"),
-                new PickerItem("upArrow", "Up Arrow", GeometryData: "M40,100 L40,40 20,40 50,0 80,40 60,40 60,100 Z"),
-                new PickerItem("downArrow", "Down Arrow", GeometryData: "M40,0 L40,60 20,60 50,100 80,60 60,60 60,0 Z"),
-                new PickerItem("chevron", "Chevron", GeometryData: "M0,20 L50,80 100,20 80,0 50,40 20,0 Z"),
-                new PickerItem("plus", "Plus", GeometryData: "M40,0 L60,0 60,40 100,40 100,60 60,60 60,100 40,100 40,60 0,60 0,40 40,40 Z"),
-                new PickerItem("cross", "Cross", GeometryData: "M10,0 L50,40 90,0 100,10 60,50 100,90 90,100 50,60 10,100 0,90 40,50 0,10 Z")
+                ["rect"] = ("Rectangle", "M0,0 L100,0 100,100 0,100 Z"),
+                ["roundrect"] = ("Rounded Rectangle", "M15,0 L85,0 Q100,0 100,15 L100,85 Q100,100 85,100 L15,100 Q0,100 0,85 L0,15 Q0,0 15,0 Z"),
+                ["ellipse"] = ("Oval", "M50,0 A50,50 0 1 1 49.9,0 Z"),
+                ["line"] = ("Line", "M0,100 L100,0"),
+                ["triangle"] = ("Triangle", "M50,0 L100,100 0,100 Z"),
+                ["rightTriangle"] = ("Right Triangle", "M0,0 L100,0 0,100 Z"),
+                ["diamond"] = ("Diamond", "M50,0 L100,50 50,100 0,50 Z"),
+                ["parallelogram"] = ("Parallelogram", "M20,0 L100,0 80,100 0,100 Z"),
+                ["trapezoid"] = ("Trapezoid", "M20,0 L80,0 100,100 0,100 Z"),
+                ["pentagon"] = ("Pentagon", "M50,0 L100,40 80,100 20,100 0,40 Z"),
+                ["hexagon"] = ("Hexagon", "M25,0 L75,0 100,50 75,100 25,100 0,50 Z"),
+                ["octagon"] = ("Octagon", "M30,0 L70,0 100,30 100,70 70,100 30,100 0,70 0,30 Z"),
+                ["star5"] = ("5-Point Star", "M50,0 L61,35 98,35 68,57 79,91 50,70 21,91 32,57 2,35 39,35 Z"),
+                ["star8"] = ("8-Point Star", "M50,0 L62,32 98,32 68,50 98,68 62,68 50,100 38,68 2,68 32,50 2,32 38,32 Z"),
+                ["rightArrow"] = ("Right Arrow", "M0,40 L60,40 60,20 100,50 60,80 60,60 0,60 Z"),
+                ["leftArrow"] = ("Left Arrow", "M100,40 L40,40 40,20 0,50 40,80 40,60 100,60 Z"),
+                ["upArrow"] = ("Up Arrow", "M40,100 L40,40 20,40 50,0 80,40 60,40 60,100 Z"),
+                ["downArrow"] = ("Down Arrow", "M40,0 L40,60 20,60 50,100 80,60 60,60 60,0 Z"),
+                ["chevron"] = ("Chevron", "M0,20 L50,80 100,20 80,0 50,40 20,0 Z"),
+                ["plus"] = ("Plus", "M40,0 L60,0 60,40 100,40 100,60 60,60 60,100 40,100 40,60 0,60 0,40 40,40 Z"),
+                ["cross"] = ("Cross", "M10,0 L50,40 90,0 100,10 60,50 100,90 90,100 50,60 10,100 0,90 40,50 0,10 Z")
             };
+
+            var presets = ShapePresetCatalog.GetPresets();
+            var items = new List<PickerItem>(presets.Count);
+            foreach (var preset in presets)
+            {
+                if (previews.TryGetValue(preset.Id, out var preview))
+                {
+                    var description = string.Equals(preview.Label, preset.DisplayName, StringComparison.Ordinal)
+                        ? null
+                        : preset.DisplayName;
+                    items.Add(new PickerItem(preset.Id, preview.Label, description, GeometryData: preview.GeometryData));
+                }
+                else
+                {
+                    items.Add(new PickerItem(preset.Id, preset.DisplayName, IconKey: "RibbonIcon.Shapes"));
+                }
+            }
+
+            return items;
         }
 
         static IReadOnlyList<PickerItem> BuildIconPickerItems()
@@ -8673,7 +8885,7 @@ public partial class WordEditorControl : UserControl
         _fixedLayoutWarningShown = false;
         _pdfDiagnosticsShown = false;
         PdfImportOptions? pdfImportOptions = null;
-        if (IsPdfPath(path))
+        if (IsPdfPath(path) || IsPostScriptPath(path) || IsXpsPath(path))
         {
             pdfImportOptions = await ShowPdfImportDialogAsync();
             if (pdfImportOptions is null)
@@ -8693,6 +8905,15 @@ public partial class WordEditorControl : UserControl
                 var markdown = await File.ReadAllTextAsync(path);
                 document = MarkdownDocumentConverter.FromMarkdown(markdown.AsSpan(), CreateMarkdownOptions());
             }
+            else if (IsRtfPath(path))
+            {
+                var bytes = await File.ReadAllBytesAsync(path);
+                var rtf = Encoding.Latin1.GetString(bytes);
+                if (!DocumentRtfParser.TryParse(rtf, out document))
+                {
+                    throw new InvalidOperationException("Unable to parse RTF document.");
+                }
+            }
             else if (IsHtmlPath(path))
             {
                 var html = await File.ReadAllTextAsync(path);
@@ -8708,6 +8929,28 @@ public partial class WordEditorControl : UserControl
                 }
 
                 document = PdfDocumentConverter.FromPdf(pdfDocument, options);
+            }
+            else if (IsPostScriptPath(path))
+            {
+                var options = pdfImportOptions ?? new PdfImportOptions();
+                var postScriptDocument = await LoadPostScriptAsync(path, options);
+                if (postScriptDocument is null)
+                {
+                    return;
+                }
+
+                document = postScriptDocument;
+            }
+            else if (IsXpsPath(path))
+            {
+                var options = pdfImportOptions ?? new PdfImportOptions();
+                var xpsDocument = await LoadXpsAsync(path, options);
+                if (xpsDocument is null)
+                {
+                    return;
+                }
+
+                document = xpsDocument;
             }
             else
             {

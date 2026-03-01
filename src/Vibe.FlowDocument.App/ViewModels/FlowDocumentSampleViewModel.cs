@@ -164,8 +164,13 @@ public sealed class FlowDocumentSampleViewModel : ReactiveObject
         if (extension.Equals(".docx", StringComparison.OrdinalIgnoreCase)
             || extension.Equals(".md", StringComparison.OrdinalIgnoreCase)
             || extension.Equals(".markdown", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".rtf", StringComparison.OrdinalIgnoreCase)
             || extension.Equals(".pdf", StringComparison.OrdinalIgnoreCase)
-            || extension.Equals(".pdx", StringComparison.OrdinalIgnoreCase))
+            || extension.Equals(".pdx", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".ps", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".eps", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".xps", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".oxps", StringComparison.OrdinalIgnoreCase))
         {
             return path;
         }
@@ -199,11 +204,11 @@ public sealed class FlowDocumentSampleViewModel : ReactiveObject
         };
         intro.Inlines.Add(new Run("Use Open to load "));
         var openFormats = new Bold();
-        openFormats.Inlines.Add(new Run(".docx, .md, .pdf/.pdx"));
+        openFormats.Inlines.Add(new Run(".docx, .md, .rtf, .pdf/.pdx, .ps/.eps, .xps/.oxps"));
         intro.Inlines.Add(openFormats);
         intro.Inlines.Add(new Run(" files as FlowDocument and Save As to export "));
         var saveFormats = new Bold();
-        saveFormats.Inlines.Add(new Run(".docx, .md, .pdf/.pdx"));
+        saveFormats.Inlines.Add(new Run(".docx, .md, .rtf, .pdf/.pdx, .ps/.eps, .xps/.oxps"));
         intro.Inlines.Add(saveFormats);
         intro.Inlines.Add(new Run("."));
         document.Blocks.Add(intro);

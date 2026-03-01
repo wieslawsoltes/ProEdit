@@ -404,8 +404,13 @@ public sealed class WinUICompatSampleViewModel : INotifyPropertyChanged
         if (extension.Equals(".docx", StringComparison.OrdinalIgnoreCase)
             || extension.Equals(".md", StringComparison.OrdinalIgnoreCase)
             || extension.Equals(".markdown", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".rtf", StringComparison.OrdinalIgnoreCase)
             || extension.Equals(".pdf", StringComparison.OrdinalIgnoreCase)
-            || extension.Equals(".pdx", StringComparison.OrdinalIgnoreCase))
+            || extension.Equals(".pdx", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".ps", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".eps", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".xps", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".oxps", StringComparison.OrdinalIgnoreCase))
         {
             return path;
         }
@@ -597,7 +602,7 @@ public sealed class WinUICompatSampleViewModel : INotifyPropertyChanged
             Environment.NewLine,
             "RichTextBox Smoke Sample",
             string.Empty,
-            "Use Open... to load .docx, .md, .pdf/.pdx content.",
+            "Use Open... to load .docx, .md, .rtf, .pdf/.pdx, .ps/.eps, .xps/.oxps content.",
             "Use Save As... to export through shared FlowDocument conversion.",
             string.Empty,
             "Type here and press Apply to overwrite the current document.",
@@ -631,7 +636,7 @@ public sealed class WinUICompatSampleViewModel : INotifyPropertyChanged
         };
         intro.Inlines.Add(new Run("Use Open to load "));
         var openFormats = new Bold();
-        openFormats.Inlines.Add(new Run(".docx, .md, .pdf/.pdx"));
+        openFormats.Inlines.Add(new Run(".docx, .md, .rtf, .pdf/.pdx, .ps/.eps, .xps/.oxps"));
         intro.Inlines.Add(openFormats);
         intro.Inlines.Add(new Run(" files and Save As to export through the shared conversion pipeline."));
         document.Blocks.Add(intro);
