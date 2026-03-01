@@ -67,6 +67,8 @@ public sealed class DocumentView : Control, ILogicalScrollable
     private const float ShapeMinSize = 8f;
     private const float ShapeRotateSnapDegrees = 15f;
     private const float InlineDragThreshold = 4f;
+    private const float FloatingNudgeStep = 1f;
+    private const float FloatingNudgeLargeStep = 10f;
     private const int ResizeLayoutDebounceMs = 120;
     private enum FieldUpdateTrigger
     {
@@ -749,6 +751,12 @@ public sealed class DocumentView : Control, ILogicalScrollable
                 e.Handled = true;
             }
 
+            return;
+        }
+
+        if (!_isReadOnly && TryHandleFloatingObjectNudge(e))
+        {
+            e.Handled = true;
             return;
         }
 
@@ -2169,6 +2177,133 @@ public sealed class DocumentView : Control, ILogicalScrollable
     {
         _inlineLayoutRefreshPending = false;
         _editor.RefreshLayout();
+    }
+
+    private bool TryHandleFloatingObjectNudge(KeyEventArgs e)
+    {
+        if (_isShapeEditing
+            || _isImageEditing
+            || _isInlineObjectEditing
+            || _isDrawing
+            || _isCropping
+            || _isTableResizing)
+        {
+            return false;
+        }
+
+        if (!TryGetFloatingNudgeDelta(e, out var deltaX, out var deltaY))
+        {
+            return false;
+        }
+
+        return TryApplyFloatingNudge(deltaX, deltaY);
+    }
+
+    private static bool TryGetFloatingNudgeDelta(KeyEventArgs e, out float deltaX, out float deltaY)
+    {
+        deltaX = 0f;
+        deltaY = 0f;
+
+        var modifiers = e.KeyModifiers;
+        if ((modifiers & ~KeyModifiers.Shift) != KeyModifiers.None)
+        {
+            return false;
+        }
+
+        var step = modifiers.HasFlag(KeyModifiers.Shift) ? FloatingNudgeLargeStep : FloatingNudgeStep;
+        switch (e.Key)
+        {
+            case Key.Left:
+                deltaX = -step;
+                return true;
+            case Key.Right:
+                deltaX = step;
+                return true;
+            case Key.Up:
+                deltaY = -step;
+                return true;
+            case Key.Down:
+                deltaY = step;
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private bool TryApplyFloatingNudge(float deltaX, float deltaY)
+    {
+        var selectedIds = _editor.SelectedFloatingObjectIds;
+        if (selectedIds.Count == 0)
+        {
+            if (!_editor.SelectedFloatingObjectId.HasValue)
+            {
+                return false;
+            }
+
+            selectedIds = new[] { _editor.SelectedFloatingObjectId.Value };
+        }
+
+        var selectedSet = new HashSet<Guid>(selectedIds);
+        if (selectedSet.Count == 0)
+        {
+            return false;
+        }
+
+        var targets = new List<FloatingObject>();
+        for (var paragraphIndex = 0; paragraphIndex < _editor.Document.ParagraphCount; paragraphIndex++)
+        {
+            var paragraph = _editor.Document.GetParagraph(paragraphIndex);
+            var floatingObjects = paragraph.FloatingObjects;
+            for (var i = 0; i < floatingObjects.Count; i++)
+            {
+                var floating = floatingObjects[i];
+                if (selectedSet.Contains(floating.Id))
+                {
+                    targets.Add(floating);
+                }
+            }
+        }
+
+        if (targets.Count == 0)
+        {
+            return false;
+        }
+
+        ICollabGestureRecorder? gestureRecorder = null;
+        CollabGestureToken? gesture = null;
+        IEditorHistorySnapshotService? history = null;
+        EditorSessionSnapshot? snapshot = null;
+
+        if (_kernel.Services.TryGet<ICollabGestureRecorder>(out gestureRecorder))
+        {
+            gesture = gestureRecorder.BeginGesture("floating-object-nudge");
+        }
+        else if (_kernel.Services.TryGet<IEditorHistorySnapshotService>(out history))
+        {
+            snapshot = history.CaptureSnapshot();
+        }
+
+        for (var i = 0; i < targets.Count; i++)
+        {
+            var anchor = targets[i].Anchor;
+            anchor.OffsetX += deltaX;
+            anchor.OffsetY += deltaY;
+        }
+
+        _editor.RefreshLayout();
+        UpdateDirtyPages(GetAllPages());
+        InvalidateVisual();
+
+        if (gesture.HasValue && gestureRecorder is not null)
+        {
+            gestureRecorder.EndGesture(gesture.Value);
+        }
+        else if (snapshot.HasValue && history is not null)
+        {
+            history.RecordSnapshot(snapshot.Value);
+        }
+
+        return true;
     }
 
     private static float GetAngleDegrees(DocPoint center, DocPoint point)
