@@ -233,6 +233,82 @@ public sealed class FlowDocumentConverterTests
     }
 
     [Fact]
+    public void ConvertsAnchoredUiContainerToEmbeddedFloatingShape_WhenEnabled()
+    {
+        var embeddedButton = new Button
+        {
+            Content = "Anchored",
+            Width = 180,
+            Height = 72
+        };
+
+        var document = new FlowDocument();
+        var paragraph = new Paragraph("Anchor:");
+        var figure = new Figure { Width = 180, Height = 72 };
+        figure.Blocks.Add(new BlockUIContainer
+        {
+            Child = embeddedButton
+        });
+        paragraph.Inlines.Add(figure);
+        document.Blocks.Add(paragraph);
+
+        var converter = new FlowDocumentConverter(new FlowDocumentConverterOptions
+        {
+            EnableEmbeddedUiElements = true
+        });
+        var result = converter.Convert(document);
+
+        var paragraphBlock = Assert.IsType<ParagraphBlock>(Assert.Single(result.Blocks));
+        var floating = Assert.Single(paragraphBlock.FloatingObjects);
+        var shape = Assert.IsType<ShapeInline>(floating.Content);
+        Assert.True(FlowDocumentConverter.TryParseEmbeddedUiElementId(
+            shape.Name,
+            FlowDocumentConverterOptions.DefaultEmbeddedUiShapePrefix,
+            out var id));
+        Assert.Equal(180f, shape.Width);
+        Assert.Equal(72f, shape.Height);
+        Assert.Contains(converter.EmbeddedUiElements, element => element.Id == id && !element.IsInline);
+    }
+
+    [Fact]
+    public void ConvertsUiContainersToEmbeddedShapes_WithCustomPredicateAndSizeResolver()
+    {
+        var inlineChild = new EmbeddedTestChild();
+        var blockChild = new EmbeddedTestChild();
+
+        var document = new FlowDocument();
+        var paragraph = new Paragraph();
+        paragraph.Inlines.Add(new InlineUIContainer { Child = inlineChild });
+        document.Blocks.Add(paragraph);
+        document.Blocks.Add(new BlockUIContainer { Child = blockChild });
+
+        var converter = new FlowDocumentConverter(new FlowDocumentConverterOptions
+        {
+            EnableEmbeddedUiElements = true,
+            EmbeddedUiElementPredicate = static child => child is EmbeddedTestChild,
+            EmbeddedUiSizeResolver = static (child, isInline) => child is EmbeddedTestChild
+                ? (isInline ? 42d : 128d, isInline ? 19d : 64d)
+                : null
+        });
+
+        var result = converter.Convert(document);
+
+        var inlineParagraph = Assert.IsType<ParagraphBlock>(result.Blocks[0]);
+        var inlineShape = Assert.IsType<ShapeInline>(inlineParagraph.Inlines[0]);
+        Assert.Equal(42f, inlineShape.Width);
+        Assert.Equal(19f, inlineShape.Height);
+
+        var blockParagraph = Assert.IsType<ParagraphBlock>(result.Blocks[1]);
+        var blockShape = Assert.IsType<ShapeInline>(blockParagraph.Inlines[0]);
+        Assert.Equal(128f, blockShape.Width);
+        Assert.Equal(64f, blockShape.Height);
+
+        Assert.Equal(2, converter.EmbeddedUiElements.Count);
+        Assert.Same(inlineChild, converter.EmbeddedUiElements[0].Child);
+        Assert.Same(blockChild, converter.EmbeddedUiElements[1].Child);
+    }
+
+    [Fact]
     public void ConvertsTableCellVisualPropertiesToDocumentModel()
     {
         var document = new FlowDocument();
@@ -347,4 +423,6 @@ public sealed class FlowDocumentConverterTests
         Assert.Null(tableCell.Properties.Borders.Left);
         Assert.Null(tableCell.Properties.Borders.Right);
     }
+
+    private sealed class EmbeddedTestChild;
 }

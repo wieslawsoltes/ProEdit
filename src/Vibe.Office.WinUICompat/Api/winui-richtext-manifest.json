@@ -1,0 +1,46 @@
+{
+  "types": [
+    {
+      "name": "Vibe.Office.WinUICompat.Controls.RichEditBox",
+      "file": "src/Vibe.Office.WinUICompat.Uno/Controls/RichEditBox.cs",
+      "events": ["TextChanged", "SelectionChanged"],
+      "properties": ["Document", "TextDocument", "Selection", "CaretPosition", "AcceptsTab", "AcceptsReturn", "IsReadOnly", "IsReadOnlyCaretVisible", "IsDocumentEnabled", "IsProofingEnabled", "IsSpellingEnabled", "IsGrammarEnabled", "IsStyleEnabled"],
+      "methods": ["BeginChange", "EndChange", "Copy", "Cut", "Paste", "Undo", "Redo", "SelectAll", "Select", "ReplaceText", "GetPositionFromPoint", "GetSpellingError", "GetSpellingErrorRange", "GetNextSpellingErrorPosition", "SetProofingDiagnostics", "ClearProofingDiagnostics", "ShouldSerializeDocument"]
+    },
+    {
+      "name": "Vibe.Office.WinUICompat.Controls.RichTextBlock",
+      "file": "src/Vibe.Office.WinUICompat.Uno/Controls/RichTextBlock.cs",
+      "events": [],
+      "properties": ["Blocks", "OverflowContentTarget", "MaxLines", "HasOverflowContent"],
+      "methods": ["RefreshOverflowLayout"]
+    },
+    {
+      "name": "Vibe.Office.WinUICompat.Controls.RichTextBlockOverflow",
+      "file": "src/Vibe.Office.WinUICompat.Uno/Controls/RichTextBlockOverflow.cs",
+      "events": [],
+      "properties": ["OverflowContentTarget", "ContentSource", "Source", "HasOverflowContent"],
+      "methods": []
+    },
+    {
+      "name": "Vibe.Office.WinUICompat.Documents.Paragraph",
+      "file": "src/Vibe.Office.WinUICompat/Documents/Paragraph.cs",
+      "events": [],
+      "properties": ["Inlines", "TextIndent"],
+      "methods": []
+    },
+    {
+      "name": "Vibe.Office.WinUICompat.Documents.Run",
+      "file": "src/Vibe.Office.WinUICompat/Documents/Run.cs",
+      "events": [],
+      "properties": ["Text"],
+      "methods": []
+    },
+    {
+      "name": "Vibe.Office.WinUICompat.Text.RichEditTextDocument",
+      "file": "src/Vibe.Office.WinUICompat/Text/RichEditTextDocument.cs",
+      "events": [],
+      "properties": ["Document", "Selection", "SelectionStartOffset", "SelectionEndOffset"],
+      "methods": ["GetText", "SetText", "SetSelection", "Undo", "Redo", "GetRange"]
+    }
+  ]
+}

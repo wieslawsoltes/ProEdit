@@ -481,6 +481,29 @@ public sealed class DocumentToFlowDocumentConverter
 
         anchored.Margin = ToFlowThickness(source.Anchor.Distance);
 
+        var resolved = ResolveEmbeddedUiChild(shape, inlineFallback: false);
+        if (resolved.IsMatch)
+        {
+            if (resolved.IsInline)
+            {
+                var paragraph = new FlowParagraph();
+                paragraph.Inlines.Add(new Vibe.Office.FlowDocument.InlineUIContainer
+                {
+                    Child = resolved.Child
+                });
+                anchored.Blocks.Add(paragraph);
+            }
+            else
+            {
+                anchored.Blocks.Add(new Vibe.Office.FlowDocument.BlockUIContainer
+                {
+                    Child = resolved.Child
+                });
+            }
+
+            return anchored;
+        }
+
         if (shape.TextBox is { } textBox)
         {
             AppendBlocks(textBox.Blocks, anchored.Blocks);

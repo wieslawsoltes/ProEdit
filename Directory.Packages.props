@@ -20,6 +20,10 @@
     <PackageVersion Include="ReactiveUI" Version="22.3.1" />
     <PackageVersion Include="ReactiveUI.Avalonia" Version="11.3.8" />
     <PackageVersion Include="ReactiveUI.SourceGenerators" Version="2.6.1" />
+    <PackageVersion Include="Uno.WinUI" Version="6.5.153" />
+    <PackageVersion Include="Uno.WinUI.Graphics2DSK" Version="6.5.153" />
+    <PackageVersion Include="Uno.WinUI.Runtime.Skia.MacOS" Version="6.5.153" />
+    <PackageVersion Include="SkiaSharp.Views.Uno.WinUI" Version="$(SkiaSharpVersion)" />
   </ItemGroup>
   <!-- Rendering -->
   <ItemGroup>
@@ -40,6 +44,7 @@
   <ItemGroup>
     <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.0.1" />
+    <PackageVersion Include="Uno.UITest" Version="1.0.0" />
     <PackageVersion Include="xunit" Version="2.9.3" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
   </ItemGroup>

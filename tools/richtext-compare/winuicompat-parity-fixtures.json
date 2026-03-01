@@ -1,0 +1,42 @@
+{
+  "name": "WinUICompat parity fixture corpus",
+  "updated": "2026-02-19",
+  "scenarios": [
+    {
+      "id": "api-manifest-surface",
+      "area": "api",
+      "description": "Manifest-based public surface parity for scoped WinUICompat rich text API.",
+      "validation": "tools/richtext-compare/winuicompat_manifest_compare.py"
+    },
+    {
+      "id": "document-text-core",
+      "area": "document-model",
+      "description": "Text document selection/range/undo/redo semantics in core compatibility layer.",
+      "validation": "tests/Vibe.Office.WinUICompat.Tests/RichEditTextDocumentTests.cs"
+    },
+    {
+      "id": "converter-roundtrip",
+      "area": "converter",
+      "description": "Compat DOM to FlowDocument conversion and reverse conversion fidelity.",
+      "validation": "tests/Vibe.Office.WinUICompat.Tests/CompatFlowDocumentConverterTests.cs"
+    },
+    {
+      "id": "richeditbox-editing-smoke",
+      "area": "editing",
+      "description": "RichEditBox edit/select/undo/redo/copy/paste behavior under Uno runtime.",
+      "validation": "tests/Vibe.Office.WinUICompat.Uno.Tests/RichEditBoxBehaviorTests.cs"
+    },
+    {
+      "id": "overflow-chain-smoke",
+      "area": "rendering",
+      "description": "RichTextBlock and RichTextBlockOverflow overflow chain state behavior.",
+      "validation": "tests/Vibe.Office.WinUICompat.Uno.Tests/RichTextBlockOverflowTests.cs"
+    },
+    {
+      "id": "collaboration-state",
+      "area": "collaboration",
+      "description": "Attached collaboration behavior lifecycle and diagnostics propagation.",
+      "validation": "tests/Vibe.Office.WinUICompat.Uno.Tests/RichEditBoxCollaborationBehaviorTests.cs"
+    }
+  ]
+}

@@ -507,10 +507,14 @@ public sealed class FlowDocumentConverter
         var height = anchored is Vibe.Office.FlowDocument.Figure withHeight && withHeight.Height.HasValue
             ? (float)Math.Max(1d, withHeight.Height.Value)
             : 120f;
-        var shape = new ShapeInline(width, height)
-        {
-            TextBox = BuildShapeTextBox(anchored)
-        };
+        var shape = TryCreateAnchoredEmbeddedUiShape(anchored, out var embeddedShape)
+            ? embeddedShape
+            : new ShapeInline(width, height)
+            {
+                TextBox = BuildShapeTextBox(anchored)
+            };
+        shape.Width = width;
+        shape.Height = height;
 
         var floating = new FloatingObject(shape);
         floating.Anchor.HorizontalReference = FloatingHorizontalReference.Margin;
@@ -528,6 +532,31 @@ public sealed class FlowDocumentConverter
         }
 
         return floating;
+    }
+
+    private bool TryCreateAnchoredEmbeddedUiShape(
+        Vibe.Office.FlowDocument.AnchoredBlock anchored,
+        out ShapeInline shape)
+    {
+        shape = null!;
+        if (anchored.Blocks.Count != 1)
+        {
+            return false;
+        }
+
+        if (anchored.Blocks[0] is Vibe.Office.FlowDocument.BlockUIContainer blockUi)
+        {
+            return TryCreateEmbeddedUiShape(blockUi.Child, isInline: false, out shape);
+        }
+
+        if (anchored.Blocks[0] is Vibe.Office.FlowDocument.Paragraph paragraph
+            && paragraph.Inlines.Count == 1
+            && paragraph.Inlines[0] is Vibe.Office.FlowDocument.InlineUIContainer inlineUi)
+        {
+            return TryCreateEmbeddedUiShape(inlineUi.Child, isInline: false, out shape);
+        }
+
+        return false;
     }
 
     private ShapeTextBox BuildShapeTextBox(Vibe.Office.FlowDocument.AnchoredBlock anchored)
@@ -1066,22 +1095,32 @@ public sealed class FlowDocumentConverter
     private bool TryCreateEmbeddedUiShape(object? child, bool isInline, out ShapeInline shape)
     {
         shape = null!;
-        if (!_options.EnableEmbeddedUiElements || child is not Control control)
+        if (!_options.EnableEmbeddedUiElements || child is null || !CanEmbedUiChild(child))
         {
             return false;
         }
 
         var elementId = _nextEmbeddedUiId.ToString(System.Globalization.CultureInfo.InvariantCulture);
         _nextEmbeddedUiId++;
-        _embeddedUiElements.Add(new EmbeddedFlowUiElement(elementId, control, isInline));
+        _embeddedUiElements.Add(new EmbeddedFlowUiElement(elementId, child, isInline));
 
-        var (width, height) = ResolveEmbeddedUiSize(control, isInline);
+        var (width, height) = ResolveEmbeddedUiSize(child, isInline);
         shape = new ShapeInline(width, height)
         {
             Name = BuildEmbeddedUiShapeName(elementId),
             TextBox = CreateEmptyShapeTextBox()
         };
         return true;
+    }
+
+    private bool CanEmbedUiChild(object child)
+    {
+        if (_options.EmbeddedUiElementPredicate is not null)
+        {
+            return _options.EmbeddedUiElementPredicate(child);
+        }
+
+        return child is Control;
     }
 
     private static ShapeTextBox CreateEmptyShapeTextBox()
@@ -1099,10 +1138,26 @@ public sealed class FlowDocumentConverter
         return string.Concat(prefix, elementId);
     }
 
-    private (float Width, float Height) ResolveEmbeddedUiSize(Control control, bool isInline)
+    private (float Width, float Height) ResolveEmbeddedUiSize(object child, bool isInline)
     {
         var fallbackWidth = isInline ? _options.InlineUiFallbackWidth : _options.BlockUiFallbackWidth;
         var fallbackHeight = isInline ? _options.InlineUiFallbackHeight : _options.BlockUiFallbackHeight;
+
+        if (_options.EmbeddedUiSizeResolver is { } resolver)
+        {
+            var resolved = resolver(child, isInline);
+            if (resolved.HasValue)
+            {
+                var resolvedWidth = ResolvePreferredDimension(resolved.Value.Width, minimum: 0d, fallbackWidth);
+                var resolvedHeight = ResolvePreferredDimension(resolved.Value.Height, minimum: 0d, fallbackHeight);
+                return ((float)Math.Max(1d, resolvedWidth), (float)Math.Max(1d, resolvedHeight));
+            }
+        }
+
+        if (child is not Control control)
+        {
+            return ((float)Math.Max(1d, fallbackWidth), (float)Math.Max(1d, fallbackHeight));
+        }
 
         var width = ResolvePreferredDimension(control.Width, control.MinWidth, fallbackWidth);
         var height = ResolvePreferredDimension(control.Height, control.MinHeight, fallbackHeight);
