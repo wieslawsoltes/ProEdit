@@ -430,6 +430,203 @@ public sealed class PdfDocumentConverterTests
     }
 
     [Fact]
+    public void ReflowDetectsStreamTableWithoutRuledLines()
+    {
+        var pdf = new PdfDocumentAst();
+        var page = new PdfPageAst
+        {
+            Index = 0,
+            Width = 612,
+            Height = 792
+        };
+
+        AddGlyphLine(page.Glyphs, "Name", startX: 72, baselineY: 700, gap: 1);
+        AddGlyphLine(page.Glyphs, "Score", startX: 190, baselineY: 700, gap: 1);
+        AddGlyphLine(page.Glyphs, "Alice", startX: 72, baselineY: 680, gap: 1);
+        AddGlyphLine(page.Glyphs, "95", startX: 190, baselineY: 680, gap: 1);
+        AddGlyphLine(page.Glyphs, "Bob", startX: 72, baselineY: 660, gap: 1);
+        AddGlyphLine(page.Glyphs, "88", startX: 190, baselineY: 660, gap: 1);
+        pdf.Pages.Add(page);
+
+        var document = PdfDocumentConverter.FromPdf(pdf, new PdfImportOptions { Mode = PdfImportMode.Reflow });
+        var table = Assert.IsType<TableBlock>(document.Blocks.OfType<TableBlock>().First());
+
+        Assert.Equal(3, table.Rows.Count);
+        Assert.Equal(2, table.Rows[0].Cells.Count);
+        Assert.Equal("Name", ExtractCellText(table.Rows[0].Cells[0]));
+        Assert.Equal("Score", ExtractCellText(table.Rows[0].Cells[1]));
+        Assert.Equal("Alice", ExtractCellText(table.Rows[1].Cells[0]));
+        Assert.Equal("95", ExtractCellText(table.Rows[1].Cells[1]));
+        Assert.Equal("Bob", ExtractCellText(table.Rows[2].Cells[0]));
+        Assert.Equal("88", ExtractCellText(table.Rows[2].Cells[1]));
+    }
+
+    [Fact]
+    public void ReflowAddsImagesAsInlineParagraphContent()
+    {
+        var pdf = new PdfDocumentAst();
+        var page = new PdfPageAst
+        {
+            Index = 0,
+            Width = 612,
+            Height = 792
+        };
+
+        AddGlyphLine(page.Glyphs, "Top text", startX: 72, baselineY: 700, gap: 1);
+        page.Images.Add(new PdfImageObject(new PdfRect(72, 660, 80, 30), new byte[] { 1, 2, 3 }, "image/png"));
+        AddGlyphLine(page.Glyphs, "Bottom text", startX: 72, baselineY: 620, gap: 1);
+        pdf.Pages.Add(page);
+
+        var document = PdfDocumentConverter.FromPdf(pdf, new PdfImportOptions { Mode = PdfImportMode.Reflow });
+        var paragraphs = document.Blocks.OfType<ParagraphBlock>().ToList();
+
+        Assert.True(paragraphs.Count >= 3);
+        Assert.Equal("Top text", ExtractParagraphText(paragraphs[0]));
+        Assert.Single(paragraphs[1].Inlines.OfType<ImageInline>());
+        Assert.Equal("Bottom text", ExtractParagraphText(paragraphs[2]));
+    }
+
+    [Fact]
+    public void ReflowAddsFilledPathsAsInlineShapes()
+    {
+        var pdf = new PdfDocumentAst();
+        var page = new PdfPageAst
+        {
+            Index = 0,
+            Width = 612,
+            Height = 792
+        };
+
+        AddGlyphLine(page.Glyphs, "Caption", startX: 72, baselineY: 700, gap: 1);
+
+        var path = new PdfPathObject
+        {
+            Bounds = new PdfRect(72, 640, 40, 20),
+            Style = new PdfPathStyle
+            {
+                IsFilled = true,
+                FillColor = new PdfColor(255, 0, 0)
+            }
+        };
+        path.Segments.Add(PdfPathSegment.MoveTo(72, 640));
+        path.Segments.Add(PdfPathSegment.LineTo(112, 640));
+        path.Segments.Add(PdfPathSegment.LineTo(112, 660));
+        path.Segments.Add(PdfPathSegment.LineTo(72, 660));
+        path.Segments.Add(PdfPathSegment.Close());
+        page.Paths.Add(path);
+        pdf.Pages.Add(page);
+
+        var document = PdfDocumentConverter.FromPdf(pdf, new PdfImportOptions { Mode = PdfImportMode.Reflow });
+        var shapeParagraph = document.Blocks
+            .OfType<ParagraphBlock>()
+            .FirstOrDefault(paragraph => paragraph.Inlines.OfType<ShapeInline>().Any());
+
+        Assert.NotNull(shapeParagraph);
+        var shape = Assert.Single(shapeParagraph!.Inlines.OfType<ShapeInline>());
+        Assert.NotNull(shape.Properties.CustomGeometry);
+    }
+
+    [Fact]
+    public void ReflowUsesContentSequenceToOrderMixedVisualBlocks()
+    {
+        var pdf = new PdfDocumentAst();
+        var page = new PdfPageAst
+        {
+            Index = 0,
+            Width = 612,
+            Height = 792
+        };
+
+        AddGlyphLine(page.Glyphs, "Text", startX: 100, baselineY: 700, gap: 1, sequenceStart: 0);
+        page.Images.Add(new PdfImageObject(new PdfRect(70, 694, 20, 12), new byte[] { 1, 2, 3 }, "image/png"));
+        page.ContentOrder.Add(new PdfContentItem(PdfContentItemKind.TextRun, 99));
+        page.ContentOrder.Add(new PdfContentItem(PdfContentItemKind.Image, 0));
+        pdf.Pages.Add(page);
+
+        var document = PdfDocumentConverter.FromPdf(pdf, new PdfImportOptions { Mode = PdfImportMode.Reflow });
+        var paragraphs = document.Blocks.OfType<ParagraphBlock>().ToList();
+
+        Assert.True(paragraphs.Count >= 2);
+        Assert.Equal("Text", ExtractParagraphText(paragraphs[0]));
+        Assert.Single(paragraphs[1].Inlines.OfType<ImageInline>());
+    }
+
+    [Fact]
+    public void ReflowUsesContentOrderRunsForGlyphParagraphOrdering()
+    {
+        var pdf = new PdfDocumentAst();
+        var page = new PdfPageAst
+        {
+            Index = 0,
+            Width = 612,
+            Height = 792
+        };
+
+        AddGlyphLine(page.Glyphs, "Text", startX: 100, baselineY: 700, gap: 1, sequenceStart: 50);
+        page.TextRuns.Add(new PdfTextRun(
+            "Text",
+            new PdfRect(100, 690, 30, 10),
+            new PdfFontInfo("Test", false, false),
+            10,
+            700,
+            0,
+            null,
+            0,
+            0));
+        page.Images.Add(new PdfImageObject(new PdfRect(70, 694, 20, 12), new byte[] { 1, 2, 3 }, "image/png"));
+        page.ContentOrder.Add(new PdfContentItem(PdfContentItemKind.TextRun, 0));
+        page.ContentOrder.Add(new PdfContentItem(PdfContentItemKind.Image, 0));
+        pdf.Pages.Add(page);
+
+        var document = PdfDocumentConverter.FromPdf(pdf, new PdfImportOptions { Mode = PdfImportMode.Reflow });
+        var paragraphs = document.Blocks.OfType<ParagraphBlock>().ToList();
+
+        Assert.True(paragraphs.Count >= 2);
+        Assert.Equal("Text", ExtractParagraphText(paragraphs[0]));
+        Assert.Single(paragraphs[1].Inlines.OfType<ImageInline>());
+    }
+
+    [Fact]
+    public void ReflowInfersSectionMarginsFromPageContent()
+    {
+        var pdf = new PdfDocumentAst();
+        var page = new PdfPageAst
+        {
+            Index = 0,
+            Width = 612,
+            Height = 792
+        };
+
+        page.TextRuns.Add(new PdfTextRun(
+            new string('A', 20),
+            new PdfRect(72, 708, 468, 12),
+            new PdfFontInfo("Test", false, false),
+            10,
+            720,
+            0,
+            null,
+            0,
+            0));
+        page.TextRuns.Add(new PdfTextRun(
+            new string('B', 20),
+            new PdfRect(72, 72, 468, 12),
+            new PdfFontInfo("Test", false, false),
+            10,
+            84,
+            0,
+            null,
+            1,
+            1));
+        pdf.Pages.Add(page);
+
+        var document = PdfDocumentConverter.FromPdf(pdf, new PdfImportOptions { Mode = PdfImportMode.Reflow });
+
+        Assert.InRange(document.SectionProperties.MarginLeft ?? 0f, (float)PdfUnits.PointsToDip(71.5), (float)PdfUnits.PointsToDip(72.5));
+        Assert.InRange(document.SectionProperties.MarginRight ?? 0f, (float)PdfUnits.PointsToDip(71.5), (float)PdfUnits.PointsToDip(72.5));
+        Assert.True((document.SectionProperties.MarginBottom ?? 0f) > 0f);
+    }
+
+    [Fact]
     public void ReflowMapsHeadersAndFooters()
     {
         var pdf = new PdfDocumentAst();
@@ -758,7 +955,7 @@ public sealed class PdfDocumentConverterTests
         return string.Concat(paragraph.Inlines.OfType<RunInline>().Select(run => run.GetText())).Trim();
     }
 
-    private static void AddGlyphLine(List<PdfTextGlyph> target, string text, double startX, double baselineY, double gap)
+    private static void AddGlyphLine(List<PdfTextGlyph> target, string text, double startX, double baselineY, double gap, int sequenceStart = -1)
     {
         var x = startX;
         var font = new PdfFontInfo("Test", false, false);
@@ -778,7 +975,7 @@ public sealed class PdfDocumentConverterTests
                 width,
                 PdfTextOrientation.Horizontal,
                 null,
-                0,
+                sequenceStart >= 0 ? sequenceStart + index : target.Count,
                 target.Count));
             x += width + gap;
         }

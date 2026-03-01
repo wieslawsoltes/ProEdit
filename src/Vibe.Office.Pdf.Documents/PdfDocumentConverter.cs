@@ -240,43 +240,164 @@ public static class PdfDocumentConverter
         return ((rotation % 360) + 360) % 360;
     }
 
+    private static void ApplyReflowSectionMargins(SectionProperties properties, PdfDocumentAst pdf, PdfHeaderFooterInfo headerFooter)
+    {
+        if (pdf.Pages.Count == 0)
+        {
+            return;
+        }
+
+        var leftMargins = new List<double>(pdf.Pages.Count);
+        var rightMargins = new List<double>(pdf.Pages.Count);
+        var topMargins = new List<double>(pdf.Pages.Count);
+        var bottomMargins = new List<double>(pdf.Pages.Count);
+
+        foreach (var page in pdf.Pages)
+        {
+            if (!TryResolveReflowContentBounds(page, headerFooter, out var bounds))
+            {
+                continue;
+            }
+
+            leftMargins.Add(Math.Max(0, bounds.X));
+            rightMargins.Add(Math.Max(0, page.Width - bounds.Right));
+            topMargins.Add(Math.Max(0, page.Height - bounds.Bottom));
+            bottomMargins.Add(Math.Max(0, bounds.Y));
+        }
+
+        if (leftMargins.Count == 0)
+        {
+            return;
+        }
+
+        var pageWidth = Math.Max(pdf.Pages[0].Width, 1d);
+        var minMargin = Math.Max(pageWidth * 0.015, 12d);
+        var maxMargin = Math.Max(pageWidth * 0.25, 36d);
+
+        var left = Math.Clamp(Median(leftMargins), minMargin, maxMargin);
+        var right = Math.Clamp(Median(rightMargins), minMargin, maxMargin);
+        var top = Math.Clamp(Median(topMargins), minMargin, maxMargin);
+        var bottom = Math.Clamp(Median(bottomMargins), minMargin, maxMargin);
+
+        var horizontalBudget = pageWidth * 0.6;
+        if (left + right > horizontalBudget)
+        {
+            var scale = horizontalBudget / (left + right);
+            left *= scale;
+            right *= scale;
+        }
+
+        properties.MarginLeft = PdfUnits.PointsToDip(left);
+        properties.MarginRight = PdfUnits.PointsToDip(right);
+        properties.MarginTop = PdfUnits.PointsToDip(top);
+        properties.MarginBottom = PdfUnits.PointsToDip(bottom);
+    }
+
+    private static bool TryResolveReflowContentBounds(PdfPageAst page, PdfHeaderFooterInfo headerFooter, out PdfRect bounds)
+    {
+        bounds = default;
+        if (page.Glyphs.Count > 0)
+        {
+            var lines = GroupGlyphsIntoLines(page.Glyphs);
+            if (lines.Count > 0)
+            {
+                AssignGlyphLineAlignment(lines);
+                var filtered = FilterHeaderFooterLines(lines, page, headerFooter);
+                var source = filtered.Count > 0 ? filtered : lines;
+                bounds = GetBounds(source);
+                return bounds.Width > 0 && bounds.Height > 0;
+            }
+        }
+
+        if (page.TextRuns.Count > 0)
+        {
+            var minX = double.MaxValue;
+            var minY = double.MaxValue;
+            var maxX = double.MinValue;
+            var maxY = double.MinValue;
+            foreach (var run in page.TextRuns)
+            {
+                if (run.Bounds.Width <= 0 || run.Bounds.Height <= 0)
+                {
+                    continue;
+                }
+
+                minX = Math.Min(minX, run.Bounds.X);
+                minY = Math.Min(minY, run.Bounds.Y);
+                maxX = Math.Max(maxX, run.Bounds.Right);
+                maxY = Math.Max(maxY, run.Bounds.Bottom);
+            }
+
+            if (minX != double.MaxValue)
+            {
+                bounds = new PdfRect(minX, minY, maxX - minX, maxY - minY);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private static void BuildReflow(Document document, PdfDocumentAst pdf)
     {
         var headerFooter = DetectHeaderFooter(pdf);
         ApplyHeaderFooterBlocks(document, headerFooter);
+        ApplyReflowSectionMargins(document.SectionProperties, pdf, headerFooter);
         var footnoteState = new PdfFootnoteState(document);
 
         for (var pageIndex = 0; pageIndex < pdf.Pages.Count; pageIndex++)
         {
             var page = pdf.Pages[pageIndex];
+            var contentOrderLookup = BuildContentOrderLookup(page);
+            var pageFlowBlocks = new List<FlowBlock>();
             if (page.Glyphs.Count > 0)
             {
                 RegisterFonts(document, page.Glyphs, pdf.EmbeddedFonts);
-                var blocks = BuildReflowFromGlyphs(document, page, headerFooter, footnoteState);
+                var blocks = BuildReflowFromGlyphs(document, page, headerFooter, footnoteState, contentOrderLookup);
                 if (blocks.Count > 0)
                 {
-                    document.Blocks.AddRange(blocks);
+                    pageFlowBlocks.AddRange(blocks);
                 }
                 else if (page.TextRuns.Count > 0)
                 {
                     RegisterFonts(document, page.TextRuns, pdf.EmbeddedFonts);
-                    BuildReflowFromRuns(document, page);
+                    pageFlowBlocks.AddRange(BuildReflowFromRuns(document, page, contentOrderLookup));
                 }
                 else
                 {
-                    var paragraphs = BuildParagraphs(page.ExtractedText ?? string.Empty);
-                    document.Blocks.AddRange(paragraphs);
+                    pageFlowBlocks.AddRange(BuildTextFallbackFlowBlocks(page));
                 }
             }
             else if (page.TextRuns.Count > 0)
             {
                 RegisterFonts(document, page.TextRuns, pdf.EmbeddedFonts);
-                BuildReflowFromRuns(document, page);
+                pageFlowBlocks.AddRange(BuildReflowFromRuns(document, page, contentOrderLookup));
             }
             else
             {
-                var paragraphs = BuildParagraphs(page.ExtractedText ?? string.Empty);
-                document.Blocks.AddRange(paragraphs);
+                pageFlowBlocks.AddRange(BuildTextFallbackFlowBlocks(page));
+            }
+
+            var visualBlocks = BuildReflowVisualBlocks(page, contentOrderLookup);
+            if (visualBlocks.Count > 0)
+            {
+                pageFlowBlocks.AddRange(visualBlocks);
+            }
+
+            if (pageFlowBlocks.Count == 0)
+            {
+                pageFlowBlocks.AddRange(BuildTextFallbackFlowBlocks(page));
+            }
+
+            if (pageFlowBlocks.Count > 1)
+            {
+                var averageHeight = ResolveAverageFlowBlockHeight(pageFlowBlocks);
+                pageFlowBlocks = OrderFlowBlocksForReflow(pageFlowBlocks, averageHeight);
+            }
+
+            foreach (var flowBlock in pageFlowBlocks)
+            {
+                document.Blocks.Add(flowBlock.Block);
             }
 
             if (pageIndex < pdf.Pages.Count - 1)
@@ -291,14 +412,16 @@ public static class PdfDocumentConverter
         }
     }
 
-    private static void BuildReflowFromRuns(Document document, PdfPageAst page)
+    private static List<FlowBlock> BuildReflowFromRuns(
+        Document document,
+        PdfPageAst page,
+        IReadOnlyDictionary<(PdfContentItemKind Kind, int Index), int>? contentOrderLookup)
     {
+        var flowBlocks = new List<FlowBlock>();
         var lineGroups = GroupRunsIntoLines(page.TextRuns);
         if (lineGroups.Count == 0)
         {
-            var paragraphs = BuildParagraphs(page.ExtractedText ?? string.Empty);
-            document.Blocks.AddRange(paragraphs);
-            return;
+            return BuildTextFallbackFlowBlocks(page);
         }
 
         var orderedLines = OrderLinesForReflow(lineGroups);
@@ -331,45 +454,52 @@ public static class PdfDocumentConverter
             {
                 paragraph.StyleId = null;
             }
-            document.Blocks.Add(paragraph);
+
+            var sequence = ResolveRunParagraphSequence(paragraphGroup, contentOrderLookup);
+            flowBlocks.Add(new FlowBlock(paragraph, paragraphGroup.Bounds, sequence));
         }
+
+        return flowBlocks;
     }
 
-    private static List<Block> BuildReflowFromGlyphs(
+    private static List<FlowBlock> BuildReflowFromGlyphs(
         Document document,
         PdfPageAst page,
         PdfHeaderFooterInfo headerFooter,
-        PdfFootnoteState footnoteState)
+        PdfFootnoteState footnoteState,
+        IReadOnlyDictionary<(PdfContentItemKind Kind, int Index), int>? contentOrderLookup)
     {
-        var blocks = new List<Block>();
         if (page.Glyphs.Count == 0)
         {
-            return blocks;
+            return new List<FlowBlock>();
         }
 
         if (page.Glyphs.Any(glyph => !IsGlyphOrientationSupported(glyph.Orientation)))
         {
-            return blocks;
+            return new List<FlowBlock>();
         }
 
         var lines = GroupGlyphsIntoLines(page.Glyphs);
         if (lines.Count == 0)
         {
-            return blocks;
+            return new List<FlowBlock>();
         }
 
         if (IsGlyphLineQualityPoor(lines) && page.TextRuns.Count > 0)
         {
-            return blocks;
+            return new List<FlowBlock>();
         }
 
         AssignGlyphLineAlignment(lines);
         var filtered = FilterHeaderFooterLines(lines, page, headerFooter);
         var footnoteInfo = DetectFootnotesForPage(document, footnoteState, page, filtered);
         var bodyLines = RemoveFootnoteLines(filtered, footnoteInfo);
-        var tables = DetectRuledTables(page, bodyLines);
-        var tableLines = CollectTableLines(tables);
-        var remainingLines = bodyLines.Where(line => !tableLines.Contains(line)).ToList();
+        var ruledTables = DetectRuledTables(page, bodyLines);
+        var ruledTableLines = CollectTableLines(ruledTables);
+        var textLines = bodyLines.Where(line => !ruledTableLines.Contains(line)).ToList();
+        var streamTables = DetectStreamTables(page, textLines);
+        var streamTableLines = CollectTableLines(streamTables);
+        var remainingLines = textLines.Where(line => !streamTableLines.Contains(line)).ToList();
 
         var orderedLines = OrderGlyphLinesForReflow(remainingLines);
         var paragraphGroups = GroupGlyphLinesIntoParagraphs(orderedLines);
@@ -399,15 +529,27 @@ public static class PdfDocumentConverter
                 paragraph.Properties.Alignment = paragraphGroup.Alignment;
             }
 
-            flowBlocks.Add(new FlowBlock(paragraph, paragraphGroup.Bounds));
+            var sequence = ResolveGlyphParagraphSequence(paragraphGroup, page, contentOrderLookup);
+            flowBlocks.Add(new FlowBlock(paragraph, paragraphGroup.Bounds, sequence));
         }
 
-        if (tables.Count > 0)
+        if (ruledTables.Count > 0)
         {
-            foreach (var table in tables)
+            foreach (var table in ruledTables)
             {
                 var tableBlock = BuildTableBlock(table);
-                flowBlocks.Add(new FlowBlock(tableBlock, table.Bounds));
+                var sequence = ResolveTableSequence(table, page, contentOrderLookup);
+                flowBlocks.Add(new FlowBlock(tableBlock, table.Bounds, sequence));
+            }
+        }
+
+        if (streamTables.Count > 0)
+        {
+            foreach (var table in streamTables)
+            {
+                var tableBlock = BuildTableBlock(table);
+                var sequence = ResolveTableSequence(table, page, contentOrderLookup);
+                flowBlocks.Add(new FlowBlock(tableBlock, table.Bounds, sequence));
             }
         }
 
@@ -418,12 +560,317 @@ public static class PdfDocumentConverter
             orderedBlocks = OrderFlowBlocksForReflow(flowBlocks, averageHeight);
         }
 
-        foreach (var block in orderedBlocks)
+        return orderedBlocks;
+    }
+
+    private static Dictionary<(PdfContentItemKind Kind, int Index), int>? BuildContentOrderLookup(PdfPageAst page)
+    {
+        if (page.ContentOrder.Count == 0)
         {
-            blocks.Add(block.Block);
+            return null;
         }
 
-        return blocks;
+        var lookup = new Dictionary<(PdfContentItemKind Kind, int Index), int>();
+        for (var index = 0; index < page.ContentOrder.Count; index++)
+        {
+            var item = page.ContentOrder[index];
+            var key = (item.Kind, item.Index);
+            if (!lookup.ContainsKey(key))
+            {
+                lookup[key] = index;
+            }
+        }
+
+        return lookup;
+    }
+
+    private static List<FlowBlock> BuildTextFallbackFlowBlocks(PdfPageAst page)
+    {
+        var paragraphs = BuildParagraphs(page.ExtractedText ?? string.Empty);
+        var flowBlocks = new List<FlowBlock>(paragraphs.Count);
+        var pageWidth = Math.Max(page.Width, 1d);
+        var pageHeight = Math.Max(page.Height, 1d);
+        var count = Math.Max(paragraphs.Count, 1);
+        var lineHeight = Math.Max(pageHeight / count, 1d);
+
+        for (var index = 0; index < paragraphs.Count; index++)
+        {
+            var y = Math.Max(0d, pageHeight - (index + 1) * lineHeight);
+            flowBlocks.Add(new FlowBlock(paragraphs[index], new PdfRect(0, y, pageWidth, lineHeight), index));
+        }
+
+        return flowBlocks;
+    }
+
+    private static List<FlowBlock> BuildReflowVisualBlocks(
+        PdfPageAst page,
+        IReadOnlyDictionary<(PdfContentItemKind Kind, int Index), int>? contentOrderLookup)
+    {
+        var flowBlocks = new List<FlowBlock>();
+        for (var imageIndex = 0; imageIndex < page.Images.Count; imageIndex++)
+        {
+            var image = page.Images[imageIndex];
+            if (image.Data.Length == 0)
+            {
+                continue;
+            }
+
+            var width = PdfUnits.PointsToDip(image.Bounds.Width);
+            var height = PdfUnits.PointsToDip(image.Bounds.Height);
+            if (width <= 0f || height <= 0f)
+            {
+                continue;
+            }
+
+            var paragraph = new ParagraphBlock
+            {
+                Text = string.Empty
+            };
+            paragraph.Inlines.Add(new ImageInline(image.Data, width, height, image.MimeType ?? "image/png"));
+
+            if (TryResolveFlowAlignment(page, image.Bounds, out var alignment))
+            {
+                paragraph.Properties.Alignment = alignment;
+            }
+
+            var sequence = ResolveContentOrderSequence(contentOrderLookup, PdfContentItemKind.Image, imageIndex);
+            flowBlocks.Add(new FlowBlock(paragraph, image.Bounds, sequence));
+        }
+
+        for (var pathIndex = 0; pathIndex < page.Paths.Count; pathIndex++)
+        {
+            var path = page.Paths[pathIndex];
+            if (path.Segments.Count == 0 || !path.Style.IsFilled)
+            {
+                continue;
+            }
+
+            var bounds = ResolvePathBounds(path);
+            if (!ShouldIncludeReflowPath(page, bounds))
+            {
+                continue;
+            }
+
+            var width = PdfUnits.PointsToDip(bounds.Width);
+            var height = PdfUnits.PointsToDip(bounds.Height);
+            if (width <= 0f || height <= 0f)
+            {
+                continue;
+            }
+
+            var geometry = BuildShapeGeometryFromPath(path, bounds);
+            if (geometry.Paths.Count == 0)
+            {
+                continue;
+            }
+
+            var shape = new ShapeInline(width, height)
+            {
+                TextBox = null
+            };
+            shape.Properties.CustomGeometry = geometry;
+            ApplyShapeStyle(shape.Properties, path.Style);
+
+            var paragraph = new ParagraphBlock
+            {
+                Text = string.Empty
+            };
+            paragraph.Inlines.Add(shape);
+
+            if (TryResolveFlowAlignment(page, bounds, out var alignment))
+            {
+                paragraph.Properties.Alignment = alignment;
+            }
+
+            var sequence = ResolveContentOrderSequence(contentOrderLookup, PdfContentItemKind.Path, pathIndex);
+            flowBlocks.Add(new FlowBlock(paragraph, bounds, sequence));
+        }
+
+        return flowBlocks;
+    }
+
+    private static bool ShouldIncludeReflowPath(PdfPageAst page, PdfRect bounds)
+    {
+        if (bounds.Width <= 0.5 || bounds.Height <= 0.5)
+        {
+            return false;
+        }
+
+        var pageArea = Math.Max(page.Width * page.Height, 1d);
+        var pathArea = bounds.Width * bounds.Height;
+        return pathArea >= pageArea * 0.00005;
+    }
+
+    private static bool TryResolveFlowAlignment(PdfPageAst page, PdfRect bounds, out ParagraphAlignment alignment)
+    {
+        alignment = ParagraphAlignment.Left;
+        var pageWidth = Math.Max(page.Width, bounds.Right);
+        if (pageWidth <= 0)
+        {
+            return false;
+        }
+
+        var leftGap = Math.Max(0d, bounds.X);
+        var rightGap = Math.Max(0d, pageWidth - bounds.Right);
+        var tolerance = Math.Max(bounds.Height * 0.5, 4);
+
+        if (Math.Abs(leftGap - rightGap) <= tolerance)
+        {
+            alignment = ParagraphAlignment.Center;
+            return true;
+        }
+
+        if (rightGap <= tolerance && leftGap > tolerance)
+        {
+            alignment = ParagraphAlignment.Right;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static int? ResolveRunParagraphSequence(
+        PdfParagraphGroup group,
+        IReadOnlyDictionary<(PdfContentItemKind Kind, int Index), int>? contentOrderLookup)
+    {
+        var sequence = int.MaxValue;
+        foreach (var line in group.Lines)
+        {
+            foreach (var run in line.Runs)
+            {
+                if (run.Sequence >= 0 && run.Sequence < sequence)
+                {
+                    sequence = run.Sequence;
+                }
+
+                if (run.Index >= 0
+                    && contentOrderLookup is not null
+                    && contentOrderLookup.TryGetValue((PdfContentItemKind.TextRun, run.Index), out var order)
+                    && order < sequence)
+                {
+                    sequence = order;
+                }
+            }
+        }
+
+        return sequence == int.MaxValue ? null : sequence;
+    }
+
+    private static int? ResolveGlyphParagraphSequence(
+        PdfGlyphParagraphGroup group,
+        PdfPageAst page,
+        IReadOnlyDictionary<(PdfContentItemKind Kind, int Index), int>? contentOrderLookup)
+    {
+        var sequence = int.MaxValue;
+        foreach (var line in group.Lines)
+        {
+            foreach (var glyph in line.Glyphs)
+            {
+                if (glyph.Sequence >= 0 && glyph.Sequence < sequence)
+                {
+                    sequence = glyph.Sequence;
+                }
+            }
+        }
+
+        var runSequence = ResolveRunSequenceForBounds(page, group.Bounds, contentOrderLookup);
+        if (runSequence.HasValue && runSequence.Value < sequence)
+        {
+            sequence = runSequence.Value;
+        }
+
+        return sequence == int.MaxValue ? null : sequence;
+    }
+
+    private static int? ResolveTableSequence(
+        PdfTableRegion region,
+        PdfPageAst page,
+        IReadOnlyDictionary<(PdfContentItemKind Kind, int Index), int>? contentOrderLookup)
+    {
+        var sequence = int.MaxValue;
+        foreach (var lines in region.CellLines.Values)
+        {
+            foreach (var line in lines)
+            {
+                foreach (var glyph in line.Glyphs)
+                {
+                    if (glyph.Sequence >= 0 && glyph.Sequence < sequence)
+                    {
+                        sequence = glyph.Sequence;
+                    }
+                }
+            }
+        }
+
+        var runSequence = ResolveRunSequenceForBounds(page, region.Bounds, contentOrderLookup);
+        if (runSequence.HasValue && runSequence.Value < sequence)
+        {
+            sequence = runSequence.Value;
+        }
+
+        return sequence == int.MaxValue ? null : sequence;
+    }
+
+    private static int? ResolveRunSequenceForBounds(
+        PdfPageAst page,
+        PdfRect bounds,
+        IReadOnlyDictionary<(PdfContentItemKind Kind, int Index), int>? contentOrderLookup)
+    {
+        if (contentOrderLookup is null || page.TextRuns.Count == 0)
+        {
+            return null;
+        }
+
+        var tolerance = Math.Max(bounds.Height * 0.35, 4);
+        var sequence = int.MaxValue;
+        for (var index = 0; index < page.TextRuns.Count; index++)
+        {
+            var run = page.TextRuns[index];
+            if (run.Index < 0)
+            {
+                continue;
+            }
+
+            if (!contentOrderLookup.TryGetValue((PdfContentItemKind.TextRun, run.Index), out var runOrder))
+            {
+                continue;
+            }
+
+            if (!IntersectsExpanded(bounds, run.Bounds, tolerance))
+            {
+                continue;
+            }
+
+            if (runOrder < sequence)
+            {
+                sequence = runOrder;
+            }
+        }
+
+        return sequence == int.MaxValue ? null : sequence;
+    }
+
+    private static bool IntersectsExpanded(PdfRect left, PdfRect right, double pad)
+    {
+        var expanded = new PdfRect(
+            left.X - pad,
+            left.Y - pad,
+            left.Width + pad * 2,
+            left.Height + pad * 2);
+        return Intersects(expanded, right);
+    }
+
+    private static int? ResolveContentOrderSequence(
+        IReadOnlyDictionary<(PdfContentItemKind Kind, int Index), int>? contentOrderLookup,
+        PdfContentItemKind kind,
+        int index)
+    {
+        if (contentOrderLookup is null)
+        {
+            return null;
+        }
+
+        return contentOrderLookup.TryGetValue((kind, index), out var sequence) ? sequence : null;
     }
 
     private static void BuildFixedLayout(Document document, PdfDocumentAst pdf)
@@ -2203,11 +2650,7 @@ public static class PdfDocumentConverter
 
         if (depth > 6 || blocks.Count <= 2)
         {
-            blocks.Sort(static (a, b) =>
-            {
-                var yCompare = b.Bounds.Bottom.CompareTo(a.Bounds.Bottom);
-                return yCompare != 0 ? yCompare : a.Bounds.X.CompareTo(b.Bounds.X);
-            });
+            blocks.Sort((a, b) => CompareFlowBlocks(a, b, averageLineHeight));
             output.AddRange(blocks);
             return;
         }
@@ -2262,11 +2705,7 @@ public static class PdfDocumentConverter
             return;
         }
 
-        blocks.Sort(static (a, b) =>
-        {
-            var yCompare = b.Bounds.Bottom.CompareTo(a.Bounds.Bottom);
-            return yCompare != 0 ? yCompare : a.Bounds.X.CompareTo(b.Bounds.X);
-        });
+        blocks.Sort((a, b) => CompareFlowBlocks(a, b, averageLineHeight));
         output.AddRange(blocks);
     }
 
@@ -2361,6 +2800,51 @@ public static class PdfDocumentConverter
         }
 
         return total / lines.Count;
+    }
+
+    private static double ResolveAverageFlowBlockHeight(IReadOnlyList<FlowBlock> blocks)
+    {
+        if (blocks.Count == 0)
+        {
+            return 12;
+        }
+
+        var heights = new List<double>(blocks.Count);
+        for (var index = 0; index < blocks.Count; index++)
+        {
+            var height = blocks[index].Bounds.Height;
+            if (height > 0)
+            {
+                heights.Add(height);
+            }
+        }
+
+        return heights.Count > 0 ? Median(heights) : 12;
+    }
+
+    private static int CompareFlowBlocks(FlowBlock left, FlowBlock right, double averageLineHeight)
+    {
+        var topThreshold = Math.Max(averageLineHeight * 0.8, 4);
+        var topDelta = right.Bounds.Bottom - left.Bounds.Bottom;
+        if (Math.Abs(topDelta) > topThreshold)
+        {
+            return topDelta > 0 ? 1 : -1;
+        }
+
+        if (left.Sequence.HasValue && right.Sequence.HasValue)
+        {
+            var sequenceCompare = left.Sequence.Value.CompareTo(right.Sequence.Value);
+            if (sequenceCompare != 0)
+            {
+                return sequenceCompare;
+            }
+        }
+        else if (left.Sequence.HasValue != right.Sequence.HasValue)
+        {
+            return left.Sequence.HasValue ? -1 : 1;
+        }
+
+        return left.Bounds.X.CompareTo(right.Bounds.X);
     }
 
     private static bool TryFindVerticalWhitespaceGap(
@@ -3875,6 +4359,226 @@ public static class PdfDocumentConverter
         return tables;
     }
 
+    private static List<PdfTableRegion> DetectStreamTables(PdfPageAst page, IReadOnlyList<PdfGlyphLine> lines)
+    {
+        if (lines.Count < 4)
+        {
+            return new List<PdfTableRegion>();
+        }
+
+        var ordered = lines
+            .OrderByDescending(line => line.BaselineY)
+            .ThenBy(line => line.Bounds.X)
+            .ToList();
+        var medianHeight = ResolveMedianLineHeight(ordered);
+        var baselineTolerance = Math.Max(medianHeight * 0.45, 2);
+        var rowGapThreshold = Math.Max(medianHeight * 2.2, 8);
+        var rows = BuildGlyphRows(ordered, baselineTolerance);
+        if (rows.Count < 2)
+        {
+            return new List<PdfTableRegion>();
+        }
+
+        var tables = new List<PdfTableRegion>();
+        var candidateRows = new List<PdfGlyphRowBand>();
+        PdfGlyphRowBand? previous = null;
+
+        foreach (var row in rows)
+        {
+            if (row.Lines.Count < 2)
+            {
+                FlushCandidateRows();
+                previous = null;
+                continue;
+            }
+
+            if (previous is not null && (previous.BaselineY - row.BaselineY) > rowGapThreshold)
+            {
+                FlushCandidateRows();
+            }
+
+            candidateRows.Add(row);
+            previous = row;
+        }
+
+        FlushCandidateRows();
+        return tables;
+
+        void FlushCandidateRows()
+        {
+            if (candidateRows.Count < 2)
+            {
+                candidateRows.Clear();
+                return;
+            }
+
+            if (TryBuildStreamTableRegion(page, candidateRows, medianHeight, out var table))
+            {
+                tables.Add(table);
+            }
+
+            candidateRows.Clear();
+        }
+    }
+
+    private static List<PdfGlyphRowBand> BuildGlyphRows(IReadOnlyList<PdfGlyphLine> lines, double baselineTolerance)
+    {
+        var rows = new List<PdfGlyphRowBand>();
+        PdfGlyphRowBand? current = null;
+        foreach (var line in lines)
+        {
+            if (current is null || Math.Abs(current.BaselineY - line.BaselineY) > baselineTolerance)
+            {
+                current = new PdfGlyphRowBand(line.BaselineY);
+                rows.Add(current);
+            }
+
+            current.Add(line);
+        }
+
+        foreach (var row in rows)
+        {
+            row.Sort();
+        }
+
+        return rows;
+    }
+
+    private static bool TryBuildStreamTableRegion(
+        PdfPageAst page,
+        IReadOnlyList<PdfGlyphRowBand> rows,
+        double medianHeight,
+        out PdfTableRegion region)
+    {
+        region = null!;
+        if (rows.Count < 2)
+        {
+            return false;
+        }
+
+        var allLines = rows.SelectMany(row => row.Lines).ToList();
+        if (allLines.Count < 4)
+        {
+            return false;
+        }
+
+        var bounds = GetBounds(allLines);
+        if (bounds.Width <= 0 || bounds.Height <= 0 || bounds.Width > page.Width * 0.82)
+        {
+            return false;
+        }
+
+        var maxColumns = rows.Max(row => row.Lines.Count);
+        if (maxColumns < 2)
+        {
+            return false;
+        }
+
+        var requiredSupport = Math.Max(2, (int)Math.Ceiling(rows.Count * 0.7));
+        var columnTolerance = Math.Max(medianHeight * 1.2, 10);
+        var anchors = new List<double>();
+        for (var column = 0; column < maxColumns; column++)
+        {
+            var values = new List<double>(rows.Count);
+            foreach (var row in rows)
+            {
+                if (row.Lines.Count <= column)
+                {
+                    continue;
+                }
+
+                var cellLine = row.Lines[column];
+                values.Add((cellLine.Bounds.X + cellLine.Bounds.Right) * 0.5);
+            }
+
+            if (values.Count < requiredSupport)
+            {
+                continue;
+            }
+
+            values.Sort();
+            if ((values[^1] - values[0]) > columnTolerance * 2.5)
+            {
+                continue;
+            }
+
+            anchors.Add(Median(values));
+        }
+
+        if (anchors.Count < 2)
+        {
+            return false;
+        }
+
+        anchors.Sort();
+        for (var index = 0; index < anchors.Count - 1; index++)
+        {
+            if ((anchors[index + 1] - anchors[index]) < Math.Max(columnTolerance * 0.9, 10))
+            {
+                return false;
+            }
+        }
+
+        var leftEdge = rows.Min(row => row.Lines.Min(line => line.Bounds.X));
+        var rightEdge = rows.Max(row => row.Lines.Max(line => line.Bounds.Right));
+        if (rightEdge <= leftEdge)
+        {
+            return false;
+        }
+
+        var columnX = new List<double>(anchors.Count + 1) { leftEdge };
+        for (var index = 0; index < anchors.Count - 1; index++)
+        {
+            columnX.Add((anchors[index] + anchors[index + 1]) * 0.5);
+        }
+
+        columnX.Add(rightEdge);
+
+        var rowY = new List<double>(rows.Count + 1);
+        var rowTops = rows.Select(row => row.Lines.Max(line => line.Bounds.Bottom)).ToList();
+        var rowBottoms = rows.Select(row => row.Lines.Min(line => line.Bounds.Y)).ToList();
+        rowY.Add(rowTops[0]);
+        for (var index = 1; index < rows.Count; index++)
+        {
+            rowY.Add((rowBottoms[index - 1] + rowTops[index]) * 0.5);
+        }
+
+        rowY.Add(rowBottoms[^1]);
+        for (var index = 0; index < rowY.Count - 1; index++)
+        {
+            if (rowY[index] <= rowY[index + 1])
+            {
+                return false;
+            }
+        }
+
+        region = new PdfTableRegion(bounds, columnX, rowY);
+        for (var rowIndex = 0; rowIndex < rows.Count; rowIndex++)
+        {
+            var row = rows[rowIndex];
+            foreach (var line in row.Lines)
+            {
+                var centerX = (line.Bounds.X + line.Bounds.Right) * 0.5;
+                var colIndex = FindInterval(columnX, centerX);
+                if (colIndex < 0)
+                {
+                    continue;
+                }
+
+                var key = (rowIndex, colIndex);
+                if (!region.CellLines.TryGetValue(key, out var list))
+                {
+                    list = new List<PdfGlyphLine>();
+                    region.CellLines[key] = list;
+                }
+
+                list.Add(line);
+            }
+        }
+
+        return region.CellLines.Count > 0;
+    }
+
     private static HashSet<PdfGlyphLine> CollectTableLines(IReadOnlyList<PdfTableRegion> tables)
     {
         var set = new HashSet<PdfGlyphLine>();
@@ -4866,17 +5570,41 @@ public static class PdfDocumentConverter
         }
     }
 
+    private sealed class PdfGlyphRowBand
+    {
+        public PdfGlyphRowBand(double baselineY)
+        {
+            BaselineY = baselineY;
+        }
+
+        public double BaselineY { get; private set; }
+        public List<PdfGlyphLine> Lines { get; } = new();
+
+        public void Add(PdfGlyphLine line)
+        {
+            Lines.Add(line);
+            BaselineY = (BaselineY * (Lines.Count - 1) + line.BaselineY) / Lines.Count;
+        }
+
+        public void Sort()
+        {
+            Lines.Sort((left, right) => left.Bounds.X.CompareTo(right.Bounds.X));
+        }
+    }
+
     private readonly record struct PdfGap(double Start, double End);
 
     private sealed class FlowBlock
     {
         public Block Block { get; }
         public PdfRect Bounds { get; }
+        public int? Sequence { get; }
 
-        public FlowBlock(Block block, PdfRect bounds)
+        public FlowBlock(Block block, PdfRect bounds, int? sequence = null)
         {
             Block = block;
             Bounds = bounds;
+            Sequence = sequence;
         }
     }
 
