@@ -4,7 +4,7 @@ namespace Vibe.Office.Documents;
 
 internal static class ShapePresetGeometryLibrary
 {
-    private static readonly Lazy<Dictionary<string, ShapeGeometry>> Cache = new(LoadGeometries);
+    private static readonly Lazy<ShapePresetGeometryCache> Cache = new(LoadGeometries);
 
     public static bool TryGetGeometry(string preset, out ShapeGeometry geometry)
     {
@@ -15,31 +15,44 @@ internal static class ShapePresetGeometryLibrary
         }
 
         var key = preset.Trim();
-        var dict = Cache.Value;
-        if (dict.TryGetValue(key, out geometry))
+        var cache = Cache.Value;
+        if (cache.Geometries.TryGetValue(key, out var resolved) && resolved is not null)
         {
+            geometry = resolved;
             return true;
         }
 
         var normalized = NormalizePresetKey(key);
-        return dict.TryGetValue(normalized, out geometry);
+        if (cache.Geometries.TryGetValue(normalized, out resolved) && resolved is not null)
+        {
+            geometry = resolved;
+            return true;
+        }
+
+        return false;
     }
 
-    private static Dictionary<string, ShapeGeometry> LoadGeometries()
+    internal static IReadOnlyList<string> GetPresetNames()
+    {
+        return Cache.Value.PresetNames;
+    }
+
+    private static ShapePresetGeometryCache LoadGeometries()
     {
         var dict = new Dictionary<string, ShapeGeometry>(StringComparer.OrdinalIgnoreCase);
+        var presetNames = new List<string>();
         var assembly = typeof(ShapePresetGeometryLibrary).Assembly;
         using var stream = assembly.GetManifestResourceStream("Vibe.Office.Documents.Shapes.presetShapeDefinitions.xml");
         if (stream is null)
         {
-            return dict;
+            return new ShapePresetGeometryCache(dict, presetNames);
         }
 
         var document = XDocument.Load(stream, LoadOptions.None);
         var root = document.Root;
         if (root is null)
         {
-            return dict;
+            return new ShapePresetGeometryCache(dict, presetNames);
         }
 
         XNamespace ns = "http://schemas.openxmlformats.org/drawingml/2006/main";
@@ -51,6 +64,7 @@ internal static class ShapePresetGeometryLibrary
                 continue;
             }
 
+            presetNames.Add(name);
             var geometry = new ShapeGeometry();
             ParseGuideList(element.Element(ns + "avLst"), geometry.Adjusts);
             ParseGuideList(element.Element(ns + "gdLst"), geometry.Guides);
@@ -65,7 +79,7 @@ internal static class ShapePresetGeometryLibrary
             }
         }
 
-        return dict;
+        return new ShapePresetGeometryCache(dict, presetNames);
     }
 
     private static void ParseGuideList(XElement? list, ICollection<ShapeGuide> target)
@@ -280,5 +294,20 @@ internal static class ShapePresetGeometryLibrary
         }
 
         return normalized;
+    }
+
+    private sealed class ShapePresetGeometryCache
+    {
+        public ShapePresetGeometryCache(
+            Dictionary<string, ShapeGeometry> geometries,
+            List<string> presetNames)
+        {
+            Geometries = geometries;
+            PresetNames = presetNames.AsReadOnly();
+        }
+
+        public Dictionary<string, ShapeGeometry> Geometries { get; }
+
+        public IReadOnlyList<string> PresetNames { get; }
     }
 }
