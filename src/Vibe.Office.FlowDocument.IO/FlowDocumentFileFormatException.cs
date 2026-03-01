@@ -13,4 +13,14 @@ public sealed class FlowDocumentFileFormatException : InvalidOperationException
         : base(message)
     {
     }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="FlowDocumentFileFormatException"/> class.
+    /// </summary>
+    /// <param name="message">Error message.</param>
+    /// <param name="innerException">Inner exception.</param>
+    public FlowDocumentFileFormatException(string message, Exception innerException)
+        : base(message, innerException)
+    {
+    }
 }

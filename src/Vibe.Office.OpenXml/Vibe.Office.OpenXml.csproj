@@ -12,6 +12,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\\Vibe.Office.Documents\\Vibe.Office.Documents.csproj" />
+    <ProjectReference Include="..\\Vibe.Office.Documents.Rtf\\Vibe.Office.Documents.Rtf.csproj" />
     <ProjectReference Include="..\\Vibe.Office.Macros\\Vibe.Office.Macros.csproj" />
   </ItemGroup>
 

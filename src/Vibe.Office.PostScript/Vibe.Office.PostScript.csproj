@@ -4,18 +4,13 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <PropertyGroup>
-    <PackageDescription>Reusable FlowDocument file conversion services for DOCX, Markdown, RTF, PDF, EPS, PostScript, XPS, and OXPS formats.</PackageDescription>
-    <PackageTags>vibeoffice;flowdocument;docx;markdown;rtf;pdf;eps;postscript;ps;xps;oxps;conversion</PackageTags>
+    <PackageDescription>EPS/PostScript conversion services for VibeOffice.</PackageDescription>
+    <PackageTags>vibeoffice;postscript;eps;ps;ghostscript;conversion</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Vibe.Office.Documents\Vibe.Office.Documents.csproj" />
-    <ProjectReference Include="..\Vibe.Office.Documents.Rtf\Vibe.Office.Documents.Rtf.csproj" />
-    <ProjectReference Include="..\Vibe.Office.FlowDocument\Vibe.Office.FlowDocument.csproj" />
-    <ProjectReference Include="..\Vibe.Office.FlowDocument.Documents\Vibe.Office.FlowDocument.Documents.csproj" />
     <ProjectReference Include="..\Vibe.Office.Layout\Vibe.Office.Layout.csproj" />
-    <ProjectReference Include="..\Vibe.Office.Markdown\Vibe.Office.Markdown.csproj" />
-    <ProjectReference Include="..\Vibe.Office.OpenXml\Vibe.Office.OpenXml.csproj" />
     <ProjectReference Include="..\Vibe.Office.Pdf\Vibe.Office.Pdf.csproj" />
     <ProjectReference Include="..\Vibe.Office.Pdf.Documents\Vibe.Office.Pdf.Documents.csproj" />
     <ProjectReference Include="..\Vibe.Office.Pdf.PdfPig\Vibe.Office.Pdf.PdfPig.csproj" />
@@ -23,7 +18,5 @@
     <ProjectReference Include="..\Vibe.Office.Printing.Documents\Vibe.Office.Printing.Documents.csproj" />
     <ProjectReference Include="..\Vibe.Office.Printing.Skia\Vibe.Office.Printing.Skia.csproj" />
     <ProjectReference Include="..\Vibe.Office.Printing.System\Vibe.Office.Printing.System.csproj" />
-    <ProjectReference Include="..\Vibe.Office.PostScript\Vibe.Office.PostScript.csproj" />
-    <ProjectReference Include="..\Vibe.Office.Xps\Vibe.Office.Xps.csproj" />
   </ItemGroup>
 </Project>

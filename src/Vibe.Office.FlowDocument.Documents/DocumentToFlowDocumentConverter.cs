@@ -545,8 +545,14 @@ public sealed class DocumentToFlowDocumentConverter
             return;
         }
 
-        if (source is ImageInline)
+        if (source is ImageInline imageInline)
         {
+            if (TryCreateFlowInlineImage(imageInline, out var container))
+            {
+                AddStyledInline(target, container, style: null, source.Hyperlink);
+                return;
+            }
+
             target.Add(new Vibe.Office.FlowDocument.Run(_options.InlineUiPlaceholderText));
             return;
         }
@@ -713,6 +719,24 @@ public sealed class DocumentToFlowDocumentConverter
                 span.TextDecorations = decorations;
             }
         }
+    }
+
+    private static bool TryCreateFlowInlineImage(ImageInline image, out Vibe.Office.FlowDocument.InlineUIContainer container)
+    {
+        container = null!;
+        if (image.Data.Length == 0)
+        {
+            return false;
+        }
+
+        var bytes = new byte[image.Data.Length];
+        image.Data.CopyTo(bytes, 0);
+        container = new Vibe.Office.FlowDocument.InlineUIContainer
+        {
+            Child = new FlowInlineImageData(bytes, image.Width, image.Height, image.ContentType)
+        };
+
+        return true;
     }
 
     private static void AddStyledInline(

@@ -40,4 +40,14 @@ public sealed class FlowDocumentFileConversionOptions
     /// Gets or sets optional base layout settings used for PDF export.
     /// </summary>
     public LayoutSettings? PdfExportLayoutSettings { get; set; }
+
+    /// <summary>
+    /// Gets PostScript conversion options used for EPS/PS import and export.
+    /// </summary>
+    public PostScriptConversionOptions PostScriptOptions { get; } = new();
+
+    /// <summary>
+    /// Gets XPS conversion options used for XPS/OXPS import and export.
+    /// </summary>
+    public XpsConversionOptions XpsOptions { get; } = new();
 }

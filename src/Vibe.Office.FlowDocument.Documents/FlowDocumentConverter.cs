@@ -1,4 +1,6 @@
+using System.IO;
 using Avalonia.Controls;
+using Avalonia.Media.Imaging;
 using Vibe.Office.Documents;
 using Vibe.Office.Primitives;
 using DocumentBlock = Vibe.Office.Documents.Block;
@@ -304,6 +306,11 @@ public sealed class FlowDocumentConverter
 
         if (inline is Vibe.Office.FlowDocument.InlineUIContainer inlineUi)
         {
+            if (TryAppendInlineImage(inlineUi, paragraph, hyperlink))
+            {
+                return;
+            }
+
             if (!TryAppendInlineUiContainer(inlineUi, paragraph, hyperlink))
             {
                 var placeholder = ResolveInlinePlaceholder(inlineUi.Child);
@@ -1090,6 +1097,87 @@ public sealed class FlowDocumentConverter
 
         paragraph.Inlines.Add(shape);
         return true;
+    }
+
+    private static bool TryAppendInlineImage(
+        Vibe.Office.FlowDocument.InlineUIContainer container,
+        ParagraphBlock paragraph,
+        HyperlinkInfo? hyperlink)
+    {
+        if (container.Child is FlowInlineImageData payload)
+        {
+            if (payload.Data.Length == 0)
+            {
+                return false;
+            }
+
+            var data = new byte[payload.Data.Length];
+            payload.Data.CopyTo(data, 0);
+            var imageInline = new ImageInline(
+                data,
+                payload.Width > 0f ? payload.Width : 1f,
+                payload.Height > 0f ? payload.Height : 1f,
+                payload.ContentType);
+            if (hyperlink is not null)
+            {
+                imageInline.Hyperlink = hyperlink;
+            }
+
+            paragraph.Inlines.Add(imageInline);
+            return true;
+        }
+
+        if (container.Child is not Image imageControl || imageControl.Source is not Bitmap bitmap)
+        {
+            return false;
+        }
+
+        byte[] bytes;
+        try
+        {
+            using var stream = new MemoryStream();
+            bitmap.Save(stream);
+            bytes = stream.ToArray();
+            if (bytes.Length == 0)
+            {
+                return false;
+            }
+        }
+        catch
+        {
+            return false;
+        }
+
+        var width = ResolveImageDimension(imageControl.Width, imageControl.Bounds.Width, bitmap.Size.Width);
+        var height = ResolveImageDimension(imageControl.Height, imageControl.Bounds.Height, bitmap.Size.Height);
+        var controlImageInline = new ImageInline(bytes, width, height, "image/png");
+        if (hyperlink is not null)
+        {
+            controlImageInline.Hyperlink = hyperlink;
+        }
+
+        paragraph.Inlines.Add(controlImageInline);
+        return true;
+    }
+
+    private static float ResolveImageDimension(double preferred, double bounds, double fallback)
+    {
+        if (!double.IsNaN(preferred) && !double.IsInfinity(preferred) && preferred > 0d)
+        {
+            return (float)preferred;
+        }
+
+        if (!double.IsNaN(bounds) && !double.IsInfinity(bounds) && bounds > 0d)
+        {
+            return (float)bounds;
+        }
+
+        if (!double.IsNaN(fallback) && !double.IsInfinity(fallback) && fallback > 0d)
+        {
+            return (float)fallback;
+        }
+
+        return 1f;
     }
 
     private bool TryCreateEmbeddedUiShape(object? child, bool isInline, out ShapeInline shape)

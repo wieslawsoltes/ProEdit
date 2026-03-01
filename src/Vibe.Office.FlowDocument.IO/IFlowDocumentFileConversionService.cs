@@ -40,10 +40,28 @@ public interface IFlowDocumentFileConversionService
     Task<FlowDocumentModel> LoadAsync(string path, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Loads a FlowDocument from a stream using the provided file extension.
+    /// </summary>
+    /// <param name="stream">Input stream.</param>
+    /// <param name="pathOrExtension">Path or extension used to resolve the format.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Loaded flow document.</returns>
+    Task<FlowDocumentModel> LoadAsync(Stream stream, string pathOrExtension, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Saves a FlowDocument to the specified file path.
     /// </summary>
     /// <param name="flowDocument">FlowDocument to save.</param>
     /// <param name="path">Output file path.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task SaveAsync(FlowDocumentModel flowDocument, string path, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Saves a FlowDocument to a stream using the provided file extension.
+    /// </summary>
+    /// <param name="flowDocument">FlowDocument to save.</param>
+    /// <param name="stream">Output stream.</param>
+    /// <param name="pathOrExtension">Path or extension used to resolve the format.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task SaveAsync(FlowDocumentModel flowDocument, Stream stream, string pathOrExtension, CancellationToken cancellationToken = default);
 }

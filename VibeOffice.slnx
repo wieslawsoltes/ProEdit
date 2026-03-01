@@ -8,6 +8,7 @@
     <Project Path="src/Vibe.Office.Collaboration/Vibe.Office.Collaboration.csproj" />
     <Project Path="src/Vibe.Office.Editing/Vibe.Office.Editing.csproj" />
     <Project Path="src/Vibe.Office.Documents/Vibe.Office.Documents.csproj" />
+    <Project Path="src/Vibe.Office.Documents.Rtf/Vibe.Office.Documents.Rtf.csproj" />
     <Project Path="src/Vibe.Office.FlowDocument/Vibe.Office.FlowDocument.csproj" />
     <Project Path="src/Vibe.Office.FlowDocument.Documents/Vibe.Office.FlowDocument.Documents.csproj" />
     <Project Path="src/Vibe.Office.FlowDocument.IO/Vibe.Office.FlowDocument.IO.csproj" />
@@ -33,6 +34,7 @@
     <Project Path="src/Vibe.Office.Printing.Documents/Vibe.Office.Printing.Documents.csproj" />
     <Project Path="src/Vibe.Office.Printing.Skia/Vibe.Office.Printing.Skia.csproj" />
     <Project Path="src/Vibe.Office.Printing.System/Vibe.Office.Printing.System.csproj" />
+    <Project Path="src/Vibe.Office.PostScript/Vibe.Office.PostScript.csproj" />
     <Project Path="src/Vibe.Office.Primitives/Vibe.Office.Primitives.csproj" />
     <Project Path="src/Vibe.Office.Proofing.GrammarApi.Plugin/Vibe.Office.Proofing.GrammarApi.Plugin.csproj" />
     <Project Path="src/Vibe.Office.Ribbon.Avalonia/Vibe.Office.Ribbon.Avalonia.csproj" />
@@ -41,6 +43,7 @@
     <Project Path="src/Vibe.Office.Rendering/Vibe.Office.Rendering.csproj" />
     <Project Path="src/Vibe.Office.Vba.Runtime/Vibe.Office.Vba.Runtime.csproj" />
     <Project Path="src/Vibe.Office.Vba/Vibe.Office.Vba.csproj" />
+    <Project Path="src/Vibe.Office.Xps/Vibe.Office.Xps.csproj" />
     <Project Path="src/Vibe.Word.Avalonia/Vibe.Word.Avalonia.csproj" />
     <Project Path="src/Vibe.Word.App/Vibe.Word.App.csproj" />
     <Project Path="src/Vibe.Word.Editor/Vibe.Word.Editor.csproj" />
