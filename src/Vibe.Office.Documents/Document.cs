@@ -23,6 +23,7 @@ public sealed class Document
     public DocumentThemeColorMap ThemeColors { get; } = new DocumentThemeColorMap();
     public DocumentProperties Properties { get; } = new DocumentProperties();
     public DocumentCompatibilitySettings Compatibility { get; } = new DocumentCompatibilitySettings();
+    public DocumentProtectionSettings Protection { get; } = new DocumentProtectionSettings();
     public Dictionary<string, XDocument> CustomXmlParts { get; } = new(StringComparer.OrdinalIgnoreCase);
     public DocumentRevisions Revisions { get; } = new DocumentRevisions();
     public DocumentMacros Macros { get; } = new DocumentMacros();
@@ -33,6 +34,14 @@ public sealed class Document
     public NoteSeparatorDefinition EndnoteSeparators { get; } = new NoteSeparatorDefinition();
     public Dictionary<int, CommentDefinition> Comments { get; } = new();
     public bool TrackChangesEnabled { get; set; }
+    public bool? FormsDesignMode { get; set; }
+    public bool? ReadOnlyRecommended { get; set; }
+    public bool? UpdateFieldsOnOpen { get; set; }
+    public float? DefaultTabStop { get; set; }
+    public bool? AutoHyphenation { get; set; }
+    public int? ConsecutiveHyphenLimit { get; set; }
+    public float? HyphenationZone { get; set; }
+    public bool? DoNotHyphenateCaps { get; set; }
     public string? RevisionAuthorOverride { get; set; }
     public string? CitationStyle { get; set; }
     public CitationSourceCatalog CitationSources { get; } = new CitationSourceCatalog();

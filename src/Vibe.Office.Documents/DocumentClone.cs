@@ -49,6 +49,14 @@ public static class DocumentClone
         target.GutterAtTop = source.GutterAtTop;
         target.EvenAndOddHeaders = source.EvenAndOddHeaders;
         target.TrackChangesEnabled = source.TrackChangesEnabled;
+        target.FormsDesignMode = source.FormsDesignMode;
+        target.ReadOnlyRecommended = source.ReadOnlyRecommended;
+        target.UpdateFieldsOnOpen = source.UpdateFieldsOnOpen;
+        target.DefaultTabStop = source.DefaultTabStop;
+        target.AutoHyphenation = source.AutoHyphenation;
+        target.ConsecutiveHyphenLimit = source.ConsecutiveHyphenLimit;
+        target.HyphenationZone = source.HyphenationZone;
+        target.DoNotHyphenateCaps = source.DoNotHyphenateCaps;
         target.CitationStyle = source.CitationStyle;
         target.MailMergeData = source.MailMergeData?.Clone();
         CopyCitationSources(source.CitationSources, target.CitationSources);
@@ -69,6 +77,7 @@ public static class DocumentClone
         CopyThemeColors(source.ThemeColors, target.ThemeColors);
         CopyDocumentProperties(source.Properties, target.Properties);
         CopyCompatibilitySettings(source.Compatibility, target.Compatibility);
+        CopyProtectionSettings(source.Protection, target.Protection);
         CopyCustomXmlParts(source.CustomXmlParts, target.CustomXmlParts);
         CopyRevisions(source.Revisions, target.Revisions);
         CopyMacros(source.Macros, target.Macros);
@@ -116,6 +125,20 @@ public static class DocumentClone
         target.DoNotUseEastAsianBreakRules = source.DoNotUseEastAsianBreakRules;
         target.UseAltKinsokuLineBreakRules = source.UseAltKinsokuLineBreakRules;
         target.DoNotWrapTextWithPunctuation = source.DoNotWrapTextWithPunctuation;
+    }
+
+    private static void CopyProtectionSettings(DocumentProtectionSettings source, DocumentProtectionSettings target)
+    {
+        target.EditMode = source.EditMode;
+        target.Enforcement = source.Enforcement;
+        target.Formatting = source.Formatting;
+        target.CryptProviderType = source.CryptProviderType;
+        target.CryptAlgorithmClass = source.CryptAlgorithmClass;
+        target.CryptAlgorithmType = source.CryptAlgorithmType;
+        target.CryptAlgorithmSid = source.CryptAlgorithmSid;
+        target.CryptSpinCount = source.CryptSpinCount;
+        target.Hash = source.Hash;
+        target.Salt = source.Salt;
     }
 
     private static void CopyCustomXmlParts(Dictionary<string, XDocument> source, Dictionary<string, XDocument> target)

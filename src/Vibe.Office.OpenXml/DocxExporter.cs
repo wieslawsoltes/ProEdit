@@ -1304,11 +1304,23 @@ public sealed class DocxExporter
     private static void EnsureDocumentSettings(MainDocumentPart mainPart, VibeDocument document, bool includeEvenHeaders)
     {
         var writeMailMerge = ShouldWriteMailMergeSettings(document);
+        var writeProtection = document.Protection.HasValues || document.FormsDesignMode.HasValue;
+        var writeReadOnlyRecommended = document.ReadOnlyRecommended.HasValue;
+        var writeUpdateFieldsOnOpen = document.UpdateFieldsOnOpen.HasValue;
+        var writeTextLayoutSettings = document.DefaultTabStop.HasValue
+                                      || document.AutoHyphenation.HasValue
+                                      || document.ConsecutiveHyphenLimit.HasValue
+                                      || document.HyphenationZone.HasValue
+                                      || document.DoNotHyphenateCaps.HasValue;
         if (!document.MirrorMargins
             && !document.GutterAtTop
             && !includeEvenHeaders
             && !document.TrackChangesEnabled
             && !document.Compatibility.HasValues
+            && !writeProtection
+            && !writeReadOnlyRecommended
+            && !writeUpdateFieldsOnOpen
+            && !writeTextLayoutSettings
             && !writeMailMerge)
         {
             return;
@@ -1335,6 +1347,55 @@ public sealed class DocxExporter
         if (document.TrackChangesEnabled)
         {
             settings.AppendChild(new TrackRevisions());
+        }
+
+        if (document.Protection.HasValues)
+        {
+            settings.AppendChild(BuildDocumentProtectionElement(document.Protection));
+        }
+
+        if (document.FormsDesignMode.HasValue)
+        {
+            settings.AppendChild(BuildFormsDesignElement(document.FormsDesignMode.Value));
+        }
+
+        if (document.ReadOnlyRecommended.HasValue)
+        {
+            settings.AppendChild(BuildOnOffSettingsElement("readOnlyRecommended", document.ReadOnlyRecommended.Value));
+            settings.AppendChild(BuildWriteProtectionRecommendedElement(document.ReadOnlyRecommended.Value));
+        }
+
+        if (document.UpdateFieldsOnOpen.HasValue)
+        {
+            settings.AppendChild(BuildOnOffSettingsElement("updateFields", document.UpdateFieldsOnOpen.Value));
+        }
+
+        if (document.DefaultTabStop.HasValue)
+        {
+            var defaultTabStopTwips = DipToTwipsInt32(document.DefaultTabStop.Value).Value;
+            var defaultTabStopValue = (short)Math.Clamp(defaultTabStopTwips, short.MinValue, short.MaxValue);
+            settings.AppendChild(new DefaultTabStop { Val = defaultTabStopValue });
+        }
+
+        if (document.AutoHyphenation.HasValue)
+        {
+            settings.AppendChild(new AutoHyphenation { Val = document.AutoHyphenation.Value });
+        }
+
+        if (document.ConsecutiveHyphenLimit.HasValue)
+        {
+            var consecutiveHyphenLimit = (ushort)Math.Clamp(document.ConsecutiveHyphenLimit.Value, 0, ushort.MaxValue);
+            settings.AppendChild(new ConsecutiveHyphenLimit { Val = consecutiveHyphenLimit });
+        }
+
+        if (document.HyphenationZone.HasValue)
+        {
+            settings.AppendChild(new HyphenationZone { Val = DipToTwips(document.HyphenationZone.Value) });
+        }
+
+        if (document.DoNotHyphenateCaps.HasValue)
+        {
+            settings.AppendChild(new DoNotHyphenateCaps { Val = document.DoNotHyphenateCaps.Value });
         }
 
         if (writeMailMerge)
@@ -1434,6 +1495,71 @@ public sealed class DocxExporter
         var element = new OpenXmlUnknownElement("w", localName, WordprocessingNamespace);
         element.SetAttribute(new OpenXmlAttribute("w", "val", WordprocessingNamespace, value));
         return element;
+    }
+
+    private static OpenXmlUnknownElement BuildDocumentProtectionElement(DocumentProtectionSettings protection)
+    {
+        var element = new OpenXmlUnknownElement("w", "documentProtection", WordprocessingNamespace);
+        AppendWordAttribute(element, "edit", protection.EditMode);
+        AppendWordOnOffAttribute(element, "enforcement", protection.Enforcement);
+        AppendWordOnOffAttribute(element, "formatting", protection.Formatting);
+        AppendWordAttribute(element, "cryptProviderType", protection.CryptProviderType);
+        AppendWordAttribute(element, "cryptAlgorithmClass", protection.CryptAlgorithmClass);
+        AppendWordAttribute(element, "cryptAlgorithmType", protection.CryptAlgorithmType);
+        AppendWordIntegerAttribute(element, "cryptAlgorithmSid", protection.CryptAlgorithmSid);
+        AppendWordIntegerAttribute(element, "cryptSpinCount", protection.CryptSpinCount);
+        AppendWordAttribute(element, "hash", protection.Hash);
+        AppendWordAttribute(element, "salt", protection.Salt);
+        return element;
+    }
+
+    private static OpenXmlUnknownElement BuildFormsDesignElement(bool formsDesignMode)
+    {
+        return BuildOnOffSettingsElement("formsDesign", formsDesignMode);
+    }
+
+    private static OpenXmlUnknownElement BuildOnOffSettingsElement(string localName, bool value)
+    {
+        var element = new OpenXmlUnknownElement("w", localName, WordprocessingNamespace);
+        element.SetAttribute(new OpenXmlAttribute("w", "val", WordprocessingNamespace, value ? "1" : "0"));
+        return element;
+    }
+
+    private static OpenXmlUnknownElement BuildWriteProtectionRecommendedElement(bool recommended)
+    {
+        var element = new OpenXmlUnknownElement("w", "writeProtection", WordprocessingNamespace);
+        element.SetAttribute(new OpenXmlAttribute("w", "recommended", WordprocessingNamespace, recommended ? "1" : "0"));
+        return element;
+    }
+
+    private static void AppendWordAttribute(OpenXmlUnknownElement element, string localName, string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return;
+        }
+
+        element.SetAttribute(new OpenXmlAttribute("w", localName, WordprocessingNamespace, value));
+    }
+
+    private static void AppendWordOnOffAttribute(OpenXmlUnknownElement element, string localName, bool? value)
+    {
+        if (!value.HasValue)
+        {
+            return;
+        }
+
+        element.SetAttribute(new OpenXmlAttribute("w", localName, WordprocessingNamespace, value.Value ? "1" : "0"));
+    }
+
+    private static void AppendWordIntegerAttribute(OpenXmlUnknownElement element, string localName, int? value)
+    {
+        if (!value.HasValue)
+        {
+            return;
+        }
+
+        element.SetAttribute(new OpenXmlAttribute("w", localName, WordprocessingNamespace, value.Value.ToString(CultureInfo.InvariantCulture)));
     }
 
     private static void AppendCompatibilitySetting<T>(Compatibility compat, bool? value, Func<bool, T> factory)

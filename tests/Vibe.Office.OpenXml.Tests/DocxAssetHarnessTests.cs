@@ -956,17 +956,17 @@ internal static class DocxFeatureCatalog
         new DocxFeatureDefinition(
             "track_changes",
             "Track changes",
-            DocxFeatureSupport.NotSupported,
+            DocxFeatureSupport.Partial,
             new[] { "<w:ins", "<w:del", "<w:moveFrom", "<w:moveTo", "<w:moveFromRangeStart", "<w:moveToRangeStart" }),
         new DocxFeatureDefinition(
             "content_controls",
             "Content controls (SDT)",
-            DocxFeatureSupport.NotSupported,
+            DocxFeatureSupport.Partial,
             new[] { "<w:sdt", "<w:sdtPr", "<w:sdtContent" }),
         new DocxFeatureDefinition(
             "data_bound_content_controls",
             "Data-bound content controls",
-            DocxFeatureSupport.NotSupported,
+            DocxFeatureSupport.Partial,
             new[] { "<w:dataBinding" }),
         new DocxFeatureDefinition(
             "fields",
@@ -981,17 +981,17 @@ internal static class DocxFeatureCatalog
         new DocxFeatureDefinition(
             "custom_xml_markup",
             "Custom XML markup",
-            DocxFeatureSupport.NotSupported,
+            DocxFeatureSupport.Partial,
             new[] { "<w:customXml", "<w:customXmlPr" }),
         new DocxFeatureDefinition(
             "smart_tags",
             "Smart tags",
-            DocxFeatureSupport.NotSupported,
+            DocxFeatureSupport.Partial,
             new[] { "<w:smartTag", "<w:smartTagPr" }),
         new DocxFeatureDefinition(
             "comment_ex",
             "CommentEx (Word 2013+)",
-            DocxFeatureSupport.NotSupported,
+            DocxFeatureSupport.Partial,
             new[] { "<w15:commentEx" },
             static part => part.EndsWith("word/commentsExtended.xml", StringComparison.OrdinalIgnoreCase)),
         new DocxFeatureDefinition(
@@ -1003,14 +1003,14 @@ internal static class DocxFeatureCatalog
         new DocxFeatureDefinition(
             "svg_images",
             "SVG images",
-            DocxFeatureSupport.NotSupported,
+            DocxFeatureSupport.Partial,
             new[] { "<a:svgBlip" },
             static part => part.StartsWith("word/media/", StringComparison.OrdinalIgnoreCase)
                            && part.EndsWith(".svg", StringComparison.OrdinalIgnoreCase)),
         new DocxFeatureDefinition(
             "ole_objects",
             "OLE / embedded objects",
-            DocxFeatureSupport.NotSupported,
+            DocxFeatureSupport.Partial,
             new[] { "<o:OLEObject", "<w:object" },
             static part => part.StartsWith("word/embeddings/", StringComparison.OrdinalIgnoreCase)),
         new DocxFeatureDefinition(
@@ -1033,47 +1033,47 @@ internal static class DocxFeatureCatalog
         new DocxFeatureDefinition(
             "page_borders",
             "Page borders",
-            DocxFeatureSupport.NotSupported,
+            DocxFeatureSupport.Partial,
             new[] { "<w:pgBorders" }),
         new DocxFeatureDefinition(
             "page_background_watermarks",
             "Page background / watermarks",
-            DocxFeatureSupport.NotSupported,
+            DocxFeatureSupport.Partial,
             new[] { "<w:background", "<v:background", "watermark" }),
         new DocxFeatureDefinition(
             "line_numbering",
             "Line numbering",
-            DocxFeatureSupport.NotSupported,
+            DocxFeatureSupport.Partial,
             new[] { "<w:lnNumType" }),
         new DocxFeatureDefinition(
             "text_direction_vertical",
             "Text direction / vertical text",
-            DocxFeatureSupport.NotSupported,
+            DocxFeatureSupport.Partial,
             new[] { "<w:textDirection", "<w:vert", "<w:rtl", "<w:bidi" }),
         new DocxFeatureDefinition(
             "east_asian_layout",
             "East Asian layout / ruby / phonetics",
-            DocxFeatureSupport.NotSupported,
+            DocxFeatureSupport.Partial,
             new[] { "<w:ruby", "<w:phonetic", "<w:rt" }),
         new DocxFeatureDefinition(
             "document_grid_frame_dropcap",
             "Document grid / frame / drop cap",
-            DocxFeatureSupport.NotSupported,
+            DocxFeatureSupport.Partial,
             new[] { "<w:docGrid", "<w:framePr", "<w:dropCap" }),
         new DocxFeatureDefinition(
             "document_protection_forms",
             "Document protection / forms",
-            DocxFeatureSupport.NotSupported,
+            DocxFeatureSupport.Partial,
             new[] { "<w:documentProtection", "<w:forms" }),
         new DocxFeatureDefinition(
             "text_effects",
             "Text effects (shadow/outline/emboss)",
-            DocxFeatureSupport.NotSupported,
+            DocxFeatureSupport.Partial,
             new[] { "<w:shadow", "<w:outline", "<w:emboss", "<w:imprint" }),
         new DocxFeatureDefinition(
             "compat_settings",
             "Compatibility settings",
-            DocxFeatureSupport.NotSupported,
+            DocxFeatureSupport.Partial,
             new[] { "<w:compat" }),
         new DocxFeatureDefinition(
             "sections_columns_layout",

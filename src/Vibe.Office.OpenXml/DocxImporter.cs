@@ -513,6 +513,10 @@ public sealed class DocxImporter
             document.TrackChangesEnabled = trackRevisions.Value;
         }
 
+        LoadDocumentProtectionSettings(settings, document);
+        LoadDocumentEditingPreferenceSettings(settings, document);
+        LoadDocumentTextLayoutSettings(settings, document);
+
         var mailMergeElement = settings.ChildElements.FirstOrDefault(IsMailMergeElement);
         if (mailMergeElement is not null)
         {
@@ -668,6 +672,153 @@ public sealed class DocxImporter
     {
         return string.Equals(element.NamespaceUri, WordprocessingNamespace, StringComparison.OrdinalIgnoreCase)
                && string.Equals(element.LocalName, "mailMerge", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static void LoadDocumentProtectionSettings(Settings settings, VibeDocument document)
+    {
+        var target = document.Protection;
+        target.EditMode = null;
+        target.Enforcement = null;
+        target.Formatting = null;
+        target.CryptProviderType = null;
+        target.CryptAlgorithmClass = null;
+        target.CryptAlgorithmType = null;
+        target.CryptAlgorithmSid = null;
+        target.CryptSpinCount = null;
+        target.Hash = null;
+        target.Salt = null;
+
+        document.FormsDesignMode = null;
+
+        var protection = settings.ChildElements.FirstOrDefault(IsDocumentProtectionElement);
+        if (protection is not null)
+        {
+            target.EditMode = ReadSettingsAttribute(protection, "edit");
+            target.Enforcement = TryParseBoolAttribute(protection, "enforcement");
+            target.Formatting = TryParseBoolAttribute(protection, "formatting");
+            target.CryptProviderType = ReadSettingsAttribute(protection, "cryptProviderType");
+            target.CryptAlgorithmClass = ReadSettingsAttribute(protection, "cryptAlgorithmClass");
+            target.CryptAlgorithmType = ReadSettingsAttribute(protection, "cryptAlgorithmType");
+            target.Hash = ReadSettingsAttribute(protection, "hash");
+            target.Salt = ReadSettingsAttribute(protection, "salt");
+            if (TryParseIntAttribute(protection, "cryptAlgorithmSid", out var cryptAlgorithmSid))
+            {
+                target.CryptAlgorithmSid = cryptAlgorithmSid;
+            }
+
+            if (TryParseIntAttribute(protection, "cryptSpinCount", out var cryptSpinCount))
+            {
+                target.CryptSpinCount = cryptSpinCount;
+            }
+        }
+
+        var formsDesign = settings.ChildElements.FirstOrDefault(IsFormsDesignElement);
+        if (formsDesign is not null)
+        {
+            document.FormsDesignMode = TryParseBoolAttribute(formsDesign, "val") ?? true;
+        }
+    }
+
+    private static bool IsDocumentProtectionElement(OpenXmlElement element)
+    {
+        return string.Equals(element.NamespaceUri, WordprocessingNamespace, StringComparison.OrdinalIgnoreCase)
+               && string.Equals(element.LocalName, "documentProtection", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsFormsDesignElement(OpenXmlElement element)
+    {
+        if (!string.Equals(element.NamespaceUri, WordprocessingNamespace, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return string.Equals(element.LocalName, "formsDesign", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(element.LocalName, "forms", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static void LoadDocumentEditingPreferenceSettings(Settings settings, VibeDocument document)
+    {
+        document.ReadOnlyRecommended = null;
+        document.UpdateFieldsOnOpen = null;
+
+        var readOnlyRecommended = settings.ChildElements.FirstOrDefault(IsReadOnlyRecommendedElement);
+        if (readOnlyRecommended is not null)
+        {
+            document.ReadOnlyRecommended = TryParseBoolAttribute(readOnlyRecommended, "val") ?? true;
+        }
+
+        if (!document.ReadOnlyRecommended.HasValue)
+        {
+            var writeProtection = settings.ChildElements.FirstOrDefault(IsWriteProtectionElement);
+            if (writeProtection is not null)
+            {
+                document.ReadOnlyRecommended = TryParseBoolAttribute(writeProtection, "recommended");
+            }
+        }
+
+        var updateFields = settings.ChildElements.FirstOrDefault(IsUpdateFieldsElement);
+        if (updateFields is not null)
+        {
+            document.UpdateFieldsOnOpen = TryParseBoolAttribute(updateFields, "val") ?? true;
+        }
+    }
+
+    private static bool IsReadOnlyRecommendedElement(OpenXmlElement element)
+    {
+        return string.Equals(element.NamespaceUri, WordprocessingNamespace, StringComparison.OrdinalIgnoreCase)
+               && string.Equals(element.LocalName, "readOnlyRecommended", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsWriteProtectionElement(OpenXmlElement element)
+    {
+        return string.Equals(element.NamespaceUri, WordprocessingNamespace, StringComparison.OrdinalIgnoreCase)
+               && string.Equals(element.LocalName, "writeProtection", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsUpdateFieldsElement(OpenXmlElement element)
+    {
+        return string.Equals(element.NamespaceUri, WordprocessingNamespace, StringComparison.OrdinalIgnoreCase)
+               && string.Equals(element.LocalName, "updateFields", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static void LoadDocumentTextLayoutSettings(Settings settings, VibeDocument document)
+    {
+        document.DefaultTabStop = null;
+        document.AutoHyphenation = null;
+        document.ConsecutiveHyphenLimit = null;
+        document.HyphenationZone = null;
+        document.DoNotHyphenateCaps = null;
+
+        var defaultTabStop = settings.GetFirstChild<DefaultTabStop>();
+        var defaultTabStopTwips = TryParseTwips(defaultTabStop?.Val);
+        if (defaultTabStopTwips.HasValue)
+        {
+            document.DefaultTabStop = TwipsToDip(defaultTabStopTwips.Value);
+        }
+
+        document.AutoHyphenation = ReadOnOff(settings.GetFirstChild<AutoHyphenation>());
+        var consecutiveHyphenLimit = settings.GetFirstChild<ConsecutiveHyphenLimit>()?.Val?.Value;
+        if (consecutiveHyphenLimit.HasValue)
+        {
+            document.ConsecutiveHyphenLimit = consecutiveHyphenLimit.Value;
+        }
+
+        var hyphenationZone = settings.GetFirstChild<HyphenationZone>();
+        var hyphenationZoneTwips = TryParseTwips(hyphenationZone?.Val);
+        if (hyphenationZoneTwips.HasValue)
+        {
+            document.HyphenationZone = TwipsToDip(hyphenationZoneTwips.Value);
+        }
+
+        document.DoNotHyphenateCaps = ReadOnOff(settings.GetFirstChild<DoNotHyphenateCaps>());
+    }
+
+    private static string? ReadSettingsAttribute(OpenXmlElement element, string localName)
+    {
+        var value = GetAttributeValue(element, localName, element.NamespaceUri)
+                    ?? GetAttributeValue(element, localName, WordprocessingNamespace)
+                    ?? GetAttributeValue(element, localName);
+        return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     }
 
     private static bool IsMailMergeField(FieldDefinition definition)
@@ -11955,12 +12106,14 @@ public sealed class DocxImporter
         }
 
         if (text.Equals("1", StringComparison.OrdinalIgnoreCase)
+            || text.Equals("on", StringComparison.OrdinalIgnoreCase)
             || text.Equals("true", StringComparison.OrdinalIgnoreCase))
         {
             return true;
         }
 
         if (text.Equals("0", StringComparison.OrdinalIgnoreCase)
+            || text.Equals("off", StringComparison.OrdinalIgnoreCase)
             || text.Equals("false", StringComparison.OrdinalIgnoreCase))
         {
             return false;
