@@ -229,7 +229,8 @@ public sealed class ReportExporterTests
 
         Assert.False(result.HasErrors);
         var csv = Encoding.UTF8.GetString(stream.ToArray());
-        var lines = csv.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        var lines = csv.Replace("\r", string.Empty, StringComparison.Ordinal)
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries);
 
         Assert.Equal(3, lines.Length);
         Assert.Equal("Merged,", lines[0]);
