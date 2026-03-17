@@ -1,0 +1,403 @@
+using System.Globalization;
+using Vibe.Office.Reporting.Expressions;
+
+namespace Vibe.Office.Reporting.Data;
+
+/// <summary>
+/// Represents one available parameter choice.
+/// </summary>
+public sealed class ReportParameterAvailableValue
+{
+    /// <summary>
+    /// Gets or sets the underlying value.
+    /// </summary>
+    public object? Value { get; set; }
+
+    /// <summary>
+    /// Gets or sets the display label.
+    /// </summary>
+    public string Label { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Represents one parameter resolution request.
+/// </summary>
+public sealed class ReportParameterResolutionRequest
+{
+    /// <summary>
+    /// Gets or sets the report definition.
+    /// </summary>
+    public ReportDefinition ReportDefinition { get; set; } = new();
+
+    /// <summary>
+    /// Gets or sets the provider registry.
+    /// </summary>
+    public ReportDataProviderRegistry ProviderRegistry { get; set; } = new();
+
+    /// <summary>
+    /// Gets or sets the host data registry.
+    /// </summary>
+    public ReportHostDataRegistry HostDataRegistry { get; set; } = new();
+
+    /// <summary>
+    /// Gets the supplied parameter values.
+    /// </summary>
+    public Dictionary<string, ReportParameterValue> SuppliedValues { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Gets the supplied global values.
+    /// </summary>
+    public Dictionary<string, object?> Globals { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Gets or sets the execution culture.
+    /// </summary>
+    public CultureInfo? Culture { get; set; }
+
+    /// <summary>
+    /// Gets or sets the UI culture.
+    /// </summary>
+    public CultureInfo? UiCulture { get; set; }
+
+    /// <summary>
+    /// Gets or sets the execution time zone.
+    /// </summary>
+    public TimeZoneInfo? TimeZone { get; set; }
+}
+
+/// <summary>
+/// Represents one parameter resolution result.
+/// </summary>
+public sealed class ReportParameterResolutionResult
+{
+    /// <summary>
+    /// Gets the resolved parameter values.
+    /// </summary>
+    public Dictionary<string, ReportParameterValue> ResolvedValues { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Gets the available values per parameter identifier.
+    /// </summary>
+    public Dictionary<string, List<ReportParameterAvailableValue>> AvailableValues { get; } =
+        new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Gets the emitted diagnostics.
+    /// </summary>
+    public List<ReportDiagnostic> Diagnostics { get; } = new();
+
+    /// <summary>
+    /// Gets a value indicating whether resolution emitted any errors.
+    /// </summary>
+    public bool HasErrors => Diagnostics.Any(static diagnostic => diagnostic.Severity == ReportDiagnosticSeverity.Error);
+}
+
+/// <summary>
+/// Resolves parameter defaults and cascading available values.
+/// </summary>
+public sealed class ReportParameterResolver
+{
+    private readonly ReportDataSetExecutor _dataSetExecutor;
+    private readonly IReportExpressionCompiler _expressionCompiler;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ReportParameterResolver" /> class.
+    /// </summary>
+    /// <param name="expressionCompiler">The expression compiler.</param>
+    public ReportParameterResolver(IReportExpressionCompiler expressionCompiler)
+    {
+        _expressionCompiler = expressionCompiler ?? throw new ArgumentNullException(nameof(expressionCompiler));
+        _dataSetExecutor = new ReportDataSetExecutor(expressionCompiler);
+    }
+
+    /// <summary>
+    /// Resolves the report parameters.
+    /// </summary>
+    /// <param name="request">The resolution request.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The resolution result.</returns>
+    public async ValueTask<ReportParameterResolutionResult> ResolveAsync(
+        ReportParameterResolutionRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var result = new ReportParameterResolutionResult();
+        var culture = request.Culture ?? CultureInfo.InvariantCulture;
+        var uiCulture = request.UiCulture ?? culture;
+        var timeZone = request.TimeZone ?? TimeZoneInfo.Utc;
+        var globals = ReportDataRuntimeHelpers.CreateGlobals(request.Globals, timeZone);
+        var orderedParameters = OrderParameters(request.ReportDefinition.Parameters, result.Diagnostics);
+        if (result.HasErrors)
+        {
+            return result;
+        }
+
+        for (var parameterIndex = 0; parameterIndex < orderedParameters.Count; parameterIndex++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var parameter = orderedParameters[parameterIndex];
+            ReportParameterValue resolvedValue;
+
+            if (request.SuppliedValues.TryGetValue(parameter.Id, out var suppliedValue))
+            {
+                try
+                {
+                    resolvedValue = ReportDataRuntimeHelpers.CoerceParameterValue(parameter, suppliedValue, culture);
+                }
+                catch (Exception ex)
+                {
+                    result.Diagnostics.Add(new ReportDiagnostic(
+                        ReportDiagnosticSeverity.Error,
+                        ReportDiagnosticCodes.ValueCoercionFailed,
+                        ex.Message,
+                        $"$.parameters[{parameter.Id}]"));
+                    continue;
+                }
+            }
+            else if (!string.IsNullOrWhiteSpace(parameter.DefaultValueExpression))
+            {
+                if (!TryResolveDefaultValue(parameter, result.ResolvedValues, globals, culture, uiCulture, timeZone, result.Diagnostics, out resolvedValue))
+                {
+                    continue;
+                }
+            }
+            else
+            {
+                if (!parameter.AllowNull && parameter.Visibility != ReportParameterVisibility.Visible)
+                {
+                    result.Diagnostics.Add(new ReportDiagnostic(
+                        ReportDiagnosticSeverity.Error,
+                        ReportDiagnosticCodes.ParameterResolutionFailed,
+                        $"Parameter '{parameter.Id}' requires a value.",
+                        $"$.parameters[{parameter.Id}]"));
+                    continue;
+                }
+
+                resolvedValue = new ReportParameterValue
+                {
+                    IsNull = true
+                };
+            }
+
+            result.ResolvedValues[parameter.Id] = resolvedValue;
+
+            if (!string.IsNullOrWhiteSpace(parameter.AvailableValuesDataSetId))
+            {
+                var availableValues = await ResolveAvailableValuesAsync(
+                    parameter,
+                    request,
+                    result.ResolvedValues,
+                    culture,
+                    uiCulture,
+                    timeZone,
+                    cancellationToken);
+                for (var diagnosticIndex = 0; diagnosticIndex < availableValues.Diagnostics.Count; diagnosticIndex++)
+                {
+                    result.Diagnostics.Add(availableValues.Diagnostics[diagnosticIndex]);
+                }
+
+                if (availableValues.Values is not null)
+                {
+                    result.AvailableValues[parameter.Id] = availableValues.Values;
+                }
+            }
+        }
+
+        return result;
+    }
+
+    private bool TryResolveDefaultValue(
+        ReportParameterDefinition parameter,
+        IReadOnlyDictionary<string, ReportParameterValue> resolvedValues,
+        IReadOnlyDictionary<string, object?> globals,
+        CultureInfo culture,
+        CultureInfo uiCulture,
+        TimeZoneInfo timeZone,
+        List<ReportDiagnostic> diagnostics,
+        out ReportParameterValue parameterValue)
+    {
+        parameterValue = new ReportParameterValue();
+        var compilationResult = _expressionCompiler.Compile(parameter.DefaultValueExpression!);
+        for (var diagnosticIndex = 0; diagnosticIndex < compilationResult.Diagnostics.Count; diagnosticIndex++)
+        {
+            diagnostics.Add(CloneDiagnostic(compilationResult.Diagnostics[diagnosticIndex], $"$.parameters[{parameter.Id}].defaultValueExpression"));
+        }
+
+        if (compilationResult.Expression is null || compilationResult.HasErrors)
+        {
+            return false;
+        }
+
+        var context = new ReportExpressionContext
+        {
+            Parameters = resolvedValues,
+            Globals = globals,
+            Culture = culture,
+            UiCulture = uiCulture,
+            TimeZone = timeZone,
+            ScopeKind = ReportExpressionScopeKind.Report
+        };
+
+        if (!compilationResult.Expression.TryEvaluate(context, out var rawValue, out var diagnostic))
+        {
+            diagnostics.Add(CloneDiagnostic(diagnostic!, $"$.parameters[{parameter.Id}].defaultValueExpression"));
+            return false;
+        }
+
+        try
+        {
+            parameterValue = ReportDataRuntimeHelpers.CoerceParameterValue(parameter, rawValue, culture);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            diagnostics.Add(new ReportDiagnostic(
+                ReportDiagnosticSeverity.Error,
+                ReportDiagnosticCodes.ValueCoercionFailed,
+                ex.Message,
+                $"$.parameters[{parameter.Id}]"));
+            return false;
+        }
+    }
+
+    private async ValueTask<(List<ReportParameterAvailableValue>? Values, List<ReportDiagnostic> Diagnostics)> ResolveAvailableValuesAsync(
+        ReportParameterDefinition parameter,
+        ReportParameterResolutionRequest request,
+        IReadOnlyDictionary<string, ReportParameterValue> resolvedValues,
+        CultureInfo culture,
+        CultureInfo uiCulture,
+        TimeZoneInfo timeZone,
+        CancellationToken cancellationToken)
+    {
+        var executionRequest = new ReportDataSetExecutionRequest
+        {
+            ReportDefinition = request.ReportDefinition,
+            DataSetId = parameter.AvailableValuesDataSetId!,
+            ProviderRegistry = request.ProviderRegistry,
+            HostDataRegistry = request.HostDataRegistry,
+            Culture = culture,
+            UiCulture = uiCulture,
+            TimeZone = timeZone
+        };
+
+        foreach (var pair in resolvedValues)
+        {
+            executionRequest.ParameterValues[pair.Key] = pair.Value;
+        }
+
+        foreach (var pair in request.Globals)
+        {
+            executionRequest.Globals[pair.Key] = pair.Value;
+        }
+
+        var executionResult = await _dataSetExecutor.ExecuteAsync(executionRequest, cancellationToken);
+        if (executionResult.DataSet is null)
+        {
+            return (null, executionResult.Diagnostics);
+        }
+
+        var values = new List<ReportParameterAvailableValue>();
+        for (var rowIndex = 0; rowIndex < executionResult.DataSet.Rows.Count; rowIndex++)
+        {
+            var row = executionResult.DataSet.Rows[rowIndex];
+            row.TryGetValue(parameter.ValueField ?? "Value", out var value);
+            row.TryGetValue(parameter.LabelField ?? parameter.ValueField ?? "Label", out var labelValue);
+            var label = ReportDataRuntimeHelpers.ToDisplayText(labelValue ?? value, culture) ?? string.Empty;
+            if (values.Any(existing => ReportDataRuntimeHelpers.AreEqual(existing.Value, value, culture)))
+            {
+                continue;
+            }
+
+            values.Add(new ReportParameterAvailableValue
+            {
+                Value = value,
+                Label = label
+            });
+        }
+
+        return (values, executionResult.Diagnostics);
+    }
+
+    private static List<ReportParameterDefinition> OrderParameters(
+        IReadOnlyList<ReportParameterDefinition> parameters,
+        List<ReportDiagnostic> diagnostics)
+    {
+        var parametersById = new Dictionary<string, ReportParameterDefinition>(StringComparer.OrdinalIgnoreCase);
+        for (var index = 0; index < parameters.Count; index++)
+        {
+            parametersById[parameters[index].Id] = parameters[index];
+        }
+
+        var ordered = new List<ReportParameterDefinition>(parameters.Count);
+        var state = new Dictionary<string, VisitState>(StringComparer.OrdinalIgnoreCase);
+        for (var index = 0; index < parameters.Count; index++)
+        {
+            Visit(parameters[index], parametersById, state, ordered, diagnostics);
+        }
+
+        return ordered;
+    }
+
+    private static void Visit(
+        ReportParameterDefinition parameter,
+        IReadOnlyDictionary<string, ReportParameterDefinition> parametersById,
+        IDictionary<string, VisitState> state,
+        ICollection<ReportParameterDefinition> ordered,
+        ICollection<ReportDiagnostic> diagnostics)
+    {
+        if (state.TryGetValue(parameter.Id, out var visitState))
+        {
+            if (visitState == VisitState.Visited)
+            {
+                return;
+            }
+
+            if (visitState == VisitState.Visiting)
+            {
+                diagnostics.Add(new ReportDiagnostic(
+                    ReportDiagnosticSeverity.Error,
+                    ReportDiagnosticCodes.ParameterResolutionFailed,
+                    $"Parameter dependency cycle detected at '{parameter.Id}'.",
+                    $"$.parameters[{parameter.Id}]"));
+            }
+
+            return;
+        }
+
+        state[parameter.Id] = VisitState.Visiting;
+        for (var dependencyIndex = 0; dependencyIndex < parameter.Dependencies.Count; dependencyIndex++)
+        {
+            var dependencyId = parameter.Dependencies[dependencyIndex];
+            if (!parametersById.TryGetValue(dependencyId, out var dependency))
+            {
+                diagnostics.Add(new ReportDiagnostic(
+                    ReportDiagnosticSeverity.Error,
+                    ReportDiagnosticCodes.ParameterResolutionFailed,
+                    $"Parameter '{parameter.Id}' depends on unknown parameter '{dependencyId}'.",
+                    $"$.parameters[{parameter.Id}]"));
+                continue;
+            }
+
+            Visit(dependency, parametersById, state, ordered, diagnostics);
+        }
+
+        state[parameter.Id] = VisitState.Visited;
+        ordered.Add(parameter);
+    }
+
+    private static ReportDiagnostic CloneDiagnostic(ReportDiagnostic diagnostic, string path)
+    {
+        return new ReportDiagnostic(
+            diagnostic.Severity,
+            diagnostic.Code,
+            diagnostic.Message,
+            path);
+    }
+
+    private enum VisitState
+    {
+        Visiting,
+        Visited
+    }
+}
