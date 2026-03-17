@@ -8,58 +8,78 @@
   </UserControl.Styles>
 
   <Grid RowDefinitions="Auto,*"
-        ColumnDefinitions="320,*">
+        ColumnDefinitions="292,6,*">
     <Border Grid.Row="0"
-            Grid.ColumnSpan="2"
+            Grid.ColumnSpan="3"
             Classes="viewer-toolbar">
-      <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*,Auto,Auto"
-            ColumnSpacing="10">
-        <Button Content="Refresh"
-                Command="{Binding RefreshCommand}"
-                IsEnabled="{Binding CanRefresh}" />
-        <Button Grid.Column="1"
-                Content="Back"
-                Command="{Binding GoBackCommand}"
-                IsEnabled="{Binding CanGoBack}" />
-        <Button Grid.Column="2"
-                Content="Prev"
-                Command="{Binding PreviousPageCommand}"
-                IsEnabled="{Binding CanNavigatePrevious}" />
-        <Button Grid.Column="3"
-                Content="Next"
-                Command="{Binding NextPageCommand}"
-                IsEnabled="{Binding CanNavigateNext}" />
-        <TextBlock Grid.Column="4"
-                   VerticalAlignment="Center"
-                   Text="{Binding PageDisplayText}" />
-        <ComboBox Grid.Column="5"
-                  Width="110"
-                  ItemsSource="{Binding ZoomLevels}"
-                  SelectedItem="{Binding ZoomFactor, Mode=TwoWay}" />
-        <TextBlock Grid.Column="6"
-                   VerticalAlignment="Center"
-                   Text="{Binding StatusMessage}" />
-        <ComboBox Grid.Column="7"
-                  Width="120"
-                  ItemsSource="{Binding ExportFormats}"
-                  SelectedItem="{Binding SelectedExportFormat, Mode=TwoWay}" />
-        <StackPanel Grid.Column="8"
-                    Orientation="Horizontal"
-                    Spacing="8">
-          <Button Content="Export"
-                  Command="{Binding ExportCommand}"
-                  IsEnabled="{Binding CanExport}" />
-          <Button Content="Print"
-                  Command="{Binding PrintCommand}"
-                  IsEnabled="{Binding CanPrint}" />
-        </StackPanel>
-      </Grid>
+      <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                    VerticalScrollBarVisibility="Disabled">
+        <Grid ColumnDefinitions="Auto,Auto,*,Auto"
+              ColumnSpacing="12">
+          <StackPanel Orientation="Horizontal"
+                      Spacing="8">
+            <Button Classes="viewer-tool-button viewer-tool-button-primary"
+                    Content="Refresh"
+                    Command="{Binding RefreshCommand}"
+                    IsEnabled="{Binding CanRefresh}" />
+            <Button Classes="viewer-tool-button"
+                    Content="Back"
+                    Command="{Binding GoBackCommand}"
+                    IsEnabled="{Binding CanGoBack}" />
+            <Button Classes="viewer-tool-button"
+                    Content="Prev"
+                    Command="{Binding PreviousPageCommand}"
+                    IsEnabled="{Binding CanNavigatePrevious}" />
+            <Button Classes="viewer-tool-button"
+                    Content="Next"
+                    Command="{Binding NextPageCommand}"
+                    IsEnabled="{Binding CanNavigateNext}" />
+          </StackPanel>
+
+          <StackPanel Grid.Column="1"
+                      Orientation="Horizontal"
+                      Spacing="8">
+            <Border Classes="viewer-status-pill">
+              <TextBlock Text="{Binding PageDisplayText}" />
+            </Border>
+            <ComboBox Width="110"
+                      ItemsSource="{Binding ZoomLevels}"
+                      SelectedItem="{Binding ZoomFactor, Mode=TwoWay}" />
+          </StackPanel>
+
+          <StackPanel Grid.Column="2"
+                      Orientation="Horizontal"
+                      HorizontalAlignment="Right"
+                      Spacing="8">
+            <Border Classes="viewer-status-pill">
+              <TextBlock Text="{Binding StatusMessage}" />
+            </Border>
+          </StackPanel>
+
+          <StackPanel Grid.Column="3"
+                      Orientation="Horizontal"
+                      Spacing="8">
+            <ComboBox Width="120"
+                      ItemsSource="{Binding ExportFormats}"
+                      SelectedItem="{Binding SelectedExportFormat, Mode=TwoWay}" />
+            <Button Classes="viewer-tool-button"
+                    Content="Export"
+                    Command="{Binding ExportCommand}"
+                    IsEnabled="{Binding CanExport}" />
+            <Button Classes="viewer-tool-button"
+                    Content="Print"
+                    Command="{Binding PrintCommand}"
+                    IsEnabled="{Binding CanPrint}" />
+          </StackPanel>
+        </Grid>
+      </ScrollViewer>
     </Border>
 
     <Border Grid.Row="1"
             Grid.Column="0"
             Classes="viewer-sidebar">
-      <TabControl SelectedIndex="{Binding SelectedPaneIndex, Mode=TwoWay}">
+      <TabControl Classes="viewer-pane-tabs"
+                  SelectedIndex="{Binding SelectedPaneIndex, Mode=TwoWay}">
         <TabItem Header="Parameters">
           <Grid RowDefinitions="*,Auto"
                 RowSpacing="10">
@@ -101,10 +121,12 @@
             <StackPanel Grid.Row="1"
                         Orientation="Horizontal"
                         Spacing="8">
-              <Button Content="Apply"
+              <Button Classes="viewer-tool-button viewer-tool-button-primary"
+                      Content="Apply"
                       Command="{Binding ApplyParametersCommand}"
                       IsEnabled="{Binding CanRefresh}" />
-              <Button Content="Reset"
+              <Button Classes="viewer-tool-button"
+                      Content="Reset"
                       Command="{Binding ResetParametersCommand}"
                       IsEnabled="{Binding CanRefresh}" />
             </StackPanel>
@@ -119,7 +141,8 @@
                 <Grid ColumnDefinitions="*,Auto"
                       ColumnSpacing="10"
                       Margin="{Binding IndentMargin}">
-                  <Button HorizontalAlignment="Stretch"
+                  <Button Classes="viewer-list-button"
+                          HorizontalAlignment="Stretch"
                           HorizontalContentAlignment="Left"
                           Command="{Binding NavigateCommand}">
                     <TextBlock Text="{Binding Label}" />
@@ -146,7 +169,8 @@
                   <Border Classes="viewer-card">
                     <Grid RowDefinitions="Auto,Auto"
                           RowSpacing="6">
-                      <Button HorizontalAlignment="Stretch"
+                      <Button Classes="viewer-list-button"
+                              HorizontalAlignment="Stretch"
                               HorizontalContentAlignment="Left"
                               Command="{Binding NavigateCommand}">
                         <TextBlock Text="{Binding Snippet}"
@@ -190,7 +214,8 @@
               <DataTemplate x:DataType="local:ReportViewerDrillthroughItemViewModel">
                 <Border Classes="viewer-card">
                   <StackPanel Spacing="6">
-                    <Button HorizontalAlignment="Stretch"
+                    <Button Classes="viewer-list-button"
+                            HorizontalAlignment="Stretch"
                             HorizontalContentAlignment="Left"
                             Command="{Binding NavigateCommand}">
                       <TextBlock Text="{Binding Label}" />
@@ -208,8 +233,14 @@
       </TabControl>
     </Border>
 
+    <GridSplitter Grid.Row="1"
+                  Grid.Column="1"
+                  Classes="viewer-splitter"
+                  HorizontalAlignment="Stretch"
+                  ResizeDirection="Columns" />
+
     <Border Grid.Row="1"
-            Grid.Column="1"
+            Grid.Column="2"
             Classes="viewer-preview">
       <Grid RowDefinitions="*,Auto"
             RowSpacing="12">
