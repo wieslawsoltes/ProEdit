@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageDescription>Core report-definition model and execution contracts for VibeOffice reporting.</PackageDescription>
+    <PackageTags>vibeoffice;reporting;reports;model</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\\Vibe.Office.Documents\\Vibe.Office.Documents.csproj" />
+  </ItemGroup>
+
+</Project>
