@@ -21,6 +21,7 @@
     <Project Path="src/Vibe.Office.WinUICompat.Collaboration/Vibe.Office.WinUICompat.Collaboration.csproj" />
     <Project Path="src/Vibe.WinUICompat.App/Vibe.WinUICompat.App.csproj" />
     <Project Path="src/Vibe.FlowDocument.App/Vibe.FlowDocument.App.csproj" />
+    <Project Path="src/Vibe.Reporting.App/Vibe.Reporting.App.csproj" />
     <Project Path="src/Vibe.Office.Html/Vibe.Office.Html.csproj" />
     <Project Path="src/Vibe.Office.Layout/Vibe.Office.Layout.csproj" />
     <Project Path="src/Vibe.Office.Markdown/Vibe.Office.Markdown.csproj" />
@@ -86,6 +87,7 @@
     <Project Path="tests/Vibe.Office.Reporting.Service.Tests/Vibe.Office.Reporting.Service.Tests.csproj" />
     <Project Path="tests/Vibe.Office.Reporting.Serialization.Tests/Vibe.Office.Reporting.Serialization.Tests.csproj" />
     <Project Path="tests/Vibe.Office.OpenXml.Tests/Vibe.Office.OpenXml.Tests.csproj" />
+    <Project Path="tests/Vibe.Reporting.App.Headless.Tests/Vibe.Reporting.App.Headless.Tests.csproj" />
     <Project Path="tests/Vibe.Office.WinUICompat.Tests/Vibe.Office.WinUICompat.Tests.csproj" />
     <Project Path="tests/Vibe.Office.WinUICompat.Uno.Tests/Vibe.Office.WinUICompat.Uno.Tests.csproj" />
     <Project Path="tests/Vibe.Office.Vba.Runtime.Tests/Vibe.Office.Vba.Runtime.Tests.csproj" />
