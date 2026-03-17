@@ -6,10 +6,14 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using System.Reactive;
 using ReactiveUI;
+using Vibe.Office.Documents;
+using Vibe.Office.Reporting;
 using Vibe.Office.Reporting.Avalonia.Designer;
 using Vibe.Office.Reporting.Avalonia.Viewer;
+using Vibe.Office.Reporting.Data;
 using Vibe.Office.Reporting.Rdl;
 using Vibe.Office.Reporting.Serialization;
+using Vibe.Reporting.App.Controls;
 using Vibe.Reporting.App.Services;
 using Vibe.Reporting.App.ViewModels;
 using Xunit;
@@ -37,6 +41,8 @@ public static class HeadlessTestAppBuilder
 
 public sealed class ReportingStudioAppTests
 {
+    private static readonly string SampleCorpusPath = ResolveSampleCorpusPath();
+
     [Fact]
     public async Task DocumentService_OpenNative_LoadsSiblingReferencedReports()
     {
@@ -112,13 +118,78 @@ public sealed class ReportingStudioAppTests
         window.Show();
         await Dispatcher.UIThread.InvokeAsync(() => { });
 
-        Assert.True(window.GetVisualDescendants().OfType<TabControl>().Count() >= 2);
-        Assert.Contains(window.GetVisualDescendants().OfType<Button>(), button => string.Equals(button.Content as string, "Open Template", StringComparison.Ordinal));
+        Assert.NotNull(window.GetVisualDescendants().OfType<ReportingStudioHeaderBar>().SingleOrDefault());
+        Assert.NotNull(window.GetVisualDescendants().OfType<ReportingStudioCommandBar>().SingleOrDefault());
+        Assert.Empty(window.GetVisualDescendants().OfType<ReportingStudioSidebar>());
+        Assert.NotNull(window.GetVisualDescendants().OfType<ReportingStudioStatusStrip>().SingleOrDefault());
         Assert.Contains(window.GetVisualDescendants().OfType<TextBlock>(), text => string.Equals(text.Text, "VibeOffice Reporting Studio", StringComparison.Ordinal));
         Assert.NotNull(viewModel.ViewerViewModel.CurrentSnapshot);
         Assert.NotEmpty(viewModel.ViewerViewModel.Pages);
 
         window.Close();
+    }
+
+    [Fact]
+    public async Task SampleCorpus_ImportsExecutesAndRoundTrips_WhenAvailable()
+    {
+        if (!Directory.Exists(SampleCorpusPath))
+        {
+            return;
+        }
+
+        var workspaceFactory = new ReportingStudioWorkspaceFactory();
+        var service = CreateDocumentService(workspaceFactory);
+        var viewerService = new ReportViewerSessionService();
+        var serializer = new ReportRdlSerializer();
+
+        foreach (var path in Directory.EnumerateFiles(SampleCorpusPath, "*.rdl").OrderBy(static value => value, StringComparer.OrdinalIgnoreCase))
+        {
+            var opened = await service.ImportRdlAsync(path);
+            var workspace = Assert.IsType<ReportingStudioWorkspace>(opened.Workspace);
+            Assert.Empty(opened.Diagnostics);
+
+            var suppliedParameters = await ResolveSampleParametersAsync(viewerService, workspace.Source);
+            var snapshot = await viewerService.ExecuteAsync(workspace.Source, suppliedParameters);
+
+            Assert.NotNull(snapshot.ExecutionResult.MaterializedReport);
+            Assert.NotNull(snapshot.ExecutionResult.Document);
+            Assert.NotEmpty(snapshot.PreviewPages);
+            Assert.Empty(snapshot.ExecutionResult.Diagnostics);
+
+            var writeResult = serializer.Write(workspace.Source.ReportDefinition);
+            Assert.Empty(writeResult.Diagnostics);
+
+            var readResult = serializer.Read(writeResult.Xml);
+            Assert.NotNull(readResult.ReportDefinition);
+            Assert.Empty(readResult.Diagnostics);
+        }
+    }
+
+    [Fact]
+    public async Task SampleCorpus_InvoicePreservesNestedContainerLayout_WhenAvailable()
+    {
+        var invoicePath = Path.Combine(SampleCorpusPath, "Invoice.rdl");
+        if (!File.Exists(invoicePath))
+        {
+            return;
+        }
+
+        var workspaceFactory = new ReportingStudioWorkspaceFactory();
+        var service = CreateDocumentService(workspaceFactory);
+        var viewerService = new ReportViewerSessionService();
+
+        var opened = await service.ImportRdlAsync(invoicePath);
+        var workspace = Assert.IsType<ReportingStudioWorkspace>(opened.Workspace);
+        var suppliedParameters = await ResolveSampleParametersAsync(viewerService, workspace.Source);
+        var snapshot = await viewerService.ExecuteAsync(workspace.Source, suppliedParameters);
+
+        var document = Assert.IsType<Document>(snapshot.ExecutionResult.Document);
+        Assert.Contains(document.Blocks, static block => block is TableBlock);
+        Assert.Contains(EnumerateShapeInlines(document), static shape => shape.TextBox is { Blocks.Count: > 0 });
+        Assert.Contains(EnumerateShapeTextBlocks(document), static block => block is TableBlock);
+        Assert.Contains(
+            EnumerateShapeTextParagraphs(document),
+            static paragraph => paragraph.FloatingObjects.Count > 0);
     }
 
     private static ReportingStudioDocumentService CreateDocumentService(ReportingStudioWorkspaceFactory workspaceFactory)
@@ -127,6 +198,34 @@ public sealed class ReportingStudioAppTests
             new ReportTemplateSerializer(),
             new ReportRdlSerializer(),
             workspaceFactory);
+    }
+
+    private static async Task<Dictionary<string, ReportParameterValue>> ResolveSampleParametersAsync(
+        ReportViewerSessionService viewerService,
+        ReportViewerSource source)
+    {
+        var supplied = new Dictionary<string, ReportParameterValue>(StringComparer.OrdinalIgnoreCase);
+        var resolution = await viewerService.ResolveParametersAsync(source, supplied);
+        for (var index = 0; index < resolution.Parameters.Count; index++)
+        {
+            var parameter = resolution.Parameters[index];
+            if (parameter.ResolvedValue is not null && !parameter.ResolvedValue.IsNull)
+            {
+                supplied[parameter.Definition.Id] = parameter.ResolvedValue;
+                continue;
+            }
+
+            supplied[parameter.Definition.Id] = parameter.Definition.DataType switch
+            {
+                ReportParameterDataType.Integer => ReportParameterValue.FromScalar(1),
+                ReportParameterDataType.Number => ReportParameterValue.FromScalar(1d),
+                ReportParameterDataType.Boolean => ReportParameterValue.FromScalar(true),
+                ReportParameterDataType.DateTime => ReportParameterValue.FromScalar(new DateTime(2026, 3, 17, 12, 0, 0, DateTimeKind.Utc)),
+                _ => ReportParameterValue.FromScalar("Sample")
+            };
+        }
+
+        return supplied;
     }
 
     private static Task ExecuteAsync(ReactiveCommand<Unit, Unit> command)
@@ -155,6 +254,121 @@ public sealed class ReportingStudioAppTests
         {
             Directory.Delete(path, recursive: true);
         }
+    }
+
+    private static IEnumerable<ShapeInline> EnumerateShapeInlines(Document document)
+    {
+        foreach (var block in document.Blocks)
+        {
+            foreach (var shape in EnumerateShapeInlines(block))
+            {
+                yield return shape;
+            }
+        }
+    }
+
+    private static IEnumerable<Block> EnumerateShapeTextBlocks(Document document)
+    {
+        foreach (var shape in EnumerateShapeInlines(document))
+        {
+            if (shape.TextBox is null)
+            {
+                continue;
+            }
+
+            foreach (var block in shape.TextBox.Blocks)
+            {
+                yield return block;
+            }
+        }
+    }
+
+    private static IEnumerable<ParagraphBlock> EnumerateShapeTextParagraphs(Document document)
+    {
+        foreach (var block in EnumerateShapeTextBlocks(document))
+        {
+            if (block is ParagraphBlock paragraph)
+            {
+                yield return paragraph;
+            }
+        }
+    }
+
+    private static IEnumerable<ShapeInline> EnumerateShapeInlines(Block block)
+    {
+        switch (block)
+        {
+            case ParagraphBlock paragraph:
+                foreach (var inline in paragraph.Inlines)
+                {
+                    foreach (var shape in EnumerateShapeInlines(inline))
+                    {
+                        yield return shape;
+                    }
+                }
+
+                foreach (var floating in paragraph.FloatingObjects)
+                {
+                    foreach (var shape in EnumerateShapeInlines(floating.Content))
+                    {
+                        yield return shape;
+                    }
+                }
+
+                break;
+
+            case TableBlock table:
+                foreach (var row in table.Rows)
+                {
+                    foreach (var cell in row.Cells)
+                    {
+                        foreach (var paragraphInCell in cell.Paragraphs)
+                        {
+                            foreach (var shape in EnumerateShapeInlines(paragraphInCell))
+                            {
+                                yield return shape;
+                            }
+                        }
+                    }
+                }
+
+                break;
+        }
+    }
+
+    private static IEnumerable<ShapeInline> EnumerateShapeInlines(Inline inline)
+    {
+        if (inline is ShapeInline shape)
+        {
+            yield return shape;
+
+            if (shape.TextBox is not null)
+            {
+                foreach (var block in shape.TextBox.Blocks)
+                {
+                    foreach (var nested in EnumerateShapeInlines(block))
+                    {
+                        yield return nested;
+                    }
+                }
+            }
+        }
+    }
+
+    private static string ResolveSampleCorpusPath()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null)
+        {
+            if (File.Exists(Path.Combine(directory.FullName, "VibeOffice.slnx")))
+            {
+                return Path.Combine(directory.FullName, "external", "Reporting-Services", "PaginatedReportSamples");
+            }
+
+            directory = directory.Parent;
+        }
+
+        return Path.Combine(AppContext.BaseDirectory, "external", "Reporting-Services", "PaginatedReportSamples");
     }
 
     private sealed class StubReportingStudioFilePickerService : IReportingStudioFilePickerService

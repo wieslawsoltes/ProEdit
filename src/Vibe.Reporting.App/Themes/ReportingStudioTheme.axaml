@@ -1,116 +1,208 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-  <Style Selector="Border.studio-hero">
-    <Setter Property="Padding" Value="20" />
-    <Setter Property="Background">
-      <LinearGradientBrush StartPoint="0,0"
-                           EndPoint="1,1">
-        <GradientStop Color="#10233E"
-                      Offset="0" />
-        <GradientStop Color="#244A73"
-                      Offset="0.56" />
-        <GradientStop Color="#D98A2B"
-                      Offset="1" />
-      </LinearGradientBrush>
-    </Setter>
+  <Style Selector="Window">
+    <Setter Property="Background" Value="#F4F7FB" />
   </Style>
 
-  <Style Selector="TextBlock.studio-hero-title">
-    <Setter Property="FontSize" Value="28" />
+  <Style Selector="Border.studio-headerbar">
+    <Setter Property="Padding" Value="12,10,14,10" />
+    <Setter Property="Background" Value="#FBFCFE" />
+    <Setter Property="BorderBrush" Value="#D8E2EE" />
+    <Setter Property="BorderThickness" Value="0,0,0,1" />
+  </Style>
+
+  <Style Selector="TextBlock.studio-app-title">
+    <Setter Property="FontSize" Value="18" />
     <Setter Property="FontWeight" Value="SemiBold" />
-    <Setter Property="Foreground" Value="#F9FBFF" />
+    <Setter Property="Foreground" Value="#172B45" />
   </Style>
 
-  <Style Selector="TextBlock.studio-hero-subtitle">
-    <Setter Property="MaxWidth" Value="1040" />
-    <Setter Property="FontSize" Value="13" />
-    <Setter Property="Foreground" Value="#DCE7F4" />
+  <Style Selector="TextBlock.studio-app-subtitle">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="Foreground" Value="#61758D" />
     <Setter Property="TextWrapping" Value="Wrap" />
   </Style>
 
-  <Style Selector="Border.studio-badge">
-    <Setter Property="Padding" Value="14,12" />
-    <Setter Property="CornerRadius" Value="14" />
-    <Setter Property="BorderBrush" Value="#4FA4D8" />
-    <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="Background" Value="#1A2F4D" />
-    <Setter Property="MaxWidth" Value="360" />
-  </Style>
-
-  <Style Selector="TextBlock.studio-badge-caption">
+  <Style Selector="TextBlock.studio-overline">
     <Setter Property="FontSize" Value="11" />
     <Setter Property="FontWeight" Value="SemiBold" />
-    <Setter Property="Foreground" Value="#8BD1FF" />
+    <Setter Property="Foreground" Value="#315E8F" />
   </Style>
 
-  <Style Selector="TextBlock.studio-badge-value">
-    <Setter Property="Foreground" Value="#F7FAFF" />
+  <Style Selector="TextBlock.studio-path-text">
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Foreground" Value="#1F3042" />
   </Style>
 
-  <Style Selector="Border.studio-commandbar">
-    <Setter Property="Padding" Value="12,10" />
-    <Setter Property="BorderBrush" Value="#D6DEEA" />
+  <Style Selector="TextBlock.studio-emphasis">
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="#172B45" />
+  </Style>
+
+  <Style Selector="TextBlock.studio-caption">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="Foreground" Value="#61758D" />
+  </Style>
+
+  <Style Selector="Border.studio-ribbon">
+    <Setter Property="Padding" Value="8,6" />
+    <Setter Property="Background" Value="#F8FAFD" />
+    <Setter Property="BorderBrush" Value="#D8E2EE" />
     <Setter Property="BorderThickness" Value="0,0,0,1" />
-    <Setter Property="Background" Value="#F7F9FC" />
   </Style>
 
-  <Style Selector="Border.studio-pill">
-    <Setter Property="Margin" Value="8,0,0,0" />
-    <Setter Property="Padding" Value="10,6" />
-    <Setter Property="CornerRadius" Value="999" />
-    <Setter Property="Background" Value="#E8EEF6" />
-    <Setter Property="BorderBrush" Value="#CFD9E6" />
+  <Style Selector="TabControl.studio-ribbon-tabs TabItem">
+    <Setter Property="Padding" Value="14,8" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+
+  <Style Selector="TabControl.studio-ribbon-tabs ContentPresenter">
+    <Setter Property="Background" Value="#F8FAFD" />
+  </Style>
+
+  <Style Selector="Border.studio-ribbon-group">
+    <Setter Property="Padding" Value="10" />
+    <Setter Property="Background" Value="#FFFFFF" />
+    <Setter Property="BorderBrush" Value="#D8E2EE" />
     <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="10" />
+  </Style>
+
+  <Style Selector="TextBlock.studio-ribbon-group-label">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="#61758D" />
+    <Setter Property="HorizontalAlignment" Value="Center" />
+  </Style>
+
+  <Style Selector="Border.studio-toolbar-separator">
+    <Setter Property="Width" Value="1" />
+    <Setter Property="Height" Value="28" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Background" Value="#D8E2EE" />
+  </Style>
+
+  <Style Selector="Button.studio-command">
+    <Setter Property="Padding" Value="12,8" />
+    <Setter Property="MinHeight" Value="34" />
+  </Style>
+
+  <Style Selector="Button.studio-command-primary">
+    <Setter Property="Background" Value="#115EA3" />
+    <Setter Property="Foreground" Value="White" />
+    <Setter Property="BorderBrush" Value="#0F548C" />
   </Style>
 
   <Style Selector="Border.studio-sidebar">
     <Setter Property="Padding" Value="12" />
-    <Setter Property="CornerRadius" Value="18" />
-    <Setter Property="Background" Value="#F4F7FB" />
-    <Setter Property="BorderBrush" Value="#D7E0EB" />
+    <Setter Property="Background" Value="#F9FBFD" />
+    <Setter Property="BorderBrush" Value="#D8E2EE" />
     <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="16" />
   </Style>
 
   <Style Selector="Border.studio-workspace">
-    <Setter Property="CornerRadius" Value="18" />
     <Setter Property="Background" Value="#FFFFFF" />
-    <Setter Property="BorderBrush" Value="#D7E0EB" />
+    <Setter Property="BorderBrush" Value="#D8E2EE" />
     <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="Padding" Value="0" />
+    <Setter Property="CornerRadius" Value="16" />
+    <Setter Property="ClipToBounds" Value="True" />
+  </Style>
+
+  <Style Selector="GridSplitter.studio-splitter">
+    <Setter Property="Width" Value="6" />
+    <Setter Property="Background" Value="#00000000" />
+  </Style>
+
+  <Style Selector="GridSplitter.studio-splitter:pointerover">
+    <Setter Property="Background" Value="#D7E3F4" />
   </Style>
 
   <Style Selector="Border.studio-card">
     <Setter Property="Padding" Value="12" />
-    <Setter Property="CornerRadius" Value="14" />
+    <Setter Property="CornerRadius" Value="12" />
     <Setter Property="Background" Value="#FFFFFF" />
-    <Setter Property="BorderBrush" Value="#DAE2EC" />
+    <Setter Property="BorderBrush" Value="#D8E2EE" />
     <Setter Property="BorderThickness" Value="1" />
+  </Style>
+
+  <Style Selector="Border.studio-chip">
+    <Setter Property="Padding" Value="10,5" />
+    <Setter Property="CornerRadius" Value="999" />
+    <Setter Property="Background" Value="#EEF3F9" />
+    <Setter Property="BorderBrush" Value="#D8E2EE" />
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+
+  <Style Selector="Border.studio-chip-accent">
+    <Setter Property="Background" Value="#E4F0FB" />
+    <Setter Property="BorderBrush" Value="#A5C8EB" />
+  </Style>
+
+  <Style Selector="Border.studio-tag">
+    <Setter Property="Padding" Value="8,3" />
+    <Setter Property="CornerRadius" Value="999" />
+    <Setter Property="Background" Value="#E8EFF7" />
+  </Style>
+
+  <Style Selector="Expander.studio-expander">
+    <Setter Property="Background" Value="#00000000" />
+  </Style>
+
+  <Style Selector="Expander.studio-expander /template/ ToggleButton#PART_ExpanderHeader">
+    <Setter Property="Padding" Value="0,0,0,8" />
+    <Setter Property="Background" Value="#00000000" />
+  </Style>
+
+  <Style Selector="Expander.studio-expander /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Margin" Value="0,0,0,0" />
   </Style>
 
   <Style Selector="Border.studio-diagnostic">
     <Setter Property="Margin" Value="0,0,0,8" />
     <Setter Property="Padding" Value="10" />
     <Setter Property="CornerRadius" Value="10" />
-    <Setter Property="Background" Value="#FFF9F2" />
-    <Setter Property="BorderBrush" Value="#E4D2BA" />
+    <Setter Property="Background" Value="#FFF9F3" />
+    <Setter Property="BorderBrush" Value="#E5C49C" />
     <Setter Property="BorderThickness" Value="1" />
   </Style>
 
-  <Style Selector="Border.studio-tag">
-    <Setter Property="Padding" Value="8,3" />
-    <Setter Property="CornerRadius" Value="999" />
-    <Setter Property="Background" Value="#E4EEF8" />
+  <Style Selector="TextBlock.studio-section-title">
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="#172B45" />
   </Style>
 
   <Style Selector="TextBlock.studio-card-title">
-    <Setter Property="FontSize" Value="13" />
+    <Setter Property="FontSize" Value="12" />
     <Setter Property="FontWeight" Value="SemiBold" />
-    <Setter Property="Foreground" Value="#17324D" />
+    <Setter Property="Foreground" Value="#243A53" />
   </Style>
 
   <Style Selector="TextBlock.studio-helper">
     <Setter Property="FontSize" Value="11" />
-    <Setter Property="Foreground" Value="#5C6E84" />
+    <Setter Property="Foreground" Value="#61758D" />
     <Setter Property="TextWrapping" Value="Wrap" />
+  </Style>
+
+  <Style Selector="Border.studio-status-strip">
+    <Setter Property="Padding" Value="8,8,12,10" />
+    <Setter Property="Background" Value="#FBFCFE" />
+    <Setter Property="BorderBrush" Value="#D8E2EE" />
+    <Setter Property="BorderThickness" Value="1,1,1,0" />
+  </Style>
+
+  <Style Selector="TabControl.studio-workbench-tabs">
+    <Setter Property="Padding" Value="0" />
+  </Style>
+
+  <Style Selector="TabControl.studio-workbench-tabs TabItem">
+    <Setter Property="Padding" Value="14,10" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+
+  <Style Selector="TabControl.studio-workbench-tabs ContentPresenter">
+    <Setter Property="Background" Value="#FFFFFF" />
   </Style>
 </Styles>

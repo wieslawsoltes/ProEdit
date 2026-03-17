@@ -24,6 +24,7 @@ internal sealed class ReportingStudioViewModel : ReactiveObject, IDisposable
     private string _statusMessage = "Ready";
     private bool _isBusy;
     private int _selectedWorkspaceTabIndex;
+    private int _selectedRibbonTabIndex;
 
     public ReportingStudioViewModel(
         IReportingStudioFilePickerService filePickerService,
@@ -58,6 +59,9 @@ internal sealed class ReportingStudioViewModel : ReactiveObject, IDisposable
         ImportRdlCommand = ReactiveCommand.CreateFromTask(ImportRdlAsync, canOperate);
         ExportRdlCommand = ReactiveCommand.CreateFromTask(ExportRdlAsync, canOperateWithWorkspace);
         RefreshPreviewCommand = ReactiveCommand.CreateFromTask(RefreshPreviewAsync, canOperateWithWorkspace);
+        RunReportCommand = ReactiveCommand.CreateFromTask(RunReportAsync, canOperateWithWorkspace);
+        ShowDesignCommand = ReactiveCommand.Create(() => { SelectedWorkspaceTabIndex = 0; });
+        ShowRunCommand = ReactiveCommand.Create(() => { SelectedWorkspaceTabIndex = 1; });
 
         _viewerTabSubscription = this.WhenAnyValue(static vm => vm.SelectedWorkspaceTabIndex)
             .Skip(1)
@@ -138,6 +142,12 @@ internal sealed class ReportingStudioViewModel : ReactiveObject, IDisposable
         }
     }
 
+    public string DiagnosticsSummaryText => Diagnostics.Count == 0
+        ? "No diagnostics"
+        : $"{Diagnostics.Count} diagnostic(s)";
+
+    public string ConnectorsSummaryText => $"{Connectors.Count} connector(s)";
+
     public bool HasWorkspace => DesignerViewModel is not null;
 
     public bool CanSaveTemplate => HasWorkspace && !IsBusy;
@@ -158,6 +168,12 @@ internal sealed class ReportingStudioViewModel : ReactiveObject, IDisposable
         set => this.RaiseAndSetIfChanged(ref _selectedWorkspaceTabIndex, value);
     }
 
+    public int SelectedRibbonTabIndex
+    {
+        get => _selectedRibbonTabIndex;
+        set => this.RaiseAndSetIfChanged(ref _selectedRibbonTabIndex, Math.Clamp(value, 0, 3));
+    }
+
     public ReactiveCommand<Unit, Unit> NewSampleCommand { get; }
 
     public ReactiveCommand<Unit, Unit> OpenTemplateCommand { get; }
@@ -171,6 +187,12 @@ internal sealed class ReportingStudioViewModel : ReactiveObject, IDisposable
     public ReactiveCommand<Unit, Unit> ExportRdlCommand { get; }
 
     public ReactiveCommand<Unit, Unit> RefreshPreviewCommand { get; }
+
+    public ReactiveCommand<Unit, Unit> RunReportCommand { get; }
+
+    public ReactiveCommand<Unit, Unit> ShowDesignCommand { get; }
+
+    public ReactiveCommand<Unit, Unit> ShowRunCommand { get; }
 
     public async Task InitializeAsync(string? initialPath = null, CancellationToken cancellationToken = default)
     {
@@ -306,6 +328,17 @@ internal sealed class ReportingStudioViewModel : ReactiveObject, IDisposable
         await RunBusyOperationAsync(
             RefreshPreviewCoreAsync,
             "Refreshing preview...");
+    }
+
+    private async Task RunReportAsync()
+    {
+        await RunBusyOperationAsync(
+            async cancellationToken =>
+            {
+                await RefreshPreviewCoreAsync(cancellationToken);
+                SelectedWorkspaceTabIndex = 1;
+            },
+            "Running report...");
     }
 
     private async Task LoadNativeWorkspaceAsync(string path, CancellationToken cancellationToken = default)
@@ -501,6 +534,8 @@ internal sealed class ReportingStudioViewModel : ReactiveObject, IDisposable
         {
             _diagnostics.Add(diagnostics[index]);
         }
+
+        this.RaisePropertyChanged(nameof(DiagnosticsSummaryText));
     }
 
     private void RaiseShellStateProperties()
@@ -511,6 +546,8 @@ internal sealed class ReportingStudioViewModel : ReactiveObject, IDisposable
         this.RaisePropertyChanged(nameof(CurrentPathDisplay));
         this.RaisePropertyChanged(nameof(PreviewStateText));
         this.RaisePropertyChanged(nameof(WorkspaceSummaryText));
+        this.RaisePropertyChanged(nameof(DiagnosticsSummaryText));
+        this.RaisePropertyChanged(nameof(ConnectorsSummaryText));
         this.RaisePropertyChanged(nameof(DesignerStatusMessage));
         this.RaisePropertyChanged(nameof(ViewerStatusMessage));
         this.RaisePropertyChanged(nameof(CanSaveTemplate));

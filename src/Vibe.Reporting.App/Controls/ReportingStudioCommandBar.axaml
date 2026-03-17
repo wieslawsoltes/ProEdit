@@ -1,0 +1,270 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Vibe.Reporting.App.ViewModels"
+             x:Class="Vibe.Reporting.App.Controls.ReportingStudioCommandBar"
+             x:DataType="vm:ReportingStudioViewModel">
+  <Border Classes="studio-ribbon">
+    <TabControl Classes="studio-ribbon-tabs"
+                SelectedIndex="{Binding SelectedRibbonTabIndex, Mode=TwoWay}">
+      <TabItem Header="Home">
+        <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                      VerticalScrollBarVisibility="Disabled">
+          <StackPanel Orientation="Horizontal"
+                      Spacing="12"
+                      Margin="10,8">
+            <Border Classes="studio-ribbon-group">
+              <Grid RowDefinitions="Auto,Auto"
+                    RowSpacing="8">
+                <StackPanel Orientation="Horizontal"
+                            Spacing="8">
+                  <Button Classes="studio-command"
+                          Content="New"
+                          Command="{Binding NewSampleCommand}" />
+                  <Button Classes="studio-command"
+                          Content="Open"
+                          Command="{Binding OpenTemplateCommand}" />
+                  <Button Classes="studio-command"
+                          Content="Save"
+                          Command="{Binding SaveTemplateCommand}"
+                          IsEnabled="{Binding CanSaveTemplate}" />
+                  <Button Classes="studio-command"
+                          Content="Save As"
+                          Command="{Binding SaveTemplateAsCommand}"
+                          IsEnabled="{Binding HasWorkspace}" />
+                </StackPanel>
+                <TextBlock Grid.Row="1"
+                           Classes="studio-ribbon-group-label"
+                           Text="File" />
+              </Grid>
+            </Border>
+
+            <Border Classes="studio-ribbon-group">
+              <Grid RowDefinitions="Auto,Auto"
+                    RowSpacing="8">
+                <StackPanel Orientation="Horizontal"
+                            Spacing="8">
+                  <Button Classes="studio-command"
+                          Content="Import RDL"
+                          Command="{Binding ImportRdlCommand}" />
+                  <Button Classes="studio-command"
+                          Content="Export RDL"
+                          Command="{Binding ExportRdlCommand}"
+                          IsEnabled="{Binding HasWorkspace}" />
+                </StackPanel>
+                <TextBlock Grid.Row="1"
+                           Classes="studio-ribbon-group-label"
+                           Text="Interop" />
+              </Grid>
+            </Border>
+
+            <Border Classes="studio-ribbon-group">
+              <Grid RowDefinitions="Auto,Auto"
+                    RowSpacing="8">
+                <StackPanel Orientation="Horizontal"
+                            Spacing="8">
+                  <Button Classes="studio-command studio-command-primary"
+                          Content="Refresh Preview"
+                          Command="{Binding RefreshPreviewCommand}"
+                          IsEnabled="{Binding HasWorkspace}" />
+                  <Button Classes="studio-command"
+                          Content="Run Report"
+                          Command="{Binding RunReportCommand}"
+                          IsEnabled="{Binding HasWorkspace}" />
+                </StackPanel>
+                <TextBlock Grid.Row="1"
+                           Classes="studio-ribbon-group-label"
+                           Text="Preview" />
+              </Grid>
+            </Border>
+
+            <Border Classes="studio-ribbon-group">
+              <Grid RowDefinitions="Auto,Auto"
+                    RowSpacing="8">
+                <StackPanel Orientation="Horizontal"
+                            Spacing="8">
+                  <Border Classes="studio-chip">
+                    <TextBlock Text="{Binding ActiveDocumentMode}" />
+                  </Border>
+                  <Border Classes="studio-chip">
+                    <TextBlock Text="{Binding DiagnosticsSummaryText}" />
+                  </Border>
+                  <Border Classes="studio-chip">
+                    <TextBlock Text="{Binding ConnectorsSummaryText}" />
+                  </Border>
+                </StackPanel>
+                <TextBlock Grid.Row="1"
+                           Classes="studio-ribbon-group-label"
+                           Text="Workspace" />
+              </Grid>
+            </Border>
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+
+      <TabItem Header="Insert">
+        <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                      VerticalScrollBarVisibility="Disabled">
+          <StackPanel Orientation="Horizontal"
+                      Spacing="12"
+                      Margin="10,8">
+            <Border Classes="studio-ribbon-group">
+              <Grid RowDefinitions="Auto,Auto"
+                    RowSpacing="8">
+                <StackPanel Orientation="Horizontal"
+                            Spacing="8">
+                  <Button Classes="studio-command"
+                          Content="Section"
+                          Command="{Binding DesignerViewModel.AddSectionCommand}" />
+                  <Button Classes="studio-command"
+                          Content="Text Box"
+                          Command="{Binding DesignerViewModel.AddTextItemCommand}" />
+                  <Button Classes="studio-command"
+                          Content="Tablix"
+                          Command="{Binding DesignerViewModel.AddTablixItemCommand}" />
+                  <Button Classes="studio-command"
+                          Content="Chart"
+                          Command="{Binding DesignerViewModel.AddChartItemCommand}" />
+                </StackPanel>
+                <TextBlock Grid.Row="1"
+                           Classes="studio-ribbon-group-label"
+                           Text="Layout" />
+              </Grid>
+            </Border>
+
+            <Border Classes="studio-ribbon-group">
+              <Grid RowDefinitions="Auto,Auto"
+                    RowSpacing="8">
+                <StackPanel Orientation="Horizontal"
+                            Spacing="8">
+                  <Button Classes="studio-command"
+                          Content="Parameter"
+                          Command="{Binding DesignerViewModel.AddParameterCommand}" />
+                  <Button Classes="studio-command"
+                          Content="Data Source"
+                          Command="{Binding DesignerViewModel.AddDataSourceCommand}" />
+                  <Button Classes="studio-command"
+                          Content="Dataset"
+                          Command="{Binding DesignerViewModel.AddDataSetCommand}" />
+                </StackPanel>
+                <TextBlock Grid.Row="1"
+                           Classes="studio-ribbon-group-label"
+                           Text="Data" />
+              </Grid>
+            </Border>
+
+            <Border Classes="studio-ribbon-group">
+              <Grid RowDefinitions="Auto,Auto"
+                    RowSpacing="8">
+                <StackPanel Orientation="Horizontal"
+                            Spacing="8">
+                  <Button Classes="studio-command"
+                          Content="Template"
+                          Command="{Binding DesignerViewModel.AddTemplateItemCommand}" />
+                  <Button Classes="studio-command"
+                          Content="Shared Template"
+                          Command="{Binding DesignerViewModel.AddSharedTemplateCommand}" />
+                </StackPanel>
+                <TextBlock Grid.Row="1"
+                           Classes="studio-ribbon-group-label"
+                           Text="Narrative" />
+              </Grid>
+            </Border>
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+
+      <TabItem Header="View">
+        <StackPanel Orientation="Horizontal"
+                    Spacing="12"
+                    Margin="10,8">
+          <Border Classes="studio-ribbon-group">
+            <Grid RowDefinitions="Auto,Auto"
+                  RowSpacing="8">
+              <StackPanel Orientation="Horizontal"
+                          Spacing="8">
+                <Button Classes="studio-command"
+                        Content="Design"
+                        Command="{Binding ShowDesignCommand}" />
+                <Button Classes="studio-command"
+                        Content="Run"
+                        Command="{Binding ShowRunCommand}" />
+              </StackPanel>
+              <TextBlock Grid.Row="1"
+                         Classes="studio-ribbon-group-label"
+                         Text="Workbench" />
+            </Grid>
+          </Border>
+
+          <Border Classes="studio-ribbon-group">
+            <Grid RowDefinitions="Auto,Auto"
+                  RowSpacing="8">
+              <StackPanel Orientation="Horizontal"
+                          Spacing="8">
+                <Border Classes="studio-chip">
+                  <TextBlock Text="Report Data" />
+                </Border>
+                <Border Classes="studio-chip">
+                  <TextBlock Text="Grouping" />
+                </Border>
+                <Border Classes="studio-chip">
+                  <TextBlock Text="Properties" />
+                </Border>
+              </StackPanel>
+              <TextBlock Grid.Row="1"
+                         Classes="studio-ribbon-group-label"
+                         Text="Panes" />
+            </Grid>
+          </Border>
+        </StackPanel>
+      </TabItem>
+
+      <TabItem Header="Run">
+        <StackPanel Orientation="Horizontal"
+                    Spacing="12"
+                    Margin="10,8">
+          <Border Classes="studio-ribbon-group">
+            <Grid RowDefinitions="Auto,Auto"
+                  RowSpacing="8">
+              <StackPanel Orientation="Horizontal"
+                          Spacing="8">
+                <Button Classes="studio-command studio-command-primary"
+                        Content="Run Report"
+                        Command="{Binding RunReportCommand}"
+                        IsEnabled="{Binding HasWorkspace}" />
+                <Button Classes="studio-command"
+                        Content="Refresh"
+                        Command="{Binding RefreshPreviewCommand}"
+                        IsEnabled="{Binding HasWorkspace}" />
+              </StackPanel>
+              <TextBlock Grid.Row="1"
+                         Classes="studio-ribbon-group-label"
+                         Text="Execution" />
+            </Grid>
+          </Border>
+
+          <Border Classes="studio-ribbon-group">
+            <Grid RowDefinitions="Auto,Auto"
+                  RowSpacing="8">
+              <StackPanel Orientation="Horizontal"
+                          Spacing="8">
+                <Button Classes="studio-command"
+                        Content="Export RDL"
+                        Command="{Binding ExportRdlCommand}"
+                        IsEnabled="{Binding HasWorkspace}" />
+                <Border Classes="studio-chip studio-chip-accent">
+                  <TextBlock Text="{Binding PreviewStateText}" />
+                </Border>
+                <Border Classes="studio-chip">
+                  <TextBlock Text="{Binding WorkspaceSummaryText}" />
+                </Border>
+              </StackPanel>
+              <TextBlock Grid.Row="1"
+                         Classes="studio-ribbon-group-label"
+                         Text="Output" />
+            </Grid>
+          </Border>
+        </StackPanel>
+      </TabItem>
+    </TabControl>
+  </Border>
+</UserControl>
