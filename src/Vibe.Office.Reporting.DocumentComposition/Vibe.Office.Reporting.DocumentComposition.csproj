@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageDescription>Document composition for VibeOffice reporting.</PackageDescription>
+    <PackageTags>vibeoffice;reporting;document;composition</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\\Vibe.Office.Reporting.Core\\Vibe.Office.Reporting.Core.csproj" />
+    <ProjectReference Include="..\\Vibe.Office.Documents\\Vibe.Office.Documents.csproj" />
+    <ProjectReference Include="..\\Vibe.Office.Html\\Vibe.Office.Html.csproj" />
+    <ProjectReference Include="..\\Vibe.Office.Markdown\\Vibe.Office.Markdown.csproj" />
+    <ProjectReference Include="..\\Vibe.Office.OpenXml\\Vibe.Office.OpenXml.csproj" />
+  </ItemGroup>
+
+</Project>
