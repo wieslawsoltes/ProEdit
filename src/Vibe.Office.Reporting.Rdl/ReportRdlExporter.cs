@@ -36,6 +36,12 @@ internal sealed class ReportRdlExporter
                 root.Add(new XElement(_xmlNamespace + "Description", _reportDefinition.Name));
             }
 
+            var customProperties = WriteCustomProperties();
+            if (customProperties is not null)
+            {
+                root.Add(customProperties);
+            }
+
             var dataSources = WriteDataSources();
             if (dataSources is not null)
             {
@@ -87,6 +93,12 @@ internal sealed class ReportRdlExporter
                 root.Add(new XElement(_xmlNamespace + "EmbeddedImages", _embeddedImages));
             }
 
+            if (_reportDefinition.Metadata.TryGetValue("rdlCode", out var code)
+                && !string.IsNullOrWhiteSpace(code))
+            {
+                root.Add(new XElement(_xmlNamespace + "Code", code));
+            }
+
             var document = new XDocument(new XDeclaration("1.0", "utf-8", null), root);
             var xml = _options.Indent
                 ? document.ToString()
@@ -129,7 +141,7 @@ internal sealed class ReportRdlExporter
                 dataSourceElement.Add(
                     new XElement(
                         _xmlNamespace + "ConnectionProperties",
-                        new XElement(_xmlNamespace + "DataProvider", string.IsNullOrWhiteSpace(dataSource.ProviderId) ? "OBJECT" : dataSource.ProviderId),
+                        new XElement(_xmlNamespace + "DataProvider", ToRdlDataProvider(dataSource)),
                         new XElement(_xmlNamespace + "ConnectString", BuildConnectionString(dataSource))));
             }
 
@@ -137,6 +149,31 @@ internal sealed class ReportRdlExporter
         }
 
         return dataSourcesElement;
+    }
+
+    private XElement? WriteCustomProperties()
+    {
+        var properties = _reportDefinition.Metadata
+            .Where(static pair => pair.Key.StartsWith("rdlCustomProperty:", StringComparison.OrdinalIgnoreCase))
+            .OrderBy(static pair => pair.Key, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (properties.Count == 0)
+        {
+            return null;
+        }
+
+        var customProperties = new XElement(_xmlNamespace + "CustomProperties");
+        for (var index = 0; index < properties.Count; index++)
+        {
+            var property = properties[index];
+            customProperties.Add(
+                new XElement(
+                    _xmlNamespace + "CustomProperty",
+                    new XElement(_xmlNamespace + "Name", property.Key["rdlCustomProperty:".Length..]),
+                    new XElement(_xmlNamespace + "Value", property.Value)));
+        }
+
+        return customProperties;
     }
 
     private XElement? WriteDataSets()
@@ -422,7 +459,9 @@ internal sealed class ReportRdlExporter
             ImageItem imageItem => WriteImage(imageItem, path),
             LineItem lineItem => WriteLine(lineItem),
             ShapeItem shapeItem => WriteShape(shapeItem, path),
+            ContainerItem containerItem => WriteContainer(containerItem, path),
             ChartItem chartItem => WriteChart(chartItem, path),
+            GaugeItem gaugeItem => WriteGauge(gaugeItem, path),
             TablixItem tablixItem => WriteTablix(tablixItem, path),
             SubreportItem subreportItem => WriteSubreport(subreportItem),
             DocumentTemplateItem => SkipUnsupported(path, $"Document template item '{item.Name}' is not supported by RDL export."),
@@ -534,6 +573,17 @@ internal sealed class ReportRdlExporter
         return element;
     }
 
+    private XElement WriteContainer(ContainerItem item, string path)
+    {
+        var element = new XElement(
+            _xmlNamespace + "Rectangle",
+            new XAttribute("Name", ResolveName(item.Name, item.Id, "Rectangle")));
+        WriteCommonItemProperties(element, item);
+        AppendStyle(element, item.StyleName, null);
+        element.Add(new XElement(_xmlNamespace + "ReportItems", WriteItems(item.Items, path + "/ReportItems")));
+        return element;
+    }
+
     private XElement WriteChart(ChartItem item, string path)
     {
         var element = new XElement(
@@ -625,6 +675,68 @@ internal sealed class ReportRdlExporter
         return element;
     }
 
+    private XElement WriteGauge(GaugeItem item, string path)
+    {
+        var element = new XElement(
+            _xmlNamespace + "GaugePanel",
+            new XAttribute("Name", ResolveName(item.Name, item.Id, "GaugePanel")));
+
+        switch (item.GaugeKind)
+        {
+            case ReportGaugeKind.StateIndicator:
+                element.Add(
+                    new XElement(
+                        _xmlNamespace + "StateIndicators",
+                        new XElement(
+                            _xmlNamespace + "StateIndicator",
+                            new XAttribute("Name", ResolveName(item.Id, "Indicator")),
+                            new XElement(
+                                _xmlNamespace + "GaugeInputValue",
+                                new XElement(_xmlNamespace + "Value", ReportRdlExpressions.ToRdlExpression(item.ValueExpression) ?? "=Nothing"),
+                                new XElement(_xmlNamespace + "Multiplier", 1)),
+                            new XElement(
+                                _xmlNamespace + "IndicatorStates",
+                                CreateIndicatorState("Negative", -1, "#c0433a"),
+                                CreateIndicatorState("Warning", 0, "#e8d62e"),
+                                CreateIndicatorState("Positive", 1, "#62a245")))));
+                break;
+
+            case ReportGaugeKind.Linear:
+                element.Add(
+                    new XElement(
+                        _xmlNamespace + "LinearGauges",
+                        WriteLinearGauge(item)));
+                break;
+
+            default:
+                element.Add(
+                    new XElement(
+                        _xmlNamespace + "RadialGauges",
+                        WriteRadialGauge(item)));
+                break;
+        }
+
+        if (!string.IsNullOrWhiteSpace(item.LabelExpression))
+        {
+            element.Add(
+                new XElement(
+                    _xmlNamespace + "GaugeLabels",
+                    new XElement(
+                        _xmlNamespace + "GaugeLabel",
+                        new XAttribute("Name", ResolveName(item.Id, "Label")),
+                        new XElement(_xmlNamespace + "Text", ReportRdlExpressions.ToRdlExpression(item.LabelExpression) ?? "\"\""))));
+        }
+
+        if (!string.IsNullOrWhiteSpace(item.DataSetId))
+        {
+            element.Add(new XElement(_xmlNamespace + "DataSetName", item.DataSetId));
+        }
+
+        WriteCommonItemProperties(element, item);
+        AppendStyle(element, item.StyleName, null);
+        return element;
+    }
+
     private XElement WriteTablix(TablixItem item, string path)
     {
         var element = new XElement(
@@ -643,7 +755,9 @@ internal sealed class ReportRdlExporter
         }
 
         var detailRowCount = item.Rows.Count(static row => !row.IsHeader);
-        if (detailRowCount > 1 && !string.IsNullOrWhiteSpace(item.DataSetId))
+        if (detailRowCount > 1
+            && item.RowMembers.Count == 0
+            && !string.IsNullOrWhiteSpace(item.DataSetId))
         {
             _diagnostics.Add(new ReportDiagnostic(
                 ReportDiagnosticSeverity.Warning,
@@ -662,7 +776,7 @@ internal sealed class ReportRdlExporter
             var row = item.Rows[rowIndex];
             var rowElement = new XElement(
                 _xmlNamespace + "TablixRow",
-                new XElement(_xmlNamespace + "Height", ReportRdlMeasurements.Format(rowHeight)));
+                new XElement(_xmlNamespace + "Height", ReportRdlMeasurements.Format(row.Height > 0f ? row.Height : rowHeight)));
             var cellsElement = new XElement(_xmlNamespace + "TablixCells");
             for (var cellIndex = 0; cellIndex < row.Cells.Count; cellIndex++)
             {
@@ -671,7 +785,7 @@ internal sealed class ReportRdlExporter
                     _xmlNamespace + "TablixCell",
                     new XElement(
                         _xmlNamespace + "CellContents",
-                        WriteTablixCellTextbox(item, row, cell, rowIndex, cellIndex)));
+                        WriteTablixCellContent(item, row, cell, rowIndex, cellIndex, path)));
                 if (cell.ColumnSpan > 1)
                 {
                     cellElement.Add(new XElement(_xmlNamespace + "ColSpan", cell.ColumnSpan));
@@ -710,6 +824,25 @@ internal sealed class ReportRdlExporter
         return element;
     }
 
+    private XElement WriteTablixCellContent(
+        TablixItem tablix,
+        ReportTablixRowDefinition row,
+        ReportTablixCellDefinition cell,
+        int rowIndex,
+        int cellIndex,
+        string path)
+    {
+        if (cell.ContentItem is not null)
+        {
+            return WriteItem(cell.ContentItem, $"{path}/Rows[{rowIndex}]/Cells[{cellIndex}]")
+                ?? new XElement(_xmlNamespace + "Textbox",
+                    new XAttribute("Name", ResolveName(tablix.Id, $"Cell{rowIndex + 1}_{cellIndex + 1}", "Textbox")),
+                    new XElement(_xmlNamespace + "Value", string.Empty));
+        }
+
+        return WriteTablixCellTextbox(tablix, row, cell, rowIndex, cellIndex);
+    }
+
     private XElement WriteTablixCellTextbox(
         TablixItem tablix,
         ReportTablixRowDefinition row,
@@ -735,6 +868,80 @@ internal sealed class ReportRdlExporter
         return textbox;
     }
 
+    private XElement CreateIndicatorState(string name, int value, string color)
+    {
+        return new XElement(
+            _xmlNamespace + "IndicatorState",
+            new XAttribute("Name", name),
+            new XElement(
+                _xmlNamespace + "StartValue",
+                new XElement(_xmlNamespace + "Value", value),
+                new XElement(_xmlNamespace + "Multiplier", 1)),
+            new XElement(
+                _xmlNamespace + "EndValue",
+                new XElement(_xmlNamespace + "Value", value),
+                new XElement(_xmlNamespace + "Multiplier", 1)),
+            new XElement(_xmlNamespace + "Color", color));
+    }
+
+    private XElement WriteRadialGauge(GaugeItem item)
+    {
+        return new XElement(
+            _xmlNamespace + "RadialGauge",
+            new XAttribute("Name", ResolveName(item.Id, "RadialGauge")),
+            new XElement(
+                _xmlNamespace + "GaugeScales",
+                new XElement(
+                    _xmlNamespace + "RadialScale",
+                    new XAttribute("Name", ResolveName(item.Id, "Scale")),
+                    new XElement(
+                        _xmlNamespace + "GaugePointers",
+                        new XElement(
+                            _xmlNamespace + "RadialPointer",
+                            new XAttribute("Name", ResolveName(item.Id, "Pointer")),
+                            new XElement(
+                                _xmlNamespace + "GaugeInputValue",
+                                new XElement(_xmlNamespace + "Value", ReportRdlExpressions.ToRdlExpression(item.ValueExpression) ?? "=Nothing"),
+                                new XElement(_xmlNamespace + "Multiplier", 1)))),
+                    new XElement(
+                        _xmlNamespace + "MinimumValue",
+                        new XElement(_xmlNamespace + "Value", ReportRdlExpressions.ToRdlExpression(item.MinimumExpression) ?? "=0"),
+                        new XElement(_xmlNamespace + "Multiplier", 1)),
+                    new XElement(
+                        _xmlNamespace + "MaximumValue",
+                        new XElement(_xmlNamespace + "Value", ReportRdlExpressions.ToRdlExpression(item.MaximumExpression ?? item.TargetValueExpression) ?? "=100"),
+                        new XElement(_xmlNamespace + "Multiplier", 1)))));
+    }
+
+    private XElement WriteLinearGauge(GaugeItem item)
+    {
+        return new XElement(
+            _xmlNamespace + "LinearGauge",
+            new XAttribute("Name", ResolveName(item.Id, "LinearGauge")),
+            new XElement(
+                _xmlNamespace + "GaugeScales",
+                new XElement(
+                    _xmlNamespace + "LinearScale",
+                    new XAttribute("Name", ResolveName(item.Id, "Scale")),
+                    new XElement(
+                        _xmlNamespace + "GaugePointers",
+                        new XElement(
+                            _xmlNamespace + "LinearPointer",
+                            new XAttribute("Name", ResolveName(item.Id, "Pointer")),
+                            new XElement(
+                                _xmlNamespace + "GaugeInputValue",
+                                new XElement(_xmlNamespace + "Value", ReportRdlExpressions.ToRdlExpression(item.ValueExpression) ?? "=Nothing"),
+                                new XElement(_xmlNamespace + "Multiplier", 1)))),
+                    new XElement(
+                        _xmlNamespace + "MinimumValue",
+                        new XElement(_xmlNamespace + "Value", ReportRdlExpressions.ToRdlExpression(item.MinimumExpression) ?? "=0"),
+                        new XElement(_xmlNamespace + "Multiplier", 1)),
+                    new XElement(
+                        _xmlNamespace + "MaximumValue",
+                        new XElement(_xmlNamespace + "Value", ReportRdlExpressions.ToRdlExpression(item.MaximumExpression ?? item.TargetValueExpression) ?? "=100"),
+                        new XElement(_xmlNamespace + "Multiplier", 1)))));
+    }
+
     private XElement WriteTablixColumnHierarchy(TablixItem item)
     {
         var members = new XElement(_xmlNamespace + "TablixMembers");
@@ -750,29 +957,113 @@ internal sealed class ReportRdlExporter
     private XElement WriteTablixRowHierarchy(TablixItem item)
     {
         var members = new XElement(_xmlNamespace + "TablixMembers");
-        var detailGroupWritten = false;
-        for (var index = 0; index < item.Rows.Count; index++)
+        if (item.RowMembers.Count > 0)
         {
-            var row = item.Rows[index];
-            var member = new XElement(_xmlNamespace + "TablixMember");
-            if (row.IsHeader)
+            for (var index = 0; index < item.RowMembers.Count; index++)
             {
-                if (item.RepeatHeaderRows)
+                members.Add(WriteTablixMember(item.RowMembers[index], item, $"{item.Id}.rowMembers[{index}]"));
+            }
+        }
+        else
+        {
+            var detailGroupWritten = false;
+            for (var index = 0; index < item.Rows.Count; index++)
+            {
+                var row = item.Rows[index];
+                var member = new XElement(_xmlNamespace + "TablixMember");
+                if (row.IsHeader)
                 {
-                    member.Add(new XElement(_xmlNamespace + "RepeatOnNewPage", true));
-                    member.Add(new XElement(_xmlNamespace + "KeepWithGroup", "After"));
+                    if (item.RepeatHeaderRows)
+                    {
+                        member.Add(new XElement(_xmlNamespace + "RepeatOnNewPage", true));
+                        member.Add(new XElement(_xmlNamespace + "KeepWithGroup", "After"));
+                    }
                 }
-            }
-            else if (!string.IsNullOrWhiteSpace(item.DataSetId) && !detailGroupWritten)
-            {
-                member.Add(new XElement(_xmlNamespace + "Group", new XAttribute("Name", ResolveName(item.Id, "Details", "Group"))));
-                detailGroupWritten = true;
-            }
+                else if (!string.IsNullOrWhiteSpace(item.DataSetId) && !detailGroupWritten)
+                {
+                    member.Add(new XElement(_xmlNamespace + "Group", new XAttribute("Name", ResolveName(item.Id, "Details", "Group"))));
+                    detailGroupWritten = true;
+                }
 
-            members.Add(member);
+                members.Add(member);
+            }
         }
 
         return new XElement(_xmlNamespace + "TablixRowHierarchy", members);
+    }
+
+    private XElement WriteTablixMember(ReportTablixMemberDefinition member, TablixItem tablix, string path)
+    {
+        var element = new XElement(_xmlNamespace + "TablixMember");
+        if (member.Kind != ReportTablixMemberKind.Static)
+        {
+            var groupName = ResolveName(member.GroupName, member.Id, "Group");
+            if (!string.IsNullOrWhiteSpace(member.GroupExpression))
+            {
+                element.Add(
+                    new XElement(
+                        _xmlNamespace + "Group",
+                        new XAttribute("Name", groupName),
+                        new XElement(
+                            _xmlNamespace + "GroupExpressions",
+                            new XElement(
+                                _xmlNamespace + "GroupExpression",
+                                ReportRdlExpressions.ToRdlExpression(member.GroupExpression) ?? "=Nothing"))));
+            }
+            else
+            {
+                element.Add(new XElement(_xmlNamespace + "Group", new XAttribute("Name", groupName)));
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(member.SortExpression))
+        {
+            element.Add(
+                new XElement(
+                    _xmlNamespace + "SortExpressions",
+                    new XElement(
+                        _xmlNamespace + "SortExpression",
+                        new XElement(_xmlNamespace + "Value", ReportRdlExpressions.ToRdlExpression(member.SortExpression) ?? "=Nothing"),
+                        member.SortDirection == ReportSortDirection.Descending
+                            ? new XElement(_xmlNamespace + "Direction", "Descending")
+                            : null)));
+        }
+
+        if (member.RepeatOnNewPage)
+        {
+            element.Add(new XElement(_xmlNamespace + "RepeatOnNewPage", true));
+        }
+
+        if (!string.IsNullOrWhiteSpace(member.KeepWithGroup))
+        {
+            element.Add(new XElement(_xmlNamespace + "KeepWithGroup", member.KeepWithGroup));
+        }
+
+        if (!string.IsNullOrWhiteSpace(member.VisibilityExpression) || !string.IsNullOrWhiteSpace(member.ToggleItemId))
+        {
+            element.Add(
+                new XElement(
+                    _xmlNamespace + "Visibility",
+                    string.IsNullOrWhiteSpace(member.VisibilityExpression)
+                        ? null
+                        : new XElement(_xmlNamespace + "Hidden", ReportRdlExpressions.ToRdlExpression(member.VisibilityExpression) ?? "=False"),
+                    string.IsNullOrWhiteSpace(member.ToggleItemId)
+                        ? null
+                        : new XElement(_xmlNamespace + "ToggleItem", member.ToggleItemId)));
+        }
+
+        if (member.Members.Count > 0)
+        {
+            var children = new XElement(_xmlNamespace + "TablixMembers");
+            for (var index = 0; index < member.Members.Count; index++)
+            {
+                children.Add(WriteTablixMember(member.Members[index], tablix, $"{path}.members[{index}]"));
+            }
+
+            element.Add(children);
+        }
+
+        return element;
     }
 
     private XElement WriteSubreport(SubreportItem item)
@@ -923,6 +1214,24 @@ internal sealed class ReportRdlExporter
         return string.Join(
             ";",
             dataSource.Options.Select(static pair => $"{pair.Key}={pair.Value}"));
+    }
+
+    private static string ToRdlDataProvider(ReportDataSourceDefinition dataSource)
+    {
+        if (dataSource.Options.TryGetValue("rdlDataProvider", out var originalProvider)
+            && !string.IsNullOrWhiteSpace(originalProvider))
+        {
+            return originalProvider;
+        }
+
+        return dataSource.ProviderId.Trim().ToLowerInvariant() switch
+        {
+            "enterdata" => "ENTERDATA",
+            "sqlserver" or "sql" => "SQL",
+            "odbc" => "ODBC",
+            "in-memory" => "OBJECT",
+            _ => string.IsNullOrWhiteSpace(dataSource.ProviderId) ? "OBJECT" : dataSource.ProviderId
+        };
     }
 
     private string BuildEmbeddedImageName(ImageItem item)

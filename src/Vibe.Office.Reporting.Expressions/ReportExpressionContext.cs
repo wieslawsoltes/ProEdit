@@ -44,6 +44,9 @@ public sealed class ReportExpressionContext
     private static readonly IReadOnlyDictionary<string, object?> EmptyValues =
         new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
 
+    private static readonly IReadOnlyDictionary<string, IReadOnlyList<IReadOnlyDictionary<string, object?>>> EmptyNamedScopes =
+        new Dictionary<string, IReadOnlyList<IReadOnlyDictionary<string, object?>>>(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>
     /// Gets or sets the resolved report parameters.
     /// </summary>
@@ -70,6 +73,11 @@ public sealed class ReportExpressionContext
     /// </summary>
     public IReadOnlyList<IReadOnlyDictionary<string, object?>> ParentScopeRows { get; set; } =
         Array.Empty<IReadOnlyDictionary<string, object?>>();
+
+    /// <summary>
+    /// Gets or sets the named aggregate scopes available to the current expression.
+    /// </summary>
+    public IReadOnlyDictionary<string, IReadOnlyList<IReadOnlyDictionary<string, object?>>> NamedScopes { get; set; } = EmptyNamedScopes;
 
     /// <summary>
     /// Gets or sets the execution culture.
@@ -100,6 +108,11 @@ public sealed class ReportExpressionContext
     /// Gets or sets the current row index within the scope.
     /// </summary>
     public int RowIndex { get; set; }
+
+    /// <summary>
+    /// Gets or sets the current item value for Me/CurrentValue expressions.
+    /// </summary>
+    public object? SelfValue { get; set; }
 
     /// <summary>
     /// Gets or sets the current page number.
@@ -146,12 +159,41 @@ public sealed class ReportExpressionContext
             Globals = Globals,
             ScopeRows = scopeRows ?? ScopeRows,
             ParentScopeRows = ParentScopeRows,
+            NamedScopes = NamedScopes,
             Culture = Culture,
             UiCulture = UiCulture,
             TimeZone = TimeZone,
             ScopeKind = ScopeKind,
             ScopeName = ScopeName,
             RowIndex = rowIndex,
+            SelfValue = SelfValue,
+            PageNumber = PageNumber,
+            TotalPages = TotalPages
+        };
+    }
+
+    /// <summary>
+    /// Creates a copy of the current context with an updated current-item value.
+    /// </summary>
+    /// <param name="selfValue">The current item value.</param>
+    /// <returns>The cloned context.</returns>
+    public ReportExpressionContext CreateWithSelfValue(object? selfValue)
+    {
+        return new ReportExpressionContext
+        {
+            Parameters = Parameters,
+            Fields = Fields,
+            Globals = Globals,
+            ScopeRows = ScopeRows,
+            ParentScopeRows = ParentScopeRows,
+            NamedScopes = NamedScopes,
+            Culture = Culture,
+            UiCulture = UiCulture,
+            TimeZone = TimeZone,
+            ScopeKind = ScopeKind,
+            ScopeName = ScopeName,
+            RowIndex = RowIndex,
+            SelfValue = selfValue,
             PageNumber = PageNumber,
             TotalPages = TotalPages
         };

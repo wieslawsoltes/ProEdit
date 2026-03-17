@@ -120,14 +120,17 @@ public sealed class ReportMaterializer : IReportMaterializer
             }
 
             var styleResolver = new ReportMaterializationStyleResolver(reportDefinition.Styles);
+            var baseNamedScopes = CreateNamedScopes(materializedDataSets);
+            var defaultFields = ResolveDefaultFields(materializedDataSets, out var defaultScopeRows, out var defaultDataSetId);
             var reportContext = CreateReportContext(
                 parameterResolution.ResolvedValues,
-                EmptyFields,
-                EmptyScopeRows,
+                defaultFields,
+                defaultScopeRows,
                 globals,
                 runtime,
                 ReportExpressionScopeKind.Report,
-                reportDefinition.Id);
+                defaultDataSetId ?? reportDefinition.Id,
+                namedScopes: baseNamedScopes);
 
             for (var sectionIndex = 0; sectionIndex < reportDefinition.Sections.Count; sectionIndex++)
             {
@@ -146,12 +149,13 @@ public sealed class ReportMaterializer : IReportMaterializer
 
                 var sectionContext = CreateReportContext(
                     parameterResolution.ResolvedValues,
-                    EmptyFields,
-                    EmptyScopeRows,
+                    defaultFields,
+                    defaultScopeRows,
                     globals,
                     runtime,
                     ReportExpressionScopeKind.Section,
-                    section.Id);
+                    defaultDataSetId ?? section.Id,
+                    namedScopes: baseNamedScopes);
 
                 var materializedSection = new MaterializedReportSection
                 {
@@ -327,12 +331,12 @@ public sealed class ReportMaterializer : IReportMaterializer
     {
         var bookmark = EvaluateStringExpression(item.BookmarkExpression, context, path + ".bookmarkExpression", diagnostics);
         var tooltip = EvaluateStringExpression(item.TooltipExpression, context, path + ".tooltipExpression", diagnostics);
-        var style = styleResolver.Resolve(item.StyleName);
+        var style = styleResolver.Resolve(item.StyleName, context, path + ".styleName", diagnostics);
         var drillthrough = MaterializeDrillthrough(item.DrillthroughAction, context, path + ".drillthroughAction", diagnostics);
 
         return item switch
         {
-            TextItem textItem => MaterializeTextItem(textItem, style, bookmark, tooltip, drillthrough, context, path, diagnostics),
+            TextItem textItem => MaterializeTextItem(textItem, styleResolver, style, bookmark, tooltip, drillthrough, context, path, diagnostics),
             ImageItem imageItem => MaterializeImageItem(imageItem, style, bookmark, tooltip, drillthrough, context, path, diagnostics),
             LineItem lineItem => CreateBaseItem(
                 new MaterializedLineReportItem
@@ -355,8 +359,10 @@ public sealed class ReportMaterializer : IReportMaterializer
                 bookmark,
                 tooltip,
                 drillthrough),
+            ContainerItem containerItem => await MaterializeContainerItemAsync(containerItem, style, bookmark, tooltip, drillthrough, reportDefinition, resolvedParameters, materializedDataSets, globals, styleResolver, context, path, runtime, activeReports, diagnostics, cancellationToken),
             ChartItem chartItem => MaterializeChartItem(chartItem, style, bookmark, tooltip, drillthrough, materializedDataSets, resolvedParameters, globals, runtime, context, path, diagnostics),
-            TablixItem tablixItem => MaterializeTablixItem(tablixItem, style, bookmark, tooltip, drillthrough, materializedDataSets, resolvedParameters, globals, runtime, context, path, styleResolver, diagnostics),
+            GaugeItem gaugeItem => MaterializeGaugeItem(gaugeItem, style, bookmark, tooltip, drillthrough, materializedDataSets, resolvedParameters, globals, runtime, context, path, diagnostics),
+            TablixItem tablixItem => MaterializeTablixItem(tablixItem, style, bookmark, tooltip, drillthrough, reportDefinition, materializedDataSets, resolvedParameters, globals, runtime, context, path, styleResolver, diagnostics),
             SubreportItem subreportItem => await MaterializeSubreportItemAsync(subreportItem, style, bookmark, tooltip, drillthrough, globals, runtime, context, path, activeReports, diagnostics, cancellationToken),
             DocumentTemplateItem templateItem => MaterializeDocumentTemplateItem(templateItem, reportDefinition, style, bookmark, tooltip, drillthrough, context, path, diagnostics),
             _ => null
@@ -365,6 +371,7 @@ public sealed class ReportMaterializer : IReportMaterializer
 
     private MaterializedTextReportItem MaterializeTextItem(
         TextItem item,
+        ReportMaterializationStyleResolver styleResolver,
         MaterializedReportStyle? style,
         string? bookmark,
         string? tooltip,
@@ -402,6 +409,7 @@ public sealed class ReportMaterializer : IReportMaterializer
 
         var value = EvaluateExpression(item.ValueExpression, context, path + ".valueExpression", diagnostics);
         materialized.Text = FormatValue(value, item.FormatString, context.Culture);
+        materialized.Style = styleResolver.Resolve(item.StyleName, context.CreateWithSelfValue(value), path + ".styleName", diagnostics);
         materialized.ValueKind = MaterializedTextValueKind.Expression;
         return materialized;
     }
@@ -529,7 +537,8 @@ public sealed class ReportMaterializer : IReportMaterializer
                 runtime,
                 ReportExpressionScopeKind.Row,
                 item.DataSetId,
-                rowIndex);
+                rowIndex,
+                context.NamedScopes);
 
             var category = EvaluateStringExpression(item.CategoryExpression, rowContext, path + ".categoryExpression", diagnostics);
             for (var seriesIndex = 0; seriesIndex < item.Series.Count; seriesIndex++)
@@ -564,7 +573,11 @@ public sealed class ReportMaterializer : IReportMaterializer
                     Value = numericValue
                 };
 
-                var colorText = EvaluateStringExpression(seriesDefinition.ColorExpression, rowContext, seriesPath + ".colorExpression", diagnostics);
+                var colorText = EvaluateStringExpression(
+                    seriesDefinition.ColorExpression,
+                    rowContext.CreateWithSelfValue(numericValue),
+                    seriesPath + ".colorExpression",
+                    diagnostics);
                 if (TryParseColor(colorText, out var color))
                 {
                     point.Style = new ChartStyle
@@ -584,12 +597,110 @@ public sealed class ReportMaterializer : IReportMaterializer
         return materialized;
     }
 
+    private async ValueTask<MaterializedContainerReportItem> MaterializeContainerItemAsync(
+        ContainerItem item,
+        MaterializedReportStyle? style,
+        string? bookmark,
+        string? tooltip,
+        MaterializedReportDrillthroughAction? drillthrough,
+        ReportDefinition reportDefinition,
+        IReadOnlyDictionary<string, ReportParameterValue> resolvedParameters,
+        IReadOnlyList<MaterializedDataSet> materializedDataSets,
+        IReadOnlyDictionary<string, object?> globals,
+        ReportMaterializationStyleResolver styleResolver,
+        ReportExpressionContext context,
+        string path,
+        MaterializationRuntime runtime,
+        HashSet<string> activeReports,
+        List<ReportDiagnostic> diagnostics,
+        CancellationToken cancellationToken)
+    {
+        var materialized = CreateBaseItem(
+            new MaterializedContainerReportItem(),
+            item,
+            style,
+            bookmark,
+            tooltip,
+            drillthrough);
+
+        await MaterializeItemsAsync(
+            item.Items,
+            materialized.Items,
+            reportDefinition,
+            resolvedParameters,
+            materializedDataSets,
+            globals,
+            styleResolver,
+            context,
+            path + ".items",
+            runtime,
+            activeReports,
+            diagnostics,
+            cancellationToken);
+
+        for (var index = 0; index < materialized.Items.Count; index++)
+        {
+            OffsetMaterializedItem(materialized.Items[index], item.Bounds.X, item.Bounds.Y);
+        }
+
+        return materialized;
+    }
+
+    private MaterializedGaugeReportItem MaterializeGaugeItem(
+        GaugeItem item,
+        MaterializedReportStyle? style,
+        string? bookmark,
+        string? tooltip,
+        MaterializedReportDrillthroughAction? drillthrough,
+        IReadOnlyList<MaterializedDataSet> materializedDataSets,
+        IReadOnlyDictionary<string, ReportParameterValue> resolvedParameters,
+        IReadOnlyDictionary<string, object?> globals,
+        MaterializationRuntime runtime,
+        ReportExpressionContext context,
+        string path,
+        List<ReportDiagnostic> diagnostics)
+    {
+        var materialized = CreateBaseItem(
+            new MaterializedGaugeReportItem
+            {
+                GaugeKind = item.GaugeKind
+            },
+            item,
+            style,
+            bookmark,
+            tooltip,
+            drillthrough);
+
+        var evaluationContext = context;
+        var dataSet = FindDataSet(materializedDataSets, item.DataSetId);
+        if (dataSet is not null)
+        {
+            evaluationContext = CreateReportContext(
+                resolvedParameters,
+                dataSet.Rows.Count > 0 ? dataSet.Rows[0].Values : EmptyFields,
+                ToScopeRows(dataSet.Rows),
+                globals,
+                runtime,
+                ReportExpressionScopeKind.Group,
+                item.DataSetId,
+                namedScopes: context.NamedScopes);
+        }
+
+        materialized.Label = EvaluateStringExpression(item.LabelExpression, evaluationContext, path + ".labelExpression", diagnostics);
+        materialized.Value = EvaluateNumericExpression(item.ValueExpression, evaluationContext, path + ".valueExpression", diagnostics);
+        materialized.Minimum = EvaluateNumericExpression(item.MinimumExpression, evaluationContext, path + ".minimumExpression", diagnostics);
+        materialized.Maximum = EvaluateNumericExpression(item.MaximumExpression, evaluationContext, path + ".maximumExpression", diagnostics);
+        materialized.TargetValue = EvaluateNumericExpression(item.TargetValueExpression, evaluationContext, path + ".targetValueExpression", diagnostics);
+        return materialized;
+    }
+
     private MaterializedTablixReportItem MaterializeTablixItem(
         TablixItem item,
         MaterializedReportStyle? style,
         string? bookmark,
         string? tooltip,
         MaterializedReportDrillthroughAction? drillthrough,
+        ReportDefinition reportDefinition,
         IReadOnlyList<MaterializedDataSet> materializedDataSets,
         IReadOnlyDictionary<string, ReportParameterValue> resolvedParameters,
         IReadOnlyDictionary<string, object?> globals,
@@ -626,6 +737,36 @@ public sealed class ReportMaterializer : IReportMaterializer
             : dataSet.Rows;
         var scopeRows = ToScopeRows(dataRows);
 
+        if (item.RowMembers.Count > 0)
+        {
+            var tablixContext = dataRows.Count == 0
+                ? context
+                : CreateReportContext(
+                    resolvedParameters,
+                    dataRows[0].Values,
+                    scopeRows,
+                    globals,
+                    runtime,
+                    ReportExpressionScopeKind.Group,
+                    item.DataSetId,
+                    namedScopes: context.NamedScopes);
+            MaterializeTablixMembers(
+                item.RowMembers,
+                item,
+                materialized.Rows,
+                dataRows,
+                tablixContext,
+                reportDefinition,
+                resolvedParameters,
+                materializedDataSets,
+                globals,
+                runtime,
+                styleResolver,
+                path + ".rowMembers",
+                diagnostics);
+            return materialized;
+        }
+
         for (var rowIndex = 0; rowIndex < item.Rows.Count; rowIndex++)
         {
             var rowDefinition = item.Rows[rowIndex];
@@ -636,6 +777,11 @@ public sealed class ReportMaterializer : IReportMaterializer
                     context,
                     path + $".rows[{rowIndex}]",
                     styleResolver,
+                    reportDefinition,
+                    resolvedParameters,
+                    materializedDataSets,
+                    globals,
+                    runtime,
                     diagnostics));
                 continue;
             }
@@ -647,6 +793,11 @@ public sealed class ReportMaterializer : IReportMaterializer
                     context,
                     path + $".rows[{rowIndex}]",
                     styleResolver,
+                    reportDefinition,
+                    resolvedParameters,
+                    materializedDataSets,
+                    globals,
+                    runtime,
                     diagnostics));
                 continue;
             }
@@ -662,12 +813,18 @@ public sealed class ReportMaterializer : IReportMaterializer
                     runtime,
                     ReportExpressionScopeKind.Row,
                     item.DataSetId,
-                    detailIndex);
+                    detailIndex,
+                    context.NamedScopes);
                 materialized.Rows.Add(MaterializeTablixRow(
                     rowDefinition,
                     rowContext,
                     path + $".rows[{rowIndex}]",
                     styleResolver,
+                    reportDefinition,
+                    resolvedParameters,
+                    materializedDataSets,
+                    globals,
+                    runtime,
                     diagnostics));
             }
         }
@@ -675,39 +832,699 @@ public sealed class ReportMaterializer : IReportMaterializer
         return materialized;
     }
 
+    private void MaterializeTablixMembers(
+        IReadOnlyList<ReportTablixMemberDefinition> members,
+        TablixItem tablix,
+        List<MaterializedTablixRow> targetRows,
+        IReadOnlyList<MaterializedDataRow> currentRows,
+        ReportExpressionContext currentContext,
+        ReportDefinition? reportDefinition,
+        IReadOnlyDictionary<string, ReportParameterValue> resolvedParameters,
+        IReadOnlyList<MaterializedDataSet> materializedDataSets,
+        IReadOnlyDictionary<string, object?> globals,
+        MaterializationRuntime runtime,
+        ReportMaterializationStyleResolver styleResolver,
+        string path,
+        List<ReportDiagnostic> diagnostics)
+    {
+        for (var memberIndex = 0; memberIndex < members.Count; memberIndex++)
+        {
+            var member = members[memberIndex];
+            MaterializeTablixMember(
+                member,
+                tablix,
+                targetRows,
+                currentRows,
+                currentContext,
+                reportDefinition,
+                resolvedParameters,
+                materializedDataSets,
+                globals,
+                runtime,
+                styleResolver,
+                $"{path}[{memberIndex}]",
+                diagnostics);
+        }
+    }
+
+    private void MaterializeTablixMember(
+        ReportTablixMemberDefinition member,
+        TablixItem tablix,
+        List<MaterializedTablixRow> targetRows,
+        IReadOnlyList<MaterializedDataRow> currentRows,
+        ReportExpressionContext currentContext,
+        ReportDefinition? reportDefinition,
+        IReadOnlyDictionary<string, ReportParameterValue> resolvedParameters,
+        IReadOnlyList<MaterializedDataSet> materializedDataSets,
+        IReadOnlyDictionary<string, object?> globals,
+        MaterializationRuntime runtime,
+        ReportMaterializationStyleResolver styleResolver,
+        string path,
+        List<ReportDiagnostic> diagnostics)
+    {
+        switch (member.Kind)
+        {
+            case ReportTablixMemberKind.Static:
+            {
+                var staticContext = CreateTablixScopeContext(
+                    currentRows,
+                    currentContext,
+                    resolvedParameters,
+                    globals,
+                    runtime,
+                    member.GroupName ?? tablix.DataSetId,
+                    ReportExpressionScopeKind.Group);
+                if (!EvaluateVisibility(member.VisibilityExpression, staticContext, path, diagnostics))
+                {
+                    return;
+                }
+
+                if (member.Members.Count == 0)
+                {
+                    AddMaterializedTablixRow(
+                        member,
+                        tablix,
+                        targetRows,
+                        staticContext,
+                        reportDefinition,
+                        resolvedParameters,
+                        materializedDataSets,
+                        globals,
+                        runtime,
+                        styleResolver,
+                        path,
+                        diagnostics);
+                    return;
+                }
+
+                MaterializeTablixMembers(
+                    member.Members,
+                    tablix,
+                    targetRows,
+                    currentRows,
+                    staticContext,
+                    reportDefinition,
+                    resolvedParameters,
+                    materializedDataSets,
+                    globals,
+                    runtime,
+                    styleResolver,
+                    path + ".members",
+                    diagnostics);
+                return;
+            }
+
+            case ReportTablixMemberKind.Details:
+            {
+                if (currentRows.Count == 0)
+                {
+                    if (!EvaluateVisibility(member.VisibilityExpression, currentContext, path, diagnostics))
+                    {
+                        return;
+                    }
+
+                    if (member.Members.Count == 0)
+                    {
+                        AddMaterializedTablixRow(
+                            member,
+                            tablix,
+                            targetRows,
+                            currentContext,
+                            reportDefinition,
+                            resolvedParameters,
+                            materializedDataSets,
+                            globals,
+                            runtime,
+                            styleResolver,
+                            path,
+                            diagnostics);
+                        return;
+                    }
+
+                    MaterializeTablixMembers(
+                        member.Members,
+                        tablix,
+                        targetRows,
+                        currentRows,
+                        currentContext,
+                        reportDefinition,
+                        resolvedParameters,
+                        materializedDataSets,
+                        globals,
+                        runtime,
+                        styleResolver,
+                        path + ".members",
+                        diagnostics);
+                    return;
+                }
+
+                var sortedRows = SortTablixRows(
+                    currentRows,
+                    member.SortExpression,
+                    member.SortDirection,
+                    tablix.DataSetId,
+                    currentContext,
+                    resolvedParameters,
+                    globals,
+                    runtime,
+                    path + ".sortExpression",
+                    diagnostics);
+                for (var rowIndex = 0; rowIndex < sortedRows.Count; rowIndex++)
+                {
+                    var row = sortedRows[rowIndex];
+                    var detailContext = CreateReportContext(
+                        resolvedParameters,
+                        row.Values,
+                        ToScopeRows(sortedRows),
+                        globals,
+                        runtime,
+                        ReportExpressionScopeKind.Row,
+                        tablix.DataSetId,
+                        rowIndex,
+                        currentContext.NamedScopes);
+                    if (!EvaluateVisibility(member.VisibilityExpression, detailContext, path, diagnostics))
+                    {
+                        continue;
+                    }
+
+                    if (member.Members.Count == 0)
+                    {
+                        AddMaterializedTablixRow(
+                            member,
+                            tablix,
+                            targetRows,
+                            detailContext,
+                            reportDefinition,
+                            resolvedParameters,
+                            materializedDataSets,
+                            globals,
+                            runtime,
+                            styleResolver,
+                            path + $".detail[{rowIndex}]",
+                            diagnostics);
+                        continue;
+                    }
+
+                    MaterializeTablixMembers(
+                        member.Members,
+                        tablix,
+                        targetRows,
+                        [row],
+                        detailContext,
+                        reportDefinition,
+                        resolvedParameters,
+                        materializedDataSets,
+                        globals,
+                        runtime,
+                        styleResolver,
+                        path + $".detail[{rowIndex}].members",
+                        diagnostics);
+                }
+
+                return;
+            }
+
+            case ReportTablixMemberKind.Group:
+            {
+                var groups = GroupTablixRows(
+                    member,
+                    currentRows,
+                    tablix.DataSetId,
+                    currentContext,
+                    resolvedParameters,
+                    globals,
+                    runtime,
+                    path,
+                    diagnostics);
+                if (groups.Count == 0 && currentRows.Count == 0)
+                {
+                    if (member.Members.Count == 0 && EvaluateVisibility(member.VisibilityExpression, currentContext, path, diagnostics))
+                    {
+                        AddMaterializedTablixRow(
+                            member,
+                            tablix,
+                            targetRows,
+                            currentContext,
+                            reportDefinition,
+                            resolvedParameters,
+                            materializedDataSets,
+                            globals,
+                            runtime,
+                            styleResolver,
+                            path,
+                            diagnostics);
+                    }
+
+                    return;
+                }
+
+                for (var groupIndex = 0; groupIndex < groups.Count; groupIndex++)
+                {
+                    var group = groups[groupIndex];
+                    if (!EvaluateVisibility(member.VisibilityExpression, group.Context, path + $".group[{groupIndex}]", diagnostics))
+                    {
+                        continue;
+                    }
+
+                    if (member.Members.Count == 0)
+                    {
+                        AddMaterializedTablixRow(
+                            member,
+                            tablix,
+                            targetRows,
+                            group.Context,
+                            reportDefinition,
+                            resolvedParameters,
+                            materializedDataSets,
+                            globals,
+                            runtime,
+                            styleResolver,
+                            path + $".group[{groupIndex}]",
+                            diagnostics);
+                        continue;
+                    }
+
+                    MaterializeTablixMembers(
+                        member.Members,
+                        tablix,
+                        targetRows,
+                        group.Rows,
+                        group.Context,
+                        reportDefinition,
+                        resolvedParameters,
+                        materializedDataSets,
+                        globals,
+                        runtime,
+                        styleResolver,
+                        path + $".group[{groupIndex}].members",
+                        diagnostics);
+                }
+
+                return;
+            }
+        }
+    }
+
+    private void AddMaterializedTablixRow(
+        ReportTablixMemberDefinition member,
+        TablixItem tablix,
+        List<MaterializedTablixRow> targetRows,
+        ReportExpressionContext context,
+        ReportDefinition? reportDefinition,
+        IReadOnlyDictionary<string, ReportParameterValue> resolvedParameters,
+        IReadOnlyList<MaterializedDataSet> materializedDataSets,
+        IReadOnlyDictionary<string, object?> globals,
+        MaterializationRuntime runtime,
+        ReportMaterializationStyleResolver styleResolver,
+        string path,
+        List<ReportDiagnostic> diagnostics)
+    {
+        if (!member.RowDefinitionIndex.HasValue
+            || member.RowDefinitionIndex.Value < 0
+            || member.RowDefinitionIndex.Value >= tablix.Rows.Count)
+        {
+            diagnostics.Add(new ReportDiagnostic(
+                ReportDiagnosticSeverity.Warning,
+                ReportDiagnosticCodes.InvalidTemplate,
+                $"Tablix member '{member.Id}' does not map to a valid body row definition.",
+                path));
+            return;
+        }
+
+        targetRows.Add(MaterializeTablixRow(
+            tablix.Rows[member.RowDefinitionIndex.Value],
+            context,
+            path + $".row[{member.RowDefinitionIndex.Value}]",
+            styleResolver,
+            reportDefinition,
+            resolvedParameters,
+            materializedDataSets,
+            globals,
+            runtime,
+            diagnostics));
+    }
+
+    private List<TablixGroupInstance> GroupTablixRows(
+        ReportTablixMemberDefinition member,
+        IReadOnlyList<MaterializedDataRow> rows,
+        string? dataSetId,
+        ReportExpressionContext fallbackContext,
+        IReadOnlyDictionary<string, ReportParameterValue> resolvedParameters,
+        IReadOnlyDictionary<string, object?> globals,
+        MaterializationRuntime runtime,
+        string path,
+        List<ReportDiagnostic> diagnostics)
+    {
+        var groups = new List<TablixGroupInstance>();
+        if (rows.Count == 0)
+        {
+            return groups;
+        }
+
+        for (var rowIndex = 0; rowIndex < rows.Count; rowIndex++)
+        {
+            var row = rows[rowIndex];
+            var rowContext = CreateReportContext(
+                resolvedParameters,
+                row.Values,
+                ToScopeRows(rows),
+                globals,
+                runtime,
+                ReportExpressionScopeKind.Row,
+                dataSetId,
+                rowIndex,
+                fallbackContext.NamedScopes);
+            var key = string.IsNullOrWhiteSpace(member.GroupExpression)
+                ? rowIndex
+                : EvaluateExpression(member.GroupExpression, rowContext, path + ".groupExpression", diagnostics);
+            var existingIndex = FindTablixGroupIndex(groups, key);
+            if (existingIndex >= 0)
+            {
+                groups[existingIndex].Rows.Add(row);
+                continue;
+            }
+
+            var groupRows = new List<MaterializedDataRow> { row };
+            groups.Add(new TablixGroupInstance(
+                key,
+                groupRows,
+                CreateTablixScopeContext(
+                    groupRows,
+                    fallbackContext,
+                    resolvedParameters,
+                    globals,
+                    runtime,
+                    member.GroupName ?? dataSetId,
+                    ReportExpressionScopeKind.Group)));
+        }
+
+        for (var groupIndex = 0; groupIndex < groups.Count; groupIndex++)
+        {
+            groups[groupIndex] = groups[groupIndex] with
+            {
+                Context = CreateTablixScopeContext(
+                    groups[groupIndex].Rows,
+                    fallbackContext,
+                    resolvedParameters,
+                    globals,
+                    runtime,
+                    member.GroupName ?? dataSetId,
+                    ReportExpressionScopeKind.Group)
+            };
+        }
+
+        if (!string.IsNullOrWhiteSpace(member.SortExpression))
+        {
+            groups.Sort((left, right) =>
+            {
+                var leftValue = EvaluateExpression(member.SortExpression, left.Context, path + ".sortExpression", diagnostics);
+                var rightValue = EvaluateExpression(member.SortExpression, right.Context, path + ".sortExpression", diagnostics);
+                var comparison = CompareTablixValues(leftValue, rightValue, left.Context.Culture);
+                return member.SortDirection == ReportSortDirection.Descending
+                    ? -comparison
+                    : comparison;
+            });
+        }
+
+        return groups;
+    }
+
+    private List<MaterializedDataRow> SortTablixRows(
+        IReadOnlyList<MaterializedDataRow> rows,
+        string? sortExpression,
+        ReportSortDirection sortDirection,
+        string? dataSetId,
+        ReportExpressionContext fallbackContext,
+        IReadOnlyDictionary<string, ReportParameterValue> resolvedParameters,
+        IReadOnlyDictionary<string, object?> globals,
+        MaterializationRuntime runtime,
+        string path,
+        List<ReportDiagnostic> diagnostics)
+    {
+        var result = rows.ToList();
+        if (result.Count <= 1 || string.IsNullOrWhiteSpace(sortExpression))
+        {
+            return result;
+        }
+
+        result.Sort((left, right) =>
+        {
+            var leftContext = CreateReportContext(
+                resolvedParameters,
+                left.Values,
+                ToScopeRows(rows),
+                globals,
+                runtime,
+                ReportExpressionScopeKind.Row,
+                dataSetId,
+                namedScopes: fallbackContext.NamedScopes);
+            var rightContext = CreateReportContext(
+                resolvedParameters,
+                right.Values,
+                ToScopeRows(rows),
+                globals,
+                runtime,
+                ReportExpressionScopeKind.Row,
+                dataSetId,
+                namedScopes: fallbackContext.NamedScopes);
+            var leftValue = EvaluateExpression(sortExpression, leftContext, path, diagnostics);
+            var rightValue = EvaluateExpression(sortExpression, rightContext, path, diagnostics);
+            var comparison = CompareTablixValues(leftValue, rightValue, leftContext.Culture);
+            return sortDirection == ReportSortDirection.Descending
+                ? -comparison
+                : comparison;
+        });
+
+        return result;
+    }
+
+    private static ReportExpressionContext CreateTablixScopeContext(
+        IReadOnlyList<MaterializedDataRow> rows,
+        ReportExpressionContext fallbackContext,
+        IReadOnlyDictionary<string, ReportParameterValue> resolvedParameters,
+        IReadOnlyDictionary<string, object?> globals,
+        MaterializationRuntime runtime,
+        string? scopeName,
+        ReportExpressionScopeKind scopeKind)
+    {
+        if (rows.Count == 0)
+        {
+            return fallbackContext;
+        }
+
+        var scopeRows = ToScopeRows(rows);
+        return CreateReportContext(
+            resolvedParameters,
+            rows[0].Values,
+            scopeRows,
+            globals,
+            runtime,
+            scopeKind,
+            scopeName,
+            namedScopes: AppendNamedScope(fallbackContext.NamedScopes, scopeName, scopeRows));
+    }
+
+    private static int FindTablixGroupIndex(List<TablixGroupInstance> groups, object? key)
+    {
+        for (var index = 0; index < groups.Count; index++)
+        {
+            if (Equals(groups[index].Key, key))
+            {
+                return index;
+            }
+        }
+
+        return -1;
+    }
+
+    private static int CompareTablixValues(object? left, object? right, CultureInfo culture)
+    {
+        if (ReferenceEquals(left, right))
+        {
+            return 0;
+        }
+
+        if (left is null)
+        {
+            return -1;
+        }
+
+        if (right is null)
+        {
+            return 1;
+        }
+
+        if (TryConvertToDouble(left, culture, out var leftNumber)
+            && TryConvertToDouble(right, culture, out var rightNumber))
+        {
+            return leftNumber.CompareTo(rightNumber);
+        }
+
+        if (left is DateTime leftDate
+            && TryConvertToDateTime(right, culture, out var rightDate))
+        {
+            return leftDate.CompareTo(rightDate);
+        }
+
+        if (left is IComparable comparable)
+        {
+            try
+            {
+                return comparable.CompareTo(right);
+            }
+            catch
+            {
+            }
+        }
+
+        var leftText = Convert.ToString(left, culture) ?? string.Empty;
+        var rightText = Convert.ToString(right, culture) ?? string.Empty;
+        return string.Compare(leftText, rightText, StringComparison.CurrentCulture);
+    }
+
     private MaterializedTablixRow MaterializeTablixRow(
         ReportTablixRowDefinition rowDefinition,
         ReportExpressionContext context,
         string path,
         ReportMaterializationStyleResolver styleResolver,
+        ReportDefinition? reportDefinition,
+        IReadOnlyDictionary<string, ReportParameterValue> resolvedParameters,
+        IReadOnlyList<MaterializedDataSet> materializedDataSets,
+        IReadOnlyDictionary<string, object?> globals,
+        MaterializationRuntime runtime,
         List<ReportDiagnostic> diagnostics)
     {
         var row = new MaterializedTablixRow
         {
-            IsHeader = rowDefinition.IsHeader
+            IsHeader = rowDefinition.IsHeader,
+            Height = rowDefinition.Height
         };
 
         for (var cellIndex = 0; cellIndex < rowDefinition.Cells.Count; cellIndex++)
         {
             var cellDefinition = rowDefinition.Cells[cellIndex];
+            var rawValue = cellDefinition.ValueExpression is null
+                ? cellDefinition.Text
+                : EvaluateExpression(cellDefinition.ValueExpression, context, $"{path}.cells[{cellIndex}].valueExpression", diagnostics);
             var value = cellDefinition.ValueExpression is null
                 ? cellDefinition.Text
-                : FormatValue(
-                    EvaluateExpression(cellDefinition.ValueExpression, context, $"{path}.cells[{cellIndex}].valueExpression", diagnostics),
-                    cellDefinition.FormatString,
-                    context.Culture);
+                : FormatValue(rawValue, cellDefinition.FormatString, context.Culture);
+            var styleContext = context.CreateWithSelfValue(rawValue);
 
             row.Cells.Add(new MaterializedTablixCell
             {
                 Text = value ?? string.Empty,
                 StyleName = cellDefinition.StyleName,
-                Style = styleResolver.Resolve(cellDefinition.StyleName),
+                Style = styleResolver.Resolve(cellDefinition.StyleName, styleContext, $"{path}.cells[{cellIndex}].styleName", diagnostics),
+                Content = cellDefinition.ContentItem is null
+                    ? null
+                    : MaterializeEmbeddedTablixCellContent(
+                        cellDefinition.ContentItem,
+                        reportDefinition,
+                        resolvedParameters,
+                        materializedDataSets,
+                        globals,
+                        styleResolver,
+                        context,
+                        $"{path}.cells[{cellIndex}].contentItem",
+                        runtime,
+                        diagnostics),
                 RowSpan = Math.Max(1, cellDefinition.RowSpan),
                 ColumnSpan = Math.Max(1, cellDefinition.ColumnSpan)
             });
         }
 
         return row;
+    }
+
+    private MaterializedReportItem? MaterializeEmbeddedTablixCellContent(
+        ReportItem item,
+        ReportDefinition? reportDefinition,
+        IReadOnlyDictionary<string, ReportParameterValue> resolvedParameters,
+        IReadOnlyList<MaterializedDataSet> materializedDataSets,
+        IReadOnlyDictionary<string, object?> globals,
+        ReportMaterializationStyleResolver styleResolver,
+        ReportExpressionContext context,
+        string path,
+        MaterializationRuntime runtime,
+        List<ReportDiagnostic> diagnostics)
+    {
+        return item switch
+        {
+            TextItem textItem => MaterializeTextItem(
+                textItem,
+                styleResolver,
+                styleResolver.Resolve(textItem.StyleName, context, path + ".styleName", diagnostics),
+                EvaluateStringExpression(textItem.BookmarkExpression, context, path + ".bookmarkExpression", diagnostics),
+                EvaluateStringExpression(textItem.TooltipExpression, context, path + ".tooltipExpression", diagnostics),
+                MaterializeDrillthrough(textItem.DrillthroughAction, context, path + ".drillthroughAction", diagnostics),
+                context,
+                path,
+                diagnostics),
+            ImageItem imageItem => MaterializeImageItem(
+                imageItem,
+                styleResolver.Resolve(imageItem.StyleName, context, path + ".styleName", diagnostics),
+                EvaluateStringExpression(imageItem.BookmarkExpression, context, path + ".bookmarkExpression", diagnostics),
+                EvaluateStringExpression(imageItem.TooltipExpression, context, path + ".tooltipExpression", diagnostics),
+                MaterializeDrillthrough(imageItem.DrillthroughAction, context, path + ".drillthroughAction", diagnostics),
+                context,
+                path,
+                diagnostics),
+            ShapeItem shapeItem => CreateBaseItem(
+                new MaterializedShapeReportItem
+                {
+                    Shape = shapeItem.Shape
+                },
+                shapeItem,
+                styleResolver.Resolve(shapeItem.StyleName, context, path + ".styleName", diagnostics),
+                EvaluateStringExpression(shapeItem.BookmarkExpression, context, path + ".bookmarkExpression", diagnostics),
+                EvaluateStringExpression(shapeItem.TooltipExpression, context, path + ".tooltipExpression", diagnostics),
+                MaterializeDrillthrough(shapeItem.DrillthroughAction, context, path + ".drillthroughAction", diagnostics)),
+            ChartItem chartItem => MaterializeChartItem(
+                chartItem,
+                styleResolver.Resolve(chartItem.StyleName, context, path + ".styleName", diagnostics),
+                EvaluateStringExpression(chartItem.BookmarkExpression, context, path + ".bookmarkExpression", diagnostics),
+                EvaluateStringExpression(chartItem.TooltipExpression, context, path + ".tooltipExpression", diagnostics),
+                MaterializeDrillthrough(chartItem.DrillthroughAction, context, path + ".drillthroughAction", diagnostics),
+                materializedDataSets,
+                resolvedParameters,
+                globals,
+                runtime,
+                context,
+                path,
+                diagnostics),
+            GaugeItem gaugeItem => MaterializeGaugeItem(
+                gaugeItem,
+                styleResolver.Resolve(gaugeItem.StyleName, context, path + ".styleName", diagnostics),
+                EvaluateStringExpression(gaugeItem.BookmarkExpression, context, path + ".bookmarkExpression", diagnostics),
+                EvaluateStringExpression(gaugeItem.TooltipExpression, context, path + ".tooltipExpression", diagnostics),
+                MaterializeDrillthrough(gaugeItem.DrillthroughAction, context, path + ".drillthroughAction", diagnostics),
+                materializedDataSets,
+                resolvedParameters,
+                globals,
+                runtime,
+                context,
+                path,
+                diagnostics),
+            ContainerItem containerItem when reportDefinition is not null => MaterializeContainerItemAsync(
+                containerItem,
+                styleResolver.Resolve(containerItem.StyleName, context, path + ".styleName", diagnostics),
+                EvaluateStringExpression(containerItem.BookmarkExpression, context, path + ".bookmarkExpression", diagnostics),
+                EvaluateStringExpression(containerItem.TooltipExpression, context, path + ".tooltipExpression", diagnostics),
+                MaterializeDrillthrough(containerItem.DrillthroughAction, context, path + ".drillthroughAction", diagnostics),
+                reportDefinition,
+                resolvedParameters,
+                materializedDataSets,
+                globals,
+                styleResolver,
+                context,
+                path,
+                runtime,
+                new HashSet<string>(StringComparer.OrdinalIgnoreCase),
+                diagnostics,
+                CancellationToken.None).AsTask().GetAwaiter().GetResult(),
+            _ => null
+        };
     }
 
     private async ValueTask<MaterializedSubreportReportItem> MaterializeSubreportItemAsync(
@@ -1010,6 +1827,58 @@ public sealed class ReportMaterializer : IReportMaterializer
         return scopeRows;
     }
 
+    private static IReadOnlyDictionary<string, object?> ResolveDefaultFields(
+        IReadOnlyList<MaterializedDataSet> dataSets,
+        out IReadOnlyList<IReadOnlyDictionary<string, object?>> scopeRows,
+        out string? dataSetId)
+    {
+        scopeRows = EmptyScopeRows;
+        dataSetId = null;
+        if (dataSets.Count != 1 || dataSets[0].Rows.Count == 0)
+        {
+            return EmptyFields;
+        }
+
+        dataSetId = dataSets[0].Id;
+        scopeRows = ToScopeRows(dataSets[0].Rows);
+        return dataSets[0].Rows[0].Values;
+    }
+
+    private static IReadOnlyDictionary<string, IReadOnlyList<IReadOnlyDictionary<string, object?>>> CreateNamedScopes(
+        IReadOnlyList<MaterializedDataSet> dataSets)
+    {
+        if (dataSets.Count == 0)
+        {
+            return EmptyNamedScopes;
+        }
+
+        var scopes = new Dictionary<string, IReadOnlyList<IReadOnlyDictionary<string, object?>>>(StringComparer.OrdinalIgnoreCase);
+        for (var index = 0; index < dataSets.Count; index++)
+        {
+            var scopeRows = ToScopeRows(dataSets[index].Rows);
+            scopes[dataSets[index].Id] = scopeRows;
+        }
+
+        return scopes;
+    }
+
+    private static IReadOnlyDictionary<string, IReadOnlyList<IReadOnlyDictionary<string, object?>>> AppendNamedScope(
+        IReadOnlyDictionary<string, IReadOnlyList<IReadOnlyDictionary<string, object?>>> scopes,
+        string? scopeName,
+        IReadOnlyList<IReadOnlyDictionary<string, object?>> scopeRows)
+    {
+        if (string.IsNullOrWhiteSpace(scopeName))
+        {
+            return scopes;
+        }
+
+        var clone = new Dictionary<string, IReadOnlyList<IReadOnlyDictionary<string, object?>>>(scopes, StringComparer.OrdinalIgnoreCase)
+        {
+            [scopeName] = scopeRows
+        };
+        return clone;
+    }
+
     private static ReportExpressionContext CreateReportContext(
         IReadOnlyDictionary<string, ReportParameterValue> parameters,
         IReadOnlyDictionary<string, object?> fields,
@@ -1018,7 +1887,8 @@ public sealed class ReportMaterializer : IReportMaterializer
         MaterializationRuntime runtime,
         ReportExpressionScopeKind scopeKind,
         string? scopeName,
-        int rowIndex = 0)
+        int rowIndex = 0,
+        IReadOnlyDictionary<string, IReadOnlyList<IReadOnlyDictionary<string, object?>>>? namedScopes = null)
     {
         return new ReportExpressionContext
         {
@@ -1027,6 +1897,7 @@ public sealed class ReportMaterializer : IReportMaterializer
             ScopeRows = scopeRows,
             ParentScopeRows = EmptyScopeRows,
             Globals = globals,
+            NamedScopes = namedScopes ?? EmptyNamedScopes,
             Culture = runtime.Culture,
             UiCulture = runtime.UiCulture,
             TimeZone = runtime.TimeZone,
@@ -1076,6 +1947,23 @@ public sealed class ReportMaterializer : IReportMaterializer
 
         var value = EvaluateExpression(expression, context, path, diagnostics);
         return value is null ? null : FormatValue(value, formatString: null, context.Culture);
+    }
+
+    private double? EvaluateNumericExpression(
+        string? expression,
+        ReportExpressionContext context,
+        string path,
+        List<ReportDiagnostic> diagnostics)
+    {
+        if (string.IsNullOrWhiteSpace(expression))
+        {
+            return null;
+        }
+
+        var value = EvaluateExpression(expression, context, path, diagnostics);
+        return TryConvertToDouble(value, context.Culture, out var numericValue)
+            ? numericValue
+            : null;
     }
 
     private bool EvaluateVisibility(
@@ -1204,6 +2092,11 @@ public sealed class ReportMaterializer : IReportMaterializer
             clone.Values.Add(value.Values[index]);
         }
 
+        for (var index = 0; index < value.Labels.Count; index++)
+        {
+            clone.Labels.Add(value.Labels[index]);
+        }
+
         return clone;
     }
 
@@ -1265,6 +2158,33 @@ public sealed class ReportMaterializer : IReportMaterializer
         }
 
         return Convert.ToString(value, culture) ?? string.Empty;
+    }
+
+    private static void OffsetMaterializedItem(
+        MaterializedReportItem item,
+        float offsetX,
+        float offsetY)
+    {
+        item.Bounds = item.Bounds with
+        {
+            X = item.Bounds.X + offsetX,
+            Y = item.Bounds.Y + offsetY
+        };
+
+        switch (item)
+        {
+            case MaterializedLineReportItem lineItem:
+                lineItem.X2 += offsetX;
+                lineItem.Y2 += offsetY;
+                break;
+            case MaterializedContainerReportItem containerItem:
+                for (var index = 0; index < containerItem.Items.Count; index++)
+                {
+                    OffsetMaterializedItem(containerItem.Items[index], offsetX, offsetY);
+                }
+
+                break;
+        }
     }
 
     private static bool IsPageNumberExpression(string expression)
@@ -1394,6 +2314,34 @@ public sealed class ReportMaterializer : IReportMaterializer
         }
     }
 
+    private static bool TryConvertToDateTime(
+        object? value,
+        IFormatProvider formatProvider,
+        out DateTime result)
+    {
+        result = default;
+        if (value is null)
+        {
+            return false;
+        }
+
+        if (value is DateTime dateTime)
+        {
+            result = dateTime;
+            return true;
+        }
+
+        try
+        {
+            result = Convert.ToDateTime(value, formatProvider);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     private static bool TryConvertToBoolean(
         object? value,
         CultureInfo culture,
@@ -1478,6 +2426,9 @@ public sealed class ReportMaterializer : IReportMaterializer
     private static readonly IReadOnlyList<IReadOnlyDictionary<string, object?>> EmptyScopeRows =
         Array.Empty<IReadOnlyDictionary<string, object?>>();
 
+    private static readonly IReadOnlyDictionary<string, IReadOnlyList<IReadOnlyDictionary<string, object?>>> EmptyNamedScopes =
+        new Dictionary<string, IReadOnlyList<IReadOnlyDictionary<string, object?>>>(StringComparer.OrdinalIgnoreCase);
+
     private sealed record MaterializationRuntime(
         ReportDataProviderRegistry ProviderRegistry,
         ReportHostDataRegistry HostDataRegistry,
@@ -1485,4 +2436,9 @@ public sealed class ReportMaterializer : IReportMaterializer
         CultureInfo Culture,
         CultureInfo UiCulture,
         TimeZoneInfo TimeZone);
+
+    private sealed record TablixGroupInstance(
+        object? Key,
+        List<MaterializedDataRow> Rows,
+        ReportExpressionContext Context);
 }

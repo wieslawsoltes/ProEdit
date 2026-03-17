@@ -16,6 +16,11 @@ internal static class ReportServiceModelCloner
             clone.Values.Add(value.Values[index]);
         }
 
+        for (var index = 0; index < value.Labels.Count; index++)
+        {
+            clone.Labels.Add(value.Labels[index]);
+        }
+
         return clone;
     }
 

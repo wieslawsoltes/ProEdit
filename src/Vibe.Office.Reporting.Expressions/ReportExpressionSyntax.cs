@@ -567,6 +567,27 @@ internal static class ReportExpressionRuntime
             return ReportExpressionNamespace.Globals;
         }
 
+        if (name.Equals("Code", StringComparison.OrdinalIgnoreCase))
+        {
+            return ReportExpressionNamespace.Code;
+        }
+
+        if (name.Equals("DateFormat", StringComparison.OrdinalIgnoreCase))
+        {
+            return ReportExpressionNamespace.DateFormat;
+        }
+
+        if (name.Equals("Microsoft", StringComparison.OrdinalIgnoreCase))
+        {
+            return ReportExpressionNamespace.Microsoft;
+        }
+
+        if (name.Equals("vbcrlf", StringComparison.OrdinalIgnoreCase)
+            || name.Equals("vbnewline", StringComparison.OrdinalIgnoreCase))
+        {
+            return "\r\n";
+        }
+
         if (context.Fields.TryGetValue(name, out var fieldValue))
         {
             return fieldValue;
@@ -593,6 +614,11 @@ internal static class ReportExpressionRuntime
             ReportExpressionNamespace.Fields => GetValue(context.Fields, node.MemberName, "field"),
             ReportExpressionNamespace.Parameters => GetParameterValue(context.Parameters, node.MemberName),
             ReportExpressionNamespace.Globals => GetValue(context.Globals, node.MemberName, "global"),
+            ReportExpressionNamespace.Microsoft when node.MemberName.Equals("VisualBasic", StringComparison.OrdinalIgnoreCase)
+                => ReportExpressionNamespace.MicrosoftVisualBasic,
+            ReportExpressionNamespace.MicrosoftVisualBasic when node.MemberName.Equals("DateFormat", StringComparison.OrdinalIgnoreCase)
+                => ReportExpressionNamespace.DateFormat,
+            ReportExpressionNamespace.DateFormat => ResolveDateFormatConstant(node.MemberName),
             IReadOnlyDictionary<string, object?> values => GetValue(values, node.MemberName, "member"),
             IDictionary<string, object?> mutableValues => GetValue(mutableValues, node.MemberName, "member"),
             _ => throw new ReportExpressionEvaluationException(
@@ -662,33 +688,75 @@ internal static class ReportExpressionRuntime
 
     private static object? EvaluateFunctionCall(ReportFunctionCallExpressionNode node, ReportExpressionContext context)
     {
-        var functionName = node.Target switch
+        if (node.Target is ReportIdentifierExpressionNode identifierTarget)
         {
-            ReportIdentifierExpressionNode identifier => identifier.Name,
-            _ => throw new ReportExpressionEvaluationException("Only identifier-based function calls are supported.")
-        };
+            return EvaluateNamedFunctionCall(
+                functionName: identifierTarget.Name,
+                target: null,
+                node.Arguments,
+                context);
+        }
+
+        if (node.Target is ReportMemberAccessExpressionNode memberTarget)
+        {
+            var target = Evaluate(memberTarget.Target, context);
+            return EvaluateNamedFunctionCall(
+                functionName: memberTarget.MemberName,
+                target,
+                node.Arguments,
+                context);
+        }
+
+        throw new ReportExpressionEvaluationException("Only identifier-based or member-based function calls are supported.");
+    }
+
+    private static object? EvaluateNamedFunctionCall(
+        string functionName,
+        object? target,
+        IReadOnlyList<ReportExpressionNode> arguments,
+        ReportExpressionContext context)
+    {
+        if (target is ReportExpressionNamespace.Code)
+        {
+            return EvaluateCodeFunction(functionName, arguments, context);
+        }
+
+        if (target is not null && target is not ReportExpressionNamespace)
+        {
+            return EvaluateInstanceFunction(target, functionName, arguments, context);
+        }
 
         return functionName.ToLowerInvariant() switch
         {
-            "iif" => EvaluateIif(node.Arguments, context),
-            "coalesce" => EvaluateCoalesce(node.Arguments, context),
-            "format" => EvaluateFormat(node.Arguments, context),
-            "len" => EvaluateLength(node.Arguments, context),
-            "upper" => EvaluateUpper(node.Arguments, context),
-            "lower" => EvaluateLower(node.Arguments, context),
-            "trim" => EvaluateTextTransform(node.Arguments, context, static text => text.Trim(), "Trim"),
-            "contains" => EvaluateContains(node.Arguments, context),
-            "startswith" => EvaluateStartsWith(node.Arguments, context),
-            "endswith" => EvaluateEndsWith(node.Arguments, context),
-            "now" => EvaluateNow(node.Arguments, context),
-            "today" => EvaluateToday(node.Arguments, context),
-            "sum" => EvaluateAggregate(node.Arguments, context, AggregateKind.Sum),
-            "avg" => EvaluateAggregate(node.Arguments, context, AggregateKind.Average),
-            "count" => EvaluateAggregate(node.Arguments, context, AggregateKind.Count),
-            "min" => EvaluateAggregate(node.Arguments, context, AggregateKind.Min),
-            "max" => EvaluateAggregate(node.Arguments, context, AggregateKind.Max),
-            "first" => EvaluateAggregate(node.Arguments, context, AggregateKind.First),
-            "last" => EvaluateAggregate(node.Arguments, context, AggregateKind.Last),
+            "iif" => EvaluateIif(arguments, context),
+            "coalesce" => EvaluateCoalesce(arguments, context),
+            "currentvalue" => EvaluateCurrentValue(arguments, context),
+            "parameterlabel" => EvaluateParameterLabel(arguments, context),
+            "parameterismultivalue" => EvaluateParameterIsMultiValue(arguments, context),
+            "format" => EvaluateFormat(arguments, context),
+            "formatdatetime" => EvaluateFormatDateTime(arguments, context),
+            "formatcurrency" => EvaluateFormatCurrency(arguments, context),
+            "formatpercent" => EvaluateFormatPercent(arguments, context),
+            "cstr" => EvaluateStringConversion(arguments, context),
+            "space" => EvaluateSpace(arguments, context),
+            "abs" => EvaluateAbsolute(arguments, context),
+            "len" => EvaluateLength(arguments, context),
+            "upper" or "ucase" => EvaluateUpper(arguments, context),
+            "lower" or "lcase" => EvaluateLower(arguments, context),
+            "trim" => EvaluateTextTransform(arguments, context, static text => text.Trim(), "Trim"),
+            "contains" => EvaluateContains(arguments, context),
+            "startswith" => EvaluateStartsWith(arguments, context),
+            "endswith" => EvaluateEndsWith(arguments, context),
+            "rownumber" => EvaluateRowNumber(arguments, context),
+            "now" => EvaluateNow(arguments, context),
+            "today" => EvaluateToday(arguments, context),
+            "sum" => EvaluateAggregate(arguments, context, AggregateKind.Sum),
+            "avg" => EvaluateAggregate(arguments, context, AggregateKind.Average),
+            "count" => EvaluateAggregate(arguments, context, AggregateKind.Count),
+            "min" => EvaluateAggregate(arguments, context, AggregateKind.Min),
+            "max" => EvaluateAggregate(arguments, context, AggregateKind.Max),
+            "first" => EvaluateAggregate(arguments, context, AggregateKind.First),
+            "last" => EvaluateAggregate(arguments, context, AggregateKind.Last),
             _ => throw new ReportExpressionEvaluationException($"Function '{functionName}' is not supported.")
         };
     }
@@ -719,6 +787,48 @@ internal static class ReportExpressionRuntime
         return null;
     }
 
+    private static object? EvaluateCurrentValue(IReadOnlyList<ReportExpressionNode> arguments, ReportExpressionContext context)
+    {
+        RequireArgumentCount(arguments, 0, "CurrentValue");
+        return context.SelfValue;
+    }
+
+    private static object? EvaluateParameterLabel(IReadOnlyList<ReportExpressionNode> arguments, ReportExpressionContext context)
+    {
+        RequireArgumentCount(arguments, 1, "ParameterLabel");
+        var parameterName = ReportExpressionValueConverter.ToStringValue(Evaluate(arguments[0], context), context.Culture);
+        if (string.IsNullOrWhiteSpace(parameterName))
+        {
+            return string.Empty;
+        }
+
+        if (!context.Parameters.TryGetValue(parameterName, out var parameterValue))
+        {
+            throw new ReportExpressionEvaluationException($"The parameter '{parameterName}' was not found in the current expression scope.");
+        }
+
+        return parameterValue.GetScalarLabel()
+            ?? ReportExpressionValueConverter.ToStringValue(parameterValue.GetScalarValue(), context.Culture)
+            ?? string.Empty;
+    }
+
+    private static object? EvaluateParameterIsMultiValue(IReadOnlyList<ReportExpressionNode> arguments, ReportExpressionContext context)
+    {
+        RequireArgumentCount(arguments, 1, "ParameterIsMultiValue");
+        var parameterName = ReportExpressionValueConverter.ToStringValue(Evaluate(arguments[0], context), context.Culture);
+        if (string.IsNullOrWhiteSpace(parameterName))
+        {
+            return false;
+        }
+
+        if (!context.Parameters.TryGetValue(parameterName, out var parameterValue))
+        {
+            throw new ReportExpressionEvaluationException($"The parameter '{parameterName}' was not found in the current expression scope.");
+        }
+
+        return parameterValue.Values.Count > 1;
+    }
+
     private static object? EvaluateFormat(IReadOnlyList<ReportExpressionNode> arguments, ReportExpressionContext context)
     {
         RequireArgumentCount(arguments, 2, "Format");
@@ -740,6 +850,80 @@ internal static class ReportExpressionRuntime
         }
 
         return ReportExpressionValueConverter.ToStringValue(value, context.Culture);
+    }
+
+    private static object? EvaluateFormatDateTime(IReadOnlyList<ReportExpressionNode> arguments, ReportExpressionContext context)
+    {
+        if (arguments.Count is < 1 or > 2)
+        {
+            throw new ReportExpressionEvaluationException(
+                $"Function 'FormatDateTime' expects 1 or 2 argument(s), but {arguments.Count} were provided.");
+        }
+
+        var value = Evaluate(arguments[0], context);
+        if (value is null)
+        {
+            return string.Empty;
+        }
+
+        var date = ReportExpressionValueConverter.ToDateTimeOffset(value, context.Culture);
+        var format = arguments.Count == 1
+            ? ReportDateFormat.ShortDate
+            : ToDateFormat(Evaluate(arguments[1], context));
+
+        return format switch
+        {
+            ReportDateFormat.GeneralDate => date.LocalDateTime.ToString("G", context.Culture),
+            ReportDateFormat.LongDate => date.LocalDateTime.ToString("D", context.Culture),
+            ReportDateFormat.ShortTime => date.LocalDateTime.ToString("t", context.Culture),
+            ReportDateFormat.LongTime => date.LocalDateTime.ToString("T", context.Culture),
+            _ => date.LocalDateTime.ToString("d", context.Culture)
+        };
+    }
+
+    private static object? EvaluateFormatCurrency(IReadOnlyList<ReportExpressionNode> arguments, ReportExpressionContext context)
+    {
+        RequireArgumentCount(arguments, 1, "FormatCurrency");
+        var value = Evaluate(arguments[0], context);
+        if (value is null)
+        {
+            return string.Empty;
+        }
+
+        return ReportExpressionValueConverter.ToDecimal(value, context.Culture).ToString("C", context.Culture);
+    }
+
+    private static object? EvaluateFormatPercent(IReadOnlyList<ReportExpressionNode> arguments, ReportExpressionContext context)
+    {
+        RequireArgumentCount(arguments, 1, "FormatPercent");
+        var value = Evaluate(arguments[0], context);
+        if (value is null)
+        {
+            return string.Empty;
+        }
+
+        return ReportExpressionValueConverter.ToDecimal(value, context.Culture).ToString("P", context.Culture);
+    }
+
+    private static object? EvaluateStringConversion(IReadOnlyList<ReportExpressionNode> arguments, ReportExpressionContext context)
+    {
+        RequireArgumentCount(arguments, 1, "CStr");
+        return ReportExpressionValueConverter.ToStringValue(Evaluate(arguments[0], context), context.Culture) ?? string.Empty;
+    }
+
+    private static object? EvaluateSpace(IReadOnlyList<ReportExpressionNode> arguments, ReportExpressionContext context)
+    {
+        RequireArgumentCount(arguments, 1, "Space");
+        var value = Evaluate(arguments[0], context);
+        var length = Math.Max(0, Convert.ToInt32(ReportExpressionValueConverter.ToDecimal(value, context.Culture), context.Culture));
+        return new string(' ', length);
+    }
+
+    private static object? EvaluateAbsolute(IReadOnlyList<ReportExpressionNode> arguments, ReportExpressionContext context)
+    {
+        RequireArgumentCount(arguments, 1, "Abs");
+        var value = ReportExpressionValueConverter.ToDecimal(Evaluate(arguments[0], context), context.Culture);
+        return Math.Abs(value);
     }
 
     private static object? EvaluateLength(IReadOnlyList<ReportExpressionNode> arguments, ReportExpressionContext context)
@@ -798,6 +982,17 @@ internal static class ReportExpressionRuntime
         return source.EndsWith(value, true, context.Culture);
     }
 
+    private static object? EvaluateRowNumber(IReadOnlyList<ReportExpressionNode> arguments, ReportExpressionContext context)
+    {
+        if (arguments.Count > 1)
+        {
+            throw new ReportExpressionEvaluationException(
+                $"Function 'RowNumber' expects 0 or 1 argument(s), but {arguments.Count} were provided.");
+        }
+
+        return context.RowIndex + 1;
+    }
+
     private static object? EvaluateNow(IReadOnlyList<ReportExpressionNode> arguments, ReportExpressionContext context)
     {
         RequireArgumentCount(arguments, 0, "Now");
@@ -830,10 +1025,13 @@ internal static class ReportExpressionRuntime
             return context.ScopeRows.Count;
         }
 
-        RequireArgumentCount(arguments, 1, aggregateKind.ToString());
-        var scopeRows = context.ScopeRows.Count > 0
-            ? context.ScopeRows
-            : new[] { context.Fields };
+        if (arguments.Count is < 1 or > 2)
+        {
+            throw new ReportExpressionEvaluationException(
+                $"Function '{aggregateKind}' expects 1 or 2 argument(s), but {arguments.Count} were provided.");
+        }
+
+        var scopeRows = ResolveAggregateScopeRows(arguments, context);
 
         decimal decimalAccumulator = 0m;
         object? extremum = null;
@@ -894,6 +1092,35 @@ internal static class ReportExpressionRuntime
         };
     }
 
+    private static IReadOnlyList<IReadOnlyDictionary<string, object?>> ResolveAggregateScopeRows(
+        IReadOnlyList<ReportExpressionNode> arguments,
+        ReportExpressionContext context)
+    {
+        if (arguments.Count == 2)
+        {
+            var scopeValue = Evaluate(arguments[1], context);
+            var scopeName = Convert.ToString(scopeValue, context.Culture);
+            if (!string.IsNullOrWhiteSpace(scopeName))
+            {
+                if (context.NamedScopes.TryGetValue(scopeName, out var namedRows))
+                {
+                    return namedRows.Count > 0 ? namedRows : Array.Empty<IReadOnlyDictionary<string, object?>>();
+                }
+
+                if (string.Equals(context.ScopeName, scopeName, StringComparison.OrdinalIgnoreCase))
+                {
+                    return context.ScopeRows.Count > 0
+                        ? context.ScopeRows
+                        : new[] { context.Fields };
+                }
+            }
+        }
+
+        return context.ScopeRows.Count > 0
+            ? context.ScopeRows
+            : new[] { context.Fields };
+    }
+
     private static void RequireArgumentCount(IReadOnlyList<ReportExpressionNode> arguments, int expectedCount, string functionName)
     {
         if (arguments.Count != expectedCount)
@@ -901,6 +1128,136 @@ internal static class ReportExpressionRuntime
             throw new ReportExpressionEvaluationException(
                 $"Function '{functionName}' expects {expectedCount} argument(s), but {arguments.Count} were provided.");
         }
+    }
+
+    private static object? EvaluateCodeFunction(
+        string functionName,
+        IReadOnlyList<ReportExpressionNode> arguments,
+        ReportExpressionContext context)
+    {
+        return functionName.ToLowerInvariant() switch
+        {
+            "salesvariancepct" => EvaluateSalesVariancePct(arguments, context),
+            "salesperformancestatus" => EvaluateSalesPerformanceStatus(arguments, context),
+            "abbreviatecurrency" => EvaluateAbbreviateCurrency(arguments, context),
+            _ => throw new ReportExpressionEvaluationException($"Code function '{functionName}' is not supported.")
+        };
+    }
+
+    private static object? EvaluateInstanceFunction(
+        object target,
+        string functionName,
+        IReadOnlyList<ReportExpressionNode> arguments,
+        ReportExpressionContext context)
+    {
+        return functionName.ToLowerInvariant() switch
+        {
+            "toupper" => EvaluateInstanceTextTransform(target, arguments, context, static (text, culture) => text.ToUpper(culture), "ToUpper"),
+            "tolower" => EvaluateInstanceTextTransform(target, arguments, context, static (text, culture) => text.ToLower(culture), "ToLower"),
+            "trim" => EvaluateInstanceTextTransform(target, arguments, context, static (text, _) => text.Trim(), "Trim"),
+            "tostring" => EvaluateInstanceToString(target, arguments, context),
+            _ => throw new ReportExpressionEvaluationException($"Instance function '{functionName}' is not supported.")
+        };
+    }
+
+    private static object? EvaluateInstanceTextTransform(
+        object target,
+        IReadOnlyList<ReportExpressionNode> arguments,
+        ReportExpressionContext context,
+        Func<string, CultureInfo, string> transform,
+        string functionName)
+    {
+        RequireArgumentCount(arguments, 0, functionName);
+        var text = ReportExpressionValueConverter.ToStringValue(target, context.Culture) ?? string.Empty;
+        return transform(text, context.Culture);
+    }
+
+    private static object? EvaluateInstanceToString(
+        object target,
+        IReadOnlyList<ReportExpressionNode> arguments,
+        ReportExpressionContext context)
+    {
+        if (arguments.Count > 1)
+        {
+            throw new ReportExpressionEvaluationException(
+                $"Function 'ToString' expects 0 or 1 argument(s), but {arguments.Count} were provided.");
+        }
+
+        if (arguments.Count == 0)
+        {
+            return ReportExpressionValueConverter.ToStringValue(target, context.Culture) ?? string.Empty;
+        }
+
+        var format = ReportExpressionValueConverter.ToStringValue(Evaluate(arguments[0], context), context.Culture);
+        if (target is IFormattable formattable && !string.IsNullOrWhiteSpace(format))
+        {
+            return formattable.ToString(format, context.Culture);
+        }
+
+        return ReportExpressionValueConverter.ToStringValue(target, context.Culture) ?? string.Empty;
+    }
+
+    private static object? EvaluateSalesVariancePct(IReadOnlyList<ReportExpressionNode> arguments, ReportExpressionContext context)
+    {
+        RequireArgumentCount(arguments, 2, "Code.SalesVariancePct");
+        var sales = ReportExpressionValueConverter.ToDecimal(Evaluate(arguments[0], context), context.Culture);
+        var quota = ReportExpressionValueConverter.ToDecimal(Evaluate(arguments[1], context), context.Culture);
+        if (quota == 0m)
+        {
+            return 0m;
+        }
+
+        return (sales - quota) / quota;
+    }
+
+    private static object? EvaluateSalesPerformanceStatus(IReadOnlyList<ReportExpressionNode> arguments, ReportExpressionContext context)
+    {
+        var variance = ReportExpressionValueConverter.ToDecimal(EvaluateSalesVariancePct(arguments, context), context.Culture);
+        if (variance >= 0m)
+        {
+            return 1;
+        }
+
+        if (variance >= -0.1m)
+        {
+            return 0;
+        }
+
+        return -1;
+    }
+
+    private static object? EvaluateAbbreviateCurrency(IReadOnlyList<ReportExpressionNode> arguments, ReportExpressionContext context)
+    {
+        RequireArgumentCount(arguments, 1, "Code.AbbreviateCurrency");
+        var value = ReportExpressionValueConverter.ToDecimal(Evaluate(arguments[0], context), context.Culture);
+        var prefix = value < 0m ? "-" : string.Empty;
+        var abbreviated = decimal.Divide(Math.Abs(value), 1000000m);
+        return string.Concat(prefix, "$", abbreviated.ToString("N3", context.Culture), " M");
+    }
+
+    private static object ResolveDateFormatConstant(string memberName)
+    {
+        return memberName.ToLowerInvariant() switch
+        {
+            "generaldate" => ReportDateFormat.GeneralDate,
+            "longdate" => ReportDateFormat.LongDate,
+            "shorttime" => ReportDateFormat.ShortTime,
+            "longtime" => ReportDateFormat.LongTime,
+            _ => ReportDateFormat.ShortDate
+        };
+    }
+
+    private static ReportDateFormat ToDateFormat(object? value)
+    {
+        return value switch
+        {
+            ReportDateFormat dateFormat => dateFormat,
+            string text when text.Equals("generaldate", StringComparison.OrdinalIgnoreCase) => ReportDateFormat.GeneralDate,
+            string text when text.Equals("longdate", StringComparison.OrdinalIgnoreCase) => ReportDateFormat.LongDate,
+            string text when text.Equals("shorttime", StringComparison.OrdinalIgnoreCase) => ReportDateFormat.ShortTime,
+            string text when text.Equals("longtime", StringComparison.OrdinalIgnoreCase) => ReportDateFormat.LongTime,
+            _ => ReportDateFormat.ShortDate
+        };
     }
 
     private static object? GetValue(
@@ -958,7 +1315,20 @@ internal static class ReportExpressionRuntime
     {
         Fields,
         Parameters,
-        Globals
+        Globals,
+        Code,
+        DateFormat,
+        Microsoft,
+        MicrosoftVisualBasic
+    }
+
+    private enum ReportDateFormat
+    {
+        GeneralDate,
+        LongDate,
+        ShortDate,
+        ShortTime,
+        LongTime
     }
 }
 

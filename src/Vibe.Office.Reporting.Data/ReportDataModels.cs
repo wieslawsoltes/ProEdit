@@ -25,6 +25,11 @@ public static class ReportProviderIds
     public const string Csv = "csv";
 
     /// <summary>
+    /// Provider identifier for self-contained RDL ENTERDATA datasets.
+    /// </summary>
+    public const string EnterData = "enterdata";
+
+    /// <summary>
     /// Provider identifier for host-registered SQL connectors.
     /// </summary>
     public const string Sql = "sql";

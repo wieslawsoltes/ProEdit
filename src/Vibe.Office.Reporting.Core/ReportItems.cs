@@ -19,7 +19,9 @@ public readonly record struct ReportItemBounds(float X, float Y, float Width, fl
 [JsonDerivedType(typeof(ImageItem), "ImageItem")]
 [JsonDerivedType(typeof(LineItem), "LineItem")]
 [JsonDerivedType(typeof(ShapeItem), "ShapeItem")]
+[JsonDerivedType(typeof(ContainerItem), "ContainerItem")]
 [JsonDerivedType(typeof(ChartItem), "ChartItem")]
+[JsonDerivedType(typeof(GaugeItem), "GaugeItem")]
 [JsonDerivedType(typeof(TablixItem), "TablixItem")]
 [JsonDerivedType(typeof(SubreportItem), "SubreportItem")]
 [JsonDerivedType(typeof(DocumentTemplateItem), "DocumentTemplateItem")]
@@ -230,6 +232,17 @@ public sealed class ShapeItem : ReportItem
 }
 
 /// <summary>
+/// Container report item that preserves nested layout items.
+/// </summary>
+public sealed class ContainerItem : ReportItem
+{
+    /// <summary>
+    /// Gets the nested child items.
+    /// </summary>
+    public List<ReportItem> Items { get; set; } = new();
+}
+
+/// <summary>
 /// Supported shape kinds.
 /// </summary>
 public enum ReportShapeKind
@@ -248,6 +261,27 @@ public enum ReportShapeKind
     /// Ellipse shape.
     /// </summary>
     Ellipse
+}
+
+/// <summary>
+/// Supported gauge kinds.
+/// </summary>
+public enum ReportGaugeKind
+{
+    /// <summary>
+    /// State-indicator style gauge.
+    /// </summary>
+    StateIndicator,
+
+    /// <summary>
+    /// Linear gauge.
+    /// </summary>
+    Linear,
+
+    /// <summary>
+    /// Radial gauge.
+    /// </summary>
+    Radial
 }
 
 /// <summary>
@@ -274,6 +308,52 @@ public sealed class ChartItem : ReportItem
     /// Gets the series definitions.
     /// </summary>
     public List<ReportChartSeriesDefinition> Series { get; set; } = new();
+}
+
+/// <summary>
+/// Gauge report item.
+/// </summary>
+public sealed class GaugeItem : ReportItem
+{
+    /// <summary>
+    /// Gets or sets the backing dataset identifier.
+    /// </summary>
+    public string? DataSetId { get; set; }
+
+    /// <summary>
+    /// Gets or sets the gauge kind.
+    /// </summary>
+    public ReportGaugeKind GaugeKind { get; set; } = ReportGaugeKind.Radial;
+
+    /// <summary>
+    /// Gets or sets the main value expression.
+    /// </summary>
+    public string? ValueExpression { get; set; }
+
+    /// <summary>
+    /// Gets or sets the minimum value expression.
+    /// </summary>
+    public string? MinimumExpression { get; set; }
+
+    /// <summary>
+    /// Gets or sets the maximum value expression.
+    /// </summary>
+    public string? MaximumExpression { get; set; }
+
+    /// <summary>
+    /// Gets or sets the optional target value expression.
+    /// </summary>
+    public string? TargetValueExpression { get; set; }
+
+    /// <summary>
+    /// Gets or sets the optional label expression.
+    /// </summary>
+    public string? LabelExpression { get; set; }
+
+    /// <summary>
+    /// Gets or sets the original imported RDL payload when the gauge contains unsupported styling details.
+    /// </summary>
+    public string? RawRdlXml { get; set; }
 }
 
 /// <summary>
@@ -321,6 +401,11 @@ public sealed class TablixItem : ReportItem
     /// Gets the row definitions.
     /// </summary>
     public List<ReportTablixRowDefinition> Rows { get; set; } = new();
+
+    /// <summary>
+    /// Gets the row hierarchy member definitions in depth-first leaf order.
+    /// </summary>
+    public List<ReportTablixMemberDefinition> RowMembers { get; set; } = new();
 }
 
 /// <summary>
@@ -355,9 +440,101 @@ public sealed class ReportTablixRowDefinition
     public bool IsHeader { get; set; }
 
     /// <summary>
+    /// Gets or sets the explicit row height.
+    /// </summary>
+    public float Height { get; set; }
+
+    /// <summary>
     /// Gets the row cells.
     /// </summary>
     public List<ReportTablixCellDefinition> Cells { get; set; } = new();
+}
+
+/// <summary>
+/// Defines the semantic tablix member kind.
+/// </summary>
+public enum ReportTablixMemberKind
+{
+    /// <summary>
+    /// A static member rendered once for the current scope.
+    /// </summary>
+    Static,
+
+    /// <summary>
+    /// A dynamic grouping member rendered once per group instance.
+    /// </summary>
+    Group,
+
+    /// <summary>
+    /// A details member rendered once per row in the current scope.
+    /// </summary>
+    Details
+}
+
+/// <summary>
+/// Defines one tablix row hierarchy member.
+/// </summary>
+public sealed class ReportTablixMemberDefinition
+{
+    /// <summary>
+    /// Gets or sets the member identifier.
+    /// </summary>
+    public string Id { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the member kind.
+    /// </summary>
+    public ReportTablixMemberKind Kind { get; set; } = ReportTablixMemberKind.Static;
+
+    /// <summary>
+    /// Gets or sets the source group name.
+    /// </summary>
+    public string? GroupName { get; set; }
+
+    /// <summary>
+    /// Gets or sets the grouping expression.
+    /// </summary>
+    public string? GroupExpression { get; set; }
+
+    /// <summary>
+    /// Gets or sets the optional sort expression.
+    /// </summary>
+    public string? SortExpression { get; set; }
+
+    /// <summary>
+    /// Gets or sets the sort direction.
+    /// </summary>
+    public ReportSortDirection SortDirection { get; set; } = ReportSortDirection.Ascending;
+
+    /// <summary>
+    /// Gets or sets the visibility expression.
+    /// </summary>
+    public string? VisibilityExpression { get; set; }
+
+    /// <summary>
+    /// Gets or sets the optional toggle item identifier.
+    /// </summary>
+    public string? ToggleItemId { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether the member repeats on new pages.
+    /// </summary>
+    public bool RepeatOnNewPage { get; set; }
+
+    /// <summary>
+    /// Gets or sets the keep-with-group mode text.
+    /// </summary>
+    public string? KeepWithGroup { get; set; }
+
+    /// <summary>
+    /// Gets or sets the mapped body row index for leaf members.
+    /// </summary>
+    public int? RowDefinitionIndex { get; set; }
+
+    /// <summary>
+    /// Gets the nested child members.
+    /// </summary>
+    public List<ReportTablixMemberDefinition> Members { get; set; } = new();
 }
 
 /// <summary>
@@ -384,6 +561,11 @@ public sealed class ReportTablixCellDefinition
     /// Gets or sets the style name.
     /// </summary>
     public string? StyleName { get; set; }
+
+    /// <summary>
+    /// Gets or sets the optional nested cell content item.
+    /// </summary>
+    public ReportItem? ContentItem { get; set; }
 
     /// <summary>
     /// Gets or sets the row span.

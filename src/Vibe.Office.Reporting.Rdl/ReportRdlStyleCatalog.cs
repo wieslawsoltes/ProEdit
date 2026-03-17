@@ -1,4 +1,5 @@
 using System.Xml.Linq;
+using Vibe.Office.Documents;
 
 namespace Vibe.Office.Reporting.Rdl;
 
@@ -6,17 +7,23 @@ internal readonly record struct ReportRdlStyleProperties(
     string? FontFamily,
     float? FontSize,
     string? Foreground,
+    string? ForegroundExpression,
     string? Background,
+    string? BackgroundExpression,
     bool? Bold,
-    bool? Italic)
+    bool? Italic,
+    ParagraphAlignment? TextAlign)
 {
     public bool HasValues =>
         !string.IsNullOrWhiteSpace(FontFamily)
         || FontSize.HasValue
         || !string.IsNullOrWhiteSpace(Foreground)
+        || !string.IsNullOrWhiteSpace(ForegroundExpression)
         || !string.IsNullOrWhiteSpace(Background)
+        || !string.IsNullOrWhiteSpace(BackgroundExpression)
         || Bold.HasValue
-        || Italic.HasValue;
+        || Italic.HasValue
+        || TextAlign.HasValue;
 }
 
 internal sealed class ReportRdlStyleCatalog
@@ -45,9 +52,12 @@ internal sealed class ReportRdlStyleCatalog
             FontFamily = properties.FontFamily,
             FontSize = properties.FontSize,
             Foreground = properties.Foreground,
+            ForegroundExpression = properties.ForegroundExpression,
             Background = properties.Background,
+            BackgroundExpression = properties.BackgroundExpression,
             Bold = properties.Bold,
-            Italic = properties.Italic
+            Italic = properties.Italic,
+            TextAlign = properties.TextAlign
         });
 
         return styleId;
@@ -79,10 +89,13 @@ internal sealed class ReportRdlStyleCatalog
         return new ReportRdlStyleProperties(
             styleElement.Element(xmlNamespace + "FontFamily")?.Value,
             ParseFontSize(styleElement.Element(xmlNamespace + "FontSize")?.Value, xmlNamespace, path, diagnostics),
-            styleElement.Element(xmlNamespace + "Color")?.Value,
-            styleElement.Element(xmlNamespace + "BackgroundColor")?.Value,
+            ParseStaticScalar(styleElement.Element(xmlNamespace + "Color")?.Value),
+            ParseExpressionScalar(styleElement.Element(xmlNamespace + "Color")?.Value),
+            ParseStaticScalar(styleElement.Element(xmlNamespace + "BackgroundColor")?.Value),
+            ParseExpressionScalar(styleElement.Element(xmlNamespace + "BackgroundColor")?.Value),
             ParseBold(styleElement.Element(xmlNamespace + "FontWeight")?.Value),
-            ParseItalic(styleElement.Element(xmlNamespace + "FontStyle")?.Value));
+            ParseItalic(styleElement.Element(xmlNamespace + "FontStyle")?.Value),
+            ParseAlignment(styleElement.Element(xmlNamespace + "TextAlign")?.Value));
     }
 
     public static XElement? CreateStyleElement(
@@ -104,8 +117,18 @@ internal sealed class ReportRdlStyleCatalog
                 styleElement.Add(new XElement(xmlNamespace + "FontSize", ReportRdlMeasurements.Format(style.FontSize.Value)));
             }
 
-            AddOptionalElement(styleElement, xmlNamespace + "Color", style.Foreground);
-            AddOptionalElement(styleElement, xmlNamespace + "BackgroundColor", style.Background);
+            AddOptionalElement(
+                styleElement,
+                xmlNamespace + "Color",
+                !string.IsNullOrWhiteSpace(style.ForegroundExpression)
+                    ? ReportRdlExpressions.ToRdlScalarValue(style.ForegroundExpression) ?? style.ForegroundExpression
+                    : style.Foreground);
+            AddOptionalElement(
+                styleElement,
+                xmlNamespace + "BackgroundColor",
+                !string.IsNullOrWhiteSpace(style.BackgroundExpression)
+                    ? ReportRdlExpressions.ToRdlScalarValue(style.BackgroundExpression) ?? style.BackgroundExpression
+                    : style.Background);
             if (style.Bold == true)
             {
                 styleElement.Add(new XElement(xmlNamespace + "FontWeight", "Bold"));
@@ -114,6 +137,11 @@ internal sealed class ReportRdlStyleCatalog
             if (style.Italic == true)
             {
                 styleElement.Add(new XElement(xmlNamespace + "FontStyle", "Italic"));
+            }
+
+            if (style.TextAlign.HasValue)
+            {
+                styleElement.Add(new XElement(xmlNamespace + "TextAlign", FormatAlignment(style.TextAlign.Value)));
             }
         }
 
@@ -155,12 +183,49 @@ internal sealed class ReportRdlStyleCatalog
         };
     }
 
+    private static ParagraphAlignment? ParseAlignment(string? value)
+    {
+        return value?.Trim().ToLowerInvariant() switch
+        {
+            "center" => ParagraphAlignment.Center,
+            "right" => ParagraphAlignment.Right,
+            "justify" => ParagraphAlignment.Justify,
+            "left" or "general" => ParagraphAlignment.Left,
+            _ => null
+        };
+    }
+
+    private static string FormatAlignment(ParagraphAlignment alignment)
+    {
+        return alignment switch
+        {
+            ParagraphAlignment.Center => "Center",
+            ParagraphAlignment.Right => "Right",
+            ParagraphAlignment.Justify => "Justify",
+            _ => "Left"
+        };
+    }
+
     private static void AddOptionalElement(XElement parent, XName name, string? value)
     {
         if (!string.IsNullOrWhiteSpace(value))
         {
             parent.Add(new XElement(name, value));
         }
+    }
+
+    private static string? ParseStaticScalar(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) || value.TrimStart().StartsWith('=')
+            ? null
+            : value;
+    }
+
+    private static string? ParseExpressionScalar(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) || !value.TrimStart().StartsWith('=')
+            ? null
+            : ReportRdlExpressions.ToNativeScalarExpression(value);
     }
 
     private static string BuildStyleId(int index)

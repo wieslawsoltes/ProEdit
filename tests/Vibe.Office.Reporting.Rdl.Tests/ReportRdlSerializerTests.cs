@@ -1,4 +1,5 @@
 using System.Text;
+using Vibe.Office.Documents;
 using Vibe.Office.Reporting.Rdl;
 using Xunit;
 
@@ -215,7 +216,82 @@ public sealed class ReportRdlSerializerTests
     }
 
     [Fact]
-    public void Read_ReportsGroupedTablixAsUnsupported()
+    public void Read_TranslatesParameterLabelsAndCurrentValueExpressions()
+    {
+        const string xml =
+            """
+            <Report xmlns="http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition"
+                    xmlns:rd="http://schemas.microsoft.com/SQLServer/reporting/reportdesigner">
+              <rd:ReportID>parameter-label-report</rd:ReportID>
+              <ReportSections>
+                <ReportSection>
+                  <Body>
+                    <ReportItems>
+                      <Textbox Name="Title">
+                        <Paragraphs>
+                          <Paragraph>
+                            <TextRuns>
+                              <TextRun>
+                                <Value>="Organization: " &amp; Parameters!OrganizationKey.Label &amp; " | Department: " &amp; Parameters!DepartmentGroupKey.Label</Value>
+                              </TextRun>
+                            </TextRuns>
+                          </Paragraph>
+                        </Paragraphs>
+                        <Top>0in</Top>
+                        <Left>0in</Left>
+                        <Height>0.25in</Height>
+                        <Width>5in</Width>
+                      </Textbox>
+                      <Textbox Name="Variance">
+                        <Paragraphs>
+                          <Paragraph>
+                            <TextRuns>
+                              <TextRun>
+                                <Value>=Code.SalesVariancePct(Sum(Fields!Sales.Value), Sum(Fields!Quota.Value))</Value>
+                                <Style>
+                                  <Color>=Iif(Me.Value &lt; 0, "#c0433a", "Black")</Color>
+                                </Style>
+                              </TextRun>
+                            </TextRuns>
+                          </Paragraph>
+                        </Paragraphs>
+                        <Top>0.3in</Top>
+                        <Left>0in</Left>
+                        <Height>0.25in</Height>
+                        <Width>2in</Width>
+                      </Textbox>
+                    </ReportItems>
+                    <Height>1in</Height>
+                  </Body>
+                  <Width>6.5in</Width>
+                  <Page>
+                    <PageHeight>11in</PageHeight>
+                    <PageWidth>8.5in</PageWidth>
+                    <LeftMargin>1in</LeftMargin>
+                    <RightMargin>1in</RightMargin>
+                    <TopMargin>1in</TopMargin>
+                    <BottomMargin>1in</BottomMargin>
+                  </Page>
+                </ReportSection>
+              </ReportSections>
+            </Report>
+            """;
+
+        var result = _serializer.Read(xml);
+
+        Assert.False(result.HasErrors);
+        var report = Assert.IsType<ReportDefinition>(result.ReportDefinition);
+        var title = Assert.IsType<TextItem>(report.Sections[0].BodyItems[0]);
+        Assert.Equal("'Organization: ' + ParameterLabel('OrganizationKey') + ' | Department: ' + ParameterLabel('DepartmentGroupKey')", title.ValueExpression);
+
+        var variance = Assert.IsType<TextItem>(report.Sections[0].BodyItems[1]);
+        Assert.NotNull(variance.StyleName);
+        var style = Assert.Single(report.Styles, candidate => candidate.Id == variance.StyleName);
+        Assert.Equal("Iif(CurrentValue() < 0, '#c0433a', 'Black')", style.ForegroundExpression);
+    }
+
+    [Fact]
+    public void Read_ImportsGroupedTablixHierarchy()
     {
         const string xml =
             """
@@ -296,10 +372,111 @@ public sealed class ReportRdlSerializerTests
         var result = _serializer.Read(xml);
 
         Assert.False(result.HasErrors);
-        Assert.Contains(
+        var report = Assert.IsType<ReportDefinition>(result.ReportDefinition);
+        var tablix = Assert.IsType<TablixItem>(Assert.Single(report.Sections[0].BodyItems));
+        var rowMember = Assert.Single(tablix.RowMembers);
+        Assert.Equal(ReportTablixMemberKind.Group, rowMember.Kind);
+        Assert.Equal("CategoryGroup", rowMember.GroupName);
+        Assert.Equal("Fields.Category", rowMember.GroupExpression);
+        Assert.Equal(0, rowMember.RowDefinitionIndex);
+        Assert.Single(tablix.Rows);
+        Assert.Equal(24f, tablix.Rows[0].Height, 3);
+        Assert.DoesNotContain(
             result.Diagnostics,
             static diagnostic => diagnostic.Code == ReportDiagnosticCodes.UnsupportedFeature
                 && diagnostic.Message.Contains("Grouped tablix hierarchies", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Write_EmitsGroupedTablixHierarchy()
+    {
+        var report = new ReportDefinition
+        {
+            Id = "grouped-export",
+            Name = "Grouped Export",
+            Sections =
+            {
+                new ReportSection
+                {
+                    Id = "main",
+                    Name = "Main",
+                    BodyItems =
+                    {
+                        new TablixItem
+                        {
+                            Id = "SalesTable",
+                            DataSetId = "Sales",
+                            Columns =
+                            {
+                                new ReportTablixColumnDefinition { Id = "col1", Width = 144f }
+                            },
+                            Rows =
+                            {
+                                new ReportTablixRowDefinition
+                                {
+                                    Id = "header",
+                                    IsHeader = true,
+                                    Height = 24f,
+                                    Cells =
+                                    {
+                                        new ReportTablixCellDefinition { Text = "Category" }
+                                    }
+                                },
+                                new ReportTablixRowDefinition
+                                {
+                                    Id = "detail",
+                                    Height = 20f,
+                                    Cells =
+                                    {
+                                        new ReportTablixCellDefinition { ValueExpression = "Fields.Category" }
+                                    }
+                                }
+                            },
+                            RowMembers =
+                            {
+                                new ReportTablixMemberDefinition
+                                {
+                                    Id = "header-member",
+                                    Kind = ReportTablixMemberKind.Static,
+                                    RepeatOnNewPage = true,
+                                    KeepWithGroup = "After",
+                                    RowDefinitionIndex = 0
+                                },
+                                new ReportTablixMemberDefinition
+                                {
+                                    Id = "category-group",
+                                    Kind = ReportTablixMemberKind.Group,
+                                    GroupName = "CategoryGroup",
+                                    GroupExpression = "Fields.Category",
+                                    SortExpression = "Fields.Category",
+                                    VisibilityExpression = "Parameters.ShowGroups == false",
+                                    ToggleItemId = "CategoryCell",
+                                    Members =
+                                    {
+                                        new ReportTablixMemberDefinition
+                                        {
+                                            Id = "detail-member",
+                                            Kind = ReportTablixMemberKind.Details,
+                                            RowDefinitionIndex = 1
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        var result = _serializer.Write(report);
+
+        Assert.False(result.HasErrors);
+        Assert.Contains("<Group Name=\"CategoryGroup\">", result.Xml, StringComparison.Ordinal);
+        Assert.Contains("<GroupExpression>=Fields!Category.Value</GroupExpression>", result.Xml, StringComparison.Ordinal);
+        Assert.Contains("<RepeatOnNewPage>true</RepeatOnNewPage>", result.Xml, StringComparison.Ordinal);
+        Assert.Contains("<KeepWithGroup>After</KeepWithGroup>", result.Xml, StringComparison.Ordinal);
+        Assert.Contains("<ToggleItem>CategoryCell</ToggleItem>", result.Xml, StringComparison.Ordinal);
+        Assert.Contains("<Height>0.25in</Height>", result.Xml, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -382,6 +559,57 @@ public sealed class ReportRdlSerializerTests
     }
 
     [Fact]
+    public void Write_ReexportsParameterLabelsAndCurrentValueExpressions()
+    {
+        var report = new ReportDefinition
+        {
+            Id = "parameter-label-export",
+            Name = "Parameter Label Export",
+            Styles =
+            {
+                new ReportStyleDefinition
+                {
+                    Id = "variance-style",
+                    ForegroundExpression = "Iif(CurrentValue() < 0, '#c0433a', 'Black')"
+                }
+            },
+            Sections =
+            {
+                new ReportSection
+                {
+                    Id = "main",
+                    Name = "Main",
+                    BodyItems =
+                    {
+                        new TextItem
+                        {
+                            Id = "title",
+                            Name = "Title",
+                            Bounds = new ReportItemBounds(0f, 0f, 200f, 20f),
+                            ValueExpression = "'Organization: ' + ParameterLabel('OrganizationKey') + ' | Department: ' + ParameterLabel('DepartmentGroupKey')"
+                        },
+                        new TextItem
+                        {
+                            Id = "variance",
+                            Name = "Variance",
+                            Bounds = new ReportItemBounds(0f, 24f, 120f, 20f),
+                            ValueExpression = "Code.SalesVariancePct(Sum(Fields.Sales), Sum(Fields.Quota))",
+                            StyleName = "variance-style"
+                        }
+                    }
+                }
+            }
+        };
+
+        var result = _serializer.Write(report);
+
+        Assert.False(result.HasErrors);
+        Assert.Contains("Parameters!OrganizationKey.Label", result.Xml, StringComparison.Ordinal);
+        Assert.Contains("Parameters!DepartmentGroupKey.Label", result.Xml, StringComparison.Ordinal);
+        Assert.Contains("Me.Value", result.Xml, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task WriteAsync_UsesUtf8Payload()
     {
         var report = CreateSampleReport(includeUnsupportedItems: false);
@@ -394,6 +622,63 @@ public sealed class ReportRdlSerializerTests
         using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, leaveOpen: true);
         var xml = await reader.ReadToEndAsync();
         Assert.Equal(result.Xml, xml);
+    }
+
+    [Fact]
+    public void Read_ImportsParagraphTextAlignmentIntoStyle()
+    {
+        const string xml =
+            """
+            <Report xmlns="http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition"
+                    xmlns:rd="http://schemas.microsoft.com/SQLServer/reporting/reportdesigner">
+              <rd:ReportID>alignment-report</rd:ReportID>
+              <ReportSections>
+                <ReportSection>
+                  <Body>
+                    <ReportItems>
+                      <Textbox Name="Aligned">
+                        <Paragraphs>
+                          <Paragraph>
+                            <TextRuns>
+                              <TextRun>
+                                <Value>Right aligned</Value>
+                              </TextRun>
+                            </TextRuns>
+                            <Style>
+                              <TextAlign>Right</TextAlign>
+                            </Style>
+                          </Paragraph>
+                        </Paragraphs>
+                        <Top>0in</Top>
+                        <Left>0in</Left>
+                        <Height>0.25in</Height>
+                        <Width>2in</Width>
+                      </Textbox>
+                    </ReportItems>
+                    <Height>1in</Height>
+                  </Body>
+                  <Width>6.5in</Width>
+                  <Page>
+                    <PageHeight>11in</PageHeight>
+                    <PageWidth>8.5in</PageWidth>
+                    <LeftMargin>1in</LeftMargin>
+                    <RightMargin>1in</RightMargin>
+                    <TopMargin>1in</TopMargin>
+                    <BottomMargin>1in</BottomMargin>
+                  </Page>
+                </ReportSection>
+              </ReportSections>
+            </Report>
+            """;
+
+        var result = _serializer.Read(xml);
+
+        Assert.False(result.HasErrors);
+        var report = Assert.IsType<ReportDefinition>(result.ReportDefinition);
+        var textbox = Assert.IsType<TextItem>(Assert.Single(report.Sections[0].BodyItems));
+        var style = Assert.Single(report.Styles);
+        Assert.Equal(style.Id, textbox.StyleName);
+        Assert.Equal(ParagraphAlignment.Right, style.TextAlign);
     }
 
     private static ReportDefinition CreateSampleReport(bool includeUnsupportedItems)

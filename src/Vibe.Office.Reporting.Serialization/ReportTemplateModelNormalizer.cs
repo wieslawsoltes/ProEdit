@@ -81,8 +81,18 @@ internal static class ReportTemplateModelNormalizer
     {
         switch (item)
         {
+            case ContainerItem container:
+                container.Items ??= [];
+                foreach (var child in container.Items)
+                {
+                    Normalize(child);
+                }
+
+                break;
             case ChartItem chart:
                 chart.Series ??= [];
+                break;
+            case GaugeItem:
                 break;
             case TablixItem tablix:
                 tablix.Columns ??= [];
@@ -90,6 +100,13 @@ internal static class ReportTemplateModelNormalizer
                 foreach (var row in tablix.Rows)
                 {
                     row.Cells ??= [];
+                    foreach (var cell in row.Cells)
+                    {
+                        if (cell.ContentItem is not null)
+                        {
+                            Normalize(cell.ContentItem);
+                        }
+                    }
                 }
 
                 break;

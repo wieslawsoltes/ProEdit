@@ -1,3 +1,5 @@
+using Vibe.Office.Documents;
+
 namespace Vibe.Office.Reporting;
 
 /// <summary>
@@ -338,9 +340,19 @@ public sealed class ReportStyleDefinition
     public string? Foreground { get; set; }
 
     /// <summary>
+    /// Gets or sets the foreground color expression.
+    /// </summary>
+    public string? ForegroundExpression { get; set; }
+
+    /// <summary>
     /// Gets or sets the background color.
     /// </summary>
     public string? Background { get; set; }
+
+    /// <summary>
+    /// Gets or sets the background color expression.
+    /// </summary>
+    public string? BackgroundExpression { get; set; }
 
     /// <summary>
     /// Gets or sets whether the style is bold.
@@ -351,6 +363,11 @@ public sealed class ReportStyleDefinition
     /// Gets or sets whether the style is italic.
     /// </summary>
     public bool? Italic { get; set; }
+
+    /// <summary>
+    /// Gets or sets the paragraph alignment.
+    /// </summary>
+    public ParagraphAlignment? TextAlign { get; set; }
 }
 
 /// <summary>

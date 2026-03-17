@@ -232,10 +232,17 @@ internal static class ReportDataRuntimeHelpers
             };
         }
 
-        return CoerceParameterValue(
+        var coerced = CoerceParameterValue(
             definition,
             definition.IsMultiValue ? rawValue.Values : rawValue.GetScalarValue(),
             culture);
+
+        for (var index = 0; index < rawValue.Labels.Count && index < coerced.Values.Count; index++)
+        {
+            coerced.Labels.Add(rawValue.Labels[index]);
+        }
+
+        return coerced;
     }
 
     public static List<object?> ExtractValues(object? rawValue, bool isMultiValue)

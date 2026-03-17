@@ -6,23 +6,32 @@ namespace Vibe.Office.Reporting.Rdl;
 
 internal static partial class ReportRdlExpressions
 {
-    [GeneratedRegex(@"(?<![A-Za-z0-9_])Fields!(?<name>[A-Za-z_][A-Za-z0-9_]*)\.Value", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"(?<![A-Za-z0-9_])Fields!(?<name>[A-Za-z_][A-Za-z0-9_]*)\.(?<member>[A-Za-z_][A-Za-z0-9_]*)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex FieldsReferenceRegex();
 
-    [GeneratedRegex(@"(?<![A-Za-z0-9_])Parameters!(?<name>[A-Za-z_][A-Za-z0-9_]*)\.Value", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"(?<![A-Za-z0-9_])Parameters!(?<name>[A-Za-z_][A-Za-z0-9_]*)\.(?<member>[A-Za-z_][A-Za-z0-9_]*)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex ParametersReferenceRegex();
 
-    [GeneratedRegex(@"(?<![A-Za-z0-9_])Globals!(?<name>[A-Za-z_][A-Za-z0-9_]*)", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"(?<![A-Za-z0-9_])Globals!(?<name>[A-Za-z_][A-Za-z0-9_]*)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex GlobalsReferenceRegex();
 
-    [GeneratedRegex(@"(?<![A-Za-z0-9_])Fields\.(?<name>[A-Za-z_][A-Za-z0-9_]*)", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"(?<![A-Za-z0-9_])Fields\.(?<name>[A-Za-z_][A-Za-z0-9_]*)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex NativeFieldsReferenceRegex();
 
-    [GeneratedRegex(@"(?<![A-Za-z0-9_])Parameters\.(?<name>[A-Za-z_][A-Za-z0-9_]*)", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"(?<![A-Za-z0-9_])Parameters\.(?<name>[A-Za-z_][A-Za-z0-9_]*)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex NativeParametersReferenceRegex();
 
-    [GeneratedRegex(@"(?<![A-Za-z0-9_])Globals\.(?<name>[A-Za-z_][A-Za-z0-9_]*)", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"(?<![A-Za-z0-9_])Globals\.(?<name>[A-Za-z_][A-Za-z0-9_]*)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex NativeGlobalsReferenceRegex();
+
+    [GeneratedRegex(@"(?<![A-Za-z0-9_])ParameterLabel\(\s*'(?<name>[A-Za-z_][A-Za-z0-9_]*)'\s*\)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex NativeParameterLabelRegex();
+
+    [GeneratedRegex(@"(?<![A-Za-z0-9_])ParameterIsMultiValue\(\s*'(?<name>[A-Za-z_][A-Za-z0-9_]*)'\s*\)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex NativeParameterIsMultiValueRegex();
+
+    [GeneratedRegex(@"(?<![A-Za-z0-9_])CurrentValue\(\s*\)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex NativeCurrentValueRegex();
 
     [GeneratedRegex(@"\bnull\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex NativeNullRegex();
@@ -61,10 +70,12 @@ internal static partial class ReportRdlExpressions
             return normalized;
         }
 
+        normalized = EncodeSpecialNativeFunctions(normalized, out var specialReplacements);
         normalized = TransformExpression(
             normalized,
             TransformNativeCodeToRdl,
             static literal => EncodeRdlStringLiteral(literal));
+        normalized = DecodeSpecialNativeFunctions(normalized, specialReplacements);
 
         return "=" + normalized;
     }
@@ -261,6 +272,9 @@ internal static partial class ReportRdlExpressions
         var normalized = NativeFieldsReferenceRegex().Replace(code, "Fields!${name}.Value");
         normalized = NativeParametersReferenceRegex().Replace(normalized, "Parameters!${name}.Value");
         normalized = NativeGlobalsReferenceRegex().Replace(normalized, "Globals!${name}");
+        normalized = NativeParameterLabelRegex().Replace(normalized, "Parameters!${name}.Label");
+        normalized = NativeParameterIsMultiValueRegex().Replace(normalized, "Parameters!${name}.IsMultiValue");
+        normalized = NativeCurrentValueRegex().Replace(normalized, "Me.Value");
         normalized = NativeNullRegex().Replace(normalized, "Nothing");
         normalized = normalized.Replace("!=", "<>", StringComparison.Ordinal);
         normalized = normalized.Replace("&&", " AndAlso ", StringComparison.Ordinal);
@@ -276,9 +290,37 @@ internal static partial class ReportRdlExpressions
             return code;
         }
 
-        var normalized = FieldsReferenceRegex().Replace(code, "Fields.${name}");
-        normalized = ParametersReferenceRegex().Replace(normalized, "Parameters.${name}");
+        var normalized = FieldsReferenceRegex().Replace(code, static match =>
+        {
+            var name = match.Groups["name"].Value;
+            var member = match.Groups["member"].Value;
+            return member.Equals("Value", StringComparison.OrdinalIgnoreCase)
+                ? $"Fields.{name}"
+                : $"Fields.{name}.{member}";
+        });
+        normalized = ParametersReferenceRegex().Replace(normalized, static match =>
+        {
+            var name = match.Groups["name"].Value;
+            var member = match.Groups["member"].Value;
+            if (member.Equals("Value", StringComparison.OrdinalIgnoreCase))
+            {
+                return $"Parameters.{name}";
+            }
+
+            if (member.Equals("Label", StringComparison.OrdinalIgnoreCase))
+            {
+                return $"ParameterLabel('{name}')";
+            }
+
+            if (member.Equals("IsMultiValue", StringComparison.OrdinalIgnoreCase))
+            {
+                return $"ParameterIsMultiValue('{name}')";
+            }
+
+            return $"Parameters.{name}.{member}";
+        });
         normalized = GlobalsReferenceRegex().Replace(normalized, "Globals.${name}");
+        normalized = normalized.Replace("Me.Value", "CurrentValue()", StringComparison.OrdinalIgnoreCase);
         normalized = RdlNothingRegex().Replace(normalized, "null");
         normalized = RdlAndAlsoRegex().Replace(normalized, "and");
         normalized = RdlOrElseRegex().Replace(normalized, "or");
@@ -330,6 +372,43 @@ internal static partial class ReportRdlExpressions
         }
 
         return result.ToString();
+    }
+
+    private static string EncodeSpecialNativeFunctions(
+        string expression,
+        out Dictionary<string, string> replacements)
+    {
+        var localReplacements = new Dictionary<string, string>(StringComparer.Ordinal);
+        var index = 0;
+        var normalized = NativeParameterLabelRegex().Replace(expression, match =>
+        {
+            var key = $"__vibe_rdl_parameter_label_{index++}__";
+            localReplacements[key] = $"Parameters!{match.Groups["name"].Value}.Label";
+            return key;
+        });
+
+        normalized = NativeParameterIsMultiValueRegex().Replace(normalized, match =>
+        {
+            var key = $"__vibe_rdl_parameter_multi_{index++}__";
+            localReplacements[key] = $"Parameters!{match.Groups["name"].Value}.IsMultiValue";
+            return key;
+        });
+
+        replacements = localReplacements;
+        return normalized;
+    }
+
+    private static string DecodeSpecialNativeFunctions(
+        string expression,
+        IReadOnlyDictionary<string, string> replacements)
+    {
+        var normalized = expression;
+        foreach (var pair in replacements)
+        {
+            normalized = normalized.Replace(pair.Key, pair.Value, StringComparison.Ordinal);
+        }
+
+        return normalized;
     }
 
     private static bool TryReadLiteral(

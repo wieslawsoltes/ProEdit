@@ -105,13 +105,14 @@ public sealed class ReportDocumentComposerTests
         Assert.False(result.HasErrors);
         Assert.NotNull(result.Document);
         Assert.Single(result.Document!.Sections);
-        Assert.Equal(4, result.Document.Header.Blocks.Count);
-        Assert.Contains(result.Document.Header.Blocks.OfType<ParagraphBlock>().SelectMany(static paragraph => paragraph.Inlines), inline => inline is PageNumberInline);
-        Assert.Contains(result.Document.Header.Blocks.OfType<ParagraphBlock>().SelectMany(static paragraph => paragraph.Inlines), inline => inline is TotalPagesInline);
-        Assert.Contains(result.Document.Blocks, block => block is ParagraphBlock paragraph && paragraph.Inlines.OfType<BookmarkStartInline>().Any(static bookmark => bookmark.Name == "main-section"));
+        var headerAnchor = Assert.Single(result.Document.Header.Blocks.OfType<ParagraphBlock>());
+        Assert.Equal(4, headerAnchor.FloatingObjects.Count);
+        Assert.Contains(EnumerateFloatingInlines(headerAnchor), inline => inline is PageNumberInline);
+        Assert.Contains(EnumerateFloatingInlines(headerAnchor), inline => inline is TotalPagesInline);
+        Assert.Contains(result.Document.Blocks, block => block is ParagraphBlock paragraph && ParagraphContainsBookmark(paragraph, "main-section"));
         Assert.Contains(result.Document.Blocks, block => block is TableBlock);
-        Assert.Contains(result.Document.Blocks, block => block is ParagraphBlock paragraph && paragraph.Inlines.Any(static inline => inline is BookmarkStartInline));
-        Assert.Contains(result.Document.Blocks, block => block is ParagraphBlock paragraph && paragraph.Inlines.Any(static inline => inline is ChartInline));
+        Assert.Contains(result.Document.Blocks, block => block is ParagraphBlock paragraph && ParagraphContainsAnyBookmark(paragraph));
+        Assert.Contains(result.Document.Blocks, block => block is ParagraphBlock paragraph && paragraph.FloatingObjects.Any(static floating => floating.Content is ChartInline));
     }
 
     [Fact]
@@ -284,6 +285,11 @@ public sealed class ReportDocumentComposerTests
                     builder.AppendLine(run.GetText());
                 }
 
+                foreach (var floating in paragraph.FloatingObjects)
+                {
+                    AppendFloatingText(floating, builder);
+                }
+
                 break;
             case TableBlock table:
                 foreach (var row in table.Rows)
@@ -297,6 +303,58 @@ public sealed class ReportDocumentComposerTests
                     }
                 }
 
+                break;
+        }
+    }
+
+    private static IEnumerable<Inline> EnumerateFloatingInlines(ParagraphBlock paragraph)
+    {
+        foreach (var floating in paragraph.FloatingObjects)
+        {
+            if (floating.Content is ShapeInline { TextBox: { } textBox })
+            {
+                foreach (var block in textBox.Blocks)
+                {
+                    if (block is ParagraphBlock textParagraph)
+                    {
+                        foreach (var inline in textParagraph.Inlines)
+                        {
+                            yield return inline;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private static bool ParagraphContainsBookmark(ParagraphBlock paragraph, string bookmarkName)
+    {
+        return paragraph.Inlines.OfType<BookmarkStartInline>().Any(bookmark => bookmark.Name == bookmarkName)
+               || EnumerateFloatingInlines(paragraph).OfType<BookmarkStartInline>().Any(bookmark => bookmark.Name == bookmarkName);
+    }
+
+    private static bool ParagraphContainsAnyBookmark(ParagraphBlock paragraph)
+    {
+        return paragraph.Inlines.Any(static inline => inline is BookmarkStartInline)
+               || EnumerateFloatingInlines(paragraph).Any(static inline => inline is BookmarkStartInline);
+    }
+
+    private static void AppendFloatingText(FloatingObject floating, System.Text.StringBuilder builder)
+    {
+        switch (floating.Content)
+        {
+            case ShapeInline { TextBox: { } textBox }:
+                foreach (var block in textBox.Blocks)
+                {
+                    AppendBlockText(block, builder);
+                }
+
+                break;
+            case ChartInline:
+                builder.AppendLine("[Chart]");
+                break;
+            case ImageInline:
+                builder.AppendLine("[Image]");
                 break;
         }
     }

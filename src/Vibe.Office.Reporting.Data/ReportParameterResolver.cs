@@ -181,6 +181,7 @@ public sealed class ReportParameterResolver
             }
 
             result.ResolvedValues[parameter.Id] = resolvedValue;
+            EnsureParameterLabels(resolvedValue, culture);
 
             if (!string.IsNullOrWhiteSpace(parameter.AvailableValuesDataSetId))
             {
@@ -200,6 +201,7 @@ public sealed class ReportParameterResolver
                 if (availableValues.Values is not null)
                 {
                     result.AvailableValues[parameter.Id] = availableValues.Values;
+                    ApplyAvailableValueLabels(resolvedValue, availableValues.Values, culture);
                 }
             }
         }
@@ -317,6 +319,63 @@ public sealed class ReportParameterResolver
         }
 
         return (values, executionResult.Diagnostics);
+    }
+
+    private static void EnsureParameterLabels(
+        ReportParameterValue parameterValue,
+        CultureInfo culture)
+    {
+        ArgumentNullException.ThrowIfNull(parameterValue);
+        ArgumentNullException.ThrowIfNull(culture);
+
+        if (parameterValue.IsNull)
+        {
+            parameterValue.Labels.Clear();
+            return;
+        }
+
+        if (parameterValue.Labels.Count > parameterValue.Values.Count)
+        {
+            parameterValue.Labels.RemoveRange(parameterValue.Values.Count, parameterValue.Labels.Count - parameterValue.Values.Count);
+        }
+
+        while (parameterValue.Labels.Count < parameterValue.Values.Count)
+        {
+            var valueIndex = parameterValue.Labels.Count;
+            parameterValue.Labels.Add(ReportDataRuntimeHelpers.ToDisplayText(parameterValue.Values[valueIndex], culture) ?? string.Empty);
+        }
+    }
+
+    private static void ApplyAvailableValueLabels(
+        ReportParameterValue parameterValue,
+        IReadOnlyList<ReportParameterAvailableValue> availableValues,
+        CultureInfo culture)
+    {
+        ArgumentNullException.ThrowIfNull(parameterValue);
+        ArgumentNullException.ThrowIfNull(availableValues);
+        ArgumentNullException.ThrowIfNull(culture);
+
+        EnsureParameterLabels(parameterValue, culture);
+        if (parameterValue.IsNull || parameterValue.Values.Count == 0 || availableValues.Count == 0)
+        {
+            return;
+        }
+
+        for (var valueIndex = 0; valueIndex < parameterValue.Values.Count; valueIndex++)
+        {
+            var resolvedValue = parameterValue.Values[valueIndex];
+            for (var availableIndex = 0; availableIndex < availableValues.Count; availableIndex++)
+            {
+                var availableValue = availableValues[availableIndex];
+                if (!ReportDataRuntimeHelpers.AreEqual(availableValue.Value, resolvedValue, culture))
+                {
+                    continue;
+                }
+
+                parameterValue.Labels[valueIndex] = availableValue.Label;
+                break;
+            }
+        }
     }
 
     private static List<ReportParameterDefinition> OrderParameters(

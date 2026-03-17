@@ -1,4 +1,7 @@
+using System.Globalization;
 using System.Text;
+using System.Xml;
+using System.Xml.Linq;
 
 namespace Vibe.Office.Reporting.Data;
 
@@ -28,6 +31,7 @@ public static class ReportDataProviders
         registry.Register(new InMemoryReportDataProvider());
         registry.Register(new JsonReportDataProvider());
         registry.Register(new CsvReportDataProvider());
+        registry.Register(new EnterDataReportDataProvider());
         registry.Register(new SqlReportDataProvider());
         registry.Register(new AdoNetReportDataProvider(ReportProviderIds.SqlServer));
         registry.Register(new AdoNetReportDataProvider(ReportProviderIds.PostgreSql));
@@ -288,5 +292,113 @@ internal sealed class CsvReportDataProvider : IReportDataProvider
         }
 
         return columnNames;
+    }
+}
+
+internal sealed class EnterDataReportDataProvider : IReportDataProvider
+{
+    public string ProviderId => ReportProviderIds.EnterData;
+
+    public ValueTask<ReportDataTable> ExecuteAsync(
+        ReportDataSourceDefinition dataSource,
+        ReportDataSetDefinition dataSet,
+        ReportDataProviderContext context,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (string.IsNullOrWhiteSpace(dataSet.Query))
+        {
+            return ValueTask.FromResult(new ReportDataTable
+            {
+                DataSetId = dataSet.Id
+            });
+        }
+
+        try
+        {
+            return ValueTask.FromResult(ParseEnterDataQuery(dataSet.Query, dataSet.Id, context.Culture));
+        }
+        catch (XmlException ex)
+        {
+            throw new InvalidOperationException($"ENTERDATA query for dataset '{dataSet.Id}' is not valid XML: {ex.Message}", ex);
+        }
+        catch (Exception ex) when (ex is not InvalidOperationException)
+        {
+            throw new InvalidOperationException($"ENTERDATA query for dataset '{dataSet.Id}' could not be parsed: {ex.Message}", ex);
+        }
+    }
+
+    private static ReportDataTable ParseEnterDataQuery(
+        string queryText,
+        string dataSetId,
+        CultureInfo culture)
+    {
+        var document = XDocument.Parse(queryText, LoadOptions.PreserveWhitespace);
+        var root = document.Root;
+        if (root is null)
+        {
+            throw new InvalidOperationException("ENTERDATA query does not contain a root element.");
+        }
+
+        var queryElement = root.Name.LocalName.Equals("Query", StringComparison.OrdinalIgnoreCase)
+            ? root
+            : root.Element(root.GetDefaultNamespace() + "Query") ?? root.Descendants().FirstOrDefault(static element =>
+                element.Name.LocalName.Equals("Query", StringComparison.OrdinalIgnoreCase));
+        if (queryElement is null)
+        {
+            throw new InvalidOperationException("ENTERDATA query does not contain a Query element.");
+        }
+
+        var xmlDataElement = queryElement.Elements().FirstOrDefault(static element =>
+            element.Name.LocalName.Equals("XmlData", StringComparison.OrdinalIgnoreCase));
+        if (xmlDataElement is null)
+        {
+            throw new InvalidOperationException("ENTERDATA query does not contain an XmlData element.");
+        }
+
+        var dataElement = xmlDataElement.Elements().FirstOrDefault(static element =>
+            element.Name.LocalName.Equals("Data", StringComparison.OrdinalIgnoreCase));
+        if (dataElement is null)
+        {
+            throw new InvalidOperationException("ENTERDATA query does not contain a Data element.");
+        }
+
+        var table = new ReportDataTable
+        {
+            DataSetId = dataSetId
+        };
+
+        foreach (var rowElement in dataElement.Elements().Where(static element =>
+                     element.Name.LocalName.Equals("Row", StringComparison.OrdinalIgnoreCase)))
+        {
+            var record = new ReportDataRecord();
+            foreach (var fieldElement in rowElement.Elements())
+            {
+                var fieldName = fieldElement.Name.LocalName;
+                record.Values[fieldName] = ReportDataRuntimeHelpers.ParseScalarValue(
+                    string.Concat(fieldElement.Nodes().OfType<XText>().Select(static node => node.Value)),
+                    culture);
+
+                if (!table.Fields.Any(field => field.Name.Equals(fieldName, StringComparison.OrdinalIgnoreCase)))
+                {
+                    table.Fields.Add(new ReportFieldDefinition
+                    {
+                        Name = fieldName,
+                        DataType = ReportParameterDataType.String
+                    });
+                }
+            }
+
+            table.Rows.Add(record);
+        }
+
+        for (var fieldIndex = 0; fieldIndex < table.Fields.Count; fieldIndex++)
+        {
+            var field = table.Fields[fieldIndex];
+            field.DataType = ReportDataRuntimeHelpers.InferFieldType(table.Rows, field.Name);
+        }
+
+        return table;
     }
 }

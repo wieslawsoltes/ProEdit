@@ -152,4 +152,33 @@ public sealed class ReportExpressionCompilerTests
         var value = compilation.Expression!.Evaluate(context);
         Assert.Equal("İ/ı", Assert.IsType<string>(value));
     }
+
+    [Fact]
+    public void Compile_EvaluatesParameterLabelsAndCurrentValue()
+    {
+        var compiler = new ReportExpressionCompiler();
+        var compilation = compiler.Compile("ParameterLabel('Region') + ':' + Iif(CurrentValue() < 0, 'neg', 'pos')");
+
+        Assert.False(compilation.HasErrors);
+        Assert.NotNull(compilation.Expression);
+
+        var context = new ReportExpressionContext
+        {
+            Parameters = new Dictionary<string, ReportParameterValue>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["Region"] = new ReportParameterValue
+                {
+                    Values = { "NW" },
+                    Labels = { "Northwest" }
+                }
+            },
+            SelfValue = -1m,
+            Culture = InvariantCulture,
+            UiCulture = InvariantCulture,
+            TimeZone = TimeZoneInfo.Utc
+        };
+
+        var value = compilation.Expression!.Evaluate(context);
+        Assert.Equal("Northwest:neg", Assert.IsType<string>(value));
+    }
 }

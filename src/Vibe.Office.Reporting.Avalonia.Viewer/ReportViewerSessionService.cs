@@ -192,10 +192,11 @@ public sealed class ReportViewerSessionService : IReportViewerSessionService
         snapshot.PreviewPages.AddRange(previewPages);
 
         var paragraphPageMap = BuildParagraphPageMap(layout);
-        var bookmarkPageMap = BuildBookmarkPageMap(composition.Document, paragraphPageMap);
+        var floatingPageMap = BuildFloatingObjectPageMap(layout);
+        var bookmarkPageMap = BuildBookmarkPageMap(composition.Document, paragraphPageMap, floatingPageMap);
 
         snapshot.DocumentMapEntries.AddRange(BuildDocumentMapEntries(materialization.MaterializedReport, bookmarkPageMap));
-        snapshot.SearchEntries.AddRange(BuildSearchEntries(composition.Document, paragraphPageMap));
+        snapshot.SearchEntries.AddRange(BuildSearchEntries(composition.Document, paragraphPageMap, floatingPageMap));
         snapshot.DrillthroughEntries.AddRange(BuildDrillthroughEntries(materialization.MaterializedReport, bookmarkPageMap));
         return snapshot;
     }
@@ -360,7 +361,8 @@ public sealed class ReportViewerSessionService : IReportViewerSessionService
 
     private static Dictionary<string, int> BuildBookmarkPageMap(
         Document document,
-        IReadOnlyDictionary<int, int> paragraphPageMap)
+        IReadOnlyDictionary<int, int> paragraphPageMap,
+        IReadOnlyDictionary<FloatingObject, int> floatingPageMap)
     {
         var map = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         var paragraphs = new List<ParagraphBlock>();
@@ -381,6 +383,8 @@ public sealed class ReportViewerSessionService : IReportViewerSessionService
                     map[bookmarkStart.Name] = pageIndex;
                 }
             }
+
+            AddFloatingBookmarks(paragraph.FloatingObjects, pageIndex, map, floatingPageMap);
         }
 
         return map;
@@ -439,12 +443,31 @@ public sealed class ReportViewerSessionService : IReportViewerSessionService
                     AddItemDocumentMapEntries(subreportItem.Report.Sections[sectionIndex].BodyItems, entries, bookmarkPageMap, level + 1);
                 }
             }
+            else if (item is MaterializedContainerReportItem containerItem)
+            {
+                AddItemDocumentMapEntries(containerItem.Items, entries, bookmarkPageMap, level + 1);
+            }
+            else if (item is MaterializedTablixReportItem tablixItem)
+            {
+                for (var rowIndex = 0; rowIndex < tablixItem.Rows.Count; rowIndex++)
+                {
+                    var row = tablixItem.Rows[rowIndex];
+                    for (var cellIndex = 0; cellIndex < row.Cells.Count; cellIndex++)
+                    {
+                        if (row.Cells[cellIndex].Content is not null)
+                        {
+                            AddItemDocumentMapEntries([row.Cells[cellIndex].Content!], entries, bookmarkPageMap, level + 1);
+                        }
+                    }
+                }
+            }
         }
     }
 
     private static IReadOnlyList<ReportViewerSearchEntry> BuildSearchEntries(
         Document document,
-        IReadOnlyDictionary<int, int> paragraphPageMap)
+        IReadOnlyDictionary<int, int> paragraphPageMap,
+        IReadOnlyDictionary<FloatingObject, int> floatingPageMap)
     {
         var paragraphs = new List<ParagraphBlock>();
         CollectParagraphs(document.Blocks, paragraphs);
@@ -453,6 +476,13 @@ public sealed class ReportViewerSessionService : IReportViewerSessionService
         for (var paragraphIndex = 0; paragraphIndex < paragraphs.Count; paragraphIndex++)
         {
             var paragraph = paragraphs[paragraphIndex];
+            var anchorPageIndex = paragraphPageMap.TryGetValue(paragraphIndex, out var resolvedAnchorPageIndex) ? resolvedAnchorPageIndex : 0;
+            AddFloatingSearchEntries(
+                paragraph.FloatingObjects,
+                anchorPageIndex,
+                floatingPageMap,
+                entries);
+
             var text = ExtractParagraphText(paragraph);
             if (string.IsNullOrWhiteSpace(text))
             {
@@ -463,7 +493,7 @@ public sealed class ReportViewerSessionService : IReportViewerSessionService
             {
                 Text = text,
                 ParagraphIndex = paragraphIndex,
-                PageIndex = paragraphPageMap.TryGetValue(paragraphIndex, out var pageIndex) ? pageIndex : 0
+                PageIndex = anchorPageIndex
             });
         }
 
@@ -510,6 +540,24 @@ public sealed class ReportViewerSessionService : IReportViewerSessionService
                     AddDrillthroughEntries(subreportItem.Report.Sections[sectionIndex].BodyItems, entries, bookmarkPageMap);
                 }
             }
+            else if (item is MaterializedContainerReportItem containerItem)
+            {
+                AddDrillthroughEntries(containerItem.Items, entries, bookmarkPageMap);
+            }
+            else if (item is MaterializedTablixReportItem tablixItem)
+            {
+                for (var rowIndex = 0; rowIndex < tablixItem.Rows.Count; rowIndex++)
+                {
+                    var row = tablixItem.Rows[rowIndex];
+                    for (var cellIndex = 0; cellIndex < row.Cells.Count; cellIndex++)
+                    {
+                        if (row.Cells[cellIndex].Content is not null)
+                        {
+                            AddDrillthroughEntries([row.Cells[cellIndex].Content!], entries, bookmarkPageMap);
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -545,6 +593,146 @@ public sealed class ReportViewerSessionService : IReportViewerSessionService
         }
 
         return builder.ToString();
+    }
+
+    private static Dictionary<FloatingObject, int> BuildFloatingObjectPageMap(DocumentLayout layout)
+    {
+        var map = new Dictionary<FloatingObject, int>(ReferenceEqualityComparer.Instance);
+        AddFloatingObjectPageMap(layout.FloatingObjects, map);
+        AddFloatingObjectPageMap(layout.ExtraFloatingObjects, map);
+        return map;
+    }
+
+    private static void AddFloatingObjectPageMap(
+        IReadOnlyList<FloatingLayoutObject> floatingObjects,
+        Dictionary<FloatingObject, int> map)
+    {
+        for (var index = 0; index < floatingObjects.Count; index++)
+        {
+            map[floatingObjects[index].Object] = Math.Max(0, floatingObjects[index].PageIndex);
+        }
+    }
+
+    private static void AddFloatingBookmarks(
+        IReadOnlyList<FloatingObject> floatingObjects,
+        int fallbackPageIndex,
+        Dictionary<string, int> bookmarkPageMap,
+        IReadOnlyDictionary<FloatingObject, int> floatingPageMap)
+    {
+        for (var floatingIndex = 0; floatingIndex < floatingObjects.Count; floatingIndex++)
+        {
+            var floatingObject = floatingObjects[floatingIndex];
+            var pageIndex = floatingPageMap.TryGetValue(floatingObject, out var resolvedPageIndex)
+                ? resolvedPageIndex
+                : fallbackPageIndex;
+            if (floatingObject.Content is not ShapeInline shapeInline || shapeInline.TextBox is null)
+            {
+                continue;
+            }
+
+            AddBookmarksFromBlocks(shapeInline.TextBox.Blocks, pageIndex, bookmarkPageMap, floatingPageMap);
+        }
+    }
+
+    private static void AddBookmarksFromBlocks(
+        IReadOnlyList<Block> blocks,
+        int pageIndex,
+        Dictionary<string, int> bookmarkPageMap,
+        IReadOnlyDictionary<FloatingObject, int> floatingPageMap)
+    {
+        for (var blockIndex = 0; blockIndex < blocks.Count; blockIndex++)
+        {
+            switch (blocks[blockIndex])
+            {
+                case ParagraphBlock paragraph:
+                    for (var inlineIndex = 0; inlineIndex < paragraph.Inlines.Count; inlineIndex++)
+                    {
+                        if (paragraph.Inlines[inlineIndex] is BookmarkStartInline bookmarkStart
+                            && !string.IsNullOrWhiteSpace(bookmarkStart.Name)
+                            && !bookmarkPageMap.ContainsKey(bookmarkStart.Name))
+                        {
+                            bookmarkPageMap[bookmarkStart.Name] = pageIndex;
+                        }
+                    }
+
+                    AddFloatingBookmarks(paragraph.FloatingObjects, pageIndex, bookmarkPageMap, floatingPageMap);
+                    break;
+                case TableBlock table:
+                    for (var rowIndex = 0; rowIndex < table.Rows.Count; rowIndex++)
+                    {
+                        var row = table.Rows[rowIndex];
+                        for (var cellIndex = 0; cellIndex < row.Cells.Count; cellIndex++)
+                        {
+                            AddBookmarksFromBlocks(row.Cells[cellIndex].Blocks, pageIndex, bookmarkPageMap, floatingPageMap);
+                        }
+                    }
+
+                    break;
+            }
+        }
+    }
+
+    private static void AddFloatingSearchEntries(
+        IReadOnlyList<FloatingObject> floatingObjects,
+        int fallbackPageIndex,
+        IReadOnlyDictionary<FloatingObject, int> floatingPageMap,
+        List<ReportViewerSearchEntry> entries)
+    {
+        for (var floatingIndex = 0; floatingIndex < floatingObjects.Count; floatingIndex++)
+        {
+            var floatingObject = floatingObjects[floatingIndex];
+            var pageIndex = floatingPageMap.TryGetValue(floatingObject, out var resolvedPageIndex)
+                ? resolvedPageIndex
+                : fallbackPageIndex;
+            if (floatingObject.Content is not ShapeInline shapeInline || shapeInline.TextBox is null)
+            {
+                continue;
+            }
+
+            AddSearchEntriesFromBlocks(shapeInline.TextBox.Blocks, pageIndex, floatingPageMap, entries);
+        }
+    }
+
+    private static void AddSearchEntriesFromBlocks(
+        IReadOnlyList<Block> blocks,
+        int pageIndex,
+        IReadOnlyDictionary<FloatingObject, int> floatingPageMap,
+        List<ReportViewerSearchEntry> entries)
+    {
+        for (var blockIndex = 0; blockIndex < blocks.Count; blockIndex++)
+        {
+            switch (blocks[blockIndex])
+            {
+                case ParagraphBlock paragraph:
+                {
+                    var text = ExtractParagraphText(paragraph);
+                    if (!string.IsNullOrWhiteSpace(text))
+                    {
+                        entries.Add(new ReportViewerSearchEntry
+                        {
+                            Text = text,
+                            ParagraphIndex = entries.Count,
+                            PageIndex = pageIndex
+                        });
+                    }
+
+                    AddFloatingSearchEntries(paragraph.FloatingObjects, pageIndex, floatingPageMap, entries);
+                    break;
+                }
+
+                case TableBlock table:
+                    for (var rowIndex = 0; rowIndex < table.Rows.Count; rowIndex++)
+                    {
+                        var row = table.Rows[rowIndex];
+                        for (var cellIndex = 0; cellIndex < row.Cells.Count; cellIndex++)
+                        {
+                            AddSearchEntriesFromBlocks(row.Cells[cellIndex].Blocks, pageIndex, floatingPageMap, entries);
+                        }
+                    }
+
+                    break;
+            }
+        }
     }
 
     private static void CollectParagraphs(IReadOnlyList<Block> blocks, List<ParagraphBlock> paragraphs)
@@ -603,6 +791,11 @@ public sealed class ReportViewerSessionService : IReportViewerSessionService
         for (var index = 0; index < value.Values.Count; index++)
         {
             clone.Values.Add(value.Values[index]);
+        }
+
+        for (var index = 0; index < value.Labels.Count; index++)
+        {
+            clone.Labels.Add(value.Labels[index]);
         }
 
         return clone;

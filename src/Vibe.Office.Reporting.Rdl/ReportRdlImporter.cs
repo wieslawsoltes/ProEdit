@@ -76,6 +76,7 @@ internal sealed class ReportRdlImporter
 
         report.Metadata["rdlVersion"] = version.ToString();
         report.Metadata["rdlNamespace"] = _xmlNamespace.NamespaceName;
+        ReadReportMetadata(root, report);
 
         ReadEmbeddedImages(root);
         ReadDataSources(root, report);
@@ -142,6 +143,36 @@ internal sealed class ReportRdlImporter
         }
     }
 
+    private void ReadReportMetadata(XElement root, ReportDefinition report)
+    {
+        var code = root.Element(_xmlNamespace + "Code")?.Value;
+        if (!string.IsNullOrWhiteSpace(code))
+        {
+            report.Metadata["rdlCode"] = code.Trim();
+        }
+
+        var customProperties = root.Element(_xmlNamespace + "CustomProperties");
+        if (customProperties is null)
+        {
+            return;
+        }
+
+        var index = 0;
+        foreach (var propertyElement in customProperties.Elements(_xmlNamespace + "CustomProperty"))
+        {
+            var name = propertyElement.Element(_xmlNamespace + "Name")?.Value?.Trim();
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                index++;
+                continue;
+            }
+
+            var value = propertyElement.Element(_xmlNamespace + "Value")?.Value ?? string.Empty;
+            report.Metadata["rdlCustomProperty:" + name] = value;
+            index++;
+        }
+    }
+
     private void ReadDataSources(XElement root, ReportDefinition report)
     {
         var dataSourcesElement = root.Element(_xmlNamespace + "DataSources");
@@ -167,7 +198,13 @@ internal sealed class ReportRdlImporter
             else
             {
                 var connection = dataSourceElement.Element(_xmlNamespace + "ConnectionProperties");
-                definition.ProviderId = connection?.Element(_xmlNamespace + "DataProvider")?.Value?.Trim() ?? string.Empty;
+                var providerId = connection?.Element(_xmlNamespace + "DataProvider")?.Value?.Trim() ?? string.Empty;
+                definition.ProviderId = NormalizeRdlProviderId(providerId);
+                if (!string.IsNullOrWhiteSpace(providerId))
+                {
+                    definition.Options["rdlDataProvider"] = providerId;
+                }
+
                 var connectString = connection?.Element(_xmlNamespace + "ConnectString")?.Value?.Trim();
                 if (!string.IsNullOrWhiteSpace(connectString))
                 {
@@ -518,68 +555,41 @@ internal sealed class ReportRdlImporter
         float offsetX,
         float offsetY)
     {
-        switch (itemElement.Name.LocalName)
+        var item = ReadStandaloneItem(itemElement, path, offsetX, offsetY);
+        if (item is not null)
         {
-            case "Textbox":
-            {
-                var item = ReadTextbox(itemElement, path, offsetX, offsetY);
-                if (item is not null)
-                {
-                    target.Add(item);
-                }
-
-                break;
-            }
-
-            case "Image":
-            {
-                var item = ReadImage(itemElement, path, offsetX, offsetY);
-                if (item is not null)
-                {
-                    target.Add(item);
-                }
-
-                break;
-            }
-
-            case "Line":
-            {
-                target.Add(ReadLine(itemElement, path, offsetX, offsetY));
-                break;
-            }
-
-            case "Rectangle":
-            {
-                ReadRectangle(itemElement, path, target, offsetX, offsetY);
-                break;
-            }
-
-            case "Chart":
-            {
-                target.Add(ReadChart(itemElement, path, offsetX, offsetY));
-                break;
-            }
-
-            case "Tablix":
-            {
-                target.Add(ReadTablix(itemElement, path, offsetX, offsetY));
-                break;
-            }
-
-            case "Subreport":
-            {
-                target.Add(ReadSubreport(itemElement, path, offsetX, offsetY));
-                break;
-            }
-
-            default:
-                _diagnostics.Add(new ReportDiagnostic(
-                    ReportDiagnosticSeverity.Warning,
-                    ReportDiagnosticCodes.UnsupportedFeature,
-                    $"RDL report item '{itemElement.Name.LocalName}' is not supported and was skipped.",
-                    path));
-                break;
+            target.Add(item);
         }
+    }
+
+    private ReportItem? ReadStandaloneItem(
+        XElement itemElement,
+        string path,
+        float offsetX,
+        float offsetY)
+    {
+        return itemElement.Name.LocalName switch
+        {
+            "Textbox" => ReadTextbox(itemElement, path, offsetX, offsetY),
+            "Image" => ReadImage(itemElement, path, offsetX, offsetY),
+            "Line" => ReadLine(itemElement, path, offsetX, offsetY),
+            "Rectangle" => ReadRectangle(itemElement, path, offsetX, offsetY),
+            "Chart" => ReadChart(itemElement, path, offsetX, offsetY),
+            "GaugePanel" => ReadGaugePanel(itemElement, path, offsetX, offsetY),
+            "Tablix" => ReadTablix(itemElement, path, offsetX, offsetY),
+            "Subreport" => ReadSubreport(itemElement, path, offsetX, offsetY),
+            _ => SkipUnsupportedItem(itemElement.Name.LocalName, path)
+        };
+    }
+
+    private ReportItem? SkipUnsupportedItem(string itemName, string path)
+    {
+        _diagnostics.Add(new ReportDiagnostic(
+            ReportDiagnosticSeverity.Warning,
+            ReportDiagnosticCodes.UnsupportedFeature,
+            $"RDL report item '{itemName}' is not supported and was skipped.",
+            path));
+        return null;
     }
 
     private TextItem? ReadTextbox(XElement itemElement, string path, float offsetX, float offsetY)
@@ -592,7 +602,7 @@ internal sealed class ReportRdlImporter
         item.CanGrow = ParseBoolean(itemElement.Element(_xmlNamespace + "CanGrow")?.Value, defaultValue: true);
         item.CanShrink = ParseBoolean(itemElement.Element(_xmlNamespace + "CanShrink")?.Value, defaultValue: false);
 
-        var styleElement = itemElement.Element(_xmlNamespace + "Style");
+        var styleElement = GetEffectiveTextboxStyleElement(itemElement);
         item.StyleName = _styleCatalog.Intern(styleElement, _xmlNamespace, path, _diagnostics);
         ReportRdlStyleCatalog.Parse(styleElement, _xmlNamespace, path, _diagnostics, out var formatString);
         item.FormatString = formatString;
@@ -646,10 +656,9 @@ internal sealed class ReportRdlImporter
         return item;
     }
 
-    private void ReadRectangle(
+    private ReportItem ReadRectangle(
         XElement itemElement,
         string path,
-        List<ReportItem> target,
         float offsetX,
         float offsetY)
     {
@@ -660,23 +669,102 @@ internal sealed class ReportRdlImporter
             ApplyCommonProperties(item, itemElement, path, offsetX, offsetY);
             item.Shape = ReportShapeKind.Rectangle;
             item.StyleName = _styleCatalog.Intern(itemElement.Element(_xmlNamespace + "Style"), _xmlNamespace, path, _diagnostics);
-            target.Add(item);
-            return;
+            return item;
+        }
+
+        var container = new ContainerItem();
+        ApplyCommonProperties(container, itemElement, path, offsetX, offsetY);
+        container.StyleName = _styleCatalog.Intern(itemElement.Element(_xmlNamespace + "Style"), _xmlNamespace, path, _diagnostics);
+        ReadItemCollection(
+            nestedItems,
+            path + "/ReportItems",
+            container.Items,
+            0f,
+            0f);
+        return container;
+    }
+
+    private GaugeItem ReadGaugePanel(XElement itemElement, string path, float offsetX, float offsetY)
+    {
+        var item = new GaugeItem
+        {
+            RawRdlXml = itemElement.ToString(SaveOptions.DisableFormatting)
+        };
+        ApplyCommonProperties(item, itemElement, path, offsetX, offsetY);
+        item.DataSetId = itemElement.Element(_xmlNamespace + "DataSetName")?.Value?.Trim();
+        item.StyleName = _styleCatalog.Intern(itemElement.Element(_xmlNamespace + "Style"), _xmlNamespace, path, _diagnostics);
+
+        var stateIndicator = itemElement
+            .Element(_xmlNamespace + "StateIndicators")
+            ?.Element(_xmlNamespace + "StateIndicator");
+        if (stateIndicator is not null)
+        {
+            item.GaugeKind = ReportGaugeKind.StateIndicator;
+            item.ValueExpression = ReportRdlExpressions.ToNativeExpression(
+                stateIndicator.Element(_xmlNamespace + "GaugeInputValue")?.Element(_xmlNamespace + "Value")?.Value);
+            item.MinimumExpression = ReportRdlExpressions.ToNativeValueExpression(
+                stateIndicator.Element(_xmlNamespace + "MinimumValue")?.Element(_xmlNamespace + "Value")?.Value);
+            item.MaximumExpression = ReportRdlExpressions.ToNativeValueExpression(
+                stateIndicator.Element(_xmlNamespace + "MaximumValue")?.Element(_xmlNamespace + "Value")?.Value);
+            item.LabelExpression = ReportRdlExpressions.ToNativeScalarExpression(
+                itemElement.Element(_xmlNamespace + "GaugeLabels")
+                    ?.Element(_xmlNamespace + "GaugeLabel")
+                    ?.Element(_xmlNamespace + "Text")
+                    ?.Value);
+            return item;
+        }
+
+        var radialGauge = itemElement
+            .Element(_xmlNamespace + "RadialGauges")
+            ?.Element(_xmlNamespace + "RadialGauge");
+        if (radialGauge is not null)
+        {
+            item.GaugeKind = ReportGaugeKind.Radial;
+            ReadGaugeScale(item, radialGauge, path);
+            return item;
+        }
+
+        var linearGauge = itemElement
+            .Element(_xmlNamespace + "LinearGauges")
+            ?.Element(_xmlNamespace + "LinearGauge");
+        if (linearGauge is not null)
+        {
+            item.GaugeKind = ReportGaugeKind.Linear;
+            ReadGaugeScale(item, linearGauge, path);
+            return item;
         }
 
         _diagnostics.Add(new ReportDiagnostic(
             ReportDiagnosticSeverity.Warning,
             ReportDiagnosticCodes.UnsupportedFeature,
-            "Rectangle containers are flattened because the native report model does not preserve RDL rectangle containment.",
+            "Gauge panels without state, radial, or linear gauge content are imported as empty gauge items.",
             path));
+        return item;
+    }
 
-        var bounds = ReadBounds(itemElement, path, offsetX, offsetY);
-        ReadItemCollection(
-            nestedItems,
-            path + "/ReportItems",
-            target,
-            bounds.X,
-            bounds.Y);
+    private void ReadGaugeScale(GaugeItem item, XElement gaugeElement, string path)
+    {
+        var pointer = gaugeElement
+            .Descendants(_xmlNamespace + "GaugePointers")
+            .Elements()
+            .FirstOrDefault();
+        item.ValueExpression = ReportRdlExpressions.ToNativeExpression(
+            pointer?.Element(_xmlNamespace + "GaugeInputValue")?.Element(_xmlNamespace + "Value")?.Value);
+
+        var scale = gaugeElement
+            .Descendants()
+            .FirstOrDefault(element => element.Name.LocalName.EndsWith("Scale", StringComparison.Ordinal));
+        item.MinimumExpression = ReportRdlExpressions.ToNativeValueExpression(
+            scale?.Element(_xmlNamespace + "MinimumValue")?.Element(_xmlNamespace + "Value")?.Value);
+        item.MaximumExpression = ReportRdlExpressions.ToNativeValueExpression(
+            scale?.Element(_xmlNamespace + "MaximumValue")?.Element(_xmlNamespace + "Value")?.Value);
+        item.TargetValueExpression = item.MaximumExpression;
+        item.LabelExpression = ReportRdlExpressions.ToNativeScalarExpression(
+            gaugeElement.Parent?.Parent?
+                .Element(_xmlNamespace + "GaugeLabels")
+                ?.Element(_xmlNamespace + "GaugeLabel")
+                ?.Element(_xmlNamespace + "Text")
+                ?.Value);
     }
 
     private ChartItem ReadChart(XElement itemElement, string path, float offsetX, float offsetY)
@@ -783,23 +871,14 @@ internal sealed class ReportRdlImporter
         for (var rowIndex = 0; rowIndex < rows.Count; rowIndex++)
         {
             var rowElement = rows[rowIndex];
-            var memberElement = rowIndex < rowMembers.Count ? rowMembers[rowIndex] : null;
-            if (memberElement?.Element(_xmlNamespace + "Group")?.Element(_xmlNamespace + "GroupExpressions")?.Elements(_xmlNamespace + "GroupExpression").Any() == true)
-            {
-                _diagnostics.Add(new ReportDiagnostic(
-                    ReportDiagnosticSeverity.Warning,
-                    ReportDiagnosticCodes.UnsupportedFeature,
-                    "Grouped tablix hierarchies are not supported by the current native report model and were imported as flat rows.",
-                    $"{path}/TablixRowHierarchy/TablixMembers/TablixMember[{rowIndex}]"));
-            }
-
-            var isHeader = memberElement?.Element(_xmlNamespace + "Group") is null;
-            repeatHeaderRows |= isHeader && ParseBoolean(memberElement?.Element(_xmlNamespace + "RepeatOnNewPage")?.Value);
-
             var row = new ReportTablixRowDefinition
             {
                 Id = $"row{rowIndex + 1}",
-                IsHeader = isHeader
+                Height = ReportRdlMeasurements.Parse(
+                    rowElement.Element(_xmlNamespace + "Height")?.Value,
+                    $"{path}/TablixBody/TablixRows/TablixRow[{rowIndex}]/Height",
+                    _diagnostics,
+                    24f)
             };
 
             var cellIndex = 0;
@@ -812,8 +891,136 @@ internal sealed class ReportRdlImporter
             item.Rows.Add(row);
         }
 
+        item.RowMembers.AddRange(ReadTablixMembers(
+            itemElement.Element(_xmlNamespace + "TablixRowHierarchy")?.Element(_xmlNamespace + "TablixMembers"),
+            path + "/TablixRowHierarchy/TablixMembers"));
+        if (item.RowMembers.Count == 0)
+        {
+            for (var rowIndex = 0; rowIndex < item.Rows.Count; rowIndex++)
+            {
+                item.RowMembers.Add(new ReportTablixMemberDefinition
+                {
+                    Id = $"rowMember{rowIndex + 1}",
+                    Kind = item.Rows[rowIndex].IsHeader ? ReportTablixMemberKind.Static : ReportTablixMemberKind.Details,
+                    RowDefinitionIndex = rowIndex
+                });
+            }
+        }
+
+        var leafMembers = new List<ReportTablixMemberDefinition>();
+        CollectLeafMembers(item.RowMembers, leafMembers);
+        var mappedLeafCount = Math.Min(leafMembers.Count, item.Rows.Count);
+        for (var rowIndex = 0; rowIndex < mappedLeafCount; rowIndex++)
+        {
+            leafMembers[rowIndex].RowDefinitionIndex = rowIndex;
+            item.Rows[rowIndex].IsHeader = leafMembers[rowIndex].Kind == ReportTablixMemberKind.Static;
+            repeatHeaderRows |= item.Rows[rowIndex].IsHeader && leafMembers[rowIndex].RepeatOnNewPage;
+        }
+
+        if (leafMembers.Count != item.Rows.Count)
+        {
+            _diagnostics.Add(new ReportDiagnostic(
+                ReportDiagnosticSeverity.Warning,
+                ReportDiagnosticCodes.UnsupportedFeature,
+                $"Tablix row hierarchy leaf count '{leafMembers.Count}' does not match body row count '{item.Rows.Count}'. Rows beyond the mapped range may render approximately.",
+                path + "/TablixRowHierarchy"));
+        }
+
         item.RepeatHeaderRows = repeatHeaderRows;
         return item;
+    }
+
+    private List<ReportTablixMemberDefinition> ReadTablixMembers(XElement? membersElement, string path)
+    {
+        var members = new List<ReportTablixMemberDefinition>();
+        if (membersElement is null)
+        {
+            return members;
+        }
+
+        var index = 0;
+        foreach (var memberElement in membersElement.Elements(_xmlNamespace + "TablixMember"))
+        {
+            members.Add(ReadTablixMember(memberElement, $"{path}/TablixMember[{index}]"));
+            index++;
+        }
+
+        return members;
+    }
+
+    private ReportTablixMemberDefinition ReadTablixMember(XElement memberElement, string path)
+    {
+        var definition = new ReportTablixMemberDefinition
+        {
+            Id = ResolveTablixMemberId(memberElement, path),
+            RepeatOnNewPage = ParseBoolean(memberElement.Element(_xmlNamespace + "RepeatOnNewPage")?.Value),
+            KeepWithGroup = memberElement.Element(_xmlNamespace + "KeepWithGroup")?.Value?.Trim(),
+            VisibilityExpression = ReportRdlExpressions.ToNativeExpression(
+                memberElement.Element(_xmlNamespace + "Visibility")?.Element(_xmlNamespace + "Hidden")?.Value),
+            ToggleItemId = memberElement.Element(_xmlNamespace + "Visibility")?.Element(_xmlNamespace + "ToggleItem")?.Value?.Trim()
+        };
+
+        var groupElement = memberElement.Element(_xmlNamespace + "Group");
+        if (groupElement is not null)
+        {
+            definition.GroupName = ((string?)groupElement.Attribute("Name"))?.Trim();
+            definition.GroupExpression = ReportRdlExpressions.ToNativeExpression(
+                groupElement.Element(_xmlNamespace + "GroupExpressions")
+                    ?.Elements(_xmlNamespace + "GroupExpression")
+                    .FirstOrDefault()
+                    ?.Value);
+            definition.Kind = string.IsNullOrWhiteSpace(definition.GroupExpression)
+                ? ReportTablixMemberKind.Details
+                : ReportTablixMemberKind.Group;
+        }
+
+        var sortExpressionElement = memberElement
+            .Element(_xmlNamespace + "SortExpressions")
+            ?.Elements(_xmlNamespace + "SortExpression")
+            .FirstOrDefault();
+        if (sortExpressionElement is not null)
+        {
+            definition.SortExpression = ReportRdlExpressions.ToNativeExpression(
+                sortExpressionElement.Element(_xmlNamespace + "Value")?.Value);
+            definition.SortDirection = ParseSortDirection(sortExpressionElement.Element(_xmlNamespace + "Direction")?.Value);
+        }
+
+        definition.Members.AddRange(ReadTablixMembers(
+            memberElement.Element(_xmlNamespace + "TablixMembers"),
+            path + "/TablixMembers"));
+
+        return definition;
+    }
+
+    private static void CollectLeafMembers(
+        IReadOnlyList<ReportTablixMemberDefinition> members,
+        List<ReportTablixMemberDefinition> leaves)
+    {
+        for (var index = 0; index < members.Count; index++)
+        {
+            var member = members[index];
+            if (member.Members.Count == 0)
+            {
+                leaves.Add(member);
+                continue;
+            }
+
+            CollectLeafMembers(member.Members, leaves);
+        }
+    }
+
+    private static string ResolveTablixMemberId(XElement memberElement, string path)
+    {
+        var groupName = ((string?)memberElement.Element(memberElement.Name.Namespace + "Group")?.Attribute("Name"))?.Trim();
+        if (!string.IsNullOrWhiteSpace(groupName))
+        {
+            return groupName;
+        }
+
+        var sanitizedPath = path.Replace('/', '_')
+            .Replace('[', '_')
+            .Replace(']', '_');
+        return sanitizedPath.Trim('_');
     }
 
     private ReportTablixCellDefinition ReadTablixCell(XElement cellElement, string path)
@@ -837,14 +1044,10 @@ internal sealed class ReportRdlImporter
         var textbox = cellContents?.Element(_xmlNamespace + "Textbox");
         if (textbox is null)
         {
-            var nestedName = cellContents?.Elements().FirstOrDefault()?.Name.LocalName;
-            if (!string.IsNullOrWhiteSpace(nestedName))
+            var nestedItem = cellContents?.Elements().FirstOrDefault();
+            if (nestedItem is not null)
             {
-                _diagnostics.Add(new ReportDiagnostic(
-                    ReportDiagnosticSeverity.Warning,
-                    ReportDiagnosticCodes.UnsupportedFeature,
-                    $"Tablix cell content '{nestedName}' is not supported; the cell was imported as empty.",
-                    path + "/CellContents"));
+                cell.ContentItem = ReadStandaloneItem(nestedItem, path + "/CellContents", 0f, 0f);
             }
 
             return cell;
@@ -853,8 +1056,9 @@ internal sealed class ReportRdlImporter
         var (staticText, expression) = ReadTextboxValue(textbox, path + "/CellContents/Textbox");
         cell.Text = staticText;
         cell.ValueExpression = expression;
-        cell.StyleName = _styleCatalog.Intern(textbox.Element(_xmlNamespace + "Style"), _xmlNamespace, path, _diagnostics);
-        ReportRdlStyleCatalog.Parse(textbox.Element(_xmlNamespace + "Style"), _xmlNamespace, path, _diagnostics, out var formatString);
+        var styleElement = GetEffectiveTextboxStyleElement(textbox);
+        cell.StyleName = _styleCatalog.Intern(styleElement, _xmlNamespace, path, _diagnostics);
+        ReportRdlStyleCatalog.Parse(styleElement, _xmlNamespace, path, _diagnostics, out var formatString);
         cell.FormatString = formatString;
         return cell;
     }
@@ -942,33 +1146,183 @@ internal sealed class ReportRdlImporter
 
     private (string? StaticText, string? Expression) ReadTextboxValue(XElement textboxElement, string path)
     {
-        var textRuns = textboxElement
+        var paragraphs = textboxElement
             .Element(_xmlNamespace + "Paragraphs")
             ?.Elements(_xmlNamespace + "Paragraph")
-            .SelectMany(static paragraph => paragraph.Elements())
-            .Where(element => element.Name.LocalName == "TextRuns")
-            .SelectMany(textRunsElement => textRunsElement.Elements(_xmlNamespace + "TextRun"))
             .ToList();
 
-        if (textRuns is null || textRuns.Count == 0)
+        if (paragraphs is null || paragraphs.Count == 0)
         {
             var fallback = textboxElement.Element(_xmlNamespace + "Value")?.Value;
             ReportRdlExpressions.SplitTextboxValue(fallback, out var fallbackStaticText, out var fallbackExpression);
             return (fallbackStaticText, fallbackExpression);
         }
 
-        if (textRuns.Count > 1)
+        if (paragraphs.Count == 1)
         {
-            _diagnostics.Add(new ReportDiagnostic(
-                ReportDiagnosticSeverity.Warning,
-                ReportDiagnosticCodes.UnsupportedFeature,
-                "Textboxes with multiple text runs are imported using only the first text run.",
-                path + "/Paragraphs"));
+            var textRuns = paragraphs[0]
+                .Element(_xmlNamespace + "TextRuns")
+                ?.Elements(_xmlNamespace + "TextRun")
+                .ToList();
+            if (textRuns is null || textRuns.Count == 0)
+            {
+                var fallback = paragraphs[0].Element(_xmlNamespace + "TextRuns")?.Value;
+                ReportRdlExpressions.SplitTextboxValue(fallback, out var paragraphStaticText, out var paragraphExpression);
+                return (paragraphStaticText, paragraphExpression);
+            }
+
+            if (textRuns.Count > 1)
+            {
+                return CombineTextRuns(textRuns);
+            }
+
+            var value = textRuns[0].Element(_xmlNamespace + "Value")?.Value;
+            ReportRdlExpressions.SplitTextboxValue(value, out var staticText, out var expression);
+            return (staticText, expression);
         }
 
-        var value = textRuns[0].Element(_xmlNamespace + "Value")?.Value;
+        var paragraphValues = new List<(string? StaticText, string? Expression)>(paragraphs.Count);
+        for (var paragraphIndex = 0; paragraphIndex < paragraphs.Count; paragraphIndex++)
+        {
+            var textRuns = paragraphs[paragraphIndex]
+                .Element(_xmlNamespace + "TextRuns")
+                ?.Elements(_xmlNamespace + "TextRun")
+                .ToList();
+            if (textRuns is null || textRuns.Count == 0)
+            {
+                paragraphValues.Add((string.Empty, null));
+                continue;
+            }
+
+            paragraphValues.Add(textRuns.Count == 1
+                ? SplitTextRunValue(textRuns[0])
+                : CombineTextRuns(textRuns));
+        }
+
+        return CombineTextboxParagraphs(paragraphValues);
+    }
+
+    private (string? StaticText, string? Expression) SplitTextRunValue(XElement textRunElement)
+    {
+        var value = textRunElement.Element(_xmlNamespace + "Value")?.Value;
         ReportRdlExpressions.SplitTextboxValue(value, out var staticText, out var expression);
         return (staticText, expression);
+    }
+
+    private static (string? StaticText, string? Expression) CombineTextRuns(IReadOnlyList<XElement> textRuns)
+    {
+        var parts = new List<string>(textRuns.Count);
+        var allStatic = true;
+        for (var index = 0; index < textRuns.Count; index++)
+        {
+            var value = textRuns[index].Element(textRuns[index].Name.Namespace + "Value")?.Value;
+            ReportRdlExpressions.SplitTextboxValue(value, out var staticText, out var expression);
+            if (!string.IsNullOrWhiteSpace(expression))
+            {
+                parts.Add(expression);
+                allStatic = false;
+            }
+            else
+            {
+                parts.Add(ReportRdlExpressions.QuoteNativeString(staticText ?? string.Empty));
+            }
+        }
+
+        if (allStatic)
+        {
+            return (string.Concat(parts.Select(static part => part.Length >= 2 && part[0] == '\'' && part[^1] == '\'' ? part[1..^1].Replace("''", "'", StringComparison.Ordinal) : part)), null);
+        }
+
+        return (null, string.Join(" + ", parts));
+    }
+
+    private static (string? StaticText, string? Expression) CombineTextboxParagraphs(
+        IReadOnlyList<(string? StaticText, string? Expression)> paragraphs)
+    {
+        var parts = new List<string>(paragraphs.Count * 2);
+        var allStatic = true;
+        for (var index = 0; index < paragraphs.Count; index++)
+        {
+            if (index > 0)
+            {
+                parts.Add(ReportRdlExpressions.QuoteNativeString(Environment.NewLine));
+            }
+
+            var paragraph = paragraphs[index];
+            if (!string.IsNullOrWhiteSpace(paragraph.Expression))
+            {
+                parts.Add(paragraph.Expression);
+                allStatic = false;
+            }
+            else
+            {
+                parts.Add(ReportRdlExpressions.QuoteNativeString(paragraph.StaticText ?? string.Empty));
+            }
+        }
+
+        if (allStatic)
+        {
+            return (string.Join(Environment.NewLine, paragraphs.Select(static paragraph => paragraph.StaticText ?? string.Empty)), null);
+        }
+
+        return (null, string.Join(" + ", parts));
+    }
+
+    private XElement? GetEffectiveTextboxStyleElement(XElement textboxElement)
+    {
+        var textboxStyle = textboxElement.Element(_xmlNamespace + "Style");
+        var paragraphStyle = textboxElement
+            .Element(_xmlNamespace + "Paragraphs")
+            ?.Elements(_xmlNamespace + "Paragraph")
+            .FirstOrDefault()
+            ?.Element(_xmlNamespace + "Style");
+        var textRuns = textboxElement
+            .Element(_xmlNamespace + "Paragraphs")
+            ?.Elements(_xmlNamespace + "Paragraph")
+            .SelectMany(paragraph => paragraph.Element(_xmlNamespace + "TextRuns")?.Elements(_xmlNamespace + "TextRun") ?? [])
+            .ToList();
+
+        if (textRuns is null || textRuns.Count != 1)
+        {
+            return MergeStyleElements(textboxStyle, paragraphStyle);
+        }
+
+        var runStyle = textRuns[0].Element(_xmlNamespace + "Style");
+        return MergeStyleElements(MergeStyleElements(textboxStyle, paragraphStyle), runStyle);
+    }
+
+    private XElement? MergeStyleElements(XElement? baseStyle, XElement? overrideStyle)
+    {
+        if (baseStyle is null)
+        {
+            return overrideStyle;
+        }
+
+        if (overrideStyle is null)
+        {
+            return baseStyle;
+        }
+
+        var merged = new XElement(_xmlNamespace + "Style");
+        foreach (var child in baseStyle.Elements())
+        {
+            merged.Add(new XElement(child));
+        }
+
+        foreach (var child in overrideStyle.Elements())
+        {
+            var existing = merged.Element(child.Name);
+            if (existing is not null)
+            {
+                existing.ReplaceWith(new XElement(child));
+            }
+            else
+            {
+                merged.Add(new XElement(child));
+            }
+        }
+
+        return merged;
     }
 
     private ReportItemBounds ReadBounds(XElement itemElement, string path, float offsetX, float offsetY)
@@ -998,6 +1352,18 @@ internal sealed class ReportRdlImporter
                 options[key] = value;
             }
         }
+    }
+
+    private static string NormalizeRdlProviderId(string providerId)
+    {
+        return providerId.Trim().ToUpperInvariant() switch
+        {
+            "ENTERDATA" => "enterdata",
+            "SQL" or "SQLAZURE" => "sqlserver",
+            "OBJECT" => "in-memory",
+            "XML" => "json",
+            _ => providerId
+        };
     }
 
     private static ReportParameterDataType ParseParameterDataType(string? dataType)

@@ -346,4 +346,180 @@ public sealed class ReportMaterializerTests
         Assert.Null(result.MaterializedReport);
         Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == ReportDiagnosticCodes.ParameterResolutionFailed);
     }
+
+    [Fact]
+    public async Task MaterializeAsync_ExpandsGroupedTablixHierarchy()
+    {
+        var reportDefinition = new ReportDefinition
+        {
+            Id = "grouped-sales",
+            Name = "Grouped Sales",
+            DataSources =
+            {
+                new ReportDataSourceDefinition
+                {
+                    Id = "sales-source",
+                    ProviderId = ReportProviderIds.InMemory,
+                    Options =
+                    {
+                        ["sourceKey"] = "sales"
+                    }
+                }
+            },
+            DataSets =
+            {
+                new ReportDataSetDefinition
+                {
+                    Id = "sales",
+                    DataSourceId = "sales-source"
+                }
+            },
+            Sections =
+            {
+                new ReportSection
+                {
+                    Id = "main",
+                    Name = "Main",
+                    BodyItems =
+                    {
+                        new TablixItem
+                        {
+                            Id = "sales-table",
+                            Name = "Sales Table",
+                            DataSetId = "sales",
+                            Bounds = new ReportItemBounds(0f, 0f, 480f, 180f),
+                            Columns =
+                            {
+                                new ReportTablixColumnDefinition { Id = "region", Width = 140f },
+                                new ReportTablixColumnDefinition { Id = "salesperson", Width = 180f },
+                                new ReportTablixColumnDefinition { Id = "amount", Width = 120f }
+                            },
+                            Rows =
+                            {
+                                new ReportTablixRowDefinition
+                                {
+                                    Id = "header",
+                                    IsHeader = true,
+                                    Height = 18f,
+                                    Cells =
+                                    {
+                                        new ReportTablixCellDefinition { Text = "Region" },
+                                        new ReportTablixCellDefinition { Text = "Salesperson" },
+                                        new ReportTablixCellDefinition { Text = "Amount" }
+                                    }
+                                },
+                                new ReportTablixRowDefinition
+                                {
+                                    Id = "group",
+                                    IsHeader = true,
+                                    Height = 20f,
+                                    Cells =
+                                    {
+                                        new ReportTablixCellDefinition { ValueExpression = "Fields.Region" },
+                                        new ReportTablixCellDefinition { Text = "Subtotal" },
+                                        new ReportTablixCellDefinition { ValueExpression = "Sum(Fields.Amount)", FormatString = "0.00" }
+                                    }
+                                },
+                                new ReportTablixRowDefinition
+                                {
+                                    Id = "detail",
+                                    Height = 18f,
+                                    Cells =
+                                    {
+                                        new ReportTablixCellDefinition { Text = string.Empty },
+                                        new ReportTablixCellDefinition { ValueExpression = "Fields.Salesperson" },
+                                        new ReportTablixCellDefinition { ValueExpression = "Fields.Amount", FormatString = "0.00" }
+                                    }
+                                }
+                            },
+                            RowMembers =
+                            {
+                                new ReportTablixMemberDefinition
+                                {
+                                    Id = "header-member",
+                                    Kind = ReportTablixMemberKind.Static,
+                                    RepeatOnNewPage = true,
+                                    RowDefinitionIndex = 0
+                                },
+                                new ReportTablixMemberDefinition
+                                {
+                                    Id = "region-group",
+                                    Kind = ReportTablixMemberKind.Group,
+                                    GroupName = "RegionGroup",
+                                    GroupExpression = "Fields.Region",
+                                    SortExpression = "Fields.Region",
+                                    SortDirection = ReportSortDirection.Descending,
+                                    Members =
+                                    {
+                                        new ReportTablixMemberDefinition
+                                        {
+                                            Id = "region-summary",
+                                            Kind = ReportTablixMemberKind.Static,
+                                            RowDefinitionIndex = 1
+                                        },
+                                        new ReportTablixMemberDefinition
+                                        {
+                                            Id = "detail-member",
+                                            Kind = ReportTablixMemberKind.Details,
+                                            SortExpression = "Fields.Amount",
+                                            SortDirection = ReportSortDirection.Descending,
+                                            RowDefinitionIndex = 2
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        var hostData = new ReportHostDataRegistry();
+        hostData.RegisterInMemorySource(
+            "sales",
+            new ReportDictionaryDataSource(
+                new List<IReadOnlyDictionary<string, object?>>
+                {
+                    new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["Region"] = "West",
+                        ["Salesperson"] = "John",
+                        ["Amount"] = 10m
+                    },
+                    new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["Region"] = "West",
+                        ["Salesperson"] = "Jane",
+                        ["Amount"] = 12m
+                    },
+                    new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["Region"] = "East",
+                        ["Salesperson"] = "Bob",
+                        ["Amount"] = 5m
+                    }
+                }));
+
+        var materializer = new ReportMaterializer(new ReportExpressionCompiler());
+        var result = await materializer.MaterializeAsync(
+            new ReportMaterializationRequest
+            {
+                ReportDefinition = reportDefinition,
+                ProviderRegistry = ReportDataProviders.CreateDefaultRegistry(),
+                HostDataRegistry = hostData
+            });
+
+        Assert.False(result.HasErrors);
+        var tablix = Assert.IsType<MaterializedTablixReportItem>(Assert.Single(result.MaterializedReport!.Sections[0].BodyItems));
+        Assert.Equal(6, tablix.Rows.Count);
+        Assert.True(tablix.Rows[0].IsHeader);
+        Assert.Equal(18f, tablix.Rows[0].Height, 3);
+        Assert.Equal("West", tablix.Rows[1].Cells[0].Text);
+        Assert.Equal("22.00", tablix.Rows[1].Cells[2].Text);
+        Assert.Equal("Jane", tablix.Rows[2].Cells[1].Text);
+        Assert.Equal("12.00", tablix.Rows[2].Cells[2].Text);
+        Assert.Equal("John", tablix.Rows[3].Cells[1].Text);
+        Assert.Equal("East", tablix.Rows[4].Cells[0].Text);
+        Assert.Equal("5.00", tablix.Rows[5].Cells[2].Text);
+    }
 }

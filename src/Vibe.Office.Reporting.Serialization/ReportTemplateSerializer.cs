@@ -340,8 +340,12 @@ public sealed class ReportTemplateSerializer : IReportTemplateSerializer
             "lineitem" => "LineItem",
             "shape" => "ShapeItem",
             "shapeitem" => "ShapeItem",
+            "container" => "ContainerItem",
+            "containeritem" => "ContainerItem",
             "chart" => "ChartItem",
             "chartitem" => "ChartItem",
+            "gauge" => "GaugeItem",
+            "gaugeitem" => "GaugeItem",
             "tablix" => "TablixItem",
             "tablixitem" => "TablixItem",
             "subreport" => "SubreportItem",
@@ -627,6 +631,7 @@ public sealed class ReportTemplateSerializer : IReportTemplateSerializer
         ValidateDrillthroughAction(item["drillthroughAction"], $"{path}.drillthroughAction", diagnostics);
 
         ValidateArray(item["series"] as JsonArray, $"{path}.series", diagnostics, ValidateChartSeries);
+        ValidateArray(item["items"] as JsonArray, $"{path}.items", diagnostics, ValidateItem);
         ValidateArray(item["columns"] as JsonArray, $"{path}.columns", diagnostics, ValidateTablixColumn);
         ValidateArray(item["rows"] as JsonArray, $"{path}.rows", diagnostics, ValidateTablixRow);
         ValidateArray(item["parameters"] as JsonArray, $"{path}.parameters", diagnostics, ValidateParameterBinding);
@@ -661,8 +666,22 @@ public sealed class ReportTemplateSerializer : IReportTemplateSerializer
             case "ShapeItem":
                 properties.Add("shape");
                 break;
+            case "ContainerItem":
+                properties.Add("items");
+                break;
             case "ChartItem":
                 properties.AddRange(["dataSetId", "categoryExpression", "titleExpression", "series"]);
+                break;
+            case "GaugeItem":
+                properties.AddRange([
+                    "dataSetId",
+                    "gaugeKind",
+                    "valueExpression",
+                    "minimumExpression",
+                    "maximumExpression",
+                    "targetValueExpression",
+                    "labelExpression",
+                    "rawRdlXml"]);
                 break;
             case "TablixItem":
                 properties.AddRange(["dataSetId", "repeatHeaderRows", "columns", "rows"]);
@@ -752,8 +771,10 @@ public sealed class ReportTemplateSerializer : IReportTemplateSerializer
             "valueExpression",
             "formatString",
             "styleName",
+            "contentItem",
             "rowSpan",
             "columnSpan");
+        ValidateItem(cell["contentItem"] as JsonObject, $"{path}.contentItem", diagnostics);
     }
 
     private static void ValidateArray(

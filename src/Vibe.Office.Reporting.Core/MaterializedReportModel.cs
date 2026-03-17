@@ -38,6 +38,11 @@ public sealed class MaterializedReportStyle
     public bool? Italic { get; set; }
 
     /// <summary>
+    /// Gets or sets the paragraph alignment.
+    /// </summary>
+    public ParagraphAlignment? TextAlign { get; set; }
+
+    /// <summary>
     /// Creates a deep clone of the style.
     /// </summary>
     /// <returns>The cloned style.</returns>
@@ -50,7 +55,8 @@ public sealed class MaterializedReportStyle
             Foreground = Foreground,
             Background = Background,
             Bold = Bold,
-            Italic = Italic
+            Italic = Italic,
+            TextAlign = TextAlign
         };
     }
 }
@@ -249,6 +255,17 @@ public sealed class MaterializedShapeReportItem : MaterializedReportItem
 }
 
 /// <summary>
+/// Materialized container item.
+/// </summary>
+public sealed class MaterializedContainerReportItem : MaterializedReportItem
+{
+    /// <summary>
+    /// Gets the nested materialized items.
+    /// </summary>
+    public List<MaterializedReportItem> Items { get; } = new();
+}
+
+/// <summary>
 /// Materialized chart item.
 /// </summary>
 public sealed class MaterializedChartReportItem : MaterializedReportItem
@@ -257,6 +274,42 @@ public sealed class MaterializedChartReportItem : MaterializedReportItem
     /// Gets or sets the resolved chart model.
     /// </summary>
     public ChartModel? Model { get; set; }
+}
+
+/// <summary>
+/// Materialized gauge item.
+/// </summary>
+public sealed class MaterializedGaugeReportItem : MaterializedReportItem
+{
+    /// <summary>
+    /// Gets or sets the gauge kind.
+    /// </summary>
+    public ReportGaugeKind GaugeKind { get; set; } = ReportGaugeKind.Radial;
+
+    /// <summary>
+    /// Gets or sets the resolved label text.
+    /// </summary>
+    public string? Label { get; set; }
+
+    /// <summary>
+    /// Gets or sets the resolved value.
+    /// </summary>
+    public double? Value { get; set; }
+
+    /// <summary>
+    /// Gets or sets the resolved minimum value.
+    /// </summary>
+    public double? Minimum { get; set; }
+
+    /// <summary>
+    /// Gets or sets the resolved maximum value.
+    /// </summary>
+    public double? Maximum { get; set; }
+
+    /// <summary>
+    /// Gets or sets the resolved target value.
+    /// </summary>
+    public double? TargetValue { get; set; }
 }
 
 /// <summary>
@@ -296,6 +349,11 @@ public sealed class MaterializedTablixCell
     public MaterializedReportStyle? Style { get; set; }
 
     /// <summary>
+    /// Gets or sets the optional nested cell content item.
+    /// </summary>
+    public MaterializedReportItem? Content { get; set; }
+
+    /// <summary>
     /// Gets or sets the row span.
     /// </summary>
     public int RowSpan { get; set; } = 1;
@@ -315,6 +373,11 @@ public sealed class MaterializedTablixRow
     /// Gets or sets a value indicating whether the row is a header row.
     /// </summary>
     public bool IsHeader { get; set; }
+
+    /// <summary>
+    /// Gets or sets the resolved row height.
+    /// </summary>
+    public float Height { get; set; }
 
     /// <summary>
     /// Gets the materialized row cells.

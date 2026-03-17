@@ -19,6 +19,11 @@ public sealed class ReportParameterValue
     public List<object?> Values { get; set; } = new();
 
     /// <summary>
+    /// Gets the display labels associated with the parameter values.
+    /// </summary>
+    public List<string> Labels { get; set; } = new();
+
+    /// <summary>
     /// Returns the scalar parameter value when the parameter is not multi-value.
     /// </summary>
     /// <returns>The resolved scalar value or <see langword="null" />.</returns>
@@ -30,6 +35,20 @@ public sealed class ReportParameterValue
         }
 
         return Values[0];
+    }
+
+    /// <summary>
+    /// Returns the scalar parameter label when one is available.
+    /// </summary>
+    /// <returns>The resolved display label or <see langword="null" />.</returns>
+    public string? GetScalarLabel()
+    {
+        if (Labels.Count > 0)
+        {
+            return Labels[0];
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -47,6 +66,7 @@ public sealed class ReportParameterValue
         if (value is not null)
         {
             parameterValue.Values.Add(value);
+            parameterValue.Labels.Add(Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty);
         }
 
         return parameterValue;
