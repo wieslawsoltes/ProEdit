@@ -1,95 +1,72 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:designer="using:Vibe.Office.Reporting.Avalonia.Designer"
-             xmlns:viewer="using:Vibe.Office.Reporting.Avalonia.Viewer"
              x:Class="Vibe.Office.Reporting.Avalonia.Designer.ReportDesignerControl"
              x:DataType="designer:ReportDesignerViewModel">
   <UserControl.Styles>
     <StyleInclude Source="avares://Vibe.Office.Reporting.Avalonia.Designer/Themes/ReportDesignerTheme.axaml" />
   </UserControl.Styles>
 
-  <Grid RowDefinitions="Auto,*"
-        ColumnDefinitions="280,*,340">
+  <Grid RowDefinitions="Auto,*,Auto"
+        ColumnDefinitions="292,6,*,6,340">
     <Border Grid.Row="0"
-            Grid.ColumnSpan="3"
-            Classes="designer-toolbar">
-      <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,*,Auto"
-            ColumnSpacing="10">
-        <Button Content="Section"
-                Command="{Binding AddSectionCommand}" />
-        <Button Grid.Column="1"
-                Content="Text"
-                Command="{Binding AddTextItemCommand}" />
-        <Button Grid.Column="2"
-                Content="Chart"
-                Command="{Binding AddChartItemCommand}" />
-        <Button Grid.Column="3"
-                Content="Tablix"
-                Command="{Binding AddTablixItemCommand}" />
-        <Button Grid.Column="4"
-                Content="Template"
-                Command="{Binding AddTemplateItemCommand}" />
-        <Button Grid.Column="5"
-                Content="Parameter"
-                Command="{Binding AddParameterCommand}" />
-        <Button Grid.Column="6"
-                Content="Data Source"
-                Command="{Binding AddDataSourceCommand}" />
-        <Button Grid.Column="7"
-                Content="Dataset"
-                Command="{Binding AddDataSetCommand}" />
-        <TextBlock Grid.Column="8"
-                   VerticalAlignment="Center"
-                   Text="{Binding StatusMessage}" />
-        <StackPanel Grid.Column="9"
+            Grid.ColumnSpan="5"
+            Classes="designer-context-bar">
+      <Grid ColumnDefinitions="*,Auto,Auto"
+            ColumnSpacing="12">
+        <StackPanel Spacing="2">
+          <TextBlock Classes="designer-panel-title"
+                     Text="Design View" />
+          <TextBlock Classes="designer-helper"
+                     Text="{Binding SelectedObjectTitle}" />
+        </StackPanel>
+
+        <StackPanel Grid.Column="1"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    Spacing="8">
+          <Border Classes="designer-status-pill">
+            <TextBlock Text="{Binding CurrentSectionName}" />
+          </Border>
+          <Border Classes="designer-status-pill">
+            <TextBlock Text="{Binding SurfaceDisplayText}" />
+          </Border>
+          <Border Classes="designer-status-pill">
+            <TextBlock Text="{Binding StatusMessage}" />
+          </Border>
+        </StackPanel>
+
+        <StackPanel Grid.Column="2"
                     Orientation="Horizontal"
                     Spacing="8">
-          <Button Content="Remove"
+          <Button Classes="designer-tool-button"
+                  Content="Remove"
                   Command="{Binding RemoveSelectedCommand}"
                   IsEnabled="{Binding CanRemoveSelected}" />
-          <Button Content="Preview"
+          <Button Classes="designer-tool-button designer-tool-button-primary"
+                  Content="Run Preview"
                   Command="{Binding RefreshPreviewCommand}" />
         </StackPanel>
       </Grid>
     </Border>
 
-    <Border Grid.Row="1"
-            Grid.Column="0"
-            Classes="designer-sidebar">
-      <Grid RowDefinitions="Auto,*"
-            RowSpacing="10">
-        <StackPanel Spacing="2">
-          <TextBlock Classes="designer-panel-title"
-                     Text="Report Explorer" />
-          <TextBlock Classes="designer-helper"
-                     Text="Sections, items, data, and reusable templates." />
-        </StackPanel>
+    <designer:ReportDesignerReportDataPane Grid.Row="1"
+                                           Grid.RowSpan="2"
+                                           Grid.Column="0" />
 
-        <TreeView Grid.Row="1"
-                  ItemsSource="{Binding ExplorerNodes}"
-                  SelectedItem="{Binding SelectedExplorerNode, Mode=TwoWay}">
-          <TreeView.ItemTemplate>
-            <TreeDataTemplate x:DataType="designer:ReportDesignerExplorerNodeViewModel"
-                              ItemsSource="{Binding Children}">
-              <StackPanel Orientation="Horizontal"
-                          Spacing="8">
-                <Border Classes="designer-tag">
-                  <TextBlock Text="{Binding Category}" />
-                </Border>
-                <TextBlock Text="{Binding Label}"
-                           TextWrapping="NoWrap" />
-              </StackPanel>
-            </TreeDataTemplate>
-          </TreeView.ItemTemplate>
-        </TreeView>
-      </Grid>
-    </Border>
+    <GridSplitter Grid.Row="1"
+                  Grid.RowSpan="2"
+                  Grid.Column="1"
+                  Classes="designer-splitter"
+                  HorizontalAlignment="Stretch"
+                  ResizeDirection="Columns" />
 
     <Border Grid.Row="1"
-            Grid.Column="1"
+            Grid.Column="2"
             Classes="designer-main">
-      <TabControl SelectedIndex="{Binding SelectedCenterTabIndex, Mode=TwoWay}">
-        <TabItem Header="Design Surface">
+      <TabControl Classes="designer-center-tabs"
+                  SelectedIndex="{Binding SelectedCenterTabIndex, Mode=TwoWay}">
+        <TabItem Header="Design">
           <Grid RowDefinitions="Auto,*"
                 RowSpacing="12">
             <Border Classes="designer-section-banner">
@@ -99,7 +76,7 @@
                   <TextBlock Classes="designer-panel-title"
                              Text="{Binding CurrentSectionName}" />
                   <TextBlock Classes="designer-helper"
-                             Text="{Binding SelectedObjectTitle}" />
+                             Text="{Binding SelectedObjectType}" />
                 </StackPanel>
                 <TextBlock Grid.Column="1"
                            VerticalAlignment="Center"
@@ -110,49 +87,47 @@
             <ScrollViewer Grid.Row="1"
                           HorizontalScrollBarVisibility="Auto"
                           VerticalScrollBarVisibility="Auto">
-              <Border Classes="designer-page"
-                      Width="{Binding SurfaceWidth}"
-                      Height="{Binding SurfaceHeight}">
-                <ItemsControl ItemsSource="{Binding DesignItems}">
-                  <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate>
-                      <Canvas />
-                    </ItemsPanelTemplate>
-                  </ItemsControl.ItemsPanel>
-                  <ItemsControl.ItemTemplate>
-                    <DataTemplate x:DataType="designer:ReportDesignerCanvasItemViewModel">
-                      <Button Canvas.Left="{Binding Left}"
-                              Canvas.Top="{Binding Top}"
-                              Width="{Binding Width}"
-                              Height="{Binding Height}"
-                              Padding="8"
-                              Command="{Binding SelectCommand}"
-                              Background="{Binding FillBrush}"
-                              BorderBrush="{Binding BorderBrush}"
-                              BorderThickness="2">
-                        <StackPanel Spacing="4">
-                          <TextBlock FontWeight="SemiBold"
-                                     Text="{Binding Label}"
-                                     TextWrapping="Wrap" />
-                          <TextBlock Classes="designer-helper"
-                                     Text="{Binding Summary}"
-                                     TextWrapping="Wrap" />
-                        </StackPanel>
-                      </Button>
-                    </DataTemplate>
-                  </ItemsControl.ItemTemplate>
-                </ItemsControl>
+              <Border Classes="designer-surface-stage">
+                <Border Classes="designer-page"
+                        Width="{Binding SurfaceWidth}"
+                        Height="{Binding SurfaceHeight}">
+                  <ItemsControl ItemsSource="{Binding DesignItems}">
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate>
+                        <Canvas />
+                      </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="designer:ReportDesignerCanvasItemViewModel">
+                        <Button Canvas.Left="{Binding Left}"
+                                Canvas.Top="{Binding Top}"
+                                Width="{Binding Width}"
+                                Height="{Binding Height}"
+                                Padding="8"
+                                Command="{Binding SelectCommand}"
+                                Background="{Binding FillBrush}"
+                                BorderBrush="{Binding BorderBrush}"
+                                BorderThickness="2">
+                          <StackPanel Spacing="4">
+                            <TextBlock FontWeight="SemiBold"
+                                       Text="{Binding Label}"
+                                       TextWrapping="Wrap" />
+                            <TextBlock Classes="designer-helper"
+                                       Text="{Binding Summary}"
+                                       TextWrapping="Wrap" />
+                          </StackPanel>
+                        </Button>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </Border>
               </Border>
             </ScrollViewer>
           </Grid>
         </TabItem>
 
-        <TabItem Header="Preview">
-          <viewer:ReportViewerControl DataContext="{Binding PreviewViewModel}" />
-        </TabItem>
-
         <TabItem Header="Expressions">
-          <Grid ColumnDefinitions="260,*"
+          <Grid ColumnDefinitions="240,*"
                 ColumnSpacing="12">
             <ListBox ItemsSource="{Binding ExpressionEntries}"
                      SelectedItem="{Binding SelectedExpressionEntry, Mode=TwoWay}">
@@ -184,7 +159,8 @@
               <StackPanel Grid.Row="2"
                           Orientation="Horizontal"
                           Spacing="8">
-                <Button Content="Apply Expression"
+                <Button Classes="designer-tool-button designer-tool-button-primary"
+                        Content="Apply Expression"
                         Command="{Binding ApplySelectedExpressionCommand}"
                         IsEnabled="{Binding CanApplyExpression}" />
               </StackPanel>
@@ -192,14 +168,14 @@
           </Grid>
         </TabItem>
 
-        <TabItem Header="Template Gallery">
+        <TabItem Header="Gallery">
           <Grid RowDefinitions="Auto,*"
                 RowSpacing="12">
             <StackPanel Spacing="2">
               <TextBlock Classes="designer-panel-title"
-                         Text="Built-in Gallery" />
+                         Text="Template Gallery" />
               <TextBlock Classes="designer-helper"
-                         Text="Apply a starter block to the current section." />
+                         Text="Apply starter layouts and narrative blocks to the current section." />
             </StackPanel>
 
             <ListBox Grid.Row="1"
@@ -221,6 +197,7 @@
                                    TextWrapping="Wrap" />
                       </StackPanel>
                       <Button Grid.Column="1"
+                              Classes="designer-tool-button"
                               VerticalAlignment="Center"
                               Content="Apply"
                               Command="{Binding ApplyCommand}" />
@@ -234,200 +211,18 @@
       </TabControl>
     </Border>
 
-    <Border Grid.Row="1"
-            Grid.Column="2"
-            Classes="designer-inspector">
-      <Grid RowDefinitions="Auto,*"
-            RowSpacing="10">
-        <StackPanel Spacing="2">
-          <TextBlock Classes="designer-panel-title"
-                     Text="{Binding SelectedObjectTitle}" />
-          <TextBlock Classes="designer-helper"
-                     Text="{Binding SelectedObjectType}" />
-        </StackPanel>
+    <designer:ReportDesignerGroupingPane Grid.Row="2"
+                                         Grid.Column="2" />
 
-        <TabControl Grid.Row="1"
-                    SelectedIndex="{Binding SelectedInspectorTabIndex, Mode=TwoWay}">
-          <TabItem Header="Properties">
-            <ScrollViewer VerticalScrollBarVisibility="Auto">
-              <ItemsControl ItemsSource="{Binding PropertyEntries}">
-                <ItemsControl.DataTemplates>
-                  <DataTemplate x:DataType="designer:ReportDesignerTextPropertyViewModel">
-                    <Border Classes="designer-card">
-                      <StackPanel Spacing="6">
-                        <TextBlock Classes="designer-label"
-                                   Text="{Binding Label}" />
-                        <TextBox AcceptsReturn="{Binding IsMultiline}"
-                                 MinHeight="32"
-                                 Text="{Binding Value, Mode=TwoWay}" />
-                        <TextBlock Classes="designer-helper"
-                                   Text="{Binding Description}"
-                                   TextWrapping="Wrap" />
-                        <TextBlock Classes="designer-error"
-                                   IsVisible="{Binding HasError}"
-                                   Text="{Binding ErrorMessage}" />
-                      </StackPanel>
-                    </Border>
-                  </DataTemplate>
-                  <DataTemplate x:DataType="designer:ReportDesignerBooleanPropertyViewModel">
-                    <Border Classes="designer-card">
-                      <StackPanel Spacing="6">
-                        <TextBlock Classes="designer-label"
-                                   Text="{Binding Label}" />
-                        <CheckBox Content="{Binding Description}"
-                                  IsChecked="{Binding Value, Mode=TwoWay}" />
-                      </StackPanel>
-                    </Border>
-                  </DataTemplate>
-                  <DataTemplate x:DataType="designer:ReportDesignerChoicePropertyViewModel">
-                    <Border Classes="designer-card">
-                      <StackPanel Spacing="6">
-                        <TextBlock Classes="designer-label"
-                                   Text="{Binding Label}" />
-                        <ComboBox ItemsSource="{Binding Options}"
-                                  SelectedItem="{Binding SelectedOption, Mode=TwoWay}">
-                          <ComboBox.ItemTemplate>
-                            <DataTemplate x:DataType="designer:ReportDesignerChoiceOptionViewModel">
-                              <TextBlock Text="{Binding Label}" />
-                            </DataTemplate>
-                          </ComboBox.ItemTemplate>
-                        </ComboBox>
-                        <TextBlock Classes="designer-helper"
-                                   Text="{Binding Description}"
-                                   TextWrapping="Wrap" />
-                      </StackPanel>
-                    </Border>
-                  </DataTemplate>
-                </ItemsControl.DataTemplates>
-              </ItemsControl>
-            </ScrollViewer>
-          </TabItem>
+    <GridSplitter Grid.Row="1"
+                  Grid.RowSpan="2"
+                  Grid.Column="3"
+                  Classes="designer-splitter"
+                  HorizontalAlignment="Stretch"
+                  ResizeDirection="Columns" />
 
-          <TabItem Header="Parameters">
-            <Grid RowDefinitions="Auto,*"
-                  RowSpacing="10">
-              <StackPanel Orientation="Horizontal"
-                          Spacing="8">
-                <Button Content="Add"
-                        Command="{Binding AddParameterCommand}" />
-                <Button Content="Remove"
-                        Command="{Binding RemoveSelectedCommand}"
-                        IsEnabled="{Binding CanRemoveSelected}" />
-              </StackPanel>
-              <ListBox Grid.Row="1"
-                       ItemsSource="{Binding ParameterEntries}"
-                       SelectedItem="{Binding SelectedParameterEntry, Mode=TwoWay}">
-                <ListBox.ItemTemplate>
-                  <DataTemplate x:DataType="designer:ReportDesignerSelectionEntryViewModel">
-                    <Border Classes="designer-card">
-                      <StackPanel Spacing="4">
-                        <TextBlock FontWeight="SemiBold"
-                                   Text="{Binding Title}" />
-                        <TextBlock Classes="designer-helper"
-                                   Text="{Binding Subtitle}" />
-                      </StackPanel>
-                    </Border>
-                  </DataTemplate>
-                </ListBox.ItemTemplate>
-              </ListBox>
-            </Grid>
-          </TabItem>
-
-          <TabItem Header="Data">
-            <TabControl>
-              <TabItem Header="Sources">
-                <Grid RowDefinitions="Auto,*"
-                      RowSpacing="10">
-                  <StackPanel Orientation="Horizontal"
-                              Spacing="8">
-                    <Button Content="Add Source"
-                            Command="{Binding AddDataSourceCommand}" />
-                    <Button Content="Remove"
-                            Command="{Binding RemoveSelectedCommand}"
-                            IsEnabled="{Binding CanRemoveSelected}" />
-                  </StackPanel>
-                  <ListBox Grid.Row="1"
-                           ItemsSource="{Binding DataSourceEntries}"
-                           SelectedItem="{Binding SelectedDataSourceEntry, Mode=TwoWay}">
-                    <ListBox.ItemTemplate>
-                      <DataTemplate x:DataType="designer:ReportDesignerSelectionEntryViewModel">
-                        <Border Classes="designer-card">
-                          <StackPanel Spacing="4">
-                            <TextBlock FontWeight="SemiBold"
-                                       Text="{Binding Title}" />
-                            <TextBlock Classes="designer-helper"
-                                       Text="{Binding Subtitle}" />
-                          </StackPanel>
-                        </Border>
-                      </DataTemplate>
-                    </ListBox.ItemTemplate>
-                  </ListBox>
-                </Grid>
-              </TabItem>
-
-              <TabItem Header="Datasets">
-                <Grid RowDefinitions="Auto,*"
-                      RowSpacing="10">
-                  <StackPanel Orientation="Horizontal"
-                              Spacing="8">
-                    <Button Content="Add Dataset"
-                            Command="{Binding AddDataSetCommand}" />
-                    <Button Content="Remove"
-                            Command="{Binding RemoveSelectedCommand}"
-                            IsEnabled="{Binding CanRemoveSelected}" />
-                  </StackPanel>
-                  <ListBox Grid.Row="1"
-                           ItemsSource="{Binding DataSetEntries}"
-                           SelectedItem="{Binding SelectedDataSetEntry, Mode=TwoWay}">
-                    <ListBox.ItemTemplate>
-                      <DataTemplate x:DataType="designer:ReportDesignerSelectionEntryViewModel">
-                        <Border Classes="designer-card">
-                          <StackPanel Spacing="4">
-                            <TextBlock FontWeight="SemiBold"
-                                       Text="{Binding Title}" />
-                            <TextBlock Classes="designer-helper"
-                                       Text="{Binding Subtitle}" />
-                          </StackPanel>
-                        </Border>
-                      </DataTemplate>
-                    </ListBox.ItemTemplate>
-                  </ListBox>
-                </Grid>
-              </TabItem>
-            </TabControl>
-          </TabItem>
-
-          <TabItem Header="Templates">
-            <Grid RowDefinitions="Auto,*"
-                  RowSpacing="10">
-              <StackPanel Orientation="Horizontal"
-                          Spacing="8">
-                <Button Content="Add Shared Template"
-                        Command="{Binding AddSharedTemplateCommand}" />
-                <Button Content="Remove"
-                        Command="{Binding RemoveSelectedCommand}"
-                        IsEnabled="{Binding CanRemoveSelected}" />
-              </StackPanel>
-              <ListBox Grid.Row="1"
-                       ItemsSource="{Binding SharedTemplateEntries}"
-                       SelectedItem="{Binding SelectedSharedTemplateEntry, Mode=TwoWay}">
-                <ListBox.ItemTemplate>
-                  <DataTemplate x:DataType="designer:ReportDesignerSelectionEntryViewModel">
-                    <Border Classes="designer-card">
-                      <StackPanel Spacing="4">
-                        <TextBlock FontWeight="SemiBold"
-                                   Text="{Binding Title}" />
-                        <TextBlock Classes="designer-helper"
-                                   Text="{Binding Subtitle}" />
-                      </StackPanel>
-                    </Border>
-                  </DataTemplate>
-                </ListBox.ItemTemplate>
-              </ListBox>
-            </Grid>
-          </TabItem>
-        </TabControl>
-      </Grid>
-    </Border>
+    <designer:ReportDesignerPropertiesPane Grid.Row="1"
+                                           Grid.RowSpan="2"
+                                           Grid.Column="4" />
   </Grid>
 </UserControl>

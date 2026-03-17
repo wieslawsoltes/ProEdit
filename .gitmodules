@@ -1,0 +1,3 @@
+[submodule "external/Reporting-Services"]
+	path = external/Reporting-Services
+	url = https://github.com/microsoft/Reporting-Services.git

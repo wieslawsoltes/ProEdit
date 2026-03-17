@@ -269,6 +269,28 @@ public sealed class ReportDesignerSelectionEntryViewModel : ReactiveObject
 }
 
 /// <summary>
+/// One grouping entry shown in the grouping pane.
+/// </summary>
+public sealed class ReportDesignerGroupingEntryViewModel
+{
+    internal ReportDesignerGroupingEntryViewModel(string title, string subtitle)
+    {
+        Title = title ?? throw new ArgumentNullException(nameof(title));
+        Subtitle = subtitle ?? string.Empty;
+    }
+
+    /// <summary>
+    /// Gets the primary caption.
+    /// </summary>
+    public string Title { get; }
+
+    /// <summary>
+    /// Gets the secondary caption.
+    /// </summary>
+    public string Subtitle { get; }
+}
+
+/// <summary>
 /// Base type for explicit property-grid entries.
 /// </summary>
 public abstract class ReportDesignerPropertyViewModel : ReactiveObject
@@ -604,6 +626,8 @@ public sealed class ReportDesignerViewModel : ReactiveObject, IDisposable
     private readonly Dictionary<object, ReportDesignerSelectionEntryViewModel> _objectSelectionEntryMap = new(ReferenceEqualityComparer.Instance);
     private readonly ObservableCollection<ReportDesignerSelectionEntryViewModel> _parameterEntries = new();
     private readonly ObservableCollection<ReportDesignerPropertyViewModel> _propertyEntries = new();
+    private readonly ObservableCollection<ReportDesignerGroupingEntryViewModel> _rowGroupEntries = new();
+    private readonly ObservableCollection<ReportDesignerGroupingEntryViewModel> _columnGroupEntries = new();
     private readonly ObservableCollection<ReportDesignerSelectionEntryViewModel> _sharedTemplateEntries = new();
     private ReportDesignerCanvasItemViewModel? _selectedCanvasItem;
     private ReportDesignerExpressionEntryViewModel? _selectedExpressionEntry;
@@ -650,6 +674,8 @@ public sealed class ReportDesignerViewModel : ReactiveObject, IDisposable
         DataSetEntries = new ReadOnlyObservableCollection<ReportDesignerSelectionEntryViewModel>(_dataSetEntries);
         SharedTemplateEntries = new ReadOnlyObservableCollection<ReportDesignerSelectionEntryViewModel>(_sharedTemplateEntries);
         PropertyEntries = new ReadOnlyObservableCollection<ReportDesignerPropertyViewModel>(_propertyEntries);
+        RowGroupEntries = new ReadOnlyObservableCollection<ReportDesignerGroupingEntryViewModel>(_rowGroupEntries);
+        ColumnGroupEntries = new ReadOnlyObservableCollection<ReportDesignerGroupingEntryViewModel>(_columnGroupEntries);
         ExpressionEntries = new ReadOnlyObservableCollection<ReportDesignerExpressionEntryViewModel>(_expressionEntries);
         TemplateGalleryItems = new ReadOnlyObservableCollection<ReportDesignerTemplateGalleryItemViewModel>(_galleryItems);
 
@@ -726,6 +752,16 @@ public sealed class ReportDesignerViewModel : ReactiveObject, IDisposable
     /// Gets the explicit property-grid entries for the current selection.
     /// </summary>
     public ReadOnlyObservableCollection<ReportDesignerPropertyViewModel> PropertyEntries { get; }
+
+    /// <summary>
+    /// Gets the row grouping entries for the selected tablix.
+    /// </summary>
+    public ReadOnlyObservableCollection<ReportDesignerGroupingEntryViewModel> RowGroupEntries { get; }
+
+    /// <summary>
+    /// Gets the column grouping entries for the selected tablix.
+    /// </summary>
+    public ReadOnlyObservableCollection<ReportDesignerGroupingEntryViewModel> ColumnGroupEntries { get; }
 
     /// <summary>
     /// Gets the expression slots for the current selection.
@@ -907,7 +943,7 @@ public sealed class ReportDesignerViewModel : ReactiveObject, IDisposable
     public int SelectedCenterTabIndex
     {
         get => _selectedCenterTabIndex;
-        set => this.RaiseAndSetIfChanged(ref _selectedCenterTabIndex, Math.Clamp(value, 0, 3));
+        set => this.RaiseAndSetIfChanged(ref _selectedCenterTabIndex, Math.Clamp(value, 0, 2));
     }
 
     /// <summary>
@@ -973,6 +1009,18 @@ public sealed class ReportDesignerViewModel : ReactiveObject, IDisposable
     /// Gets the current design-surface size text.
     /// </summary>
     public string SurfaceDisplayText => $"{SurfaceWidth:0} x {SurfaceHeight:0}";
+
+    /// <summary>
+    /// Gets a value indicating whether the grouping pane should be shown.
+    /// </summary>
+    public bool IsGroupingVisible => GetSelectedTablix() is not null;
+
+    /// <summary>
+    /// Gets the grouping status caption.
+    /// </summary>
+    public string GroupingStatusText => GetSelectedTablix() is TablixItem tablix
+        ? $"Grouping for {DescribeTarget(tablix).title}"
+        : "Select a tablix to inspect row and column groups.";
 
     /// <summary>
     /// Gets or sets the designer status message.
@@ -1116,10 +1164,6 @@ public sealed class ReportDesignerViewModel : ReactiveObject, IDisposable
             await PreviewViewModel.LoadAsync(BuildPreviewSource(), cancellationToken);
             var previewUpdated = !ReferenceEquals(previousSnapshot, PreviewViewModel.CurrentSnapshot);
             IsPreviewDirty = !previewUpdated;
-            if (previewUpdated)
-            {
-                SelectedCenterTabIndex = 1;
-            }
 
             StatusMessage = previewUpdated
                 ? PreviewViewModel.StatusMessage
@@ -1599,7 +1643,7 @@ public sealed class ReportDesignerViewModel : ReactiveObject, IDisposable
             RegisterSelectionEntry(
                 parameter,
                 parameter.DisplayName,
-                parameter.Visibility.ToString(),
+                DescribeParameterEntry(parameter),
                 _parameterEntries);
         }
 
@@ -1612,7 +1656,7 @@ public sealed class ReportDesignerViewModel : ReactiveObject, IDisposable
             RegisterSelectionEntry(
                 dataSource,
                 dataSource.Id,
-                dataSource.ProviderId,
+                DescribeDataSourceEntry(dataSource),
                 _dataSourceEntries);
         }
 
@@ -1625,7 +1669,7 @@ public sealed class ReportDesignerViewModel : ReactiveObject, IDisposable
             RegisterSelectionEntry(
                 dataSet,
                 dataSet.Id,
-                dataSet.DataSourceId,
+                DescribeDataSetEntry(dataSet),
                 _dataSetEntries);
         }
 
@@ -1638,7 +1682,7 @@ public sealed class ReportDesignerViewModel : ReactiveObject, IDisposable
             RegisterSelectionEntry(
                 template,
                 template.Id,
-                template.Format.ToString(),
+                DescribeTemplateEntry(template),
                 _sharedTemplateEntries);
         }
 
@@ -1667,11 +1711,97 @@ public sealed class ReportDesignerViewModel : ReactiveObject, IDisposable
     private void RebuildPropertiesAndExpressions()
     {
         BuildPropertyEntries();
+        BuildGroupingEntries();
         BuildExpressionEntries();
         this.RaisePropertyChanged(nameof(CanApplyExpression));
         this.RaisePropertyChanged(nameof(CanRemoveSelected));
         this.RaisePropertyChanged(nameof(SelectedObjectTitle));
         this.RaisePropertyChanged(nameof(SelectedObjectType));
+        this.RaisePropertyChanged(nameof(IsGroupingVisible));
+        this.RaisePropertyChanged(nameof(GroupingStatusText));
+    }
+
+    private void BuildGroupingEntries()
+    {
+        _rowGroupEntries.Clear();
+        _columnGroupEntries.Clear();
+
+        var tablix = GetSelectedTablix();
+        if (tablix is null)
+        {
+            return;
+        }
+
+        if (tablix.RowMembers.Count == 0)
+        {
+            _rowGroupEntries.Add(new ReportDesignerGroupingEntryViewModel("Details", "No explicit row groups."));
+        }
+        else
+        {
+            foreach (var member in tablix.RowMembers)
+            {
+                AppendGroupingEntry(member, depth: 0, _rowGroupEntries);
+            }
+        }
+
+        if (tablix.Columns.Count == 0)
+        {
+            _columnGroupEntries.Add(new ReportDesignerGroupingEntryViewModel("Static Columns", "No column hierarchy."));
+            return;
+        }
+
+        for (var columnIndex = 0; columnIndex < tablix.Columns.Count; columnIndex++)
+        {
+            var column = tablix.Columns[columnIndex];
+            var title = $"Column {(columnIndex + 1):00}";
+            if (!string.IsNullOrWhiteSpace(column.Id))
+            {
+                title = $"{title} · {column.Id}";
+            }
+
+            _columnGroupEntries.Add(new ReportDesignerGroupingEntryViewModel(
+                title,
+                $"{column.Width:0.#} pt static column"));
+        }
+    }
+
+    private TablixItem? GetSelectedTablix()
+    {
+        return _selectedTarget switch
+        {
+            TablixItem tablix => tablix,
+            _ => null
+        };
+    }
+
+    private static void AppendGroupingEntry(
+        ReportTablixMemberDefinition member,
+        int depth,
+        ICollection<ReportDesignerGroupingEntryViewModel> target)
+    {
+        var prefix = new string(' ', depth * 2);
+        var title = member.Kind switch
+        {
+            ReportTablixMemberKind.Group => $"{prefix}{member.GroupName ?? "Group"}",
+            ReportTablixMemberKind.Details => $"{prefix}Details",
+            _ => $"{prefix}Static"
+        };
+
+        var subtitle = member.Kind switch
+        {
+            ReportTablixMemberKind.Group when !string.IsNullOrWhiteSpace(member.GroupExpression)
+                => member.GroupExpression!,
+            ReportTablixMemberKind.Details => "Detail rows",
+            _ => member.RowDefinitionIndex.HasValue
+                ? $"Row {member.RowDefinitionIndex.Value + 1}"
+                : "Static member"
+        };
+
+        target.Add(new ReportDesignerGroupingEntryViewModel(title, subtitle));
+        for (var index = 0; index < member.Members.Count; index++)
+        {
+            AppendGroupingEntry(member.Members[index], depth + 1, target);
+        }
     }
 
     private void BuildPropertyEntries()
@@ -2480,7 +2610,7 @@ public sealed class ReportDesignerViewModel : ReactiveObject, IDisposable
             if (entry.Target is ReportParameterDefinition parameter)
             {
                 entry.Title = string.IsNullOrWhiteSpace(parameter.DisplayName) ? parameter.Id : parameter.DisplayName;
-                entry.Subtitle = parameter.Visibility.ToString();
+                entry.Subtitle = DescribeParameterEntry(parameter);
             }
         }
 
@@ -2489,7 +2619,7 @@ public sealed class ReportDesignerViewModel : ReactiveObject, IDisposable
             if (entry.Target is ReportDataSourceDefinition dataSource)
             {
                 entry.Title = dataSource.Id;
-                entry.Subtitle = dataSource.ProviderId;
+                entry.Subtitle = DescribeDataSourceEntry(dataSource);
             }
         }
 
@@ -2498,7 +2628,7 @@ public sealed class ReportDesignerViewModel : ReactiveObject, IDisposable
             if (entry.Target is ReportDataSetDefinition dataSet)
             {
                 entry.Title = dataSet.Id;
-                entry.Subtitle = dataSet.DataSourceId;
+                entry.Subtitle = DescribeDataSetEntry(dataSet);
             }
         }
 
@@ -2507,7 +2637,7 @@ public sealed class ReportDesignerViewModel : ReactiveObject, IDisposable
             if (entry.Target is ReportSharedTemplateDefinition template)
             {
                 entry.Title = template.Id;
-                entry.Subtitle = template.Format.ToString();
+                entry.Subtitle = DescribeTemplateEntry(template);
             }
         }
 
@@ -2522,6 +2652,8 @@ public sealed class ReportDesignerViewModel : ReactiveObject, IDisposable
         this.RaisePropertyChanged(nameof(SurfaceDisplayText));
         this.RaisePropertyChanged(nameof(SelectedObjectTitle));
         this.RaisePropertyChanged(nameof(SelectedObjectType));
+        this.RaisePropertyChanged(nameof(IsGroupingVisible));
+        this.RaisePropertyChanged(nameof(GroupingStatusText));
     }
 
     private void OnModelChanged(string message)
@@ -2716,6 +2848,37 @@ public sealed class ReportDesignerViewModel : ReactiveObject, IDisposable
             ReportItem item => (string.IsNullOrWhiteSpace(item.Name) ? item.Id : item.Name, item.GetType().Name.Replace("Item", string.Empty, StringComparison.Ordinal)),
             _ => ("Nothing Selected", "Selection")
         };
+    }
+
+    private static string DescribeParameterEntry(ReportParameterDefinition parameter)
+    {
+        var prompt = string.IsNullOrWhiteSpace(parameter.Prompt)
+            ? "No prompt"
+            : parameter.Prompt!;
+        return $"{parameter.DataType} · {parameter.Visibility} · {prompt}";
+    }
+
+    private static string DescribeDataSourceEntry(ReportDataSourceDefinition dataSource)
+    {
+        var connection = string.IsNullOrWhiteSpace(dataSource.ConnectionName)
+            ? "Unbound connection"
+            : dataSource.ConnectionName!;
+        return $"{dataSource.ProviderId} · {connection}";
+    }
+
+    private static string DescribeDataSetEntry(ReportDataSetDefinition dataSet)
+    {
+        var fieldCount = dataSet.ExpectedFields.Count;
+        var source = string.IsNullOrWhiteSpace(dataSet.DataSourceId)
+            ? "No data source"
+            : dataSet.DataSourceId!;
+        return $"{source} · {fieldCount} field(s)";
+    }
+
+    private static string DescribeTemplateEntry(ReportSharedTemplateDefinition template)
+    {
+        var storage = template.IsEmbedded ? "Embedded" : "External";
+        return $"{template.Format} · {storage}";
     }
 
     private string? ValidateExpressionOrNull(string? expression)

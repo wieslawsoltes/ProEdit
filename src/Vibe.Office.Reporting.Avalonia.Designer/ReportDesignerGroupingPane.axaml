@@ -1,0 +1,76 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:designer="using:Vibe.Office.Reporting.Avalonia.Designer"
+             x:Class="Vibe.Office.Reporting.Avalonia.Designer.ReportDesignerGroupingPane"
+             x:DataType="designer:ReportDesignerViewModel">
+  <Border Classes="designer-grouping-pane">
+    <Grid RowDefinitions="Auto,*"
+          RowSpacing="10">
+      <Grid ColumnDefinitions="*,Auto"
+            ColumnSpacing="10">
+        <StackPanel Spacing="2">
+          <TextBlock Classes="designer-panel-title"
+                     Text="Grouping" />
+          <TextBlock Classes="designer-helper"
+                     Text="Row and column groups for the current tablix selection." />
+        </StackPanel>
+        <Border Grid.Column="1"
+                Classes="designer-status-pill">
+          <TextBlock Text="{Binding GroupingStatusText}" />
+        </Border>
+      </Grid>
+
+      <Grid Grid.Row="1"
+            ColumnDefinitions="*,12,*">
+        <Border Classes="designer-group-card">
+          <Grid RowDefinitions="Auto,*"
+                RowSpacing="8">
+            <TextBlock Classes="designer-panel-title"
+                       Text="Row Groups" />
+            <ItemsControl Grid.Row="1"
+                          ItemsSource="{Binding RowGroupEntries}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="designer:ReportDesignerGroupingEntryViewModel">
+                  <Border Classes="designer-list-item-card">
+                    <StackPanel Spacing="2">
+                      <TextBlock Classes="designer-label"
+                                 Text="{Binding Title}" />
+                      <TextBlock Classes="designer-helper"
+                                 Text="{Binding Subtitle}"
+                                 TextWrapping="Wrap" />
+                    </StackPanel>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </Grid>
+        </Border>
+
+        <Border Grid.Column="2"
+                Classes="designer-group-card">
+          <Grid RowDefinitions="Auto,*"
+                RowSpacing="8">
+            <TextBlock Classes="designer-panel-title"
+                       Text="Column Groups" />
+            <ItemsControl Grid.Row="1"
+                          ItemsSource="{Binding ColumnGroupEntries}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="designer:ReportDesignerGroupingEntryViewModel">
+                  <Border Classes="designer-list-item-card">
+                    <StackPanel Spacing="2">
+                      <TextBlock Classes="designer-label"
+                                 Text="{Binding Title}" />
+                      <TextBlock Classes="designer-helper"
+                                 Text="{Binding Subtitle}"
+                                 TextWrapping="Wrap" />
+                    </StackPanel>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </Grid>
+        </Border>
+      </Grid>
+    </Grid>
+  </Border>
+</UserControl>

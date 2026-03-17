@@ -37,8 +37,9 @@ public sealed class ReportDesignerControlHeadlessTests
         Assert.NotEmpty(viewModel.ExplorerNodes);
         Assert.NotEmpty(viewModel.DesignItems);
         Assert.NotEmpty(viewModel.TemplateGalleryItems);
-        Assert.NotNull(control.GetVisualDescendants().OfType<TreeView>().FirstOrDefault());
-        Assert.NotNull(control.GetVisualDescendants().OfType<TabControl>().FirstOrDefault());
+        Assert.NotNull(control.GetVisualDescendants().OfType<ReportDesignerReportDataPane>().FirstOrDefault());
+        Assert.NotNull(control.GetVisualDescendants().OfType<ReportDesignerGroupingPane>().FirstOrDefault());
+        Assert.NotNull(control.GetVisualDescendants().OfType<ReportDesignerPropertiesPane>().FirstOrDefault());
 
         window.Close();
     }

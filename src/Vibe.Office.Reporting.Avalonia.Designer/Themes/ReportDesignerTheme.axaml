@@ -1,81 +1,174 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-  <Style Selector="Border.designer-toolbar">
-    <Setter Property="Padding" Value="12" />
-    <Setter Property="Background" Value="#F0EEE7" />
-    <Setter Property="BorderBrush" Value="#D3C8B4" />
+  <Style Selector="Border.designer-context-bar">
+    <Setter Property="Padding" Value="10" />
+    <Setter Property="Background" Value="#F9FBFD" />
+    <Setter Property="BorderBrush" Value="#D6E0EB" />
     <Setter Property="BorderThickness" Value="0,0,0,1" />
   </Style>
 
-  <Style Selector="Border.designer-sidebar">
+  <Style Selector="Border.designer-pane">
     <Setter Property="Padding" Value="12" />
-    <Setter Property="Background" Value="#FBF8F1" />
-    <Setter Property="BorderBrush" Value="#D8D2C5" />
+    <Setter Property="Background" Value="#FBFCFE" />
+  </Style>
+
+  <Style Selector="Border.designer-pane-left">
+    <Setter Property="BorderBrush" Value="#D6E0EB" />
     <Setter Property="BorderThickness" Value="0,0,1,0" />
+  </Style>
+
+  <Style Selector="Border.designer-pane-right">
+    <Setter Property="BorderBrush" Value="#D6E0EB" />
+    <Setter Property="BorderThickness" Value="1,0,0,0" />
+  </Style>
+
+  <Style Selector="Border.designer-pane-card">
+    <Setter Property="Padding" Value="10" />
+    <Setter Property="Background" Value="#FFFFFF" />
+    <Setter Property="CornerRadius" Value="10" />
+    <Setter Property="BorderBrush" Value="#D6E0EB" />
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+
+  <Style Selector="ListBox.designer-pane-list">
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Background" Value="#00000000" />
+    <Setter Property="MinHeight" Value="72" />
+  </Style>
+
+  <Style Selector="Border.designer-list-item-card">
+    <Setter Property="Padding" Value="8" />
+    <Setter Property="Margin" Value="0,0,0,6" />
+    <Setter Property="Background" Value="#F7FAFD" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="BorderBrush" Value="#DDE6F0" />
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+
+  <Style Selector="Button.designer-tool-button">
+    <Setter Property="Padding" Value="12,8" />
+    <Setter Property="MinHeight" Value="34" />
+  </Style>
+
+  <Style Selector="Button.designer-tool-button-primary">
+    <Setter Property="Background" Value="#115EA3" />
+    <Setter Property="Foreground" Value="White" />
+    <Setter Property="BorderBrush" Value="#0F548C" />
+  </Style>
+
+  <Style Selector="Border.designer-status-pill">
+    <Setter Property="Padding" Value="10,6" />
+    <Setter Property="CornerRadius" Value="999" />
+    <Setter Property="Background" Value="#EEF3F9" />
+    <Setter Property="BorderBrush" Value="#D6E0EB" />
+    <Setter Property="BorderThickness" Value="1" />
   </Style>
 
   <Style Selector="Border.designer-main">
-    <Setter Property="Padding" Value="14" />
-    <Setter Property="Background" Value="#E6DECF" />
-    <Setter Property="BorderBrush" Value="#D8D2C5" />
-    <Setter Property="BorderThickness" Value="0,0,1,0" />
+    <Setter Property="Padding" Value="12" />
+    <Setter Property="Background" Value="#F4F7FB" />
   </Style>
 
-  <Style Selector="Border.designer-inspector">
-    <Setter Property="Padding" Value="12" />
-    <Setter Property="Background" Value="#FCFAF5" />
+  <Style Selector="GridSplitter.designer-splitter">
+    <Setter Property="Width" Value="6" />
+    <Setter Property="Background" Value="#00000000" />
+  </Style>
+
+  <Style Selector="GridSplitter.designer-splitter:pointerover">
+    <Setter Property="Background" Value="#D9E6F4" />
   </Style>
 
   <Style Selector="Border.designer-card">
     <Setter Property="Padding" Value="10" />
     <Setter Property="Margin" Value="0,0,0,8" />
-    <Setter Property="Background" Value="#FFFDF9" />
+    <Setter Property="Background" Value="#FFFFFF" />
     <Setter Property="CornerRadius" Value="10" />
-    <Setter Property="BorderBrush" Value="#D9D1C0" />
+    <Setter Property="BorderBrush" Value="#D6E0EB" />
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+
+  <Style Selector="Border.designer-surface-stage">
+    <Setter Property="Padding" Value="24" />
+    <Setter Property="Background" Value="#EEF2F7" />
+    <Setter Property="CornerRadius" Value="14" />
+    <Setter Property="BorderBrush" Value="#DBE4EF" />
     <Setter Property="BorderThickness" Value="1" />
   </Style>
 
   <Style Selector="Border.designer-page">
     <Setter Property="Padding" Value="16" />
-    <Setter Property="Background" Value="#FFFDF8" />
-    <Setter Property="CornerRadius" Value="16" />
-    <Setter Property="BorderBrush" Value="#CEC6B5" />
+    <Setter Property="Background" Value="#FFFFFF" />
+    <Setter Property="CornerRadius" Value="4" />
+    <Setter Property="BorderBrush" Value="#CCD9E6" />
     <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="BoxShadow" Value="0 18 32 0 #26000000" />
+    <Setter Property="BoxShadow" Value="0 12 28 0 #160F172A" />
   </Style>
 
   <Style Selector="Border.designer-section-banner">
     <Setter Property="Padding" Value="12" />
-    <Setter Property="Background" Value="#F7F1E4" />
-    <Setter Property="CornerRadius" Value="12" />
-    <Setter Property="BorderBrush" Value="#D5C7A8" />
+    <Setter Property="Background" Value="#FFFFFF" />
+    <Setter Property="CornerRadius" Value="10" />
+    <Setter Property="BorderBrush" Value="#D6E0EB" />
     <Setter Property="BorderThickness" Value="1" />
   </Style>
 
   <Style Selector="Border.designer-tag">
-    <Setter Property="Padding" Value="6,2" />
+    <Setter Property="Padding" Value="7,3" />
     <Setter Property="CornerRadius" Value="999" />
-    <Setter Property="Background" Value="#E3D6BC" />
+    <Setter Property="Background" Value="#E7EEF7" />
+  </Style>
+
+  <Style Selector="Border.designer-grouping-pane">
+    <Setter Property="Padding" Value="12" />
+    <Setter Property="Background" Value="#FBFCFE" />
+    <Setter Property="BorderBrush" Value="#D6E0EB" />
+    <Setter Property="BorderThickness" Value="1,1,0,0" />
+  </Style>
+
+  <Style Selector="Border.designer-group-card">
+    <Setter Property="Padding" Value="10" />
+    <Setter Property="Background" Value="#FFFFFF" />
+    <Setter Property="CornerRadius" Value="10" />
+    <Setter Property="BorderBrush" Value="#D6E0EB" />
+    <Setter Property="BorderThickness" Value="1" />
   </Style>
 
   <Style Selector="TextBlock.designer-panel-title">
-    <Setter Property="FontSize" Value="15" />
+    <Setter Property="FontSize" Value="14" />
     <Setter Property="FontWeight" Value="SemiBold" />
-    <Setter Property="Foreground" Value="#3F3527" />
+    <Setter Property="Foreground" Value="#172B45" />
   </Style>
 
   <Style Selector="TextBlock.designer-label">
     <Setter Property="FontWeight" Value="SemiBold" />
-    <Setter Property="Foreground" Value="#43382A" />
+    <Setter Property="Foreground" Value="#22384F" />
   </Style>
 
   <Style Selector="TextBlock.designer-helper">
     <Setter Property="FontSize" Value="11" />
-    <Setter Property="Foreground" Value="#6D6459" />
+    <Setter Property="Foreground" Value="#61758D" />
   </Style>
 
   <Style Selector="TextBlock.designer-error">
     <Setter Property="FontSize" Value="11" />
-    <Setter Property="Foreground" Value="#A33D29" />
+    <Setter Property="Foreground" Value="#B42318" />
+  </Style>
+
+  <Style Selector="TabControl.designer-pane-tabs TabItem">
+    <Setter Property="Padding" Value="12,8" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+
+  <Style Selector="TabControl.designer-center-tabs TabItem">
+    <Setter Property="Padding" Value="12,8" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+
+  <Style Selector="TabControl.designer-inspector-tabs TabItem">
+    <Setter Property="Padding" Value="10,8" />
+  </Style>
+
+  <Style Selector="TabControl.designer-inner-tabs TabItem">
+    <Setter Property="Padding" Value="10,8" />
   </Style>
 </Styles>
