@@ -1,0 +1,198 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:designer="clr-namespace:Vibe.Office.Reporting.Avalonia.Designer;assembly=Vibe.Office.Reporting.Avalonia.Designer"
+        xmlns:viewer="clr-namespace:Vibe.Office.Reporting.Avalonia.Viewer;assembly=Vibe.Office.Reporting.Avalonia.Viewer"
+        xmlns:vm="using:Vibe.Reporting.App.ViewModels"
+        xmlns:data="clr-namespace:Vibe.Office.Reporting.Data;assembly=Vibe.Office.Reporting.Data"
+        xmlns:reporting="clr-namespace:Vibe.Office.Reporting;assembly=Vibe.Office.Reporting.Core"
+        x:Class="Vibe.Reporting.App.MainWindow"
+        x:DataType="vm:ReportingStudioViewModel"
+        Width="1760"
+        Height="1080"
+        MinWidth="1320"
+        MinHeight="840"
+        Title="{Binding WindowTitle}">
+  <Grid RowDefinitions="Auto,Auto,*">
+    <Border Classes="studio-hero">
+      <Grid ColumnDefinitions="*,Auto"
+            ColumnSpacing="24">
+        <StackPanel Spacing="6">
+          <TextBlock Classes="studio-hero-title"
+                     Text="VibeOffice Reporting Studio" />
+          <TextBlock Classes="studio-hero-subtitle"
+                     Text="Native template authoring, live preview, dedicated viewer workflows, export, and RDL interoperability in one desktop shell." />
+        </StackPanel>
+
+        <Border Grid.Column="1"
+                Classes="studio-badge">
+          <StackPanel Spacing="4">
+            <TextBlock Classes="studio-badge-caption"
+                       Text="{Binding ActiveDocumentMode}" />
+            <TextBlock Classes="studio-badge-value"
+                       Text="{Binding CurrentPathDisplay}"
+                       TextWrapping="Wrap" />
+          </StackPanel>
+        </Border>
+      </Grid>
+    </Border>
+
+    <Border Grid.Row="1"
+            Classes="studio-commandbar">
+      <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                    VerticalScrollBarVisibility="Disabled">
+        <StackPanel Orientation="Horizontal"
+                    Spacing="10">
+          <Button Content="New Sample"
+                  Command="{Binding NewSampleCommand}" />
+          <Button Content="Open Template"
+                  Command="{Binding OpenTemplateCommand}" />
+          <Button Content="Save Template"
+                  Command="{Binding SaveTemplateCommand}"
+                  IsEnabled="{Binding CanSaveTemplate}" />
+          <Button Content="Save Template As"
+                  Command="{Binding SaveTemplateAsCommand}"
+                  IsEnabled="{Binding HasWorkspace}" />
+          <Button Content="Import RDL"
+                  Command="{Binding ImportRdlCommand}" />
+          <Button Content="Export RDL"
+                  Command="{Binding ExportRdlCommand}"
+                  IsEnabled="{Binding HasWorkspace}" />
+          <Button Content="Refresh Preview"
+                  Command="{Binding RefreshPreviewCommand}"
+                  IsEnabled="{Binding HasWorkspace}" />
+
+          <Border Classes="studio-pill">
+            <TextBlock Text="{Binding PreviewStateText}" />
+          </Border>
+
+          <Border Classes="studio-pill">
+            <TextBlock Text="{Binding WorkspaceSummaryText}" />
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
+    </Border>
+
+    <Grid Grid.Row="2"
+          Margin="14"
+          ColumnDefinitions="320,*"
+          ColumnSpacing="14">
+      <Border Classes="studio-sidebar">
+        <TabControl>
+          <TabItem Header="Status">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+              <StackPanel Spacing="12">
+                <Border Classes="studio-card">
+                  <StackPanel Spacing="4">
+                    <TextBlock Classes="studio-card-title"
+                               Text="Workspace Status" />
+                    <TextBlock Text="{Binding StatusMessage}"
+                               TextWrapping="Wrap" />
+                    <TextBlock Classes="studio-helper"
+                               Text="{Binding DesignerStatusMessage}" />
+                    <TextBlock Classes="studio-helper"
+                               Text="{Binding ViewerStatusMessage}" />
+                  </StackPanel>
+                </Border>
+
+                <Border Classes="studio-card">
+                  <StackPanel Spacing="8">
+                    <TextBlock Classes="studio-card-title"
+                               Text="Operation Diagnostics" />
+                    <ItemsControl ItemsSource="{Binding Diagnostics}">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="reporting:ReportDiagnostic">
+                          <Border Classes="studio-diagnostic">
+                            <StackPanel Spacing="2">
+                              <TextBlock FontWeight="SemiBold"
+                                         Text="{Binding Severity}" />
+                              <TextBlock Text="{Binding Code}" />
+                              <TextBlock Text="{Binding Message}"
+                                         TextWrapping="Wrap" />
+                              <TextBlock Classes="studio-helper"
+                                         Text="{Binding Path}" />
+                            </StackPanel>
+                          </Border>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </StackPanel>
+                </Border>
+              </StackPanel>
+            </ScrollViewer>
+          </TabItem>
+
+          <TabItem Header="Connectors">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+              <ItemsControl ItemsSource="{Binding Connectors}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="data:ReportDataConnectorDefinition">
+                    <Border Classes="studio-card">
+                      <StackPanel Spacing="6">
+                        <StackPanel Orientation="Horizontal"
+                                    Spacing="8">
+                          <Border Classes="studio-tag">
+                            <TextBlock Text="{Binding Category}" />
+                          </Border>
+                          <TextBlock FontWeight="SemiBold"
+                                     Text="{Binding DisplayName}" />
+                        </StackPanel>
+                        <TextBlock Text="{Binding ProviderId}" />
+                        <TextBlock Text="{Binding Description}"
+                                   TextWrapping="Wrap" />
+                        <TextBlock Classes="studio-helper"
+                                   Text="{Binding ProviderInvariantName}" />
+                      </StackPanel>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
+          </TabItem>
+
+          <TabItem Header="Notes">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+              <StackPanel Spacing="12">
+                <Border Classes="studio-card">
+                  <StackPanel Spacing="4">
+                    <TextBlock Classes="studio-card-title"
+                               Text="Supported Files" />
+                    <TextBlock Text="Native templates open and save as .vreport.json. RDL imports from .rdl, .rdlx, or .xml and exports back to .rdl." TextWrapping="Wrap" />
+                  </StackPanel>
+                </Border>
+
+                <Border Classes="studio-card">
+                  <StackPanel Spacing="4">
+                    <TextBlock Classes="studio-card-title"
+                               Text="Referenced Reports" />
+                    <TextBlock Text="When a report references drillthrough or subreport targets, the app looks for sibling files named after each report id. Native .vreport.json files are preferred, then .rdl and .rdlx." TextWrapping="Wrap" />
+                  </StackPanel>
+                </Border>
+
+                <Border Classes="studio-card">
+                  <StackPanel Spacing="4">
+                    <TextBlock Classes="studio-card-title"
+                               Text="Shared Runtime" />
+                    <TextBlock Text="The viewer tab and the embedded preview tab use the same reporting runtime, connectors, pagination, export pipeline, and diagnostics surface." TextWrapping="Wrap" />
+                  </StackPanel>
+                </Border>
+              </StackPanel>
+            </ScrollViewer>
+          </TabItem>
+        </TabControl>
+      </Border>
+
+      <Border Grid.Column="1"
+              Classes="studio-workspace">
+        <TabControl SelectedIndex="{Binding SelectedWorkspaceTabIndex, Mode=TwoWay}">
+          <TabItem Header="Designer">
+            <designer:ReportDesignerControl DataContext="{Binding DesignerViewModel}" />
+          </TabItem>
+
+          <TabItem Header="Viewer">
+            <viewer:ReportViewerControl DataContext="{Binding ViewerViewModel}" />
+          </TabItem>
+        </TabControl>
+      </Border>
+    </Grid>
+  </Grid>
+</Window>

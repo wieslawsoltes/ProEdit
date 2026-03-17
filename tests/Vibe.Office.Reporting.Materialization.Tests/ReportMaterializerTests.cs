@@ -1,0 +1,349 @@
+using Vibe.Office.Reporting.Data;
+using Vibe.Office.Reporting.Expressions;
+using Vibe.Office.Reporting.Materialization;
+using Xunit;
+
+namespace Vibe.Office.Reporting.Materialization.Tests;
+
+public sealed class ReportMaterializerTests
+{
+    [Fact]
+    public async Task MaterializeAsync_BuildsSemanticSectionsTextTablixAndChart()
+    {
+        var reportDefinition = new ReportDefinition
+        {
+            Id = "sales-report",
+            Name = "Sales Report",
+            Styles =
+            {
+                new ReportStyleDefinition
+                {
+                    Id = "heading",
+                    FontFamily = "Aptos",
+                    FontSize = 20f,
+                    Bold = true,
+                    Foreground = "#112233"
+                }
+            },
+            DataSources =
+            {
+                new ReportDataSourceDefinition
+                {
+                    Id = "sales-source",
+                    ProviderId = ReportProviderIds.InMemory,
+                    Options =
+                    {
+                        ["sourceKey"] = "sales"
+                    }
+                }
+            },
+            DataSets =
+            {
+                new ReportDataSetDefinition
+                {
+                    Id = "sales",
+                    DataSourceId = "sales-source"
+                }
+            },
+            Sections =
+            {
+                new ReportSection
+                {
+                    Id = "main",
+                    Name = "Main",
+                    BodyItems =
+                    {
+                        new TextItem
+                        {
+                            Id = "title",
+                            Name = "Title",
+                            StaticText = "Sales Summary",
+                            StyleName = "heading",
+                            BookmarkExpression = "'sales-summary'",
+                            Bounds = new ReportItemBounds(0f, 0f, 300f, 24f)
+                        },
+                        new TablixItem
+                        {
+                            Id = "sales-table",
+                            Name = "Sales Table",
+                            DataSetId = "sales",
+                            Bounds = new ReportItemBounds(0f, 30f, 300f, 120f),
+                            Columns =
+                            {
+                                new ReportTablixColumnDefinition { Id = "region", Width = 120f },
+                                new ReportTablixColumnDefinition { Id = "amount", Width = 80f }
+                            },
+                            Rows =
+                            {
+                                new ReportTablixRowDefinition
+                                {
+                                    Id = "header",
+                                    IsHeader = true,
+                                    Cells =
+                                    {
+                                        new ReportTablixCellDefinition { Text = "Region" },
+                                        new ReportTablixCellDefinition { Text = "Amount" }
+                                    }
+                                },
+                                new ReportTablixRowDefinition
+                                {
+                                    Id = "detail",
+                                    Cells =
+                                    {
+                                        new ReportTablixCellDefinition { ValueExpression = "Fields.Region" },
+                                        new ReportTablixCellDefinition { ValueExpression = "Fields.Amount", FormatString = "0.00" }
+                                    }
+                                }
+                            }
+                        },
+                        new ChartItem
+                        {
+                            Id = "sales-chart",
+                            Name = "Sales Chart",
+                            DataSetId = "sales",
+                            TitleExpression = "'Sales by Region'",
+                            CategoryExpression = "Fields.Region",
+                            Bounds = new ReportItemBounds(0f, 160f, 320f, 180f),
+                            Series =
+                            {
+                                new ReportChartSeriesDefinition
+                                {
+                                    NameExpression = "'Amount'",
+                                    ValueExpression = "Fields.Amount",
+                                    ColorExpression = "'#336699'"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        var hostData = new ReportHostDataRegistry();
+        hostData.RegisterInMemorySource(
+            "sales",
+            new ReportDictionaryDataSource(
+                new List<IReadOnlyDictionary<string, object?>>
+                {
+                    new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["Region"] = "West",
+                        ["Amount"] = 10m
+                    },
+                    new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["Region"] = "East",
+                        ["Amount"] = 4m
+                    }
+                }));
+
+        var materializer = new ReportMaterializer(new ReportExpressionCompiler());
+        var request = new ReportMaterializationRequest
+        {
+            ReportDefinition = reportDefinition,
+            ProviderRegistry = ReportDataProviders.CreateDefaultRegistry(),
+            HostDataRegistry = hostData
+        };
+
+        var result = await materializer.MaterializeAsync(request);
+
+        Assert.False(result.HasErrors);
+        Assert.NotNull(result.MaterializedReport);
+        Assert.Single(result.MaterializedReport!.Sections);
+        Assert.Single(result.MaterializedReport.DataSets);
+
+        var section = result.MaterializedReport.Sections[0];
+        Assert.Equal(3, section.BodyItems.Count);
+
+        var textItem = Assert.IsType<MaterializedTextReportItem>(section.BodyItems[0]);
+        Assert.Equal("Sales Summary", textItem.Text);
+        Assert.Equal("sales-summary", textItem.Bookmark);
+        Assert.NotNull(textItem.Style);
+        Assert.Equal("Aptos", textItem.Style!.FontFamily);
+        Assert.Equal(20f, textItem.Style.FontSize);
+
+        var tablixItem = Assert.IsType<MaterializedTablixReportItem>(section.BodyItems[1]);
+        Assert.Equal(2, tablixItem.Columns.Count);
+        Assert.Equal(3, tablixItem.Rows.Count);
+        Assert.True(tablixItem.Rows[0].IsHeader);
+        Assert.Equal("West", tablixItem.Rows[1].Cells[0].Text);
+        Assert.Equal("10.00", tablixItem.Rows[1].Cells[1].Text);
+
+        var chartItem = Assert.IsType<MaterializedChartReportItem>(section.BodyItems[2]);
+        Assert.NotNull(chartItem.Model);
+        Assert.Equal("Sales by Region", chartItem.Model!.Title);
+        Assert.Single(chartItem.Model.Series);
+        Assert.Equal(2, chartItem.Model.Series[0].Points.Count);
+        Assert.Equal("West", chartItem.Model.Series[0].Points[0].Category);
+        Assert.Equal(10d, chartItem.Model.Series[0].Points[0].Value);
+    }
+
+    [Fact]
+    public async Task MaterializeAsync_ResolvesSharedTemplatesAndSubreports()
+    {
+        var subreportDefinition = new ReportDefinition
+        {
+            Id = "details",
+            Name = "Details",
+            Parameters =
+            {
+                new ReportParameterDefinition
+                {
+                    Id = "OrderId",
+                    DisplayName = "Order Id",
+                    DataType = ReportParameterDataType.Integer
+                }
+            },
+            Sections =
+            {
+                new ReportSection
+                {
+                    Id = "detail-section",
+                    Name = "Detail Section",
+                    BodyItems =
+                    {
+                        new TextItem
+                        {
+                            Id = "detail-text",
+                            ValueExpression = "'Detail ' + Parameters.OrderId",
+                            Bounds = new ReportItemBounds(0f, 0f, 200f, 20f)
+                        }
+                    }
+                }
+            }
+        };
+
+        var reportDefinition = new ReportDefinition
+        {
+            Id = "invoice",
+            Name = "Invoice",
+            Parameters =
+            {
+                new ReportParameterDefinition
+                {
+                    Id = "OrderId",
+                    DisplayName = "Order Id",
+                    DataType = ReportParameterDataType.Integer
+                }
+            },
+            SharedTemplates =
+            {
+                new ReportSharedTemplateDefinition
+                {
+                    Id = "invoice-template",
+                    Format = ReportDocumentTemplateFormat.Markdown,
+                    IsEmbedded = true,
+                    Content = "Invoice {{OrderId}}"
+                }
+            },
+            Sections =
+            {
+                new ReportSection
+                {
+                    Id = "main",
+                    Name = "Main",
+                    BodyItems =
+                    {
+                        new DocumentTemplateItem
+                        {
+                            Id = "template",
+                            TemplateId = "invoice-template",
+                            Bounds = new ReportItemBounds(0f, 0f, 300f, 80f),
+                            Bindings =
+                            {
+                                ["OrderId"] = "Parameters.OrderId"
+                            }
+                        },
+                        new SubreportItem
+                        {
+                            Id = "details-subreport",
+                            ReportReferenceId = "details",
+                            Bounds = new ReportItemBounds(0f, 90f, 300f, 60f),
+                            Parameters =
+                            {
+                                new ReportParameterBinding
+                                {
+                                    ParameterId = "OrderId",
+                                    ValueExpression = "Parameters.OrderId"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        var materializer = new ReportMaterializer(new ReportExpressionCompiler());
+        var request = new ReportMaterializationRequest
+        {
+            ReportDefinition = reportDefinition,
+            ProviderRegistry = ReportDataProviders.CreateDefaultRegistry()
+        };
+        request.ParameterValues["OrderId"] = ReportParameterValue.FromScalar(42);
+        request.ReferencedReports["details"] = subreportDefinition;
+
+        var result = await materializer.MaterializeAsync(request);
+
+        Assert.False(result.HasErrors);
+        Assert.NotNull(result.MaterializedReport);
+
+        var bodyItems = result.MaterializedReport!.Sections[0].BodyItems;
+        var templateItem = Assert.IsType<MaterializedDocumentTemplateReportItem>(bodyItems[0]);
+        Assert.Equal(ReportDocumentTemplateFormat.Markdown, templateItem.TemplateFormat);
+        Assert.Equal("Invoice {{OrderId}}", templateItem.Content);
+        Assert.Equal("42", templateItem.Bindings["OrderId"]);
+
+        var subreportItem = Assert.IsType<MaterializedSubreportReportItem>(bodyItems[1]);
+        Assert.NotNull(subreportItem.Report);
+        Assert.Equal(42, Assert.IsType<int>(subreportItem.Report!.ResolvedParameters["OrderId"].GetScalarValue()));
+        var nestedText = Assert.IsType<MaterializedTextReportItem>(subreportItem.Report.Sections[0].BodyItems[0]);
+        Assert.Equal("Detail 42", nestedText.Text);
+    }
+
+    [Fact]
+    public async Task MaterializeAsync_StopsWhenParameterResolutionFails()
+    {
+        var reportDefinition = new ReportDefinition
+        {
+            Id = "invalid",
+            Name = "Invalid",
+            Parameters =
+            {
+                new ReportParameterDefinition
+                {
+                    Id = "HiddenRequired",
+                    DisplayName = "Hidden Required",
+                    DataType = ReportParameterDataType.Integer,
+                    Visibility = ReportParameterVisibility.Hidden
+                }
+            },
+            Sections =
+            {
+                new ReportSection
+                {
+                    Id = "main",
+                    Name = "Main",
+                    BodyItems =
+                    {
+                        new TextItem
+                        {
+                            Id = "text",
+                            StaticText = "Should not materialize"
+                        }
+                    }
+                }
+            }
+        };
+
+        var materializer = new ReportMaterializer(new ReportExpressionCompiler());
+        var result = await materializer.MaterializeAsync(new ReportMaterializationRequest
+        {
+            ReportDefinition = reportDefinition,
+            ProviderRegistry = ReportDataProviders.CreateDefaultRegistry()
+        });
+
+        Assert.True(result.HasErrors);
+        Assert.Null(result.MaterializedReport);
+        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == ReportDiagnosticCodes.ParameterResolutionFailed);
+    }
+}

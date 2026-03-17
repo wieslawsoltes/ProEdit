@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageDescription>Data providers and dataset execution for VibeOffice reporting.</PackageDescription>
+    <PackageTags>vibeoffice;reporting;data;datasets</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\\Vibe.Office.Reporting.Core\\Vibe.Office.Reporting.Core.csproj" />
+    <ProjectReference Include="..\\Vibe.Office.Reporting.Expressions\\Vibe.Office.Reporting.Expressions.csproj" />
+  </ItemGroup>
+
+</Project>

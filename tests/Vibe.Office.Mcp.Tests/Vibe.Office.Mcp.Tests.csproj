@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\\..\\src\\Vibe.Office.Mcp\\Vibe.Office.Mcp.csproj" />
+    <ProjectReference Include="..\\..\\src\\Vibe.Office.Mcp.Documents\\Vibe.Office.Mcp.Documents.csproj" />
+    <ProjectReference Include="..\\..\\src\\Vibe.Office.Mcp.Reporting\\Vibe.Office.Mcp.Reporting.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+</Project>

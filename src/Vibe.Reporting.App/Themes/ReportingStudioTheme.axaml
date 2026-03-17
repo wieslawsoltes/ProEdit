@@ -1,0 +1,116 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Style Selector="Border.studio-hero">
+    <Setter Property="Padding" Value="20" />
+    <Setter Property="Background">
+      <LinearGradientBrush StartPoint="0,0"
+                           EndPoint="1,1">
+        <GradientStop Color="#10233E"
+                      Offset="0" />
+        <GradientStop Color="#244A73"
+                      Offset="0.56" />
+        <GradientStop Color="#D98A2B"
+                      Offset="1" />
+      </LinearGradientBrush>
+    </Setter>
+  </Style>
+
+  <Style Selector="TextBlock.studio-hero-title">
+    <Setter Property="FontSize" Value="28" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="#F9FBFF" />
+  </Style>
+
+  <Style Selector="TextBlock.studio-hero-subtitle">
+    <Setter Property="MaxWidth" Value="1040" />
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="Foreground" Value="#DCE7F4" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+  </Style>
+
+  <Style Selector="Border.studio-badge">
+    <Setter Property="Padding" Value="14,12" />
+    <Setter Property="CornerRadius" Value="14" />
+    <Setter Property="BorderBrush" Value="#4FA4D8" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Background" Value="#1A2F4D" />
+    <Setter Property="MaxWidth" Value="360" />
+  </Style>
+
+  <Style Selector="TextBlock.studio-badge-caption">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="#8BD1FF" />
+  </Style>
+
+  <Style Selector="TextBlock.studio-badge-value">
+    <Setter Property="Foreground" Value="#F7FAFF" />
+  </Style>
+
+  <Style Selector="Border.studio-commandbar">
+    <Setter Property="Padding" Value="12,10" />
+    <Setter Property="BorderBrush" Value="#D6DEEA" />
+    <Setter Property="BorderThickness" Value="0,0,0,1" />
+    <Setter Property="Background" Value="#F7F9FC" />
+  </Style>
+
+  <Style Selector="Border.studio-pill">
+    <Setter Property="Margin" Value="8,0,0,0" />
+    <Setter Property="Padding" Value="10,6" />
+    <Setter Property="CornerRadius" Value="999" />
+    <Setter Property="Background" Value="#E8EEF6" />
+    <Setter Property="BorderBrush" Value="#CFD9E6" />
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+
+  <Style Selector="Border.studio-sidebar">
+    <Setter Property="Padding" Value="12" />
+    <Setter Property="CornerRadius" Value="18" />
+    <Setter Property="Background" Value="#F4F7FB" />
+    <Setter Property="BorderBrush" Value="#D7E0EB" />
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+
+  <Style Selector="Border.studio-workspace">
+    <Setter Property="CornerRadius" Value="18" />
+    <Setter Property="Background" Value="#FFFFFF" />
+    <Setter Property="BorderBrush" Value="#D7E0EB" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Padding" Value="0" />
+  </Style>
+
+  <Style Selector="Border.studio-card">
+    <Setter Property="Padding" Value="12" />
+    <Setter Property="CornerRadius" Value="14" />
+    <Setter Property="Background" Value="#FFFFFF" />
+    <Setter Property="BorderBrush" Value="#DAE2EC" />
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+
+  <Style Selector="Border.studio-diagnostic">
+    <Setter Property="Margin" Value="0,0,0,8" />
+    <Setter Property="Padding" Value="10" />
+    <Setter Property="CornerRadius" Value="10" />
+    <Setter Property="Background" Value="#FFF9F2" />
+    <Setter Property="BorderBrush" Value="#E4D2BA" />
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+
+  <Style Selector="Border.studio-tag">
+    <Setter Property="Padding" Value="8,3" />
+    <Setter Property="CornerRadius" Value="999" />
+    <Setter Property="Background" Value="#E4EEF8" />
+  </Style>
+
+  <Style Selector="TextBlock.studio-card-title">
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="#17324D" />
+  </Style>
+
+  <Style Selector="TextBlock.studio-helper">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="Foreground" Value="#5C6E84" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+  </Style>
+</Styles>

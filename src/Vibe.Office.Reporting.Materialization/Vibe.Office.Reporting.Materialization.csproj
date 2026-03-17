@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageDescription>Semantic report materialization for VibeOffice reporting.</PackageDescription>
+    <PackageTags>vibeoffice;reporting;materialization</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\\Vibe.Office.Reporting.Core\\Vibe.Office.Reporting.Core.csproj" />
+    <ProjectReference Include="..\\Vibe.Office.Reporting.Data\\Vibe.Office.Reporting.Data.csproj" />
+    <ProjectReference Include="..\\Vibe.Office.Reporting.Expressions\\Vibe.Office.Reporting.Expressions.csproj" />
+  </ItemGroup>
+
+</Project>
