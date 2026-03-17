@@ -1,0 +1,257 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="using:Vibe.Office.Reporting.Avalonia.Viewer"
+             x:Class="Vibe.Office.Reporting.Avalonia.Viewer.ReportViewerControl"
+             x:DataType="local:ReportViewerViewModel">
+  <UserControl.Styles>
+    <StyleInclude Source="avares://Vibe.Office.Reporting.Avalonia.Viewer/Themes/ReportViewerTheme.axaml" />
+  </UserControl.Styles>
+
+  <Grid RowDefinitions="Auto,*"
+        ColumnDefinitions="320,*">
+    <Border Grid.Row="0"
+            Grid.ColumnSpan="2"
+            Classes="viewer-toolbar">
+      <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*,Auto,Auto"
+            ColumnSpacing="10">
+        <Button Content="Refresh"
+                Command="{Binding RefreshCommand}"
+                IsEnabled="{Binding CanRefresh}" />
+        <Button Grid.Column="1"
+                Content="Back"
+                Command="{Binding GoBackCommand}"
+                IsEnabled="{Binding CanGoBack}" />
+        <Button Grid.Column="2"
+                Content="Prev"
+                Command="{Binding PreviousPageCommand}"
+                IsEnabled="{Binding CanNavigatePrevious}" />
+        <Button Grid.Column="3"
+                Content="Next"
+                Command="{Binding NextPageCommand}"
+                IsEnabled="{Binding CanNavigateNext}" />
+        <TextBlock Grid.Column="4"
+                   VerticalAlignment="Center"
+                   Text="{Binding PageDisplayText}" />
+        <ComboBox Grid.Column="5"
+                  Width="110"
+                  ItemsSource="{Binding ZoomLevels}"
+                  SelectedItem="{Binding ZoomFactor, Mode=TwoWay}" />
+        <TextBlock Grid.Column="6"
+                   VerticalAlignment="Center"
+                   Text="{Binding StatusMessage}" />
+        <ComboBox Grid.Column="7"
+                  Width="120"
+                  ItemsSource="{Binding ExportFormats}"
+                  SelectedItem="{Binding SelectedExportFormat, Mode=TwoWay}" />
+        <StackPanel Grid.Column="8"
+                    Orientation="Horizontal"
+                    Spacing="8">
+          <Button Content="Export"
+                  Command="{Binding ExportCommand}"
+                  IsEnabled="{Binding CanExport}" />
+          <Button Content="Print"
+                  Command="{Binding PrintCommand}"
+                  IsEnabled="{Binding CanPrint}" />
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <Border Grid.Row="1"
+            Grid.Column="0"
+            Classes="viewer-sidebar">
+      <TabControl SelectedIndex="{Binding SelectedPaneIndex, Mode=TwoWay}">
+        <TabItem Header="Parameters">
+          <Grid RowDefinitions="*,Auto"
+                RowSpacing="10">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+              <ItemsControl ItemsSource="{Binding Parameters}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="local:ReportViewerParameterViewModel">
+                    <Border Classes="viewer-card">
+                      <StackPanel Spacing="6">
+                        <TextBlock Classes="viewer-label"
+                                   Text="{Binding Prompt}" />
+                        <ComboBox IsVisible="{Binding UsesAvailableValueSelection}"
+                                  ItemsSource="{Binding AvailableValues}"
+                                  SelectedItem="{Binding SelectedAvailableValue, Mode=TwoWay}">
+                          <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="local:ReportViewerAvailableValueViewModel">
+                              <TextBlock Text="{Binding Label}" />
+                            </DataTemplate>
+                          </ComboBox.ItemTemplate>
+                        </ComboBox>
+                        <CheckBox IsVisible="{Binding UsesBooleanEditor}"
+                                  Content="Enabled"
+                                  IsChecked="{Binding BooleanValue, Mode=TwoWay}" />
+                        <TextBox IsVisible="{Binding UsesTextEditor}"
+                                 AcceptsReturn="{Binding IsMultiValue}"
+                                 MinHeight="32"
+                                 Text="{Binding TextValue, Mode=TwoWay}" />
+                        <TextBlock Classes="viewer-helper"
+                                   Text="{Binding HelperText}" />
+                        <CheckBox IsVisible="{Binding AllowNull}"
+                                  Content="Null"
+                                  IsChecked="{Binding IsNull, Mode=TwoWay}" />
+                      </StackPanel>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
+            <StackPanel Grid.Row="1"
+                        Orientation="Horizontal"
+                        Spacing="8">
+              <Button Content="Apply"
+                      Command="{Binding ApplyParametersCommand}"
+                      IsEnabled="{Binding CanRefresh}" />
+              <Button Content="Reset"
+                      Command="{Binding ResetParametersCommand}"
+                      IsEnabled="{Binding CanRefresh}" />
+            </StackPanel>
+          </Grid>
+        </TabItem>
+
+        <TabItem Header="Outline">
+          <ListBox ItemsSource="{Binding DocumentMapEntries}"
+                   SelectedItem="{Binding SelectedDocumentMapEntry, Mode=TwoWay}">
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="local:ReportViewerDocumentMapEntryViewModel">
+                <Grid ColumnDefinitions="*,Auto"
+                      ColumnSpacing="10"
+                      Margin="{Binding IndentMargin}">
+                  <Button HorizontalAlignment="Stretch"
+                          HorizontalContentAlignment="Left"
+                          Command="{Binding NavigateCommand}">
+                    <TextBlock Text="{Binding Label}" />
+                  </Button>
+                  <TextBlock Grid.Column="1"
+                             VerticalAlignment="Center"
+                             Text="{Binding PageText}" />
+                </Grid>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </TabItem>
+
+        <TabItem Header="Search">
+          <Grid RowDefinitions="Auto,*"
+                RowSpacing="10">
+            <TextBox Watermark="Search report"
+                     Text="{Binding SearchQuery, Mode=TwoWay}" />
+            <ListBox Grid.Row="1"
+                     ItemsSource="{Binding SearchResults}"
+                     SelectedItem="{Binding SelectedSearchResult, Mode=TwoWay}">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="local:ReportViewerSearchResultViewModel">
+                  <Border Classes="viewer-card">
+                    <Grid RowDefinitions="Auto,Auto"
+                          RowSpacing="6">
+                      <Button HorizontalAlignment="Stretch"
+                              HorizontalContentAlignment="Left"
+                              Command="{Binding NavigateCommand}">
+                        <TextBlock Text="{Binding Snippet}"
+                                   TextWrapping="Wrap" />
+                      </Button>
+                      <TextBlock Grid.Row="1"
+                                 Classes="viewer-helper"
+                                 Text="{Binding PageText}" />
+                    </Grid>
+                  </Border>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </Grid>
+        </TabItem>
+
+        <TabItem Header="Diagnostics">
+          <ListBox ItemsSource="{Binding Diagnostics}">
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="local:ReportViewerDiagnosticViewModel">
+                <Border Classes="viewer-card">
+                  <StackPanel Spacing="4">
+                    <TextBlock Classes="viewer-label"
+                               Text="{Binding Severity}" />
+                    <TextBlock Text="{Binding Code}" />
+                    <TextBlock Text="{Binding Message}"
+                               TextWrapping="Wrap" />
+                    <TextBlock Classes="viewer-helper"
+                               Text="{Binding Path}" />
+                  </StackPanel>
+                </Border>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </TabItem>
+
+        <TabItem Header="Drillthrough">
+          <ListBox ItemsSource="{Binding DrillthroughItems}"
+                   SelectedItem="{Binding SelectedDrillthroughItem, Mode=TwoWay}">
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="local:ReportViewerDrillthroughItemViewModel">
+                <Border Classes="viewer-card">
+                  <StackPanel Spacing="6">
+                    <Button HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            Command="{Binding NavigateCommand}">
+                      <TextBlock Text="{Binding Label}" />
+                    </Button>
+                    <TextBlock Text="{Binding Description}"
+                               TextWrapping="Wrap" />
+                    <TextBlock Classes="viewer-helper"
+                               Text="{Binding PageText}" />
+                  </StackPanel>
+                </Border>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </TabItem>
+      </TabControl>
+    </Border>
+
+    <Border Grid.Row="1"
+            Grid.Column="1"
+            Classes="viewer-preview">
+      <Grid RowDefinitions="*,Auto"
+            RowSpacing="12">
+        <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                      VerticalScrollBarVisibility="Auto">
+          <Grid HorizontalAlignment="Center"
+                VerticalAlignment="Top">
+            <Border Classes="viewer-page-shell">
+              <Image Source="{Binding SelectedPage.Bitmap}"
+                     Width="{Binding SelectedPage.DisplayWidth}"
+                     Height="{Binding SelectedPage.DisplayHeight}"
+                     Stretch="Fill"
+                     RenderOptions.BitmapInterpolationMode="HighQuality" />
+            </Border>
+          </Grid>
+        </ScrollViewer>
+
+        <ListBox Grid.Row="1"
+                 ItemsSource="{Binding Pages}"
+                 SelectedItem="{Binding SelectedPage, Mode=TwoWay}"
+                 Classes="viewer-thumbnails">
+          <ListBox.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel Orientation="Horizontal" />
+            </ItemsPanelTemplate>
+          </ListBox.ItemsPanel>
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="local:ReportViewerPageViewModel">
+              <Border Classes="viewer-thumbnail">
+                <StackPanel Spacing="6">
+                  <Image Source="{Binding Bitmap}"
+                         Width="{Binding ThumbnailWidth}"
+                         Height="{Binding ThumbnailHeight}"
+                         Stretch="Uniform" />
+                  <TextBlock HorizontalAlignment="Center"
+                             Text="{Binding PageNumber}" />
+                </StackPanel>
+              </Border>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </Grid>
+    </Border>
+  </Grid>
+</UserControl>

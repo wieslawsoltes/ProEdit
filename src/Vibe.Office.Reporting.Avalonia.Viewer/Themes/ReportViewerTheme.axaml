@@ -1,0 +1,63 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Style Selector="Border.viewer-toolbar">
+    <Setter Property="Padding" Value="12" />
+    <Setter Property="Background" Value="#F6F4EE" />
+    <Setter Property="BorderBrush" Value="#D8D2C5" />
+    <Setter Property="BorderThickness" Value="0,0,0,1" />
+  </Style>
+
+  <Style Selector="Border.viewer-sidebar">
+    <Setter Property="Padding" Value="12" />
+    <Setter Property="Background" Value="#FBF8F1" />
+    <Setter Property="BorderBrush" Value="#D8D2C5" />
+    <Setter Property="BorderThickness" Value="0,0,1,0" />
+  </Style>
+
+  <Style Selector="Border.viewer-preview">
+    <Setter Property="Padding" Value="16" />
+    <Setter Property="Background" Value="#E9E3D5" />
+  </Style>
+
+  <Style Selector="Border.viewer-card">
+    <Setter Property="Padding" Value="10" />
+    <Setter Property="Margin" Value="0,0,0,8" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="Background" Value="#FFFDF9" />
+    <Setter Property="BorderBrush" Value="#D9D1C0" />
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+
+  <Style Selector="TextBlock.viewer-label">
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="#3E3528" />
+  </Style>
+
+  <Style Selector="TextBlock.viewer-helper">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="Foreground" Value="#6D6459" />
+  </Style>
+
+  <Style Selector="Border.viewer-page-shell">
+    <Setter Property="Padding" Value="14" />
+    <Setter Property="Background" Value="#F8F6F0" />
+    <Setter Property="CornerRadius" Value="12" />
+    <Setter Property="BorderBrush" Value="#CFC7B8" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="BoxShadow" Value="0 12 24 0 #40000000" />
+  </Style>
+
+  <Style Selector="ListBox.viewer-thumbnails">
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="Padding" Value="0" />
+  </Style>
+
+  <Style Selector="Border.viewer-thumbnail">
+    <Setter Property="Padding" Value="10" />
+    <Setter Property="Margin" Value="0,0,10,0" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="Background" Value="#FFFDF9" />
+    <Setter Property="BorderBrush" Value="#D9D1C0" />
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+</Styles>

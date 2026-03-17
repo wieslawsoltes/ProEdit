@@ -1,0 +1,81 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Style Selector="Border.designer-toolbar">
+    <Setter Property="Padding" Value="12" />
+    <Setter Property="Background" Value="#F0EEE7" />
+    <Setter Property="BorderBrush" Value="#D3C8B4" />
+    <Setter Property="BorderThickness" Value="0,0,0,1" />
+  </Style>
+
+  <Style Selector="Border.designer-sidebar">
+    <Setter Property="Padding" Value="12" />
+    <Setter Property="Background" Value="#FBF8F1" />
+    <Setter Property="BorderBrush" Value="#D8D2C5" />
+    <Setter Property="BorderThickness" Value="0,0,1,0" />
+  </Style>
+
+  <Style Selector="Border.designer-main">
+    <Setter Property="Padding" Value="14" />
+    <Setter Property="Background" Value="#E6DECF" />
+    <Setter Property="BorderBrush" Value="#D8D2C5" />
+    <Setter Property="BorderThickness" Value="0,0,1,0" />
+  </Style>
+
+  <Style Selector="Border.designer-inspector">
+    <Setter Property="Padding" Value="12" />
+    <Setter Property="Background" Value="#FCFAF5" />
+  </Style>
+
+  <Style Selector="Border.designer-card">
+    <Setter Property="Padding" Value="10" />
+    <Setter Property="Margin" Value="0,0,0,8" />
+    <Setter Property="Background" Value="#FFFDF9" />
+    <Setter Property="CornerRadius" Value="10" />
+    <Setter Property="BorderBrush" Value="#D9D1C0" />
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+
+  <Style Selector="Border.designer-page">
+    <Setter Property="Padding" Value="16" />
+    <Setter Property="Background" Value="#FFFDF8" />
+    <Setter Property="CornerRadius" Value="16" />
+    <Setter Property="BorderBrush" Value="#CEC6B5" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="BoxShadow" Value="0 18 32 0 #26000000" />
+  </Style>
+
+  <Style Selector="Border.designer-section-banner">
+    <Setter Property="Padding" Value="12" />
+    <Setter Property="Background" Value="#F7F1E4" />
+    <Setter Property="CornerRadius" Value="12" />
+    <Setter Property="BorderBrush" Value="#D5C7A8" />
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+
+  <Style Selector="Border.designer-tag">
+    <Setter Property="Padding" Value="6,2" />
+    <Setter Property="CornerRadius" Value="999" />
+    <Setter Property="Background" Value="#E3D6BC" />
+  </Style>
+
+  <Style Selector="TextBlock.designer-panel-title">
+    <Setter Property="FontSize" Value="15" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="#3F3527" />
+  </Style>
+
+  <Style Selector="TextBlock.designer-label">
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="#43382A" />
+  </Style>
+
+  <Style Selector="TextBlock.designer-helper">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="Foreground" Value="#6D6459" />
+  </Style>
+
+  <Style Selector="TextBlock.designer-error">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="Foreground" Value="#A33D29" />
+  </Style>
+</Styles>
