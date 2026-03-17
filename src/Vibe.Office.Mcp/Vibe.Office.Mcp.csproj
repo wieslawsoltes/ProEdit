@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageDescription>Transport-agnostic Model Context Protocol primitives and dispatcher for VibeOffice integrations.</PackageDescription>
+    <PackageTags>vibeoffice;mcp;model-context-protocol;tools;resources</PackageTags>
+  </PropertyGroup>
+
+</Project>
