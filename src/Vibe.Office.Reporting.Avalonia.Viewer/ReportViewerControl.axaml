@@ -8,7 +8,7 @@
   </UserControl.Styles>
 
   <Grid RowDefinitions="Auto,*"
-        ColumnDefinitions="292,6,*">
+        ColumnDefinitions="300,5,*">
     <Border Grid.Row="0"
             Grid.ColumnSpan="3"
             Classes="viewer-toolbar">
@@ -18,19 +18,19 @@
               ColumnSpacing="12">
           <StackPanel Orientation="Horizontal"
                       Spacing="8">
-            <Button Classes="viewer-tool-button viewer-tool-button-primary"
+            <Button Theme="{StaticResource ViewerPrimaryActionButtonTheme}"
                     Content="Refresh"
                     Command="{Binding RefreshCommand}"
                     IsEnabled="{Binding CanRefresh}" />
-            <Button Classes="viewer-tool-button"
+            <Button Theme="{StaticResource ViewerActionButtonTheme}"
                     Content="Back"
                     Command="{Binding GoBackCommand}"
                     IsEnabled="{Binding CanGoBack}" />
-            <Button Classes="viewer-tool-button"
+            <Button Theme="{StaticResource ViewerActionButtonTheme}"
                     Content="Prev"
                     Command="{Binding PreviousPageCommand}"
                     IsEnabled="{Binding CanNavigatePrevious}" />
-            <Button Classes="viewer-tool-button"
+            <Button Theme="{StaticResource ViewerActionButtonTheme}"
                     Content="Next"
                     Command="{Binding NextPageCommand}"
                     IsEnabled="{Binding CanNavigateNext}" />
@@ -40,9 +40,11 @@
                       Orientation="Horizontal"
                       Spacing="8">
             <Border Classes="viewer-status-pill">
-              <TextBlock Text="{Binding PageDisplayText}" />
+              <TextBlock Classes="viewer-helper"
+                         Text="{Binding PageDisplayText}" />
             </Border>
-            <ComboBox Width="110"
+            <ComboBox Classes="viewer-editor"
+                      Width="110"
                       ItemsSource="{Binding ZoomLevels}"
                       SelectedItem="{Binding ZoomFactor, Mode=TwoWay}" />
           </StackPanel>
@@ -52,21 +54,23 @@
                       HorizontalAlignment="Right"
                       Spacing="8">
             <Border Classes="viewer-status-pill">
-              <TextBlock Text="{Binding StatusMessage}" />
+              <TextBlock Classes="viewer-helper"
+                         Text="{Binding StatusMessage}" />
             </Border>
           </StackPanel>
 
           <StackPanel Grid.Column="3"
                       Orientation="Horizontal"
                       Spacing="8">
-            <ComboBox Width="120"
+            <ComboBox Classes="viewer-editor"
+                      Width="120"
                       ItemsSource="{Binding ExportFormats}"
                       SelectedItem="{Binding SelectedExportFormat, Mode=TwoWay}" />
-            <Button Classes="viewer-tool-button"
+            <Button Theme="{StaticResource ViewerActionButtonTheme}"
                     Content="Export"
                     Command="{Binding ExportCommand}"
                     IsEnabled="{Binding CanExport}" />
-            <Button Classes="viewer-tool-button"
+            <Button Theme="{StaticResource ViewerActionButtonTheme}"
                     Content="Print"
                     Command="{Binding PrintCommand}"
                     IsEnabled="{Binding CanPrint}" />
@@ -78,11 +82,13 @@
     <Border Grid.Row="1"
             Grid.Column="0"
             Classes="viewer-sidebar">
-      <TabControl Classes="viewer-pane-tabs"
+      <TabControl Theme="{StaticResource ViewerPaneTabControlTheme}"
                   SelectedIndex="{Binding SelectedPaneIndex, Mode=TwoWay}">
-        <TabItem Header="Parameters">
+        <TabItem Header="Parameters"
+                 Theme="{StaticResource ViewerPaneTabItemTheme}">
           <Grid RowDefinitions="*,Auto"
-                RowSpacing="10">
+                RowSpacing="10"
+                Margin="10">
             <ScrollViewer VerticalScrollBarVisibility="Auto">
               <ItemsControl ItemsSource="{Binding Parameters}">
                 <ItemsControl.ItemTemplate>
@@ -91,7 +97,8 @@
                       <StackPanel Spacing="6">
                         <TextBlock Classes="viewer-label"
                                    Text="{Binding Prompt}" />
-                        <ComboBox IsVisible="{Binding UsesAvailableValueSelection}"
+                        <ComboBox Classes="viewer-editor"
+                                  IsVisible="{Binding UsesAvailableValueSelection}"
                                   ItemsSource="{Binding AvailableValues}"
                                   SelectedItem="{Binding SelectedAvailableValue, Mode=TwoWay}">
                           <ComboBox.ItemTemplate>
@@ -103,7 +110,8 @@
                         <CheckBox IsVisible="{Binding UsesBooleanEditor}"
                                   Content="Enabled"
                                   IsChecked="{Binding BooleanValue, Mode=TwoWay}" />
-                        <TextBox IsVisible="{Binding UsesTextEditor}"
+                        <TextBox Classes="viewer-editor"
+                                 IsVisible="{Binding UsesTextEditor}"
                                  AcceptsReturn="{Binding IsMultiValue}"
                                  MinHeight="32"
                                  Text="{Binding TextValue, Mode=TwoWay}" />
@@ -121,11 +129,11 @@
             <StackPanel Grid.Row="1"
                         Orientation="Horizontal"
                         Spacing="8">
-              <Button Classes="viewer-tool-button viewer-tool-button-primary"
+              <Button Theme="{StaticResource ViewerPrimaryActionButtonTheme}"
                       Content="Apply"
                       Command="{Binding ApplyParametersCommand}"
                       IsEnabled="{Binding CanRefresh}" />
-              <Button Classes="viewer-tool-button"
+              <Button Theme="{StaticResource ViewerActionButtonTheme}"
                       Content="Reset"
                       Command="{Binding ResetParametersCommand}"
                       IsEnabled="{Binding CanRefresh}" />
@@ -133,15 +141,17 @@
           </Grid>
         </TabItem>
 
-        <TabItem Header="Outline">
-          <ListBox ItemsSource="{Binding DocumentMapEntries}"
+        <TabItem Header="Outline"
+                 Theme="{StaticResource ViewerPaneTabItemTheme}">
+          <ListBox Margin="10"
+                   ItemsSource="{Binding DocumentMapEntries}"
                    SelectedItem="{Binding SelectedDocumentMapEntry, Mode=TwoWay}">
             <ListBox.ItemTemplate>
               <DataTemplate x:DataType="local:ReportViewerDocumentMapEntryViewModel">
                 <Grid ColumnDefinitions="*,Auto"
                       ColumnSpacing="10"
                       Margin="{Binding IndentMargin}">
-                  <Button Classes="viewer-list-button"
+                  <Button Theme="{StaticResource ViewerActionButtonTheme}"
                           HorizontalAlignment="Stretch"
                           HorizontalContentAlignment="Left"
                           Command="{Binding NavigateCommand}">
@@ -149,6 +159,7 @@
                   </Button>
                   <TextBlock Grid.Column="1"
                              VerticalAlignment="Center"
+                             Classes="viewer-helper"
                              Text="{Binding PageText}" />
                 </Grid>
               </DataTemplate>
@@ -156,10 +167,13 @@
           </ListBox>
         </TabItem>
 
-        <TabItem Header="Search">
+        <TabItem Header="Search"
+                 Theme="{StaticResource ViewerPaneTabItemTheme}">
           <Grid RowDefinitions="Auto,*"
-                RowSpacing="10">
-            <TextBox Watermark="Search report"
+                RowSpacing="10"
+                Margin="10">
+            <TextBox Classes="viewer-editor"
+                     Watermark="Search report"
                      Text="{Binding SearchQuery, Mode=TwoWay}" />
             <ListBox Grid.Row="1"
                      ItemsSource="{Binding SearchResults}"
@@ -169,7 +183,7 @@
                   <Border Classes="viewer-card">
                     <Grid RowDefinitions="Auto,Auto"
                           RowSpacing="6">
-                      <Button Classes="viewer-list-button"
+                      <Button Theme="{StaticResource ViewerActionButtonTheme}"
                               HorizontalAlignment="Stretch"
                               HorizontalContentAlignment="Left"
                               Command="{Binding NavigateCommand}">
@@ -187,8 +201,10 @@
           </Grid>
         </TabItem>
 
-        <TabItem Header="Diagnostics">
-          <ListBox ItemsSource="{Binding Diagnostics}">
+        <TabItem Header="Diagnostics"
+                 Theme="{StaticResource ViewerPaneTabItemTheme}">
+          <ListBox Margin="10"
+                   ItemsSource="{Binding Diagnostics}">
             <ListBox.ItemTemplate>
               <DataTemplate x:DataType="local:ReportViewerDiagnosticViewModel">
                 <Border Classes="viewer-card">
@@ -207,14 +223,16 @@
           </ListBox>
         </TabItem>
 
-        <TabItem Header="Drillthrough">
-          <ListBox ItemsSource="{Binding DrillthroughItems}"
+        <TabItem Header="Drillthrough"
+                 Theme="{StaticResource ViewerPaneTabItemTheme}">
+          <ListBox Margin="10"
+                   ItemsSource="{Binding DrillthroughItems}"
                    SelectedItem="{Binding SelectedDrillthroughItem, Mode=TwoWay}">
             <ListBox.ItemTemplate>
               <DataTemplate x:DataType="local:ReportViewerDrillthroughItemViewModel">
                 <Border Classes="viewer-card">
                   <StackPanel Spacing="6">
-                    <Button Classes="viewer-list-button"
+                    <Button Theme="{StaticResource ViewerActionButtonTheme}"
                             HorizontalAlignment="Stretch"
                             HorizontalContentAlignment="Left"
                             Command="{Binding NavigateCommand}">
@@ -243,11 +261,12 @@
             Grid.Column="2"
             Classes="viewer-preview">
       <Grid RowDefinitions="*,Auto"
-            RowSpacing="12">
+            RowSpacing="0">
         <ScrollViewer HorizontalScrollBarVisibility="Auto"
                       VerticalScrollBarVisibility="Auto">
           <Grid HorizontalAlignment="Center"
-                VerticalAlignment="Top">
+                VerticalAlignment="Top"
+                Margin="24">
             <Border Classes="viewer-page-shell">
               <Image Source="{Binding SelectedPage.Bitmap}"
                      Width="{Binding SelectedPage.DisplayWidth}"

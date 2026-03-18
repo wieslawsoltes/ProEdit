@@ -1,208 +1,334 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Styles.Resources>
+    <SolidColorBrush x:Key="StudioWindowBackgroundBrush">#FFF5F6F8</SolidColorBrush>
+    <SolidColorBrush x:Key="StudioChromeBrush">#FFF8F9FB</SolidColorBrush>
+    <SolidColorBrush x:Key="StudioSurfaceBrush">#FFFFFFFF</SolidColorBrush>
+    <SolidColorBrush x:Key="StudioSurfaceAltBrush">#FFF3F5F8</SolidColorBrush>
+    <SolidColorBrush x:Key="StudioRibbonHeaderBrush">#FFF7F8FA</SolidColorBrush>
+    <SolidColorBrush x:Key="StudioRibbonBodyBrush">#FFFFFFFF</SolidColorBrush>
+    <SolidColorBrush x:Key="StudioWorkspaceTabStripBrush">#FFF5F6F9</SolidColorBrush>
+    <SolidColorBrush x:Key="StudioBorderBrush">#FFD2D8E2</SolidColorBrush>
+    <SolidColorBrush x:Key="StudioBorderStrongBrush">#FFBFC7D4</SolidColorBrush>
+    <SolidColorBrush x:Key="StudioAccentBrush">#FF0F6CBD</SolidColorBrush>
+    <SolidColorBrush x:Key="StudioAccentSoftBrush">#FFE9F2FB</SolidColorBrush>
+    <SolidColorBrush x:Key="StudioAccentPressedBrush">#FF0B5EA6</SolidColorBrush>
+    <SolidColorBrush x:Key="StudioTextBrush">#FF1B1B1F</SolidColorBrush>
+    <SolidColorBrush x:Key="StudioTextMutedBrush">#FF5E6470</SolidColorBrush>
+    <SolidColorBrush x:Key="StudioTextSubtleBrush">#FF7D8593</SolidColorBrush>
+    <SolidColorBrush x:Key="StudioTabHoverBrush">#FFEFF2F7</SolidColorBrush>
+    <SolidColorBrush x:Key="StudioButtonHoverBrush">#FFF2F4F8</SolidColorBrush>
+    <SolidColorBrush x:Key="StudioButtonPressedBrush">#FFE7EBF2</SolidColorBrush>
+    <SolidColorBrush x:Key="StudioDisabledBrush">#FFF4F5F7</SolidColorBrush>
+    <SolidColorBrush x:Key="StudioDisabledBorderBrush">#FFE1E5EB</SolidColorBrush>
+    <SolidColorBrush x:Key="StudioDisabledForegroundBrush">#FF9AA1AD</SolidColorBrush>
+
+    <ControlTheme x:Key="StudioRibbonTabControlTheme"
+                TargetType="TabControl">
+    <Setter Property="Background" Value="{DynamicResource StudioChromeBrush}" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="{TemplateBinding Background}"
+                BorderBrush="{DynamicResource StudioBorderBrush}"
+                BorderThickness="0,0,0,1"
+                ClipToBounds="True">
+          <DockPanel>
+            <Border DockPanel.Dock="Top"
+                    Background="{DynamicResource StudioRibbonHeaderBrush}"
+                    BorderBrush="{DynamicResource StudioBorderBrush}"
+                    BorderThickness="0,0,0,1"
+                    Padding="14,0,14,0">
+              <ItemsPresenter Name="PART_ItemsPresenter"
+                              ItemsPanel="{TemplateBinding ItemsPanel}" />
+            </Border>
+            <Border Background="{DynamicResource StudioRibbonBodyBrush}"
+                    Padding="12,8,12,10">
+              <ContentPresenter Name="PART_SelectedContentHost"
+                                Content="{TemplateBinding SelectedContent}"
+                                ContentTemplate="{TemplateBinding SelectedContentTemplate}"
+                                HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+            </Border>
+          </DockPanel>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+    </ControlTheme>
+
+    <ControlTheme x:Key="StudioRibbonTabItemTheme"
+                TargetType="TabItem">
+    <Setter Property="Foreground" Value="{DynamicResource StudioTextMutedBrush}" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Padding" Value="12,8" />
+    <Setter Property="Margin" Value="0,0,2,0" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Name="PART_TabRoot"
+                Background="{TemplateBinding Background}"
+                BorderBrush="Transparent"
+                BorderThickness="0,0,0,2"
+                Padding="{TemplateBinding Padding}">
+          <ContentPresenter Content="{TemplateBinding Header}"
+                            ContentTemplate="{TemplateBinding HeaderTemplate}"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center" />
+        </Border>
+      </ControlTemplate>
+    </Setter>
+
+    <Style Selector="^:pointerover /template/ Border#PART_TabRoot">
+      <Setter Property="Background" Value="{DynamicResource StudioTabHoverBrush}" />
+    </Style>
+    <Style Selector="^:selected">
+      <Setter Property="Foreground" Value="{DynamicResource StudioTextBrush}" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="^:selected /template/ Border#PART_TabRoot">
+      <Setter Property="BorderBrush" Value="{DynamicResource StudioAccentBrush}" />
+    </Style>
+    <Style Selector="^:disabled">
+      <Setter Property="Foreground" Value="{DynamicResource StudioDisabledForegroundBrush}" />
+    </Style>
+    </ControlTheme>
+
+    <ControlTheme x:Key="StudioWorkspaceTabControlTheme"
+                TargetType="TabControl">
+    <Setter Property="Background" Value="{DynamicResource StudioSurfaceBrush}" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="{TemplateBinding Background}"
+                BorderBrush="{DynamicResource StudioBorderBrush}"
+                BorderThickness="0"
+                ClipToBounds="True">
+          <DockPanel>
+            <Border DockPanel.Dock="Top"
+                    Background="{DynamicResource StudioWorkspaceTabStripBrush}"
+                    BorderBrush="{DynamicResource StudioBorderBrush}"
+                    BorderThickness="0,0,0,1"
+                    Padding="12,6,12,0">
+              <ItemsPresenter Name="PART_ItemsPresenter"
+                              ItemsPanel="{TemplateBinding ItemsPanel}" />
+            </Border>
+            <ContentPresenter Name="PART_SelectedContentHost"
+                              Content="{TemplateBinding SelectedContent}"
+                              ContentTemplate="{TemplateBinding SelectedContentTemplate}"
+                              HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                              VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+          </DockPanel>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+    </ControlTheme>
+
+    <ControlTheme x:Key="StudioWorkspaceTabItemTheme"
+                TargetType="TabItem">
+    <Setter Property="Foreground" Value="{DynamicResource StudioTextMutedBrush}" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Padding" Value="14,9" />
+    <Setter Property="Margin" Value="0,0,4,0" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Name="PART_WorkspaceTabRoot"
+                Background="{TemplateBinding Background}"
+                BorderBrush="{DynamicResource StudioBorderBrush}"
+                BorderThickness="1,1,1,0"
+                CornerRadius="4,4,0,0"
+                Padding="{TemplateBinding Padding}">
+          <ContentPresenter Content="{TemplateBinding Header}"
+                            ContentTemplate="{TemplateBinding HeaderTemplate}"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center" />
+        </Border>
+      </ControlTemplate>
+    </Setter>
+
+    <Style Selector="^:pointerover /template/ Border#PART_WorkspaceTabRoot">
+      <Setter Property="Background" Value="{DynamicResource StudioTabHoverBrush}" />
+    </Style>
+    <Style Selector="^:selected">
+      <Setter Property="Foreground" Value="{DynamicResource StudioTextBrush}" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="^:selected /template/ Border#PART_WorkspaceTabRoot">
+      <Setter Property="Background" Value="{DynamicResource StudioSurfaceBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource StudioBorderStrongBrush}" />
+    </Style>
+    </ControlTheme>
+
+    <ControlTheme x:Key="StudioRibbonButtonTheme"
+                TargetType="Button">
+    <Setter Property="Background" Value="{DynamicResource StudioSurfaceBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource StudioTextBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource StudioBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="2" />
+    <Setter Property="Padding" Value="10,5" />
+    <Setter Property="MinHeight" Value="30" />
+    <Setter Property="HorizontalAlignment" Value="Left" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Name="PART_ButtonRoot"
+                Background="{TemplateBinding Background}"
+                BorderBrush="{TemplateBinding BorderBrush}"
+                BorderThickness="{TemplateBinding BorderThickness}"
+                CornerRadius="{TemplateBinding CornerRadius}">
+          <ContentPresenter Name="PART_ButtonContent"
+                            Content="{TemplateBinding Content}"
+                            ContentTemplate="{TemplateBinding ContentTemplate}"
+                            Padding="{TemplateBinding Padding}"
+                            HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                            VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+        </Border>
+      </ControlTemplate>
+    </Setter>
+
+    <Style Selector="^:pointerover /template/ Border#PART_ButtonRoot">
+      <Setter Property="Background" Value="{DynamicResource StudioButtonHoverBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource StudioBorderStrongBrush}" />
+    </Style>
+    <Style Selector="^:pressed /template/ Border#PART_ButtonRoot">
+      <Setter Property="Background" Value="{DynamicResource StudioButtonPressedBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource StudioBorderStrongBrush}" />
+    </Style>
+    <Style Selector="^:disabled /template/ Border#PART_ButtonRoot">
+      <Setter Property="Background" Value="{DynamicResource StudioDisabledBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource StudioDisabledBorderBrush}" />
+    </Style>
+    <Style Selector="^:disabled">
+      <Setter Property="Foreground" Value="{DynamicResource StudioDisabledForegroundBrush}" />
+    </Style>
+    </ControlTheme>
+
+    <ControlTheme x:Key="StudioPrimaryRibbonButtonTheme"
+                TargetType="Button"
+                BasedOn="{StaticResource StudioRibbonButtonTheme}">
+    <Setter Property="Background" Value="{DynamicResource StudioAccentBrush}" />
+    <Setter Property="Foreground" Value="#FFFFFFFF" />
+    <Setter Property="BorderBrush" Value="{DynamicResource StudioAccentBrush}" />
+
+    <Style Selector="^:pointerover /template/ Border#PART_ButtonRoot">
+      <Setter Property="Background" Value="{DynamicResource StudioAccentPressedBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource StudioAccentPressedBrush}" />
+    </Style>
+    <Style Selector="^:pressed /template/ Border#PART_ButtonRoot">
+      <Setter Property="Background" Value="#FF094F89" />
+      <Setter Property="BorderBrush" Value="#FF094F89" />
+    </Style>
+    </ControlTheme>
+  </Styles.Resources>
+
   <Style Selector="Window">
-    <Setter Property="Background" Value="#F4F7FB" />
+    <Setter Property="Background" Value="{DynamicResource StudioWindowBackgroundBrush}" />
   </Style>
 
-  <Style Selector="Border.studio-headerbar">
-    <Setter Property="Padding" Value="12,10,14,10" />
-    <Setter Property="Background" Value="#FBFCFE" />
-    <Setter Property="BorderBrush" Value="#D8E2EE" />
+  <Style Selector="Border.studio-title-strip">
+    <Setter Property="Padding" Value="10,6,14,6" />
+    <Setter Property="Background" Value="{DynamicResource StudioChromeBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource StudioBorderBrush}" />
     <Setter Property="BorderThickness" Value="0,0,0,1" />
   </Style>
 
   <Style Selector="TextBlock.studio-app-title">
-    <Setter Property="FontSize" Value="18" />
+    <Setter Property="FontSize" Value="14" />
     <Setter Property="FontWeight" Value="SemiBold" />
-    <Setter Property="Foreground" Value="#172B45" />
+    <Setter Property="Foreground" Value="{DynamicResource StudioTextBrush}" />
+  </Style>
+
+  <Style Selector="TextBlock.studio-document-title">
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource StudioTextBrush}" />
   </Style>
 
   <Style Selector="TextBlock.studio-app-subtitle">
     <Setter Property="FontSize" Value="11" />
-    <Setter Property="Foreground" Value="#61758D" />
-    <Setter Property="TextWrapping" Value="Wrap" />
+    <Setter Property="Foreground" Value="{DynamicResource StudioTextMutedBrush}" />
   </Style>
 
   <Style Selector="TextBlock.studio-overline">
-    <Setter Property="FontSize" Value="11" />
+    <Setter Property="FontSize" Value="10" />
     <Setter Property="FontWeight" Value="SemiBold" />
-    <Setter Property="Foreground" Value="#315E8F" />
+    <Setter Property="Foreground" Value="{DynamicResource StudioAccentBrush}" />
   </Style>
 
   <Style Selector="TextBlock.studio-path-text">
-    <Setter Property="FontSize" Value="12" />
-    <Setter Property="Foreground" Value="#1F3042" />
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="Foreground" Value="{DynamicResource StudioTextMutedBrush}" />
   </Style>
 
   <Style Selector="TextBlock.studio-emphasis">
-    <Setter Property="FontSize" Value="14" />
+    <Setter Property="FontSize" Value="12" />
     <Setter Property="FontWeight" Value="SemiBold" />
-    <Setter Property="Foreground" Value="#172B45" />
+    <Setter Property="Foreground" Value="{DynamicResource StudioTextBrush}" />
   </Style>
 
   <Style Selector="TextBlock.studio-caption">
-    <Setter Property="FontSize" Value="11" />
-    <Setter Property="Foreground" Value="#61758D" />
+    <Setter Property="FontSize" Value="10" />
+    <Setter Property="Foreground" Value="{DynamicResource StudioTextSubtleBrush}" />
   </Style>
 
   <Style Selector="Border.studio-ribbon">
-    <Setter Property="Padding" Value="8,6" />
-    <Setter Property="Background" Value="#F8FAFD" />
-    <Setter Property="BorderBrush" Value="#D8E2EE" />
-    <Setter Property="BorderThickness" Value="0,0,0,1" />
-  </Style>
-
-  <Style Selector="TabControl.studio-ribbon-tabs TabItem">
-    <Setter Property="Padding" Value="14,8" />
-    <Setter Property="FontWeight" Value="SemiBold" />
-  </Style>
-
-  <Style Selector="TabControl.studio-ribbon-tabs ContentPresenter">
-    <Setter Property="Background" Value="#F8FAFD" />
+    <Setter Property="Background" Value="{DynamicResource StudioChromeBrush}" />
   </Style>
 
   <Style Selector="Border.studio-ribbon-group">
-    <Setter Property="Padding" Value="10" />
-    <Setter Property="Background" Value="#FFFFFF" />
-    <Setter Property="BorderBrush" Value="#D8E2EE" />
-    <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="CornerRadius" Value="10" />
+    <Setter Property="Padding" Value="10,6,10,4" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="{DynamicResource StudioBorderBrush}" />
+    <Setter Property="BorderThickness" Value="0,0,1,0" />
   </Style>
 
   <Style Selector="TextBlock.studio-ribbon-group-label">
-    <Setter Property="FontSize" Value="11" />
-    <Setter Property="FontWeight" Value="SemiBold" />
-    <Setter Property="Foreground" Value="#61758D" />
+    <Setter Property="FontSize" Value="10" />
+    <Setter Property="Foreground" Value="{DynamicResource StudioTextSubtleBrush}" />
     <Setter Property="HorizontalAlignment" Value="Center" />
   </Style>
 
-  <Style Selector="Border.studio-toolbar-separator">
-    <Setter Property="Width" Value="1" />
-    <Setter Property="Height" Value="28" />
-    <Setter Property="VerticalAlignment" Value="Center" />
-    <Setter Property="Background" Value="#D8E2EE" />
-  </Style>
-
-  <Style Selector="Button.studio-command">
-    <Setter Property="Padding" Value="12,8" />
-    <Setter Property="MinHeight" Value="34" />
-  </Style>
-
-  <Style Selector="Button.studio-command-primary">
-    <Setter Property="Background" Value="#115EA3" />
-    <Setter Property="Foreground" Value="White" />
-    <Setter Property="BorderBrush" Value="#0F548C" />
-  </Style>
-
-  <Style Selector="Border.studio-sidebar">
-    <Setter Property="Padding" Value="12" />
-    <Setter Property="Background" Value="#F9FBFD" />
-    <Setter Property="BorderBrush" Value="#D8E2EE" />
-    <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="CornerRadius" Value="16" />
-  </Style>
-
   <Style Selector="Border.studio-workspace">
-    <Setter Property="Background" Value="#FFFFFF" />
-    <Setter Property="BorderBrush" Value="#D8E2EE" />
+    <Setter Property="Margin" Value="10,0,10,0" />
+    <Setter Property="Background" Value="{DynamicResource StudioSurfaceBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource StudioBorderBrush}" />
     <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="CornerRadius" Value="16" />
     <Setter Property="ClipToBounds" Value="True" />
   </Style>
 
-  <Style Selector="GridSplitter.studio-splitter">
-    <Setter Property="Width" Value="6" />
-    <Setter Property="Background" Value="#00000000" />
-  </Style>
-
-  <Style Selector="GridSplitter.studio-splitter:pointerover">
-    <Setter Property="Background" Value="#D7E3F4" />
-  </Style>
-
-  <Style Selector="Border.studio-card">
-    <Setter Property="Padding" Value="12" />
-    <Setter Property="CornerRadius" Value="12" />
-    <Setter Property="Background" Value="#FFFFFF" />
-    <Setter Property="BorderBrush" Value="#D8E2EE" />
-    <Setter Property="BorderThickness" Value="1" />
-  </Style>
-
   <Style Selector="Border.studio-chip">
-    <Setter Property="Padding" Value="10,5" />
+    <Setter Property="Padding" Value="8,4" />
     <Setter Property="CornerRadius" Value="999" />
-    <Setter Property="Background" Value="#EEF3F9" />
-    <Setter Property="BorderBrush" Value="#D8E2EE" />
+    <Setter Property="Background" Value="{DynamicResource StudioSurfaceAltBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource StudioBorderBrush}" />
     <Setter Property="BorderThickness" Value="1" />
   </Style>
 
   <Style Selector="Border.studio-chip-accent">
-    <Setter Property="Background" Value="#E4F0FB" />
-    <Setter Property="BorderBrush" Value="#A5C8EB" />
+    <Setter Property="Background" Value="{DynamicResource StudioAccentSoftBrush}" />
+    <Setter Property="BorderBrush" Value="#FFC7DCF2" />
   </Style>
 
-  <Style Selector="Border.studio-tag">
-    <Setter Property="Padding" Value="8,3" />
-    <Setter Property="CornerRadius" Value="999" />
-    <Setter Property="Background" Value="#E8EFF7" />
-  </Style>
-
-  <Style Selector="Expander.studio-expander">
-    <Setter Property="Background" Value="#00000000" />
-  </Style>
-
-  <Style Selector="Expander.studio-expander /template/ ToggleButton#PART_ExpanderHeader">
-    <Setter Property="Padding" Value="0,0,0,8" />
-    <Setter Property="Background" Value="#00000000" />
-  </Style>
-
-  <Style Selector="Expander.studio-expander /template/ ContentPresenter#PART_ContentPresenter">
-    <Setter Property="Margin" Value="0,0,0,0" />
-  </Style>
-
-  <Style Selector="Border.studio-diagnostic">
-    <Setter Property="Margin" Value="0,0,0,8" />
-    <Setter Property="Padding" Value="10" />
-    <Setter Property="CornerRadius" Value="10" />
-    <Setter Property="Background" Value="#FFF9F3" />
-    <Setter Property="BorderBrush" Value="#E5C49C" />
-    <Setter Property="BorderThickness" Value="1" />
+  <Style Selector="Border.studio-status-strip">
+    <Setter Property="Padding" Value="4,3,10,3" />
+    <Setter Property="Background" Value="{DynamicResource StudioChromeBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource StudioBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1,1,1,0" />
   </Style>
 
   <Style Selector="TextBlock.studio-section-title">
-    <Setter Property="FontSize" Value="13" />
+    <Setter Property="FontSize" Value="12" />
     <Setter Property="FontWeight" Value="SemiBold" />
-    <Setter Property="Foreground" Value="#172B45" />
+    <Setter Property="Foreground" Value="{DynamicResource StudioTextBrush}" />
   </Style>
 
   <Style Selector="TextBlock.studio-card-title">
     <Setter Property="FontSize" Value="12" />
     <Setter Property="FontWeight" Value="SemiBold" />
-    <Setter Property="Foreground" Value="#243A53" />
+    <Setter Property="Foreground" Value="{DynamicResource StudioTextBrush}" />
   </Style>
 
   <Style Selector="TextBlock.studio-helper">
     <Setter Property="FontSize" Value="11" />
-    <Setter Property="Foreground" Value="#61758D" />
+    <Setter Property="Foreground" Value="{DynamicResource StudioTextMutedBrush}" />
     <Setter Property="TextWrapping" Value="Wrap" />
-  </Style>
-
-  <Style Selector="Border.studio-status-strip">
-    <Setter Property="Padding" Value="8,8,12,10" />
-    <Setter Property="Background" Value="#FBFCFE" />
-    <Setter Property="BorderBrush" Value="#D8E2EE" />
-    <Setter Property="BorderThickness" Value="1,1,1,0" />
-  </Style>
-
-  <Style Selector="TabControl.studio-workbench-tabs">
-    <Setter Property="Padding" Value="0" />
-  </Style>
-
-  <Style Selector="TabControl.studio-workbench-tabs TabItem">
-    <Setter Property="Padding" Value="14,10" />
-    <Setter Property="FontWeight" Value="SemiBold" />
-  </Style>
-
-  <Style Selector="TabControl.studio-workbench-tabs ContentPresenter">
-    <Setter Property="Background" Value="#FFFFFF" />
   </Style>
 </Styles>

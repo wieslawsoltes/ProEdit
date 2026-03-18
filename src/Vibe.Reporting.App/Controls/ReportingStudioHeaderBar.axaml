@@ -3,39 +3,41 @@
              xmlns:vm="using:Vibe.Reporting.App.ViewModels"
              x:Class="Vibe.Reporting.App.Controls.ReportingStudioHeaderBar"
              x:DataType="vm:ReportingStudioViewModel">
-  <Border Classes="studio-headerbar">
+  <Border Classes="studio-title-strip">
     <Grid ColumnDefinitions="Auto,*,Auto"
           ColumnSpacing="16">
-      <StackPanel Spacing="4">
+      <StackPanel Orientation="Horizontal"
+                  VerticalAlignment="Center"
+                  Spacing="10">
         <TextBlock Classes="studio-app-title"
-                   Text="VibeOffice Reporting Studio" />
-        <StackPanel Orientation="Horizontal"
-                    Spacing="8">
-          <Border Classes="studio-chip studio-chip-accent">
-            <TextBlock Text="{Binding ActiveDocumentMode}" />
-          </Border>
-          <TextBlock Classes="studio-path-text"
-                     Text="{Binding CurrentPathDisplay}"
-                     TextWrapping="NoWrap"
-                     TextTrimming="CharacterEllipsis"
-                     MaxWidth="640" />
-        </StackPanel>
+                   Text="VibeOffice Reporting" />
+        <Border Classes="studio-chip studio-chip-accent">
+          <TextBlock Classes="studio-caption"
+                     Text="{Binding ActiveDocumentMode}" />
+        </Border>
       </StackPanel>
 
-      <TextBlock Grid.Column="1"
-                 VerticalAlignment="Center"
-                 Classes="studio-app-subtitle"
-                 Text="Report Builder style authoring shell with design and run workflows." />
+      <StackPanel Grid.Column="1"
+                  Spacing="2">
+        <TextBlock Classes="studio-document-title"
+                   Text="{Binding DesignerViewModel.ReportDefinition.Name}" />
+        <TextBlock Classes="studio-path-text"
+                   Text="{Binding CurrentPathDisplay}"
+                   TextWrapping="NoWrap"
+                   TextTrimming="CharacterEllipsis" />
+      </StackPanel>
 
       <StackPanel Grid.Column="2"
                   Orientation="Horizontal"
                   VerticalAlignment="Center"
                   Spacing="8">
         <Border Classes="studio-chip">
-          <TextBlock Text="{Binding PreviewStateText}" />
+          <TextBlock Classes="studio-caption"
+                     Text="{Binding PreviewStateText}" />
         </Border>
         <Border Classes="studio-chip">
-          <TextBlock Text="{Binding WorkspaceSummaryText}" />
+          <TextBlock Classes="studio-caption"
+                     Text="{Binding WorkspaceSummaryText}" />
         </Border>
       </StackPanel>
     </Grid>

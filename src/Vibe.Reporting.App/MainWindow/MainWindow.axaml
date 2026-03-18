@@ -17,15 +17,16 @@
     <controls:ReportingStudioCommandBar Grid.Row="1" />
 
     <Border Grid.Row="2"
-            Margin="14,10,14,0"
             Classes="studio-workspace">
-      <TabControl Classes="studio-workbench-tabs"
+      <TabControl Theme="{StaticResource StudioWorkspaceTabControlTheme}"
                   SelectedIndex="{Binding SelectedWorkspaceTabIndex, Mode=TwoWay}">
-        <TabItem Header="Design">
+        <TabItem Header="Design"
+                 Theme="{StaticResource StudioWorkspaceTabItemTheme}">
           <designer:ReportDesignerControl DataContext="{Binding DesignerViewModel}" />
         </TabItem>
 
-        <TabItem Header="Run">
+        <TabItem Header="Run"
+                 Theme="{StaticResource StudioWorkspaceTabItemTheme}">
           <viewer:ReportViewerControl DataContext="{Binding ViewerViewModel}" />
         </TabItem>
       </TabControl>

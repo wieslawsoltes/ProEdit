@@ -1018,10 +1018,15 @@ public sealed class ReportViewerViewModel : ReactiveObject, IDisposable
         try
         {
             var restoredState = stateToRestore ?? _pendingState ?? CaptureState();
-            var parameterResolution = await _sessionService.ResolveParametersAsync(source, suppliedParameters, cancellationToken);
+            var effectiveParameters = CloneParameters(suppliedParameters);
+            var parameterResolution = await _sessionService.ResolveParametersAsync(source, effectiveParameters, cancellationToken);
+            if (TrySeedDefaultAvailableValues(parameterResolution, effectiveParameters))
+            {
+                parameterResolution = await _sessionService.ResolveParametersAsync(source, effectiveParameters, cancellationToken);
+            }
 
             StatusMessage = "Rendering preview...";
-            var snapshot = await _sessionService.ExecuteAsync(source, suppliedParameters, cancellationToken);
+            var snapshot = await _sessionService.ExecuteAsync(source, effectiveParameters, cancellationToken);
             if (resetBackStack)
             {
                 _navigationStack.Clear();
@@ -1454,6 +1459,80 @@ public sealed class ReportViewerViewModel : ReactiveObject, IDisposable
         }
 
         return suppliedParameters;
+    }
+
+    private static Dictionary<string, ReportParameterValue> CloneParameters(
+        IReadOnlyDictionary<string, ReportParameterValue> source)
+    {
+        var clone = new Dictionary<string, ReportParameterValue>(StringComparer.OrdinalIgnoreCase);
+        foreach (var pair in source)
+        {
+            clone[pair.Key] = CloneParameterValue(pair.Value);
+        }
+
+        return clone;
+    }
+
+    private static bool TrySeedDefaultAvailableValues(
+        ReportViewerParameterResolutionResult resolution,
+        IDictionary<string, ReportParameterValue> suppliedParameters)
+    {
+        var changed = false;
+        for (var index = 0; index < resolution.Parameters.Count; index++)
+        {
+            var state = resolution.Parameters[index];
+            if (suppliedParameters.ContainsKey(state.Definition.Id)
+                || state.Definition.Visibility != ReportParameterVisibility.Visible
+                || state.Definition.IsMultiValue
+                || state.AvailableValues.Count == 0)
+            {
+                continue;
+            }
+
+            if (HasMatchingAvailableValue(state.ResolvedValue, state.AvailableValues))
+            {
+                continue;
+            }
+
+            suppliedParameters[state.Definition.Id] = ReportParameterValue.FromScalar(state.AvailableValues[0].Value);
+            changed = true;
+        }
+
+        return changed;
+    }
+
+    private static bool HasMatchingAvailableValue(
+        ReportParameterValue? resolvedValue,
+        IReadOnlyList<ReportParameterAvailableValue> availableValues)
+    {
+        if (resolvedValue is null || resolvedValue.IsNull || resolvedValue.Values.Count == 0)
+        {
+            return false;
+        }
+
+        for (var valueIndex = 0; valueIndex < resolvedValue.Values.Count; valueIndex++)
+        {
+            var isMatched = false;
+            for (var availableIndex = 0; availableIndex < availableValues.Count; availableIndex++)
+            {
+                var left = Convert.ToString(resolvedValue.Values[valueIndex], CultureInfo.InvariantCulture);
+                var right = Convert.ToString(availableValues[availableIndex].Value, CultureInfo.InvariantCulture);
+                if (!string.Equals(left, right, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                isMatched = true;
+                break;
+            }
+
+            if (!isMatched)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private void UpdateCommandState()

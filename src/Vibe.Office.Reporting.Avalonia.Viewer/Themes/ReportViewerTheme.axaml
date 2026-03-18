@@ -1,99 +1,214 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Styles.Resources>
+    <SolidColorBrush x:Key="ViewerChromeBrush">#FFF8F9FB</SolidColorBrush>
+    <SolidColorBrush x:Key="ViewerSurfaceBrush">#FFFFFFFF</SolidColorBrush>
+    <SolidColorBrush x:Key="ViewerSurfaceAltBrush">#FFF4F6F9</SolidColorBrush>
+    <SolidColorBrush x:Key="ViewerStageBrush">#FFEFF2F6</SolidColorBrush>
+    <SolidColorBrush x:Key="ViewerBorderBrush">#FFD2D8E2</SolidColorBrush>
+    <SolidColorBrush x:Key="ViewerBorderStrongBrush">#FFBDC6D4</SolidColorBrush>
+    <SolidColorBrush x:Key="ViewerAccentBrush">#FF0F6CBD</SolidColorBrush>
+    <SolidColorBrush x:Key="ViewerAccentPressedBrush">#FF0B5EA6</SolidColorBrush>
+    <SolidColorBrush x:Key="ViewerAccentSoftBrush">#FFE8F1FB</SolidColorBrush>
+    <SolidColorBrush x:Key="ViewerTextBrush">#FF1B1B1F</SolidColorBrush>
+    <SolidColorBrush x:Key="ViewerTextMutedBrush">#FF5E6470</SolidColorBrush>
+    <SolidColorBrush x:Key="ViewerHoverBrush">#FFF0F3F7</SolidColorBrush>
+    <SolidColorBrush x:Key="ViewerPressedBrush">#FFE6EBF2</SolidColorBrush>
+
+    <ControlTheme x:Key="ViewerPaneTabControlTheme"
+                TargetType="TabControl">
+    <Setter Property="Background" Value="{DynamicResource ViewerSurfaceBrush}" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="{TemplateBinding Background}"
+                ClipToBounds="True">
+          <DockPanel>
+            <Border DockPanel.Dock="Top"
+                    Background="{DynamicResource ViewerChromeBrush}"
+                    BorderBrush="{DynamicResource ViewerBorderBrush}"
+                    BorderThickness="0,0,0,1"
+                    Padding="8,0,8,0">
+              <ItemsPresenter Name="PART_ItemsPresenter"
+                              ItemsPanel="{TemplateBinding ItemsPanel}" />
+            </Border>
+            <Border Background="{DynamicResource ViewerSurfaceBrush}">
+              <ContentPresenter Name="PART_SelectedContentHost"
+                                Content="{TemplateBinding SelectedContent}"
+                                ContentTemplate="{TemplateBinding SelectedContentTemplate}"
+                                HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+            </Border>
+          </DockPanel>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+    </ControlTheme>
+
+    <ControlTheme x:Key="ViewerPaneTabItemTheme"
+                TargetType="TabItem">
+    <Setter Property="Foreground" Value="{DynamicResource ViewerTextMutedBrush}" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Padding" Value="10,8" />
+    <Setter Property="Margin" Value="0,0,2,0" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Name="PART_ViewerTabRoot"
+                Background="{TemplateBinding Background}"
+                BorderBrush="Transparent"
+                BorderThickness="0,0,0,2"
+                Padding="{TemplateBinding Padding}">
+          <ContentPresenter Content="{TemplateBinding Header}"
+                            ContentTemplate="{TemplateBinding HeaderTemplate}" />
+        </Border>
+      </ControlTemplate>
+    </Setter>
+
+    <Style Selector="^:pointerover /template/ Border#PART_ViewerTabRoot">
+      <Setter Property="Background" Value="{DynamicResource ViewerHoverBrush}" />
+    </Style>
+    <Style Selector="^:selected">
+      <Setter Property="Foreground" Value="{DynamicResource ViewerTextBrush}" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="^:selected /template/ Border#PART_ViewerTabRoot">
+      <Setter Property="BorderBrush" Value="{DynamicResource ViewerAccentBrush}" />
+    </Style>
+    </ControlTheme>
+
+    <ControlTheme x:Key="ViewerActionButtonTheme"
+                TargetType="Button">
+    <Setter Property="Background" Value="{DynamicResource ViewerSurfaceBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource ViewerTextBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ViewerBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="2" />
+    <Setter Property="Padding" Value="10,5" />
+    <Setter Property="MinHeight" Value="30" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Name="PART_ViewerButtonRoot"
+                Background="{TemplateBinding Background}"
+                BorderBrush="{TemplateBinding BorderBrush}"
+                BorderThickness="{TemplateBinding BorderThickness}"
+                CornerRadius="{TemplateBinding CornerRadius}">
+          <ContentPresenter Content="{TemplateBinding Content}"
+                            ContentTemplate="{TemplateBinding ContentTemplate}"
+                            Padding="{TemplateBinding Padding}"
+                            HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                            VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+        </Border>
+      </ControlTemplate>
+    </Setter>
+
+    <Style Selector="^:pointerover /template/ Border#PART_ViewerButtonRoot">
+      <Setter Property="Background" Value="{DynamicResource ViewerHoverBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ViewerBorderStrongBrush}" />
+    </Style>
+    <Style Selector="^:pressed /template/ Border#PART_ViewerButtonRoot">
+      <Setter Property="Background" Value="{DynamicResource ViewerPressedBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ViewerBorderStrongBrush}" />
+    </Style>
+    </ControlTheme>
+
+    <ControlTheme x:Key="ViewerPrimaryActionButtonTheme"
+                TargetType="Button"
+                BasedOn="{StaticResource ViewerActionButtonTheme}">
+    <Setter Property="Background" Value="{DynamicResource ViewerAccentBrush}" />
+    <Setter Property="Foreground" Value="#FFFFFFFF" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ViewerAccentBrush}" />
+
+    <Style Selector="^:pointerover /template/ Border#PART_ViewerButtonRoot">
+      <Setter Property="Background" Value="{DynamicResource ViewerAccentPressedBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ViewerAccentPressedBrush}" />
+    </Style>
+    </ControlTheme>
+  </Styles.Resources>
+
   <Style Selector="Border.viewer-toolbar">
-    <Setter Property="Padding" Value="10" />
-    <Setter Property="Background" Value="#F9FBFD" />
-    <Setter Property="BorderBrush" Value="#D6E0EB" />
+    <Setter Property="Padding" Value="8,6,10,6" />
+    <Setter Property="Background" Value="{DynamicResource ViewerChromeBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ViewerBorderBrush}" />
     <Setter Property="BorderThickness" Value="0,0,0,1" />
   </Style>
 
-  <Style Selector="Button.viewer-tool-button">
-    <Setter Property="Padding" Value="12,8" />
-    <Setter Property="MinHeight" Value="34" />
-  </Style>
-
-  <Style Selector="Button.viewer-tool-button-primary">
-    <Setter Property="Background" Value="#115EA3" />
-    <Setter Property="Foreground" Value="White" />
-    <Setter Property="BorderBrush" Value="#0F548C" />
-  </Style>
-
-  <Style Selector="Button.viewer-list-button">
-    <Setter Property="Padding" Value="8,6" />
-  </Style>
-
-  <Style Selector="Border.viewer-status-pill">
-    <Setter Property="Padding" Value="10,6" />
-    <Setter Property="CornerRadius" Value="999" />
-    <Setter Property="Background" Value="#EEF3F9" />
-    <Setter Property="BorderBrush" Value="#D6E0EB" />
-    <Setter Property="BorderThickness" Value="1" />
-  </Style>
-
   <Style Selector="Border.viewer-sidebar">
-    <Setter Property="Padding" Value="12" />
-    <Setter Property="Background" Value="#FBFCFE" />
-    <Setter Property="BorderBrush" Value="#D6E0EB" />
+    <Setter Property="Background" Value="{DynamicResource ViewerSurfaceBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ViewerBorderBrush}" />
     <Setter Property="BorderThickness" Value="0,0,1,0" />
   </Style>
 
   <Style Selector="GridSplitter.viewer-splitter">
-    <Setter Property="Width" Value="6" />
+    <Setter Property="Width" Value="5" />
     <Setter Property="Background" Value="#00000000" />
   </Style>
 
   <Style Selector="GridSplitter.viewer-splitter:pointerover">
-    <Setter Property="Background" Value="#D9E6F4" />
+    <Setter Property="Background" Value="#FFD5E4F7" />
   </Style>
 
   <Style Selector="Border.viewer-preview">
-    <Setter Property="Padding" Value="14" />
-    <Setter Property="Background" Value="#F3F6FA" />
+    <Setter Property="Background" Value="{DynamicResource ViewerStageBrush}" />
   </Style>
 
   <Style Selector="Border.viewer-card">
-    <Setter Property="Padding" Value="10" />
-    <Setter Property="Margin" Value="0,0,0,8" />
-    <Setter Property="CornerRadius" Value="10" />
-    <Setter Property="Background" Value="#FFFFFF" />
-    <Setter Property="BorderBrush" Value="#D6E0EB" />
+    <Setter Property="Padding" Value="8" />
+    <Setter Property="Margin" Value="0,0,0,6" />
+    <Setter Property="Background" Value="{DynamicResource ViewerSurfaceBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ViewerBorderBrush}" />
     <Setter Property="BorderThickness" Value="1" />
   </Style>
 
   <Style Selector="TextBlock.viewer-label">
     <Setter Property="FontWeight" Value="SemiBold" />
-    <Setter Property="Foreground" Value="#172B45" />
+    <Setter Property="Foreground" Value="{DynamicResource ViewerTextBrush}" />
   </Style>
 
   <Style Selector="TextBlock.viewer-helper">
     <Setter Property="FontSize" Value="11" />
-    <Setter Property="Foreground" Value="#61758D" />
+    <Setter Property="Foreground" Value="{DynamicResource ViewerTextMutedBrush}" />
+  </Style>
+
+  <Style Selector="TextBox.viewer-editor">
+    <Setter Property="Padding" Value="8,5" />
+    <Setter Property="Background" Value="{DynamicResource ViewerSurfaceBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ViewerBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+
+  <Style Selector="ComboBox.viewer-editor">
+    <Setter Property="Background" Value="{DynamicResource ViewerSurfaceBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ViewerBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="MinHeight" Value="30" />
+  </Style>
+
+  <Style Selector="Border.viewer-status-pill">
+    <Setter Property="Padding" Value="8,4" />
+    <Setter Property="CornerRadius" Value="999" />
+    <Setter Property="Background" Value="{DynamicResource ViewerAccentSoftBrush}" />
+    <Setter Property="BorderBrush" Value="#FFC8DBEF" />
+    <Setter Property="BorderThickness" Value="1" />
   </Style>
 
   <Style Selector="Border.viewer-page-shell">
-    <Setter Property="Padding" Value="18" />
-    <Setter Property="Background" Value="#FFFFFF" />
-    <Setter Property="CornerRadius" Value="12" />
-    <Setter Property="BorderBrush" Value="#CCD9E6" />
+    <Setter Property="Padding" Value="20" />
+    <Setter Property="Background" Value="{DynamicResource ViewerSurfaceBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ViewerBorderStrongBrush}" />
     <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="BoxShadow" Value="0 16 34 0 #180F172A" />
+    <Setter Property="BoxShadow" Value="0 10 24 0 #1A000000" />
   </Style>
 
   <Style Selector="ListBox.viewer-thumbnails">
     <Setter Property="HorizontalAlignment" Value="Stretch" />
-    <Setter Property="Padding" Value="0" />
+    <Setter Property="Padding" Value="8,0,8,8" />
+    <Setter Property="Background" Value="{DynamicResource ViewerChromeBrush}" />
   </Style>
 
   <Style Selector="Border.viewer-thumbnail">
-    <Setter Property="Padding" Value="10" />
-    <Setter Property="Margin" Value="0,0,10,0" />
-    <Setter Property="CornerRadius" Value="8" />
-    <Setter Property="Background" Value="#FFFFFF" />
-    <Setter Property="BorderBrush" Value="#D6E0EB" />
+    <Setter Property="Padding" Value="8" />
+    <Setter Property="Margin" Value="0,0,8,0" />
+    <Setter Property="Background" Value="{DynamicResource ViewerSurfaceBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ViewerBorderBrush}" />
     <Setter Property="BorderThickness" Value="1" />
-  </Style>
-
-  <Style Selector="TabControl.viewer-pane-tabs TabItem">
-    <Setter Property="Padding" Value="10,8" />
   </Style>
 </Styles>
