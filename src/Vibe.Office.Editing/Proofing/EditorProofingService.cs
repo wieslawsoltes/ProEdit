@@ -454,24 +454,29 @@ public sealed class EditorProofingService : IProofingService, IProofingSpanProvi
         var cts = new CancellationTokenSource();
         _grammarCts = cts;
 
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                if (paragraphIndex.HasValue)
+        _ = Task.Factory.StartNew(
+                async () =>
                 {
-                    await RefreshGrammarForParagraphAsync(paragraphIndex.Value, force, cts.Token);
-                }
-                else
-                {
-                    await RefreshGrammarForAllAsync(force, cts.Token);
-                }
-            }
-            catch (OperationCanceledException)
-            {
-                // ignore
-            }
-        }, cts.Token);
+                    try
+                    {
+                        if (paragraphIndex.HasValue)
+                        {
+                            await RefreshGrammarForParagraphAsync(paragraphIndex.Value, force, cts.Token).ConfigureAwait(false);
+                        }
+                        else
+                        {
+                            await RefreshGrammarForAllAsync(force, cts.Token).ConfigureAwait(false);
+                        }
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        // ignore
+                    }
+                },
+                cts.Token,
+                TaskCreationOptions.DenyChildAttach | TaskCreationOptions.LongRunning,
+                TaskScheduler.Default)
+            .Unwrap();
     }
 
     private async Task RefreshGrammarForAllAsync(bool force, CancellationToken cancellationToken)
@@ -884,6 +889,40 @@ public sealed class EditorProofingService : IProofingService, IProofingSpanProvi
         }
     }
 
+    private void RefreshCurrentParagraphImmediatelyIfPossible()
+    {
+        if (_syncContext is not null || !_isEnabled || !_spellingEnabled)
+        {
+            return;
+        }
+
+        var paragraphCount = _session.Document.ParagraphCount;
+        if (paragraphCount <= 0)
+        {
+            return;
+        }
+
+        var paragraphIndex = Math.Clamp(_session.Caret.ParagraphIndex, 0, paragraphCount - 1);
+        RefreshParagraph(paragraphIndex);
+    }
+
+    private void RefreshCurrentParagraphGrammarImmediatelyIfPossible(bool force)
+    {
+        if (_syncContext is not null || !_isEnabled)
+        {
+            return;
+        }
+
+        var paragraphCount = _session.Document.ParagraphCount;
+        if (paragraphCount <= 0)
+        {
+            return;
+        }
+
+        var paragraphIndex = Math.Clamp(_session.Caret.ParagraphIndex, 0, paragraphCount - 1);
+        RefreshGrammarForParagraphAsync(paragraphIndex, force, CancellationToken.None).GetAwaiter().GetResult();
+    }
+
     public void SetEnabled(bool enabled)
     {
         if (_isEnabled == enabled)
@@ -933,11 +972,25 @@ public sealed class EditorProofingService : IProofingService, IProofingSpanProvi
 
         if (_spellingEnabled)
         {
-            ScheduleRefresh(_session.Caret.ParagraphIndex);
+            if (_syncContext is null)
+            {
+                RefreshCurrentParagraphImmediatelyIfPossible();
+            }
+            else
+            {
+                ScheduleRefresh(_session.Caret.ParagraphIndex);
+            }
         }
         else
         {
-            ScheduleGrammarRefresh(_session.Caret.ParagraphIndex, force: true);
+            if (_syncContext is null)
+            {
+                RefreshCurrentParagraphGrammarImmediatelyIfPossible(force: true);
+            }
+            else
+            {
+                ScheduleGrammarRefresh(_session.Caret.ParagraphIndex, force: true);
+            }
         }
     }
 
@@ -959,7 +1012,14 @@ public sealed class EditorProofingService : IProofingService, IProofingSpanProvi
                 _isEnabled = true;
             }
 
-            ScheduleRefresh(_session.Caret.ParagraphIndex);
+            if (_syncContext is null)
+            {
+                RefreshCurrentParagraphImmediatelyIfPossible();
+            }
+            else
+            {
+                ScheduleRefresh(_session.Caret.ParagraphIndex);
+            }
             return;
         }
 
@@ -995,7 +1055,14 @@ public sealed class EditorProofingService : IProofingService, IProofingSpanProvi
                 _isEnabled = true;
             }
 
-            ScheduleGrammarRefresh(_session.Caret.ParagraphIndex, force: true);
+            if (_syncContext is null)
+            {
+                RefreshCurrentParagraphGrammarImmediatelyIfPossible(force: true);
+            }
+            else
+            {
+                ScheduleGrammarRefresh(_session.Caret.ParagraphIndex, force: true);
+            }
             return;
         }
 
@@ -1031,7 +1098,14 @@ public sealed class EditorProofingService : IProofingService, IProofingSpanProvi
                 _isEnabled = true;
             }
 
-            ScheduleGrammarRefresh(_session.Caret.ParagraphIndex, force: true);
+            if (_syncContext is null)
+            {
+                RefreshCurrentParagraphGrammarImmediatelyIfPossible(force: true);
+            }
+            else
+            {
+                ScheduleGrammarRefresh(_session.Caret.ParagraphIndex, force: true);
+            }
             return;
         }
 
