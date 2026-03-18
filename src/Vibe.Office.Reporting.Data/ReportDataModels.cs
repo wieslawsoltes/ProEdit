@@ -618,4 +618,71 @@ public sealed class ReportHostDataRegistry
         ArgumentException.ThrowIfNullOrWhiteSpace(key);
         return _httpClients.TryGetValue(key, out httpClient!);
     }
+
+    /// <summary>
+    /// Lists the registered in-memory source keys.
+    /// </summary>
+    /// <returns>The source keys.</returns>
+    public IReadOnlyList<string> ListInMemorySourceKeys()
+    {
+        return _inMemorySources.Keys
+            .OrderBy(static value => value, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    /// <summary>
+    /// Lists the registered JSON source keys.
+    /// </summary>
+    /// <returns>The source keys.</returns>
+    public IReadOnlyList<string> ListJsonSourceKeys()
+    {
+        return _jsonSources.Keys
+            .OrderBy(static value => value, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    /// <summary>
+    /// Lists the registered CSV source keys.
+    /// </summary>
+    /// <returns>The source keys.</returns>
+    public IReadOnlyList<string> ListCsvSourceKeys()
+    {
+        return _csvSources.Keys
+            .OrderBy(static value => value, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    /// <summary>
+    /// Lists the registered SQL connector keys.
+    /// </summary>
+    /// <returns>The connector keys.</returns>
+    public IReadOnlyList<string> ListSqlConnectorKeys()
+    {
+        return _sqlConnectors.Keys
+            .OrderBy(static value => value, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    /// <summary>
+    /// Lists the registered named connections.
+    /// </summary>
+    /// <returns>The connection definitions.</returns>
+    public IReadOnlyList<ReportConnectionDefinition> ListConnections()
+    {
+        return _connections.Values
+            .Select(static connection => connection.Clone())
+            .OrderBy(static connection => connection.DisplayName ?? connection.Name, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    /// <summary>
+    /// Lists the registered named HTTP clients.
+    /// </summary>
+    /// <returns>The client keys.</returns>
+    public IReadOnlyList<string> ListHttpClientKeys()
+    {
+        return _httpClients.Keys
+            .OrderBy(static value => value, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
 }

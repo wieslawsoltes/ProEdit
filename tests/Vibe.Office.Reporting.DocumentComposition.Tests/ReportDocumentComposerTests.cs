@@ -259,6 +259,547 @@ public sealed class ReportDocumentComposerTests
         Assert.Equal("Alice", ContentControlValueResolver.ResolveContentControlValue(controlStart.Properties, result.Document));
     }
 
+    [Fact]
+    public async Task ComposeAsync_DoesNotOverGrowExactFitTwoWordLabel()
+    {
+        var report = new MaterializedReport
+        {
+            Id = "invoice-labels",
+            Name = "Invoice Labels",
+            DefaultFontFamily = "Segoe UI",
+            Sections =
+            {
+                new MaterializedReportSection
+                {
+                    Id = "main",
+                    Name = "Main",
+                    BodyItems =
+                    {
+                        new MaterializedTextReportItem
+                        {
+                            SourceItemId = "payment-reference",
+                            Name = "PaymentReference",
+                            Text = "Payment reference",
+                            Bounds = new ReportItemBounds(0f, 0f, 94.5f, 15.1f),
+                            CanGrow = true,
+                            Style = new MaterializedReportStyle
+                            {
+                                FontSize = 11.338582f
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        var composer = new ReportDocumentComposer();
+        var result = await composer.ComposeAsync(new ReportDocumentCompositionRequest
+        {
+            MaterializedReport = report
+        });
+
+        Assert.False(result.HasErrors);
+        var anchor = Assert.Single(result.Document!.Blocks.OfType<ParagraphBlock>());
+        var shape = Assert.IsType<ShapeInline>(Assert.Single(anchor.FloatingObjects).Content);
+        Assert.Equal(94.5f, shape.Width, 3);
+        Assert.Equal(15.1f, shape.Height, 3);
+    }
+
+    [Fact]
+    public async Task ComposeAsync_AppliesRichStylesZOrderAndTablixPageBreaks()
+    {
+        var report = new MaterializedReport
+        {
+            Sections =
+            {
+                new MaterializedReportSection
+                {
+                    Id = "main",
+                    Name = "Main",
+                    BodyItems =
+                    {
+                        new MaterializedTextReportItem
+                        {
+                            SourceItemId = "styled",
+                            Name = "Styled",
+                            Bounds = new ReportItemBounds(0f, 0f, 180f, 30f),
+                            ZIndex = 7,
+                            Text = "Styled",
+                            Style = new MaterializedReportStyle
+                            {
+                                PaddingLeft = 8f,
+                                PaddingTop = 6f,
+                                PaddingRight = 4f,
+                                PaddingBottom = 2f,
+                                VerticalAlign = ReportVerticalAlignment.Middle,
+                                TextDecoration = ReportTextDecoration.Underline,
+                                Border = new MaterializedReportBorder
+                                {
+                                    Style = ReportBorderLineStyle.None
+                                },
+                                TopBorder = new MaterializedReportBorder
+                                {
+                                    Style = ReportBorderLineStyle.Solid,
+                                    Width = 1f,
+                                    Color = "Black"
+                                }
+                            }
+                        },
+                        new MaterializedTablixReportItem
+                        {
+                            SourceItemId = "tablix",
+                            Name = "Tablix",
+                            Bounds = new ReportItemBounds(0f, 60f, 240f, 160f),
+                            RepeatHeaderRows = true,
+                            Columns =
+                            {
+                                new MaterializedTablixColumn
+                                {
+                                    Id = "col1",
+                                    Width = 120f
+                                }
+                            },
+                            Rows =
+                            {
+                                new MaterializedTablixRow
+                                {
+                                    IsHeader = true,
+                                    Cells =
+                                    {
+                                        new MaterializedTablixCell { Text = "Region" }
+                                    }
+                                },
+                                new MaterializedTablixRow
+                                {
+                                    Cells =
+                                    {
+                                        new MaterializedTablixCell
+                                        {
+                                            Text = "West",
+                                            Style = new MaterializedReportStyle
+                                            {
+                                                PaddingLeft = 10f,
+                                                PaddingTop = 6f,
+                                                PaddingRight = 4f,
+                                                PaddingBottom = 2f,
+                                                VerticalAlign = ReportVerticalAlignment.Bottom,
+                                                Border = new MaterializedReportBorder
+                                                {
+                                                    Style = ReportBorderLineStyle.Solid,
+                                                    Width = 1f,
+                                                    Color = "Black"
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                new MaterializedTablixRow
+                                {
+                                    PageBreakBefore = true,
+                                    Cells =
+                                    {
+                                        new MaterializedTablixCell
+                                        {
+                                            Text = "East"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        var composer = new ReportDocumentComposer();
+        var result = await composer.ComposeAsync(new ReportDocumentCompositionRequest
+        {
+            MaterializedReport = report
+        });
+
+        Assert.False(result.HasErrors);
+        var document = Assert.IsType<Document>(result.Document);
+
+        var anchor = Assert.Single(document.Blocks.OfType<ParagraphBlock>(), static paragraph => paragraph.FloatingObjects.Count > 0);
+        var floating = Assert.Single(anchor.FloatingObjects);
+        var textShape = Assert.IsType<ShapeInline>(floating.Content);
+        Assert.Equal(7u, floating.Anchor.ZOrder);
+        Assert.Equal(new Vibe.Office.Primitives.DocThickness(8f, 6f, 4f, 2f), textShape.TextBox!.Properties.Padding);
+        Assert.Equal(ShapeTextVerticalAlignment.Center, textShape.TextBox.Properties.VerticalAlignment);
+
+        var tableBlocks = document.Blocks.OfType<TableBlock>().ToList();
+        Assert.Equal(2, tableBlocks.Count);
+        Assert.Contains(document.Blocks, static block => block is PageBreakBlock);
+        Assert.Equal(new Vibe.Office.Primitives.DocThickness(10f, 6f, 4f, 2f), tableBlocks[0].Rows[1].Cells[0].Properties.Padding!.Value);
+        Assert.Equal(TableCellVerticalAlignment.Bottom, tableBlocks[0].Rows[1].Cells[0].Properties.VerticalAlignment);
+    }
+
+    [Fact]
+    public async Task ComposeAsync_ReflowsCanGrowTextAndConsumesContainerWhitespace()
+    {
+        var report = new MaterializedReport
+        {
+            ConsumeContainerWhitespace = true,
+            Sections =
+            {
+                new MaterializedReportSection
+                {
+                    Id = "main",
+                    Name = "Main",
+                    BodyItems =
+                    {
+                        new MaterializedContainerReportItem
+                        {
+                            SourceItemId = "header",
+                            Name = "Header",
+                            Bounds = new ReportItemBounds(0f, 0f, 220f, 48f),
+                            Items =
+                            {
+                                new MaterializedTextReportItem
+                                {
+                                    SourceItemId = "title",
+                                    Name = "Title",
+                                    Bounds = new ReportItemBounds(0f, 0f, 90f, 12f),
+                                    Text = "Contoso invoice heading with a long wrapped title",
+                                    CanGrow = true,
+                                    Style = new MaterializedReportStyle
+                                    {
+                                        FontSize = 12f,
+                                        PaddingLeft = 2f,
+                                        PaddingRight = 2f,
+                                        PaddingTop = 2f,
+                                        PaddingBottom = 2f
+                                    }
+                                },
+                                new MaterializedTextReportItem
+                                {
+                                    SourceItemId = "address",
+                                    Name = "Address",
+                                    Bounds = new ReportItemBounds(0f, 18f, 90f, 12f),
+                                    Text = "123 Violet Road",
+                                    CanGrow = true,
+                                    Style = new MaterializedReportStyle
+                                    {
+                                        FontSize = 12f
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        var composer = new ReportDocumentComposer();
+        var result = await composer.ComposeAsync(new ReportDocumentCompositionRequest
+        {
+            MaterializedReport = report
+        });
+
+        Assert.False(result.HasErrors);
+        var document = Assert.IsType<Document>(result.Document);
+        var outerAnchor = Assert.Single(document.Blocks.OfType<ParagraphBlock>(), static paragraph => paragraph.FloatingObjects.Count > 0);
+        var outerShape = Assert.IsType<ShapeInline>(Assert.Single(outerAnchor.FloatingObjects).Content);
+        Assert.True(outerShape.Height > 48f);
+
+        var innerAnchor = Assert.Single(outerShape.TextBox!.Blocks.OfType<ParagraphBlock>(), static paragraph => paragraph.FloatingObjects.Count > 0);
+        Assert.Equal(2, innerAnchor.FloatingObjects.Count);
+
+        var firstTextShape = Assert.IsType<ShapeInline>(innerAnchor.FloatingObjects[0].Content);
+        var secondTextShape = Assert.IsType<ShapeInline>(innerAnchor.FloatingObjects[1].Content);
+        Assert.True(firstTextShape.Height > 12f);
+        Assert.True(innerAnchor.FloatingObjects[1].Anchor.OffsetY >= 18f);
+        Assert.Equal(ShapeTextOverflow.Clip, secondTextShape.TextBox!.Properties.VerticalOverflow);
+    }
+
+    [Fact]
+    public async Task ComposeAsync_ReservesRdlHeaderFooterBandsAndGrowsNestedCellContainers()
+    {
+        var report = new MaterializedReport
+        {
+            Sections =
+            {
+                new MaterializedReportSection
+                {
+                    Id = "invoice",
+                    Name = "Invoice",
+                    PageSettings = new ReportPageSettings
+                    {
+                        Width = 816f,
+                        Height = 1056f,
+                        MarginLeft = 0f,
+                        MarginTop = 0f,
+                        MarginRight = 0f,
+                        MarginBottom = 0f,
+                        HeaderHeight = 96f,
+                        FooterHeight = 48f
+                    },
+                    HeaderItems =
+                    {
+                        new MaterializedTextReportItem
+                        {
+                            SourceItemId = "header-title",
+                            Name = "Header Title",
+                            Bounds = new ReportItemBounds(24f, 12f, 180f, 18f),
+                            Text = "Header"
+                        }
+                    },
+                    FooterItems =
+                    {
+                        new MaterializedTextReportItem
+                        {
+                            SourceItemId = "footer-title",
+                            Name = "Footer Title",
+                            Bounds = new ReportItemBounds(24f, 12f, 180f, 18f),
+                            Text = "Footer"
+                        }
+                    },
+                    BodyItems =
+                    {
+                        new MaterializedTablixReportItem
+                        {
+                            SourceItemId = "outer-tablix",
+                            Name = "Outer Tablix",
+                            Columns =
+                            {
+                                new MaterializedTablixColumn
+                                {
+                                    Id = "col1",
+                                    Width = 320f
+                                }
+                            },
+                            Rows =
+                            {
+                                new MaterializedTablixRow
+                                {
+                                    Height = 24f,
+                                    Cells =
+                                    {
+                                        new MaterializedTablixCell
+                                        {
+                                            Content = new MaterializedContainerReportItem
+                                            {
+                                                SourceItemId = "detail-container",
+                                                Name = "Detail Container",
+                                                Bounds = new ReportItemBounds(0f, 0f, 320f, 24f),
+                                                Items =
+                                                {
+                                                    new MaterializedTablixReportItem
+                                                    {
+                                                        SourceItemId = "inner-tablix",
+                                                        Name = "Inner Tablix",
+                                                        Bounds = new ReportItemBounds(0f, 0f, 320f, 24f),
+                                                        Columns =
+                                                        {
+                                                            new MaterializedTablixColumn
+                                                            {
+                                                                Id = "inner-col1",
+                                                                Width = 320f
+                                                            }
+                                                        },
+                                                        Rows =
+                                                        {
+                                                            new MaterializedTablixRow
+                                                            {
+                                                                Height = 20f,
+                                                                Cells =
+                                                                {
+                                                                    new MaterializedTablixCell { Text = "Line 1" }
+                                                                }
+                                                            },
+                                                            new MaterializedTablixRow
+                                                            {
+                                                                Height = 20f,
+                                                                Cells =
+                                                                {
+                                                                    new MaterializedTablixCell { Text = "Line 2" }
+                                                                }
+                                                            },
+                                                            new MaterializedTablixRow
+                                                            {
+                                                                Height = 20f,
+                                                                Cells =
+                                                                {
+                                                                    new MaterializedTablixCell { Text = "Line 3" }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        var composer = new ReportDocumentComposer();
+        var result = await composer.ComposeAsync(new ReportDocumentCompositionRequest
+        {
+            MaterializedReport = report
+        });
+
+        Assert.False(result.HasErrors);
+        var document = Assert.IsType<Document>(result.Document);
+        Assert.Equal(96f, document.SectionProperties.MarginTop);
+        Assert.Equal(48f, document.SectionProperties.MarginBottom);
+        Assert.Equal(0f, document.SectionProperties.HeaderOffset);
+        Assert.Equal(0f, document.SectionProperties.FooterOffset);
+
+        var table = Assert.Single(document.Blocks.OfType<TableBlock>());
+        var cellParagraph = Assert.IsType<ParagraphBlock>(Assert.Single(table.Rows[0].Cells[0].Blocks));
+        var containerShape = Assert.IsType<ShapeInline>(Assert.Single(cellParagraph.Inlines));
+        Assert.True(containerShape.Height >= 60f, $"Expected nested container to grow beyond its original placeholder height, but was {containerShape.Height}.");
+    }
+
+    [Fact]
+    public async Task ComposeAsync_PositionsEmbeddedSubreportAtPlaceholderAndReflowsFollowingItems()
+    {
+        var nestedReport = new MaterializedReport
+        {
+            Id = "detail",
+            Name = "Detail",
+            Sections =
+            {
+                new MaterializedReportSection
+                {
+                    Id = "detail-section",
+                    Name = "Detail Section",
+                    BodyItems =
+                    {
+                        new MaterializedTextReportItem
+                        {
+                            SourceItemId = "nested-title",
+                            Name = "Nested Title",
+                            Text = "Regional Detail: Central",
+                            Bounds = new ReportItemBounds(24f, 24f, 180f, 20f)
+                        },
+                        new MaterializedTextReportItem
+                        {
+                            SourceItemId = "nested-body",
+                            Name = "Nested Body",
+                            Text = "Q1 Revenue",
+                            Bounds = new ReportItemBounds(24f, 108f, 180f, 24f)
+                        }
+                    }
+                }
+            }
+        };
+
+        var report = new MaterializedReport
+        {
+            Id = "overview",
+            Name = "Overview",
+            Sections =
+            {
+                new MaterializedReportSection
+                {
+                    Id = "main",
+                    Name = "Main",
+                    BodyItems =
+                    {
+                        new MaterializedSubreportReportItem
+                        {
+                            SourceItemId = "detail-host",
+                            Name = "Detail Host",
+                            Bounds = new ReportItemBounds(528f, 274f, 220f, 96f),
+                            Report = nestedReport
+                        },
+                        new MaterializedTextReportItem
+                        {
+                            SourceItemId = "after-subreport",
+                            Name = "After Subreport",
+                            Text = "Revenue Table",
+                            Bounds = new ReportItemBounds(528f, 390f, 220f, 24f)
+                        }
+                    }
+                }
+            }
+        };
+
+        var composer = new ReportDocumentComposer();
+        var result = await composer.ComposeAsync(new ReportDocumentCompositionRequest
+        {
+            MaterializedReport = report
+        });
+
+        Assert.False(result.HasErrors);
+        var document = Assert.IsType<Document>(result.Document);
+        var floatingObjects = document.Blocks
+            .OfType<ParagraphBlock>()
+            .SelectMany(static paragraph => paragraph.FloatingObjects)
+            .ToList();
+
+        var nestedTitle = Assert.Single(floatingObjects, static floating => GetFloatingText(floating).Contains("Regional Detail: Central", StringComparison.Ordinal));
+        var nestedBody = Assert.Single(floatingObjects, static floating => GetFloatingText(floating).Contains("Q1 Revenue", StringComparison.Ordinal));
+        var afterSubreport = Assert.Single(floatingObjects, static floating => GetFloatingText(floating).Contains("Revenue Table", StringComparison.Ordinal));
+
+        Assert.Equal(552f, nestedTitle.Anchor.OffsetX, 3);
+        Assert.Equal(298f, nestedTitle.Anchor.OffsetY, 3);
+        Assert.Equal(552f, nestedBody.Anchor.OffsetX, 3);
+        Assert.Equal(382f, nestedBody.Anchor.OffsetY, 3);
+        Assert.True(afterSubreport.Anchor.OffsetY >= 426f, $"Expected following content to be pushed below the embedded subreport, but was {afterSubreport.Anchor.OffsetY}.");
+    }
+
+    [Fact]
+    public async Task ComposeAsync_AnchorsNestedContainerContentToContainerParagraphAndAllowsOverflow()
+    {
+        var report = new MaterializedReport
+        {
+            Sections =
+            {
+                new MaterializedReportSection
+                {
+                    Id = "main",
+                    Name = "Main",
+                    HeaderItems =
+                    {
+                        new MaterializedContainerReportItem
+                        {
+                            SourceItemId = "header-container",
+                            Name = "Header Container",
+                            Bounds = new ReportItemBounds(0f, 0f, 240f, 40f),
+                            Items =
+                            {
+                                new MaterializedTextReportItem
+                                {
+                                    SourceItemId = "header-text",
+                                    Name = "Header Text",
+                                    Bounds = new ReportItemBounds(12f, 8f, 160f, 18f),
+                                    Text = "Invoice Header"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        var composer = new ReportDocumentComposer();
+        var result = await composer.ComposeAsync(new ReportDocumentCompositionRequest
+        {
+            MaterializedReport = report
+        });
+
+        Assert.False(result.HasErrors);
+        var document = Assert.IsType<Document>(result.Document);
+        var headerParagraph = Assert.Single(document.Header.Blocks.OfType<ParagraphBlock>());
+        var headerShape = Assert.IsType<ShapeInline>(Assert.Single(headerParagraph.FloatingObjects).Content);
+        Assert.Equal(ShapeTextOverflow.Overflow, headerShape.TextBox!.Properties.HorizontalOverflow);
+        Assert.Equal(ShapeTextOverflow.Overflow, headerShape.TextBox.Properties.VerticalOverflow);
+
+        var nestedAnchor = Assert.Single(headerShape.TextBox.Blocks.OfType<ParagraphBlock>(), static paragraph => paragraph.FloatingObjects.Count > 0);
+        var nestedFloating = Assert.Single(nestedAnchor.FloatingObjects);
+        Assert.Equal(FloatingHorizontalReference.Paragraph, nestedFloating.Anchor.HorizontalReference);
+        Assert.Equal(FloatingVerticalReference.Paragraph, nestedFloating.Anchor.VerticalReference);
+        Assert.Equal(12f, nestedFloating.Anchor.OffsetX);
+        Assert.Equal(8f, nestedFloating.Anchor.OffsetY);
+    }
+
     private static string GetDocumentText(Document document)
     {
         var builder = new System.Text.StringBuilder();
@@ -337,6 +878,13 @@ public sealed class ReportDocumentComposerTests
     {
         return paragraph.Inlines.Any(static inline => inline is BookmarkStartInline)
                || EnumerateFloatingInlines(paragraph).Any(static inline => inline is BookmarkStartInline);
+    }
+
+    private static string GetFloatingText(FloatingObject floating)
+    {
+        var builder = new System.Text.StringBuilder();
+        AppendFloatingText(floating, builder);
+        return builder.ToString();
     }
 
     private static void AppendFloatingText(FloatingObject floating, System.Text.StringBuilder builder)

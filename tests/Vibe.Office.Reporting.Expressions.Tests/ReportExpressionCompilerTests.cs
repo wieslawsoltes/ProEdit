@@ -181,4 +181,46 @@ public sealed class ReportExpressionCompilerTests
         var value = compilation.Expression!.Evaluate(context);
         Assert.Equal("Northwest:neg", Assert.IsType<string>(value));
     }
+
+    [Fact]
+    public void Compile_EvaluatesNamedScopeAggregatesUsedByRdlStyleExpressions()
+    {
+        var compiler = new ReportExpressionCompiler();
+        var compilation = compiler.Compile("First(Fields.PrimaryColor, 'Company')");
+
+        Assert.False(compilation.HasErrors);
+        Assert.NotNull(compilation.Expression);
+
+        var context = new ReportExpressionContext
+        {
+            Fields = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["InvoiceId"] = "000007-1"
+            },
+            ScopeRows =
+            [
+                new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["InvoiceId"] = "000007-1"
+                }
+            ],
+            NamedScopes = new Dictionary<string, IReadOnlyList<IReadOnlyDictionary<string, object?>>>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["Company"] =
+                [
+                    new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["PrimaryColor"] = "Brown",
+                        ["SecondaryColor"] = "Tan"
+                    }
+                ]
+            },
+            Culture = InvariantCulture,
+            UiCulture = InvariantCulture,
+            TimeZone = TimeZoneInfo.Utc
+        };
+
+        var value = compilation.Expression!.Evaluate(context);
+        Assert.Equal("Brown", Assert.IsType<string>(value));
+    }
 }

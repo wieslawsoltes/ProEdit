@@ -138,12 +138,13 @@ public sealed class ReportParameterResolver
             cancellationToken.ThrowIfCancellationRequested();
             var parameter = orderedParameters[parameterIndex];
             ReportParameterValue resolvedValue;
+            var usedSuppliedValue = request.SuppliedValues.TryGetValue(parameter.Id, out var suppliedValue);
 
-            if (request.SuppliedValues.TryGetValue(parameter.Id, out var suppliedValue))
+            if (usedSuppliedValue)
             {
                 try
                 {
-                    resolvedValue = ReportDataRuntimeHelpers.CoerceParameterValue(parameter, suppliedValue, culture);
+                    resolvedValue = ReportDataRuntimeHelpers.CoerceParameterValue(parameter, suppliedValue!, culture);
                 }
                 catch (Exception ex)
                 {
@@ -201,6 +202,14 @@ public sealed class ReportParameterResolver
                 if (availableValues.Values is not null)
                 {
                     result.AvailableValues[parameter.Id] = availableValues.Values;
+                    resolvedValue = ValidateResolvedValueAgainstAvailableValues(
+                        parameter,
+                        resolvedValue,
+                        usedSuppliedValue,
+                        availableValues.Values,
+                        culture,
+                        result.Diagnostics);
+                    result.ResolvedValues[parameter.Id] = resolvedValue;
                     ApplyAvailableValueLabels(resolvedValue, availableValues.Values, culture);
                 }
             }
@@ -376,6 +385,64 @@ public sealed class ReportParameterResolver
                 break;
             }
         }
+    }
+
+    private static ReportParameterValue ValidateResolvedValueAgainstAvailableValues(
+        ReportParameterDefinition parameter,
+        ReportParameterValue resolvedValue,
+        bool usedSuppliedValue,
+        IReadOnlyList<ReportParameterAvailableValue> availableValues,
+        CultureInfo culture,
+        List<ReportDiagnostic> diagnostics)
+    {
+        ArgumentNullException.ThrowIfNull(parameter);
+        ArgumentNullException.ThrowIfNull(resolvedValue);
+        ArgumentNullException.ThrowIfNull(availableValues);
+        ArgumentNullException.ThrowIfNull(culture);
+        ArgumentNullException.ThrowIfNull(diagnostics);
+
+        if (resolvedValue.IsNull || resolvedValue.Values.Count == 0 || availableValues.Count == 0)
+        {
+            return resolvedValue;
+        }
+
+        for (var valueIndex = 0; valueIndex < resolvedValue.Values.Count; valueIndex++)
+        {
+            var value = resolvedValue.Values[valueIndex];
+            var isMatched = false;
+            for (var availableIndex = 0; availableIndex < availableValues.Count; availableIndex++)
+            {
+                if (!ReportDataRuntimeHelpers.AreEqual(availableValues[availableIndex].Value, value, culture))
+                {
+                    continue;
+                }
+
+                isMatched = true;
+                break;
+            }
+
+            if (isMatched)
+            {
+                continue;
+            }
+
+            if (usedSuppliedValue || parameter.Visibility != ReportParameterVisibility.Visible)
+            {
+                diagnostics.Add(new ReportDiagnostic(
+                    ReportDiagnosticSeverity.Error,
+                    ReportDiagnosticCodes.ParameterResolutionFailed,
+                    $"Parameter '{parameter.Id}' resolved to '{ReportDataRuntimeHelpers.ToDisplayText(value, culture) ?? string.Empty}', which is not one of the available values.",
+                    $"$.parameters[{parameter.Id}]"));
+                return resolvedValue;
+            }
+
+            return new ReportParameterValue
+            {
+                IsNull = true
+            };
+        }
+
+        return resolvedValue;
     }
 
     private static List<ReportParameterDefinition> OrderParameters(

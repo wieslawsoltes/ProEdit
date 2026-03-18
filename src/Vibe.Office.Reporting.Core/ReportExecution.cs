@@ -121,9 +121,19 @@ public sealed class MaterializedReport
     public string Name { get; set; } = string.Empty;
 
     /// <summary>
+    /// Gets or sets the report-level default font family.
+    /// </summary>
+    public string? DefaultFontFamily { get; set; }
+
+    /// <summary>
     /// Gets or sets the generation timestamp.
     /// </summary>
     public DateTimeOffset GeneratedAt { get; set; } = DateTimeOffset.UtcNow;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether whitespace in containers should be consumed when nested content grows.
+    /// </summary>
+    public bool ConsumeContainerWhitespace { get; set; }
 
     /// <summary>
     /// Gets the resolved parameter values.

@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using Vibe.Office.Documents;
 
 namespace Vibe.Office.Reporting;
 
@@ -43,6 +44,11 @@ public abstract class ReportItem
     public ReportItemBounds Bounds { get; set; }
 
     /// <summary>
+    /// Gets or sets the z-order.
+    /// </summary>
+    public int ZIndex { get; set; }
+
+    /// <summary>
     /// Gets or sets the optional visibility expression.
     /// </summary>
     public string? VisibilityExpression { get; set; }
@@ -61,6 +67,16 @@ public abstract class ReportItem
     /// Gets or sets the optional drillthrough action.
     /// </summary>
     public ReportDrillthroughAction? DrillthroughAction { get; set; }
+
+    /// <summary>
+    /// Gets or sets the optional page break definition.
+    /// </summary>
+    public ReportPageBreakDefinition? PageBreak { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the item should stay together on one page when possible.
+    /// </summary>
+    public bool KeepTogether { get; set; }
 
     /// <summary>
     /// Gets or sets the optional style name.
@@ -129,6 +145,48 @@ public sealed class TextItem : ReportItem
     /// Gets or sets whether the text can shrink.
     /// </summary>
     public bool CanShrink { get; set; }
+
+    /// <summary>
+    /// Gets the optional paragraph and run structure preserved for rich RDL textboxes.
+    /// </summary>
+    public List<ReportTextParagraph> Paragraphs { get; set; } = new();
+}
+
+/// <summary>
+/// Defines one logical paragraph within a text report item.
+/// </summary>
+public sealed class ReportTextParagraph
+{
+    /// <summary>
+    /// Gets or sets the optional paragraph alignment override.
+    /// </summary>
+    public ParagraphAlignment? TextAlign { get; set; }
+
+    /// <summary>
+    /// Gets the text runs in the paragraph.
+    /// </summary>
+    public List<ReportTextRun> Runs { get; set; } = new();
+}
+
+/// <summary>
+/// Defines one text run within a paragraph.
+/// </summary>
+public sealed class ReportTextRun
+{
+    /// <summary>
+    /// Gets or sets the static text content.
+    /// </summary>
+    public string? StaticText { get; set; }
+
+    /// <summary>
+    /// Gets or sets the optional value expression.
+    /// </summary>
+    public string? ValueExpression { get; set; }
+
+    /// <summary>
+    /// Gets or sets the optional style name applied to the run.
+    /// </summary>
+    public string? StyleName { get; set; }
 }
 
 /// <summary>
@@ -406,6 +464,11 @@ public sealed class TablixItem : ReportItem
     /// Gets the row hierarchy member definitions in depth-first leaf order.
     /// </summary>
     public List<ReportTablixMemberDefinition> RowMembers { get; set; } = new();
+
+    /// <summary>
+    /// Gets the column hierarchy member definitions in depth-first leaf order.
+    /// </summary>
+    public List<ReportTablixMemberDefinition> ColumnMembers { get; set; } = new();
 }
 
 /// <summary>
@@ -527,9 +590,19 @@ public sealed class ReportTablixMemberDefinition
     public string? KeepWithGroup { get; set; }
 
     /// <summary>
+    /// Gets or sets the optional page break.
+    /// </summary>
+    public ReportPageBreakDefinition? PageBreak { get; set; }
+
+    /// <summary>
     /// Gets or sets the mapped body row index for leaf members.
     /// </summary>
     public int? RowDefinitionIndex { get; set; }
+
+    /// <summary>
+    /// Gets or sets the mapped body column index for leaf members.
+    /// </summary>
+    public int? ColumnDefinitionIndex { get; set; }
 
     /// <summary>
     /// Gets the nested child members.

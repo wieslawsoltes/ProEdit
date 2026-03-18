@@ -317,7 +317,7 @@ internal sealed class EnterDataReportDataProvider : IReportDataProvider
 
         try
         {
-            return ValueTask.FromResult(ParseEnterDataQuery(dataSet.Query, dataSet.Id, context.Culture));
+            return ValueTask.FromResult(ParseEnterDataQuery(dataSet, context.Culture));
         }
         catch (XmlException ex)
         {
@@ -330,10 +330,13 @@ internal sealed class EnterDataReportDataProvider : IReportDataProvider
     }
 
     private static ReportDataTable ParseEnterDataQuery(
-        string queryText,
-        string dataSetId,
+        ReportDataSetDefinition dataSet,
         CultureInfo culture)
     {
+        ArgumentNullException.ThrowIfNull(dataSet);
+
+        var queryText = dataSet.Query;
+        var dataSetId = dataSet.Id;
         var document = XDocument.Parse(queryText, LoadOptions.PreserveWhitespace);
         var root = document.Root;
         if (root is null)
@@ -368,6 +371,12 @@ internal sealed class EnterDataReportDataProvider : IReportDataProvider
         {
             DataSetId = dataSetId
         };
+        var expectedFieldTypes = new Dictionary<string, ReportParameterDataType>(StringComparer.OrdinalIgnoreCase);
+        for (var fieldIndex = 0; fieldIndex < dataSet.ExpectedFields.Count; fieldIndex++)
+        {
+            var expectedField = dataSet.ExpectedFields[fieldIndex];
+            expectedFieldTypes[expectedField.Name] = expectedField.DataType;
+        }
 
         foreach (var rowElement in dataElement.Elements().Where(static element =>
                      element.Name.LocalName.Equals("Row", StringComparison.OrdinalIgnoreCase)))
@@ -376,16 +385,24 @@ internal sealed class EnterDataReportDataProvider : IReportDataProvider
             foreach (var fieldElement in rowElement.Elements())
             {
                 var fieldName = fieldElement.Name.LocalName;
-                record.Values[fieldName] = ReportDataRuntimeHelpers.ParseScalarValue(
-                    string.Concat(fieldElement.Nodes().OfType<XText>().Select(static node => node.Value)),
-                    culture);
+                var rawValue = string.Concat(fieldElement.Nodes().OfType<XText>().Select(static node => node.Value));
+                if (expectedFieldTypes.TryGetValue(fieldName, out var expectedDataType))
+                {
+                    record.Values[fieldName] = ParseExpectedEnterDataValue(rawValue, expectedDataType, culture);
+                }
+                else
+                {
+                    record.Values[fieldName] = ReportDataRuntimeHelpers.ParseScalarValue(rawValue, culture);
+                }
 
                 if (!table.Fields.Any(field => field.Name.Equals(fieldName, StringComparison.OrdinalIgnoreCase)))
                 {
                     table.Fields.Add(new ReportFieldDefinition
                     {
                         Name = fieldName,
-                        DataType = ReportParameterDataType.String
+                        DataType = expectedFieldTypes.TryGetValue(fieldName, out var fieldDataType)
+                            ? fieldDataType
+                            : ReportParameterDataType.String
                     });
                 }
             }
@@ -396,9 +413,33 @@ internal sealed class EnterDataReportDataProvider : IReportDataProvider
         for (var fieldIndex = 0; fieldIndex < table.Fields.Count; fieldIndex++)
         {
             var field = table.Fields[fieldIndex];
+            if (expectedFieldTypes.TryGetValue(field.Name, out var expectedFieldType))
+            {
+                field.DataType = expectedFieldType;
+                continue;
+            }
+
             field.DataType = ReportDataRuntimeHelpers.InferFieldType(table.Rows, field.Name);
         }
 
         return table;
+    }
+
+    private static object? ParseExpectedEnterDataValue(
+        string rawValue,
+        ReportParameterDataType dataType,
+        CultureInfo culture)
+    {
+        if (dataType == ReportParameterDataType.String)
+        {
+            return rawValue;
+        }
+
+        if (string.IsNullOrWhiteSpace(rawValue))
+        {
+            return null;
+        }
+
+        return ReportDataRuntimeHelpers.CoerceValue(rawValue, dataType, culture);
     }
 }

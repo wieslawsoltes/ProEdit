@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Globalization;
+using System.Linq;
 using System.Text;
 using Vibe.Office.Documents;
 using Vibe.Office.Reporting.Data;
@@ -100,7 +101,9 @@ public sealed class ReportMaterializer : IReportMaterializer
             {
                 Id = reportDefinition.Id,
                 Name = reportDefinition.Name,
-                GeneratedAt = ResolveGeneratedAt(globals)
+                DefaultFontFamily = reportDefinition.DefaultFontFamily,
+                GeneratedAt = ResolveGeneratedAt(globals),
+                ConsumeContainerWhitespace = reportDefinition.ConsumeContainerWhitespace
             };
 
             CopyParameters(parameterResolution.ResolvedValues, materializedReport.ResolvedParameters);
@@ -332,12 +335,13 @@ public sealed class ReportMaterializer : IReportMaterializer
         var bookmark = EvaluateStringExpression(item.BookmarkExpression, context, path + ".bookmarkExpression", diagnostics);
         var tooltip = EvaluateStringExpression(item.TooltipExpression, context, path + ".tooltipExpression", diagnostics);
         var style = styleResolver.Resolve(item.StyleName, context, path + ".styleName", diagnostics);
+        var pageBreak = MaterializePageBreak(item.PageBreak, context, path + ".pageBreak", diagnostics);
         var drillthrough = MaterializeDrillthrough(item.DrillthroughAction, context, path + ".drillthroughAction", diagnostics);
 
         return item switch
         {
-            TextItem textItem => MaterializeTextItem(textItem, styleResolver, style, bookmark, tooltip, drillthrough, context, path, diagnostics),
-            ImageItem imageItem => MaterializeImageItem(imageItem, style, bookmark, tooltip, drillthrough, context, path, diagnostics),
+            TextItem textItem => MaterializeTextItem(textItem, styleResolver, style, bookmark, tooltip, pageBreak, drillthrough, context, path, diagnostics),
+            ImageItem imageItem => MaterializeImageItem(imageItem, style, bookmark, tooltip, pageBreak, drillthrough, context, path, diagnostics),
             LineItem lineItem => CreateBaseItem(
                 new MaterializedLineReportItem
                 {
@@ -348,6 +352,7 @@ public sealed class ReportMaterializer : IReportMaterializer
                 style,
                 bookmark,
                 tooltip,
+                pageBreak,
                 drillthrough),
             ShapeItem shapeItem => CreateBaseItem(
                 new MaterializedShapeReportItem
@@ -358,13 +363,14 @@ public sealed class ReportMaterializer : IReportMaterializer
                 style,
                 bookmark,
                 tooltip,
+                pageBreak,
                 drillthrough),
-            ContainerItem containerItem => await MaterializeContainerItemAsync(containerItem, style, bookmark, tooltip, drillthrough, reportDefinition, resolvedParameters, materializedDataSets, globals, styleResolver, context, path, runtime, activeReports, diagnostics, cancellationToken),
-            ChartItem chartItem => MaterializeChartItem(chartItem, style, bookmark, tooltip, drillthrough, materializedDataSets, resolvedParameters, globals, runtime, context, path, diagnostics),
-            GaugeItem gaugeItem => MaterializeGaugeItem(gaugeItem, style, bookmark, tooltip, drillthrough, materializedDataSets, resolvedParameters, globals, runtime, context, path, diagnostics),
-            TablixItem tablixItem => MaterializeTablixItem(tablixItem, style, bookmark, tooltip, drillthrough, reportDefinition, materializedDataSets, resolvedParameters, globals, runtime, context, path, styleResolver, diagnostics),
-            SubreportItem subreportItem => await MaterializeSubreportItemAsync(subreportItem, style, bookmark, tooltip, drillthrough, globals, runtime, context, path, activeReports, diagnostics, cancellationToken),
-            DocumentTemplateItem templateItem => MaterializeDocumentTemplateItem(templateItem, reportDefinition, style, bookmark, tooltip, drillthrough, context, path, diagnostics),
+            ContainerItem containerItem => await MaterializeContainerItemAsync(containerItem, style, bookmark, tooltip, pageBreak, drillthrough, reportDefinition, resolvedParameters, materializedDataSets, globals, styleResolver, context, path, runtime, activeReports, diagnostics, cancellationToken),
+            ChartItem chartItem => MaterializeChartItem(chartItem, style, bookmark, tooltip, pageBreak, drillthrough, materializedDataSets, resolvedParameters, globals, runtime, context, path, diagnostics),
+            GaugeItem gaugeItem => MaterializeGaugeItem(gaugeItem, style, bookmark, tooltip, pageBreak, drillthrough, materializedDataSets, resolvedParameters, globals, runtime, context, path, diagnostics),
+            TablixItem tablixItem => MaterializeTablixItem(tablixItem, style, bookmark, tooltip, pageBreak, drillthrough, reportDefinition, materializedDataSets, resolvedParameters, globals, runtime, context, path, styleResolver, diagnostics),
+            SubreportItem subreportItem => await MaterializeSubreportItemAsync(subreportItem, style, bookmark, tooltip, pageBreak, drillthrough, globals, runtime, context, path, activeReports, diagnostics, cancellationToken),
+            DocumentTemplateItem templateItem => MaterializeDocumentTemplateItem(templateItem, reportDefinition, style, bookmark, tooltip, pageBreak, drillthrough, context, path, diagnostics),
             _ => null
         };
     }
@@ -375,6 +381,7 @@ public sealed class ReportMaterializer : IReportMaterializer
         MaterializedReportStyle? style,
         string? bookmark,
         string? tooltip,
+        MaterializedReportPageBreak? pageBreak,
         MaterializedReportDrillthroughAction? drillthrough,
         ReportExpressionContext context,
         string path,
@@ -386,24 +393,46 @@ public sealed class ReportMaterializer : IReportMaterializer
             style,
             bookmark,
             tooltip,
+            pageBreak,
             drillthrough);
+
+        if (item.Paragraphs.Count > 0)
+        {
+            MaterializeTextParagraphs(materialized, item, styleResolver, style, context, path, diagnostics);
+            materialized.Text = string.Join(
+                Environment.NewLine,
+                materialized.Paragraphs.Select(static paragraph => string.Concat(paragraph.Runs.Select(static run => run.Text))));
+            materialized.ValueKind = materialized.Paragraphs.Count == 1
+                                     && materialized.Paragraphs[0].Runs.Count == 1
+                ? materialized.Paragraphs[0].Runs[0].ValueKind
+                : MaterializedTextValueKind.Static;
+            materialized.CanGrow = item.CanGrow;
+            materialized.CanShrink = item.CanShrink;
+            return materialized;
+        }
 
         if (string.IsNullOrWhiteSpace(item.ValueExpression))
         {
             materialized.Text = item.StaticText ?? string.Empty;
             materialized.ValueKind = MaterializedTextValueKind.Static;
+            materialized.CanGrow = item.CanGrow;
+            materialized.CanShrink = item.CanShrink;
             return materialized;
         }
 
         if (IsPageNumberExpression(item.ValueExpression))
         {
             materialized.ValueKind = MaterializedTextValueKind.PageNumber;
+            materialized.CanGrow = item.CanGrow;
+            materialized.CanShrink = item.CanShrink;
             return materialized;
         }
 
         if (IsTotalPagesExpression(item.ValueExpression))
         {
             materialized.ValueKind = MaterializedTextValueKind.TotalPages;
+            materialized.CanGrow = item.CanGrow;
+            materialized.CanShrink = item.CanShrink;
             return materialized;
         }
 
@@ -411,7 +440,124 @@ public sealed class ReportMaterializer : IReportMaterializer
         materialized.Text = FormatValue(value, item.FormatString, context.Culture);
         materialized.Style = styleResolver.Resolve(item.StyleName, context.CreateWithSelfValue(value), path + ".styleName", diagnostics);
         materialized.ValueKind = MaterializedTextValueKind.Expression;
+        materialized.CanGrow = item.CanGrow;
+        materialized.CanShrink = item.CanShrink;
         return materialized;
+    }
+
+    private void MaterializeTextParagraphs(
+        MaterializedTextReportItem materialized,
+        TextItem item,
+        ReportMaterializationStyleResolver styleResolver,
+        MaterializedReportStyle? baseStyle,
+        ReportExpressionContext context,
+        string path,
+        List<ReportDiagnostic> diagnostics)
+    {
+        for (var paragraphIndex = 0; paragraphIndex < item.Paragraphs.Count; paragraphIndex++)
+        {
+            var sourceParagraph = item.Paragraphs[paragraphIndex];
+            var materializedParagraph = new MaterializedTextParagraph
+            {
+                TextAlign = sourceParagraph.TextAlign
+            };
+
+            for (var runIndex = 0; runIndex < sourceParagraph.Runs.Count; runIndex++)
+            {
+                var sourceRun = sourceParagraph.Runs[runIndex];
+                var valueKind = MaterializedTextValueKind.Static;
+                var resolvedText = sourceRun.StaticText ?? string.Empty;
+                object? resolvedValue = null;
+
+                if (!string.IsNullOrWhiteSpace(sourceRun.ValueExpression))
+                {
+                    if (IsPageNumberExpression(sourceRun.ValueExpression))
+                    {
+                        valueKind = MaterializedTextValueKind.PageNumber;
+                        resolvedText = string.Empty;
+                    }
+                    else if (IsTotalPagesExpression(sourceRun.ValueExpression))
+                    {
+                        valueKind = MaterializedTextValueKind.TotalPages;
+                        resolvedText = string.Empty;
+                    }
+                    else
+                    {
+                        resolvedValue = EvaluateExpression(
+                            sourceRun.ValueExpression,
+                            context,
+                            $"{path}.paragraphs[{paragraphIndex}].runs[{runIndex}].valueExpression",
+                            diagnostics);
+                        resolvedText = FormatValue(resolvedValue, item.FormatString, context.Culture);
+                        valueKind = MaterializedTextValueKind.Expression;
+                    }
+                }
+
+                var runContext = resolvedValue is not null ? context.CreateWithSelfValue(resolvedValue) : context;
+                var runStyle = string.IsNullOrWhiteSpace(sourceRun.StyleName)
+                    ? null
+                    : styleResolver.Resolve(
+                        sourceRun.StyleName,
+                        runContext,
+                        $"{path}.paragraphs[{paragraphIndex}].runs[{runIndex}].styleName",
+                        diagnostics);
+
+                materializedParagraph.Runs.Add(new MaterializedTextRun
+                {
+                    Text = resolvedText,
+                    ValueKind = valueKind,
+                    Style = MergeStyles(baseStyle, runStyle)
+                });
+            }
+
+            if (materializedParagraph.Runs.Count == 0)
+            {
+                materializedParagraph.Runs.Add(new MaterializedTextRun
+                {
+                    Style = baseStyle?.Clone()
+                });
+            }
+
+            materialized.Paragraphs.Add(materializedParagraph);
+        }
+    }
+
+    private static MaterializedReportStyle? MergeStyles(
+        MaterializedReportStyle? baseStyle,
+        MaterializedReportStyle? overrideStyle)
+    {
+        if (baseStyle is null)
+        {
+            return overrideStyle?.Clone();
+        }
+
+        if (overrideStyle is null)
+        {
+            return baseStyle.Clone();
+        }
+
+        var merged = baseStyle.Clone();
+        merged.FontFamily = overrideStyle.FontFamily ?? merged.FontFamily;
+        merged.FontSize = overrideStyle.FontSize ?? merged.FontSize;
+        merged.Foreground = overrideStyle.Foreground ?? merged.Foreground;
+        merged.Background = overrideStyle.Background ?? merged.Background;
+        merged.BackgroundGradientType = overrideStyle.BackgroundGradientType ?? merged.BackgroundGradientType;
+        merged.BackgroundGradientEndColor = overrideStyle.BackgroundGradientEndColor ?? merged.BackgroundGradientEndColor;
+        merged.Bold = overrideStyle.Bold ?? merged.Bold;
+        merged.Italic = overrideStyle.Italic ?? merged.Italic;
+        merged.Border = overrideStyle.Border?.Clone() ?? merged.Border;
+        merged.TopBorder = overrideStyle.TopBorder?.Clone() ?? merged.TopBorder;
+        merged.BottomBorder = overrideStyle.BottomBorder?.Clone() ?? merged.BottomBorder;
+        merged.LeftBorder = overrideStyle.LeftBorder?.Clone() ?? merged.LeftBorder;
+        merged.RightBorder = overrideStyle.RightBorder?.Clone() ?? merged.RightBorder;
+        merged.PaddingLeft = overrideStyle.PaddingLeft ?? merged.PaddingLeft;
+        merged.PaddingRight = overrideStyle.PaddingRight ?? merged.PaddingRight;
+        merged.PaddingTop = overrideStyle.PaddingTop ?? merged.PaddingTop;
+        merged.PaddingBottom = overrideStyle.PaddingBottom ?? merged.PaddingBottom;
+        merged.TextAlign = overrideStyle.TextAlign ?? merged.TextAlign;
+        merged.VerticalAlign = overrideStyle.VerticalAlign ?? merged.VerticalAlign;
+        merged.TextDecoration = overrideStyle.TextDecoration ?? merged.TextDecoration;
+        return merged;
     }
 
     private MaterializedImageReportItem MaterializeImageItem(
@@ -419,6 +565,7 @@ public sealed class ReportMaterializer : IReportMaterializer
         MaterializedReportStyle? style,
         string? bookmark,
         string? tooltip,
+        MaterializedReportPageBreak? pageBreak,
         MaterializedReportDrillthroughAction? drillthrough,
         ReportExpressionContext context,
         string path,
@@ -434,6 +581,7 @@ public sealed class ReportMaterializer : IReportMaterializer
             style,
             bookmark,
             tooltip,
+            pageBreak,
             drillthrough);
 
         switch (item.SourceKind)
@@ -489,6 +637,7 @@ public sealed class ReportMaterializer : IReportMaterializer
         MaterializedReportStyle? style,
         string? bookmark,
         string? tooltip,
+        MaterializedReportPageBreak? pageBreak,
         MaterializedReportDrillthroughAction? drillthrough,
         IReadOnlyList<MaterializedDataSet> materializedDataSets,
         IReadOnlyDictionary<string, ReportParameterValue> resolvedParameters,
@@ -504,6 +653,7 @@ public sealed class ReportMaterializer : IReportMaterializer
             style,
             bookmark,
             tooltip,
+            pageBreak,
             drillthrough);
 
         var dataSet = FindDataSet(materializedDataSets, item.DataSetId);
@@ -602,6 +752,7 @@ public sealed class ReportMaterializer : IReportMaterializer
         MaterializedReportStyle? style,
         string? bookmark,
         string? tooltip,
+        MaterializedReportPageBreak? pageBreak,
         MaterializedReportDrillthroughAction? drillthrough,
         ReportDefinition reportDefinition,
         IReadOnlyDictionary<string, ReportParameterValue> resolvedParameters,
@@ -621,6 +772,7 @@ public sealed class ReportMaterializer : IReportMaterializer
             style,
             bookmark,
             tooltip,
+            pageBreak,
             drillthrough);
 
         await MaterializeItemsAsync(
@@ -651,6 +803,7 @@ public sealed class ReportMaterializer : IReportMaterializer
         MaterializedReportStyle? style,
         string? bookmark,
         string? tooltip,
+        MaterializedReportPageBreak? pageBreak,
         MaterializedReportDrillthroughAction? drillthrough,
         IReadOnlyList<MaterializedDataSet> materializedDataSets,
         IReadOnlyDictionary<string, ReportParameterValue> resolvedParameters,
@@ -669,6 +822,7 @@ public sealed class ReportMaterializer : IReportMaterializer
             style,
             bookmark,
             tooltip,
+            pageBreak,
             drillthrough);
 
         var evaluationContext = context;
@@ -699,6 +853,7 @@ public sealed class ReportMaterializer : IReportMaterializer
         MaterializedReportStyle? style,
         string? bookmark,
         string? tooltip,
+        MaterializedReportPageBreak? pageBreak,
         MaterializedReportDrillthroughAction? drillthrough,
         ReportDefinition reportDefinition,
         IReadOnlyList<MaterializedDataSet> materializedDataSets,
@@ -719,6 +874,7 @@ public sealed class ReportMaterializer : IReportMaterializer
             style,
             bookmark,
             tooltip,
+            pageBreak,
             drillthrough);
 
         for (var columnIndex = 0; columnIndex < item.Columns.Count; columnIndex++)
@@ -901,6 +1057,7 @@ public sealed class ReportMaterializer : IReportMaterializer
 
                 if (member.Members.Count == 0)
                 {
+                    var rowStartIndex = targetRows.Count;
                     AddMaterializedTablixRow(
                         member,
                         tablix,
@@ -914,9 +1071,11 @@ public sealed class ReportMaterializer : IReportMaterializer
                         styleResolver,
                         path,
                         diagnostics);
+                    ApplyTablixMemberPageBreak(member, 0, rowStartIndex, targetRows.Count, targetRows);
                     return;
                 }
 
+                var memberStartIndex = targetRows.Count;
                 MaterializeTablixMembers(
                     member.Members,
                     tablix,
@@ -931,6 +1090,7 @@ public sealed class ReportMaterializer : IReportMaterializer
                     styleResolver,
                     path + ".members",
                     diagnostics);
+                ApplyTablixMemberPageBreak(member, 0, memberStartIndex, targetRows.Count, targetRows);
                 return;
             }
 
@@ -945,6 +1105,7 @@ public sealed class ReportMaterializer : IReportMaterializer
 
                     if (member.Members.Count == 0)
                     {
+                        var rowStartIndex = targetRows.Count;
                         AddMaterializedTablixRow(
                             member,
                             tablix,
@@ -958,9 +1119,11 @@ public sealed class ReportMaterializer : IReportMaterializer
                             styleResolver,
                             path,
                             diagnostics);
+                        ApplyTablixMemberPageBreak(member, 0, rowStartIndex, targetRows.Count, targetRows);
                         return;
                     }
 
+                    var memberStartIndex = targetRows.Count;
                     MaterializeTablixMembers(
                         member.Members,
                         tablix,
@@ -975,6 +1138,7 @@ public sealed class ReportMaterializer : IReportMaterializer
                         styleResolver,
                         path + ".members",
                         diagnostics);
+                    ApplyTablixMemberPageBreak(member, 0, memberStartIndex, targetRows.Count, targetRows);
                     return;
                 }
 
@@ -1009,6 +1173,7 @@ public sealed class ReportMaterializer : IReportMaterializer
 
                     if (member.Members.Count == 0)
                     {
+                        var rowStartIndex = targetRows.Count;
                         AddMaterializedTablixRow(
                             member,
                             tablix,
@@ -1022,9 +1187,11 @@ public sealed class ReportMaterializer : IReportMaterializer
                             styleResolver,
                             path + $".detail[{rowIndex}]",
                             diagnostics);
+                        ApplyTablixMemberPageBreak(member, rowIndex, rowStartIndex, targetRows.Count, targetRows);
                         continue;
                     }
 
+                    var memberStartIndex = targetRows.Count;
                     MaterializeTablixMembers(
                         member.Members,
                         tablix,
@@ -1039,6 +1206,7 @@ public sealed class ReportMaterializer : IReportMaterializer
                         styleResolver,
                         path + $".detail[{rowIndex}].members",
                         diagnostics);
+                    ApplyTablixMemberPageBreak(member, rowIndex, memberStartIndex, targetRows.Count, targetRows);
                 }
 
                 return;
@@ -1088,6 +1256,7 @@ public sealed class ReportMaterializer : IReportMaterializer
 
                     if (member.Members.Count == 0)
                     {
+                        var rowStartIndex = targetRows.Count;
                         AddMaterializedTablixRow(
                             member,
                             tablix,
@@ -1101,9 +1270,11 @@ public sealed class ReportMaterializer : IReportMaterializer
                             styleResolver,
                             path + $".group[{groupIndex}]",
                             diagnostics);
+                        ApplyTablixMemberPageBreak(member, groupIndex, rowStartIndex, targetRows.Count, targetRows);
                         continue;
                     }
 
+                    var memberStartIndex = targetRows.Count;
                     MaterializeTablixMembers(
                         member.Members,
                         tablix,
@@ -1118,6 +1289,7 @@ public sealed class ReportMaterializer : IReportMaterializer
                         styleResolver,
                         path + $".group[{groupIndex}].members",
                         diagnostics);
+                    ApplyTablixMemberPageBreak(member, groupIndex, memberStartIndex, targetRows.Count, targetRows);
                 }
 
                 return;
@@ -1162,6 +1334,45 @@ public sealed class ReportMaterializer : IReportMaterializer
             globals,
             runtime,
             diagnostics));
+    }
+
+    private static void ApplyTablixMemberPageBreak(
+        ReportTablixMemberDefinition member,
+        int instanceIndex,
+        int rowStartIndex,
+        int rowEndIndex,
+        List<MaterializedTablixRow> targetRows)
+    {
+        if (member.PageBreak is null || rowStartIndex < 0 || rowEndIndex <= rowStartIndex || rowEndIndex > targetRows.Count)
+        {
+            return;
+        }
+
+        if (ShouldInsertPageBreakBefore(member.PageBreak.Location, instanceIndex))
+        {
+            targetRows[rowStartIndex].PageBreakBefore = true;
+        }
+
+        if (ShouldInsertPageBreakAfter(member.PageBreak.Location))
+        {
+            targetRows[rowEndIndex - 1].PageBreakAfter = true;
+        }
+    }
+
+    private static bool ShouldInsertPageBreakBefore(ReportPageBreakLocation location, int instanceIndex)
+    {
+        return location switch
+        {
+            ReportPageBreakLocation.Start => true,
+            ReportPageBreakLocation.StartAndEnd => true,
+            ReportPageBreakLocation.Between => instanceIndex > 0,
+            _ => false
+        };
+    }
+
+    private static bool ShouldInsertPageBreakAfter(ReportPageBreakLocation location)
+    {
+        return location is ReportPageBreakLocation.End or ReportPageBreakLocation.StartAndEnd;
     }
 
     private List<TablixGroupInstance> GroupTablixRows(
@@ -1313,7 +1524,7 @@ public sealed class ReportMaterializer : IReportMaterializer
         }
 
         var scopeRows = ToScopeRows(rows);
-        return CreateReportContext(
+        var context = CreateReportContext(
             resolvedParameters,
             rows[0].Values,
             scopeRows,
@@ -1322,6 +1533,11 @@ public sealed class ReportMaterializer : IReportMaterializer
             scopeKind,
             scopeName,
             namedScopes: AppendNamedScope(fallbackContext.NamedScopes, scopeName, scopeRows));
+        context.RowIndex = fallbackContext.RowIndex;
+        context.SelfValue = fallbackContext.SelfValue;
+        context.PageNumber = fallbackContext.PageNumber;
+        context.TotalPages = fallbackContext.TotalPages;
+        return context;
     }
 
     private static int FindTablixGroupIndex(List<TablixGroupInstance> groups, object? key)
@@ -1399,6 +1615,7 @@ public sealed class ReportMaterializer : IReportMaterializer
             IsHeader = rowDefinition.IsHeader,
             Height = rowDefinition.Height
         };
+        var consumeContainerWhitespace = reportDefinition?.ConsumeContainerWhitespace ?? false;
 
         for (var cellIndex = 0; cellIndex < rowDefinition.Cells.Count; cellIndex++)
         {
@@ -1434,7 +1651,347 @@ public sealed class ReportMaterializer : IReportMaterializer
             });
         }
 
+        for (var cellIndex = 0; cellIndex < row.Cells.Count; cellIndex++)
+        {
+            var content = row.Cells[cellIndex].Content;
+            if (content is null)
+            {
+                continue;
+            }
+
+            var requiredHeight = EstimatePreferredItemBottom(content, consumeContainerWhitespace);
+            if (requiredHeight > row.Height)
+            {
+                row.Height = requiredHeight;
+            }
+        }
+
         return row;
+    }
+
+    private static float EstimatePreferredItemBottom(
+        MaterializedReportItem item,
+        bool consumeContainerWhitespace)
+    {
+        return item.Bounds.Y + EstimatePreferredItemHeight(item, consumeContainerWhitespace);
+    }
+
+    private static float EstimatePreferredItemHeight(
+        MaterializedReportItem item,
+        bool consumeContainerWhitespace)
+    {
+        return item switch
+        {
+            MaterializedTextReportItem textItem => EstimateTextHeight(textItem),
+            MaterializedContainerReportItem containerItem => EstimateContainerHeight(containerItem, consumeContainerWhitespace),
+            MaterializedTablixReportItem tablixItem => EstimateTablixHeight(tablixItem),
+            MaterializedSubreportReportItem subreportItem => EstimateSubreportHeight(subreportItem),
+            _ => item.Bounds.Height
+        };
+    }
+
+    private static float EstimateTextHeight(MaterializedTextReportItem item)
+    {
+        if (!item.CanGrow && !item.CanShrink)
+        {
+            return item.Bounds.Height;
+        }
+
+        var paddingLeft = item.Style?.PaddingLeft ?? 0f;
+        var paddingRight = item.Style?.PaddingRight ?? 0f;
+        var paddingTop = item.Style?.PaddingTop ?? 0f;
+        var paddingBottom = item.Style?.PaddingBottom ?? 0f;
+        var availableWidth = Math.Max(1f, item.Bounds.Width - paddingLeft - paddingRight);
+        var fontSize = Math.Max(8f, item.Style?.FontSize ?? 10f);
+        var lineHeight = Math.Max(fontSize * 1.2f, fontSize + 1f);
+        var lineCount = EstimateWrappedLineCount(GetEstimatedTextContent(item), availableWidth, fontSize);
+        var desiredHeight = paddingTop + paddingBottom + (lineCount * lineHeight);
+
+        if (item.CanGrow && desiredHeight > item.Bounds.Height)
+        {
+            return desiredHeight;
+        }
+
+        if (item.CanShrink && desiredHeight < item.Bounds.Height)
+        {
+            return Math.Max(lineHeight + paddingTop + paddingBottom, desiredHeight);
+        }
+
+        return item.Bounds.Height;
+    }
+
+    private static float EstimateContainerHeight(
+        MaterializedContainerReportItem item,
+        bool consumeContainerWhitespace)
+    {
+        if (item.Items.Count == 0)
+        {
+            return item.Bounds.Height;
+        }
+
+        var childLayouts = NormalizePreferredLayouts(item.Items, consumeContainerWhitespace);
+        var originalBottom = 0f;
+        for (var index = 0; index < item.Items.Count; index++)
+        {
+            var child = item.Items[index];
+            var bottom = child.Bounds.Y - item.Bounds.Y + child.Bounds.Height;
+            if (bottom > originalBottom)
+            {
+                originalBottom = bottom;
+            }
+        }
+
+        var adjustedBottom = 0f;
+        for (var index = 0; index < childLayouts.Count; index++)
+        {
+            var bottom = childLayouts[index].Bounds.Y + childLayouts[index].Bounds.Height;
+            if (bottom > adjustedBottom)
+            {
+                adjustedBottom = bottom;
+            }
+        }
+
+        if (adjustedBottom <= originalBottom)
+        {
+            return item.Bounds.Height;
+        }
+
+        if (consumeContainerWhitespace)
+        {
+            return Math.Max(item.Bounds.Height, adjustedBottom);
+        }
+
+        return item.Bounds.Height + (adjustedBottom - originalBottom);
+    }
+
+    private static float EstimateTablixHeight(MaterializedTablixReportItem item)
+    {
+        if (item.Rows.Count == 0)
+        {
+            return item.Bounds.Height;
+        }
+
+        var height = 0f;
+        for (var index = 0; index < item.Rows.Count; index++)
+        {
+            height += Math.Max(1f, item.Rows[index].Height);
+        }
+
+        return Math.Max(item.Bounds.Height, height);
+    }
+
+    private static float EstimateSubreportHeight(MaterializedSubreportReportItem item)
+    {
+        if (item.Report is null || item.Report.Sections.Count == 0)
+        {
+            return item.Bounds.Height;
+        }
+
+        var section = item.Report.Sections[0];
+        if (section.BodyItems.Count == 0)
+        {
+            return item.Bounds.Height;
+        }
+
+        var layouts = NormalizePreferredLayouts(section.BodyItems, item.Report.ConsumeContainerWhitespace);
+        var maxBottom = 0f;
+        for (var index = 0; index < layouts.Count; index++)
+        {
+            var bottom = layouts[index].Bounds.Y + layouts[index].Bounds.Height;
+            if (bottom > maxBottom)
+            {
+                maxBottom = bottom;
+            }
+        }
+
+        return Math.Max(item.Bounds.Height, maxBottom);
+    }
+
+    private static List<(MaterializedReportItem Item, ReportItemBounds Bounds)> NormalizePreferredLayouts(
+        IReadOnlyList<MaterializedReportItem> items,
+        bool consumeContainerWhitespace)
+    {
+        var layouts = new List<(MaterializedReportItem Item, ReportItemBounds Bounds)>(items.Count);
+        for (var index = 0; index < items.Count; index++)
+        {
+            var item = items[index];
+            var bounds = item.Bounds with
+            {
+                Height = EstimatePreferredItemHeight(item, consumeContainerWhitespace)
+            };
+            bounds = ApplyGrowthReflow(layouts, item, bounds);
+            layouts.Add((item, bounds));
+        }
+
+        return layouts;
+    }
+
+    private static ReportItemBounds ApplyGrowthReflow(
+        IReadOnlyList<(MaterializedReportItem Item, ReportItemBounds Bounds)> existingLayouts,
+        MaterializedReportItem currentItem,
+        ReportItemBounds currentBounds)
+    {
+        if (existingLayouts.Count == 0)
+        {
+            return currentBounds;
+        }
+
+        var adjustedBounds = currentBounds;
+        var currentOriginal = currentItem.Bounds;
+        for (var index = 0; index < existingLayouts.Count; index++)
+        {
+            var previousLayout = existingLayouts[index];
+            var previousOriginal = previousLayout.Item.Bounds;
+            if (currentOriginal.Y + 0.01f < previousOriginal.Y)
+            {
+                continue;
+            }
+
+            var overlapWidth = ComputeOverlapWidth(previousOriginal, currentOriginal);
+            if (overlapWidth <= 0f)
+            {
+                continue;
+            }
+
+            var previousGrowth = (previousLayout.Bounds.Y + previousLayout.Bounds.Height)
+                - (previousOriginal.Y + previousOriginal.Height);
+            if (previousGrowth <= 0.01f)
+            {
+                continue;
+            }
+
+            var originalGap = Math.Max(0f, currentOriginal.Y - (previousOriginal.Y + previousOriginal.Height));
+            var requiredY = previousLayout.Bounds.Y + previousLayout.Bounds.Height + originalGap;
+            if (adjustedBounds.Y < requiredY)
+            {
+                adjustedBounds = adjustedBounds with { Y = requiredY };
+            }
+        }
+
+        return adjustedBounds;
+    }
+
+    private static float ComputeOverlapWidth(ReportItemBounds left, ReportItemBounds right)
+    {
+        var start = Math.Max(left.X, right.X);
+        var end = Math.Min(left.X + left.Width, right.X + right.Width);
+        return Math.Max(0f, end - start);
+    }
+
+    private static string GetEstimatedTextContent(MaterializedTextReportItem item)
+    {
+        if (!string.IsNullOrWhiteSpace(item.Text))
+        {
+            return item.Text;
+        }
+
+        return item.ValueKind switch
+        {
+            MaterializedTextValueKind.PageNumber => "999",
+            MaterializedTextValueKind.TotalPages => "999",
+            _ => string.Empty
+        };
+    }
+
+    private static int EstimateWrappedLineCount(string text, float availableWidth, float fontSize)
+    {
+        var normalized = (text ?? string.Empty).Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
+        var lines = normalized.Split('\n');
+        var averageCharacterWidth = Math.Max(1f, fontSize * 0.47f);
+        var maxCharsPerLine = Math.Max(1, (int)MathF.Floor(availableWidth / averageCharacterWidth));
+        var total = 0;
+
+        for (var index = 0; index < lines.Length; index++)
+        {
+            total += EstimateWrappedLineCount(lines[index].AsSpan(), maxCharsPerLine);
+        }
+
+        return Math.Max(1, total);
+    }
+
+    private static int EstimateWrappedLineCount(ReadOnlySpan<char> text, int maxCharsPerLine)
+    {
+        if (text.Length == 0)
+        {
+            return 1;
+        }
+
+        var lineCount = 1;
+        var current = 0;
+        var index = 0;
+        while (index < text.Length)
+        {
+            while (index < text.Length && char.IsWhiteSpace(text[index]))
+            {
+                if (current == 0)
+                {
+                    index++;
+                    continue;
+                }
+
+                if (current + 1 > maxCharsPerLine)
+                {
+                    lineCount++;
+                    current = 0;
+                }
+                else
+                {
+                    current++;
+                }
+
+                index++;
+            }
+
+            var wordStart = index;
+            while (index < text.Length && !char.IsWhiteSpace(text[index]))
+            {
+                index++;
+            }
+
+            var wordLength = index - wordStart;
+            if (wordLength <= 0)
+            {
+                continue;
+            }
+
+            if (current > 0)
+            {
+                if (current + wordLength > maxCharsPerLine)
+                {
+                    lineCount++;
+                    current = 0;
+                }
+            }
+
+            while (wordLength > 0)
+            {
+                var remaining = maxCharsPerLine - current;
+                if (remaining <= 0)
+                {
+                    lineCount++;
+                    current = 0;
+                    remaining = maxCharsPerLine;
+                }
+
+                if (wordLength <= remaining)
+                {
+                    current += wordLength;
+                    wordLength = 0;
+                }
+                else
+                {
+                    current += remaining;
+                    wordLength -= remaining;
+                    if (wordLength > 0)
+                    {
+                        lineCount++;
+                        current = 0;
+                    }
+                }
+            }
+        }
+
+        return lineCount;
     }
 
     private MaterializedReportItem? MaterializeEmbeddedTablixCellContent(
@@ -1457,6 +2014,7 @@ public sealed class ReportMaterializer : IReportMaterializer
                 styleResolver.Resolve(textItem.StyleName, context, path + ".styleName", diagnostics),
                 EvaluateStringExpression(textItem.BookmarkExpression, context, path + ".bookmarkExpression", diagnostics),
                 EvaluateStringExpression(textItem.TooltipExpression, context, path + ".tooltipExpression", diagnostics),
+                MaterializePageBreak(textItem.PageBreak, context, path + ".pageBreak", diagnostics),
                 MaterializeDrillthrough(textItem.DrillthroughAction, context, path + ".drillthroughAction", diagnostics),
                 context,
                 path,
@@ -1466,6 +2024,7 @@ public sealed class ReportMaterializer : IReportMaterializer
                 styleResolver.Resolve(imageItem.StyleName, context, path + ".styleName", diagnostics),
                 EvaluateStringExpression(imageItem.BookmarkExpression, context, path + ".bookmarkExpression", diagnostics),
                 EvaluateStringExpression(imageItem.TooltipExpression, context, path + ".tooltipExpression", diagnostics),
+                MaterializePageBreak(imageItem.PageBreak, context, path + ".pageBreak", diagnostics),
                 MaterializeDrillthrough(imageItem.DrillthroughAction, context, path + ".drillthroughAction", diagnostics),
                 context,
                 path,
@@ -1479,12 +2038,14 @@ public sealed class ReportMaterializer : IReportMaterializer
                 styleResolver.Resolve(shapeItem.StyleName, context, path + ".styleName", diagnostics),
                 EvaluateStringExpression(shapeItem.BookmarkExpression, context, path + ".bookmarkExpression", diagnostics),
                 EvaluateStringExpression(shapeItem.TooltipExpression, context, path + ".tooltipExpression", diagnostics),
+                MaterializePageBreak(shapeItem.PageBreak, context, path + ".pageBreak", diagnostics),
                 MaterializeDrillthrough(shapeItem.DrillthroughAction, context, path + ".drillthroughAction", diagnostics)),
             ChartItem chartItem => MaterializeChartItem(
                 chartItem,
                 styleResolver.Resolve(chartItem.StyleName, context, path + ".styleName", diagnostics),
                 EvaluateStringExpression(chartItem.BookmarkExpression, context, path + ".bookmarkExpression", diagnostics),
                 EvaluateStringExpression(chartItem.TooltipExpression, context, path + ".tooltipExpression", diagnostics),
+                MaterializePageBreak(chartItem.PageBreak, context, path + ".pageBreak", diagnostics),
                 MaterializeDrillthrough(chartItem.DrillthroughAction, context, path + ".drillthroughAction", diagnostics),
                 materializedDataSets,
                 resolvedParameters,
@@ -1498,6 +2059,7 @@ public sealed class ReportMaterializer : IReportMaterializer
                 styleResolver.Resolve(gaugeItem.StyleName, context, path + ".styleName", diagnostics),
                 EvaluateStringExpression(gaugeItem.BookmarkExpression, context, path + ".bookmarkExpression", diagnostics),
                 EvaluateStringExpression(gaugeItem.TooltipExpression, context, path + ".tooltipExpression", diagnostics),
+                MaterializePageBreak(gaugeItem.PageBreak, context, path + ".pageBreak", diagnostics),
                 MaterializeDrillthrough(gaugeItem.DrillthroughAction, context, path + ".drillthroughAction", diagnostics),
                 materializedDataSets,
                 resolvedParameters,
@@ -1511,6 +2073,7 @@ public sealed class ReportMaterializer : IReportMaterializer
                 styleResolver.Resolve(containerItem.StyleName, context, path + ".styleName", diagnostics),
                 EvaluateStringExpression(containerItem.BookmarkExpression, context, path + ".bookmarkExpression", diagnostics),
                 EvaluateStringExpression(containerItem.TooltipExpression, context, path + ".tooltipExpression", diagnostics),
+                MaterializePageBreak(containerItem.PageBreak, context, path + ".pageBreak", diagnostics),
                 MaterializeDrillthrough(containerItem.DrillthroughAction, context, path + ".drillthroughAction", diagnostics),
                 reportDefinition,
                 resolvedParameters,
@@ -1532,6 +2095,7 @@ public sealed class ReportMaterializer : IReportMaterializer
         MaterializedReportStyle? style,
         string? bookmark,
         string? tooltip,
+        MaterializedReportPageBreak? pageBreak,
         MaterializedReportDrillthroughAction? drillthrough,
         IReadOnlyDictionary<string, object?> globals,
         MaterializationRuntime runtime,
@@ -1547,6 +2111,7 @@ public sealed class ReportMaterializer : IReportMaterializer
             style,
             bookmark,
             tooltip,
+            pageBreak,
             drillthrough);
 
         if (!runtime.ReferencedReports.TryGetValue(item.ReportReferenceId, out var referencedReport))
@@ -1589,6 +2154,7 @@ public sealed class ReportMaterializer : IReportMaterializer
         MaterializedReportStyle? style,
         string? bookmark,
         string? tooltip,
+        MaterializedReportPageBreak? pageBreak,
         MaterializedReportDrillthroughAction? drillthrough,
         ReportExpressionContext context,
         string path,
@@ -1600,6 +2166,7 @@ public sealed class ReportMaterializer : IReportMaterializer
             style,
             bookmark,
             tooltip,
+            pageBreak,
             drillthrough);
 
         if (!TryResolveTemplateContent(item, reportDefinition, path, diagnostics, out var format, out var content))
@@ -1738,22 +2305,53 @@ public sealed class ReportMaterializer : IReportMaterializer
         return resolved;
     }
 
+    private MaterializedReportPageBreak? MaterializePageBreak(
+        ReportPageBreakDefinition? pageBreak,
+        ReportExpressionContext context,
+        string path,
+        List<ReportDiagnostic> diagnostics)
+    {
+        if (pageBreak is null)
+        {
+            return null;
+        }
+
+        if (!string.IsNullOrWhiteSpace(pageBreak.DisabledExpression))
+        {
+            var disabled = EvaluateExpression(pageBreak.DisabledExpression, context, path + ".disabledExpression", diagnostics);
+            if (TryConvertToBoolean(disabled, context.Culture, defaultValue: false))
+            {
+                return null;
+            }
+        }
+
+        return new MaterializedReportPageBreak
+        {
+            Location = pageBreak.Location,
+            ResetPageNumber = pageBreak.ResetPageNumber
+        };
+    }
+
     private static T CreateBaseItem<T>(
         T target,
         ReportItem source,
         MaterializedReportStyle? style,
         string? bookmark,
         string? tooltip,
+        MaterializedReportPageBreak? pageBreak,
         MaterializedReportDrillthroughAction? drillthrough)
         where T : MaterializedReportItem
     {
         target.SourceItemId = source.Id;
         target.Name = source.Name;
         target.Bounds = source.Bounds;
+        target.ZIndex = source.ZIndex;
         target.StyleName = source.StyleName;
         target.Style = style?.Clone();
         target.Bookmark = bookmark;
         target.Tooltip = tooltip;
+        target.PageBreak = pageBreak?.Clone();
+        target.KeepTogether = source.KeepTogether;
         target.DrillthroughAction = drillthrough;
         return target;
     }
@@ -1978,7 +2576,8 @@ public sealed class ReportMaterializer : IReportMaterializer
         }
 
         var value = EvaluateExpression(visibilityExpression, context, path + ".visibilityExpression", diagnostics);
-        return TryConvertToBoolean(value, context.Culture, defaultValue: false);
+        // RDL stores a Hidden expression, so `true` means suppressed and `false` means visible.
+        return !TryConvertToBoolean(value, context.Culture, defaultValue: false);
     }
 
     private static ReportParameterValue ToParameterValue(object? value)
@@ -2055,6 +2654,8 @@ public sealed class ReportMaterializer : IReportMaterializer
             MarginTop = settings.MarginTop,
             MarginRight = settings.MarginRight,
             MarginBottom = settings.MarginBottom,
+            HeaderHeight = settings.HeaderHeight,
+            FooterHeight = settings.FooterHeight,
             ColumnCount = settings.ColumnCount,
             ColumnGap = settings.ColumnGap
         };
