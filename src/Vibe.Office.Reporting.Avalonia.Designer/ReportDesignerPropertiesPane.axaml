@@ -3,30 +3,104 @@
              xmlns:designer="using:Vibe.Office.Reporting.Avalonia.Designer"
              x:Class="Vibe.Office.Reporting.Avalonia.Designer.ReportDesignerPropertiesPane"
              x:DataType="designer:ReportDesignerViewModel">
+  <UserControl.Resources>
+    <DataTemplate x:Key="PreviewCellTemplate"
+                  x:DataType="designer:ReportDesignerDataPreviewCellViewModel">
+      <Border Classes="designer-preview-cell">
+        <TextBlock Text="{Binding Text}"
+                   TextWrapping="NoWrap"
+                   TextTrimming="CharacterEllipsis" />
+      </Border>
+    </DataTemplate>
+
+    <DataTemplate x:Key="PreviewRowTemplate"
+                  x:DataType="designer:ReportDesignerDataPreviewRowViewModel">
+      <ItemsControl ItemsSource="{Binding Cells}"
+                    ItemTemplate="{StaticResource PreviewCellTemplate}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <StackPanel Orientation="Horizontal" />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+      </ItemsControl>
+    </DataTemplate>
+
+    <DataTemplate x:Key="TemplateBindingRowTemplate"
+                  x:DataType="designer:ReportDesignerTemplateBindingEntryViewModel">
+      <Border Classes="designer-property-shell">
+        <Grid ColumnDefinitions="*,Auto"
+              ColumnSpacing="8">
+          <StackPanel Spacing="6">
+            <TextBox Classes="designer-editor"
+                     Watermark="Binding key"
+                     Text="{Binding Key, Mode=TwoWay}" />
+            <TextBox Classes="designer-editor"
+                     AcceptsReturn="True"
+                     MinHeight="44"
+                     Text="{Binding Expression, Mode=TwoWay}" />
+          </StackPanel>
+          <Button Grid.Column="1"
+                  Theme="{StaticResource DesignerActionButtonTheme}"
+                  VerticalAlignment="Top"
+                  Content="Remove"
+                  Command="{Binding RemoveCommand}" />
+        </Grid>
+      </Border>
+    </DataTemplate>
+
+    <DataTemplate x:Key="TemplatePlaceholderRowTemplate"
+                  x:DataType="designer:ReportDesignerTemplatePlaceholderEntryViewModel">
+      <Border Classes="designer-property-shell">
+        <StackPanel Spacing="4">
+          <Grid ColumnDefinitions="Auto,*"
+                ColumnSpacing="8">
+            <Border Classes="designer-tag">
+              <TextBlock Classes="designer-helper"
+                         Text="{Binding Category}" />
+            </Border>
+            <TextBlock Grid.Column="1"
+                       FontWeight="SemiBold"
+                       Text="{Binding Label}" />
+          </Grid>
+          <TextBlock FontFamily="Cascadia Code,Consolas,Monaco,monospace"
+                     Text="{Binding Token}" />
+          <TextBlock Classes="designer-helper"
+                     Text="{Binding Expression}"
+                     TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+    </DataTemplate>
+  </UserControl.Resources>
+
   <Border Classes="designer-pane designer-pane-right">
     <Grid RowDefinitions="Auto,*"
-          RowSpacing="10">
-      <StackPanel Spacing="2">
-        <TextBlock Classes="designer-panel-title"
-                   Text="{Binding SelectedObjectTitle}" />
-        <TextBlock Classes="designer-helper"
-                   Text="{Binding SelectedObjectType}" />
-      </StackPanel>
+          RowSpacing="0">
+      <Border Classes="designer-command-strip">
+        <StackPanel Spacing="2">
+          <TextBlock Classes="designer-panel-title"
+                     Text="{Binding SelectedObjectTitle}" />
+          <TextBlock Classes="designer-helper"
+                     Text="{Binding SelectedObjectType}" />
+        </StackPanel>
+      </Border>
 
       <TabControl Grid.Row="1"
-                  Classes="designer-inspector-tabs"
+                  Theme="{StaticResource DesignerPaneTabControlTheme}"
                   SelectedIndex="{Binding SelectedInspectorTabIndex, Mode=TwoWay}">
-        <TabItem Header="Properties">
+        <TabItem Header="Properties"
+                 Theme="{StaticResource DesignerPaneTabItemTheme}">
           <ScrollViewer VerticalScrollBarVisibility="Auto">
-            <ItemsControl ItemsSource="{Binding PropertyEntries}">
+            <ItemsControl Margin="10"
+                          ItemsSource="{Binding PropertyEntries}">
               <ItemsControl.DataTemplates>
                 <DataTemplate x:DataType="designer:ReportDesignerTextPropertyViewModel">
-                  <Border Classes="designer-card">
+                  <Border Classes="designer-property-shell">
                     <StackPanel Spacing="6">
                       <TextBlock Classes="designer-label"
                                  Text="{Binding Label}" />
-                      <TextBox AcceptsReturn="{Binding IsMultiline}"
-                               MinHeight="32"
+                      <TextBox Classes="designer-editor"
+                               AcceptsReturn="{Binding IsMultiline}"
+                               MinHeight="30"
                                Text="{Binding Value, Mode=TwoWay}" />
                       <TextBlock Classes="designer-helper"
                                  Text="{Binding Description}"
@@ -38,7 +112,7 @@
                   </Border>
                 </DataTemplate>
                 <DataTemplate x:DataType="designer:ReportDesignerBooleanPropertyViewModel">
-                  <Border Classes="designer-card">
+                  <Border Classes="designer-property-shell">
                     <StackPanel Spacing="6">
                       <TextBlock Classes="designer-label"
                                  Text="{Binding Label}" />
@@ -48,11 +122,12 @@
                   </Border>
                 </DataTemplate>
                 <DataTemplate x:DataType="designer:ReportDesignerChoicePropertyViewModel">
-                  <Border Classes="designer-card">
+                  <Border Classes="designer-property-shell">
                     <StackPanel Spacing="6">
                       <TextBlock Classes="designer-label"
                                  Text="{Binding Label}" />
-                      <ComboBox ItemsSource="{Binding Options}"
+                      <ComboBox Classes="designer-editor"
+                                ItemsSource="{Binding Options}"
                                 SelectedItem="{Binding SelectedOption, Mode=TwoWay}">
                         <ComboBox.ItemTemplate>
                           <DataTemplate x:DataType="designer:ReportDesignerChoiceOptionViewModel">
@@ -71,15 +146,17 @@
           </ScrollViewer>
         </TabItem>
 
-        <TabItem Header="Parameters">
+        <TabItem Header="Parameters"
+                 Theme="{StaticResource DesignerPaneTabItemTheme}">
           <Grid RowDefinitions="Auto,*"
-                RowSpacing="10">
+                RowSpacing="10"
+                Margin="10">
             <StackPanel Orientation="Horizontal"
                         Spacing="8">
-              <Button Classes="designer-tool-button"
+              <Button Theme="{StaticResource DesignerActionButtonTheme}"
                       Content="Add"
                       Command="{Binding AddParameterCommand}" />
-              <Button Classes="designer-tool-button"
+              <Button Theme="{StaticResource DesignerActionButtonTheme}"
                       Content="Remove"
                       Command="{Binding RemoveSelectedCommand}"
                       IsEnabled="{Binding CanRemoveSelected}" />
@@ -89,7 +166,7 @@
                      SelectedItem="{Binding SelectedParameterEntry, Mode=TwoWay}">
               <ListBox.ItemTemplate>
                 <DataTemplate x:DataType="designer:ReportDesignerSelectionEntryViewModel">
-                  <Border Classes="designer-card">
+                  <Border Classes="designer-property-shell">
                     <StackPanel Spacing="4">
                       <TextBlock FontWeight="SemiBold"
                                  Text="{Binding Title}" />
@@ -103,103 +180,639 @@
           </Grid>
         </TabItem>
 
-        <TabItem Header="Data">
-          <TabControl Classes="designer-inner-tabs">
-            <TabItem Header="Sources">
-              <Grid RowDefinitions="Auto,*"
-                    RowSpacing="10">
-                <StackPanel Orientation="Horizontal"
-                            Spacing="8">
-                  <Button Classes="designer-tool-button"
-                          Content="Add Source"
-                          Command="{Binding AddDataSourceCommand}" />
-                  <Button Classes="designer-tool-button"
-                          Content="Remove"
-                          Command="{Binding RemoveSelectedCommand}"
-                          IsEnabled="{Binding CanRemoveSelected}" />
-                </StackPanel>
-                <ListBox Grid.Row="1"
-                         ItemsSource="{Binding DataSourceEntries}"
-                         SelectedItem="{Binding SelectedDataSourceEntry, Mode=TwoWay}">
-                  <ListBox.ItemTemplate>
-                    <DataTemplate x:DataType="designer:ReportDesignerSelectionEntryViewModel">
-                      <Border Classes="designer-card">
-                        <StackPanel Spacing="4">
-                          <TextBlock FontWeight="SemiBold"
-                                     Text="{Binding Title}" />
-                          <TextBlock Classes="designer-helper"
-                                     Text="{Binding Subtitle}" />
-                        </StackPanel>
-                      </Border>
-                    </DataTemplate>
-                  </ListBox.ItemTemplate>
-                </ListBox>
-              </Grid>
-            </TabItem>
+        <TabItem Header="Data"
+                 Theme="{StaticResource DesignerPaneTabItemTheme}">
+          <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="10"
+                        Spacing="10">
+              <Border Classes="designer-property-shell"
+                      IsVisible="{Binding HasSelectedDataSource}">
+                <StackPanel Spacing="8">
+                  <TextBlock Classes="designer-panel-title"
+                             Text="Data Source" />
+                  <TextBlock Classes="designer-helper"
+                             Text="Edit connector selection, host connection binding, and provider-specific source settings." />
 
-            <TabItem Header="Datasets">
-              <Grid RowDefinitions="Auto,*"
-                    RowSpacing="10">
-                <StackPanel Orientation="Horizontal"
-                            Spacing="8">
-                  <Button Classes="designer-tool-button"
-                          Content="Add Dataset"
-                          Command="{Binding AddDataSetCommand}" />
-                  <Button Classes="designer-tool-button"
-                          Content="Remove"
-                          Command="{Binding RemoveSelectedCommand}"
-                          IsEnabled="{Binding CanRemoveSelected}" />
+                  <StackPanel Spacing="6">
+                    <TextBlock Classes="designer-label"
+                               Text="Connector" />
+                    <ComboBox Classes="designer-editor"
+                              ItemsSource="{Binding DataSourceProviderOptions}"
+                              SelectedItem="{Binding SelectedDataSourceProviderOption, Mode=TwoWay}">
+                      <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="designer:ReportDesignerChoiceOptionViewModel">
+                          <TextBlock Text="{Binding Label}" />
+                        </DataTemplate>
+                      </ComboBox.ItemTemplate>
+                    </ComboBox>
+                  </StackPanel>
+
+                  <StackPanel Spacing="6">
+                    <TextBlock Classes="designer-label"
+                               Text="Credential Mode" />
+                    <ComboBox Classes="designer-editor"
+                              ItemsSource="{Binding CredentialModeOptions}"
+                              SelectedItem="{Binding SelectedDataSourceCredentialModeOption, Mode=TwoWay}">
+                      <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="designer:ReportDesignerChoiceOptionViewModel">
+                          <TextBlock Text="{Binding Label}" />
+                        </DataTemplate>
+                      </ComboBox.ItemTemplate>
+                    </ComboBox>
+                  </StackPanel>
+
+                  <StackPanel Spacing="6"
+                              IsVisible="{Binding ShowSelectedDataSourceConnectionName}">
+                    <TextBlock Classes="designer-label"
+                               Text="Named Connection" />
+                    <ComboBox Classes="designer-editor"
+                              ItemsSource="{Binding SelectedDataSourceConnectionOptions}"
+                              SelectedItem="{Binding SelectedDataSourceConnectionOption, Mode=TwoWay}">
+                      <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="designer:ReportDesignerChoiceOptionViewModel">
+                          <TextBlock Text="{Binding Label}" />
+                        </DataTemplate>
+                      </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <TextBox Classes="designer-editor"
+                             Text="{Binding SelectedDataSourceConnectionName, Mode=TwoWay}" />
+                  </StackPanel>
+
+                  <StackPanel Spacing="6"
+                              IsVisible="{Binding ShowSelectedDataSourceSourceKey}">
+                    <TextBlock Classes="designer-label"
+                               Text="Source Key" />
+                    <ComboBox Classes="designer-editor"
+                              ItemsSource="{Binding SelectedDataSourceSourceKeyOptions}"
+                              SelectedItem="{Binding SelectedDataSourceSourceKeyOption, Mode=TwoWay}">
+                      <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="designer:ReportDesignerChoiceOptionViewModel">
+                          <TextBlock Text="{Binding Label}" />
+                        </DataTemplate>
+                      </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <TextBox Classes="designer-editor"
+                             Text="{Binding SelectedDataSourceSourceKey, Mode=TwoWay}" />
+                  </StackPanel>
+
+                  <StackPanel Spacing="6"
+                              IsVisible="{Binding ShowSelectedDataSourceConnectionString}">
+                    <TextBlock Classes="designer-label"
+                               Text="Connection String" />
+                    <TextBox Classes="designer-editor"
+                             AcceptsReturn="True"
+                             Text="{Binding SelectedDataSourceConnectionString, Mode=TwoWay}" />
+                  </StackPanel>
+
+                  <StackPanel Spacing="6"
+                              IsVisible="{Binding ShowSelectedDataSourceBaseAddress}">
+                    <TextBlock Classes="designer-label"
+                               Text="Base Address" />
+                    <TextBox Classes="designer-editor"
+                             Text="{Binding SelectedDataSourceBaseAddress, Mode=TwoWay}" />
+                  </StackPanel>
+
+                  <StackPanel Spacing="6"
+                              IsVisible="{Binding ShowSelectedDataSourceProviderInvariant}">
+                    <TextBlock Classes="designer-label"
+                               Text="Provider Invariant" />
+                    <TextBox Classes="designer-editor"
+                             Text="{Binding SelectedDataSourceProviderInvariantName, Mode=TwoWay}" />
+                  </StackPanel>
+
+                  <StackPanel Spacing="6">
+                    <TextBlock Classes="designer-label"
+                               Text="Timeout (seconds)" />
+                    <TextBox Classes="designer-editor"
+                             Text="{Binding SelectedDataSourceTimeoutText, Mode=TwoWay}" />
+                  </StackPanel>
+
+                  <StackPanel Spacing="6">
+                    <TextBlock Classes="designer-label"
+                               Text="Additional Options" />
+                    <TextBox Classes="designer-editor"
+                             AcceptsReturn="True"
+                             MinHeight="88"
+                             Text="{Binding SelectedDataSourceOptionsText, Mode=TwoWay}" />
+                    <TextBlock Classes="designer-helper"
+                               Text="Use key=value lines for provider-specific options such as resourcePath, method, jsonPath, or custom headers." />
+                  </StackPanel>
                 </StackPanel>
-                <ListBox Grid.Row="1"
-                         ItemsSource="{Binding DataSetEntries}"
-                         SelectedItem="{Binding SelectedDataSetEntry, Mode=TwoWay}">
-                  <ListBox.ItemTemplate>
-                    <DataTemplate x:DataType="designer:ReportDesignerSelectionEntryViewModel">
-                      <Border Classes="designer-card">
-                        <StackPanel Spacing="4">
-                          <TextBlock FontWeight="SemiBold"
-                                     Text="{Binding Title}" />
+              </Border>
+
+              <Border Classes="designer-property-shell"
+                      IsVisible="{Binding HasSelectedDataSet}">
+                <StackPanel Spacing="8">
+                  <Grid ColumnDefinitions="*,Auto,Auto,Auto"
+                        ColumnSpacing="6">
+                    <StackPanel Spacing="2">
+                      <TextBlock Classes="designer-panel-title"
+                                 Text="Dataset" />
+                      <TextBlock Classes="designer-helper"
+                                 Text="Edit query metadata, run live design-time execution, and refresh the field collection from current data." />
+                    </StackPanel>
+                    <Button Grid.Column="1"
+                            Theme="{StaticResource DesignerActionButtonTheme}"
+                            Content="Preview"
+                            Command="{Binding PreviewSelectedDataSetCommand}"
+                            IsEnabled="{Binding CanPreviewSelectedDataSet}" />
+                    <Button Grid.Column="2"
+                            Theme="{StaticResource DesignerActionButtonTheme}"
+                            Content="Refresh Fields"
+                            Command="{Binding RefreshSelectedDataSetFieldsCommand}"
+                            IsEnabled="{Binding CanRefreshSelectedDataSetFields}" />
+                    <Button Grid.Column="3"
+                            Theme="{StaticResource DesignerActionButtonTheme}"
+                            Content="Bind"
+                            Command="{Binding BindSelectedDataSetCommand}"
+                            IsEnabled="{Binding CanBindSelectedDataSet}" />
+                  </Grid>
+
+                  <StackPanel Spacing="6">
+                    <TextBlock Classes="designer-label"
+                               Text="Data Source" />
+                    <ComboBox Classes="designer-editor"
+                              ItemsSource="{Binding SelectedDataSetSourceOptions}"
+                              SelectedItem="{Binding SelectedDataSetSourceOption, Mode=TwoWay}">
+                      <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="designer:ReportDesignerChoiceOptionViewModel">
+                          <TextBlock Text="{Binding Label}" />
+                        </DataTemplate>
+                      </ComboBox.ItemTemplate>
+                    </ComboBox>
+                  </StackPanel>
+
+                  <StackPanel Spacing="6">
+                    <TextBlock Classes="designer-label"
+                               Text="Query" />
+                    <TextBox Classes="designer-editor"
+                             AcceptsReturn="True"
+                             MinHeight="96"
+                             Text="{Binding SelectedDataSetQueryText, Mode=TwoWay}" />
+                    <TextBlock Classes="designer-helper"
+                               Text="Query parameters discovered in the text are auto-bound to matching report parameters when possible." />
+                  </StackPanel>
+
+                  <Grid ColumnDefinitions="*,8,*">
+                    <StackPanel Spacing="6">
+                      <Grid ColumnDefinitions="*,Auto"
+                            ColumnSpacing="6">
+                        <TextBlock Classes="designer-label"
+                                   Text="Fields" />
+                        <Button Grid.Column="1"
+                                Theme="{StaticResource DesignerActionButtonTheme}"
+                                Content="Calc"
+                                Command="{Binding AddCalculatedFieldCommand}"
+                                IsEnabled="{Binding HasSelectedDataSet}" />
+                      </Grid>
+                      <TextBox Classes="designer-editor"
+                               AcceptsReturn="True"
+                               MinHeight="88"
+                               Text="{Binding SelectedDataSetFieldsText, Mode=TwoWay}" />
+                      <TextBox Classes="designer-editor"
+                               AcceptsReturn="True"
+                               MinHeight="88"
+                               Watermark="Calculated fields as Name:Type=Expression"
+                               Text="{Binding SelectedDataSetCalculatedFieldsText, Mode=TwoWay}" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="2"
+                                Spacing="6">
+                      <Grid ColumnDefinitions="*,Auto,Auto,Auto"
+                            ColumnSpacing="6">
+                        <TextBlock Classes="designer-label"
+                                   Text="Parameters, Filters, Sorts" />
+                        <Button Grid.Column="1"
+                                Theme="{StaticResource DesignerActionButtonTheme}"
+                                Content="Param"
+                                Command="{Binding AddDataSetParameterCommand}"
+                                IsEnabled="{Binding HasSelectedDataSet}" />
+                        <Button Grid.Column="2"
+                                Theme="{StaticResource DesignerActionButtonTheme}"
+                                Content="Filter"
+                                Command="{Binding AddDataFilterCommand}"
+                                IsEnabled="{Binding HasSelectedDataSet}" />
+                        <Button Grid.Column="3"
+                                Theme="{StaticResource DesignerActionButtonTheme}"
+                                Content="Sort"
+                                Command="{Binding AddDataSortCommand}"
+                                IsEnabled="{Binding HasSelectedDataSet}" />
+                      </Grid>
+                      <TextBox Classes="designer-editor"
+                               AcceptsReturn="True"
+                               MinHeight="72"
+                               Watermark="Dataset parameters as Name=Expression"
+                               Text="{Binding SelectedDataSetParametersText, Mode=TwoWay}" />
+                      <TextBox Classes="designer-editor"
+                               AcceptsReturn="True"
+                               MinHeight="72"
+                               Watermark="Filters as Expression|Operator|Value"
+                               Text="{Binding SelectedDataSetFiltersText, Mode=TwoWay}" />
+                      <TextBox Classes="designer-editor"
+                               AcceptsReturn="True"
+                               MinHeight="72"
+                               Watermark="Sorts as Expression|Direction"
+                               Text="{Binding SelectedDataSetSortsText, Mode=TwoWay}" />
+                    </StackPanel>
+                  </Grid>
+
+                  <Border Classes="designer-preview-shell">
+                    <Grid RowDefinitions="Auto,Auto,*"
+                          RowSpacing="8">
+                      <Grid ColumnDefinitions="*,Auto"
+                            ColumnSpacing="8">
+                        <TextBlock Classes="designer-label"
+                                   Text="Live Data Preview" />
+                        <Border Grid.Column="1"
+                                Classes="designer-status-pill">
                           <TextBlock Classes="designer-helper"
-                                     Text="{Binding Subtitle}" />
-                        </StackPanel>
-                      </Border>
-                    </DataTemplate>
-                  </ListBox.ItemTemplate>
-                </ListBox>
-              </Grid>
-            </TabItem>
-          </TabControl>
+                                     Text="{Binding DataPreviewSummary}" />
+                        </Border>
+                      </Grid>
+
+                      <ItemsControl Grid.Row="1"
+                                    ItemsSource="{Binding DataPreviewColumns}">
+                        <ItemsControl.ItemsPanel>
+                          <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" />
+                          </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate x:DataType="designer:ReportDesignerDataPreviewColumnViewModel">
+                            <Border Classes="designer-preview-header-cell">
+                              <StackPanel Spacing="1">
+                                <TextBlock Classes="designer-label"
+                                           Text="{Binding Name}" />
+                                <TextBlock Classes="designer-helper"
+                                           Text="{Binding DataType}" />
+                              </StackPanel>
+                            </Border>
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
+
+                      <ScrollViewer Grid.Row="2"
+                                    HorizontalScrollBarVisibility="Auto"
+                                    VerticalScrollBarVisibility="Auto"
+                                    MaxHeight="240">
+                        <ItemsControl ItemTemplate="{StaticResource PreviewRowTemplate}"
+                                      ItemsSource="{Binding DataPreviewRows}" />
+                      </ScrollViewer>
+                    </Grid>
+                  </Border>
+                </StackPanel>
+              </Border>
+
+              <Border Classes="designer-property-shell"
+                      IsVisible="{Binding HasSelectedDataField}">
+                <StackPanel Spacing="6">
+                  <TextBlock Classes="designer-panel-title"
+                             Text="Selected Field" />
+                  <TextBlock Classes="designer-helper"
+                             Text="{Binding SelectedDataFieldName}" />
+                  <TextBlock Classes="designer-helper"
+                             Text="{Binding SelectedDataFieldType}" />
+                  <TextBox Classes="designer-editor"
+                           IsReadOnly="True"
+                           Text="{Binding SelectedDataFieldExpression}" />
+                  <StackPanel Orientation="Horizontal"
+                              Spacing="8">
+                    <Button Theme="{StaticResource DesignerPrimaryActionButtonTheme}"
+                            Content="Insert Field"
+                            Command="{Binding InsertSelectedDataFieldCommand}"
+                            IsEnabled="{Binding CanInsertSelectedField}" />
+                    <Button Theme="{StaticResource DesignerActionButtonTheme}"
+                            Content="Bind Dataset"
+                            Command="{Binding BindSelectedDataSetCommand}"
+                            IsEnabled="{Binding CanBindSelectedDataSet}" />
+                  </StackPanel>
+                </StackPanel>
+              </Border>
+
+              <Border Classes="designer-property-shell"
+                      IsVisible="{Binding ShowDataWorkspacePlaceholder}">
+                <TextBlock Classes="designer-helper"
+                           Text="Select a data source, dataset, or field in the Report Data pane to edit live connections, query metadata, and preview rows." 
+                           TextWrapping="Wrap" />
+              </Border>
+            </StackPanel>
+          </ScrollViewer>
         </TabItem>
 
-        <TabItem Header="Templates">
-          <Grid RowDefinitions="Auto,*"
-                RowSpacing="10">
+        <TabItem Header="Templates"
+                 Theme="{StaticResource DesignerPaneTabItemTheme}">
+          <Grid RowDefinitions="Auto,*,Auto"
+                RowSpacing="10"
+                Margin="10">
             <StackPanel Orientation="Horizontal"
                         Spacing="8">
-              <Button Classes="designer-tool-button"
+              <Button Theme="{StaticResource DesignerActionButtonTheme}"
                       Content="Add Shared Template"
                       Command="{Binding AddSharedTemplateCommand}" />
-              <Button Classes="designer-tool-button"
-                      Content="Remove"
-                      Command="{Binding RemoveSelectedCommand}"
-                      IsEnabled="{Binding CanRemoveSelected}" />
+              <Button Theme="{StaticResource DesignerActionButtonTheme}"
+                      Content="Add Template Item"
+                      Command="{Binding AddTemplateItemCommand}" />
+              <Button Theme="{StaticResource DesignerActionButtonTheme}"
+                      Content="Create Item From Shared"
+                      Command="{Binding CreateTemplateItemFromSelectedTemplateCommand}"
+                      IsEnabled="{Binding CanCreateTemplateItemFromSelectedTemplate}" />
+              <Button Theme="{StaticResource DesignerActionButtonTheme}"
+                      Content="Refresh Preview"
+                      Command="{Binding RefreshTemplatePreviewCommand}"
+                      IsEnabled="{Binding CanRefreshTemplatePreview}" />
             </StackPanel>
-            <ListBox Grid.Row="1"
-                     ItemsSource="{Binding SharedTemplateEntries}"
-                     SelectedItem="{Binding SelectedSharedTemplateEntry, Mode=TwoWay}">
-              <ListBox.ItemTemplate>
-                <DataTemplate x:DataType="designer:ReportDesignerSelectionEntryViewModel">
-                  <Border Classes="designer-card">
-                    <StackPanel Spacing="4">
-                      <TextBlock FontWeight="SemiBold"
-                                 Text="{Binding Title}" />
-                      <TextBlock Classes="designer-helper"
-                                 Text="{Binding Subtitle}" />
+
+            <Grid Grid.Row="1"
+                  ColumnDefinitions="220,*,320"
+                  ColumnSpacing="10">
+              <Border Classes="designer-property-shell">
+                <Grid RowDefinitions="Auto,*,Auto,*"
+                      RowSpacing="10">
+                  <StackPanel Spacing="2">
+                    <TextBlock Classes="designer-panel-title"
+                               Text="Shared Templates" />
+                    <TextBlock Classes="designer-helper"
+                               Text="Reusable narrative and document fragments that can be referenced by template items." />
+                  </StackPanel>
+
+                  <ListBox Grid.Row="1"
+                           ItemsSource="{Binding SharedTemplateEntries}"
+                           SelectedItem="{Binding SelectedSharedTemplateEntry, Mode=TwoWay}">
+                    <ListBox.ItemTemplate>
+                      <DataTemplate x:DataType="designer:ReportDesignerSelectionEntryViewModel">
+                        <Border Classes="designer-property-shell">
+                          <StackPanel Spacing="4">
+                            <TextBlock FontWeight="SemiBold"
+                                       Text="{Binding Title}" />
+                            <TextBlock Classes="designer-helper"
+                                       Text="{Binding Subtitle}" />
+                          </StackPanel>
+                        </Border>
+                      </DataTemplate>
+                    </ListBox.ItemTemplate>
+                  </ListBox>
+
+                  <StackPanel Grid.Row="2"
+                              Spacing="2">
+                    <TextBlock Classes="designer-panel-title"
+                               Text="Template Gallery" />
+                    <TextBlock Classes="designer-helper"
+                               Text="Starter layouts modeled after paginated-report authoring workflows." />
+                  </StackPanel>
+
+                  <ListBox Grid.Row="3"
+                           ItemsSource="{Binding TemplateGalleryItems}"
+                           SelectedItem="{Binding SelectedGalleryItem, Mode=TwoWay}">
+                    <ListBox.ItemTemplate>
+                      <DataTemplate x:DataType="designer:ReportDesignerTemplateGalleryItemViewModel">
+                        <Border Classes="designer-property-shell">
+                          <Grid ColumnDefinitions="*,Auto"
+                                ColumnSpacing="8">
+                            <StackPanel Spacing="4">
+                              <Border Classes="designer-tag">
+                                <TextBlock Classes="designer-helper"
+                                           Text="{Binding Category}" />
+                              </Border>
+                              <TextBlock FontWeight="SemiBold"
+                                         Text="{Binding Title}" />
+                              <TextBlock Classes="designer-helper"
+                                         Text="{Binding Description}"
+                                         TextWrapping="Wrap" />
+                            </StackPanel>
+                            <Button Grid.Column="1"
+                                    Theme="{StaticResource DesignerActionButtonTheme}"
+                                    VerticalAlignment="Top"
+                                    Content="Apply"
+                                    Command="{Binding ApplyCommand}" />
+                          </Grid>
+                        </Border>
+                      </DataTemplate>
+                    </ListBox.ItemTemplate>
+                  </ListBox>
+                </Grid>
+              </Border>
+
+              <Border Grid.Column="1"
+                      Classes="designer-property-shell">
+                <Grid RowDefinitions="Auto,Auto,Auto,*"
+                      RowSpacing="10">
+                  <StackPanel Spacing="2">
+                    <TextBlock Classes="designer-panel-title"
+                               Text="{Binding TemplateWorkspaceTitle}" />
+                    <TextBlock Classes="designer-helper"
+                               Text="{Binding TemplateWorkspaceSubtitle}"
+                               TextWrapping="Wrap" />
+                  </StackPanel>
+
+                  <Border Grid.Row="1"
+                          Classes="designer-property-shell"
+                          IsVisible="{Binding ShowTemplateReferenceEditor}">
+                    <StackPanel Spacing="8">
+                      <TextBlock Classes="designer-label"
+                                 Text="Template Source" />
+                      <ComboBox Classes="designer-editor"
+                                ItemsSource="{Binding TemplateReferenceOptions}"
+                                SelectedItem="{Binding SelectedTemplateReferenceOption, Mode=TwoWay}">
+                        <ComboBox.ItemTemplate>
+                          <DataTemplate x:DataType="designer:ReportDesignerChoiceOptionViewModel">
+                            <TextBlock Text="{Binding Label}" />
+                          </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                      </ComboBox>
+                      <StackPanel Orientation="Horizontal"
+                                  Spacing="8">
+                        <Button Theme="{StaticResource DesignerActionButtonTheme}"
+                                Content="Edit Shared"
+                                Command="{Binding EditReferencedSharedTemplateCommand}"
+                                IsEnabled="{Binding CanEditReferencedSharedTemplate}" />
+                        <Button Theme="{StaticResource DesignerActionButtonTheme}"
+                                Content="Detach"
+                                Command="{Binding DetachSelectedTemplateItemCommand}"
+                                IsEnabled="{Binding CanDetachSelectedTemplateItem}" />
+                        <Button Theme="{StaticResource DesignerActionButtonTheme}"
+                                Content="Promote to Shared"
+                                Command="{Binding PromoteSelectedTemplateItemToSharedCommand}"
+                                IsEnabled="{Binding CanPromoteSelectedTemplateItemToShared}" />
+                      </StackPanel>
                     </StackPanel>
                   </Border>
-                </DataTemplate>
-              </ListBox.ItemTemplate>
-            </ListBox>
+
+                  <Border Grid.Row="2"
+                          Classes="designer-property-shell"
+                          IsVisible="{Binding ShowTemplateSourceEditor}">
+                    <Grid ColumnDefinitions="*,*"
+                          RowDefinitions="Auto,Auto"
+                          ColumnSpacing="10">
+                      <StackPanel Spacing="6">
+                        <TextBlock Classes="designer-label"
+                                   Text="Template Id" />
+                        <TextBox Classes="designer-editor"
+                                 Text="{Binding SelectedTemplateDefinitionIdText, Mode=TwoWay}" />
+                      </StackPanel>
+                      <StackPanel Grid.Column="1"
+                                  Spacing="6">
+                        <TextBlock Classes="designer-label"
+                                   Text="Format" />
+                        <ComboBox Classes="designer-editor"
+                                  ItemsSource="{Binding TemplateFormatOptions}"
+                                  SelectedItem="{Binding SelectedTemplateFormatOption, Mode=TwoWay}">
+                          <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="designer:ReportDesignerChoiceOptionViewModel">
+                              <TextBlock Text="{Binding Label}" />
+                            </DataTemplate>
+                          </ComboBox.ItemTemplate>
+                        </ComboBox>
+                      </StackPanel>
+                      <StackPanel Grid.ColumnSpan="2"
+                                  Grid.Row="1"
+                                  Spacing="6"
+                                  Margin="0,10,0,0"
+                                  IsVisible="{Binding ShowTemplateStorageModeEditor}">
+                        <TextBlock Classes="designer-label"
+                                   Text="Storage" />
+                        <ComboBox Classes="designer-editor"
+                                  ItemsSource="{Binding TemplateStorageModeOptions}"
+                                  SelectedItem="{Binding SelectedTemplateStorageModeOption, Mode=TwoWay}">
+                          <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="designer:ReportDesignerChoiceOptionViewModel">
+                              <TextBlock Text="{Binding Label}" />
+                            </DataTemplate>
+                          </ComboBox.ItemTemplate>
+                        </ComboBox>
+                        <TextBox Classes="designer-editor"
+                                 Watermark="Source path or URI"
+                                 Text="{Binding SelectedTemplateSourceText, Mode=TwoWay}" />
+                        <StackPanel Orientation="Horizontal"
+                                    Spacing="8">
+                          <Button Theme="{StaticResource DesignerActionButtonTheme}"
+                                  Content="Embed For Editing"
+                                  Command="{Binding EmbedActiveTemplateForEditingCommand}"
+                                  IsEnabled="{Binding CanEmbedActiveTemplateForEditing}" />
+                          <Button Theme="{StaticResource DesignerActionButtonTheme}"
+                                  Content="Remove"
+                                  Command="{Binding RemoveSelectedCommand}"
+                                  IsEnabled="{Binding CanRemoveSelected}" />
+                        </StackPanel>
+                      </StackPanel>
+                    </Grid>
+                  </Border>
+
+                  <Border Grid.Row="3"
+                          Classes="designer-property-shell">
+                    <Grid RowDefinitions="Auto,*"
+                          RowSpacing="8">
+                      <StackPanel Spacing="2">
+                        <TextBlock Classes="designer-panel-title"
+                                   Text="Template Content" />
+                        <TextBlock Classes="designer-helper"
+                                   IsVisible="{Binding CanEmbedActiveTemplateForEditing}"
+                                   Text="External templates are referenced by source path. Use 'Embed For Editing' to pull the current source into the report and edit it inline."
+                                   TextWrapping="Wrap" />
+                      </StackPanel>
+                      <TextBox Grid.Row="1"
+                               Classes="designer-editor"
+                               AcceptsReturn="True"
+                               IsEnabled="{Binding ShowTemplateContentEditor}"
+                               MinHeight="320"
+                               Text="{Binding SelectedTemplateContentText, Mode=TwoWay}"
+                               TextWrapping="Wrap"
+                               VerticalContentAlignment="Top" />
+                    </Grid>
+                  </Border>
+                </Grid>
+              </Border>
+
+              <Border Grid.Column="2"
+                      Classes="designer-property-shell">
+                <Grid RowDefinitions="Auto,Auto,Auto,*"
+                      RowSpacing="10">
+                  <StackPanel Spacing="2">
+                    <TextBlock Classes="designer-panel-title"
+                               Text="Bindings And Preview" />
+                    <TextBlock Classes="designer-helper"
+                               Text="{Binding TemplateWorkspaceStatusMessage}"
+                               TextWrapping="Wrap" />
+                  </StackPanel>
+
+                  <Border Grid.Row="1"
+                          Classes="designer-property-shell"
+                          IsVisible="{Binding ShowTemplateBindingEditor}">
+                    <Grid RowDefinitions="Auto,*"
+                          RowSpacing="8">
+                      <StackPanel Orientation="Horizontal"
+                                  Spacing="8">
+                        <Button Theme="{StaticResource DesignerActionButtonTheme}"
+                                Content="Add Binding"
+                                Command="{Binding AddTemplateBindingCommand}" />
+                        <Button Theme="{StaticResource DesignerActionButtonTheme}"
+                                Content="Remove Binding"
+                                Command="{Binding RemoveSelectedTemplateBindingCommand}"
+                                IsEnabled="{Binding CanRemoveSelectedTemplateBinding}" />
+                      </StackPanel>
+                      <ListBox Grid.Row="1"
+                               ItemTemplate="{StaticResource TemplateBindingRowTemplate}"
+                               ItemsSource="{Binding TemplateBindingEntries}"
+                               SelectedItem="{Binding SelectedTemplateBindingEntry, Mode=TwoWay}" />
+                    </Grid>
+                  </Border>
+
+                  <Border Grid.Row="2"
+                          Classes="designer-property-shell">
+                    <Grid RowDefinitions="Auto,*"
+                          RowSpacing="8">
+                      <StackPanel Orientation="Horizontal"
+                                  Spacing="8">
+                        <Button Theme="{StaticResource DesignerActionButtonTheme}"
+                                Content="Insert Placeholder"
+                                Command="{Binding InsertSelectedTemplatePlaceholderCommand}"
+                                IsEnabled="{Binding CanInsertSelectedTemplatePlaceholder}" />
+                        <Button Theme="{StaticResource DesignerActionButtonTheme}"
+                                Content="Use Selected Data"
+                                Command="{Binding UseSelectedDataNodeInTemplateCommand}"
+                                IsEnabled="{Binding CanUseSelectedDataNodeInTemplate}" />
+                      </StackPanel>
+                      <ListBox Grid.Row="1"
+                               ItemTemplate="{StaticResource TemplatePlaceholderRowTemplate}"
+                               ItemsSource="{Binding TemplatePlaceholderEntries}"
+                               SelectedItem="{Binding SelectedTemplatePlaceholderEntry, Mode=TwoWay}" />
+                    </Grid>
+                  </Border>
+
+                  <Border Grid.Row="3"
+                          Classes="designer-property-shell">
+                    <Grid RowDefinitions="Auto,*"
+                          RowSpacing="8">
+                      <StackPanel Orientation="Horizontal"
+                                  Spacing="8">
+                        <TextBlock Classes="designer-panel-title"
+                                   VerticalAlignment="Center"
+                                   Text="Resolved Preview" />
+                        <Button Theme="{StaticResource DesignerActionButtonTheme}"
+                                Content="Refresh"
+                                Command="{Binding RefreshTemplatePreviewCommand}"
+                                IsEnabled="{Binding CanRefreshTemplatePreview}" />
+                      </StackPanel>
+                      <TextBox Grid.Row="1"
+                               Classes="designer-editor"
+                               AcceptsReturn="True"
+                               IsReadOnly="True"
+                               MinHeight="260"
+                               Text="{Binding TemplatePreviewText}"
+                               TextWrapping="Wrap"
+                               VerticalContentAlignment="Top" />
+                    </Grid>
+                  </Border>
+                </Grid>
+              </Border>
+            </Grid>
+
+            <Border Grid.Row="2"
+                    Classes="designer-property-shell"
+                    IsVisible="{Binding ShowTemplateWorkspacePlaceholder}">
+              <TextBlock Classes="designer-helper"
+                         Text="Select a document-template item on the design surface or a shared template in the library to edit reusable content, bind report data, and preview the resolved output."
+                         TextWrapping="Wrap" />
+            </Border>
           </Grid>
         </TabItem>
       </TabControl>

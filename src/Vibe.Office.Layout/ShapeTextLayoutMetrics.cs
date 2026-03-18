@@ -103,11 +103,17 @@ public static class ShapeTextLayoutHelper
 
         var contentWidth = MathF.Max(0f, contentRight - contentLeft);
         var contentHeight = MathF.Max(0f, contentBottom - contentTop);
+        var extentLeft = MathF.Min(0f, contentLeft);
+        var extentTop = MathF.Min(0f, contentTop);
+        var extentRight = MathF.Max(0f, contentRight);
+        var extentBottom = MathF.Max(0f, contentBottom);
+        var occupiedWidth = MathF.Max(0f, extentRight - extentLeft);
+        var occupiedHeight = MathF.Max(0f, extentBottom - extentTop);
         var scale = 1f;
-        if (textBox.Properties.AutoFit == ShapeTextAutoFit.TextToFitShape && contentWidth > 0f && contentHeight > 0f)
+        if (textBox.Properties.AutoFit == ShapeTextAutoFit.TextToFitShape && occupiedWidth > 0f && occupiedHeight > 0f)
         {
-            var scaleX = textBounds.Width / contentWidth;
-            var scaleY = textBounds.Height / contentHeight;
+            var scaleX = textBounds.Width / occupiedWidth;
+            var scaleY = textBounds.Height / occupiedHeight;
             var targetScale = MathF.Min(scaleX, scaleY);
             if (targetScale > 0f && targetScale < 1f)
             {
@@ -115,23 +121,26 @@ public static class ShapeTextLayoutHelper
             }
         }
 
-        var effectiveContentHeight = contentHeight * scale;
-        var originY = textBounds.Y;
-        if (effectiveContentHeight < textBounds.Height)
+        var effectiveOccupiedHeight = occupiedHeight * scale;
+        var originX = textBounds.X - (extentLeft * scale);
+        var originY = textBounds.Y - (extentTop * scale);
+        if (effectiveOccupiedHeight < textBounds.Height)
         {
-            originY = textBox.Properties.VerticalAlignment switch
+            var alignmentOffset = textBox.Properties.VerticalAlignment switch
             {
-                ShapeTextVerticalAlignment.Center => textBounds.Y + (textBounds.Height - effectiveContentHeight) / 2f,
-                ShapeTextVerticalAlignment.Bottom => textBounds.Y + (textBounds.Height - effectiveContentHeight),
-                _ => textBounds.Y
+                ShapeTextVerticalAlignment.Center => (textBounds.Height - effectiveOccupiedHeight) / 2f,
+                ShapeTextVerticalAlignment.Bottom => textBounds.Height - effectiveOccupiedHeight,
+                _ => 0f
             };
+
+            originY += alignmentOffset;
         }
 
         metrics = new ShapeTextLayoutMetrics(
             textBounds,
             new DocRect(contentLeft, contentTop, contentWidth, contentHeight),
             scale,
-            textBounds.X,
+            originX,
             originY,
             true);
         return true;

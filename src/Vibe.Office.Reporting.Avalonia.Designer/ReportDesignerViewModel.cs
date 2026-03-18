@@ -75,15 +75,174 @@ public sealed class ReportDesignerExplorerNodeViewModel : ReactiveObject
 }
 
 /// <summary>
+/// One ruler tick shown by the design surface.
+/// </summary>
+public sealed class ReportDesignerRulerTickViewModel
+{
+    internal ReportDesignerRulerTickViewModel(double offset, string label, bool isMajor)
+    {
+        Offset = offset;
+        Label = label ?? string.Empty;
+        IsMajor = isMajor;
+    }
+
+    /// <summary>
+    /// Gets the offset in DIPs.
+    /// </summary>
+    public double Offset { get; }
+
+    /// <summary>
+    /// Gets the label.
+    /// </summary>
+    public string Label { get; }
+
+    /// <summary>
+    /// Gets a value indicating whether the tick is a major division.
+    /// </summary>
+    public bool IsMajor { get; }
+
+    /// <summary>
+    /// Gets the tick line height.
+    /// </summary>
+    public double TickLength => IsMajor ? 12d : 6d;
+
+    /// <summary>
+    /// Gets a value indicating whether the label should be shown.
+    /// </summary>
+    public bool ShowLabel => IsMajor && !string.IsNullOrWhiteSpace(Label);
+}
+
+/// <summary>
+/// One tablix preview cell shown on the WYSIWYG design surface.
+/// </summary>
+public sealed class ReportDesignerSurfaceCellViewModel
+{
+    internal ReportDesignerSurfaceCellViewModel(string text, double width, bool isHeader)
+    {
+        Text = text ?? string.Empty;
+        Width = Math.Max(24d, width);
+        IsHeader = isHeader;
+        BackgroundBrush = isHeader ? "#FFF3F6FB" : "#FFFFFFFF";
+    }
+
+    /// <summary>
+    /// Gets the display text.
+    /// </summary>
+    public string Text { get; }
+
+    /// <summary>
+    /// Gets the display width.
+    /// </summary>
+    public double Width { get; }
+
+    /// <summary>
+    /// Gets a value indicating whether the cell belongs to a header row.
+    /// </summary>
+    public bool IsHeader { get; }
+
+    /// <summary>
+    /// Gets the background brush text.
+    /// </summary>
+    public string BackgroundBrush { get; }
+}
+
+/// <summary>
+/// One tablix preview row shown on the WYSIWYG design surface.
+/// </summary>
+public sealed class ReportDesignerSurfaceRowViewModel
+{
+    private readonly ObservableCollection<ReportDesignerSurfaceCellViewModel> _cells = new();
+
+    internal ReportDesignerSurfaceRowViewModel(bool isHeader, IEnumerable<ReportDesignerSurfaceCellViewModel> cells)
+    {
+        IsHeader = isHeader;
+        Cells = new ReadOnlyObservableCollection<ReportDesignerSurfaceCellViewModel>(_cells);
+        foreach (var cell in cells)
+        {
+            _cells.Add(cell);
+        }
+    }
+
+    /// <summary>
+    /// Gets a value indicating whether this is a header row.
+    /// </summary>
+    public bool IsHeader { get; }
+
+    /// <summary>
+    /// Gets the row cells.
+    /// </summary>
+    public ReadOnlyObservableCollection<ReportDesignerSurfaceCellViewModel> Cells { get; }
+}
+
+/// <summary>
+/// One chart bar preview shown on the WYSIWYG design surface.
+/// </summary>
+public sealed class ReportDesignerSurfaceBarViewModel
+{
+    internal ReportDesignerSurfaceBarViewModel(string label, double heightRatio, string fillBrush)
+    {
+        Label = label ?? string.Empty;
+        HeightRatio = Math.Clamp(heightRatio, 0.1d, 1d);
+        FillBrush = string.IsNullOrWhiteSpace(fillBrush) ? "#FF0F6CBD" : fillBrush;
+    }
+
+    /// <summary>
+    /// Gets the bar label.
+    /// </summary>
+    public string Label { get; }
+
+    /// <summary>
+    /// Gets the normalized height ratio.
+    /// </summary>
+    public double HeightRatio { get; }
+
+    /// <summary>
+    /// Gets the fill brush text.
+    /// </summary>
+    public string FillBrush { get; }
+
+    /// <summary>
+    /// Gets the display height used by the designer bar preview.
+    /// </summary>
+    public double DisplayHeight => 20d + (HeightRatio * 72d);
+}
+
+/// <summary>
 /// One positioned report item shown on the design surface.
 /// </summary>
 public sealed class ReportDesignerCanvasItemViewModel : ReactiveObject
 {
+    private readonly ObservableCollection<ReportDesignerSurfaceBarViewModel> _previewBars = new();
+    private readonly ObservableCollection<ReportDesignerSurfaceRowViewModel> _previewRows = new();
+    private string _badgeBrush = "#FFE8F1FB";
+    private string _badgeForegroundBrush = "#FF0F5DA8";
+    private string _badgeText = string.Empty;
     private string _borderBrush = "#9B8B69";
+    private string _contentPadding = "8,6,8,6";
+    private string _designBorderBrush = "#9B8B69";
+    private string _designFillBrush = "#FFF8ED";
+    private string _detailText = string.Empty;
     private string _fillBrush = "#FFF8ED";
+    private string _fontSize = "12";
+    private string _fontStyle = "Normal";
+    private string _fontWeight = "Normal";
+    private string _foregroundBrush = "#FF1B1B1F";
     private bool _isSelected;
+    private bool _isPreviewOverlayMode;
+    private bool _isReadOnly;
     private string _label = string.Empty;
+    private double _left;
+    private string _lineBrush = "#FF8B6F47";
+    private string _lineThickness = "1";
+    private string _selectionHandleBrush = "#FF0F6CBD";
+    private string _shapeBackgroundBrush = "#33FFF7D9";
+    private string _shapeBorderBrush = "#FF8B6F47";
+    private bool _showSemanticContent = true;
     private string _summary = string.Empty;
+    private double _top;
+    private double _width = 48d;
+    private double _height = 36d;
+    private int _zIndex;
 
     internal ReportDesignerCanvasItemViewModel(
         ReportItem item,
@@ -91,8 +250,15 @@ public sealed class ReportDesignerCanvasItemViewModel : ReactiveObject
     {
         Item = item ?? throw new ArgumentNullException(nameof(item));
         ArgumentNullException.ThrowIfNull(selectAction);
-        SelectCommand = ReactiveCommand.Create(() => selectAction(this));
-        Refresh();
+        PreviewRows = new ReadOnlyObservableCollection<ReportDesignerSurfaceRowViewModel>(_previewRows);
+        PreviewBars = new ReadOnlyObservableCollection<ReportDesignerSurfaceBarViewModel>(_previewBars);
+        SelectCommand = ReactiveCommand.Create(() =>
+        {
+            if (!IsReadOnly)
+            {
+                selectAction(this);
+            }
+        });
     }
 
     /// <summary>
@@ -121,22 +287,174 @@ public sealed class ReportDesignerCanvasItemViewModel : ReactiveObject
     /// <summary>
     /// Gets the left coordinate on the design surface.
     /// </summary>
-    public double Left => Math.Max(0d, Item.Bounds.X);
+    public double Left
+    {
+        get => _left;
+        internal set => this.RaiseAndSetIfChanged(ref _left, Math.Max(0d, value));
+    }
 
     /// <summary>
     /// Gets the top coordinate on the design surface.
     /// </summary>
-    public double Top => Math.Max(0d, Item.Bounds.Y);
+    public double Top
+    {
+        get => _top;
+        internal set => this.RaiseAndSetIfChanged(ref _top, Math.Max(0d, value));
+    }
 
     /// <summary>
     /// Gets the displayed width on the design surface.
     /// </summary>
-    public double Width => Math.Max(48d, Item.Bounds.Width);
+    public double Width
+    {
+        get => _width;
+        internal set => this.RaiseAndSetIfChanged(ref _width, Math.Max(48d, value));
+    }
 
     /// <summary>
     /// Gets the displayed height on the design surface.
     /// </summary>
-    public double Height => Math.Max(36d, Item.Bounds.Height);
+    public double Height
+    {
+        get => _height;
+        internal set => this.RaiseAndSetIfChanged(ref _height, Math.Max(36d, value));
+    }
+
+    /// <summary>
+    /// Gets the canvas z-order.
+    /// </summary>
+    public int ZIndex
+    {
+        get => _zIndex;
+        internal set => this.RaiseAndSetIfChanged(ref _zIndex, value);
+    }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the item is read-only on the design surface.
+    /// </summary>
+    public bool IsReadOnly
+    {
+        get => _isReadOnly;
+        internal set => this.RaiseAndSetIfChanged(ref _isReadOnly, value);
+    }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the item is rendered as preview-overlay chrome.
+    /// </summary>
+    public bool IsPreviewOverlayMode
+    {
+        get => _isPreviewOverlayMode;
+        internal set => this.RaiseAndSetIfChanged(ref _isPreviewOverlayMode, value);
+    }
+
+    /// <summary>
+    /// Gets the item caption badge text.
+    /// </summary>
+    public string BadgeText
+    {
+        get => _badgeText;
+        internal set => this.RaiseAndSetIfChanged(ref _badgeText, value);
+    }
+
+    /// <summary>
+    /// Gets the badge background brush string.
+    /// </summary>
+    public string BadgeBrush
+    {
+        get => _badgeBrush;
+        internal set => this.RaiseAndSetIfChanged(ref _badgeBrush, value);
+    }
+
+    /// <summary>
+    /// Gets the badge foreground brush string.
+    /// </summary>
+    public string BadgeForegroundBrush
+    {
+        get => _badgeForegroundBrush;
+        internal set => this.RaiseAndSetIfChanged(ref _badgeForegroundBrush, value);
+    }
+
+    /// <summary>
+    /// Gets the main content text.
+    /// </summary>
+    public string ContentText => Summary;
+
+    /// <summary>
+    /// Gets the secondary detail text.
+    /// </summary>
+    public string DetailText
+    {
+        get => _detailText;
+        internal set => this.RaiseAndSetIfChanged(ref _detailText, value);
+    }
+
+    /// <summary>
+    /// Gets the foreground brush string.
+    /// </summary>
+    public string ForegroundBrush
+    {
+        get => _foregroundBrush;
+        internal set => this.RaiseAndSetIfChanged(ref _foregroundBrush, value);
+    }
+
+    /// <summary>
+    /// Gets the displayed content padding.
+    /// </summary>
+    public string ContentPadding
+    {
+        get => _contentPadding;
+        internal set => this.RaiseAndSetIfChanged(ref _contentPadding, value);
+    }
+
+    /// <summary>
+    /// Gets the displayed font size text.
+    /// </summary>
+    public string FontSize
+    {
+        get => _fontSize;
+        internal set
+        {
+            if (_fontSize == value)
+            {
+                return;
+            }
+
+            this.RaiseAndSetIfChanged(ref _fontSize, value);
+            this.RaisePropertyChanged(nameof(FontSizeValue));
+        }
+    }
+
+    /// <summary>
+    /// Gets the numeric font size.
+    /// </summary>
+    public double FontSizeValue => double.TryParse(FontSize, CultureInfo.InvariantCulture, out var value) ? value : 12d;
+
+    /// <summary>
+    /// Gets the displayed font weight text.
+    /// </summary>
+    public string FontWeight
+    {
+        get => _fontWeight;
+        internal set => this.RaiseAndSetIfChanged(ref _fontWeight, value);
+    }
+
+    /// <summary>
+    /// Gets the displayed font style text.
+    /// </summary>
+    public string FontStyle
+    {
+        get => _fontStyle;
+        internal set => this.RaiseAndSetIfChanged(ref _fontStyle, value);
+    }
+
+    /// <summary>
+    /// Gets a value indicating whether semantic content should be shown instead of preview-only chrome.
+    /// </summary>
+    public bool ShowSemanticContent
+    {
+        get => _showSemanticContent;
+        internal set => this.RaiseAndSetIfChanged(ref _showSemanticContent, value);
+    }
 
     /// <summary>
     /// Gets the background brush string.
@@ -157,12 +475,183 @@ public sealed class ReportDesignerCanvasItemViewModel : ReactiveObject
     }
 
     /// <summary>
+    /// Gets the line brush string.
+    /// </summary>
+    public string LineBrush
+    {
+        get => _lineBrush;
+        internal set => this.RaiseAndSetIfChanged(ref _lineBrush, value);
+    }
+
+    /// <summary>
+    /// Gets the line thickness string.
+    /// </summary>
+    public string LineThickness
+    {
+        get => _lineThickness;
+        internal set
+        {
+            if (_lineThickness == value)
+            {
+                return;
+            }
+
+            this.RaiseAndSetIfChanged(ref _lineThickness, value);
+            this.RaisePropertyChanged(nameof(LineThicknessValue));
+        }
+    }
+
+    /// <summary>
+    /// Gets the numeric line thickness.
+    /// </summary>
+    public double LineThicknessValue => double.TryParse(LineThickness, CultureInfo.InvariantCulture, out var value) ? value : 1d;
+
+    /// <summary>
+    /// Gets the shape background brush string.
+    /// </summary>
+    public string ShapeBackgroundBrush
+    {
+        get => _shapeBackgroundBrush;
+        internal set => this.RaiseAndSetIfChanged(ref _shapeBackgroundBrush, value);
+    }
+
+    /// <summary>
+    /// Gets the shape border brush string.
+    /// </summary>
+    public string ShapeBorderBrush
+    {
+        get => _shapeBorderBrush;
+        internal set => this.RaiseAndSetIfChanged(ref _shapeBorderBrush, value);
+    }
+
+    /// <summary>
+    /// Gets the selection-handle brush string.
+    /// </summary>
+    public string SelectionHandleBrush
+    {
+        get => _selectionHandleBrush;
+        internal set => this.RaiseAndSetIfChanged(ref _selectionHandleBrush, value);
+    }
+
+    /// <summary>
+    /// Gets the border thickness text.
+    /// </summary>
+    public string BorderThicknessText => IsSelected ? "2" : "1";
+
+    /// <summary>
+    /// Gets the numeric border thickness.
+    /// </summary>
+    public double BorderThicknessValue => IsSelected ? 2d : 1d;
+
+    /// <summary>
+    /// Gets a value indicating whether the item can be selected.
+    /// </summary>
+    public bool CanSelect => !IsReadOnly;
+
+    /// <summary>
+    /// Gets a value indicating whether resize handles should be shown.
+    /// </summary>
+    public bool ShowSelectionHandles => IsSelected && !IsReadOnly;
+
+    /// <summary>
+    /// Gets a value indicating whether the badge should be shown.
+    /// </summary>
+    public bool ShowBadge => !string.IsNullOrWhiteSpace(BadgeText);
+
+    /// <summary>
+    /// Gets a value indicating whether the item is a text box.
+    /// </summary>
+    public bool IsTextItem => Item is TextItem;
+
+    /// <summary>
+    /// Gets a value indicating whether the item is a tablix.
+    /// </summary>
+    public bool IsTablixItem => Item is TablixItem;
+
+    /// <summary>
+    /// Gets a value indicating whether the item is a chart.
+    /// </summary>
+    public bool IsChartItem => Item is ChartItem;
+
+    /// <summary>
+    /// Gets a value indicating whether the item is an image.
+    /// </summary>
+    public bool IsImageItem => Item is ImageItem;
+
+    /// <summary>
+    /// Gets a value indicating whether the item is a template item.
+    /// </summary>
+    public bool IsTemplateItem => Item is DocumentTemplateItem;
+
+    /// <summary>
+    /// Gets a value indicating whether the item is a subreport.
+    /// </summary>
+    public bool IsSubreportItem => Item is SubreportItem;
+
+    /// <summary>
+    /// Gets a value indicating whether the item is a container.
+    /// </summary>
+    public bool IsContainerItem => Item is ContainerItem;
+
+    /// <summary>
+    /// Gets a value indicating whether the item is a line.
+    /// </summary>
+    public bool IsLineItem => Item is LineItem;
+
+    /// <summary>
+    /// Gets a value indicating whether the item is a geometric shape.
+    /// </summary>
+    public bool IsShapeItem => Item is ShapeItem;
+
+    /// <summary>
+    /// Gets a value indicating whether the item is an ellipse.
+    /// </summary>
+    public bool IsEllipseShape => Item is ShapeItem { Shape: ReportShapeKind.Ellipse };
+
+    /// <summary>
+    /// Gets a value indicating whether the shape should render with a rectangular outline.
+    /// </summary>
+    public bool ShowsRectangularShape => IsShapeItem && !IsEllipseShape;
+
+    /// <summary>
+    /// Gets the tablix preview rows.
+    /// </summary>
+    public ReadOnlyObservableCollection<ReportDesignerSurfaceRowViewModel> PreviewRows { get; }
+
+    /// <summary>
+    /// Gets the chart preview bars.
+    /// </summary>
+    public ReadOnlyObservableCollection<ReportDesignerSurfaceBarViewModel> PreviewBars { get; }
+
+    /// <summary>
+    /// Gets a value indicating whether the item has a tablix preview.
+    /// </summary>
+    public bool HasTablePreview => PreviewRows.Count > 0;
+
+    /// <summary>
+    /// Gets a value indicating whether the item has a chart preview.
+    /// </summary>
+    public bool HasChartPreview => PreviewBars.Count > 0;
+
+    /// <summary>
     /// Gets or sets a value indicating whether the item is selected.
     /// </summary>
     public bool IsSelected
     {
         get => _isSelected;
-        internal set => this.RaiseAndSetIfChanged(ref _isSelected, value);
+        internal set
+        {
+            if (_isSelected == value)
+            {
+                return;
+            }
+
+            this.RaiseAndSetIfChanged(ref _isSelected, value);
+            RefreshChrome();
+            this.RaisePropertyChanged(nameof(BorderThicknessText));
+            this.RaisePropertyChanged(nameof(BorderThicknessValue));
+            this.RaisePropertyChanged(nameof(ShowSelectionHandles));
+        }
     }
 
     /// <summary>
@@ -170,41 +659,384 @@ public sealed class ReportDesignerCanvasItemViewModel : ReactiveObject
     /// </summary>
     public ReactiveCommand<Unit, Unit> SelectCommand { get; }
 
-    internal void Refresh()
+    internal void ConfigureLayout(double left, double top, double width, double height, bool isReadOnly)
     {
+        Left = left;
+        Top = top;
+        Width = width;
+        Height = height;
+        ZIndex = Item.ZIndex;
+        IsReadOnly = isReadOnly;
+        this.RaisePropertyChanged(nameof(CanSelect));
+    }
+
+    internal void SetPreviewOverlayMode(bool isPreviewOverlayMode)
+    {
+        if (_isPreviewOverlayMode == isPreviewOverlayMode)
+        {
+            return;
+        }
+
+        IsPreviewOverlayMode = isPreviewOverlayMode;
+        RefreshChrome();
+    }
+
+    internal void Refresh(
+        IReadOnlyList<ReportStyleDefinition> styles,
+        IReadOnlyDictionary<string, ReportDefinition> referencedReports)
+    {
+        ArgumentNullException.ThrowIfNull(styles);
+        ArgumentNullException.ThrowIfNull(referencedReports);
+
         Label = string.IsNullOrWhiteSpace(Item.Name) ? Item.Id : Item.Name;
+        BadgeText = CreateBadgeText(Item, IsReadOnly);
         Summary = Item switch
         {
-            TextItem textItem => string.IsNullOrWhiteSpace(textItem.StaticText)
-                ? (string.IsNullOrWhiteSpace(textItem.ValueExpression) ? "Text box" : textItem.ValueExpression!)
-                : textItem.StaticText!,
-            ChartItem chartItem => $"Chart on {chartItem.DataSetId ?? "no dataset"}",
-            TablixItem tablixItem => $"Tablix on {tablixItem.DataSetId ?? "no dataset"}",
-            DocumentTemplateItem templateItem => $"Template {templateItem.TemplateId ?? "embedded"}",
+            TextItem textItem => ResolveTextPreview(textItem),
+            ChartItem chartItem => ResolveChartTitle(chartItem),
+            TablixItem => "Table / Matrix",
+            DocumentTemplateItem templateItem => ResolveTemplatePreview(templateItem),
             SubreportItem subreportItem => $"Subreport {subreportItem.ReportReferenceId}",
-            ImageItem imageItem => imageItem.SourceKind.ToString(),
+            ImageItem imageItem => ResolveImagePreview(imageItem),
             ShapeItem shapeItem => shapeItem.Shape.ToString(),
             LineItem => "Line item",
             _ => Item.GetType().Name
         };
-
-        FillBrush = Item switch
+        DetailText = Item switch
         {
-            TextItem => "#FFF7D9",
-            ChartItem => "#DDF6F0",
-            TablixItem => "#E5F0FF",
-            DocumentTemplateItem => "#F6E8FF",
-            ShapeItem => "#FFEDE2",
-            SubreportItem => "#E8F6E8",
-            ImageItem => "#FBE9E9",
-            _ => "#FFF8ED"
+            TextItem textItem when !string.IsNullOrWhiteSpace(textItem.ValueExpression) => NormalizeExpressionPreview(textItem.ValueExpression),
+            ChartItem chartItem => string.IsNullOrWhiteSpace(chartItem.DataSetId) ? "No dataset" : $"Dataset: {chartItem.DataSetId}",
+            TablixItem tablixItem => string.IsNullOrWhiteSpace(tablixItem.DataSetId) ? "No dataset" : $"Dataset: {tablixItem.DataSetId}",
+            DocumentTemplateItem templateItem => string.IsNullOrWhiteSpace(templateItem.TemplateId) ? "Embedded content" : $"Template: {templateItem.TemplateId}",
+            SubreportItem subreportItem when referencedReports.ContainsKey(subreportItem.ReportReferenceId) => "Embedded preview available",
+            SubreportItem => "Referenced report not loaded",
+            ShapeItem => "Decorative shape",
+            ContainerItem => "Nested layout region",
+            ImageItem imageItem => imageItem.SourceKind.ToString(),
+            _ => string.Empty
         };
 
-        BorderBrush = IsSelected ? "#3E5C76" : "#9B8B69";
-        this.RaisePropertyChanged(nameof(Left));
-        this.RaisePropertyChanged(nameof(Top));
-        this.RaisePropertyChanged(nameof(Width));
-        this.RaisePropertyChanged(nameof(Height));
+        var style = ResolveStyle(Item, styles);
+        ApplyStyle(style);
+        BuildTablePreview();
+        BuildChartPreview();
+        RefreshChrome();
+        this.RaisePropertyChanged(nameof(ContentText));
+        this.RaisePropertyChanged(nameof(DetailText));
+        this.RaisePropertyChanged(nameof(ShowBadge));
+        this.RaisePropertyChanged(nameof(HasTablePreview));
+        this.RaisePropertyChanged(nameof(HasChartPreview));
+    }
+
+    private void ApplyStyle(ReportStyleDefinition? style)
+    {
+        ForegroundBrush = string.IsNullOrWhiteSpace(style?.Foreground) ? "#FF1B1B1F" : style!.Foreground!;
+        var background = string.IsNullOrWhiteSpace(style?.Background) ? ResolveDefaultFill(Item) : style!.Background!;
+        var border = ResolveBorderColor(style) ?? ResolveDefaultBorder(Item);
+        var paddingLeft = style?.PaddingLeft ?? 8f;
+        var paddingTop = style?.PaddingTop ?? 6f;
+        var paddingRight = style?.PaddingRight ?? 8f;
+        var paddingBottom = style?.PaddingBottom ?? 6f;
+
+        _designFillBrush = background;
+        _designBorderBrush = border;
+        ShapeBackgroundBrush = ApplyAlpha(background, 0.2f);
+        ShapeBorderBrush = border;
+        LineBrush = border;
+        LineThickness = FormatNumber(style?.Border?.Width ?? style?.TopBorder?.Width ?? 1f);
+        ContentPadding = $"{FormatNumber(paddingLeft)},{FormatNumber(paddingTop)},{FormatNumber(paddingRight)},{FormatNumber(paddingBottom)}";
+        FontSize = FormatNumber(style?.FontSize ?? (Item is TextItem ? 14f : 12f));
+        FontWeight = style?.Bold == true ? "SemiBold" : "Normal";
+        FontStyle = style?.Italic == true ? "Italic" : "Normal";
+    }
+
+    private void BuildTablePreview()
+    {
+        _previewRows.Clear();
+        if (Item is not TablixItem tablix || tablix.Columns.Count == 0 || tablix.Rows.Count == 0)
+        {
+            this.RaisePropertyChanged(nameof(HasTablePreview));
+            return;
+        }
+
+        var totalWidth = Math.Max(1d, tablix.Columns.Sum(static column => (double)Math.Max(1f, column.Width)));
+        var previewWidth = Math.Max(Width - 2d, 40d);
+        var maxRows = Math.Min(4, tablix.Rows.Count);
+        for (var rowIndex = 0; rowIndex < maxRows; rowIndex++)
+        {
+            var row = tablix.Rows[rowIndex];
+            var cells = new List<ReportDesignerSurfaceCellViewModel>(row.Cells.Count);
+            for (var cellIndex = 0; cellIndex < row.Cells.Count; cellIndex++)
+            {
+                var cell = row.Cells[cellIndex];
+                var columnWidth = cellIndex < tablix.Columns.Count
+                    ? tablix.Columns[cellIndex].Width
+                    : (float)(previewWidth / Math.Max(1, row.Cells.Count));
+                var displayWidth = previewWidth * (columnWidth / totalWidth);
+                cells.Add(new ReportDesignerSurfaceCellViewModel(
+                    ResolveCellPreview(cell, row.IsHeader),
+                    displayWidth,
+                    row.IsHeader));
+            }
+
+            _previewRows.Add(new ReportDesignerSurfaceRowViewModel(row.IsHeader, cells));
+        }
+
+        this.RaisePropertyChanged(nameof(HasTablePreview));
+    }
+
+    private void BuildChartPreview()
+    {
+        _previewBars.Clear();
+        if (Item is not ChartItem chart)
+        {
+            this.RaisePropertyChanged(nameof(HasChartPreview));
+            return;
+        }
+
+        var palette = new[]
+        {
+            "#FF0F6CBD",
+            "#FF0E7490",
+            "#FFC2410C",
+            "#FF7A4EAB"
+        };
+
+        if (chart.Series.Count == 0)
+        {
+            for (var index = 0; index < 4; index++)
+            {
+                _previewBars.Add(new ReportDesignerSurfaceBarViewModel(
+                    $"Series {index + 1}",
+                    0.35d + (index * 0.12d),
+                    palette[index % palette.Length]));
+            }
+        }
+        else
+        {
+            for (var index = 0; index < chart.Series.Count; index++)
+            {
+                var series = chart.Series[index];
+                var label = NormalizeExpressionPreview(series.NameExpression);
+                if (string.IsNullOrWhiteSpace(label))
+                {
+                    label = $"Series {index + 1}";
+                }
+
+                var ratio = 0.45d + ((index % 4) * 0.1d);
+                _previewBars.Add(new ReportDesignerSurfaceBarViewModel(
+                    label,
+                    ratio,
+                    ResolveSeriesColor(series.ColorExpression, palette[index % palette.Length])));
+            }
+        }
+
+        this.RaisePropertyChanged(nameof(HasChartPreview));
+    }
+
+    private void RefreshChrome()
+    {
+        ShowSemanticContent = !IsPreviewOverlayMode;
+        SelectionHandleBrush = "#FF0F6CBD";
+        BorderBrush = IsSelected
+            ? "#FF0F6CBD"
+            : (IsPreviewOverlayMode ? "#88A3B4C8" : _designBorderBrush);
+        FillBrush = IsPreviewOverlayMode ? "#00FFFFFF" : _designFillBrush;
+        BadgeBrush = IsSelected
+            ? "#FF0F6CBD"
+            : (IsReadOnly ? "#FFF4ECE2" : "#FFE8F1FB");
+        BadgeForegroundBrush = IsSelected
+            ? "#FFFFFFFF"
+            : (IsReadOnly ? "#FF7C4A17" : "#FF0F5DA8");
+    }
+
+    private static string CreateBadgeText(ReportItem item, bool isReadOnly)
+    {
+        var prefix = item switch
+        {
+            TextItem => "Text",
+            ChartItem => "Chart",
+            TablixItem => "Tablix",
+            DocumentTemplateItem => "Template",
+            SubreportItem => "Subreport",
+            ContainerItem => "Rectangle",
+            ShapeItem => "Shape",
+            LineItem => "Line",
+            ImageItem => "Image",
+            _ => "Item"
+        };
+
+        return isReadOnly ? prefix + " preview" : prefix;
+    }
+
+    private static string ResolveTextPreview(TextItem item)
+    {
+        if (!string.IsNullOrWhiteSpace(item.StaticText))
+        {
+            return item.StaticText!;
+        }
+
+        var expressionPreview = NormalizeExpressionPreview(item.ValueExpression);
+        return string.IsNullOrWhiteSpace(expressionPreview) ? "Text box" : expressionPreview;
+    }
+
+    private static string ResolveChartTitle(ChartItem item)
+    {
+        var title = NormalizeExpressionPreview(item.TitleExpression);
+        return string.IsNullOrWhiteSpace(title) ? "Chart" : title;
+    }
+
+    private static string ResolveTemplatePreview(DocumentTemplateItem item)
+    {
+        if (!string.IsNullOrWhiteSpace(item.TemplateId))
+        {
+            return item.TemplateId!;
+        }
+
+        return string.IsNullOrWhiteSpace(item.EmbeddedContent) ? "Document template" : "Embedded narrative";
+    }
+
+    private static string ResolveImagePreview(ImageItem item)
+    {
+        return item.SourceKind switch
+        {
+            ReportImageSourceKind.Embedded => "Embedded image",
+            ReportImageSourceKind.Uri => "Linked image",
+            _ => "Expression image"
+        };
+    }
+
+    private static string ResolveCellPreview(ReportTablixCellDefinition cell, bool isHeader)
+    {
+        if (!string.IsNullOrWhiteSpace(cell.Text))
+        {
+            return cell.Text!;
+        }
+
+        var preview = NormalizeExpressionPreview(cell.ValueExpression);
+        if (!string.IsNullOrWhiteSpace(preview))
+        {
+            return preview;
+        }
+
+        return isHeader ? "Header" : "Value";
+    }
+
+    private static string NormalizeExpressionPreview(string? expression)
+    {
+        if (string.IsNullOrWhiteSpace(expression))
+        {
+            return string.Empty;
+        }
+
+        var trimmed = expression.Trim();
+        if (trimmed.Length >= 2 && trimmed[0] == '\'' && trimmed[^1] == '\'')
+        {
+            return trimmed[1..^1];
+        }
+
+        return "=" + trimmed;
+    }
+
+    private static string ResolveDefaultFill(ReportItem item)
+    {
+        return item switch
+        {
+            TextItem => "#FFFDF4D4",
+            ChartItem => "#FFE0F3F2",
+            TablixItem => "#FFE8F1FF",
+            DocumentTemplateItem => "#FFF3EBFF",
+            ShapeItem => "#FFFFF0E5",
+            ContainerItem => "#FFF9FBFD",
+            SubreportItem => "#FFEAF6EA",
+            ImageItem => "#FFFBE9E9",
+            _ => "#FFF8F4ED"
+        };
+    }
+
+    private static string ResolveDefaultBorder(ReportItem item)
+    {
+        return item switch
+        {
+            ChartItem => "#FF78A9A9",
+            TablixItem => "#FF91A8D6",
+            DocumentTemplateItem => "#FFB9A0E5",
+            SubreportItem => "#FF85B68A",
+            _ => "#FF9B8B69"
+        };
+    }
+
+    private static ReportStyleDefinition? ResolveStyle(ReportItem item, IReadOnlyList<ReportStyleDefinition> styles)
+    {
+        if (string.IsNullOrWhiteSpace(item.StyleName))
+        {
+            return null;
+        }
+
+        for (var index = 0; index < styles.Count; index++)
+        {
+            var style = styles[index];
+            if (string.Equals(style.Id, item.StyleName, StringComparison.OrdinalIgnoreCase))
+            {
+                return style;
+            }
+        }
+
+        return null;
+    }
+
+    private static string? ResolveBorderColor(ReportStyleDefinition? style)
+    {
+        return style?.Border?.Color
+               ?? style?.TopBorder?.Color
+               ?? style?.BottomBorder?.Color
+               ?? style?.LeftBorder?.Color
+               ?? style?.RightBorder?.Color;
+    }
+
+    private static string ResolveSeriesColor(string? expression, string fallback)
+    {
+        var color = NormalizeExpressionPreview(expression);
+        if (color.StartsWith("#", StringComparison.Ordinal))
+        {
+            return color;
+        }
+
+        return fallback;
+    }
+
+    private static string FormatNumber(float value)
+    {
+        return value.ToString("0.##", CultureInfo.InvariantCulture);
+    }
+
+    private static string ApplyAlpha(string color, float alpha)
+    {
+        if (string.IsNullOrWhiteSpace(color))
+        {
+            return "#33FFFFFF";
+        }
+
+        var trimmed = color.Trim();
+        if (!trimmed.StartsWith('#'))
+        {
+            return trimmed;
+        }
+
+        var normalized = trimmed.Length switch
+        {
+            7 => trimmed[1..],
+            9 => trimmed[3..],
+            _ => null
+        };
+
+        if (normalized is null)
+        {
+            return trimmed;
+        }
+
+        var channel = Math.Clamp((int)Math.Round(alpha * 255d, MidpointRounding.AwayFromZero), 0, 255);
+        return $"#{channel:X2}{normalized}";
     }
 }
 
@@ -271,12 +1103,20 @@ public sealed class ReportDesignerSelectionEntryViewModel : ReactiveObject
 /// <summary>
 /// One grouping entry shown in the grouping pane.
 /// </summary>
-public sealed class ReportDesignerGroupingEntryViewModel
+public sealed class ReportDesignerGroupingEntryViewModel : ReactiveObject
 {
-    internal ReportDesignerGroupingEntryViewModel(string title, string subtitle)
+    private bool _isSelected;
+
+    internal ReportDesignerGroupingEntryViewModel(
+        string title,
+        string subtitle,
+        ReportDesignerTablixMemberSelectionTarget? selectionTarget = null,
+        int depth = 0)
     {
         Title = title ?? throw new ArgumentNullException(nameof(title));
         Subtitle = subtitle ?? string.Empty;
+        SelectionTarget = selectionTarget;
+        Depth = depth;
     }
 
     /// <summary>
@@ -288,6 +1128,35 @@ public sealed class ReportDesignerGroupingEntryViewModel
     /// Gets the secondary caption.
     /// </summary>
     public string Subtitle { get; }
+
+    /// <summary>
+    /// Gets the represented member selection target.
+    /// </summary>
+    public ReportDesignerTablixMemberSelectionTarget? SelectionTarget { get; }
+
+    /// <summary>
+    /// Gets the represented member.
+    /// </summary>
+    public ReportTablixMemberDefinition? Member => SelectionTarget?.Member;
+
+    /// <summary>
+    /// Gets the represented hierarchy axis.
+    /// </summary>
+    public ReportDesignerTablixHierarchyAxis? Axis => SelectionTarget?.Axis;
+
+    /// <summary>
+    /// Gets the nesting depth.
+    /// </summary>
+    public int Depth { get; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the entry is selected.
+    /// </summary>
+    public bool IsSelected
+    {
+        get => _isSelected;
+        internal set => this.RaiseAndSetIfChanged(ref _isSelected, value);
+    }
 }
 
 /// <summary>
@@ -610,7 +1479,7 @@ public sealed class ReportDesignerTemplateGalleryItemViewModel : ReactiveObject
 /// <summary>
 /// View model for the Avalonia paginated-report designer.
 /// </summary>
-public sealed class ReportDesignerViewModel : ReactiveObject, IDisposable
+public sealed partial class ReportDesignerViewModel : ReactiveObject, IDisposable
 {
     private readonly IReportExpressionCompiler _expressionCompiler;
     private readonly IReadOnlyList<ReportDesignerChoiceOptionViewModel> _providerOptions;
@@ -621,6 +1490,7 @@ public sealed class ReportDesignerViewModel : ReactiveObject, IDisposable
     private readonly ObservableCollection<ReportDesignerExpressionEntryViewModel> _expressionEntries = new();
     private readonly ObservableCollection<ReportDesignerTemplateGalleryItemViewModel> _galleryItems = new();
     private readonly Dictionary<ReportItem, ReportDesignerCanvasItemViewModel> _itemCanvasMap = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<ReportItem, ContainerItem?> _itemContainerMap = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<ReportItem, ReportSection> _itemSectionMap = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<object, ReportDesignerExplorerNodeViewModel> _objectExplorerMap = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<object, ReportDesignerSelectionEntryViewModel> _objectSelectionEntryMap = new(ReferenceEqualityComparer.Instance);
@@ -628,6 +1498,8 @@ public sealed class ReportDesignerViewModel : ReactiveObject, IDisposable
     private readonly ObservableCollection<ReportDesignerPropertyViewModel> _propertyEntries = new();
     private readonly ObservableCollection<ReportDesignerGroupingEntryViewModel> _rowGroupEntries = new();
     private readonly ObservableCollection<ReportDesignerGroupingEntryViewModel> _columnGroupEntries = new();
+    private readonly ObservableCollection<ReportDesignerRulerTickViewModel> _horizontalRulerTicks = new();
+    private readonly ObservableCollection<ReportDesignerRulerTickViewModel> _verticalRulerTicks = new();
     private readonly ObservableCollection<ReportDesignerSelectionEntryViewModel> _sharedTemplateEntries = new();
     private ReportDesignerCanvasItemViewModel? _selectedCanvasItem;
     private ReportDesignerExpressionEntryViewModel? _selectedExpressionEntry;
@@ -676,6 +1548,8 @@ public sealed class ReportDesignerViewModel : ReactiveObject, IDisposable
         PropertyEntries = new ReadOnlyObservableCollection<ReportDesignerPropertyViewModel>(_propertyEntries);
         RowGroupEntries = new ReadOnlyObservableCollection<ReportDesignerGroupingEntryViewModel>(_rowGroupEntries);
         ColumnGroupEntries = new ReadOnlyObservableCollection<ReportDesignerGroupingEntryViewModel>(_columnGroupEntries);
+        HorizontalRulerTicks = new ReadOnlyObservableCollection<ReportDesignerRulerTickViewModel>(_horizontalRulerTicks);
+        VerticalRulerTicks = new ReadOnlyObservableCollection<ReportDesignerRulerTickViewModel>(_verticalRulerTicks);
         ExpressionEntries = new ReadOnlyObservableCollection<ReportDesignerExpressionEntryViewModel>(_expressionEntries);
         TemplateGalleryItems = new ReadOnlyObservableCollection<ReportDesignerTemplateGalleryItemViewModel>(_galleryItems);
 
@@ -692,6 +1566,10 @@ public sealed class ReportDesignerViewModel : ReactiveObject, IDisposable
         RemoveSelectedCommand = ReactiveCommand.Create(RemoveSelected);
         ApplySelectedExpressionCommand = ReactiveCommand.Create(ApplySelectedExpression);
         ApplySelectedTemplateCommand = ReactiveCommand.Create(ApplySelectedTemplate);
+        InitializeDataWorkspace();
+        InitializeTemplateWorkspace();
+        InitializeWorkbench();
+        InitializeContextPanes();
 
         EnsureMinimumStructure();
         BuildTemplateGallery();
@@ -764,6 +1642,16 @@ public sealed class ReportDesignerViewModel : ReactiveObject, IDisposable
     public ReadOnlyObservableCollection<ReportDesignerGroupingEntryViewModel> ColumnGroupEntries { get; }
 
     /// <summary>
+    /// Gets the horizontal ruler ticks.
+    /// </summary>
+    public ReadOnlyObservableCollection<ReportDesignerRulerTickViewModel> HorizontalRulerTicks { get; }
+
+    /// <summary>
+    /// Gets the vertical ruler ticks.
+    /// </summary>
+    public ReadOnlyObservableCollection<ReportDesignerRulerTickViewModel> VerticalRulerTicks { get; }
+
+    /// <summary>
     /// Gets the expression slots for the current selection.
     /// </summary>
     public ReadOnlyObservableCollection<ReportDesignerExpressionEntryViewModel> ExpressionEntries { get; }
@@ -808,6 +1696,7 @@ public sealed class ReportDesignerViewModel : ReactiveObject, IDisposable
             }
 
             this.RaiseAndSetIfChanged(ref _selectedCanvasItem, value);
+            this.RaisePropertyChanged(nameof(SurfaceSelectionSummaryText));
             if (!_suppressSelectionSynchronization && value is not null)
             {
                 SelectTarget(value.Item);
@@ -952,7 +1841,7 @@ public sealed class ReportDesignerViewModel : ReactiveObject, IDisposable
     public int SelectedInspectorTabIndex
     {
         get => _selectedInspectorTabIndex;
-        set => this.RaiseAndSetIfChanged(ref _selectedInspectorTabIndex, Math.Clamp(value, 0, 3));
+        set => this.RaiseAndSetIfChanged(ref _selectedInspectorTabIndex, Math.Clamp(value, 0, 4));
     }
 
     /// <summary>
@@ -1011,6 +1900,41 @@ public sealed class ReportDesignerViewModel : ReactiveObject, IDisposable
     public string SurfaceDisplayText => $"{SurfaceWidth:0} x {SurfaceHeight:0}";
 
     /// <summary>
+    /// Gets the current preview page used by the WYSIWYG surface when preview is current.
+    /// </summary>
+    public ReportViewerPageViewModel? SurfacePreviewPage => PreviewViewModel.Pages.FirstOrDefault();
+
+    /// <summary>
+    /// Gets a value indicating whether the surface has a current preview background.
+    /// </summary>
+    public bool HasCurrentSurfacePreview => !IsPreviewDirty && SurfacePreviewPage is not null;
+
+    /// <summary>
+    /// Gets the left print margin guide.
+    /// </summary>
+    public double SurfaceMarginLeft => _selectedSection?.PageSettings.MarginLeft ?? 72d;
+
+    /// <summary>
+    /// Gets the top print margin guide.
+    /// </summary>
+    public double SurfaceMarginTop => _selectedSection?.PageSettings.MarginTop ?? 72d;
+
+    /// <summary>
+    /// Gets the right print margin guide.
+    /// </summary>
+    public double SurfaceMarginRight => _selectedSection?.PageSettings.MarginRight ?? 72d;
+
+    /// <summary>
+    /// Gets the bottom print margin guide.
+    /// </summary>
+    public double SurfaceMarginBottom => _selectedSection?.PageSettings.MarginBottom ?? 72d;
+
+    /// <summary>
+    /// Gets the print-area margin text for the design surface.
+    /// </summary>
+    public string SurfacePrintAreaMargin => $"{SurfaceMarginLeft:0.##},{SurfaceMarginTop:0.##},{SurfaceMarginRight:0.##},{SurfaceMarginBottom:0.##}";
+
+    /// <summary>
     /// Gets a value indicating whether the grouping pane should be shown.
     /// </summary>
     public bool IsGroupingVisible => GetSelectedTablix() is not null;
@@ -1019,7 +1943,7 @@ public sealed class ReportDesignerViewModel : ReactiveObject, IDisposable
     /// Gets the grouping status caption.
     /// </summary>
     public string GroupingStatusText => GetSelectedTablix() is TablixItem tablix
-        ? $"Grouping for {DescribeTarget(tablix).title}"
+        ? $"{DescribeTarget(tablix).title} · {tablix.RowMembers.Count} row member(s) · {tablix.ColumnMembers.Count} column member(s) · {(ShowAdvancedGroupingMode ? "Advanced" : "Default")} mode"
         : "Select a tablix to inspect row and column groups.";
 
     /// <summary>
@@ -1164,6 +2088,9 @@ public sealed class ReportDesignerViewModel : ReactiveObject, IDisposable
             await PreviewViewModel.LoadAsync(BuildPreviewSource(), cancellationToken);
             var previewUpdated = !ReferenceEquals(previousSnapshot, PreviewViewModel.CurrentSnapshot);
             IsPreviewDirty = !previewUpdated;
+            UpdateSurfacePreviewMode();
+            this.RaisePropertyChanged(nameof(SurfacePreviewPage));
+            this.RaisePropertyChanged(nameof(HasCurrentSurfacePreview));
 
             StatusMessage = previewUpdated
                 ? PreviewViewModel.StatusMessage
@@ -1359,10 +2286,10 @@ public sealed class ReportDesignerViewModel : ReactiveObject, IDisposable
                 fallbackSelection = ReportDefinition.Sections.FirstOrDefault();
                 break;
             case ReportItem item when _itemSectionMap.TryGetValue(item, out var itemSection):
-                if (!itemSection.BodyItems.Remove(item))
+                if (!RemoveItem(itemSection.BodyItems, item)
+                    && !RemoveItem(itemSection.HeaderItems, item))
                 {
-                    itemSection.HeaderItems.Remove(item);
-                    itemSection.FooterItems.Remove(item);
+                    RemoveItem(itemSection.FooterItems, item);
                 }
 
                 fallbackSelection = itemSection;
@@ -1575,17 +2502,43 @@ public sealed class ReportDesignerViewModel : ReactiveObject, IDisposable
 
     private void RebuildDesignerState(object? selectionTarget)
     {
+        var preserveDataSelection = ShouldPreserveDataWorkspaceSelection(selectionTarget);
+        var preservedDataNodeState = preserveDataSelection
+            ? CaptureSelectedDataNodeState()
+            : default;
         object preservedTarget = selectionTarget
             ?? _selectedTarget
             ?? (object?)ReportDefinition.Sections.FirstOrDefault()
             ?? ReportDefinition;
         RebuildMapsAndCollections();
         SelectTarget(preservedTarget);
+        if (preserveDataSelection)
+        {
+            RestoreSelectedDataNode(preservedDataNodeState);
+        }
+    }
+
+    private bool ShouldPreserveDataWorkspaceSelection(object? selectionTarget)
+    {
+        if (SelectedDataNode is null)
+        {
+            return false;
+        }
+
+        return selectionTarget switch
+        {
+            null => true,
+            ReportItem => true,
+            ReportSection => true,
+            Vibe.Office.Reporting.ReportDefinition => true,
+            _ => false
+        };
     }
 
     private void RebuildMapsAndCollections()
     {
         _itemSectionMap.Clear();
+        _itemContainerMap.Clear();
         _objectExplorerMap.Clear();
         _objectSelectionEntryMap.Clear();
         _itemCanvasMap.Clear();
@@ -1686,6 +2639,7 @@ public sealed class ReportDesignerViewModel : ReactiveObject, IDisposable
                 _sharedTemplateEntries);
         }
 
+        RebuildDataWorkspace();
         RebuildCanvasItems();
     }
 
@@ -1695,17 +2649,99 @@ public sealed class ReportDesignerViewModel : ReactiveObject, IDisposable
         _itemCanvasMap.Clear();
 
         var section = EnsureSelectedSection();
-        foreach (var item in section.BodyItems)
+        foreach (var item in section.BodyItems.OrderBy(static item => item.ZIndex).ThenBy(static item => item.Bounds.Y).ThenBy(static item => item.Bounds.X))
         {
-            var canvasItem = new ReportDesignerCanvasItemViewModel(item, SelectCanvasItem);
-            _canvasItems.Add(canvasItem);
-            _itemCanvasMap[item] = canvasItem;
+            AddCanvasItem(item, absoluteLeft: item.Bounds.X, absoluteTop: item.Bounds.Y, isReadOnly: false);
         }
 
+        RebuildRulerTicks();
         this.RaisePropertyChanged(nameof(CurrentSectionName));
         this.RaisePropertyChanged(nameof(SurfaceWidth));
         this.RaisePropertyChanged(nameof(SurfaceHeight));
+        this.RaisePropertyChanged(nameof(SurfaceScaledWidth));
+        this.RaisePropertyChanged(nameof(SurfaceScaledHeight));
         this.RaisePropertyChanged(nameof(SurfaceDisplayText));
+        this.RaisePropertyChanged(nameof(SurfaceZoomDisplayText));
+        this.RaisePropertyChanged(nameof(SurfaceMarginLeft));
+        this.RaisePropertyChanged(nameof(SurfaceMarginTop));
+        this.RaisePropertyChanged(nameof(SurfaceMarginRight));
+        this.RaisePropertyChanged(nameof(SurfaceMarginBottom));
+        this.RaisePropertyChanged(nameof(SurfacePrintAreaMargin));
+        this.RaisePropertyChanged(nameof(SurfacePreviewPage));
+        this.RaisePropertyChanged(nameof(HasCurrentSurfacePreview));
+        this.RaisePropertyChanged(nameof(SurfaceSelectionSummaryText));
+    }
+
+    private void AddCanvasItem(ReportItem item, double absoluteLeft, double absoluteTop, bool isReadOnly)
+    {
+        var canvasItem = new ReportDesignerCanvasItemViewModel(item, SelectCanvasItem);
+        canvasItem.ConfigureLayout(absoluteLeft, absoluteTop, item.Bounds.Width, item.Bounds.Height, isReadOnly);
+        canvasItem.Refresh(ReportDefinition.Styles, Source.ReferencedReports);
+        canvasItem.SetPreviewOverlayMode(HasCurrentSurfacePreview);
+        _canvasItems.Add(canvasItem);
+
+        if (!isReadOnly)
+        {
+            _itemCanvasMap[item] = canvasItem;
+        }
+
+        switch (item)
+        {
+            case ContainerItem containerItem:
+                foreach (var child in containerItem.Items.OrderBy(static child => child.ZIndex).ThenBy(static child => child.Bounds.Y).ThenBy(static child => child.Bounds.X))
+                {
+                    AddCanvasItem(
+                        child,
+                        absoluteLeft + child.Bounds.X,
+                        absoluteTop + child.Bounds.Y,
+                        isReadOnly: false);
+                }
+
+                break;
+            case SubreportItem subreportItem
+                when Source.ReferencedReports.TryGetValue(subreportItem.ReportReferenceId, out var referencedReport)
+                     && referencedReport.Sections.Count > 0:
+                foreach (var child in referencedReport.Sections[0].BodyItems.OrderBy(static child => child.ZIndex).ThenBy(static child => child.Bounds.Y).ThenBy(static child => child.Bounds.X))
+                {
+                    AddCanvasItem(
+                        child,
+                        absoluteLeft + child.Bounds.X,
+                        absoluteTop + child.Bounds.Y,
+                        isReadOnly: true);
+                }
+
+                break;
+        }
+    }
+
+    private void RebuildRulerTicks()
+    {
+        _horizontalRulerTicks.Clear();
+        _verticalRulerTicks.Clear();
+
+        BuildRulerTicks(SurfaceWidth, SurfaceZoomFactor, _horizontalRulerTicks);
+        BuildRulerTicks(SurfaceHeight, SurfaceZoomFactor, _verticalRulerTicks);
+    }
+
+    private static void BuildRulerTicks(
+        double length,
+        double scale,
+        ObservableCollection<ReportDesignerRulerTickViewModel> target)
+    {
+        const double majorStep = 72d;
+        const double minorStep = 18d;
+
+        if (length <= 0d)
+        {
+            return;
+        }
+
+        for (var offset = 0d; offset <= length + 0.01d; offset += minorStep)
+        {
+            var isMajor = Math.Abs(offset % majorStep) <= 0.01d || Math.Abs((offset % majorStep) - majorStep) <= 0.01d;
+            var label = isMajor ? Math.Round(offset / majorStep, MidpointRounding.AwayFromZero).ToString(CultureInfo.InvariantCulture) : string.Empty;
+            target.Add(new ReportDesignerRulerTickViewModel(offset * scale, label, isMajor));
+        }
     }
 
     private void RebuildPropertiesAndExpressions()
@@ -1719,17 +2755,56 @@ public sealed class ReportDesignerViewModel : ReactiveObject, IDisposable
         this.RaisePropertyChanged(nameof(SelectedObjectType));
         this.RaisePropertyChanged(nameof(IsGroupingVisible));
         this.RaisePropertyChanged(nameof(GroupingStatusText));
+        RaiseContextPanePropertiesChanged();
+        RaiseTemplateWorkspacePropertiesChanged();
     }
 
     private void BuildGroupingEntries()
     {
+        ReportTablixMemberDefinition? selectedRowMember = null;
+        ReportTablixMemberDefinition? selectedColumnMember = null;
+        if (_selectedTarget is ReportDesignerTablixMemberSelectionTarget memberSelection)
+        {
+            if (memberSelection.Axis == ReportDesignerTablixHierarchyAxis.Row)
+            {
+                selectedRowMember = memberSelection.Member;
+            }
+            else
+            {
+                selectedColumnMember = memberSelection.Member;
+            }
+        }
+        else
+        {
+            selectedRowMember = SelectedRowGroupEntry?.Member;
+            selectedColumnMember = SelectedColumnGroupEntry?.Member;
+        }
+
         _rowGroupEntries.Clear();
         _columnGroupEntries.Clear();
 
         var tablix = GetSelectedTablix();
         if (tablix is null)
         {
+            var previousSuppression = _suppressSelectionSynchronization;
+            _suppressSelectionSynchronization = true;
+            try
+            {
+                SelectedRowGroupEntry = null;
+                SelectedColumnGroupEntry = null;
+            }
+            finally
+            {
+                _suppressSelectionSynchronization = previousSuppression;
+            }
+
             return;
+        }
+
+        if (ShowAdvancedGroupingMode)
+        {
+            EnsureTablixRowMembersInitialized(tablix);
+            EnsureTablixColumnMembersInitialized(tablix);
         }
 
         if (tablix.RowMembers.Count == 0)
@@ -1740,28 +2815,36 @@ public sealed class ReportDesignerViewModel : ReactiveObject, IDisposable
         {
             foreach (var member in tablix.RowMembers)
             {
-                AppendGroupingEntry(member, depth: 0, _rowGroupEntries);
+                AppendGroupingEntry(tablix, member, ReportDesignerTablixHierarchyAxis.Row, depth: 0, _rowGroupEntries, ShowAdvancedGroupingMode);
             }
         }
 
-        if (tablix.Columns.Count == 0)
+        if (tablix.ColumnMembers.Count == 0)
         {
             _columnGroupEntries.Add(new ReportDesignerGroupingEntryViewModel("Static Columns", "No column hierarchy."));
-            return;
+        }
+        else
+        {
+            foreach (var member in tablix.ColumnMembers)
+            {
+                AppendGroupingEntry(tablix, member, ReportDesignerTablixHierarchyAxis.Column, depth: 0, _columnGroupEntries, ShowAdvancedGroupingMode);
+            }
         }
 
-        for (var columnIndex = 0; columnIndex < tablix.Columns.Count; columnIndex++)
+        var previousSelectionSuppression = _suppressSelectionSynchronization;
+        _suppressSelectionSynchronization = true;
+        try
         {
-            var column = tablix.Columns[columnIndex];
-            var title = $"Column {(columnIndex + 1):00}";
-            if (!string.IsNullOrWhiteSpace(column.Id))
-            {
-                title = $"{title} · {column.Id}";
-            }
-
-            _columnGroupEntries.Add(new ReportDesignerGroupingEntryViewModel(
-                title,
-                $"{column.Width:0.#} pt static column"));
+            SelectedRowGroupEntry = selectedRowMember is not null
+                ? _rowGroupEntries.FirstOrDefault(entry => ReferenceEquals(entry.Member, selectedRowMember))
+                : null;
+            SelectedColumnGroupEntry = selectedColumnMember is not null
+                ? _columnGroupEntries.FirstOrDefault(entry => ReferenceEquals(entry.Member, selectedColumnMember))
+                : null;
+        }
+        finally
+        {
+            _suppressSelectionSynchronization = previousSelectionSuppression;
         }
     }
 
@@ -1770,21 +2853,37 @@ public sealed class ReportDesignerViewModel : ReactiveObject, IDisposable
         return _selectedTarget switch
         {
             TablixItem tablix => tablix,
+            ReportDesignerTablixMemberSelectionTarget memberTarget => memberTarget.Tablix,
             _ => null
         };
     }
 
     private static void AppendGroupingEntry(
+        TablixItem tablix,
         ReportTablixMemberDefinition member,
+        ReportDesignerTablixHierarchyAxis axis,
         int depth,
-        ICollection<ReportDesignerGroupingEntryViewModel> target)
+        ICollection<ReportDesignerGroupingEntryViewModel> target,
+        bool includeStaticMembers)
     {
+        if (!includeStaticMembers && member.Kind == ReportTablixMemberKind.Static)
+        {
+            for (var childIndex = 0; childIndex < member.Members.Count; childIndex++)
+            {
+                AppendGroupingEntry(tablix, member.Members[childIndex], axis, depth, target, includeStaticMembers);
+            }
+
+            return;
+        }
+
         var prefix = new string(' ', depth * 2);
         var title = member.Kind switch
         {
             ReportTablixMemberKind.Group => $"{prefix}{member.GroupName ?? "Group"}",
             ReportTablixMemberKind.Details => $"{prefix}Details",
-            _ => $"{prefix}Static"
+            _ => member.RowDefinitionIndex.HasValue || member.ColumnDefinitionIndex.HasValue
+                ? $"{prefix}Static"
+                : $"{prefix}(Static)"
         };
 
         var subtitle = member.Kind switch
@@ -1794,13 +2893,24 @@ public sealed class ReportDesignerViewModel : ReactiveObject, IDisposable
             ReportTablixMemberKind.Details => "Detail rows",
             _ => member.RowDefinitionIndex.HasValue
                 ? $"Row {member.RowDefinitionIndex.Value + 1}"
+                : member.ColumnDefinitionIndex.HasValue
+                    ? $"Column {member.ColumnDefinitionIndex.Value + 1}"
                 : "Static member"
         };
 
-        target.Add(new ReportDesignerGroupingEntryViewModel(title, subtitle));
+        target.Add(new ReportDesignerGroupingEntryViewModel(
+            title,
+            subtitle,
+            new ReportDesignerTablixMemberSelectionTarget
+            {
+                Tablix = tablix,
+                Member = member,
+                Axis = axis
+            },
+            depth));
         for (var index = 0; index < member.Members.Count; index++)
         {
-            AppendGroupingEntry(member.Members[index], depth + 1, target);
+            AppendGroupingEntry(tablix, member.Members[index], axis, depth + 1, target, includeStaticMembers);
         }
     }
 
@@ -2044,7 +3154,9 @@ public sealed class ReportDesignerViewModel : ReactiveObject, IDisposable
             case ReportSharedTemplateDefinition template:
                 AddTextProperty("template.id", "Id", "Stable shared-template identifier.", template.Id, false, value =>
                 {
-                    template.Id = NormalizeRequired(value, "Template id");
+                    var oldId = template.Id;
+                    var newId = NormalizeRequired(value, "Template id");
+                    RenameSharedTemplateAndReferences(template, oldId, newId);
                     OnModelChanged("Updated template id.");
                     return null;
                 });
@@ -2071,10 +3183,71 @@ public sealed class ReportDesignerViewModel : ReactiveObject, IDisposable
                     return null;
                 });
                 break;
+            case ReportDesignerTablixMemberSelectionTarget memberTarget:
+                BuildTablixMemberPropertyEntries(memberTarget);
+                break;
             case ReportItem item:
                 BuildItemPropertyEntries(item);
                 break;
         }
+    }
+
+    private void BuildTablixMemberPropertyEntries(ReportDesignerTablixMemberSelectionTarget memberTarget)
+    {
+        var member = memberTarget.Member;
+        var axisLabel = memberTarget.Axis == ReportDesignerTablixHierarchyAxis.Row ? "Row" : "Column";
+
+        AddTextProperty("tablixMember.id", "Id", $"{axisLabel} member identifier.", member.Id, false, value =>
+        {
+            member.Id = NormalizeRequired(value, $"{axisLabel} member id");
+            OnModelChanged($"Updated {axisLabel.ToLowerInvariant()} member id.");
+            return null;
+        });
+
+        if (member.Kind == ReportTablixMemberKind.Group)
+        {
+            AddTextProperty("tablixMember.groupName", "Group Name", $"{axisLabel} group caption.", member.GroupName ?? string.Empty, false, value =>
+            {
+                member.GroupName = NormalizeOptional(value);
+                OnModelChanged($"Updated {axisLabel.ToLowerInvariant()} group name.");
+                return null;
+            });
+
+            AddChoiceProperty("tablixMember.sortDirection", "Sort Direction", "Sort direction for grouped members.", member.SortDirection.ToString(), CreateEnumOptions<ReportSortDirection>(), value =>
+            {
+                member.SortDirection = Enum.Parse<ReportSortDirection>(value, ignoreCase: true);
+                OnModelChanged($"Updated {axisLabel.ToLowerInvariant()} group sort direction.");
+            });
+        }
+
+        AddBooleanProperty("tablixMember.repeatOnNewPage", "Repeat On New Page", "Repeat this tablix member on new pages.", member.RepeatOnNewPage, value =>
+        {
+            member.RepeatOnNewPage = value;
+            OnModelChanged($"Updated {axisLabel.ToLowerInvariant()} member repeat behavior.");
+        });
+
+        AddChoiceProperty(
+            "tablixMember.keepWithGroup",
+            "Keep With Group",
+            "Controls whether the member stays before or after its related group.",
+            member.KeepWithGroup ?? string.Empty,
+            [
+                new ReportDesignerChoiceOptionViewModel(string.Empty, "None"),
+                new ReportDesignerChoiceOptionViewModel("Before", "Before"),
+                new ReportDesignerChoiceOptionViewModel("After", "After")
+            ],
+            value =>
+            {
+                member.KeepWithGroup = NormalizeOptional(value);
+                OnModelChanged($"Updated {axisLabel.ToLowerInvariant()} member keep-with-group mode.");
+            });
+
+        AddTextProperty("tablixMember.toggleItemId", "Toggle Item", "Optional textbox id that toggles this member.", member.ToggleItemId ?? string.Empty, false, value =>
+        {
+            member.ToggleItemId = NormalizeOptional(value);
+            OnModelChanged($"Updated {axisLabel.ToLowerInvariant()} member toggle target.");
+            return null;
+        });
     }
 
     private void BuildItemPropertyEntries(ReportItem item)
@@ -2120,6 +3293,12 @@ public sealed class ReportDesignerViewModel : ReactiveObject, IDisposable
             {
                 item.Bounds = item.Bounds with { Height = parsed };
                 OnModelChanged("Updated item height.");
+            }));
+        AddTextProperty("item.zIndex", "Z-Order", "Layer order within the current container.", item.ZIndex.ToString(CultureInfo.InvariantCulture), false, value =>
+            TryApplyInt(value, parsed =>
+            {
+                item.ZIndex = parsed;
+                OnModelChanged("Updated item z-order.");
             }));
 
         switch (item)
@@ -2370,6 +3549,29 @@ public sealed class ReportDesignerViewModel : ReactiveObject, IDisposable
                         }, "Updated sort expression."));
                 }
                 break;
+            case ReportDesignerTablixMemberSelectionTarget memberTarget:
+                var member = memberTarget.Member;
+                AddExpressionEntry("tablixMember.visibilityExpression", "Visibility", member.VisibilityExpression, value =>
+                    TryApplyExpression(value, allowEmpty: true, "Expression is required.", normalized =>
+                    {
+                        member.VisibilityExpression = normalized;
+                    }, "Updated tablix-member visibility expression."));
+
+                if (member.Kind == ReportTablixMemberKind.Group)
+                {
+                    AddExpressionEntry("tablixMember.groupExpression", "Group Expression", member.GroupExpression, value =>
+                        TryApplyExpression(value, allowEmpty: false, "Group expression is required.", normalized =>
+                        {
+                            member.GroupExpression = normalized!;
+                        }, "Updated tablix-member group expression."));
+                    AddExpressionEntry("tablixMember.sortExpression", "Sort Expression", member.SortExpression, value =>
+                        TryApplyExpression(value, allowEmpty: true, "Expression is required.", normalized =>
+                        {
+                            member.SortExpression = normalized;
+                        }, "Updated tablix-member sort expression."));
+                }
+
+                break;
             case ReportItem item:
                 AddExpressionEntry("item.visibilityExpression", "Visibility", item.VisibilityExpression, value =>
                     TryApplyExpression(value, allowEmpty: true, "Expression is required.", normalized =>
@@ -2485,11 +3687,24 @@ public sealed class ReportDesignerViewModel : ReactiveObject, IDisposable
         _propertyEntries.Add(new ReportDesignerChoicePropertyViewModel(id, label, description, options, initialValue, apply));
     }
 
-    private void RegisterItem(ReportItem item, ReportSection section, ReportDesignerExplorerNodeViewModel parentNode)
+    private void RegisterItem(
+        ReportItem item,
+        ReportSection section,
+        ReportDesignerExplorerNodeViewModel parentNode,
+        ContainerItem? parentContainer = null)
     {
         _itemSectionMap[item] = section;
+        _itemContainerMap[item] = parentContainer;
         var node = CreateTargetNode(item);
         parentNode.Children.Add(node);
+
+        if (item is ContainerItem containerItem)
+        {
+            foreach (var child in containerItem.Items)
+            {
+                RegisterItem(child, section, node, containerItem);
+            }
+        }
     }
 
     private ReportDesignerExplorerNodeViewModel CreateGroupNode(string label)
@@ -2537,10 +3752,17 @@ public sealed class ReportDesignerViewModel : ReactiveObject, IDisposable
     private void SelectTarget(object? target)
     {
         _selectedTarget = target ?? ReportDefinition;
+        var selectedCanvasTarget = _selectedTarget switch
+        {
+            ReportItem item => item,
+            ReportDesignerTablixMemberSelectionTarget memberTarget => memberTarget.Tablix,
+            _ => null
+        };
         _selectedSection = _selectedTarget switch
         {
             ReportSection section => section,
             ReportItem item when _itemSectionMap.TryGetValue(item, out var ownerSection) => ownerSection,
+            ReportDesignerTablixMemberSelectionTarget memberTarget when _itemSectionMap.TryGetValue(memberTarget.Tablix, out var ownerSection) => ownerSection,
             _ => _selectedSection ?? ReportDefinition.Sections.FirstOrDefault()
         };
 
@@ -2559,15 +3781,18 @@ public sealed class ReportDesignerViewModel : ReactiveObject, IDisposable
 
             SelectedExplorerNode = _objectExplorerMap.TryGetValue(_selectedTarget, out var explorerNode)
                 ? explorerNode
+                : selectedCanvasTarget is not null && _objectExplorerMap.TryGetValue(selectedCanvasTarget, out var canvasExplorerNode)
+                    ? canvasExplorerNode
                 : _objectExplorerMap.GetValueOrDefault(ReportDefinition);
 
             foreach (var canvasItem in _canvasItems)
             {
-                canvasItem.IsSelected = ReferenceEquals(canvasItem.Item, _selectedTarget);
-                canvasItem.Refresh();
+                canvasItem.IsSelected = ReferenceEquals(canvasItem.Item, selectedCanvasTarget);
+                canvasItem.Refresh(ReportDefinition.Styles, Source.ReferencedReports);
+                canvasItem.SetPreviewOverlayMode(HasCurrentSurfacePreview);
             }
 
-            SelectedCanvasItem = _selectedTarget is ReportItem selectedItem && _itemCanvasMap.TryGetValue(selectedItem, out var canvasSelection)
+            SelectedCanvasItem = selectedCanvasTarget is not null && _itemCanvasMap.TryGetValue(selectedCanvasTarget, out var canvasSelection)
                 ? canvasSelection
                 : null;
 
@@ -2580,6 +3805,7 @@ public sealed class ReportDesignerViewModel : ReactiveObject, IDisposable
             SelectedDataSourceEntry = GetSelectionEntry<ReportDataSourceDefinition>(_selectedTarget);
             SelectedDataSetEntry = GetSelectionEntry<ReportDataSetDefinition>(_selectedTarget);
             SelectedSharedTemplateEntry = GetSelectionEntry<ReportSharedTemplateDefinition>(_selectedTarget);
+            SyncDataWorkspaceSelectionFromTarget();
         }
         finally
         {
@@ -2587,6 +3813,12 @@ public sealed class ReportDesignerViewModel : ReactiveObject, IDisposable
         }
 
         RebuildPropertiesAndExpressions();
+        RefreshDataWorkspaceEditors();
+        RefreshTemplateWorkspaceEditors();
+        RefreshContextPanes();
+        RaiseGroupingCapabilityPropertiesChanged();
+        this.RaisePropertyChanged(nameof(HasActiveInsertTool));
+        this.RaisePropertyChanged(nameof(ActiveInsertToolDisplayText));
         StatusMessage = $"Selected {SelectedObjectType.ToLowerInvariant()}: {SelectedObjectTitle}.";
     }
 
@@ -2600,6 +3832,8 @@ public sealed class ReportDesignerViewModel : ReactiveObject, IDisposable
 
     private void RefreshLightweightViews()
     {
+        RebuildCanvasItemsPreservingSelection();
+
         foreach (var pair in _objectExplorerMap)
         {
             pair.Value.Label = DescribeTarget(pair.Key).title;
@@ -2641,19 +3875,66 @@ public sealed class ReportDesignerViewModel : ReactiveObject, IDisposable
             }
         }
 
-        foreach (var canvasItem in _canvasItems)
-        {
-            canvasItem.Refresh();
-        }
-
+        RefreshDataWorkspaceNodes();
+        RefreshContextPanes();
         this.RaisePropertyChanged(nameof(CurrentSectionName));
         this.RaisePropertyChanged(nameof(SurfaceWidth));
         this.RaisePropertyChanged(nameof(SurfaceHeight));
+        this.RaisePropertyChanged(nameof(SurfaceScaledWidth));
+        this.RaisePropertyChanged(nameof(SurfaceScaledHeight));
         this.RaisePropertyChanged(nameof(SurfaceDisplayText));
+        this.RaisePropertyChanged(nameof(SurfaceZoomDisplayText));
+        this.RaisePropertyChanged(nameof(SurfaceMarginLeft));
+        this.RaisePropertyChanged(nameof(SurfaceMarginTop));
+        this.RaisePropertyChanged(nameof(SurfaceMarginRight));
+        this.RaisePropertyChanged(nameof(SurfaceMarginBottom));
+        this.RaisePropertyChanged(nameof(SurfacePrintAreaMargin));
+        this.RaisePropertyChanged(nameof(SurfacePreviewPage));
+        this.RaisePropertyChanged(nameof(HasCurrentSurfacePreview));
+        this.RaisePropertyChanged(nameof(SurfaceSelectionSummaryText));
         this.RaisePropertyChanged(nameof(SelectedObjectTitle));
         this.RaisePropertyChanged(nameof(SelectedObjectType));
         this.RaisePropertyChanged(nameof(IsGroupingVisible));
         this.RaisePropertyChanged(nameof(GroupingStatusText));
+        RaiseGroupingCapabilityPropertiesChanged();
+    }
+
+    private void RebuildCanvasItemsPreservingSelection()
+    {
+        var selectedItem = _selectedTarget as ReportItem;
+        RebuildCanvasItems();
+
+        _suppressSelectionSynchronization = true;
+        try
+        {
+            foreach (var canvasItem in _canvasItems)
+            {
+                canvasItem.IsSelected = ReferenceEquals(canvasItem.Item, selectedItem);
+            }
+
+            SelectedCanvasItem = selectedItem is not null && _itemCanvasMap.TryGetValue(selectedItem, out var selectedCanvasItem)
+                ? selectedCanvasItem
+                : null;
+        }
+        finally
+        {
+            _suppressSelectionSynchronization = false;
+        }
+    }
+
+    private void RaiseGroupingCapabilityPropertiesChanged()
+    {
+        this.RaisePropertyChanged(nameof(CanAddRowGroup));
+        this.RaisePropertyChanged(nameof(CanAddColumnGroup));
+        this.RaisePropertyChanged(nameof(CanAddParentRowGroup));
+        this.RaisePropertyChanged(nameof(CanAddChildRowGroup));
+        this.RaisePropertyChanged(nameof(CanAddAdjacentRowGroup));
+        this.RaisePropertyChanged(nameof(CanAddParentColumnGroup));
+        this.RaisePropertyChanged(nameof(CanAddChildColumnGroup));
+        this.RaisePropertyChanged(nameof(CanAddAdjacentColumnGroup));
+        this.RaisePropertyChanged(nameof(CanAddRowTotal));
+        this.RaisePropertyChanged(nameof(CanAddColumnTotal));
+        this.RaisePropertyChanged(nameof(CanRemoveSelectedGroup));
     }
 
     private void OnModelChanged(string message)
@@ -2665,7 +3946,23 @@ public sealed class ReportDesignerViewModel : ReactiveObject, IDisposable
     private void MarkDirty(string message)
     {
         IsPreviewDirty = true;
+        UpdateSurfacePreviewMode();
+        this.RaisePropertyChanged(nameof(HasCurrentSurfacePreview));
         StatusMessage = message + " Preview is out of date.";
+    }
+
+    private void UpdateViewStateStatus(string message)
+    {
+        StatusMessage = message;
+    }
+
+    private void UpdateSurfacePreviewMode()
+    {
+        var hasCurrentPreview = HasCurrentSurfacePreview;
+        foreach (var canvasItem in _canvasItems)
+        {
+            canvasItem.SetPreviewOverlayMode(hasCurrentPreview);
+        }
     }
 
     private ReportViewerSource BuildPreviewSource()
@@ -2796,19 +4093,34 @@ public sealed class ReportDesignerViewModel : ReactiveObject, IDisposable
     {
         foreach (var section in ReportDefinition.Sections)
         {
-            foreach (var item in section.HeaderItems)
+            foreach (var item in EnumerateItems(section.HeaderItems))
             {
                 yield return item;
             }
 
-            foreach (var item in section.BodyItems)
+            foreach (var item in EnumerateItems(section.BodyItems))
             {
                 yield return item;
             }
 
-            foreach (var item in section.FooterItems)
+            foreach (var item in EnumerateItems(section.FooterItems))
             {
                 yield return item;
+            }
+        }
+    }
+
+    private static IEnumerable<ReportItem> EnumerateItems(IEnumerable<ReportItem> items)
+    {
+        foreach (var item in items)
+        {
+            yield return item;
+            if (item is ContainerItem containerItem)
+            {
+                foreach (var child in EnumerateItems(containerItem.Items))
+                {
+                    yield return child;
+                }
             }
         }
     }
@@ -2816,6 +4128,24 @@ public sealed class ReportDesignerViewModel : ReactiveObject, IDisposable
     private IEnumerable<string> EnumerateItemIds()
     {
         return EnumerateItems().Select(static item => item.Id);
+    }
+
+    private static bool RemoveItem(ICollection<ReportItem> items, ReportItem target)
+    {
+        if (items.Remove(target))
+        {
+            return true;
+        }
+
+        foreach (var item in items)
+        {
+            if (item is ContainerItem containerItem && RemoveItem(containerItem.Items, target))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static string CreateUniqueId(string prefix, IEnumerable<string> existingIds)
@@ -2845,6 +4175,16 @@ public sealed class ReportDesignerViewModel : ReactiveObject, IDisposable
             ReportDataSourceDefinition dataSource => (dataSource.Id, "Data Source"),
             ReportDataSetDefinition dataSet => (dataSet.Id, "Data Set"),
             ReportSharedTemplateDefinition template => (template.Id, "Shared Template"),
+            ReportDesignerTablixMemberSelectionTarget memberTarget => (
+                memberTarget.Member.Kind switch
+                {
+                    ReportTablixMemberKind.Group => string.IsNullOrWhiteSpace(memberTarget.Member.GroupName)
+                        ? $"{memberTarget.Axis} Group"
+                        : memberTarget.Member.GroupName!,
+                    ReportTablixMemberKind.Details => $"{memberTarget.Axis} Details",
+                    _ => $"{memberTarget.Axis} Static Member"
+                },
+                $"{memberTarget.Axis} Group"),
             ReportItem item => (string.IsNullOrWhiteSpace(item.Name) ? item.Id : item.Name, item.GetType().Name.Replace("Item", string.Empty, StringComparison.Ordinal)),
             _ => ("Nothing Selected", "Selection")
         };

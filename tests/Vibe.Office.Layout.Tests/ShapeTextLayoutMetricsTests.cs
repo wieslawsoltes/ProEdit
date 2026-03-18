@@ -64,6 +64,95 @@ public sealed class ShapeTextLayoutMetricsTests
         Assert.Equal(30f, metrics.OriginY);
     }
 
+    [Fact]
+    public void ComputeMetrics_PreservesPositiveContentOffsets()
+    {
+        var document = new Document();
+        document.Blocks.Clear();
+        var paragraph = new ParagraphBlock("Hello");
+        paragraph.Properties.IndentLeft = 12f;
+        paragraph.Properties.SpacingBefore = 8f;
+        paragraph.Inlines.Add(new RunInline("Hello"));
+        document.Blocks.Add(paragraph);
+
+        var settings = new LayoutSettings
+        {
+            UsePagination = false,
+            PageWidth = 160f,
+            PageHeight = 60f,
+            ViewportWidth = 160f,
+            ViewportHeight = 60f,
+            PageGap = 0f,
+            MarginLeft = 0f,
+            MarginRight = 0f,
+            MarginTop = 0f,
+            MarginBottom = 0f,
+            HeaderOffset = 0f,
+            FooterOffset = 0f,
+            Gutter = 0f
+        };
+
+        var layout = new DocumentLayouter().Layout(document, settings, new TestTextMeasurer());
+        var textBox = new ShapeTextBox
+        {
+            Properties =
+            {
+                AutoFit = ShapeTextAutoFit.None,
+                VerticalAlignment = ShapeTextVerticalAlignment.Top
+            }
+        };
+        var textBounds = new DocRect(20f, 30f, 100f, 20f);
+
+        Assert.True(ShapeTextLayoutHelper.TryComputeMetrics(layout, textBox, textBounds, out var metrics));
+        Assert.True(metrics.ContentBounds.X > 0f);
+        Assert.True(metrics.ContentBounds.Y > 0f);
+        Assert.Equal(textBounds.X, metrics.OriginX, 3);
+        Assert.Equal(textBounds.Y, metrics.OriginY, 3);
+    }
+
+    [Fact]
+    public void ComputeMetrics_PreservesRightAlignedLineOffsets()
+    {
+        var document = new Document();
+        document.Blocks.Clear();
+        var paragraph = new ParagraphBlock("Hello");
+        paragraph.Properties.Alignment = ParagraphAlignment.Right;
+        paragraph.Inlines.Add(new RunInline("Hello"));
+        document.Blocks.Add(paragraph);
+
+        var settings = new LayoutSettings
+        {
+            UsePagination = false,
+            PageWidth = 160f,
+            PageHeight = 60f,
+            ViewportWidth = 160f,
+            ViewportHeight = 60f,
+            PageGap = 0f,
+            MarginLeft = 0f,
+            MarginRight = 0f,
+            MarginTop = 0f,
+            MarginBottom = 0f,
+            HeaderOffset = 0f,
+            FooterOffset = 0f,
+            Gutter = 0f
+        };
+
+        var layout = new DocumentLayouter().Layout(document, settings, new TestTextMeasurer());
+        var textBox = new ShapeTextBox
+        {
+            Properties =
+            {
+                AutoFit = ShapeTextAutoFit.None,
+                VerticalAlignment = ShapeTextVerticalAlignment.Top
+            }
+        };
+        var textBounds = new DocRect(24f, 12f, 100f, 20f);
+
+        Assert.True(ShapeTextLayoutHelper.TryComputeMetrics(layout, textBox, textBounds, out var metrics));
+        Assert.True(metrics.ContentBounds.X > 0f);
+        Assert.Equal(textBounds.X, metrics.OriginX, 3);
+    }
+
     private static DocumentLayout BuildLayout(string text, float width, float height)
     {
         var document = new Document();

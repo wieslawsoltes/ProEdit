@@ -842,6 +842,8 @@ public static class DocumentRtfSerializer
                         case CommentReferenceInline comment:
                             AppendRun(_document.DefaultTextStyle, comment.Id.ToString(CultureInfo.InvariantCulture));
                             break;
+                        case ShapeInline shape when TryAppendShapeText(shape):
+                            break;
                         case MetadataStartInline:
                         case MetadataEndInline:
                         case FieldStartInline:
@@ -869,7 +871,135 @@ public static class DocumentRtfSerializer
                 AppendRun(_document.DefaultTextStyle, paragraph.Text);
             }
 
+            if (paragraph.FloatingObjects.Count > 0)
+            {
+                for (var floatingIndex = 0; floatingIndex < paragraph.FloatingObjects.Count; floatingIndex++)
+                {
+                    switch (paragraph.FloatingObjects[floatingIndex].Content)
+                    {
+                        case ShapeInline shape when TryAppendShapeText(shape):
+                            break;
+                        default:
+                            AppendRun(_document.DefaultTextStyle, DocumentConstants.ObjectReplacementChar.ToString());
+                            break;
+                    }
+                }
+            }
+
             _builder.Append("\\par ");
+        }
+
+        private bool TryAppendShapeText(ShapeInline shape)
+        {
+            if (shape.TextBox is not { Blocks.Count: > 0 } textBox)
+            {
+                return false;
+            }
+
+            var text = ExtractTextFromBlocks(textBox.Blocks);
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return false;
+            }
+
+            AppendRun(_document.DefaultTextStyle, text);
+            return true;
+        }
+
+        private static string ExtractTextFromBlocks(IReadOnlyList<Block> blocks)
+        {
+            var builder = new StringBuilder();
+            for (var index = 0; index < blocks.Count; index++)
+            {
+                if (index > 0 && builder.Length > 0)
+                {
+                    builder.Append(' ');
+                }
+
+                AppendBlockText(builder, blocks[index]);
+            }
+
+            return builder.ToString().Trim();
+        }
+
+        private static void AppendBlockText(StringBuilder builder, Block block)
+        {
+            switch (block)
+            {
+                case ParagraphBlock paragraph:
+                    AppendParagraphText(builder, paragraph);
+                    break;
+                case TableBlock table:
+                    for (var rowIndex = 0; rowIndex < table.Rows.Count; rowIndex++)
+                    {
+                        var row = table.Rows[rowIndex];
+                        for (var cellIndex = 0; cellIndex < row.Cells.Count; cellIndex++)
+                        {
+                            if (builder.Length > 0)
+                            {
+                                builder.Append(' ');
+                            }
+
+                            AppendCellText(builder, row.Cells[cellIndex]);
+                        }
+                    }
+
+                    break;
+            }
+        }
+
+        private static void AppendCellText(StringBuilder builder, TableCell cell)
+        {
+            for (var blockIndex = 0; blockIndex < cell.Blocks.Count; blockIndex++)
+            {
+                if (blockIndex > 0 && builder.Length > 0)
+                {
+                    builder.Append(' ');
+                }
+
+                AppendBlockText(builder, cell.Blocks[blockIndex]);
+            }
+        }
+
+        private static void AppendParagraphText(StringBuilder builder, ParagraphBlock paragraph)
+        {
+            if (paragraph.Inlines.Count == 0)
+            {
+                if (!string.IsNullOrWhiteSpace(paragraph.Text))
+                {
+                    builder.Append(paragraph.Text);
+                }
+            }
+            else
+            {
+                for (var inlineIndex = 0; inlineIndex < paragraph.Inlines.Count; inlineIndex++)
+                {
+                    AppendInlineText(builder, paragraph.Inlines[inlineIndex]);
+                }
+            }
+
+            for (var floatingIndex = 0; floatingIndex < paragraph.FloatingObjects.Count; floatingIndex++)
+            {
+                if (builder.Length > 0)
+                {
+                    builder.Append(' ');
+                }
+
+                AppendInlineText(builder, paragraph.FloatingObjects[floatingIndex].Content);
+            }
+        }
+
+        private static void AppendInlineText(StringBuilder builder, Inline inline)
+        {
+            switch (inline)
+            {
+                case RunInline run:
+                    builder.Append(run.GetText());
+                    break;
+                case ShapeInline shape when shape.TextBox is { Blocks.Count: > 0 }:
+                    builder.Append(ExtractTextFromBlocks(shape.TextBox.Blocks));
+                    break;
+            }
         }
 
         private void WriteTable(TableBlock table)

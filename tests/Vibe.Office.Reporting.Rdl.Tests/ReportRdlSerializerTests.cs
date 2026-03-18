@@ -7,6 +7,7 @@ namespace Vibe.Office.Reporting.Rdl.Tests;
 
 public sealed class ReportRdlSerializerTests
 {
+    private static readonly string SampleCorpusPath = ResolveSampleCorpusPath();
     private readonly ReportRdlSerializer _serializer = new();
 
     [Fact]
@@ -135,6 +136,93 @@ public sealed class ReportRdlSerializerTests
         Assert.Single(report.Sections[0].BodyItems);
         var title = Assert.IsType<TextItem>(report.Sections[0].BodyItems[0]);
         Assert.Equal("Parameters.Region", title.ValueExpression);
+    }
+
+    [Fact]
+    public void ReadAndWrite_RoundTripsReportParameterLayoutGrid()
+    {
+        const string xml =
+            """
+            <Report xmlns="http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition"
+                    xmlns:rd="http://schemas.microsoft.com/SQLServer/reporting/reportdesigner">
+              <rd:ReportID>parameter-layout-report</rd:ReportID>
+              <ReportParameters>
+                <ReportParameter Name="CalendarYear">
+                  <DataType>String</DataType>
+                  <Prompt>Calendar year</Prompt>
+                </ReportParameter>
+                <ReportParameter Name="SalesTerritoryGroup">
+                  <DataType>String</DataType>
+                  <Prompt>Sales territory</Prompt>
+                </ReportParameter>
+              </ReportParameters>
+              <ReportParametersLayout>
+                <GridLayoutDefinition>
+                  <NumberOfColumns>4</NumberOfColumns>
+                  <NumberOfRows>2</NumberOfRows>
+                  <CellDefinitions>
+                    <CellDefinition>
+                      <ColumnIndex>0</ColumnIndex>
+                      <RowIndex>0</RowIndex>
+                      <ParameterName>CalendarYear</ParameterName>
+                    </CellDefinition>
+                    <CellDefinition>
+                      <ColumnIndex>0</ColumnIndex>
+                      <RowIndex>1</RowIndex>
+                      <ParameterName>SalesTerritoryGroup</ParameterName>
+                    </CellDefinition>
+                  </CellDefinitions>
+                </GridLayoutDefinition>
+              </ReportParametersLayout>
+              <ReportSections>
+                <ReportSection>
+                  <Body>
+                    <ReportItems />
+                    <Height>1in</Height>
+                  </Body>
+                  <Width>6.5in</Width>
+                  <Page>
+                    <PageHeight>11in</PageHeight>
+                    <PageWidth>8.5in</PageWidth>
+                    <LeftMargin>1in</LeftMargin>
+                    <RightMargin>1in</RightMargin>
+                    <TopMargin>1in</TopMargin>
+                    <BottomMargin>1in</BottomMargin>
+                  </Page>
+                </ReportSection>
+              </ReportSections>
+            </Report>
+            """;
+
+        var readResult = _serializer.Read(xml);
+
+        Assert.False(readResult.HasErrors);
+        var report = Assert.IsType<ReportDefinition>(readResult.ReportDefinition);
+        Assert.Equal(4, report.ParameterLayout.ColumnCount);
+        Assert.Equal(2, report.ParameterLayout.RowCount);
+        Assert.Collection(
+            report.ParameterLayout.Cells.OrderBy(static cell => cell.RowIndex).ThenBy(static cell => cell.ColumnIndex),
+            cell =>
+            {
+                Assert.Equal("CalendarYear", cell.ParameterId);
+                Assert.Equal(0, cell.RowIndex);
+                Assert.Equal(0, cell.ColumnIndex);
+            },
+            cell =>
+            {
+                Assert.Equal("SalesTerritoryGroup", cell.ParameterId);
+                Assert.Equal(1, cell.RowIndex);
+                Assert.Equal(0, cell.ColumnIndex);
+            });
+
+        var writeResult = _serializer.Write(report);
+
+        Assert.False(writeResult.HasErrors);
+        Assert.Contains("<ReportParametersLayout>", writeResult.Xml, StringComparison.Ordinal);
+        Assert.Contains("<NumberOfColumns>4</NumberOfColumns>", writeResult.Xml, StringComparison.Ordinal);
+        Assert.Contains("<NumberOfRows>2</NumberOfRows>", writeResult.Xml, StringComparison.Ordinal);
+        Assert.Contains("<ParameterName>CalendarYear</ParameterName>", writeResult.Xml, StringComparison.Ordinal);
+        Assert.Contains("<ParameterName>SalesTerritoryGroup</ParameterName>", writeResult.Xml, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -288,6 +376,140 @@ public sealed class ReportRdlSerializerTests
         Assert.NotNull(variance.StyleName);
         var style = Assert.Single(report.Styles, candidate => candidate.Id == variance.StyleName);
         Assert.Equal("Iif(CurrentValue() < 0, '#c0433a', 'Black')", style.ForegroundExpression);
+    }
+
+    [Fact]
+    public void Read_InvoiceInfersImplicitContainerAndCellBounds_WhenSampleAvailable()
+    {
+        var invoicePath = Path.Combine(ResolveSampleCorpusPath(), "Invoice.rdl");
+        if (!File.Exists(invoicePath))
+        {
+            return;
+        }
+
+        var result = _serializer.Read(File.ReadAllText(invoicePath));
+
+        Assert.False(result.HasErrors);
+        var report = Assert.IsType<ReportDefinition>(result.ReportDefinition);
+        Assert.Equal("Segoe UI", report.DefaultFontFamily);
+        var section = Assert.Single(report.Sections);
+        Assert.Equal(0f, section.PageSettings.MarginTop);
+        Assert.Equal(0f, section.PageSettings.MarginBottom);
+        Assert.Equal(0f, section.PageSettings.MarginLeft);
+        Assert.Equal(0f, section.PageSettings.MarginRight);
+        Assert.True(section.PageSettings.HeaderHeight > 0f);
+        Assert.True(section.PageSettings.FooterHeight > 0f);
+        var outerTablix = Assert.IsType<TablixItem>(Assert.Single(section.BodyItems));
+        var headerContainer = Assert.IsType<ContainerItem>(outerTablix.Rows[0].Cells[0].ContentItem);
+        var detailContainer = Assert.IsType<ContainerItem>(outerTablix.Rows[1].Cells[0].ContentItem);
+        var footerContainer = Assert.IsType<ContainerItem>(Assert.Single(section.FooterItems));
+
+        Assert.True(headerContainer.Bounds.Width > 0f);
+        Assert.True(headerContainer.Bounds.Height > 0f);
+        Assert.True(detailContainer.Bounds.Width > 0f);
+        Assert.True(detailContainer.Bounds.Height > 0f);
+        Assert.True(footerContainer.Bounds.Width > 0f);
+        Assert.True(footerContainer.Bounds.Height > 0f);
+
+        var lineItemsTablix = Assert.IsType<TablixItem>(Assert.Single(detailContainer.Items.OfType<TablixItem>()));
+        Assert.True(lineItemsTablix.Bounds.Width > 0f);
+        Assert.True(lineItemsTablix.Bounds.Height > 0f);
+        Assert.NotEmpty(lineItemsTablix.Columns);
+        Assert.NotEmpty(lineItemsTablix.Rows);
+        Assert.True(lineItemsTablix.Rows[0].IsHeader);
+        Assert.False(lineItemsTablix.Rows[1].IsHeader);
+        Assert.Equal(
+            lineItemsTablix.Columns.Count,
+            lineItemsTablix.Rows[0].Cells.Sum(static cell => Math.Max(1, cell.ColumnSpan)));
+        Assert.Contains(lineItemsTablix.Rows[0].Cells, static cell => cell.ColumnSpan == 2);
+        var detailCellStyle = Assert.Single(
+            report.Styles,
+            candidate => string.Equals(candidate.Id, lineItemsTablix.Rows[1].Cells[0].StyleName, StringComparison.Ordinal));
+        Assert.Equal(
+            "IIf(RowNumber(null) % 2 = 0, First(Fields.SecondaryColor, 'Company'), 'White')",
+            detailCellStyle.BackgroundExpression);
+
+        var salesInvoiceDataSet = Assert.Single(report.DataSets, static dataSet => string.Equals(dataSet.Id, "SalesInvoiceDS", StringComparison.Ordinal));
+        Assert.Equal(
+            ReportParameterDataType.String,
+            Assert.Single(salesInvoiceDataSet.ExpectedFields, static field => string.Equals(field.Name, "InvoiceId", StringComparison.Ordinal)).DataType);
+        Assert.Equal(
+            ReportParameterDataType.Number,
+            Assert.Single(salesInvoiceDataSet.ExpectedFields, static field => string.Equals(field.Name, "Amount", StringComparison.Ordinal)).DataType);
+
+        var headerFooterDataSet = Assert.Single(report.DataSets, static dataSet => string.Equals(dataSet.Id, "SalesInvoiceHeaderFooterDS", StringComparison.Ordinal));
+        Assert.Equal(
+            ReportParameterDataType.String,
+            Assert.Single(headerFooterDataSet.ExpectedFields, static field => string.Equals(field.Name, "InvoiceDate", StringComparison.Ordinal)).DataType);
+    }
+
+    [Fact]
+    public void Write_EmitsDefaultFontFamilyExtension_WhenPresent()
+    {
+        var report = new ReportDefinition
+        {
+            Id = "invoice",
+            Name = "Invoice",
+            DefaultFontFamily = "Segoe UI"
+        };
+
+        report.Sections.Add(new ReportSection
+        {
+            Id = "main",
+            Name = "Main"
+        });
+
+        var result = _serializer.Write(report);
+
+        Assert.False(result.HasErrors);
+        Assert.Contains("MustUnderstand=\"df\"", result.Xml, StringComparison.Ordinal);
+        Assert.Contains("xmlns:df=\"http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition/defaultfontfamily\"", result.Xml, StringComparison.Ordinal);
+        Assert.Contains("<df:DefaultFontFamily>Segoe UI</df:DefaultFontFamily>", result.Xml, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Read_PreservesWhitespaceOnlyTextboxRunsInsideCombinedExpressions()
+    {
+        const string xml =
+            """
+            <Report xmlns="http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition"
+                    xmlns:rd="http://schemas.microsoft.com/SQLServer/reporting/reportdesigner">
+              <ReportSections>
+                <ReportSection>
+                  <Body>
+                    <ReportItems>
+                      <Textbox Name="InvoiceReference">
+                        <CanGrow>true</CanGrow>
+                        <Paragraphs>
+                          <Paragraph>
+                            <TextRuns>
+                              <TextRun><Value>Write reference</Value></TextRun>
+                              <TextRun><Value xml:space="preserve"> </Value></TextRun>
+                              <TextRun><Value>=Fields!InvoiceAccount.Value</Value></TextRun>
+                              <TextRun><Value xml:space="preserve"> </Value></TextRun>
+                              <TextRun><Value>on the check.</Value></TextRun>
+                            </TextRuns>
+                          </Paragraph>
+                        </Paragraphs>
+                        <Top>0in</Top>
+                        <Left>0in</Left>
+                        <Height>0.25in</Height>
+                        <Width>4in</Width>
+                      </Textbox>
+                    </ReportItems>
+                  </Body>
+                  <Width>6.5in</Width>
+                </ReportSection>
+              </ReportSections>
+            </Report>
+            """;
+
+        var result = _serializer.Read(xml);
+
+        Assert.False(result.HasErrors);
+        var report = Assert.IsType<ReportDefinition>(result.ReportDefinition);
+        var textItem = Assert.IsType<TextItem>(Assert.Single(report.Sections[0].BodyItems));
+        Assert.Equal("'Write reference' + ' ' + Fields.InvoiceAccount + ' ' + 'on the check.'", textItem.ValueExpression);
     }
 
     [Fact]
@@ -477,6 +699,272 @@ public sealed class ReportRdlSerializerTests
         Assert.Contains("<KeepWithGroup>After</KeepWithGroup>", result.Xml, StringComparison.Ordinal);
         Assert.Contains("<ToggleItem>CategoryCell</ToggleItem>", result.Xml, StringComparison.Ordinal);
         Assert.Contains("<Height>0.25in</Height>", result.Xml, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Read_ImportsRichStylesZIndexAndPageBreaks()
+    {
+        const string xml =
+            """
+            <Report xmlns="http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition"
+                    xmlns:rd="http://schemas.microsoft.com/SQLServer/reporting/reportdesigner">
+              <rd:ReportID>styled-report</rd:ReportID>
+              <ConsumeContainerWhitespace>true</ConsumeContainerWhitespace>
+              <ReportSections>
+                <ReportSection>
+                  <Body>
+                    <ReportItems>
+                      <Textbox Name="StyledText">
+                        <KeepTogether>true</KeepTogether>
+                        <CanGrow>true</CanGrow>
+                        <Paragraphs>
+                          <Paragraph>
+                            <TextRuns>
+                              <TextRun>
+                                <Value>Styled</Value>
+                              </TextRun>
+                            </TextRuns>
+                          </Paragraph>
+                        </Paragraphs>
+                        <Top>0in</Top>
+                        <Left>0in</Left>
+                        <Height>0.4in</Height>
+                        <Width>2in</Width>
+                        <ZIndex>3</ZIndex>
+                        <PageBreak>
+                          <BreakLocation>End</BreakLocation>
+                        </PageBreak>
+                        <Style>
+                          <BackgroundColor>White</BackgroundColor>
+                          <BackgroundGradientType>DiagonalLeft</BackgroundGradientType>
+                          <BackgroundGradientEndColor>Gray</BackgroundGradientEndColor>
+                          <Border>
+                            <Style>None</Style>
+                          </Border>
+                          <TopBorder>
+                            <Color>Black</Color>
+                            <Width>1pt</Width>
+                          </TopBorder>
+                          <PaddingLeft>4pt</PaddingLeft>
+                          <PaddingRight>8pt</PaddingRight>
+                          <PaddingTop>4pt</PaddingTop>
+                          <PaddingBottom>2pt</PaddingBottom>
+                          <VerticalAlign>Middle</VerticalAlign>
+                          <TextDecoration>Underline</TextDecoration>
+                        </Style>
+                      </Textbox>
+                      <Tablix Name="SalesTable">
+                        <TablixBody>
+                          <TablixColumns>
+                            <TablixColumn><Width>2in</Width></TablixColumn>
+                          </TablixColumns>
+                          <TablixRows>
+                            <TablixRow>
+                              <Height>0.25in</Height>
+                              <TablixCells>
+                                <TablixCell>
+                                  <CellContents>
+                                    <Textbox Name="RegionCell">
+                                      <Paragraphs>
+                                        <Paragraph>
+                                          <TextRuns>
+                                            <TextRun>
+                                              <Value>=Fields!Region.Value</Value>
+                                            </TextRun>
+                                          </TextRuns>
+                                        </Paragraph>
+                                      </Paragraphs>
+                                    </Textbox>
+                                  </CellContents>
+                                </TablixCell>
+                              </TablixCells>
+                            </TablixRow>
+                          </TablixRows>
+                        </TablixBody>
+                        <TablixColumnHierarchy>
+                          <TablixMembers>
+                            <TablixMember />
+                          </TablixMembers>
+                        </TablixColumnHierarchy>
+                        <TablixRowHierarchy>
+                          <TablixMembers>
+                            <TablixMember>
+                              <Group Name="Details">
+                                <GroupExpressions>
+                                  <GroupExpression>=Fields!Region.Value</GroupExpression>
+                                </GroupExpressions>
+                                <PageBreak>
+                                  <BreakLocation>Between</BreakLocation>
+                                </PageBreak>
+                              </Group>
+                            </TablixMember>
+                          </TablixMembers>
+                        </TablixRowHierarchy>
+                        <DataSetName>Sales</DataSetName>
+                        <Top>1in</Top>
+                        <Left>0in</Left>
+                        <Height>1in</Height>
+                        <Width>2in</Width>
+                      </Tablix>
+                    </ReportItems>
+                    <Height>2in</Height>
+                  </Body>
+                  <Width>6.5in</Width>
+                  <Page>
+                    <PageHeight>11in</PageHeight>
+                    <PageWidth>8.5in</PageWidth>
+                    <LeftMargin>1in</LeftMargin>
+                    <RightMargin>1in</RightMargin>
+                    <TopMargin>1in</TopMargin>
+                    <BottomMargin>1in</BottomMargin>
+                  </Page>
+                </ReportSection>
+              </ReportSections>
+            </Report>
+            """;
+
+        var result = _serializer.Read(xml);
+
+        Assert.False(result.HasErrors);
+        var report = Assert.IsType<ReportDefinition>(result.ReportDefinition);
+        Assert.True(report.ConsumeContainerWhitespace);
+        var styledText = Assert.IsType<TextItem>(report.Sections[0].BodyItems[0]);
+        Assert.True(styledText.KeepTogether);
+        Assert.Equal(3, styledText.ZIndex);
+        Assert.Equal(ReportPageBreakLocation.End, styledText.PageBreak?.Location);
+        var style = Assert.Single(report.Styles, candidate => candidate.Id == styledText.StyleName);
+        Assert.Equal(ReportBackgroundGradientType.DiagonalLeft, style.BackgroundGradientType);
+        Assert.Equal("Gray", style.BackgroundGradientEndColor);
+        Assert.Equal(ReportBorderLineStyle.None, style.Border?.Style);
+        Assert.Equal("Black", style.TopBorder?.Color);
+        Assert.InRange(style.TopBorder?.Width ?? 0f, 1.32f, 1.35f);
+        Assert.InRange(style.PaddingLeft ?? 0f, 5.32f, 5.35f);
+        Assert.InRange(style.PaddingRight ?? 0f, 10.65f, 10.68f);
+        Assert.Equal(ReportVerticalAlignment.Middle, style.VerticalAlign);
+        Assert.Equal(ReportTextDecoration.Underline, style.TextDecoration);
+
+        var tablix = Assert.IsType<TablixItem>(report.Sections[0].BodyItems[1]);
+        Assert.Equal(ReportPageBreakLocation.Between, Assert.Single(tablix.RowMembers).PageBreak?.Location);
+    }
+
+    [Fact]
+    public void Write_EmitsRichStylesZIndexAndPageBreaks()
+    {
+        var report = new ReportDefinition
+        {
+            Id = "styled-export",
+            Name = "Styled Export",
+            ConsumeContainerWhitespace = true,
+            Styles =
+            {
+                new ReportStyleDefinition
+                {
+                    Id = "styled",
+                    Background = "White",
+                    BackgroundGradientType = ReportBackgroundGradientType.DiagonalLeft,
+                    BackgroundGradientEndColor = "Gray",
+                    Border = new ReportBorderDefinition
+                    {
+                        Style = ReportBorderLineStyle.None
+                    },
+                    TopBorder = new ReportBorderDefinition
+                    {
+                        Color = "Black",
+                        Width = 1f
+                    },
+                    PaddingLeft = 4f,
+                    PaddingRight = 8f,
+                    PaddingTop = 4f,
+                    PaddingBottom = 2f,
+                    VerticalAlign = ReportVerticalAlignment.Middle,
+                    TextDecoration = ReportTextDecoration.Underline
+                }
+            },
+            Sections =
+            {
+                new ReportSection
+                {
+                    Id = "main",
+                    Name = "Main",
+                    BodyItems =
+                    {
+                        new TextItem
+                        {
+                            Id = "styled",
+                            Name = "Styled",
+                            Bounds = new ReportItemBounds(0f, 0f, 144f, 24f),
+                            StaticText = "Styled",
+                            StyleName = "styled",
+                            KeepTogether = true,
+                            ZIndex = 3,
+                            PageBreak = new ReportPageBreakDefinition
+                            {
+                                Location = ReportPageBreakLocation.End
+                            }
+                        },
+                        new TablixItem
+                        {
+                            Id = "table",
+                            Name = "Table",
+                            Bounds = new ReportItemBounds(0f, 72f, 144f, 24f),
+                            Columns =
+                            {
+                                new ReportTablixColumnDefinition
+                                {
+                                    Id = "col1",
+                                    Width = 144f
+                                }
+                            },
+                            Rows =
+                            {
+                                new ReportTablixRowDefinition
+                                {
+                                    Id = "row1",
+                                    Cells =
+                                    {
+                                        new ReportTablixCellDefinition
+                                        {
+                                            Text = "Region"
+                                        }
+                                    }
+                                }
+                            },
+                            RowMembers =
+                            {
+                                new ReportTablixMemberDefinition
+                                {
+                                    Id = "group",
+                                    Kind = ReportTablixMemberKind.Group,
+                                    GroupName = "Details",
+                                    GroupExpression = "Fields.Region",
+                                    RowDefinitionIndex = 0,
+                                    PageBreak = new ReportPageBreakDefinition
+                                    {
+                                        Location = ReportPageBreakLocation.Between
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        var result = _serializer.Write(report);
+
+        Assert.False(result.HasErrors);
+        Assert.Contains("<ConsumeContainerWhitespace>true</ConsumeContainerWhitespace>", result.Xml, StringComparison.Ordinal);
+        Assert.Contains("<KeepTogether>true</KeepTogether>", result.Xml, StringComparison.Ordinal);
+        Assert.Contains("<ZIndex>3</ZIndex>", result.Xml, StringComparison.Ordinal);
+        Assert.Contains("<PageBreak>", result.Xml, StringComparison.Ordinal);
+        Assert.Contains("<BreakLocation>End</BreakLocation>", result.Xml, StringComparison.Ordinal);
+        Assert.Contains("<BackgroundGradientType>DiagonalLeft</BackgroundGradientType>", result.Xml, StringComparison.Ordinal);
+        Assert.Contains("<BackgroundGradientEndColor>Gray</BackgroundGradientEndColor>", result.Xml, StringComparison.Ordinal);
+        Assert.Contains("<TopBorder>", result.Xml, StringComparison.Ordinal);
+        Assert.Contains("<PaddingLeft>", result.Xml, StringComparison.Ordinal);
+        Assert.Contains("<VerticalAlign>Middle</VerticalAlign>", result.Xml, StringComparison.Ordinal);
+        Assert.Contains("<TextDecoration>Underline</TextDecoration>", result.Xml, StringComparison.Ordinal);
+        Assert.Contains("<BreakLocation>Between</BreakLocation>", result.Xml, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -883,4 +1371,133 @@ public sealed class ReportRdlSerializerTests
         report.Sections.Add(section);
         return report;
     }
+
+    private static string ResolveSampleCorpusPath()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null)
+        {
+            if (File.Exists(Path.Combine(directory.FullName, "VibeOffice.slnx")))
+            {
+                return Path.Combine(directory.FullName, "external", "Reporting-Services", "PaginatedReportSamples");
+            }
+
+            directory = directory.Parent;
+        }
+
+        return Path.Combine(AppContext.BaseDirectory, "external", "Reporting-Services", "PaginatedReportSamples");
+    }
+
+    [Fact]
+    public void Read_InvoiceMergesCommonRunStyleAcrossMultipleTextRuns_WhenSampleAvailable()
+    {
+        var invoicePath = Path.Combine(SampleCorpusPath, "Invoice.rdl");
+        if (!File.Exists(invoicePath))
+        {
+            return;
+        }
+
+        var result = _serializer.Read(File.ReadAllText(invoicePath));
+
+        Assert.False(result.HasErrors);
+        var report = Assert.IsType<ReportDefinition>(result.ReportDefinition);
+        var invoiceTitle = Assert.IsType<TextItem>(
+            EnumerateItems(report.Sections[0].BodyItems)
+                .Single(item => string.Equals(item.Id, "Textbox7", StringComparison.Ordinal)));
+        Assert.False(string.IsNullOrWhiteSpace(invoiceTitle.StyleName));
+
+        var style = Assert.Single(report.Styles, candidate => string.Equals(candidate.Id, invoiceTitle.StyleName, StringComparison.Ordinal));
+        Assert.True(style.Bold);
+        Assert.Equal(16f, style.FontSize);
+        Assert.Equal("White", style.Foreground);
+        Assert.Equal(ParagraphAlignment.Right, style.TextAlign);
+    }
+
+    [Fact]
+    public void Read_InvoiceUsesRepresentativeRunStyleForMixedRuns_WhenSampleAvailable()
+    {
+        var invoicePath = Path.Combine(SampleCorpusPath, "Invoice.rdl");
+        if (!File.Exists(invoicePath))
+        {
+            return;
+        }
+
+        var result = _serializer.Read(File.ReadAllText(invoicePath));
+
+        Assert.False(result.HasErrors);
+        var report = Assert.IsType<ReportDefinition>(result.ReportDefinition);
+        var paymentInstructions = Assert.IsType<TextItem>(
+            EnumerateItems(report.Sections[0].BodyItems)
+                .Single(item => string.Equals(item.Id, "Textbox40", StringComparison.Ordinal)));
+        Assert.False(string.IsNullOrWhiteSpace(paymentInstructions.StyleName));
+
+        var style = Assert.Single(report.Styles, candidate => string.Equals(candidate.Id, paymentInstructions.StyleName, StringComparison.Ordinal));
+        Assert.True(style.FontSize.HasValue);
+        Assert.InRange(style.FontSize.Value, 11f, 11.5f);
+    }
+
+    [Fact]
+    public void Read_InvoicePreservesContainerBackgroundExpressions_WhenSampleAvailable()
+    {
+        var invoicePath = Path.Combine(SampleCorpusPath, "Invoice.rdl");
+        if (!File.Exists(invoicePath))
+        {
+            return;
+        }
+
+        var result = _serializer.Read(File.ReadAllText(invoicePath));
+
+        Assert.False(result.HasErrors);
+        var report = Assert.IsType<ReportDefinition>(result.ReportDefinition);
+        var invoiceBanner = Assert.IsType<ContainerItem>(
+            EnumerateItems(report.Sections[0].BodyItems)
+                .Single(item => string.Equals(item.Id, "Rectangle3", StringComparison.Ordinal)));
+        var paymentPanel = Assert.IsType<ContainerItem>(
+            EnumerateItems(report.Sections[0].BodyItems)
+                .Single(item => string.Equals(item.Id, "Rectangle5", StringComparison.Ordinal)));
+
+        var bannerStyle = Assert.Single(report.Styles, candidate => string.Equals(candidate.Id, invoiceBanner.StyleName, StringComparison.Ordinal));
+        var paymentStyle = Assert.Single(report.Styles, candidate => string.Equals(candidate.Id, paymentPanel.StyleName, StringComparison.Ordinal));
+
+        Assert.Equal("First(Fields.PrimaryColor, 'Company')", bannerStyle.BackgroundExpression);
+        Assert.Equal("First(Fields.SecondaryColor, 'Company')", paymentStyle.BackgroundExpression);
+    }
+
+    private static IEnumerable<ReportItem> EnumerateItems(IEnumerable<ReportItem> items)
+    {
+        foreach (var item in items)
+        {
+            yield return item;
+
+            if (item is ContainerItem container)
+            {
+                foreach (var child in EnumerateItems(container.Items))
+                {
+                    yield return child;
+                }
+            }
+
+            if (item is TablixItem tablix)
+            {
+                for (var rowIndex = 0; rowIndex < tablix.Rows.Count; rowIndex++)
+                {
+                    var row = tablix.Rows[rowIndex];
+                    for (var cellIndex = 0; cellIndex < row.Cells.Count; cellIndex++)
+                    {
+                        var content = row.Cells[cellIndex].ContentItem;
+                        if (content is null)
+                        {
+                            continue;
+                        }
+
+                        foreach (var child in EnumerateItems([content]))
+                        {
+                            yield return child;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
 }

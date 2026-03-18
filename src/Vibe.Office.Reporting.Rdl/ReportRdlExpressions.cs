@@ -108,8 +108,14 @@ internal static partial class ReportRdlExpressions
     {
         staticText = null;
         expression = null;
-        if (string.IsNullOrWhiteSpace(rdlValue))
+        if (rdlValue is null)
         {
+            return;
+        }
+
+        if (rdlValue.Length == 0)
+        {
+            staticText = string.Empty;
             return;
         }
 
@@ -162,17 +168,23 @@ internal static partial class ReportRdlExpressions
 
     public static string? ToNativeValueExpression(string? rdlValue)
     {
-        if (string.IsNullOrWhiteSpace(rdlValue))
+        if (rdlValue is null)
         {
             return null;
         }
 
-        var trimmed = rdlValue.Trim();
-        if (trimmed.StartsWith('='))
+        if (rdlValue.Length == 0)
         {
-            return ToNativeExpression(trimmed);
+            return QuoteNativeString(string.Empty);
         }
 
+        var trimmedStart = rdlValue.TrimStart();
+        if (trimmedStart.StartsWith('='))
+        {
+            return ToNativeExpression(trimmedStart);
+        }
+
+        var trimmed = rdlValue.Trim();
         if (bool.TryParse(trimmed, out var boolean))
         {
             return boolean ? "true" : "false";
@@ -189,7 +201,7 @@ internal static partial class ReportRdlExpressions
             return trimmed;
         }
 
-        return QuoteNativeString(trimmed);
+        return QuoteNativeString(rdlValue);
     }
 
     public static string? ToNativeScalarExpression(string? rdlValue)

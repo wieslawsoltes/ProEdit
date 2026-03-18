@@ -134,59 +134,67 @@ public static class ClipboardHtmlSerializer
         if (paragraph.Inlines.Count == 0)
         {
             var style = resolver.ResolveParagraphTextStyle(paragraph, document.DefaultTextStyle);
-            WriteStyledText(builder, style, paragraph.Text ?? string.Empty, null);
-            return;
-        }
-
-        var paragraphStyle = resolver.ResolveParagraphTextStyle(paragraph, document.DefaultTextStyle);
-        foreach (var inline in paragraph.Inlines)
-        {
-            switch (inline)
+            if (!string.IsNullOrEmpty(paragraph.Text))
             {
-                case RunInline run:
+                WriteStyledText(builder, style, paragraph.Text, null);
+            }
+        }
+        else
+        {
+            var paragraphStyle = resolver.ResolveParagraphTextStyle(paragraph, document.DefaultTextStyle);
+            foreach (var inline in paragraph.Inlines)
+            {
+                switch (inline)
                 {
-                    var runStyle = resolver.ResolveRunStyle(paragraph, run, paragraphStyle);
-                    WriteStyledText(builder, runStyle, run.Text.GetText(), run.Hyperlink);
-                    break;
+                    case RunInline run:
+                    {
+                        var runStyle = resolver.ResolveRunStyle(paragraph, run, paragraphStyle);
+                        WriteStyledText(builder, runStyle, run.Text.GetText(), run.Hyperlink);
+                        break;
+                    }
+                    case RubyInline ruby:
+                        WriteRuby(builder, document, resolver, paragraphStyle, ruby);
+                        break;
+                    case ImageInline image:
+                        WriteImage(builder, image);
+                        break;
+                    case PageNumberInline:
+                        WriteStyledText(builder, paragraphStyle, "{PAGE}", inline.Hyperlink);
+                        break;
+                    case TotalPagesInline:
+                        WriteStyledText(builder, paragraphStyle, "{NUMPAGES}", inline.Hyperlink);
+                        break;
+                    case FootnoteReferenceInline footnote:
+                        WriteStyledText(builder, paragraphStyle, $"[{footnote.Id}]", inline.Hyperlink);
+                        break;
+                    case EndnoteReferenceInline endnote:
+                        WriteStyledText(builder, paragraphStyle, $"[{endnote.Id}]", inline.Hyperlink);
+                        break;
+                    case CommentReferenceInline comment:
+                        WriteStyledText(builder, paragraphStyle, $"[{comment.Id}]", inline.Hyperlink);
+                        break;
+                    case EquationInline:
+                        WriteStyledText(builder, paragraphStyle, "[Equation]", inline.Hyperlink);
+                        break;
+                    case ShapeInline shape:
+                        if (!WriteShapeText(builder, paragraphStyle, shape, inline.Hyperlink))
+                        {
+                            WriteStyledText(builder, paragraphStyle, "[Shape]", inline.Hyperlink);
+                        }
+                        break;
+                    case ChartInline:
+                        WriteStyledText(builder, paragraphStyle, "[Chart]", inline.Hyperlink);
+                        break;
+                    case TableInline:
+                        WriteStyledText(builder, paragraphStyle, "[Table]", inline.Hyperlink);
+                        break;
                 }
-                case RubyInline ruby:
-                    WriteRuby(builder, document, resolver, paragraphStyle, ruby);
-                    break;
-                case ImageInline image:
-                    WriteImage(builder, image);
-                    break;
-                case PageNumberInline:
-                    WriteStyledText(builder, paragraphStyle, "{PAGE}", inline.Hyperlink);
-                    break;
-                case TotalPagesInline:
-                    WriteStyledText(builder, paragraphStyle, "{NUMPAGES}", inline.Hyperlink);
-                    break;
-                case FootnoteReferenceInline footnote:
-                    WriteStyledText(builder, paragraphStyle, $"[{footnote.Id}]", inline.Hyperlink);
-                    break;
-                case EndnoteReferenceInline endnote:
-                    WriteStyledText(builder, paragraphStyle, $"[{endnote.Id}]", inline.Hyperlink);
-                    break;
-                case CommentReferenceInline comment:
-                    WriteStyledText(builder, paragraphStyle, $"[{comment.Id}]", inline.Hyperlink);
-                    break;
-                case EquationInline:
-                    WriteStyledText(builder, paragraphStyle, "[Equation]", inline.Hyperlink);
-                    break;
-                case ShapeInline:
-                    WriteStyledText(builder, paragraphStyle, "[Shape]", inline.Hyperlink);
-                    break;
-                case ChartInline:
-                    WriteStyledText(builder, paragraphStyle, "[Chart]", inline.Hyperlink);
-                    break;
-                case TableInline:
-                    WriteStyledText(builder, paragraphStyle, "[Table]", inline.Hyperlink);
-                    break;
             }
         }
 
         if (paragraph.FloatingObjects.Count > 0)
         {
+            var paragraphStyle = resolver.ResolveParagraphTextStyle(paragraph, document.DefaultTextStyle);
             foreach (var floating in paragraph.FloatingObjects)
             {
                 switch (floating.Content)
@@ -194,8 +202,12 @@ public static class ClipboardHtmlSerializer
                     case ImageInline image:
                         WriteImage(builder, image);
                         break;
-                    case ShapeInline:
-                        WriteStyledText(builder, paragraphStyle, "[Shape]", null);
+                    case ShapeInline shape:
+                        if (!WriteShapeText(builder, paragraphStyle, shape, null))
+                        {
+                            WriteStyledText(builder, paragraphStyle, "[Shape]", null);
+                        }
+
                         break;
                     case ChartInline:
                         WriteStyledText(builder, paragraphStyle, "[Chart]", null);
@@ -246,6 +258,123 @@ public static class ClipboardHtmlSerializer
         }
 
         builder.Append(" />");
+    }
+
+    private static bool WriteShapeText(
+        StringBuilder builder,
+        TextStyle paragraphStyle,
+        ShapeInline shape,
+        HyperlinkInfo? hyperlink)
+    {
+        if (shape.TextBox is not { Blocks.Count: > 0 } textBox)
+        {
+            return false;
+        }
+
+        var text = ExtractTextFromBlocks(textBox.Blocks);
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return false;
+        }
+
+        WriteStyledText(builder, paragraphStyle, text, hyperlink);
+        return true;
+    }
+
+    private static string ExtractTextFromBlocks(IReadOnlyList<Block> blocks)
+    {
+        var builder = new StringBuilder();
+        for (var index = 0; index < blocks.Count; index++)
+        {
+            if (index > 0 && builder.Length > 0)
+            {
+                builder.Append(' ');
+            }
+
+            AppendBlockText(builder, blocks[index]);
+        }
+
+        return builder.ToString().Trim();
+    }
+
+    private static void AppendBlockText(StringBuilder builder, Block block)
+    {
+        switch (block)
+        {
+            case ParagraphBlock paragraph:
+                AppendParagraphText(builder, paragraph);
+                break;
+            case TableBlock table:
+                for (var rowIndex = 0; rowIndex < table.Rows.Count; rowIndex++)
+                {
+                    var row = table.Rows[rowIndex];
+                    for (var cellIndex = 0; cellIndex < row.Cells.Count; cellIndex++)
+                    {
+                        if (builder.Length > 0)
+                        {
+                            builder.Append(' ');
+                        }
+
+                        AppendCellText(builder, row.Cells[cellIndex]);
+                    }
+                }
+
+                break;
+        }
+    }
+
+    private static void AppendCellText(StringBuilder builder, TableCell cell)
+    {
+        for (var blockIndex = 0; blockIndex < cell.Blocks.Count; blockIndex++)
+        {
+            if (blockIndex > 0 && builder.Length > 0)
+            {
+                builder.Append(' ');
+            }
+
+            AppendBlockText(builder, cell.Blocks[blockIndex]);
+        }
+    }
+
+    private static void AppendParagraphText(StringBuilder builder, ParagraphBlock paragraph)
+    {
+        if (paragraph.Inlines.Count == 0)
+        {
+            if (!string.IsNullOrWhiteSpace(paragraph.Text))
+            {
+                builder.Append(paragraph.Text);
+            }
+        }
+        else
+        {
+            for (var inlineIndex = 0; inlineIndex < paragraph.Inlines.Count; inlineIndex++)
+            {
+                AppendInlineText(builder, paragraph.Inlines[inlineIndex]);
+            }
+        }
+
+        for (var floatingIndex = 0; floatingIndex < paragraph.FloatingObjects.Count; floatingIndex++)
+        {
+            if (builder.Length > 0)
+            {
+                builder.Append(' ');
+            }
+
+            AppendInlineText(builder, paragraph.FloatingObjects[floatingIndex].Content);
+        }
+    }
+
+    private static void AppendInlineText(StringBuilder builder, Inline inline)
+    {
+        switch (inline)
+        {
+            case RunInline run:
+                builder.Append(run.Text.GetText());
+                break;
+            case ShapeInline shape when shape.TextBox is { Blocks.Count: > 0 }:
+                builder.Append(ExtractTextFromBlocks(shape.TextBox.Blocks));
+                break;
+        }
     }
 
     private static void WriteStyledText(StringBuilder builder, TextStyle style, string text, HyperlinkInfo? hyperlink)

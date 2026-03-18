@@ -7,6 +7,7 @@ internal static class ReportRdlNamespaces
     public static readonly XNamespace Rdl2008 = "http://schemas.microsoft.com/sqlserver/reporting/2008/01/reportdefinition";
     public static readonly XNamespace Rdl2010 = "http://schemas.microsoft.com/sqlserver/reporting/2010/01/reportdefinition";
     public static readonly XNamespace Rdl2016 = "http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition";
+    public static readonly XNamespace DefaultFont2016 = "http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition/defaultfontfamily";
     public static readonly XNamespace Designer = "http://schemas.microsoft.com/SQLServer/reporting/reportdesigner";
 
     public static XNamespace GetMainNamespace(ReportRdlVersion version)
@@ -41,5 +42,14 @@ internal static class ReportRdlNamespaces
 
         version = default;
         return false;
+    }
+
+    public static XNamespace? GetDefaultFontNamespace(ReportRdlVersion version)
+    {
+        return version switch
+        {
+            ReportRdlVersion.Rdl2016 => DefaultFont2016,
+            _ => null
+        };
     }
 }

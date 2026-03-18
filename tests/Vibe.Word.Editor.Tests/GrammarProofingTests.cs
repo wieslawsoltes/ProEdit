@@ -30,6 +30,7 @@ public class GrammarProofingTests
         proofing.SetStyleEnabled(true);
 
         await WaitForDiagnosticsAsync(proofing, d => d.Any(item => item.Kind != ProofingIssueKind.Spelling));
+        await Task.Delay(250);
 
         var diagnostics = proofing.GetParagraphDiagnostics(0);
         Assert.Contains(diagnostics, item => item.Kind == ProofingIssueKind.Grammar && item.RuleId == "RULE1" && item.Category == "GRAMMAR");
@@ -62,6 +63,7 @@ public class GrammarProofingTests
         proofing.SetStyleEnabled(true);
 
         await WaitForDiagnosticsAsync(proofing, d => d.Any(item => item.Kind != ProofingIssueKind.Spelling));
+        await Task.Delay(250);
 
         var diagnostics = proofing.GetParagraphDiagnostics(0);
         Assert.DoesNotContain(diagnostics, item => item.RuleId == "RULE_SKIP");

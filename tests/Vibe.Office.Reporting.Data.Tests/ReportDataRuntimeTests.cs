@@ -217,6 +217,68 @@ public sealed class ReportDataRuntimeTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_EnterDataProvider_UsesExpectedFieldTypesInsteadOfBlindScalarInference()
+    {
+        var reportDefinition = new ReportDefinition
+        {
+            DataSources =
+            {
+                new ReportDataSourceDefinition
+                {
+                    Id = "enterdata-source",
+                    ProviderId = ReportProviderIds.EnterData
+                }
+            },
+            DataSets =
+            {
+                new ReportDataSetDefinition
+                {
+                    Id = "invoice",
+                    DataSourceId = "enterdata-source",
+                    Query =
+                        """
+                        <Query>
+                          <XmlData>
+                            <Data>
+                              <Row>
+                                <InvoiceId>000007-1</InvoiceId>
+                                <InvoiceDate>30 November 2019</InvoiceDate>
+                                <HeaderNotes></HeaderNotes>
+                                <Amount>4329.00</Amount>
+                              </Row>
+                            </Data>
+                          </XmlData>
+                        </Query>
+                        """,
+                    ExpectedFields =
+                    {
+                        new ReportFieldDefinition { Name = "InvoiceId", DataType = ReportParameterDataType.String },
+                        new ReportFieldDefinition { Name = "InvoiceDate", DataType = ReportParameterDataType.String },
+                        new ReportFieldDefinition { Name = "HeaderNotes", DataType = ReportParameterDataType.String },
+                        new ReportFieldDefinition { Name = "Amount", DataType = ReportParameterDataType.Number }
+                    }
+                }
+            }
+        };
+
+        var result = await ExecuteDataSetAsync(reportDefinition, "invoice", new ReportHostDataRegistry());
+
+        Assert.False(result.HasErrors);
+        Assert.NotNull(result.DataSet);
+        var row = Assert.Single(result.DataSet!.Rows);
+        Assert.Equal("000007-1", Assert.IsType<string>(row.Values["InvoiceId"]));
+        Assert.Equal("30 November 2019", Assert.IsType<string>(row.Values["InvoiceDate"]));
+        Assert.Equal(string.Empty, Assert.IsType<string>(row.Values["HeaderNotes"]));
+        Assert.Equal(4329d, Assert.IsType<double>(row.Values["Amount"]));
+        Assert.Contains(
+            result.DataSet.Fields,
+            field => field.Name == "InvoiceId" && field.DataType == ReportParameterDataType.String);
+        Assert.Contains(
+            result.DataSet.Fields,
+            field => field.Name == "Amount" && field.DataType == ReportParameterDataType.Number);
+    }
+
+    [Fact]
     public async Task ExecuteAsync_SqlProvider_UsesResolvedDataSetParameters()
     {
         var connector = new StubSqlConnector();
@@ -494,6 +556,81 @@ public sealed class ReportDataRuntimeTests
             result.Diagnostics,
             diagnostic => diagnostic.Code == ReportDiagnosticCodes.ValueCoercionFailed
                 && diagnostic.Message.Contains("does not allow multiple values", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task ResolveAsync_ClearsInvalidVisibleDefaultAgainstAvailableValues()
+    {
+        var reportDefinition = new ReportDefinition
+        {
+            Parameters =
+            {
+                new ReportParameterDefinition
+                {
+                    Id = "Company",
+                    DisplayName = "Company",
+                    DataType = ReportParameterDataType.String,
+                    DefaultValueExpression = "'Microsoft'",
+                    AvailableValuesDataSetId = "companies",
+                    ValueField = "Company",
+                    LabelField = "Company",
+                    Visibility = ReportParameterVisibility.Visible
+                }
+            },
+            DataSources =
+            {
+                new ReportDataSourceDefinition
+                {
+                    Id = "companies-source",
+                    ProviderId = ReportProviderIds.InMemory,
+                    Options =
+                    {
+                        ["sourceKey"] = "companies"
+                    }
+                }
+            },
+            DataSets =
+            {
+                new ReportDataSetDefinition
+                {
+                    Id = "companies",
+                    DataSourceId = "companies-source"
+                }
+            }
+        };
+
+        var hostData = new ReportHostDataRegistry();
+        hostData.RegisterInMemorySource(
+            "companies",
+            new ReportDictionaryDataSource(
+                new List<IReadOnlyDictionary<string, object?>>
+                {
+                    new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["Company"] = "Contoso Pharmaceuticals"
+                    },
+                    new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["Company"] = "Contoso Suites"
+                    }
+                }));
+
+        var resolver = new ReportParameterResolver(new ReportExpressionCompiler());
+        var result = await resolver.ResolveAsync(new ReportParameterResolutionRequest
+        {
+            ReportDefinition = reportDefinition,
+            ProviderRegistry = ReportDataProviders.CreateDefaultRegistry(),
+            HostDataRegistry = hostData,
+            Culture = InvariantCulture,
+            UiCulture = InvariantCulture,
+            TimeZone = TimeZoneInfo.Utc
+        });
+
+        Assert.False(result.HasErrors);
+        Assert.True(result.AvailableValues.TryGetValue("Company", out var availableValues));
+        Assert.NotNull(availableValues);
+        Assert.Equal(2, availableValues!.Count);
+        Assert.True(result.ResolvedValues["Company"].IsNull);
     }
 
     [Fact]

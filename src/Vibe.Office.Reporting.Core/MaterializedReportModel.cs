@@ -28,6 +28,16 @@ public sealed class MaterializedReportStyle
     public string? Background { get; set; }
 
     /// <summary>
+    /// Gets or sets the resolved background gradient type.
+    /// </summary>
+    public ReportBackgroundGradientType? BackgroundGradientType { get; set; }
+
+    /// <summary>
+    /// Gets or sets the resolved background gradient end color text.
+    /// </summary>
+    public string? BackgroundGradientEndColor { get; set; }
+
+    /// <summary>
     /// Gets or sets a value indicating whether the text is bold.
     /// </summary>
     public bool? Bold { get; set; }
@@ -38,9 +48,64 @@ public sealed class MaterializedReportStyle
     public bool? Italic { get; set; }
 
     /// <summary>
+    /// Gets or sets the resolved default border.
+    /// </summary>
+    public MaterializedReportBorder? Border { get; set; }
+
+    /// <summary>
+    /// Gets or sets the resolved top border.
+    /// </summary>
+    public MaterializedReportBorder? TopBorder { get; set; }
+
+    /// <summary>
+    /// Gets or sets the resolved bottom border.
+    /// </summary>
+    public MaterializedReportBorder? BottomBorder { get; set; }
+
+    /// <summary>
+    /// Gets or sets the resolved left border.
+    /// </summary>
+    public MaterializedReportBorder? LeftBorder { get; set; }
+
+    /// <summary>
+    /// Gets or sets the resolved right border.
+    /// </summary>
+    public MaterializedReportBorder? RightBorder { get; set; }
+
+    /// <summary>
+    /// Gets or sets the left padding.
+    /// </summary>
+    public float? PaddingLeft { get; set; }
+
+    /// <summary>
+    /// Gets or sets the right padding.
+    /// </summary>
+    public float? PaddingRight { get; set; }
+
+    /// <summary>
+    /// Gets or sets the top padding.
+    /// </summary>
+    public float? PaddingTop { get; set; }
+
+    /// <summary>
+    /// Gets or sets the bottom padding.
+    /// </summary>
+    public float? PaddingBottom { get; set; }
+
+    /// <summary>
     /// Gets or sets the paragraph alignment.
     /// </summary>
     public ParagraphAlignment? TextAlign { get; set; }
+
+    /// <summary>
+    /// Gets or sets the vertical alignment.
+    /// </summary>
+    public ReportVerticalAlignment? VerticalAlign { get; set; }
+
+    /// <summary>
+    /// Gets or sets the text decoration.
+    /// </summary>
+    public ReportTextDecoration? TextDecoration { get; set; }
 
     /// <summary>
     /// Creates a deep clone of the style.
@@ -54,9 +119,86 @@ public sealed class MaterializedReportStyle
             FontSize = FontSize,
             Foreground = Foreground,
             Background = Background,
+            BackgroundGradientType = BackgroundGradientType,
+            BackgroundGradientEndColor = BackgroundGradientEndColor,
             Bold = Bold,
             Italic = Italic,
-            TextAlign = TextAlign
+            Border = Border?.Clone(),
+            TopBorder = TopBorder?.Clone(),
+            BottomBorder = BottomBorder?.Clone(),
+            LeftBorder = LeftBorder?.Clone(),
+            RightBorder = RightBorder?.Clone(),
+            PaddingLeft = PaddingLeft,
+            PaddingRight = PaddingRight,
+            PaddingTop = PaddingTop,
+            PaddingBottom = PaddingBottom,
+            TextAlign = TextAlign,
+            VerticalAlign = VerticalAlign,
+            TextDecoration = TextDecoration
+        };
+    }
+}
+
+/// <summary>
+/// Represents one resolved border.
+/// </summary>
+public sealed class MaterializedReportBorder
+{
+    /// <summary>
+    /// Gets or sets the resolved color.
+    /// </summary>
+    public string? Color { get; set; }
+
+    /// <summary>
+    /// Gets or sets the line style.
+    /// </summary>
+    public ReportBorderLineStyle? Style { get; set; }
+
+    /// <summary>
+    /// Gets or sets the width.
+    /// </summary>
+    public float? Width { get; set; }
+
+    /// <summary>
+    /// Creates a deep clone.
+    /// </summary>
+    /// <returns>The cloned border.</returns>
+    public MaterializedReportBorder Clone()
+    {
+        return new MaterializedReportBorder
+        {
+            Color = Color,
+            Style = Style,
+            Width = Width
+        };
+    }
+}
+
+/// <summary>
+/// Captures one resolved page break.
+/// </summary>
+public sealed class MaterializedReportPageBreak
+{
+    /// <summary>
+    /// Gets or sets the break location.
+    /// </summary>
+    public ReportPageBreakLocation Location { get; set; } = ReportPageBreakLocation.Start;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether page numbering resets after the break.
+    /// </summary>
+    public bool ResetPageNumber { get; set; }
+
+    /// <summary>
+    /// Creates a deep clone.
+    /// </summary>
+    /// <returns>The cloned page break.</returns>
+    public MaterializedReportPageBreak Clone()
+    {
+        return new MaterializedReportPageBreak
+        {
+            Location = Location,
+            ResetPageNumber = ResetPageNumber
         };
     }
 }
@@ -139,6 +281,11 @@ public abstract class MaterializedReportItem
     public ReportItemBounds Bounds { get; set; }
 
     /// <summary>
+    /// Gets or sets the item z-order.
+    /// </summary>
+    public int ZIndex { get; set; }
+
+    /// <summary>
     /// Gets or sets the resolved bookmark text.
     /// </summary>
     public string? Bookmark { get; set; }
@@ -157,6 +304,16 @@ public abstract class MaterializedReportItem
     /// Gets or sets the resolved item style.
     /// </summary>
     public MaterializedReportStyle? Style { get; set; }
+
+    /// <summary>
+    /// Gets or sets the resolved page break.
+    /// </summary>
+    public MaterializedReportPageBreak? PageBreak { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the item should stay together on one page when possible.
+    /// </summary>
+    public bool KeepTogether { get; set; }
 
     /// <summary>
     /// Gets or sets the resolved drillthrough action.
@@ -204,6 +361,58 @@ public sealed class MaterializedTextReportItem : MaterializedReportItem
     /// Gets or sets the semantic text kind.
     /// </summary>
     public MaterializedTextValueKind ValueKind { get; set; } = MaterializedTextValueKind.Static;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the text box can grow vertically.
+    /// </summary>
+    public bool CanGrow { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the text box can shrink vertically.
+    /// </summary>
+    public bool CanShrink { get; set; }
+
+    /// <summary>
+    /// Gets the materialized paragraph and run structure for rich textboxes.
+    /// </summary>
+    public List<MaterializedTextParagraph> Paragraphs { get; } = new();
+}
+
+/// <summary>
+/// Represents one materialized text paragraph.
+/// </summary>
+public sealed class MaterializedTextParagraph
+{
+    /// <summary>
+    /// Gets or sets the optional paragraph alignment override.
+    /// </summary>
+    public ParagraphAlignment? TextAlign { get; set; }
+
+    /// <summary>
+    /// Gets the materialized runs in the paragraph.
+    /// </summary>
+    public List<MaterializedTextRun> Runs { get; } = new();
+}
+
+/// <summary>
+/// Represents one materialized text run.
+/// </summary>
+public sealed class MaterializedTextRun
+{
+    /// <summary>
+    /// Gets or sets the resolved run text.
+    /// </summary>
+    public string Text { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the semantic run value kind.
+    /// </summary>
+    public MaterializedTextValueKind ValueKind { get; set; } = MaterializedTextValueKind.Static;
+
+    /// <summary>
+    /// Gets or sets the resolved run style.
+    /// </summary>
+    public MaterializedReportStyle? Style { get; set; }
 }
 
 /// <summary>
@@ -378,6 +587,16 @@ public sealed class MaterializedTablixRow
     /// Gets or sets the resolved row height.
     /// </summary>
     public float Height { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether a page break should be inserted before this row group.
+    /// </summary>
+    public bool PageBreakBefore { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether a page break should be inserted after this row group.
+    /// </summary>
+    public bool PageBreakAfter { get; set; }
 
     /// <summary>
     /// Gets the materialized row cells.

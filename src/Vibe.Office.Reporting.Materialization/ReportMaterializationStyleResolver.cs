@@ -111,6 +111,21 @@ internal sealed class ReportMaterializationStyleResolver
             resolved.Background = background;
         }
 
+        if (style.BackgroundGradientType.HasValue)
+        {
+            resolved.BackgroundGradientType = style.BackgroundGradientType.Value;
+        }
+
+        if (!string.IsNullOrWhiteSpace(style.BackgroundGradientEndColor))
+        {
+            resolved.BackgroundGradientEndColor = style.BackgroundGradientEndColor;
+        }
+        else if (!string.IsNullOrWhiteSpace(style.BackgroundGradientEndColorExpression)
+            && TryEvaluateColorExpression(style.BackgroundGradientEndColorExpression, context, path, diagnostics, out var gradientEndColor))
+        {
+            resolved.BackgroundGradientEndColor = gradientEndColor;
+        }
+
         if (style.Bold.HasValue)
         {
             resolved.Bold = style.Bold.Value;
@@ -121,12 +136,181 @@ internal sealed class ReportMaterializationStyleResolver
             resolved.Italic = style.Italic.Value;
         }
 
+        resolved.Border = ResolveBorder(
+            resolved.Border,
+            style.Border,
+            context,
+            path,
+            diagnostics);
+        resolved.TopBorder = ResolveBorder(
+            resolved.TopBorder,
+            style.TopBorder,
+            context,
+            path,
+            diagnostics);
+        resolved.BottomBorder = ResolveBorder(
+            resolved.BottomBorder,
+            style.BottomBorder,
+            context,
+            path,
+            diagnostics);
+        resolved.LeftBorder = ResolveBorder(
+            resolved.LeftBorder,
+            style.LeftBorder,
+            context,
+            path,
+            diagnostics);
+        resolved.RightBorder = ResolveBorder(
+            resolved.RightBorder,
+            style.RightBorder,
+            context,
+            path,
+            diagnostics);
+
+        if (style.PaddingLeft.HasValue)
+        {
+            resolved.PaddingLeft = style.PaddingLeft.Value;
+        }
+
+        if (style.PaddingRight.HasValue)
+        {
+            resolved.PaddingRight = style.PaddingRight.Value;
+        }
+
+        if (style.PaddingTop.HasValue)
+        {
+            resolved.PaddingTop = style.PaddingTop.Value;
+        }
+
+        if (style.PaddingBottom.HasValue)
+        {
+            resolved.PaddingBottom = style.PaddingBottom.Value;
+        }
+
         if (style.TextAlign.HasValue)
         {
             resolved.TextAlign = style.TextAlign.Value;
         }
 
+        if (style.VerticalAlign.HasValue)
+        {
+            resolved.VerticalAlign = style.VerticalAlign.Value;
+        }
+
+        if (style.TextDecoration.HasValue)
+        {
+            resolved.TextDecoration = style.TextDecoration.Value;
+        }
+
+        resolved.Border = NormalizeBorder(resolved.Border);
+        resolved.TopBorder = ResolveSideBorder(resolved.Border, resolved.TopBorder);
+        resolved.BottomBorder = ResolveSideBorder(resolved.Border, resolved.BottomBorder);
+        resolved.LeftBorder = ResolveSideBorder(resolved.Border, resolved.LeftBorder);
+        resolved.RightBorder = ResolveSideBorder(resolved.Border, resolved.RightBorder);
+
         return resolved;
+    }
+
+    private static MaterializedReportBorder? ResolveBorder(
+        MaterializedReportBorder? current,
+        ReportBorderDefinition? definition,
+        ReportExpressionContext? context,
+        string? path,
+        List<ReportDiagnostic>? diagnostics)
+    {
+        if (definition is null)
+        {
+            return current?.Clone();
+        }
+
+        var resolved = current?.Clone() ?? new MaterializedReportBorder();
+        if (!string.IsNullOrWhiteSpace(definition.Color))
+        {
+            resolved.Color = definition.Color;
+        }
+        else if (!string.IsNullOrWhiteSpace(definition.ColorExpression)
+            && TryEvaluateColorExpression(definition.ColorExpression, context, path, diagnostics, out var color))
+        {
+            resolved.Color = color;
+        }
+
+        if (definition.Style.HasValue)
+        {
+            resolved.Style = definition.Style.Value;
+        }
+
+        if (definition.Width.HasValue)
+        {
+            resolved.Width = definition.Width.Value;
+        }
+
+        return resolved;
+    }
+
+    private static MaterializedReportBorder? ResolveSideBorder(
+        MaterializedReportBorder? border,
+        MaterializedReportBorder? sideBorder)
+    {
+        if (border is null)
+        {
+            return NormalizeBorder(sideBorder);
+        }
+
+        if (sideBorder is null)
+        {
+            return NormalizeBorder(border);
+        }
+
+        var resolved = border.Clone();
+        if (!string.IsNullOrWhiteSpace(sideBorder.Color))
+        {
+            resolved.Color = sideBorder.Color;
+        }
+
+        if (sideBorder.Style.HasValue)
+        {
+            resolved.Style = sideBorder.Style.Value;
+        }
+
+        if (sideBorder.Width.HasValue)
+        {
+            resolved.Width = sideBorder.Width.Value;
+        }
+
+        if (!sideBorder.Style.HasValue
+            && sideBorder.Width.HasValue
+            && resolved.Style == ReportBorderLineStyle.None)
+        {
+            resolved.Style = ReportBorderLineStyle.Solid;
+        }
+
+        return NormalizeBorder(resolved);
+    }
+
+    private static MaterializedReportBorder? NormalizeBorder(MaterializedReportBorder? border)
+    {
+        if (border is null)
+        {
+            return null;
+        }
+
+        if (!border.Style.HasValue
+            && (!string.IsNullOrWhiteSpace(border.Color) || border.Width.HasValue))
+        {
+            border.Style = ReportBorderLineStyle.Solid;
+        }
+
+        if (border.Style == ReportBorderLineStyle.None)
+        {
+            return border;
+        }
+
+        if (!border.Width.HasValue)
+        {
+            border.Width = 1f;
+        }
+
+        return border;
     }
 
     private static bool TryEvaluateColorExpression(

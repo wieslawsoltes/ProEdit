@@ -522,4 +522,198 @@ public sealed class ReportMaterializerTests
         Assert.Equal("East", tablix.Rows[4].Cells[0].Text);
         Assert.Equal("5.00", tablix.Rows[5].Cells[2].Text);
     }
+
+    [Fact]
+    public async Task MaterializeAsync_PreservesDetailRowNumberInsideNestedDetailsLeaf()
+    {
+        var reportDefinition = new ReportDefinition
+        {
+            Id = "detail-scope-report",
+            Name = "Detail Scope Report",
+            Styles =
+            {
+                new ReportStyleDefinition
+                {
+                    Id = "detail-style",
+                    BackgroundExpression = "IIf(RowNumber(null) % 2 = 0, 'Tan', 'White')"
+                }
+            },
+            DataSources =
+            {
+                new ReportDataSourceDefinition
+                {
+                    Id = "sales-source",
+                    ProviderId = ReportProviderIds.InMemory,
+                    Options =
+                    {
+                        ["sourceKey"] = "sales"
+                    }
+                }
+            },
+            DataSets =
+            {
+                new ReportDataSetDefinition
+                {
+                    Id = "sales",
+                    DataSourceId = "sales-source"
+                }
+            },
+            Sections =
+            {
+                new ReportSection
+                {
+                    Id = "main",
+                    Name = "Main",
+                    BodyItems =
+                    {
+                        new TablixItem
+                        {
+                            Id = "sales-table",
+                            Name = "Sales Table",
+                            DataSetId = "sales",
+                            Columns =
+                            {
+                                new ReportTablixColumnDefinition { Id = "item", Width = 120f }
+                            },
+                            Rows =
+                            {
+                                new ReportTablixRowDefinition
+                                {
+                                    Id = "header",
+                                    IsHeader = true,
+                                    Cells =
+                                    {
+                                        new ReportTablixCellDefinition { Text = "Item" }
+                                    }
+                                },
+                                new ReportTablixRowDefinition
+                                {
+                                    Id = "detail",
+                                    Cells =
+                                    {
+                                        new ReportTablixCellDefinition
+                                        {
+                                            ValueExpression = "Fields.Item",
+                                            StyleName = "detail-style"
+                                        }
+                                    }
+                                }
+                            },
+                            RowMembers =
+                            {
+                                new ReportTablixMemberDefinition
+                                {
+                                    Id = "header-member",
+                                    Kind = ReportTablixMemberKind.Static,
+                                    RowDefinitionIndex = 0
+                                },
+                                new ReportTablixMemberDefinition
+                                {
+                                    Id = "details-member",
+                                    Kind = ReportTablixMemberKind.Details,
+                                    Members =
+                                    {
+                                        new ReportTablixMemberDefinition
+                                        {
+                                            Id = "detail-leaf",
+                                            Kind = ReportTablixMemberKind.Static,
+                                            RowDefinitionIndex = 1
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        var hostData = new ReportHostDataRegistry();
+        hostData.RegisterInMemorySource(
+            "sales",
+            new ReportDictionaryDataSource(
+                new List<IReadOnlyDictionary<string, object?>>
+                {
+                    new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase) { ["Item"] = "A" },
+                    new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase) { ["Item"] = "B" },
+                    new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase) { ["Item"] = "C" }
+                }));
+
+        var materializer = new ReportMaterializer(new ReportExpressionCompiler());
+        var result = await materializer.MaterializeAsync(
+            new ReportMaterializationRequest
+            {
+                ReportDefinition = reportDefinition,
+                ProviderRegistry = ReportDataProviders.CreateDefaultRegistry(),
+                HostDataRegistry = hostData
+            });
+
+        Assert.False(result.HasErrors);
+        var tablix = Assert.IsType<MaterializedTablixReportItem>(Assert.Single(result.MaterializedReport!.Sections[0].BodyItems));
+        Assert.Equal(4, tablix.Rows.Count);
+        Assert.True(tablix.Rows[0].IsHeader);
+        Assert.False(tablix.Rows[1].IsHeader);
+        Assert.False(tablix.Rows[2].IsHeader);
+        Assert.False(tablix.Rows[3].IsHeader);
+        Assert.Equal("White", tablix.Rows[1].Cells[0].Style?.Background);
+        Assert.Equal("Tan", tablix.Rows[2].Cells[0].Style?.Background);
+        Assert.Equal("White", tablix.Rows[3].Cells[0].Style?.Background);
+    }
+
+    [Fact]
+    public async Task MaterializeAsync_TreatsVisibilityExpressionAsRdlHiddenExpression()
+    {
+        var reportDefinition = new ReportDefinition
+        {
+            Id = "visibility-report",
+            Name = "Visibility Report",
+            Sections =
+            {
+                new ReportSection
+                {
+                    Id = "main",
+                    Name = "Main",
+                    BodyItems =
+                    {
+                        new ContainerItem
+                        {
+                            Id = "container",
+                            Bounds = new ReportItemBounds(0f, 0f, 200f, 80f),
+                            Items =
+                            {
+                                new TextItem
+                                {
+                                    Id = "visible-text",
+                                    StaticText = "Visible",
+                                    VisibilityExpression = "false",
+                                    Bounds = new ReportItemBounds(0f, 0f, 120f, 20f)
+                                },
+                                new TextItem
+                                {
+                                    Id = "hidden-text",
+                                    StaticText = "Hidden",
+                                    VisibilityExpression = "true",
+                                    Bounds = new ReportItemBounds(0f, 24f, 120f, 20f)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        var materializer = new ReportMaterializer(new ReportExpressionCompiler());
+        var result = await materializer.MaterializeAsync(
+            new ReportMaterializationRequest
+            {
+                ReportDefinition = reportDefinition,
+                ProviderRegistry = ReportDataProviders.CreateDefaultRegistry()
+            });
+
+        Assert.False(result.HasErrors);
+        var container = Assert.IsType<MaterializedContainerReportItem>(Assert.Single(result.MaterializedReport!.Sections[0].BodyItems));
+        var child = Assert.IsType<MaterializedTextReportItem>(Assert.Single(container.Items));
+        Assert.Equal("visible-text", child.SourceItemId);
+        Assert.Equal("Visible", child.Text);
+    }
 }

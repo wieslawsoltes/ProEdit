@@ -25,15 +25,32 @@ internal sealed class ReportRdlExporter
         try
         {
             _xmlNamespace = ReportRdlNamespaces.GetMainNamespace(_options.Version);
+            var defaultFontNamespace = ReportRdlNamespaces.GetDefaultFontNamespace(_options.Version);
             var root = new XElement(
                 _xmlNamespace + "Report",
                 new XAttribute(XNamespace.Xmlns + "rd", ReportRdlNamespaces.Designer.NamespaceName));
+
+            if (defaultFontNamespace is not null && !string.IsNullOrWhiteSpace(_reportDefinition.DefaultFontFamily))
+            {
+                root.Add(new XAttribute("MustUnderstand", "df"));
+                root.Add(new XAttribute(XNamespace.Xmlns + "df", defaultFontNamespace.NamespaceName));
+            }
 
             root.Add(new XElement(ReportRdlNamespaces.Designer + "ReportUnitType", "Inch"));
             root.Add(new XElement(ReportRdlNamespaces.Designer + "ReportID", string.IsNullOrWhiteSpace(_reportDefinition.Id) ? Guid.NewGuid().ToString("D", CultureInfo.InvariantCulture) : _reportDefinition.Id));
             if (!string.IsNullOrWhiteSpace(_reportDefinition.Name))
             {
                 root.Add(new XElement(_xmlNamespace + "Description", _reportDefinition.Name));
+            }
+
+            if (_reportDefinition.ConsumeContainerWhitespace)
+            {
+                root.Add(new XElement(_xmlNamespace + "ConsumeContainerWhitespace", true));
+            }
+
+            if (defaultFontNamespace is not null && !string.IsNullOrWhiteSpace(_reportDefinition.DefaultFontFamily))
+            {
+                root.Add(new XElement(defaultFontNamespace + "DefaultFontFamily", _reportDefinition.DefaultFontFamily));
             }
 
             var customProperties = WriteCustomProperties();
@@ -58,6 +75,12 @@ internal sealed class ReportRdlExporter
             if (parameters is not null)
             {
                 root.Add(parameters);
+            }
+
+            var parameterLayout = WriteParameterLayout();
+            if (parameterLayout is not null)
+            {
+                root.Add(parameterLayout);
             }
 
             if (_options.Version == ReportRdlVersion.Rdl2008)
@@ -387,6 +410,106 @@ internal sealed class ReportRdlExporter
         return parametersElement;
     }
 
+    private XElement? WriteParameterLayout()
+    {
+        if (_reportDefinition.Parameters.Count == 0)
+        {
+            return null;
+        }
+
+        var layout = _reportDefinition.ParameterLayout;
+        var columnCount = Math.Max(1, layout.ColumnCount);
+        var rowCount = Math.Max(1, layout.RowCount);
+        var positionedParameters = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var occupiedCells = new HashSet<(int RowIndex, int ColumnIndex)>();
+        var normalizedCells = new List<ReportParameterLayoutCellDefinition>(_reportDefinition.Parameters.Count);
+
+        foreach (var cell in layout.Cells)
+        {
+            if (string.IsNullOrWhiteSpace(cell.ParameterId)
+                || !_reportDefinition.Parameters.Any(parameter => string.Equals(parameter.Id, cell.ParameterId, StringComparison.OrdinalIgnoreCase))
+                || !positionedParameters.Add(cell.ParameterId))
+            {
+                continue;
+            }
+
+            var rowIndex = Math.Max(0, cell.RowIndex);
+            var columnIndex = cell.ColumnIndex >= 0 && cell.ColumnIndex < columnCount ? cell.ColumnIndex : 0;
+            if (!occupiedCells.Add((rowIndex, columnIndex)))
+            {
+                var next = FindNextParameterLayoutCell(occupiedCells, columnCount, ref rowCount);
+                rowIndex = next.RowIndex;
+                columnIndex = next.ColumnIndex;
+                occupiedCells.Add((rowIndex, columnIndex));
+            }
+
+            normalizedCells.Add(new ReportParameterLayoutCellDefinition
+            {
+                ParameterId = cell.ParameterId,
+                RowIndex = rowIndex,
+                ColumnIndex = columnIndex
+            });
+            rowCount = Math.Max(rowCount, rowIndex + 1);
+        }
+
+        foreach (var parameter in _reportDefinition.Parameters)
+        {
+            if (positionedParameters.Contains(parameter.Id))
+            {
+                continue;
+            }
+
+            var next = FindNextParameterLayoutCell(occupiedCells, columnCount, ref rowCount);
+            occupiedCells.Add(next);
+            normalizedCells.Add(new ReportParameterLayoutCellDefinition
+            {
+                ParameterId = parameter.Id,
+                RowIndex = next.RowIndex,
+                ColumnIndex = next.ColumnIndex
+            });
+        }
+
+        return new XElement(
+            _xmlNamespace + "ReportParametersLayout",
+            new XElement(
+                _xmlNamespace + "GridLayoutDefinition",
+                new XElement(_xmlNamespace + "NumberOfColumns", columnCount),
+                new XElement(_xmlNamespace + "NumberOfRows", rowCount),
+                new XElement(
+                    _xmlNamespace + "CellDefinitions",
+                    normalizedCells
+                        .OrderBy(static cell => cell.RowIndex)
+                        .ThenBy(static cell => cell.ColumnIndex)
+                        .Select(cell => new XElement(
+                            _xmlNamespace + "CellDefinition",
+                            new XElement(_xmlNamespace + "ColumnIndex", cell.ColumnIndex),
+                            new XElement(_xmlNamespace + "RowIndex", cell.RowIndex),
+                            new XElement(_xmlNamespace + "ParameterName", ResolveName(cell.ParameterId, cell.ParameterId)))))));
+    }
+
+    private static (int RowIndex, int ColumnIndex) FindNextParameterLayoutCell(
+        HashSet<(int RowIndex, int ColumnIndex)> occupiedCells,
+        int columnCount,
+        ref int rowCount)
+    {
+        var normalizedColumns = Math.Max(1, columnCount);
+        var normalizedRows = Math.Max(1, rowCount);
+        for (var rowIndex = 0; rowIndex < normalizedRows; rowIndex++)
+        {
+            for (var columnIndex = 0; columnIndex < normalizedColumns; columnIndex++)
+            {
+                if (!occupiedCells.Contains((rowIndex, columnIndex)))
+                {
+                    rowCount = normalizedRows;
+                    return (rowIndex, columnIndex);
+                }
+            }
+        }
+
+        rowCount = normalizedRows + 1;
+        return (normalizedRows, 0);
+    }
+
     private void WriteBodyAndPage(XElement parent, ReportSection section)
     {
         parent.Add(WriteBody(section));
@@ -417,22 +540,27 @@ internal sealed class ReportRdlExporter
 
         if (section.HeaderItems.Count > 0)
         {
-            page.Add(WriteHeaderFooter("PageHeader", section.HeaderItems, "/Report/Page/PageHeader"));
+            page.Add(WriteHeaderFooter("PageHeader", section.HeaderItems, "/Report/Page/PageHeader", section.PageSettings.HeaderHeight));
         }
 
         if (section.FooterItems.Count > 0)
         {
-            page.Add(WriteHeaderFooter("PageFooter", section.FooterItems, "/Report/Page/PageFooter"));
+            page.Add(WriteHeaderFooter("PageFooter", section.FooterItems, "/Report/Page/PageFooter", section.PageSettings.FooterHeight));
         }
 
         return page;
     }
 
-    private XElement WriteHeaderFooter(string elementName, IReadOnlyList<ReportItem> items, string path)
+    private XElement WriteHeaderFooter(string elementName, IReadOnlyList<ReportItem> items, string path, float configuredHeight)
     {
         return new XElement(
             _xmlNamespace + elementName,
-            new XElement(_xmlNamespace + "Height", ReportRdlMeasurements.Format(ComputeItemExtent(items, static item => GetBottom(item), 24f))),
+            new XElement(
+                _xmlNamespace + "Height",
+                ReportRdlMeasurements.Format(
+                    configuredHeight > 0f
+                        ? configuredHeight
+                        : ComputeItemExtent(items, static item => GetBottom(item), 24f))),
             new XElement(_xmlNamespace + "PrintOnFirstPage", true),
             new XElement(_xmlNamespace + "PrintOnLastPage", true),
             new XElement(_xmlNamespace + "ReportItems", WriteItems(items, path + "/ReportItems")));
@@ -474,6 +602,7 @@ internal sealed class ReportRdlExporter
         var element = new XElement(
             _xmlNamespace + "Textbox",
             new XAttribute("Name", ResolveName(item.Name, item.Id, "Textbox")),
+            item.KeepTogether ? new XElement(_xmlNamespace + "KeepTogether", true) : null,
             new XElement(_xmlNamespace + "CanGrow", item.CanGrow),
             new XElement(_xmlNamespace + "CanShrink", item.CanShrink),
             new XElement(
@@ -568,6 +697,11 @@ internal sealed class ReportRdlExporter
         var element = new XElement(
             _xmlNamespace + "Rectangle",
             new XAttribute("Name", ResolveName(item.Name, item.Id, "Rectangle")));
+        if (item.KeepTogether)
+        {
+            element.Add(new XElement(_xmlNamespace + "KeepTogether", true));
+        }
+
         WriteCommonItemProperties(element, item);
         AppendStyle(element, item.StyleName, null);
         return element;
@@ -578,6 +712,11 @@ internal sealed class ReportRdlExporter
         var element = new XElement(
             _xmlNamespace + "Rectangle",
             new XAttribute("Name", ResolveName(item.Name, item.Id, "Rectangle")));
+        if (item.KeepTogether)
+        {
+            element.Add(new XElement(_xmlNamespace + "KeepTogether", true));
+        }
+
         WriteCommonItemProperties(element, item);
         AppendStyle(element, item.StyleName, null);
         element.Add(new XElement(_xmlNamespace + "ReportItems", WriteItems(item.Items, path + "/ReportItems")));
@@ -742,6 +881,10 @@ internal sealed class ReportRdlExporter
         var element = new XElement(
             _xmlNamespace + "Tablix",
             new XAttribute("Name", ResolveName(item.Name, item.Id, "Tablix")));
+        if (item.KeepTogether)
+        {
+            element.Add(new XElement(_xmlNamespace + "KeepTogether", true));
+        }
 
         var tablixColumns = new XElement(_xmlNamespace + "TablixColumns");
         for (var columnIndex = 0; columnIndex < item.Columns.Count; columnIndex++)
@@ -998,21 +1141,37 @@ internal sealed class ReportRdlExporter
         if (member.Kind != ReportTablixMemberKind.Static)
         {
             var groupName = ResolveName(member.GroupName, member.Id, "Group");
+            XElement groupElement;
             if (!string.IsNullOrWhiteSpace(member.GroupExpression))
             {
-                element.Add(
+                groupElement = new XElement(
+                    _xmlNamespace + "Group",
+                    new XAttribute("Name", groupName),
                     new XElement(
-                        _xmlNamespace + "Group",
-                        new XAttribute("Name", groupName),
+                        _xmlNamespace + "GroupExpressions",
                         new XElement(
-                            _xmlNamespace + "GroupExpressions",
-                            new XElement(
-                                _xmlNamespace + "GroupExpression",
-                                ReportRdlExpressions.ToRdlExpression(member.GroupExpression) ?? "=Nothing"))));
+                            _xmlNamespace + "GroupExpression",
+                            ReportRdlExpressions.ToRdlExpression(member.GroupExpression) ?? "=Nothing")));
             }
             else
             {
-                element.Add(new XElement(_xmlNamespace + "Group", new XAttribute("Name", groupName)));
+                groupElement = new XElement(_xmlNamespace + "Group", new XAttribute("Name", groupName));
+            }
+
+            var groupPageBreak = WritePageBreak(member.PageBreak);
+            if (groupPageBreak is not null)
+            {
+                groupElement.Add(groupPageBreak);
+            }
+
+            element.Add(groupElement);
+        }
+        else
+        {
+            var memberPageBreak = WritePageBreak(member.PageBreak);
+            if (memberPageBreak is not null)
+            {
+                element.Add(memberPageBreak);
             }
         }
 
@@ -1071,6 +1230,7 @@ internal sealed class ReportRdlExporter
         var element = new XElement(
             _xmlNamespace + "Subreport",
             new XAttribute("Name", ResolveName(item.Name, item.Id, "Subreport")),
+            item.KeepTogether ? new XElement(_xmlNamespace + "KeepTogether", true) : null,
             new XElement(_xmlNamespace + "ReportName", item.ReportReferenceId));
 
         if (item.Parameters.Count > 0)
@@ -1118,6 +1278,12 @@ internal sealed class ReportRdlExporter
                     new XElement(_xmlNamespace + "Hidden", ReportRdlExpressions.ToRdlExpression(item.VisibilityExpression))));
         }
 
+        var pageBreak = WritePageBreak(item.PageBreak);
+        if (pageBreak is not null)
+        {
+            element.Add(pageBreak);
+        }
+
         if (!string.IsNullOrWhiteSpace(item.BookmarkExpression))
         {
             var bookmarkValue = ReportRdlExpressions.ToRdlScalarValue(item.BookmarkExpression) ?? string.Empty;
@@ -1155,6 +1321,29 @@ internal sealed class ReportRdlExporter
                                 new XElement(_xmlNamespace + "ReportName", item.DrillthroughAction.ReportReferenceId),
                                 item.DrillthroughAction.Parameters.Count == 0 ? null : parameters)))));
         }
+
+        if (item.ZIndex > 0)
+        {
+            element.Add(new XElement(_xmlNamespace + "ZIndex", item.ZIndex));
+        }
+    }
+
+    private XElement? WritePageBreak(ReportPageBreakDefinition? pageBreak)
+    {
+        if (pageBreak is null)
+        {
+            return null;
+        }
+
+        return new XElement(
+            _xmlNamespace + "PageBreak",
+            new XElement(_xmlNamespace + "BreakLocation", FormatPageBreakLocation(pageBreak.Location)),
+            string.IsNullOrWhiteSpace(pageBreak.DisabledExpression)
+                ? null
+                : new XElement(_xmlNamespace + "Disabled", ReportRdlExpressions.ToRdlExpression(pageBreak.DisabledExpression) ?? "=False"),
+            pageBreak.ResetPageNumber
+                ? new XElement(_xmlNamespace + "ResetPageNumber", true)
+                : null);
     }
 
     private void WriteLineBounds(XElement element, LineItem item)
@@ -1197,6 +1386,17 @@ internal sealed class ReportRdlExporter
             message,
             path));
         return null;
+    }
+
+    private static string FormatPageBreakLocation(ReportPageBreakLocation location)
+    {
+        return location switch
+        {
+            ReportPageBreakLocation.End => "End",
+            ReportPageBreakLocation.StartAndEnd => "StartAndEnd",
+            ReportPageBreakLocation.Between => "Between",
+            _ => "Start"
+        };
     }
 
     private string BuildConnectionString(ReportDataSourceDefinition dataSource)

@@ -1,6 +1,8 @@
 using System.Globalization;
+using System.Linq;
 using System.Xml;
 using System.Xml.Linq;
+using Vibe.Office.Documents;
 
 namespace Vibe.Office.Reporting.Rdl;
 
@@ -11,6 +13,7 @@ internal sealed class ReportRdlImporter
     private readonly ReportRdlStyleCatalog _styleCatalog = new();
 
     private XNamespace _xmlNamespace = XNamespace.None;
+    private XNamespace? _defaultFontNamespace;
 
     public ReportRdlReadResult Read(string xml)
     {
@@ -51,6 +54,7 @@ internal sealed class ReportRdlImporter
         }
 
         _xmlNamespace = root.Name.Namespace;
+        _defaultFontNamespace = root.GetNamespaceOfPrefix("df");
         if (!ReportRdlNamespaces.TryGetVersion(_xmlNamespace, out var version))
         {
             _diagnostics.Add(new ReportDiagnostic(
@@ -82,6 +86,7 @@ internal sealed class ReportRdlImporter
         ReadDataSources(root, report);
         ReadDataSets(root, report);
         ReadParameters(root, report);
+        ReadParameterLayout(root, report);
         ReadSections(root, report);
         _styleCatalog.CopyTo(report);
 
@@ -145,6 +150,9 @@ internal sealed class ReportRdlImporter
 
     private void ReadReportMetadata(XElement root, ReportDefinition report)
     {
+        report.ConsumeContainerWhitespace = ParseBoolean(root.Element(_xmlNamespace + "ConsumeContainerWhitespace")?.Value);
+        report.DefaultFontFamily = ReadDefaultFontFamily(root);
+
         var code = root.Element(_xmlNamespace + "Code")?.Value;
         if (!string.IsNullOrWhiteSpace(code))
         {
@@ -171,6 +179,21 @@ internal sealed class ReportRdlImporter
             report.Metadata["rdlCustomProperty:" + name] = value;
             index++;
         }
+    }
+
+    private string? ReadDefaultFontFamily(XElement root)
+    {
+        var defaultFontElement = _defaultFontNamespace is not null
+            ? root.Element(_defaultFontNamespace + "DefaultFontFamily")
+            : null;
+
+        if (defaultFontElement is null)
+        {
+            defaultFontElement = root.Elements().FirstOrDefault(static element => string.Equals(element.Name.LocalName, "DefaultFontFamily", StringComparison.Ordinal));
+        }
+
+        var value = defaultFontElement?.Value?.Trim();
+        return string.IsNullOrWhiteSpace(value) ? null : value;
     }
 
     private void ReadDataSources(XElement root, ReportDefinition report)
@@ -283,6 +306,8 @@ internal sealed class ReportRdlImporter
             var fieldPath = $"{path}/Fields/Field[{index}]";
             var dataField = fieldElement.Element(_xmlNamespace + "DataField")?.Value;
             var valueExpression = fieldElement.Element(_xmlNamespace + "Value")?.Value;
+            var typeName = fieldElement.Element(ReportRdlNamespaces.Designer + "TypeName")?.Value;
+            var dataType = ParseFieldDataType(typeName);
             if (!string.IsNullOrWhiteSpace(valueExpression) && string.IsNullOrWhiteSpace(dataField))
             {
                 definition.CalculatedFields.Add(new ReportCalculatedFieldDefinition
@@ -298,7 +323,7 @@ internal sealed class ReportRdlImporter
                     Name = string.IsNullOrWhiteSpace(dataField)
                         ? ((string?)fieldElement.Attribute("Name"))?.Trim() ?? $"Field{index + 1}"
                         : dataField.Trim(),
-                    DataType = ReportParameterDataType.String
+                    DataType = dataType
                 });
             }
 
@@ -396,6 +421,45 @@ internal sealed class ReportRdlImporter
         }
     }
 
+    private void ReadParameterLayout(XElement root, ReportDefinition report)
+    {
+        var layoutElement = root.Element(_xmlNamespace + "ReportParametersLayout")?.Element(_xmlNamespace + "GridLayoutDefinition");
+        if (layoutElement is null)
+        {
+            return;
+        }
+
+        var layout = report.ParameterLayout;
+        layout.ColumnCount = Math.Max(1, ParseInt(layoutElement.Element(_xmlNamespace + "NumberOfColumns")?.Value, 1));
+        layout.RowCount = Math.Max(1, ParseInt(layoutElement.Element(_xmlNamespace + "NumberOfRows")?.Value, 1));
+        layout.Cells.Clear();
+
+        var parameterIds = report.Parameters
+            .Select(static parameter => parameter.Id)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var cellDefinitions = layoutElement.Element(_xmlNamespace + "CellDefinitions");
+        if (cellDefinitions is null)
+        {
+            return;
+        }
+
+        foreach (var cellElement in cellDefinitions.Elements(_xmlNamespace + "CellDefinition"))
+        {
+            var parameterName = cellElement.Element(_xmlNamespace + "ParameterName")?.Value?.Trim();
+            if (string.IsNullOrWhiteSpace(parameterName) || !parameterIds.Contains(parameterName))
+            {
+                continue;
+            }
+
+            layout.Cells.Add(new ReportParameterLayoutCellDefinition
+            {
+                ParameterId = parameterName,
+                ColumnIndex = Math.Max(0, ParseInt(cellElement.Element(_xmlNamespace + "ColumnIndex")?.Value, 0)),
+                RowIndex = Math.Max(0, ParseInt(cellElement.Element(_xmlNamespace + "RowIndex")?.Value, 0))
+            });
+        }
+    }
+
     private void ReadSections(XElement root, ReportDefinition report)
     {
         var reportSectionsElement = root.Element(_xmlNamespace + "ReportSections");
@@ -479,22 +543,32 @@ internal sealed class ReportRdlImporter
             pageElement.Element(_xmlNamespace + "LeftMargin")?.Value,
             path + "/Page/LeftMargin",
             _diagnostics,
-            settings.MarginLeft);
+            0f);
         settings.MarginRight = ReportRdlMeasurements.Parse(
             pageElement.Element(_xmlNamespace + "RightMargin")?.Value,
             path + "/Page/RightMargin",
             _diagnostics,
-            settings.MarginRight);
+            0f);
         settings.MarginTop = ReportRdlMeasurements.Parse(
             pageElement.Element(_xmlNamespace + "TopMargin")?.Value,
             path + "/Page/TopMargin",
             _diagnostics,
-            settings.MarginTop);
+            0f);
         settings.MarginBottom = ReportRdlMeasurements.Parse(
             pageElement.Element(_xmlNamespace + "BottomMargin")?.Value,
             path + "/Page/BottomMargin",
             _diagnostics,
-            settings.MarginBottom);
+            0f);
+        settings.HeaderHeight = ReportRdlMeasurements.Parse(
+            pageElement.Element(_xmlNamespace + "PageHeader")?.Element(_xmlNamespace + "Height")?.Value,
+            path + "/Page/PageHeader/Height",
+            _diagnostics,
+            0f);
+        settings.FooterHeight = ReportRdlMeasurements.Parse(
+            pageElement.Element(_xmlNamespace + "PageFooter")?.Element(_xmlNamespace + "Height")?.Value,
+            path + "/Page/PageFooter/Height",
+            _diagnostics,
+            0f);
 
         if (int.TryParse(pageElement.Element(_xmlNamespace + "Columns")?.Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var columns))
         {
@@ -566,9 +640,11 @@ internal sealed class ReportRdlImporter
         XElement itemElement,
         string path,
         float offsetX,
-        float offsetY)
+        float offsetY,
+        float fallbackWidth = 0f,
+        float fallbackHeight = 0f)
     {
-        return itemElement.Name.LocalName switch
+        var item = itemElement.Name.LocalName switch
         {
             "Textbox" => ReadTextbox(itemElement, path, offsetX, offsetY),
             "Image" => ReadImage(itemElement, path, offsetX, offsetY),
@@ -580,6 +656,13 @@ internal sealed class ReportRdlImporter
             "Subreport" => ReadSubreport(itemElement, path, offsetX, offsetY),
             _ => SkipUnsupportedItem(itemElement.Name.LocalName, path)
         };
+
+        if (item is not null)
+        {
+            FinalizeImplicitBounds(item, itemElement, fallbackWidth, fallbackHeight);
+        }
+
+        return item;
     }
 
     private ReportItem? SkipUnsupportedItem(string itemName, string path)
@@ -601,6 +684,7 @@ internal sealed class ReportRdlImporter
         item.ValueExpression = expression;
         item.CanGrow = ParseBoolean(itemElement.Element(_xmlNamespace + "CanGrow")?.Value, defaultValue: true);
         item.CanShrink = ParseBoolean(itemElement.Element(_xmlNamespace + "CanShrink")?.Value, defaultValue: false);
+        item.Paragraphs = ReadTextboxParagraphs(itemElement, path);
 
         var styleElement = GetEffectiveTextboxStyleElement(itemElement);
         item.StyleName = _styleCatalog.Intern(styleElement, _xmlNamespace, path, _diagnostics);
@@ -866,29 +950,95 @@ internal sealed class ReportRdlImporter
             .ToList() ?? new List<XElement>();
         var rows = body?.Element(_xmlNamespace + "TablixRows")?.Elements(_xmlNamespace + "TablixRow").ToList()
             ?? new List<XElement>();
+        var rowHeights = new List<float>(rows.Count);
+        for (var rowIndex = 0; rowIndex < rows.Count; rowIndex++)
+        {
+            rowHeights.Add(ReportRdlMeasurements.Parse(
+                rows[rowIndex].Element(_xmlNamespace + "Height")?.Value,
+                $"{path}/TablixBody/TablixRows/TablixRow[{rowIndex}]/Height",
+                _diagnostics,
+                24f));
+        }
 
         var repeatHeaderRows = false;
+        var spanningColumns = item.Columns.Count > 0
+            ? new int[item.Columns.Count]
+            : Array.Empty<int>();
         for (var rowIndex = 0; rowIndex < rows.Count; rowIndex++)
         {
             var rowElement = rows[rowIndex];
             var row = new ReportTablixRowDefinition
             {
                 Id = $"row{rowIndex + 1}",
-                Height = ReportRdlMeasurements.Parse(
-                    rowElement.Element(_xmlNamespace + "Height")?.Value,
-                    $"{path}/TablixBody/TablixRows/TablixRow[{rowIndex}]/Height",
-                    _diagnostics,
-                    24f)
+                Height = rowHeights[rowIndex]
             };
 
             var cellIndex = 0;
+            var logicalColumnIndex = 0;
+            var rowSpanAdditions = spanningColumns.Length > 0
+                ? new int[spanningColumns.Length]
+                : Array.Empty<int>();
             foreach (var cellElement in rowElement.Element(_xmlNamespace + "TablixCells")?.Elements(_xmlNamespace + "TablixCell") ?? [])
             {
-                row.Cells.Add(ReadTablixCell(cellElement, $"{path}/TablixBody/TablixRows/TablixRow[{rowIndex}]/TablixCells/TablixCell[{cellIndex}]"));
+                while (logicalColumnIndex < spanningColumns.Length && spanningColumns[logicalColumnIndex] > 0)
+                {
+                    logicalColumnIndex++;
+                }
+
+                var cellContents = cellElement.Element(_xmlNamespace + "CellContents");
+                if (IsTablixPlaceholderCell(cellElement, cellContents))
+                {
+                    cellIndex++;
+                    continue;
+                }
+
+                var columnSpan = ResolveTablixColumnSpan(
+                    ParseInt(
+                        cellElement.Element(_xmlNamespace + "ColSpan")?.Value
+                        ?? cellContents?.Element(_xmlNamespace + "ColSpan")?.Value,
+                        1),
+                    logicalColumnIndex,
+                    item.Columns.Count);
+                var rowSpan = ParseInt(
+                    cellElement.Element(_xmlNamespace + "RowSpan")?.Value
+                    ?? cellContents?.Element(_xmlNamespace + "RowSpan")?.Value,
+                    1);
+                row.Cells.Add(ReadTablixCell(
+                    cellElement,
+                    $"{path}/TablixBody/TablixRows/TablixRow[{rowIndex}]/TablixCells/TablixCell[{cellIndex}]",
+                    columnSpan,
+                    rowSpan,
+                    CalculateCellWidth(item.Columns, logicalColumnIndex, columnSpan),
+                    CalculateCellHeight(rowHeights, rowIndex, rowSpan)));
+
+                if (rowSpan > 1)
+                {
+                    for (var spanColumnIndex = logicalColumnIndex;
+                         spanColumnIndex < logicalColumnIndex + columnSpan && spanColumnIndex < rowSpanAdditions.Length;
+                         spanColumnIndex++)
+                    {
+                        rowSpanAdditions[spanColumnIndex] = Math.Max(rowSpanAdditions[spanColumnIndex], rowSpan - 1);
+                    }
+                }
+
+                logicalColumnIndex += Math.Max(1, columnSpan);
                 cellIndex++;
             }
 
             item.Rows.Add(row);
+
+            for (var columnIndex = 0; columnIndex < spanningColumns.Length; columnIndex++)
+            {
+                if (spanningColumns[columnIndex] > 0)
+                {
+                    spanningColumns[columnIndex]--;
+                }
+
+                if (rowSpanAdditions[columnIndex] > spanningColumns[columnIndex])
+                {
+                    spanningColumns[columnIndex] = rowSpanAdditions[columnIndex];
+                }
+            }
         }
 
         item.RowMembers.AddRange(ReadTablixMembers(
@@ -907,14 +1057,14 @@ internal sealed class ReportRdlImporter
             }
         }
 
-        var leafMembers = new List<ReportTablixMemberDefinition>();
+        var leafMembers = new List<(ReportTablixMemberDefinition Member, ReportTablixMemberKind EffectiveKind)>();
         CollectLeafMembers(item.RowMembers, leafMembers);
         var mappedLeafCount = Math.Min(leafMembers.Count, item.Rows.Count);
         for (var rowIndex = 0; rowIndex < mappedLeafCount; rowIndex++)
         {
-            leafMembers[rowIndex].RowDefinitionIndex = rowIndex;
-            item.Rows[rowIndex].IsHeader = leafMembers[rowIndex].Kind == ReportTablixMemberKind.Static;
-            repeatHeaderRows |= item.Rows[rowIndex].IsHeader && leafMembers[rowIndex].RepeatOnNewPage;
+            leafMembers[rowIndex].Member.RowDefinitionIndex = rowIndex;
+            item.Rows[rowIndex].IsHeader = leafMembers[rowIndex].EffectiveKind == ReportTablixMemberKind.Static;
+            repeatHeaderRows |= item.Rows[rowIndex].IsHeader && leafMembers[rowIndex].Member.RepeatOnNewPage;
         }
 
         if (leafMembers.Count != item.Rows.Count)
@@ -928,6 +1078,27 @@ internal sealed class ReportRdlImporter
 
         item.RepeatHeaderRows = repeatHeaderRows;
         return item;
+    }
+
+    private static bool IsTablixPlaceholderCell(XElement cellElement, XElement? cellContents)
+    {
+        if (cellContents is not null)
+        {
+            return false;
+        }
+
+        return !cellElement.HasElements && !cellElement.HasAttributes;
+    }
+
+    private static int ResolveTablixColumnSpan(int requestedSpan, int startColumnIndex, int columnCount)
+    {
+        var span = Math.Max(1, requestedSpan);
+        if (columnCount <= 0 || startColumnIndex < 0 || startColumnIndex >= columnCount)
+        {
+            return span;
+        }
+
+        return Math.Max(1, Math.Min(span, columnCount - startColumnIndex));
     }
 
     private List<ReportTablixMemberDefinition> ReadTablixMembers(XElement? membersElement, string path)
@@ -969,9 +1140,23 @@ internal sealed class ReportRdlImporter
                     ?.Elements(_xmlNamespace + "GroupExpression")
                     .FirstOrDefault()
                     ?.Value);
+            var groupPageBreak = groupElement.Element(_xmlNamespace + "PageBreak");
+            if (groupPageBreak is not null)
+            {
+                definition.PageBreak = ReadPageBreak(groupPageBreak, path + "/Group/PageBreak");
+            }
+
             definition.Kind = string.IsNullOrWhiteSpace(definition.GroupExpression)
                 ? ReportTablixMemberKind.Details
                 : ReportTablixMemberKind.Group;
+        }
+        else
+        {
+            var memberPageBreak = memberElement.Element(_xmlNamespace + "PageBreak");
+            if (memberPageBreak is not null)
+            {
+                definition.PageBreak = ReadPageBreak(memberPageBreak, path + "/PageBreak");
+            }
         }
 
         var sortExpressionElement = memberElement
@@ -994,18 +1179,23 @@ internal sealed class ReportRdlImporter
 
     private static void CollectLeafMembers(
         IReadOnlyList<ReportTablixMemberDefinition> members,
-        List<ReportTablixMemberDefinition> leaves)
+        List<(ReportTablixMemberDefinition Member, ReportTablixMemberKind EffectiveKind)> leaves,
+        ReportTablixMemberKind? inheritedKind = null)
     {
         for (var index = 0; index < members.Count; index++)
         {
             var member = members[index];
+            var effectiveKind = inheritedKind == ReportTablixMemberKind.Details
+                && member.Kind == ReportTablixMemberKind.Static
+                ? ReportTablixMemberKind.Details
+                : member.Kind;
             if (member.Members.Count == 0)
             {
-                leaves.Add(member);
+                leaves.Add((member, effectiveKind));
                 continue;
             }
 
-            CollectLeafMembers(member.Members, leaves);
+            CollectLeafMembers(member.Members, leaves, effectiveKind);
         }
     }
 
@@ -1023,12 +1213,18 @@ internal sealed class ReportRdlImporter
         return sanitizedPath.Trim('_');
     }
 
-    private ReportTablixCellDefinition ReadTablixCell(XElement cellElement, string path)
+    private ReportTablixCellDefinition ReadTablixCell(
+        XElement cellElement,
+        string path,
+        int columnSpan,
+        int rowSpan,
+        float cellWidth,
+        float cellHeight)
     {
         var cell = new ReportTablixCellDefinition
         {
-            ColumnSpan = ParseInt(cellElement.Element(_xmlNamespace + "ColSpan")?.Value, 1),
-            RowSpan = ParseInt(cellElement.Element(_xmlNamespace + "RowSpan")?.Value, 1)
+            ColumnSpan = Math.Max(1, columnSpan),
+            RowSpan = Math.Max(1, rowSpan)
         };
 
         if (cell.RowSpan > 1)
@@ -1047,7 +1243,13 @@ internal sealed class ReportRdlImporter
             var nestedItem = cellContents?.Elements().FirstOrDefault();
             if (nestedItem is not null)
             {
-                cell.ContentItem = ReadStandaloneItem(nestedItem, path + "/CellContents", 0f, 0f);
+                cell.ContentItem = ReadStandaloneItem(
+                    nestedItem,
+                    path + "/CellContents",
+                    0f,
+                    0f,
+                    cellWidth,
+                    cellHeight);
             }
 
             return cell;
@@ -1094,8 +1296,15 @@ internal sealed class ReportRdlImporter
         item.Id = string.IsNullOrWhiteSpace(name) ? itemElement.Name.LocalName.ToLowerInvariant() : name;
         item.Name = item.Id;
         item.Bounds = ReadBounds(itemElement, path, offsetX, offsetY);
+        item.ZIndex = ParseInt(itemElement.Element(_xmlNamespace + "ZIndex")?.Value, 0);
+        item.KeepTogether = ParseBoolean(itemElement.Element(_xmlNamespace + "KeepTogether")?.Value);
         item.VisibilityExpression = ReportRdlExpressions.ToNativeExpression(
             itemElement.Element(_xmlNamespace + "Visibility")?.Element(_xmlNamespace + "Hidden")?.Value);
+        var pageBreakElement = itemElement.Element(_xmlNamespace + "PageBreak");
+        if (pageBreakElement is not null)
+        {
+            item.PageBreak = ReadPageBreak(pageBreakElement, path + "/PageBreak");
+        }
 
         var bookmark = itemElement.Element(_xmlNamespace + "Bookmark")?.Value;
         var documentMapLabel = itemElement.Element(_xmlNamespace + "DocumentMapLabel")?.Value;
@@ -1112,6 +1321,16 @@ internal sealed class ReportRdlImporter
 
         item.TooltipExpression = ReportRdlExpressions.ToNativeScalarExpression(itemElement.Element(_xmlNamespace + "ToolTip")?.Value);
         item.DrillthroughAction = ReadDrillthrough(itemElement.Element(_xmlNamespace + "ActionInfo"), path + "/ActionInfo");
+    }
+
+    private ReportPageBreakDefinition ReadPageBreak(XElement pageBreakElement, string path)
+    {
+        return new ReportPageBreakDefinition
+        {
+            Location = ParsePageBreakLocation(pageBreakElement.Element(_xmlNamespace + "BreakLocation")?.Value),
+            DisabledExpression = ReportRdlExpressions.ToNativeExpression(pageBreakElement.Element(_xmlNamespace + "Disabled")?.Value),
+            ResetPageNumber = ParseBoolean(pageBreakElement.Element(_xmlNamespace + "ResetPageNumber")?.Value)
+        };
     }
 
     private ReportDrillthroughAction? ReadDrillthrough(XElement? actionInfoElement, string path)
@@ -1202,6 +1421,63 @@ internal sealed class ReportRdlImporter
         return CombineTextboxParagraphs(paragraphValues);
     }
 
+    private List<ReportTextParagraph> ReadTextboxParagraphs(XElement textboxElement, string path)
+    {
+        var paragraphElements = textboxElement
+            .Element(_xmlNamespace + "Paragraphs")
+            ?.Elements(_xmlNamespace + "Paragraph")
+            .ToList();
+        if (paragraphElements is null || paragraphElements.Count == 0)
+        {
+            return new List<ReportTextParagraph>();
+        }
+
+        var paragraphs = new List<ReportTextParagraph>(paragraphElements.Count);
+        for (var paragraphIndex = 0; paragraphIndex < paragraphElements.Count; paragraphIndex++)
+        {
+            var paragraphElement = paragraphElements[paragraphIndex];
+            var paragraph = new ReportTextParagraph
+            {
+                TextAlign = ParseParagraphAlignment(paragraphElement.Element(_xmlNamespace + "Style")?.Element(_xmlNamespace + "TextAlign")?.Value)
+            };
+
+            var runElements = paragraphElement
+                .Element(_xmlNamespace + "TextRuns")
+                ?.Elements(_xmlNamespace + "TextRun")
+                .ToList();
+            if (runElements is not null && runElements.Count > 0)
+            {
+                for (var runIndex = 0; runIndex < runElements.Count; runIndex++)
+                {
+                    var runElement = runElements[runIndex];
+                    var (runStaticText, runExpression) = SplitTextRunValue(runElement);
+                    paragraph.Runs.Add(new ReportTextRun
+                    {
+                        StaticText = runStaticText,
+                        ValueExpression = runExpression,
+                        StyleName = _styleCatalog.Intern(
+                            runElement.Element(_xmlNamespace + "Style"),
+                            _xmlNamespace,
+                            $"{path}/Paragraphs[{paragraphIndex}]/TextRuns[{runIndex}]",
+                            _diagnostics)
+                    });
+                }
+            }
+
+            if (paragraph.Runs.Count == 0)
+            {
+                paragraph.Runs.Add(new ReportTextRun
+                {
+                    StaticText = string.Empty
+                });
+            }
+
+            paragraphs.Add(paragraph);
+        }
+
+        return paragraphs;
+    }
+
     private (string? StaticText, string? Expression) SplitTextRunValue(XElement textRunElement)
     {
         var value = textRunElement.Element(_xmlNamespace + "Value")?.Value;
@@ -1282,12 +1558,22 @@ internal sealed class ReportRdlImporter
             .SelectMany(paragraph => paragraph.Element(_xmlNamespace + "TextRuns")?.Elements(_xmlNamespace + "TextRun") ?? [])
             .ToList();
 
-        if (textRuns is null || textRuns.Count != 1)
+        if (textRuns is null || textRuns.Count == 0)
         {
             return MergeStyleElements(textboxStyle, paragraphStyle);
         }
 
-        var runStyle = textRuns[0].Element(_xmlNamespace + "Style");
+        XElement? runStyle;
+        if (textRuns.Count == 1)
+        {
+            runStyle = textRuns[0].Element(_xmlNamespace + "Style");
+        }
+        else
+        {
+            runStyle = GetCommonRunStyleElement(textRuns);
+            runStyle ??= GetRepresentativeRunStyleElement(textRuns);
+        }
+
         return MergeStyleElements(MergeStyleElements(textboxStyle, paragraphStyle), runStyle);
     }
 
@@ -1325,6 +1611,111 @@ internal sealed class ReportRdlImporter
         return merged;
     }
 
+    private XElement? GetCommonRunStyleElement(IReadOnlyList<XElement> textRuns)
+    {
+        XElement? commonStyle = null;
+        var hasStyle = false;
+        var candidates = GetMeaningfulTextRuns(textRuns);
+        for (var index = 0; index < candidates.Count; index++)
+        {
+            var style = candidates[index].Element(_xmlNamespace + "Style");
+            if (!hasStyle)
+            {
+                commonStyle = style;
+                hasStyle = true;
+                continue;
+            }
+
+            if (!StyleElementsEquivalent(commonStyle, style))
+            {
+                return null;
+            }
+        }
+
+        return commonStyle;
+    }
+
+    private List<XElement> GetMeaningfulTextRuns(IReadOnlyList<XElement> textRuns)
+    {
+        var meaningful = new List<XElement>(textRuns.Count);
+        for (var index = 0; index < textRuns.Count; index++)
+        {
+            var value = textRuns[index].Element(_xmlNamespace + "Value")?.Value;
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                continue;
+            }
+
+            meaningful.Add(textRuns[index]);
+        }
+
+        return meaningful.Count > 0 ? meaningful : textRuns.ToList();
+    }
+
+    private XElement? GetRepresentativeRunStyleElement(IReadOnlyList<XElement> textRuns)
+    {
+        var candidates = GetMeaningfulTextRuns(textRuns);
+        for (var index = 0; index < candidates.Count; index++)
+        {
+            var style = candidates[index].Element(_xmlNamespace + "Style");
+            if (style is not null)
+            {
+                return style;
+            }
+        }
+
+        return null;
+    }
+
+    private bool StyleElementsEquivalent(XElement? left, XElement? right)
+    {
+        if (left is null && right is null)
+        {
+            return true;
+        }
+
+        if (left is null || right is null)
+        {
+            return false;
+        }
+
+        var leftElements = left.Elements().ToList();
+        var rightElements = right.Elements().ToList();
+        if (leftElements.Count != rightElements.Count)
+        {
+            return false;
+        }
+
+        for (var index = 0; index < leftElements.Count; index++)
+        {
+            var leftElement = leftElements[index];
+            var rightElement = right.Element(leftElement.Name);
+            if (rightElement is null)
+            {
+                return false;
+            }
+
+            if (!string.Equals(leftElement.Value, rightElement.Value, StringComparison.Ordinal))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static ParagraphAlignment? ParseParagraphAlignment(string? value)
+    {
+        return value?.Trim().ToLowerInvariant() switch
+        {
+            "center" => ParagraphAlignment.Center,
+            "right" => ParagraphAlignment.Right,
+            "justify" => ParagraphAlignment.Justify,
+            "left" or "general" => ParagraphAlignment.Left,
+            _ => null
+        };
+    }
+
     private ReportItemBounds ReadBounds(XElement itemElement, string path, float offsetX, float offsetY)
     {
         var left = ReportRdlMeasurements.Parse(itemElement.Element(_xmlNamespace + "Left")?.Value, path + "/Left", _diagnostics);
@@ -1332,6 +1723,132 @@ internal sealed class ReportRdlImporter
         var width = ReportRdlMeasurements.Parse(itemElement.Element(_xmlNamespace + "Width")?.Value, path + "/Width", _diagnostics);
         var height = ReportRdlMeasurements.Parse(itemElement.Element(_xmlNamespace + "Height")?.Value, path + "/Height", _diagnostics);
         return new ReportItemBounds(offsetX + left, offsetY + top, width, height);
+    }
+
+    private void FinalizeImplicitBounds(
+        ReportItem item,
+        XElement itemElement,
+        float fallbackWidth,
+        float fallbackHeight)
+    {
+        var hasExplicitWidth = HasExplicitMeasurement(itemElement, "Width");
+        var hasExplicitHeight = HasExplicitMeasurement(itemElement, "Height");
+        if (hasExplicitWidth && hasExplicitHeight)
+        {
+            return;
+        }
+
+        var inferredWidth = InferItemWidth(item);
+        var inferredHeight = InferItemHeight(item);
+        var width = item.Bounds.Width;
+        var height = item.Bounds.Height;
+
+        if (!hasExplicitWidth)
+        {
+            width = Math.Max(width, Math.Max(inferredWidth, fallbackWidth));
+        }
+
+        if (!hasExplicitHeight)
+        {
+            height = Math.Max(height, Math.Max(inferredHeight, fallbackHeight));
+        }
+
+        if (width <= 0f && height <= 0f)
+        {
+            return;
+        }
+
+        item.Bounds = item.Bounds with
+        {
+            Width = width,
+            Height = height
+        };
+
+        if (item is LineItem line)
+        {
+            line.X2 = line.Bounds.X + line.Bounds.Width;
+            line.Y2 = line.Bounds.Y + line.Bounds.Height;
+        }
+    }
+
+    private static float CalculateCellWidth(
+        IReadOnlyList<ReportTablixColumnDefinition> columns,
+        int startColumnIndex,
+        int columnSpan)
+    {
+        var width = 0f;
+        var span = Math.Max(1, columnSpan);
+        for (var index = 0; index < span && startColumnIndex + index < columns.Count; index++)
+        {
+            width += Math.Max(0f, columns[startColumnIndex + index].Width);
+        }
+
+        return width;
+    }
+
+    private static float CalculateCellHeight(
+        IReadOnlyList<float> rowHeights,
+        int startRowIndex,
+        int rowSpan)
+    {
+        var height = 0f;
+        var span = Math.Max(1, rowSpan);
+        for (var index = 0; index < span && startRowIndex + index < rowHeights.Count; index++)
+        {
+            height += Math.Max(0f, rowHeights[startRowIndex + index]);
+        }
+
+        return height;
+    }
+
+    private static float InferItemWidth(ReportItem item)
+    {
+        return item switch
+        {
+            ContainerItem container => InferContainerBounds(container).Width,
+            TablixItem tablix => tablix.Columns.Sum(static column => Math.Max(0f, column.Width)),
+            _ => 0f
+        };
+    }
+
+    private static float InferItemHeight(ReportItem item)
+    {
+        return item switch
+        {
+            ContainerItem container => InferContainerBounds(container).Height,
+            TablixItem tablix => tablix.Rows.Sum(static row => Math.Max(0f, row.Height)),
+            _ => 0f
+        };
+    }
+
+    private static (float Width, float Height) InferContainerBounds(ContainerItem container)
+    {
+        var maxRight = 0f;
+        var maxBottom = 0f;
+        for (var index = 0; index < container.Items.Count; index++)
+        {
+            var child = container.Items[index];
+            var childWidth = child.Bounds.Width > 0f ? child.Bounds.Width : InferItemWidth(child);
+            var childHeight = child.Bounds.Height > 0f ? child.Bounds.Height : InferItemHeight(child);
+            var right = child.Bounds.X + childWidth;
+            var bottom = child.Bounds.Y + childHeight;
+            if (right > maxRight)
+            {
+                maxRight = right;
+            }
+
+            if (bottom > maxBottom)
+            {
+                maxBottom = bottom;
+            }
+        }
+
+        return (maxRight, maxBottom);
+    }
+
+    private bool HasExplicitMeasurement(XElement itemElement, string localName)
+    {
+        return !string.IsNullOrWhiteSpace(itemElement.Element(_xmlNamespace + localName)?.Value);
     }
 
     private static void ParseConnectionStringOptions(string connectString, Dictionary<string, string> options)
@@ -1378,6 +1895,22 @@ internal sealed class ReportRdlImporter
         };
     }
 
+    private static ReportParameterDataType ParseFieldDataType(string? typeName)
+    {
+        return typeName?.Trim() switch
+        {
+            "System.Boolean" => ReportParameterDataType.Boolean,
+            "System.Byte" or "System.SByte" or "System.Int16" or "System.UInt16" or "System.Int32" or "System.UInt32"
+                => ReportParameterDataType.Integer,
+            "System.Int64" or "System.UInt64" or "System.Single" or "System.Double"
+                => ReportParameterDataType.Number,
+            "System.Decimal" => ReportParameterDataType.Decimal,
+            "System.DateOnly" => ReportParameterDataType.Date,
+            "System.DateTime" or "System.DateTimeOffset" => ReportParameterDataType.DateTime,
+            _ => ReportParameterDataType.String
+        };
+    }
+
     private static ReportFilterOperator ParseFilterOperator(string? operatorText)
     {
         return operatorText?.Trim().ToLowerInvariant() switch
@@ -1406,6 +1939,17 @@ internal sealed class ReportRdlImporter
             "stretch" => ReportSizingMode.Stretch,
             "fitproportional" => ReportSizingMode.FitProportional,
             _ => ReportSizingMode.OriginalSize
+        };
+    }
+
+    private static ReportPageBreakLocation ParsePageBreakLocation(string? value)
+    {
+        return value?.Trim().ToLowerInvariant() switch
+        {
+            "end" => ReportPageBreakLocation.End,
+            "startandend" => ReportPageBreakLocation.StartAndEnd,
+            "between" => ReportPageBreakLocation.Between,
+            _ => ReportPageBreakLocation.Start
         };
     }
 

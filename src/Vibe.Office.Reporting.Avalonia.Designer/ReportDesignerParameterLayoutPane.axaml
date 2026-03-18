@@ -1,0 +1,127 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:designer="using:Vibe.Office.Reporting.Avalonia.Designer"
+             x:Class="Vibe.Office.Reporting.Avalonia.Designer.ReportDesignerParameterLayoutPane"
+             x:DataType="designer:ReportDesignerViewModel">
+  <UserControl.Resources>
+    <DataTemplate x:Key="ParameterPaneCellTemplate"
+                  x:DataType="designer:ReportDesignerParameterLayoutCellViewModel">
+      <designer:ReportDesignerParameterLayoutDropZoneControl RowIndex="{Binding RowIndex}"
+                                                             ColumnIndex="{Binding ColumnIndex}">
+        <designer:ReportDesignerParameterLayoutDragControl>
+          <Border Classes="designer-parameter-cell"
+                  Classes.is-selected="{Binding IsSelected}">
+            <Button Theme="{StaticResource DesignerSurfaceItemButtonTheme}"
+                    Command="{Binding SelectCommand}">
+              <Grid RowDefinitions="Auto,Auto"
+                    RowSpacing="4">
+                <TextBlock Classes="designer-label"
+                           Text="{Binding Title}" />
+                <TextBlock Grid.Row="1"
+                           Classes="designer-helper"
+                           Text="{Binding Subtitle}"
+                           TextWrapping="Wrap" />
+              </Grid>
+            </Button>
+          </Border>
+        </designer:ReportDesignerParameterLayoutDragControl>
+      </designer:ReportDesignerParameterLayoutDropZoneControl>
+    </DataTemplate>
+
+    <DataTemplate x:Key="ParameterPaneRowTemplate"
+                  x:DataType="designer:ReportDesignerParameterLayoutRowViewModel">
+      <ItemsControl ItemsSource="{Binding Cells}"
+                    ItemTemplate="{StaticResource ParameterPaneCellTemplate}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <StackPanel Orientation="Horizontal"
+                        Spacing="8" />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+      </ItemsControl>
+    </DataTemplate>
+  </UserControl.Resources>
+
+  <Border Classes="designer-parameter-pane">
+    <Grid RowDefinitions="Auto,*"
+          RowSpacing="8">
+      <Grid ColumnDefinitions="*,Auto"
+            ColumnSpacing="8">
+        <StackPanel Spacing="2">
+          <TextBlock Classes="designer-panel-title"
+                     Text="Parameters" />
+          <TextBlock Classes="designer-helper"
+                     Text="The parameter pane appears above the design surface. Drag parameters into cells to reorder them, or change the row and column layout." />
+        </StackPanel>
+
+        <StackPanel Grid.Column="1"
+                    Orientation="Horizontal"
+                    Spacing="8">
+          <CheckBox VerticalAlignment="Center"
+                    Content="Show"
+                    IsChecked="{Binding ShowParameterPaneOnDesignSurface, Mode=TwoWay}" />
+          <Button Theme="{StaticResource DesignerActionButtonTheme}"
+                  Content="Add Parameter"
+                  Command="{Binding AddParameterCommand}" />
+          <Button Theme="{StaticResource DesignerActionButtonTheme}"
+                  Content="+ Row"
+                  Command="{Binding AddParameterLayoutRowCommand}" />
+          <Button Theme="{StaticResource DesignerActionButtonTheme}"
+                  Content="+ Column"
+                  Command="{Binding AddParameterLayoutColumnCommand}" />
+          <Button Theme="{StaticResource DesignerActionButtonTheme}"
+                  Content="- Row"
+                  Command="{Binding RemoveParameterLayoutRowCommand}"
+                  IsEnabled="{Binding CanRemoveParameterLayoutRow}" />
+          <Button Theme="{StaticResource DesignerActionButtonTheme}"
+                  Content="- Column"
+                  Command="{Binding RemoveParameterLayoutColumnCommand}"
+                  IsEnabled="{Binding CanRemoveParameterLayoutColumn}" />
+        </StackPanel>
+      </Grid>
+
+      <Grid Grid.Row="1"
+            ColumnDefinitions="*,Auto"
+            ColumnSpacing="10">
+        <Border Classes="designer-group-card">
+          <ItemsControl ItemsSource="{Binding ParameterLayoutRows}"
+                        ItemTemplate="{StaticResource ParameterPaneRowTemplate}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <StackPanel Spacing="8" />
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+          </ItemsControl>
+        </Border>
+
+        <Border Grid.Column="1"
+                Classes="designer-group-card"
+                Width="176">
+          <StackPanel Spacing="8">
+            <TextBlock Classes="designer-panel-title"
+                       Text="Selection" />
+            <TextBlock Classes="designer-helper"
+                       Text="{Binding ParameterPaneStatusMessage}"
+                       TextWrapping="Wrap" />
+            <Button Theme="{StaticResource DesignerActionButtonTheme}"
+                    Content="Move Left"
+                    Command="{Binding MoveSelectedParameterLeftCommand}"
+                    IsEnabled="{Binding CanMoveSelectedParameterLeft}" />
+            <Button Theme="{StaticResource DesignerActionButtonTheme}"
+                    Content="Move Right"
+                    Command="{Binding MoveSelectedParameterRightCommand}"
+                    IsEnabled="{Binding CanMoveSelectedParameterRight}" />
+            <Button Theme="{StaticResource DesignerActionButtonTheme}"
+                    Content="Move Up"
+                    Command="{Binding MoveSelectedParameterUpCommand}"
+                    IsEnabled="{Binding CanMoveSelectedParameterUp}" />
+            <Button Theme="{StaticResource DesignerActionButtonTheme}"
+                    Content="Move Down"
+                    Command="{Binding MoveSelectedParameterDownCommand}"
+                    IsEnabled="{Binding CanMoveSelectedParameterDown}" />
+          </StackPanel>
+        </Border>
+      </Grid>
+    </Grid>
+  </Border>
+</UserControl>

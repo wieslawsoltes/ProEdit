@@ -33,6 +33,11 @@ public sealed class ReportDefinition
     public string? Description { get; set; }
 
     /// <summary>
+    /// Gets or sets the report-level default font family imported from RDL extensions such as <c>df:DefaultFontFamily</c>.
+    /// </summary>
+    public string? DefaultFontFamily { get; set; }
+
+    /// <summary>
     /// Gets the report sections.
     /// </summary>
     public List<ReportSection> Sections { get; set; } = new();
@@ -41,6 +46,11 @@ public sealed class ReportDefinition
     /// Gets the parameter definitions.
     /// </summary>
     public List<ReportParameterDefinition> Parameters { get; set; } = new();
+
+    /// <summary>
+    /// Gets the parameter-pane layout metadata used by authoring tools.
+    /// </summary>
+    public ReportParameterLayoutDefinition ParameterLayout { get; set; } = new();
 
     /// <summary>
     /// Gets the data source definitions.
@@ -66,6 +76,58 @@ public sealed class ReportDefinition
     /// Gets arbitrary template metadata.
     /// </summary>
     public Dictionary<string, string> Metadata { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Gets or sets a value indicating whether whitespace in containers is consumed when nested content grows.
+    /// </summary>
+    public bool ConsumeContainerWhitespace { get; set; }
+}
+
+/// <summary>
+/// Defines authoring-time layout metadata for the report-parameter pane.
+/// </summary>
+public sealed class ReportParameterLayoutDefinition
+{
+    /// <summary>
+    /// Gets or sets a value indicating whether the parameter pane is shown on the design surface.
+    /// </summary>
+    public bool ShowOnDesignSurface { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets the number of layout columns.
+    /// </summary>
+    public int ColumnCount { get; set; } = 1;
+
+    /// <summary>
+    /// Gets or sets the number of layout rows.
+    /// </summary>
+    public int RowCount { get; set; } = 1;
+
+    /// <summary>
+    /// Gets the occupied parameter layout cells.
+    /// </summary>
+    public List<ReportParameterLayoutCellDefinition> Cells { get; set; } = new();
+}
+
+/// <summary>
+/// Defines one positioned parameter cell within the parameter-pane layout grid.
+/// </summary>
+public sealed class ReportParameterLayoutCellDefinition
+{
+    /// <summary>
+    /// Gets or sets the parameter identifier.
+    /// </summary>
+    public string ParameterId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the row index.
+    /// </summary>
+    public int RowIndex { get; set; }
+
+    /// <summary>
+    /// Gets or sets the column index.
+    /// </summary>
+    public int ColumnIndex { get; set; }
 }
 
 /// <summary>
@@ -153,6 +215,16 @@ public sealed class ReportPageSettings
     /// Gets or sets the bottom margin.
     /// </summary>
     public float MarginBottom { get; set; } = 72f;
+
+    /// <summary>
+    /// Gets or sets the page header band height.
+    /// </summary>
+    public float HeaderHeight { get; set; }
+
+    /// <summary>
+    /// Gets or sets the page footer band height.
+    /// </summary>
+    public float FooterHeight { get; set; }
 
     /// <summary>
     /// Gets or sets the column count.
@@ -355,6 +427,21 @@ public sealed class ReportStyleDefinition
     public string? BackgroundExpression { get; set; }
 
     /// <summary>
+    /// Gets or sets the background gradient type.
+    /// </summary>
+    public ReportBackgroundGradientType? BackgroundGradientType { get; set; }
+
+    /// <summary>
+    /// Gets or sets the background gradient end color.
+    /// </summary>
+    public string? BackgroundGradientEndColor { get; set; }
+
+    /// <summary>
+    /// Gets or sets the background gradient end color expression.
+    /// </summary>
+    public string? BackgroundGradientEndColorExpression { get; set; }
+
+    /// <summary>
     /// Gets or sets whether the style is bold.
     /// </summary>
     public bool? Bold { get; set; }
@@ -365,9 +452,261 @@ public sealed class ReportStyleDefinition
     public bool? Italic { get; set; }
 
     /// <summary>
+    /// Gets or sets the default border definition.
+    /// </summary>
+    public ReportBorderDefinition? Border { get; set; }
+
+    /// <summary>
+    /// Gets or sets the top border override.
+    /// </summary>
+    public ReportBorderDefinition? TopBorder { get; set; }
+
+    /// <summary>
+    /// Gets or sets the bottom border override.
+    /// </summary>
+    public ReportBorderDefinition? BottomBorder { get; set; }
+
+    /// <summary>
+    /// Gets or sets the left border override.
+    /// </summary>
+    public ReportBorderDefinition? LeftBorder { get; set; }
+
+    /// <summary>
+    /// Gets or sets the right border override.
+    /// </summary>
+    public ReportBorderDefinition? RightBorder { get; set; }
+
+    /// <summary>
+    /// Gets or sets the left padding.
+    /// </summary>
+    public float? PaddingLeft { get; set; }
+
+    /// <summary>
+    /// Gets or sets the right padding.
+    /// </summary>
+    public float? PaddingRight { get; set; }
+
+    /// <summary>
+    /// Gets or sets the top padding.
+    /// </summary>
+    public float? PaddingTop { get; set; }
+
+    /// <summary>
+    /// Gets or sets the bottom padding.
+    /// </summary>
+    public float? PaddingBottom { get; set; }
+
+    /// <summary>
     /// Gets or sets the paragraph alignment.
     /// </summary>
     public ParagraphAlignment? TextAlign { get; set; }
+
+    /// <summary>
+    /// Gets or sets the vertical alignment.
+    /// </summary>
+    public ReportVerticalAlignment? VerticalAlign { get; set; }
+
+    /// <summary>
+    /// Gets or sets the text decoration.
+    /// </summary>
+    public ReportTextDecoration? TextDecoration { get; set; }
+}
+
+/// <summary>
+/// Defines one border segment.
+/// </summary>
+public sealed class ReportBorderDefinition
+{
+    /// <summary>
+    /// Gets or sets the border color.
+    /// </summary>
+    public string? Color { get; set; }
+
+    /// <summary>
+    /// Gets or sets the border color expression.
+    /// </summary>
+    public string? ColorExpression { get; set; }
+
+    /// <summary>
+    /// Gets or sets the border line style.
+    /// </summary>
+    public ReportBorderLineStyle? Style { get; set; }
+
+    /// <summary>
+    /// Gets or sets the border width.
+    /// </summary>
+    public float? Width { get; set; }
+}
+
+/// <summary>
+/// Supported background gradient types.
+/// </summary>
+public enum ReportBackgroundGradientType
+{
+    /// <summary>
+    /// Default gradient behavior.
+    /// </summary>
+    Default,
+
+    /// <summary>
+    /// No gradient.
+    /// </summary>
+    None,
+
+    /// <summary>
+    /// Horizontal left-to-right gradient.
+    /// </summary>
+    LeftRight,
+
+    /// <summary>
+    /// Vertical top-to-bottom gradient.
+    /// </summary>
+    TopBottom,
+
+    /// <summary>
+    /// Radial gradient from the center.
+    /// </summary>
+    Center,
+
+    /// <summary>
+    /// Diagonal gradient from top-left to bottom-right.
+    /// </summary>
+    DiagonalLeft,
+
+    /// <summary>
+    /// Diagonal gradient from top-right to bottom-left.
+    /// </summary>
+    DiagonalRight,
+
+    /// <summary>
+    /// Horizontal gradient spreading from the center.
+    /// </summary>
+    HorizontalCenter,
+
+    /// <summary>
+    /// Vertical gradient spreading from the center.
+    /// </summary>
+    VerticalCenter
+}
+
+/// <summary>
+/// Supported border styles.
+/// </summary>
+public enum ReportBorderLineStyle
+{
+    /// <summary>
+    /// No border.
+    /// </summary>
+    None,
+
+    /// <summary>
+    /// Solid border.
+    /// </summary>
+    Solid,
+
+    /// <summary>
+    /// Dashed border.
+    /// </summary>
+    Dashed,
+
+    /// <summary>
+    /// Dotted border.
+    /// </summary>
+    Dotted,
+
+    /// <summary>
+    /// Double border.
+    /// </summary>
+    Double
+}
+
+/// <summary>
+/// Supported vertical alignments.
+/// </summary>
+public enum ReportVerticalAlignment
+{
+    /// <summary>
+    /// Top aligned.
+    /// </summary>
+    Top,
+
+    /// <summary>
+    /// Middle aligned.
+    /// </summary>
+    Middle,
+
+    /// <summary>
+    /// Bottom aligned.
+    /// </summary>
+    Bottom
+}
+
+/// <summary>
+/// Supported text decorations.
+/// </summary>
+public enum ReportTextDecoration
+{
+    /// <summary>
+    /// No decoration.
+    /// </summary>
+    None,
+
+    /// <summary>
+    /// Underline decoration.
+    /// </summary>
+    Underline,
+
+    /// <summary>
+    /// Strikethrough decoration.
+    /// </summary>
+    LineThrough
+}
+
+/// <summary>
+/// Defines one page break.
+/// </summary>
+public sealed class ReportPageBreakDefinition
+{
+    /// <summary>
+    /// Gets or sets the break location.
+    /// </summary>
+    public ReportPageBreakLocation Location { get; set; } = ReportPageBreakLocation.Start;
+
+    /// <summary>
+    /// Gets or sets the disabled expression.
+    /// </summary>
+    public string? DisabledExpression { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether page numbering resets after the break.
+    /// </summary>
+    public bool ResetPageNumber { get; set; }
+}
+
+/// <summary>
+/// Supported page break locations.
+/// </summary>
+public enum ReportPageBreakLocation
+{
+    /// <summary>
+    /// Break before the scope.
+    /// </summary>
+    Start,
+
+    /// <summary>
+    /// Break after the scope.
+    /// </summary>
+    End,
+
+    /// <summary>
+    /// Break before and after the scope.
+    /// </summary>
+    StartAndEnd,
+
+    /// <summary>
+    /// Break between repeated instances of the scope.
+    /// </summary>
+    Between
 }
 
 /// <summary>
