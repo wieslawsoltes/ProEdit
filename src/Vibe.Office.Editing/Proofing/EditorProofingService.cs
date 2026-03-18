@@ -427,9 +427,7 @@ public sealed class EditorProofingService : IProofingService, IProofingSpanProvi
                 SpellingUnderlineColor));
         }
 
-        _diagnostics[paragraphIndex] = diagnostics;
-        _underlineSpans[paragraphIndex] = spans;
-        return true;
+        return MergeSpelling(paragraphIndex, diagnostics, spans);
     }
 
     private void ScheduleGrammarRefresh(int? paragraphIndex, bool force)
@@ -728,6 +726,55 @@ public sealed class EditorProofingService : IProofingService, IProofingSpanProvi
                 spans.Sort(static (left, right) => left.Start.CompareTo(right.Start));
                 _underlineSpans[paragraphIndex] = spans;
                 changed = true;
+            }
+
+            return changed;
+        }
+    }
+
+    private bool MergeSpelling(
+        int paragraphIndex,
+        List<ProofingDiagnostic> diagnostics,
+        List<ProofingUnderlineSpan> spans)
+    {
+        lock (_sync)
+        {
+            var changed = false;
+
+            if (_diagnostics.TryGetValue(paragraphIndex, out var existingDiagnostics))
+            {
+                var filtered = existingDiagnostics
+                    .Where(static item => item.Kind != ProofingIssueKind.Spelling)
+                    .ToList();
+                filtered.AddRange(diagnostics);
+                filtered.Sort(static (left, right) => left.StartOffset.CompareTo(right.StartOffset));
+                changed = filtered.Count != existingDiagnostics.Count
+                    || !filtered.SequenceEqual(existingDiagnostics);
+                _diagnostics[paragraphIndex] = filtered;
+            }
+            else
+            {
+                diagnostics.Sort(static (left, right) => left.StartOffset.CompareTo(right.StartOffset));
+                _diagnostics[paragraphIndex] = diagnostics;
+                changed = diagnostics.Count > 0;
+            }
+
+            if (_underlineSpans.TryGetValue(paragraphIndex, out var existingSpans))
+            {
+                var filtered = existingSpans
+                    .Where(static item => item.Kind != ProofingIssueKind.Spelling)
+                    .ToList();
+                filtered.AddRange(spans);
+                filtered.Sort(static (left, right) => left.Start.CompareTo(right.Start));
+                changed |= filtered.Count != existingSpans.Count
+                    || !filtered.SequenceEqual(existingSpans);
+                _underlineSpans[paragraphIndex] = filtered;
+            }
+            else
+            {
+                spans.Sort(static (left, right) => left.Start.CompareTo(right.Start));
+                _underlineSpans[paragraphIndex] = spans;
+                changed |= spans.Count > 0;
             }
 
             return changed;
