@@ -8,15 +8,17 @@
   </UserControl.Styles>
 
   <Grid RowDefinitions="Auto,*,Auto"
-        ColumnDefinitions="292,6,*,6,340">
+        ColumnDefinitions="300,5,*,5,348">
     <Border Grid.Row="0"
             Grid.ColumnSpan="5"
-            Classes="designer-context-bar">
-      <Grid ColumnDefinitions="*,Auto,Auto"
-            ColumnSpacing="12">
+            Classes="designer-command-strip">
+      <Grid RowDefinitions="Auto,Auto"
+            ColumnDefinitions="*,Auto,Auto"
+            ColumnSpacing="12"
+            RowSpacing="10">
         <StackPanel Spacing="2">
           <TextBlock Classes="designer-panel-title"
-                     Text="Design View" />
+                     Text="Report Designer" />
           <TextBlock Classes="designer-helper"
                      Text="{Binding SelectedObjectTitle}" />
         </StackPanel>
@@ -26,26 +28,87 @@
                     HorizontalAlignment="Right"
                     Spacing="8">
           <Border Classes="designer-status-pill">
-            <TextBlock Text="{Binding CurrentSectionName}" />
+            <TextBlock Classes="designer-helper"
+                       Text="{Binding CurrentSectionName}" />
           </Border>
           <Border Classes="designer-status-pill">
-            <TextBlock Text="{Binding SurfaceDisplayText}" />
+            <TextBlock Classes="designer-helper"
+                       Text="{Binding SurfaceDisplayText}" />
           </Border>
           <Border Classes="designer-status-pill">
-            <TextBlock Text="{Binding StatusMessage}" />
+            <TextBlock Classes="designer-helper"
+                       Text="{Binding StatusMessage}" />
           </Border>
         </StackPanel>
 
         <StackPanel Grid.Column="2"
                     Orientation="Horizontal"
                     Spacing="8">
-          <Button Classes="designer-tool-button"
+          <Button Theme="{StaticResource DesignerActionButtonTheme}"
                   Content="Remove"
                   Command="{Binding RemoveSelectedCommand}"
                   IsEnabled="{Binding CanRemoveSelected}" />
-          <Button Classes="designer-tool-button designer-tool-button-primary"
+          <Button Theme="{StaticResource DesignerPrimaryActionButtonTheme}"
                   Content="Run Preview"
                   Command="{Binding RefreshPreviewCommand}" />
+        </StackPanel>
+
+        <StackPanel Grid.Row="1"
+                    Grid.ColumnSpan="3"
+                    Orientation="Horizontal"
+                    Spacing="8">
+          <Border Classes="designer-status-pill">
+            <TextBlock Classes="designer-helper"
+                       Text="{Binding ActiveInsertToolDisplayText}" />
+          </Border>
+          <Button Theme="{StaticResource DesignerActionButtonTheme}"
+                  Content="Text Box"
+                  Command="{Binding BeginInsertTextBoxCommand}" />
+          <Button Theme="{StaticResource DesignerActionButtonTheme}"
+                  Content="Table"
+                  Command="{Binding BeginInsertTablixCommand}" />
+          <Button Theme="{StaticResource DesignerActionButtonTheme}"
+                  Content="Chart"
+                  Command="{Binding BeginInsertChartCommand}" />
+          <Button Theme="{StaticResource DesignerActionButtonTheme}"
+                  Content="Rectangle"
+                  Command="{Binding BeginInsertRectangleCommand}" />
+          <Button Theme="{StaticResource DesignerActionButtonTheme}"
+                  Content="Line"
+                  Command="{Binding BeginInsertLineCommand}" />
+          <Button Theme="{StaticResource DesignerActionButtonTheme}"
+                  Content="Image"
+                  Command="{Binding BeginInsertImageCommand}" />
+          <Button Theme="{StaticResource DesignerActionButtonTheme}"
+                  Content="Subreport"
+                  Command="{Binding BeginInsertSubreportCommand}" />
+          <Button Theme="{StaticResource DesignerActionButtonTheme}"
+                  Content="Template"
+                  Command="{Binding BeginInsertTemplateCommand}" />
+          <Button Theme="{StaticResource DesignerActionButtonTheme}"
+                  Content="Cancel Tool"
+                  Command="{Binding CancelInsertToolCommand}"
+                  IsEnabled="{Binding HasActiveInsertTool}" />
+
+          <Border Width="1"
+                  Height="28"
+                  Background="{DynamicResource DesignerBorderBrush}" />
+
+          <Button Theme="{StaticResource DesignerActionButtonTheme}"
+                  Content="Duplicate"
+                  Command="{Binding DuplicateSelectedCommand}" />
+          <Button Theme="{StaticResource DesignerActionButtonTheme}"
+                  Content="Bring Front"
+                  Command="{Binding BringSelectedToFrontCommand}" />
+          <Button Theme="{StaticResource DesignerActionButtonTheme}"
+                  Content="Send Back"
+                  Command="{Binding SendSelectedToBackCommand}" />
+          <Button Theme="{StaticResource DesignerActionButtonTheme}"
+                  Content="Bring Forward"
+                  Command="{Binding BringSelectedForwardCommand}" />
+          <Button Theme="{StaticResource DesignerActionButtonTheme}"
+                  Content="Send Backward"
+                  Command="{Binding SendSelectedBackwardCommand}" />
         </StackPanel>
       </Grid>
     </Border>
@@ -64,155 +127,45 @@
     <Border Grid.Row="1"
             Grid.Column="2"
             Classes="designer-main">
-      <TabControl Classes="designer-center-tabs"
-                  SelectedIndex="{Binding SelectedCenterTabIndex, Mode=TwoWay}">
-        <TabItem Header="Design">
-          <Grid RowDefinitions="Auto,*"
-                RowSpacing="12">
-            <Border Classes="designer-section-banner">
-              <Grid ColumnDefinitions="*,Auto"
-                    ColumnSpacing="12">
-                <StackPanel Spacing="2">
-                  <TextBlock Classes="designer-panel-title"
-                             Text="{Binding CurrentSectionName}" />
-                  <TextBlock Classes="designer-helper"
-                             Text="{Binding SelectedObjectType}" />
-                </StackPanel>
-                <TextBlock Grid.Column="1"
-                           VerticalAlignment="Center"
-                           Text="{Binding SurfaceDisplayText}" />
-              </Grid>
-            </Border>
-
-            <ScrollViewer Grid.Row="1"
-                          HorizontalScrollBarVisibility="Auto"
-                          VerticalScrollBarVisibility="Auto">
-              <Border Classes="designer-surface-stage">
-                <Border Classes="designer-page"
-                        Width="{Binding SurfaceWidth}"
-                        Height="{Binding SurfaceHeight}">
-                  <ItemsControl ItemsSource="{Binding DesignItems}">
-                    <ItemsControl.ItemsPanel>
-                      <ItemsPanelTemplate>
-                        <Canvas />
-                      </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
-                      <DataTemplate x:DataType="designer:ReportDesignerCanvasItemViewModel">
-                        <Button Canvas.Left="{Binding Left}"
-                                Canvas.Top="{Binding Top}"
-                                Width="{Binding Width}"
-                                Height="{Binding Height}"
-                                Padding="8"
-                                Command="{Binding SelectCommand}"
-                                Background="{Binding FillBrush}"
-                                BorderBrush="{Binding BorderBrush}"
-                                BorderThickness="2">
-                          <StackPanel Spacing="4">
-                            <TextBlock FontWeight="SemiBold"
-                                       Text="{Binding Label}"
-                                       TextWrapping="Wrap" />
-                            <TextBlock Classes="designer-helper"
-                                       Text="{Binding Summary}"
-                                       TextWrapping="Wrap" />
-                          </StackPanel>
-                        </Button>
-                      </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                  </ItemsControl>
-                </Border>
-              </Border>
-            </ScrollViewer>
-          </Grid>
-        </TabItem>
-
-        <TabItem Header="Expressions">
-          <Grid ColumnDefinitions="240,*"
+      <Grid RowDefinitions="Auto,Auto,*">
+        <Border Classes="designer-surface-banner">
+          <Grid ColumnDefinitions="*,Auto"
                 ColumnSpacing="12">
-            <ListBox ItemsSource="{Binding ExpressionEntries}"
-                     SelectedItem="{Binding SelectedExpressionEntry, Mode=TwoWay}">
-              <ListBox.ItemTemplate>
-                <DataTemplate x:DataType="designer:ReportDesignerExpressionEntryViewModel">
-                  <Border Classes="designer-card">
-                    <TextBlock Text="{Binding Label}"
-                               TextWrapping="Wrap" />
-                  </Border>
-                </DataTemplate>
-              </ListBox.ItemTemplate>
-            </ListBox>
-
-            <Grid Grid.Column="1"
-                  RowDefinitions="Auto,*,Auto"
-                  RowSpacing="10">
-              <StackPanel Spacing="2">
-                <TextBlock Classes="designer-panel-title"
-                           Text="{Binding SelectedExpressionLabel}" />
-                <TextBlock Classes="designer-helper"
-                           Text="{Binding ExpressionStatusMessage}" />
-              </StackPanel>
-
-              <TextBox Grid.Row="1"
-                       AcceptsReturn="True"
-                       MinHeight="220"
-                       Text="{Binding SelectedExpressionText, Mode=TwoWay}" />
-
-              <StackPanel Grid.Row="2"
-                          Orientation="Horizontal"
-                          Spacing="8">
-                <Button Classes="designer-tool-button designer-tool-button-primary"
-                        Content="Apply Expression"
-                        Command="{Binding ApplySelectedExpressionCommand}"
-                        IsEnabled="{Binding CanApplyExpression}" />
-              </StackPanel>
-            </Grid>
-          </Grid>
-        </TabItem>
-
-        <TabItem Header="Gallery">
-          <Grid RowDefinitions="Auto,*"
-                RowSpacing="12">
             <StackPanel Spacing="2">
               <TextBlock Classes="designer-panel-title"
-                         Text="Template Gallery" />
+                         Text="{Binding CurrentSectionName}" />
               <TextBlock Classes="designer-helper"
-                         Text="Apply starter layouts and narrative blocks to the current section." />
+                         Text="{Binding SelectedObjectType}" />
             </StackPanel>
-
-            <ListBox Grid.Row="1"
-                     ItemsSource="{Binding TemplateGalleryItems}"
-                     SelectedItem="{Binding SelectedGalleryItem, Mode=TwoWay}">
-              <ListBox.ItemTemplate>
-                <DataTemplate x:DataType="designer:ReportDesignerTemplateGalleryItemViewModel">
-                  <Border Classes="designer-card">
-                    <Grid ColumnDefinitions="*,Auto"
-                          ColumnSpacing="12">
-                      <StackPanel Spacing="4">
-                        <Border Classes="designer-tag">
-                          <TextBlock Text="{Binding Category}" />
-                        </Border>
-                        <TextBlock FontWeight="SemiBold"
-                                   Text="{Binding Title}" />
-                        <TextBlock Classes="designer-helper"
-                                   Text="{Binding Description}"
-                                   TextWrapping="Wrap" />
-                      </StackPanel>
-                      <Button Grid.Column="1"
-                              Classes="designer-tool-button"
-                              VerticalAlignment="Center"
-                              Content="Apply"
-                              Command="{Binding ApplyCommand}" />
-                    </Grid>
-                  </Border>
-                </DataTemplate>
-              </ListBox.ItemTemplate>
-            </ListBox>
+            <TextBlock Grid.Column="1"
+                       VerticalAlignment="Center"
+                       Classes="designer-helper"
+                       Text="{Binding SurfaceDisplayText}" />
           </Grid>
-        </TabItem>
-      </TabControl>
+        </Border>
+
+        <designer:ReportDesignerParameterLayoutPane Grid.Row="1"
+                                                   IsVisible="{Binding ShowParameterLayoutPane}" />
+
+        <designer:ReportDesignerDesignSurface Grid.Row="2" />
+      </Grid>
     </Border>
 
-    <designer:ReportDesignerGroupingPane Grid.Row="2"
-                                         Grid.Column="2" />
+    <Grid Grid.Row="2"
+          Grid.Column="2">
+      <designer:ReportDesignerGroupingPane IsVisible="{Binding ShowGroupingPane}" />
+      <designer:ReportDesignerChartDataPane IsVisible="{Binding ShowChartDataPane}" />
+      <Border Classes="designer-grouping-pane"
+              IsVisible="{Binding ShowContextPanePlaceholder}">
+        <StackPanel Spacing="4">
+          <TextBlock Classes="designer-panel-title"
+                     Text="{Binding ContextPanePlaceholderTitle}" />
+          <TextBlock Classes="designer-helper"
+                     Text="{Binding ContextPanePlaceholderText}"
+                     TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+    </Grid>
 
     <GridSplitter Grid.Row="1"
                   Grid.RowSpan="2"
