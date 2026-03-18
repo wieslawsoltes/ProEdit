@@ -240,7 +240,13 @@ public static class MarkdownDowngradePass
             case TableInline:
                 AppendUnsupportedInline(target, MarkdownConversionFeature.TableInline, "TableInline", options, downgrade, report);
                 break;
-            case ShapeInline:
+            case ShapeInline shape:
+                if (TryAppendShapeText(target, shape))
+                {
+                    report.Add(MarkdownConversionFeature.Shape, MarkdownConversionAction.Converted);
+                    break;
+                }
+
                 AppendUnsupportedInline(target, MarkdownConversionFeature.Shape, "Shape", options, downgrade, report);
                 break;
             case ChartInline:
@@ -469,5 +475,118 @@ public static class MarkdownDowngradePass
                || MarkdownMetadata.IsMarkdownMetadata(metadataEnd.Metadata, MarkdownMetadata.Image)
                || MarkdownMetadata.IsMarkdownMetadata(metadataEnd.Metadata, MarkdownMetadata.TaskList)
                || MarkdownMetadata.IsMarkdownMetadata(metadataEnd.Metadata, MarkdownMetadata.HtmlInline);
+    }
+
+    private static bool TryAppendShapeText(List<Inline> target, ShapeInline shape)
+    {
+        if (shape.TextBox is not { Blocks.Count: > 0 } textBox)
+        {
+            return false;
+        }
+
+        var text = ExtractTextFromBlocks(textBox.Blocks);
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return false;
+        }
+
+        target.Add(new RunInline(text));
+        return true;
+    }
+
+    private static string ExtractTextFromBlocks(IReadOnlyList<Block> blocks)
+    {
+        var builder = new System.Text.StringBuilder();
+        for (var index = 0; index < blocks.Count; index++)
+        {
+            if (index > 0 && builder.Length > 0)
+            {
+                builder.Append(' ');
+            }
+
+            AppendBlockText(builder, blocks[index]);
+        }
+
+        return builder.ToString().Trim();
+    }
+
+    private static void AppendBlockText(System.Text.StringBuilder builder, Block block)
+    {
+        switch (block)
+        {
+            case ParagraphBlock paragraph:
+                AppendParagraphText(builder, paragraph);
+                break;
+            case TableBlock table:
+                for (var rowIndex = 0; rowIndex < table.Rows.Count; rowIndex++)
+                {
+                    var row = table.Rows[rowIndex];
+                    for (var cellIndex = 0; cellIndex < row.Cells.Count; cellIndex++)
+                    {
+                        if (builder.Length > 0)
+                        {
+                            builder.Append(' ');
+                        }
+
+                        AppendCellText(builder, row.Cells[cellIndex]);
+                    }
+                }
+
+                break;
+        }
+    }
+
+    private static void AppendCellText(System.Text.StringBuilder builder, TableCell cell)
+    {
+        for (var blockIndex = 0; blockIndex < cell.Blocks.Count; blockIndex++)
+        {
+            if (blockIndex > 0 && builder.Length > 0)
+            {
+                builder.Append(' ');
+            }
+
+            AppendBlockText(builder, cell.Blocks[blockIndex]);
+        }
+    }
+
+    private static void AppendParagraphText(System.Text.StringBuilder builder, ParagraphBlock paragraph)
+    {
+        if (paragraph.Inlines.Count == 0)
+        {
+            if (!string.IsNullOrWhiteSpace(paragraph.Text))
+            {
+                builder.Append(paragraph.Text);
+            }
+        }
+        else
+        {
+            for (var inlineIndex = 0; inlineIndex < paragraph.Inlines.Count; inlineIndex++)
+            {
+                AppendInlineText(builder, paragraph.Inlines[inlineIndex]);
+            }
+        }
+
+        for (var floatingIndex = 0; floatingIndex < paragraph.FloatingObjects.Count; floatingIndex++)
+        {
+            if (builder.Length > 0)
+            {
+                builder.Append(' ');
+            }
+
+            AppendInlineText(builder, paragraph.FloatingObjects[floatingIndex].Content);
+        }
+    }
+
+    private static void AppendInlineText(System.Text.StringBuilder builder, Inline inline)
+    {
+        switch (inline)
+        {
+            case RunInline run:
+                builder.Append(run.Text.GetText());
+                break;
+            case ShapeInline shape when shape.TextBox is { Blocks.Count: > 0 }:
+                builder.Append(ExtractTextFromBlocks(shape.TextBox.Blocks));
+                break;
+        }
     }
 }
