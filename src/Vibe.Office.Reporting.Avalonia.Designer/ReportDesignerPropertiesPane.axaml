@@ -499,6 +499,60 @@
           </ScrollViewer>
         </TabItem>
 
+        <TabItem Header="Expressions"
+                 Theme="{StaticResource DesignerPaneTabItemTheme}">
+          <Grid RowDefinitions="Auto,*,Auto"
+                RowSpacing="10"
+                Margin="10">
+            <StackPanel Spacing="2">
+              <TextBlock Classes="designer-panel-title"
+                         Text="Expressions" />
+              <TextBlock Classes="designer-helper"
+                         Text="Author and validate the expression slots for the current selection." />
+            </StackPanel>
+
+            <Grid Grid.Row="1"
+                  RowDefinitions="Auto,*"
+                  RowSpacing="8">
+              <ListBox ItemsSource="{Binding ExpressionEntries}"
+                       SelectedItem="{Binding SelectedExpressionEntry, Mode=TwoWay}">
+                <ListBox.ItemTemplate>
+                  <DataTemplate x:DataType="designer:ReportDesignerExpressionEntryViewModel">
+                    <Border Classes="designer-list-item-card">
+                      <StackPanel Spacing="4">
+                        <TextBlock FontWeight="SemiBold"
+                                   Text="{Binding Label}" />
+                        <TextBlock Classes="designer-helper"
+                                   Text="{Binding Text}"
+                                   TextWrapping="Wrap" />
+                      </StackPanel>
+                    </Border>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+
+              <Border Grid.Row="1"
+                      Classes="designer-property-shell">
+                <StackPanel Spacing="8">
+                  <TextBlock Classes="designer-label"
+                             Text="{Binding SelectedExpressionLabel}" />
+                  <TextBox Classes="designer-editor"
+                           AcceptsReturn="True"
+                           MinHeight="140"
+                           Text="{Binding SelectedExpressionText, Mode=TwoWay}" />
+                  <TextBlock Classes="designer-helper"
+                             Text="{Binding ExpressionStatusMessage}"
+                             TextWrapping="Wrap" />
+                  <Button Theme="{StaticResource DesignerPrimaryActionButtonTheme}"
+                          Content="Apply Expression"
+                          Command="{Binding ApplySelectedExpressionCommand}"
+                          IsEnabled="{Binding CanApplyExpression}" />
+                </StackPanel>
+              </Border>
+            </Grid>
+          </Grid>
+        </TabItem>
+
         <TabItem Header="Templates"
                  Theme="{StaticResource DesignerPaneTabItemTheme}">
           <Grid RowDefinitions="Auto,*,Auto"

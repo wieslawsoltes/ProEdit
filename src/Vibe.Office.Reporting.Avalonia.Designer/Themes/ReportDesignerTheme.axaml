@@ -149,10 +149,85 @@
         </ControlTemplate>
       </Setter>
     </ControlTheme>
+
+    <ControlTheme x:Key="DesignerRailButtonTheme"
+                  TargetType="Button"
+                  BasedOn="{StaticResource DesignerActionButtonTheme}">
+      <Setter Property="Padding" Value="10,8" />
+      <Setter Property="MinWidth" Value="74" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="Background" Value="{DynamicResource DesignerSurfaceAltBrush}" />
+      <Setter Property="CornerRadius" Value="8" />
+    </ControlTheme>
+
+    <ControlTheme x:Key="DesignerToolToggleButtonTheme"
+                  TargetType="ToggleButton">
+      <Setter Property="Background" Value="{DynamicResource DesignerSurfaceBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource DesignerTextMutedBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource DesignerBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Padding" Value="10,6" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Name="PART_DesignerToggleRoot"
+                  Background="{TemplateBinding Background}"
+                  BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}"
+                  CornerRadius="{TemplateBinding CornerRadius}">
+            <ContentPresenter Content="{TemplateBinding Content}"
+                              ContentTemplate="{TemplateBinding ContentTemplate}"
+                              Padding="{TemplateBinding Padding}"
+                              HorizontalContentAlignment="Center"
+                              VerticalContentAlignment="Center" />
+          </Border>
+        </ControlTemplate>
+      </Setter>
+
+      <Style Selector="^:pointerover /template/ Border#PART_DesignerToggleRoot">
+        <Setter Property="Background" Value="{DynamicResource DesignerHoverBrush}" />
+      </Style>
+      <Style Selector="^:checked">
+        <Setter Property="Foreground" Value="{DynamicResource DesignerTextBrush}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+      </Style>
+      <Style Selector="^:checked /template/ Border#PART_DesignerToggleRoot">
+        <Setter Property="Background" Value="{DynamicResource DesignerAccentSoftBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource DesignerAccentBrush}" />
+      </Style>
+    </ControlTheme>
   </Styles.Resources>
 
   <Style Selector="Border.designer-command-strip">
     <Setter Property="Padding" Value="8,6,10,6" />
+    <Setter Property="Background" Value="{DynamicResource DesignerChromeBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource DesignerBorderBrush}" />
+    <Setter Property="BorderThickness" Value="0,0,0,1" />
+  </Style>
+
+  <Style Selector="Border.designer-rail">
+    <Setter Property="Width" Value="88" />
+    <Setter Property="Background" Value="{DynamicResource DesignerChromeBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource DesignerBorderBrush}" />
+    <Setter Property="BorderThickness" Value="0,0,1,0" />
+  </Style>
+
+  <Style Selector="Border.designer-rail-right">
+    <Setter Property="BorderThickness" Value="1,0,0,0" />
+  </Style>
+
+  <Style Selector="Border.designer-drawer">
+    <Setter Property="Background" Value="{DynamicResource DesignerSurfaceBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource DesignerBorderBrush}" />
+    <Setter Property="BorderThickness" Value="0,0,1,0" />
+  </Style>
+
+  <Style Selector="Border.designer-drawer-right">
+    <Setter Property="BorderThickness" Value="1,0,0,0" />
+  </Style>
+
+  <Style Selector="Border.designer-drawer-header">
+    <Setter Property="Padding" Value="8,6,8,6" />
     <Setter Property="Background" Value="{DynamicResource DesignerChromeBrush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource DesignerBorderBrush}" />
     <Setter Property="BorderThickness" Value="0,0,0,1" />
@@ -187,6 +262,17 @@
 
   <Style Selector="Border.designer-main">
     <Setter Property="Background" Value="{DynamicResource DesignerSurfaceAltBrush}" />
+  </Style>
+
+  <Style Selector="Border.designer-canvas-host">
+    <Setter Property="Padding" Value="0" />
+  </Style>
+
+  <Style Selector="Border.designer-canvas-toolbar">
+    <Setter Property="Padding" Value="8,6,10,6" />
+    <Setter Property="Background" Value="{DynamicResource DesignerChromeBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource DesignerBorderBrush}" />
+    <Setter Property="BorderThickness" Value="0,0,0,1" />
   </Style>
 
   <Style Selector="Border.designer-surface-banner">
@@ -330,6 +416,13 @@
     <Setter Property="Background" Value="{DynamicResource DesignerChromeBrush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource DesignerBorderBrush}" />
     <Setter Property="BorderThickness" Value="1,1,0,0" />
+  </Style>
+
+  <Style Selector="Border.designer-context-tray">
+    <Setter Property="Padding" Value="8" />
+    <Setter Property="Background" Value="{DynamicResource DesignerChromeBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource DesignerBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1,0,0,0" />
   </Style>
 
   <Style Selector="Border.designer-group-card">

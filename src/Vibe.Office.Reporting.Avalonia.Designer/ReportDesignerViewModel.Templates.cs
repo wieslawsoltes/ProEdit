@@ -361,16 +361,16 @@ public sealed partial class ReportDesignerViewModel
         TemplatePlaceholderEntries = new ReadOnlyObservableCollection<ReportDesignerTemplatePlaceholderEntryViewModel>(_templatePlaceholderEntries);
         TemplateReferenceOptions = new ReadOnlyObservableCollection<ReportDesignerChoiceOptionViewModel>(_templateReferenceOptions);
 
-        AddTemplateBindingCommand = ReactiveCommand.Create(AddTemplateBinding);
-        RemoveSelectedTemplateBindingCommand = ReactiveCommand.Create(RemoveSelectedTemplateBinding);
-        InsertSelectedTemplatePlaceholderCommand = ReactiveCommand.Create(InsertSelectedTemplatePlaceholder);
-        UseSelectedDataNodeInTemplateCommand = ReactiveCommand.Create(UseSelectedDataNodeInTemplate);
-        RefreshTemplatePreviewCommand = ReactiveCommand.CreateFromTask(RefreshTemplatePreviewAsync);
-        CreateTemplateItemFromSelectedTemplateCommand = ReactiveCommand.Create(CreateTemplateItemFromSelectedTemplate);
-        PromoteSelectedTemplateItemToSharedCommand = ReactiveCommand.Create(PromoteSelectedTemplateItemToShared);
-        DetachSelectedTemplateItemCommand = ReactiveCommand.Create(DetachSelectedTemplateItem);
-        EditReferencedSharedTemplateCommand = ReactiveCommand.Create(EditReferencedSharedTemplate);
-        EmbedActiveTemplateForEditingCommand = ReactiveCommand.Create(EmbedActiveTemplateForEditing);
+        AddTemplateBindingCommand = DesignerCommandFactory.Create(AddTemplateBinding);
+        RemoveSelectedTemplateBindingCommand = DesignerCommandFactory.Create(RemoveSelectedTemplateBinding);
+        InsertSelectedTemplatePlaceholderCommand = DesignerCommandFactory.Create(InsertSelectedTemplatePlaceholder);
+        UseSelectedDataNodeInTemplateCommand = DesignerCommandFactory.Create(UseSelectedDataNodeInTemplate);
+        RefreshTemplatePreviewCommand = DesignerCommandFactory.CreateFromTask(RefreshTemplatePreviewAsync);
+        CreateTemplateItemFromSelectedTemplateCommand = DesignerCommandFactory.Create(CreateTemplateItemFromSelectedTemplate);
+        PromoteSelectedTemplateItemToSharedCommand = DesignerCommandFactory.Create(PromoteSelectedTemplateItemToShared);
+        DetachSelectedTemplateItemCommand = DesignerCommandFactory.Create(DetachSelectedTemplateItem);
+        EditReferencedSharedTemplateCommand = DesignerCommandFactory.Create(EditReferencedSharedTemplate);
+        EmbedActiveTemplateForEditingCommand = DesignerCommandFactory.Create(EmbedActiveTemplateForEditing);
         RefreshTemplatePlaceholderEntries();
     }
 

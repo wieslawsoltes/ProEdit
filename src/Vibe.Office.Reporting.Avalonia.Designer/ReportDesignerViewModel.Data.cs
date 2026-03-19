@@ -832,14 +832,14 @@ public sealed partial class ReportDesignerViewModel
         SelectedDataSourceSourceKeyOptions = new ReadOnlyObservableCollection<ReportDesignerChoiceOptionViewModel>(_selectedDataSourceSourceKeyOptions);
         SelectedDataSetSourceOptions = new ReadOnlyObservableCollection<ReportDesignerChoiceOptionViewModel>(_selectedDataSetSourceOptions);
 
-        PreviewSelectedDataSetCommand = ReactiveCommand.CreateFromTask(PreviewSelectedDataSetAsync);
-        RefreshSelectedDataSetFieldsCommand = ReactiveCommand.CreateFromTask(RefreshSelectedDataSetFieldsAsync);
-        InsertSelectedDataFieldCommand = ReactiveCommand.Create(InsertSelectedDataField);
-        BindSelectedDataSetCommand = ReactiveCommand.Create(BindSelectedDataSet);
-        AddCalculatedFieldCommand = ReactiveCommand.Create(AddCalculatedField);
-        AddDataSetParameterCommand = ReactiveCommand.Create(AddDataSetParameter);
-        AddDataFilterCommand = ReactiveCommand.Create(AddDataFilter);
-        AddDataSortCommand = ReactiveCommand.Create(AddDataSort);
+        PreviewSelectedDataSetCommand = DesignerCommandFactory.CreateFromTask(PreviewSelectedDataSetAsync);
+        RefreshSelectedDataSetFieldsCommand = DesignerCommandFactory.CreateFromTask(RefreshSelectedDataSetFieldsAsync);
+        InsertSelectedDataFieldCommand = DesignerCommandFactory.Create(InsertSelectedDataField);
+        BindSelectedDataSetCommand = DesignerCommandFactory.Create(BindSelectedDataSet);
+        AddCalculatedFieldCommand = DesignerCommandFactory.Create(AddCalculatedField);
+        AddDataSetParameterCommand = DesignerCommandFactory.Create(AddDataSetParameter);
+        AddDataFilterCommand = DesignerCommandFactory.Create(AddDataFilter);
+        AddDataSortCommand = DesignerCommandFactory.Create(AddDataSort);
     }
 
     private void RebuildDataWorkspace()

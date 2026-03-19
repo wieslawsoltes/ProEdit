@@ -129,7 +129,7 @@
 
               <Image Source="{Binding SurfacePreviewPage.Bitmap}"
                      Stretch="Fill"
-                     IsVisible="{Binding HasCurrentSurfacePreview}" />
+                     IsVisible="{Binding HasVisibleSurfacePreview}" />
 
               <Border HorizontalAlignment="Right"
                       VerticalAlignment="Top"

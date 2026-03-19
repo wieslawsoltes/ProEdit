@@ -228,25 +228,26 @@ public sealed partial class ReportDesignerViewModel
         ChartDataSetOptions = new ReadOnlyObservableCollection<ReportDesignerChoiceOptionViewModel>(_chartDataSetOptions);
         ChartSeriesEntries = new ReadOnlyObservableCollection<ReportDesignerChartSeriesEntryViewModel>(_chartSeriesEntries);
 
-        AddParameterLayoutRowCommand = ReactiveCommand.Create(AddParameterLayoutRow);
-        AddParameterLayoutColumnCommand = ReactiveCommand.Create(AddParameterLayoutColumn);
-        RemoveParameterLayoutRowCommand = ReactiveCommand.Create(RemoveParameterLayoutRow);
-        RemoveParameterLayoutColumnCommand = ReactiveCommand.Create(RemoveParameterLayoutColumn);
-        MoveSelectedParameterLeftCommand = ReactiveCommand.Create(() => MoveSelectedParameterByDelta(-1, 0));
-        MoveSelectedParameterRightCommand = ReactiveCommand.Create(() => MoveSelectedParameterByDelta(1, 0));
-        MoveSelectedParameterUpCommand = ReactiveCommand.Create(() => MoveSelectedParameterByDelta(0, -1));
-        MoveSelectedParameterDownCommand = ReactiveCommand.Create(() => MoveSelectedParameterByDelta(0, 1));
-        AddChartSeriesCommand = ReactiveCommand.Create(AddChartSeries);
-        RemoveSelectedChartSeriesCommand = ReactiveCommand.Create(RemoveSelectedChartSeries);
-        ApplySelectedFieldToChartCategoryCommand = ReactiveCommand.Create(ApplySelectedFieldToChartCategory);
-        ApplySelectedFieldToChartValueCommand = ReactiveCommand.Create(ApplySelectedFieldToChartValue);
-        ApplySelectedFieldToChartSeriesGroupCommand = ReactiveCommand.Create(ApplySelectedFieldToChartSeriesGroup);
+        AddParameterLayoutRowCommand = DesignerCommandFactory.Create(AddParameterLayoutRow);
+        AddParameterLayoutColumnCommand = DesignerCommandFactory.Create(AddParameterLayoutColumn);
+        RemoveParameterLayoutRowCommand = DesignerCommandFactory.Create(RemoveParameterLayoutRow);
+        RemoveParameterLayoutColumnCommand = DesignerCommandFactory.Create(RemoveParameterLayoutColumn);
+        MoveSelectedParameterLeftCommand = DesignerCommandFactory.Create(() => MoveSelectedParameterByDelta(-1, 0));
+        MoveSelectedParameterRightCommand = DesignerCommandFactory.Create(() => MoveSelectedParameterByDelta(1, 0));
+        MoveSelectedParameterUpCommand = DesignerCommandFactory.Create(() => MoveSelectedParameterByDelta(0, -1));
+        MoveSelectedParameterDownCommand = DesignerCommandFactory.Create(() => MoveSelectedParameterByDelta(0, 1));
+        AddChartSeriesCommand = DesignerCommandFactory.Create(AddChartSeries);
+        RemoveSelectedChartSeriesCommand = DesignerCommandFactory.Create(RemoveSelectedChartSeries);
+        ApplySelectedFieldToChartCategoryCommand = DesignerCommandFactory.Create(ApplySelectedFieldToChartCategory);
+        ApplySelectedFieldToChartValueCommand = DesignerCommandFactory.Create(ApplySelectedFieldToChartValue);
+        ApplySelectedFieldToChartSeriesGroupCommand = DesignerCommandFactory.Create(ApplySelectedFieldToChartSeriesGroup);
     }
 
     private void RefreshContextPanes()
     {
         RebuildParameterLayoutPane();
         RebuildChartWorkspace();
+        SyncContextTrayFromSelection();
         RaiseContextPanePropertiesChanged();
     }
 

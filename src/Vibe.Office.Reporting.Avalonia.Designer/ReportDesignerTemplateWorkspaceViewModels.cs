@@ -53,7 +53,7 @@ public sealed class ReportDesignerTemplateBindingEntryViewModel : ReactiveObject
         _expression = expression ?? string.Empty;
         _apply = apply ?? throw new ArgumentNullException(nameof(apply));
         ArgumentNullException.ThrowIfNull(remove);
-        RemoveCommand = ReactiveCommand.Create(() => remove(this));
+        RemoveCommand = DesignerCommandFactory.Create(() => remove(this));
     }
 
     public string Key

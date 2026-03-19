@@ -32,7 +32,7 @@ public sealed class ReportDesignerExplorerNodeViewModel : ReactiveObject
         Category = category;
         Target = target;
         Children = new ObservableCollection<ReportDesignerExplorerNodeViewModel>();
-        SelectCommand = ReactiveCommand.Create(() => selectAction(this));
+        SelectCommand = DesignerCommandFactory.Create(() => selectAction(this));
     }
 
     /// <summary>
@@ -252,7 +252,7 @@ public sealed class ReportDesignerCanvasItemViewModel : ReactiveObject
         ArgumentNullException.ThrowIfNull(selectAction);
         PreviewRows = new ReadOnlyObservableCollection<ReportDesignerSurfaceRowViewModel>(_previewRows);
         PreviewBars = new ReadOnlyObservableCollection<ReportDesignerSurfaceBarViewModel>(_previewBars);
-        SelectCommand = ReactiveCommand.Create(() =>
+        SelectCommand = DesignerCommandFactory.Create(() =>
         {
             if (!IsReadOnly)
             {
@@ -1059,7 +1059,7 @@ public sealed class ReportDesignerSelectionEntryViewModel : ReactiveObject
         _title = title ?? string.Empty;
         _subtitle = subtitle ?? string.Empty;
         ArgumentNullException.ThrowIfNull(selectAction);
-        SelectCommand = ReactiveCommand.Create(() => selectAction(this));
+        SelectCommand = DesignerCommandFactory.Create(() => selectAction(this));
     }
 
     /// <summary>
@@ -1447,7 +1447,7 @@ public sealed class ReportDesignerTemplateGalleryItemViewModel : ReactiveObject
         Category = category ?? throw new ArgumentNullException(nameof(category));
         Description = description ?? throw new ArgumentNullException(nameof(description));
         ArgumentNullException.ThrowIfNull(applyAction);
-        ApplyCommand = ReactiveCommand.Create(() => applyAction(this));
+        ApplyCommand = DesignerCommandFactory.Create(() => applyAction(this));
     }
 
     /// <summary>
@@ -1553,23 +1553,24 @@ public sealed partial class ReportDesignerViewModel : ReactiveObject, IDisposabl
         ExpressionEntries = new ReadOnlyObservableCollection<ReportDesignerExpressionEntryViewModel>(_expressionEntries);
         TemplateGalleryItems = new ReadOnlyObservableCollection<ReportDesignerTemplateGalleryItemViewModel>(_galleryItems);
 
-        RefreshPreviewCommand = ReactiveCommand.CreateFromTask(RefreshPreviewAsync);
-        AddSectionCommand = ReactiveCommand.Create(AddSection);
-        AddTextItemCommand = ReactiveCommand.Create(AddTextItem);
-        AddChartItemCommand = ReactiveCommand.Create(AddChartItem);
-        AddTablixItemCommand = ReactiveCommand.Create(AddTablixItem);
-        AddTemplateItemCommand = ReactiveCommand.Create(AddTemplateItem);
-        AddParameterCommand = ReactiveCommand.Create(AddParameter);
-        AddDataSourceCommand = ReactiveCommand.Create(AddDataSource);
-        AddDataSetCommand = ReactiveCommand.Create(AddDataSet);
-        AddSharedTemplateCommand = ReactiveCommand.Create(AddSharedTemplate);
-        RemoveSelectedCommand = ReactiveCommand.Create(RemoveSelected);
-        ApplySelectedExpressionCommand = ReactiveCommand.Create(ApplySelectedExpression);
-        ApplySelectedTemplateCommand = ReactiveCommand.Create(ApplySelectedTemplate);
+        RefreshPreviewCommand = DesignerCommandFactory.CreateFromTask(RefreshPreviewAsync);
+        AddSectionCommand = DesignerCommandFactory.Create(AddSection);
+        AddTextItemCommand = DesignerCommandFactory.Create(AddTextItem);
+        AddChartItemCommand = DesignerCommandFactory.Create(AddChartItem);
+        AddTablixItemCommand = DesignerCommandFactory.Create(AddTablixItem);
+        AddTemplateItemCommand = DesignerCommandFactory.Create(AddTemplateItem);
+        AddParameterCommand = DesignerCommandFactory.Create(AddParameter);
+        AddDataSourceCommand = DesignerCommandFactory.Create(AddDataSource);
+        AddDataSetCommand = DesignerCommandFactory.Create(AddDataSet);
+        AddSharedTemplateCommand = DesignerCommandFactory.Create(AddSharedTemplate);
+        RemoveSelectedCommand = DesignerCommandFactory.Create(RemoveSelected);
+        ApplySelectedExpressionCommand = DesignerCommandFactory.Create(ApplySelectedExpression);
+        ApplySelectedTemplateCommand = DesignerCommandFactory.Create(ApplySelectedTemplate);
         InitializeDataWorkspace();
         InitializeTemplateWorkspace();
         InitializeWorkbench();
         InitializeContextPanes();
+        InitializeLayoutWorkspace();
 
         EnsureMinimumStructure();
         BuildTemplateGallery();
@@ -2091,6 +2092,7 @@ public sealed partial class ReportDesignerViewModel : ReactiveObject, IDisposabl
             UpdateSurfacePreviewMode();
             this.RaisePropertyChanged(nameof(SurfacePreviewPage));
             this.RaisePropertyChanged(nameof(HasCurrentSurfacePreview));
+            this.RaisePropertyChanged(nameof(HasVisibleSurfacePreview));
 
             StatusMessage = previewUpdated
                 ? PreviewViewModel.StatusMessage
@@ -2669,6 +2671,7 @@ public sealed partial class ReportDesignerViewModel : ReactiveObject, IDisposabl
         this.RaisePropertyChanged(nameof(SurfacePrintAreaMargin));
         this.RaisePropertyChanged(nameof(SurfacePreviewPage));
         this.RaisePropertyChanged(nameof(HasCurrentSurfacePreview));
+        this.RaisePropertyChanged(nameof(HasVisibleSurfacePreview));
         this.RaisePropertyChanged(nameof(SurfaceSelectionSummaryText));
     }
 
@@ -3891,6 +3894,7 @@ public sealed partial class ReportDesignerViewModel : ReactiveObject, IDisposabl
         this.RaisePropertyChanged(nameof(SurfacePrintAreaMargin));
         this.RaisePropertyChanged(nameof(SurfacePreviewPage));
         this.RaisePropertyChanged(nameof(HasCurrentSurfacePreview));
+        this.RaisePropertyChanged(nameof(HasVisibleSurfacePreview));
         this.RaisePropertyChanged(nameof(SurfaceSelectionSummaryText));
         this.RaisePropertyChanged(nameof(SelectedObjectTitle));
         this.RaisePropertyChanged(nameof(SelectedObjectType));
@@ -3948,6 +3952,7 @@ public sealed partial class ReportDesignerViewModel : ReactiveObject, IDisposabl
         IsPreviewDirty = true;
         UpdateSurfacePreviewMode();
         this.RaisePropertyChanged(nameof(HasCurrentSurfacePreview));
+        this.RaisePropertyChanged(nameof(HasVisibleSurfacePreview));
         StatusMessage = message + " Preview is out of date.";
     }
 

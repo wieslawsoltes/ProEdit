@@ -27,7 +27,7 @@ internal sealed class ReportDesignerParameterLayoutCellViewModel : ReactiveObjec
         ColumnIndex = columnIndex;
         Parameter = parameter;
         ArgumentNullException.ThrowIfNull(selectAction);
-        SelectCommand = ReactiveCommand.Create(() => selectAction(this));
+        SelectCommand = DesignerCommandFactory.Create(() => selectAction(this));
     }
 
     public int RowIndex { get; }
