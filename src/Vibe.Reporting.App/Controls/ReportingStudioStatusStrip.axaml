@@ -4,7 +4,7 @@
              x:Class="Vibe.Reporting.App.Controls.ReportingStudioStatusStrip"
              x:DataType="vm:ReportingStudioViewModel">
   <Border Classes="studio-status-strip">
-    <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto"
+    <Grid ColumnDefinitions="*,Auto,Auto,Auto"
           ColumnSpacing="10">
       <TextBlock VerticalAlignment="Center"
                  Classes="studio-path-text"
@@ -13,24 +13,14 @@
       <Border Grid.Column="1"
               Classes="studio-chip">
         <TextBlock Classes="studio-caption"
-                   Text="{Binding DesignerStatusMessage}" />
+                   Text="{Binding CurrentMode}" />
       </Border>
       <Border Grid.Column="2"
               Classes="studio-chip">
         <TextBlock Classes="studio-caption"
-                   Text="{Binding ViewerStatusMessage}" />
-      </Border>
-      <Border Grid.Column="3"
-              Classes="studio-chip">
-        <TextBlock Classes="studio-caption"
                    Text="{Binding DesignerViewModel.SurfaceZoomDisplayText}" />
       </Border>
-      <Border Grid.Column="4"
-              Classes="studio-chip">
-        <TextBlock Classes="studio-caption"
-                   Text="{Binding DesignerViewModel.SurfaceSelectionSummaryText}" />
-      </Border>
-      <Border Grid.Column="5"
+      <Border Grid.Column="3"
               Classes="studio-chip studio-chip-accent">
         <TextBlock Classes="studio-caption"
                    Text="{Binding DiagnosticsSummaryText}" />

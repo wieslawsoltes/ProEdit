@@ -4,6 +4,7 @@ using System.Reactive.Linq;
 using ReactiveUI;
 using System.Reactive;
 using Vibe.Office.Reporting;
+using Vibe.Office.Reporting.Avalonia;
 using Vibe.Office.Reporting.Avalonia.Designer;
 using Vibe.Office.Reporting.Avalonia.Viewer;
 using Vibe.Office.Reporting.Data;
@@ -11,7 +12,7 @@ using Vibe.Reporting.App.Services;
 
 namespace Vibe.Reporting.App.ViewModels;
 
-internal sealed class ReportingStudioViewModel : ReactiveObject, IDisposable
+internal sealed partial class ReportingStudioViewModel : ReactiveObject, IDisposable
 {
     private readonly IReportingStudioFilePickerService _filePickerService;
     private readonly ReportingStudioDocumentService _documentService;
@@ -46,22 +47,25 @@ internal sealed class ReportingStudioViewModel : ReactiveObject, IDisposable
         _statusMessage = "Bundled sample loaded.";
 
         var canOperate = this.WhenAnyValue(static vm => vm.IsBusy)
-            .Select(static isBusy => !isBusy);
+            .Select(static isBusy => !isBusy)
+            .ObserveOn(RxApp.MainThreadScheduler);
         var canOperateWithWorkspace = this.WhenAnyValue(
             static vm => vm.IsBusy,
             static vm => vm.HasWorkspace,
             static (isBusy, hasWorkspace) => !isBusy && hasWorkspace);
+        canOperateWithWorkspace = canOperateWithWorkspace.ObserveOn(RxApp.MainThreadScheduler);
 
-        NewSampleCommand = ReactiveCommand.CreateFromTask(NewSampleAsync, canOperate);
-        OpenTemplateCommand = ReactiveCommand.CreateFromTask(OpenTemplateAsync, canOperate);
-        SaveTemplateCommand = ReactiveCommand.CreateFromTask(SaveTemplateAsync, canOperateWithWorkspace);
-        SaveTemplateAsCommand = ReactiveCommand.CreateFromTask(SaveTemplateAsAsync, canOperateWithWorkspace);
-        ImportRdlCommand = ReactiveCommand.CreateFromTask(ImportRdlAsync, canOperate);
-        ExportRdlCommand = ReactiveCommand.CreateFromTask(ExportRdlAsync, canOperateWithWorkspace);
-        RefreshPreviewCommand = ReactiveCommand.CreateFromTask(RefreshPreviewAsync, canOperateWithWorkspace);
-        RunReportCommand = ReactiveCommand.CreateFromTask(RunReportAsync, canOperateWithWorkspace);
-        ShowDesignCommand = ReactiveCommand.Create(() => { SelectedWorkspaceTabIndex = 0; });
-        ShowRunCommand = ReactiveCommand.Create(() => { SelectedWorkspaceTabIndex = 1; });
+        NewSampleCommand = ReactiveCommand.CreateFromTask(NewSampleAsync, canOperate, outputScheduler: RxApp.MainThreadScheduler);
+        OpenTemplateCommand = ReactiveCommand.CreateFromTask(OpenTemplateAsync, canOperate, outputScheduler: RxApp.MainThreadScheduler);
+        SaveTemplateCommand = ReactiveCommand.CreateFromTask(SaveTemplateAsync, canOperateWithWorkspace, outputScheduler: RxApp.MainThreadScheduler);
+        SaveTemplateAsCommand = ReactiveCommand.CreateFromTask(SaveTemplateAsAsync, canOperateWithWorkspace, outputScheduler: RxApp.MainThreadScheduler);
+        ImportRdlCommand = ReactiveCommand.CreateFromTask(ImportRdlAsync, canOperate, outputScheduler: RxApp.MainThreadScheduler);
+        ExportRdlCommand = ReactiveCommand.CreateFromTask(ExportRdlAsync, canOperateWithWorkspace, outputScheduler: RxApp.MainThreadScheduler);
+        RefreshPreviewCommand = ReactiveCommand.CreateFromTask(RefreshPreviewAsync, canOperateWithWorkspace, outputScheduler: RxApp.MainThreadScheduler);
+        RunReportCommand = ReactiveCommand.CreateFromTask(RunReportAsync, canOperateWithWorkspace, outputScheduler: RxApp.MainThreadScheduler);
+        ShowDesignCommand = ReactiveCommand.Create(() => { CurrentMode = ReportingStudioMode.Design; }, outputScheduler: RxApp.MainThreadScheduler);
+        ShowRunCommand = ReactiveCommand.Create(() => { CurrentMode = ReportingStudioMode.Run; }, outputScheduler: RxApp.MainThreadScheduler);
+        InitializeLayoutShell();
 
         _viewerTabSubscription = this.WhenAnyValue(static vm => vm.SelectedWorkspaceTabIndex)
             .Skip(1)
@@ -165,7 +169,17 @@ internal sealed class ReportingStudioViewModel : ReactiveObject, IDisposable
     public int SelectedWorkspaceTabIndex
     {
         get => _selectedWorkspaceTabIndex;
-        set => this.RaiseAndSetIfChanged(ref _selectedWorkspaceTabIndex, value);
+        set
+        {
+            var normalized = Math.Clamp(value, 0, 1);
+            if (_selectedWorkspaceTabIndex == normalized)
+            {
+                return;
+            }
+
+            this.RaiseAndSetIfChanged(ref _selectedWorkspaceTabIndex, normalized);
+            SynchronizeModeFromWorkspaceIndex();
+        }
     }
 
     public int SelectedRibbonTabIndex

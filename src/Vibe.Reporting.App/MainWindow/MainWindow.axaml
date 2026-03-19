@@ -18,18 +18,14 @@
 
     <Border Grid.Row="2"
             Classes="studio-workspace">
-      <TabControl Theme="{StaticResource StudioWorkspaceTabControlTheme}"
-                  SelectedIndex="{Binding SelectedWorkspaceTabIndex, Mode=TwoWay}">
-        <TabItem Header="Design"
-                 Theme="{StaticResource StudioWorkspaceTabItemTheme}">
+      <Grid>
+        <Border IsVisible="{Binding IsDesignMode}">
           <designer:ReportDesignerControl DataContext="{Binding DesignerViewModel}" />
-        </TabItem>
-
-        <TabItem Header="Run"
-                 Theme="{StaticResource StudioWorkspaceTabItemTheme}">
+        </Border>
+        <Border IsVisible="{Binding IsRunMode}">
           <viewer:ReportViewerControl DataContext="{Binding ViewerViewModel}" />
-        </TabItem>
-      </TabControl>
+        </Border>
+      </Grid>
     </Border>
 
     <controls:ReportingStudioStatusStrip Grid.Row="3" />
