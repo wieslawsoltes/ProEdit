@@ -223,11 +223,9 @@ internal sealed class ReportingStudioWorkspaceFactory
             Format = ReportDocumentTemplateFormat.Markdown,
             IsEmbedded = true,
             Content = """
-                # {{Title}}
+                Generated **{{GeneratedOn}}** for **{{FocusRegion}}** with a minimum revenue threshold of **{{MinimumRevenue}}**.
 
-                Generated at **{{GeneratedOn}}** in the standalone reporting studio.
-
-                Use the designer to edit the definition, switch to the viewer tab for focused preview, and export the live report through the shared runtime pipeline.
+                The overview pairs a live chart, a focused regional detail, and the filtered revenue table so design changes stay aligned with preview and export.
                 """
         });
 
@@ -269,11 +267,12 @@ internal sealed class ReportingStudioWorkspaceFactory
             Id = "brief",
             Name = "Executive Brief",
             TemplateId = "narrative-brief",
-            Bounds = new ReportItemBounds(36f, 78f, 680f, 120f),
+            Bounds = new ReportItemBounds(36f, 78f, 700f, 76f),
             Bindings =
             {
-                ["Title"] = "Parameters.Title",
-                ["GeneratedOn"] = "Format(Globals.ExecutionTime, 'yyyy-MM-dd HH:mm')"
+                ["GeneratedOn"] = "Format(Globals.ExecutionTime, 'yyyy-MM-dd HH:mm')",
+                ["FocusRegion"] = "Iif(Parameters.FocusRegion = 'All', 'all regions', Parameters.FocusRegion)",
+                ["MinimumRevenue"] = "Format(Parameters.MinimumRevenue, 'C0')"
             }
         });
         section.BodyItems.Add(new ChartItem
@@ -283,7 +282,7 @@ internal sealed class ReportingStudioWorkspaceFactory
             DataSetId = "sales",
             TitleExpression = "'Revenue by Region'",
             CategoryExpression = "Fields.Region",
-            Bounds = new ReportItemBounds(36f, 220f, 460f, 220f),
+            Bounds = new ReportItemBounds(36f, 186f, 460f, 220f),
             Series =
             {
                 new ReportChartSeriesDefinition
@@ -312,14 +311,14 @@ internal sealed class ReportingStudioWorkspaceFactory
                     }
                 }
             },
-            Bounds = new ReportItemBounds(528f, 230f, 220f, 24f)
+            Bounds = new ReportItemBounds(528f, 196f, 220f, 24f)
         });
         section.BodyItems.Add(new SubreportItem
         {
             Id = "central-detail",
             Name = "Embedded Central Detail",
             ReportReferenceId = "regional-detail",
-            Bounds = new ReportItemBounds(528f, 274f, 220f, 96f),
+            Bounds = new ReportItemBounds(528f, 238f, 220f, 120f),
             Parameters =
             {
                 new ReportParameterBinding
@@ -334,7 +333,7 @@ internal sealed class ReportingStudioWorkspaceFactory
             Id = "sales-table",
             Name = "Revenue Table",
             DataSetId = "sales",
-            Bounds = new ReportItemBounds(36f, 468f, 710f, 220f),
+            Bounds = new ReportItemBounds(36f, 444f, 710f, 244f),
             Columns =
             {
                 new ReportTablixColumnDefinition { Id = "region", Width = 140f },
