@@ -7,7 +7,7 @@
     <StyleInclude Source="avares://Vibe.Office.Reporting.Avalonia.Designer/Themes/ReportDesignerTheme.axaml" />
   </UserControl.Styles>
 
-  <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto"
+  <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto"
         RowDefinitions="Auto,*,Auto">
     <Border Grid.RowSpan="3"
             Classes="designer-rail">
@@ -165,7 +165,15 @@
       </Border>
     </Grid>
 
-    <Border Grid.Column="3"
+    <designer:ReportDesignerDrawerResizeHandle Grid.Column="3"
+                                               Classes="designer-splitter"
+                                               IsVisible="{Binding IsRightDrawerVisible}"
+                                               TargetWidth="{Binding InspectorDrawerWidth, Mode=TwoWay}"
+                                               MinimumTargetWidth="280"
+                                               MaximumTargetWidth="640"
+                                               InvertDelta="True" />
+
+    <Border Grid.Column="4"
             Grid.RowSpan="3"
             Width="{Binding RightDrawerWidth}"
             Classes="designer-drawer designer-drawer-right"
@@ -190,7 +198,7 @@
       </Grid>
     </Border>
 
-    <Border Grid.Column="4"
+    <Border Grid.Column="5"
             Grid.RowSpan="3"
             Classes="designer-rail designer-rail-right">
       <StackPanel Margin="6,8"

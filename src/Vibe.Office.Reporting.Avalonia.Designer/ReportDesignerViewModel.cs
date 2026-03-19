@@ -3381,13 +3381,27 @@ public sealed partial class ReportDesignerViewModel : ReactiveObject, IDisposabl
         AddTextProperty("item.width", "Width", "Item width in DIPs.", FormatFloat(item.Bounds.Width), false, value =>
             TryApplyFloat(value, parsed =>
             {
-                item.Bounds = item.Bounds with { Width = parsed };
+                var currentBounds = item.Bounds;
+                var width = Math.Max(DesignerMinItemWidth, parsed);
+                if (item is TablixItem tablixItem)
+                {
+                    ResizeTablixStructure(tablixItem, currentBounds.Width, currentBounds.Height, width, currentBounds.Height);
+                }
+
+                item.Bounds = currentBounds with { Width = width };
                 OnModelChanged("Updated item width.");
             }));
         AddTextProperty("item.height", "Height", "Item height in DIPs.", FormatFloat(item.Bounds.Height), false, value =>
             TryApplyFloat(value, parsed =>
             {
-                item.Bounds = item.Bounds with { Height = parsed };
+                var currentBounds = item.Bounds;
+                var height = Math.Max(DesignerMinItemHeight, parsed);
+                if (item is TablixItem tablixItem)
+                {
+                    ResizeTablixStructure(tablixItem, currentBounds.Width, currentBounds.Height, currentBounds.Width, height);
+                }
+
+                item.Bounds = currentBounds with { Height = height };
                 OnModelChanged("Updated item height.");
             }));
         AddTextProperty("item.zIndex", "Z-Order", "Layer order within the current container.", item.ZIndex.ToString(CultureInfo.InvariantCulture), false, value =>

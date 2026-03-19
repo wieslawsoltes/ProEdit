@@ -2,6 +2,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.Layout;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using ReactiveUI;
@@ -136,6 +137,50 @@ public sealed class ReportDesignerControlHeadlessTests
     }
 
     [AvaloniaFact]
+    public async Task Designer_RightInspectorDrawerExposesResizeHandleAndHonorsWidthState()
+    {
+        using var viewModel = new ReportDesignerViewModel(CreateDesignerSource());
+        var control = new ReportDesignerControl
+        {
+            DataContext = viewModel,
+            Width = 1600,
+            Height = 980
+        };
+        var window = new Window
+        {
+            Width = 1680,
+            Height = 1024,
+            Content = control
+        };
+
+        window.Show();
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+
+        Execute(viewModel.OpenPropertiesInspectorCommand);
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+
+        var resizeHandle = Assert.Single(control.GetVisualDescendants().OfType<ReportDesignerDrawerResizeHandle>());
+        var drawer = control.GetVisualDescendants()
+            .OfType<Border>()
+            .Single(border => border.Classes.Contains("designer-drawer-right"));
+        var initialWidth = drawer.Bounds.Width;
+
+        Assert.True(resizeHandle.IsVisible);
+        Assert.Equal(PaneVisibilityState.Open, viewModel.RightDrawerState);
+        Assert.Equal(336d, viewModel.InspectorDrawerWidth);
+
+        viewModel.InspectorDrawerWidth = 440d;
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+
+        Assert.Equal(440d, viewModel.InspectorDrawerWidth);
+        Assert.Equal(440d, viewModel.RightDrawerWidth);
+        Assert.True(drawer.Bounds.Width > initialWidth);
+        Assert.InRange(drawer.Bounds.Width, 432d, 448d);
+
+        window.Close();
+    }
+
+    [AvaloniaFact]
     public async Task Designer_PageSurfaceExposesVisibleScrollBarsForPageViews()
     {
         using var viewModel = new ReportDesignerViewModel(CreateDesignerSource());
@@ -158,11 +203,20 @@ public sealed class ReportDesignerControlHeadlessTests
         Execute(viewModel.ActualSizeCommand);
         await Dispatcher.UIThread.InvokeAsync(static () => { });
 
-        var scrollViewer = control.GetVisualDescendants().OfType<ScrollViewer>()
-            .First(viewer => viewer.Content is Border);
+        var scrollHost = control.GetVisualDescendants()
+            .OfType<ReportDesignerSurfaceScrollHost>()
+            .Single();
+        var scrollViewer = scrollHost.GetVisualDescendants().OfType<ScrollViewer>()
+            .Single();
 
-        Assert.Equal(ScrollBarVisibility.Visible, scrollViewer.HorizontalScrollBarVisibility);
-        Assert.Equal(ScrollBarVisibility.Visible, scrollViewer.VerticalScrollBarVisibility);
+        Assert.Equal(ScrollBarVisibility.Hidden, scrollViewer.HorizontalScrollBarVisibility);
+        Assert.Equal(ScrollBarVisibility.Hidden, scrollViewer.VerticalScrollBarVisibility);
+        Assert.False(scrollViewer.AllowAutoHide);
+
+        var scrollBars = scrollHost.GetVisualDescendants().OfType<ScrollBar>().ToArray();
+        Assert.True(scrollBars.Length >= 2);
+        Assert.Contains(scrollBars, static bar => bar.Orientation == Orientation.Horizontal && bar.IsVisible);
+        Assert.Contains(scrollBars, static bar => bar.Orientation == Orientation.Vertical && bar.IsVisible);
         window.Close();
     }
 
@@ -499,6 +553,61 @@ public sealed class ReportDesignerControlHeadlessTests
 
         Assert.Equal("72", xProperty.Value);
         Assert.Equal("364", widthProperty.Value);
+    }
+
+    [Fact]
+    public void Designer_SurfaceInteractionResizesTablixStructure()
+    {
+        using var viewModel = new ReportDesignerViewModel(CreateGroupingDesignerSource());
+        viewModel.SelectedCanvasItem = Assert.Single(viewModel.DesignItems, item => item.Item is TablixItem);
+
+        var canvasItem = viewModel.SelectedCanvasItem!;
+        var tablix = Assert.IsType<TablixItem>(canvasItem.Item);
+        var originalWidth = tablix.Bounds.Width;
+        var originalHeight = tablix.Bounds.Height;
+        var originalColumnTotal = tablix.Columns.Sum(static column => column.Width);
+        var originalRowTotal = tablix.Rows.Sum(static row => row.Height > 0f ? row.Height : 0f);
+
+        Assert.True(viewModel.TryResizeSurfaceItemByDelta(
+            canvasItem,
+            ReportDesignerSurfaceResizeHandle.SouthEast,
+            80d,
+            48d));
+
+        viewModel.CompleteSurfaceInteraction(canvasItem);
+
+        Assert.True(tablix.Bounds.Width > originalWidth);
+        Assert.True(tablix.Bounds.Height > originalHeight);
+        Assert.Equal(tablix.Bounds.Width, tablix.Columns.Sum(static column => column.Width), 3);
+        Assert.Equal(tablix.Bounds.Height, tablix.Rows.Sum(static row => row.Height), 3);
+        Assert.True(tablix.Columns.Sum(static column => column.Width) > originalColumnTotal);
+        Assert.True(tablix.Rows.Sum(static row => row.Height) > originalRowTotal);
+    }
+
+    [Fact]
+    public void Designer_PropertyEditsResizeTablixStructure()
+    {
+        using var viewModel = new ReportDesignerViewModel(CreateGroupingDesignerSource());
+        viewModel.SelectedCanvasItem = Assert.Single(viewModel.DesignItems, item => item.Item is TablixItem);
+
+        var tablix = Assert.IsType<TablixItem>(viewModel.SelectedCanvasItem!.Item);
+        var originalWidth = tablix.Bounds.Width;
+        var originalHeight = tablix.Bounds.Height;
+
+        var widthProperty = Assert.IsType<ReportDesignerTextPropertyViewModel>(
+            viewModel.PropertyEntries.First(property => property.Id == "item.width"));
+        var heightProperty = Assert.IsType<ReportDesignerTextPropertyViewModel>(
+            viewModel.PropertyEntries.First(property => property.Id == "item.height"));
+
+        widthProperty.Value = "600";
+        heightProperty.Value = "300";
+
+        Assert.Equal(600f, tablix.Bounds.Width);
+        Assert.Equal(300f, tablix.Bounds.Height);
+        Assert.Equal(tablix.Bounds.Width, tablix.Columns.Sum(static column => column.Width), 3);
+        Assert.Equal(tablix.Bounds.Height, tablix.Rows.Sum(static row => row.Height), 3);
+        Assert.True(tablix.Bounds.Width > originalWidth);
+        Assert.True(tablix.Bounds.Height > originalHeight);
     }
 
     [AvaloniaFact]

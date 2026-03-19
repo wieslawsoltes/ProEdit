@@ -104,10 +104,8 @@
       </ItemsControl>
     </Border>
 
-    <ScrollViewer Grid.Row="1"
-                  Grid.Column="1"
-                  HorizontalScrollBarVisibility="Visible"
-                  VerticalScrollBarVisibility="Visible">
+    <designer:ReportDesignerSurfaceScrollHost Grid.Row="1"
+                                              Grid.Column="1">
       <Border Classes="designer-surface-stage">
         <Border Classes="designer-page"
                 Padding="0"
@@ -395,6 +393,6 @@
           </Border>
         </Border>
       </Border>
-    </ScrollViewer>
+    </designer:ReportDesignerSurfaceScrollHost>
   </Grid>
 </UserControl>

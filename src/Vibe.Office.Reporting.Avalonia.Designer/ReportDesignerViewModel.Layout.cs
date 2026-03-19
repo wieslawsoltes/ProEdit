@@ -8,6 +8,8 @@ public sealed partial class ReportDesignerViewModel
 {
     private const double DesignerDrawerWidth = 304d;
     private const double DesignerInspectorWidth = 336d;
+    private const double DesignerInspectorMinWidth = 280d;
+    private const double DesignerInspectorMaxWidth = 640d;
 
     private PaneVisibilityState _contextTrayState = PaneVisibilityState.Closed;
     private PaneVisibilityState _leftDrawerState = PaneVisibilityState.Closed;
@@ -15,6 +17,7 @@ public sealed partial class ReportDesignerViewModel
     private DesignerContextPaneKind _activeContextPaneKind = DesignerContextPaneKind.None;
     private DesignerPaneKind _activeLeftPaneKind = DesignerPaneKind.ReportData;
     private DesignerPaneKind _activeRightPaneKind = DesignerPaneKind.Properties;
+    private double _inspectorDrawerWidth = DesignerInspectorWidth;
     private int _selectedReportDataPaneTabIndex;
     private bool _showSurfacePreviewBackground = true;
 
@@ -221,7 +224,26 @@ public sealed partial class ReportDesignerViewModel
     /// <summary>
     /// Gets the right drawer width.
     /// </summary>
-    public double RightDrawerWidth => IsRightDrawerVisible ? DesignerInspectorWidth : 0d;
+    public double RightDrawerWidth => IsRightDrawerVisible ? InspectorDrawerWidth : 0d;
+
+    /// <summary>
+    /// Gets or sets the persisted inspector drawer width.
+    /// </summary>
+    public double InspectorDrawerWidth
+    {
+        get => _inspectorDrawerWidth;
+        set
+        {
+            var clamped = Math.Clamp(value, DesignerInspectorMinWidth, DesignerInspectorMaxWidth);
+            if (Math.Abs(_inspectorDrawerWidth - clamped) < double.Epsilon)
+            {
+                return;
+            }
+
+            this.RaiseAndSetIfChanged(ref _inspectorDrawerWidth, clamped);
+            this.RaisePropertyChanged(nameof(RightDrawerWidth));
+        }
+    }
 
     /// <summary>
     /// Gets the open-report-data command.
@@ -429,6 +451,7 @@ public sealed partial class ReportDesignerViewModel
         LeftDrawerState = PaneVisibilityState.Closed;
         RightDrawerState = PaneVisibilityState.Closed;
         ContextTrayState = PaneVisibilityState.Closed;
+        InspectorDrawerWidth = DesignerInspectorWidth;
         ActiveContextPaneKind = DesignerContextPaneKind.None;
         SelectedReportDataPaneTabIndex = 0;
         SelectedInspectorTabIndex = 0;

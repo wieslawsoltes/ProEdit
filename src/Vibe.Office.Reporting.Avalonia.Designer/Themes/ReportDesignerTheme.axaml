@@ -1,5 +1,6 @@
 <Styles xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:designer="using:Vibe.Office.Reporting.Avalonia.Designer">
   <Styles.Resources>
     <SolidColorBrush x:Key="DesignerChromeBrush">#FFF8F9FB</SolidColorBrush>
     <SolidColorBrush x:Key="DesignerSurfaceBrush">#FFFFFFFF</SolidColorBrush>
@@ -196,6 +197,41 @@
         <Setter Property="BorderBrush" Value="{DynamicResource DesignerAccentBrush}" />
       </Style>
     </ControlTheme>
+
+    <ControlTheme x:Key="{x:Type designer:ReportDesignerSurfaceScrollHost}"
+                  TargetType="designer:ReportDesignerSurfaceScrollHost">
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Grid RowDefinitions="*,Auto"
+                ColumnDefinitions="*,Auto">
+            <ScrollViewer x:Name="PART_ScrollViewer"
+                          Grid.Row="0"
+                          Grid.Column="0"
+                          HorizontalScrollBarVisibility="Hidden"
+                          VerticalScrollBarVisibility="Hidden"
+                          AllowAutoHide="False">
+              <ContentPresenter Content="{TemplateBinding Content}"
+                                ContentTemplate="{TemplateBinding ContentTemplate}"
+                                HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+            </ScrollViewer>
+            <ScrollBar x:Name="PART_VerticalScrollBar"
+                       Grid.Row="0"
+                       Grid.Column="1"
+                       Orientation="Vertical"
+                       IsVisible="True" />
+            <ScrollBar x:Name="PART_HorizontalScrollBar"
+                       Grid.Row="1"
+                       Grid.Column="0"
+                       Orientation="Horizontal"
+                       IsVisible="True" />
+            <Border Grid.Row="1"
+                    Grid.Column="1"
+                    Background="#E6D7DEE8" />
+          </Grid>
+        </ControlTemplate>
+      </Setter>
+    </ControlTheme>
   </Styles.Resources>
 
   <Style Selector="Border.designer-command-strip">
@@ -313,6 +349,22 @@
     <Setter Property="BoxShadow" Value="0 10 24 0 #1A000000" />
   </Style>
 
+  <Style Selector="designer|ReportDesignerSurfaceScrollHost ScrollBar">
+    <Setter Property="IsVisible" Value="True" />
+    <Setter Property="Opacity" Value="1" />
+    <Setter Property="Width" Value="14" />
+    <Setter Property="Height" Value="14" />
+  </Style>
+
+  <Style Selector="designer|ReportDesignerSurfaceScrollHost ScrollBar /template/ Border#PART_Track">
+    <Setter Property="Background" Value="#E6D7DEE8" />
+  </Style>
+
+  <Style Selector="designer|ReportDesignerSurfaceScrollHost ScrollBar /template/ Border#PART_Thumb">
+    <Setter Property="Background" Value="#FF95A3B8" />
+    <Setter Property="CornerRadius" Value="7" />
+  </Style>
+
   <Style Selector="Button.designer-canvas-item">
     <Setter Property="HorizontalContentAlignment" Value="Left" />
     <Setter Property="VerticalContentAlignment" Value="Top" />
@@ -377,6 +429,19 @@
 
   <Style Selector="GridSplitter.designer-splitter:pointerover">
     <Setter Property="Background" Value="#FFD5E4F7" />
+  </Style>
+
+  <Style Selector="designer|ReportDesignerDrawerResizeHandle.designer-splitter">
+    <Setter Property="Width" Value="6" />
+    <Setter Property="Background" Value="#14A0AEC0" />
+    <Setter Property="Cursor" Value="SizeWestEast" />
+    <Setter Property="BorderBrush" Value="#33899BB4" />
+    <Setter Property="BorderThickness" Value="1,0,1,0" />
+  </Style>
+
+  <Style Selector="designer|ReportDesignerDrawerResizeHandle.designer-splitter:pointerover">
+    <Setter Property="Background" Value="#FFD5E4F7" />
+    <Setter Property="BorderBrush" Value="#FF8CB5E6" />
   </Style>
 
   <Style Selector="Border.designer-property-shell">

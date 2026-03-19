@@ -189,6 +189,11 @@ public sealed partial class ReportDesignerViewModel
             Height = newHeight
         };
 
+        if (item is TablixItem tablixItem)
+        {
+            ResizeTablixStructure(tablixItem, bounds.Width, bounds.Height, newWidth, newHeight);
+        }
+
         canvasItem.Left += newX - bounds.X;
         canvasItem.Top += newY - bounds.Y;
         canvasItem.Width = newWidth;
@@ -200,6 +205,94 @@ public sealed partial class ReportDesignerViewModel
         }
 
         return true;
+    }
+
+    private static void ResizeTablixStructure(TablixItem tablixItem, float oldWidth, float oldHeight, float newWidth, float newHeight)
+    {
+        ResizeTablixColumns(tablixItem, oldWidth, newWidth);
+        ResizeTablixRows(tablixItem, oldHeight, newHeight);
+    }
+
+    private static void ResizeTablixColumns(TablixItem tablixItem, float oldWidth, float newWidth)
+    {
+        var columnCount = tablixItem.Columns.Count;
+        if (columnCount == 0)
+        {
+            return;
+        }
+
+        var sourceWidths = new float[columnCount];
+        var fallbackWidth = columnCount == 0 ? newWidth : Math.Max(1f, oldWidth / columnCount);
+        var sourceTotal = 0f;
+        for (var index = 0; index < columnCount; index++)
+        {
+            var width = tablixItem.Columns[index].Width > 0f
+                ? tablixItem.Columns[index].Width
+                : fallbackWidth;
+            sourceWidths[index] = width;
+            sourceTotal += width;
+        }
+
+        if (sourceTotal <= 0f)
+        {
+            sourceTotal = columnCount;
+        }
+
+        var remainingSource = sourceTotal;
+        var remainingTarget = Math.Max(1f, newWidth);
+        for (var index = 0; index < columnCount; index++)
+        {
+            var remainingColumns = columnCount - index - 1;
+            var width = index == columnCount - 1
+                ? remainingTarget
+                : Math.Max(1f, remainingTarget * (sourceWidths[index] / remainingSource));
+            var maxWidth = Math.Max(1f, remainingTarget - remainingColumns);
+            width = Math.Clamp(width, 1f, maxWidth);
+            tablixItem.Columns[index].Width = width;
+            remainingTarget -= width;
+            remainingSource -= sourceWidths[index];
+        }
+    }
+
+    private static void ResizeTablixRows(TablixItem tablixItem, float oldHeight, float newHeight)
+    {
+        var rowCount = tablixItem.Rows.Count;
+        if (rowCount == 0)
+        {
+            return;
+        }
+
+        var sourceHeights = new float[rowCount];
+        var fallbackHeight = rowCount == 0 ? newHeight : Math.Max(1f, oldHeight / rowCount);
+        var sourceTotal = 0f;
+        for (var index = 0; index < rowCount; index++)
+        {
+            var height = tablixItem.Rows[index].Height > 0f
+                ? tablixItem.Rows[index].Height
+                : fallbackHeight;
+            sourceHeights[index] = height;
+            sourceTotal += height;
+        }
+
+        if (sourceTotal <= 0f)
+        {
+            sourceTotal = rowCount;
+        }
+
+        var remainingSource = sourceTotal;
+        var remainingTarget = Math.Max(1f, newHeight);
+        for (var index = 0; index < rowCount; index++)
+        {
+            var remainingRows = rowCount - index - 1;
+            var height = index == rowCount - 1
+                ? remainingTarget
+                : Math.Max(1f, remainingTarget * (sourceHeights[index] / remainingSource));
+            var maxHeight = Math.Max(1f, remainingTarget - remainingRows);
+            height = Math.Clamp(height, 1f, maxHeight);
+            tablixItem.Rows[index].Height = height;
+            remainingTarget -= height;
+            remainingSource -= sourceHeights[index];
+        }
     }
 
     internal void CompleteSurfaceInteraction(ReportDesignerCanvasItemViewModel canvasItem)
