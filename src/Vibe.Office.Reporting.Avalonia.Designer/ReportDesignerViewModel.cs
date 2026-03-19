@@ -212,6 +212,8 @@ public sealed class ReportDesignerSurfaceBarViewModel
 /// </summary>
 public sealed class ReportDesignerCanvasItemViewModel : ReactiveObject
 {
+    private const double MinimumSurfaceHitTargetExtent = 18d;
+
     private readonly ObservableCollection<ReportDesignerSurfaceBarViewModel> _previewBars = new();
     private readonly ObservableCollection<ReportDesignerSurfaceRowViewModel> _previewRows = new();
     private string _badgeBrush = "#FFE8F1FB";
@@ -242,6 +244,8 @@ public sealed class ReportDesignerCanvasItemViewModel : ReactiveObject
     private double _top;
     private double _width = 48d;
     private double _height = 36d;
+    private double _interactionPaddingX;
+    private double _interactionPaddingY;
     private int _zIndex;
 
     internal ReportDesignerCanvasItemViewModel(
@@ -290,7 +294,17 @@ public sealed class ReportDesignerCanvasItemViewModel : ReactiveObject
     public double Left
     {
         get => _left;
-        internal set => this.RaiseAndSetIfChanged(ref _left, Math.Max(0d, value));
+        internal set
+        {
+            var normalized = Math.Max(0d, value);
+            if (Math.Abs(_left - normalized) < 0.01d)
+            {
+                return;
+            }
+
+            this.RaiseAndSetIfChanged(ref _left, normalized);
+            this.RaisePropertyChanged(nameof(SurfaceHostLeft));
+        }
     }
 
     /// <summary>
@@ -299,7 +313,17 @@ public sealed class ReportDesignerCanvasItemViewModel : ReactiveObject
     public double Top
     {
         get => _top;
-        internal set => this.RaiseAndSetIfChanged(ref _top, Math.Max(0d, value));
+        internal set
+        {
+            var normalized = Math.Max(0d, value);
+            if (Math.Abs(_top - normalized) < 0.01d)
+            {
+                return;
+            }
+
+            this.RaiseAndSetIfChanged(ref _top, normalized);
+            this.RaisePropertyChanged(nameof(SurfaceHostTop));
+        }
     }
 
     /// <summary>
@@ -308,7 +332,17 @@ public sealed class ReportDesignerCanvasItemViewModel : ReactiveObject
     public double Width
     {
         get => _width;
-        internal set => this.RaiseAndSetIfChanged(ref _width, Math.Max(48d, value));
+        internal set
+        {
+            var normalized = Math.Max(1d, value);
+            if (Math.Abs(_width - normalized) < 0.01d)
+            {
+                return;
+            }
+
+            this.RaiseAndSetIfChanged(ref _width, normalized);
+            RefreshInteractionHostGeometry();
+        }
     }
 
     /// <summary>
@@ -317,8 +351,54 @@ public sealed class ReportDesignerCanvasItemViewModel : ReactiveObject
     public double Height
     {
         get => _height;
-        internal set => this.RaiseAndSetIfChanged(ref _height, Math.Max(36d, value));
+        internal set
+        {
+            var normalized = Math.Max(1d, value);
+            if (Math.Abs(_height - normalized) < 0.01d)
+            {
+                return;
+            }
+
+            this.RaiseAndSetIfChanged(ref _height, normalized);
+            RefreshInteractionHostGeometry();
+        }
     }
+
+    /// <summary>
+    /// Gets the horizontal padding added around small items so they remain easy to select.
+    /// </summary>
+    public double InteractionPaddingX => _interactionPaddingX;
+
+    /// <summary>
+    /// Gets the vertical padding added around small items so they remain easy to select.
+    /// </summary>
+    public double InteractionPaddingY => _interactionPaddingY;
+
+    /// <summary>
+    /// Gets the left coordinate of the interactive host that wraps the item.
+    /// </summary>
+    public double SurfaceHostLeft => Left - InteractionPaddingX;
+
+    /// <summary>
+    /// Gets the top coordinate of the interactive host that wraps the item.
+    /// </summary>
+    public double SurfaceHostTop => Top - InteractionPaddingY;
+
+    /// <summary>
+    /// Gets the width of the interactive host that wraps the item.
+    /// </summary>
+    public double SurfaceHostWidth => Width + (InteractionPaddingX * 2d);
+
+    /// <summary>
+    /// Gets the height of the interactive host that wraps the item.
+    /// </summary>
+    public double SurfaceHostHeight => Height + (InteractionPaddingY * 2d);
+
+    /// <summary>
+    /// Gets the margin that restores the actual report-item bounds inside the interactive host.
+    /// </summary>
+    public string SurfaceChromeMargin =>
+        $"{FormatNumber((float)InteractionPaddingX)},{FormatNumber((float)InteractionPaddingY)},{FormatNumber((float)InteractionPaddingX)},{FormatNumber((float)InteractionPaddingY)}";
 
     /// <summary>
     /// Gets the canvas z-order.
@@ -1037,6 +1117,19 @@ public sealed class ReportDesignerCanvasItemViewModel : ReactiveObject
 
         var channel = Math.Clamp((int)Math.Round(alpha * 255d, MidpointRounding.AwayFromZero), 0, 255);
         return $"#{channel:X2}{normalized}";
+    }
+
+    private void RefreshInteractionHostGeometry()
+    {
+        _interactionPaddingX = Math.Max(0d, Math.Ceiling((MinimumSurfaceHitTargetExtent - _width) / 2d));
+        _interactionPaddingY = Math.Max(0d, Math.Ceiling((MinimumSurfaceHitTargetExtent - _height) / 2d));
+        this.RaisePropertyChanged(nameof(InteractionPaddingX));
+        this.RaisePropertyChanged(nameof(InteractionPaddingY));
+        this.RaisePropertyChanged(nameof(SurfaceHostLeft));
+        this.RaisePropertyChanged(nameof(SurfaceHostTop));
+        this.RaisePropertyChanged(nameof(SurfaceHostWidth));
+        this.RaisePropertyChanged(nameof(SurfaceHostHeight));
+        this.RaisePropertyChanged(nameof(SurfaceChromeMargin));
     }
 }
 

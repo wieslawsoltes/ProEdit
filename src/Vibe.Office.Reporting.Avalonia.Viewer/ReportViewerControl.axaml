@@ -60,8 +60,7 @@
                   Content="+"
                   Command="{Binding ZoomInCommand}" />
           <ToggleButton Theme="{StaticResource ViewerToolToggleButtonTheme}"
-                        IsChecked="{Binding IsThumbnailTrayOpen}"
-                        Command="{Binding ToggleThumbnailsCommand}">
+                        IsChecked="{Binding IsThumbnailTrayOpen}">
             <TextBlock Text="Pages" />
           </ToggleButton>
         </StackPanel>

@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
@@ -130,6 +131,131 @@ public sealed class ReportDesignerControlHeadlessTests
         await Dispatcher.UIThread.InvokeAsync(static () => { });
         Assert.Equal(PaneVisibilityState.Closed, viewModel.LeftDrawerState);
         Assert.True(designSurface.Bounds.Width >= closedWidth);
+
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public async Task Designer_PageSurfaceExposesVisibleScrollBarsForPageViews()
+    {
+        using var viewModel = new ReportDesignerViewModel(CreateDesignerSource());
+        var control = new ReportDesignerControl
+        {
+            DataContext = viewModel,
+            Width = 960,
+            Height = 720
+        };
+        var window = new Window
+        {
+            Width = 980,
+            Height = 760,
+            Content = control
+        };
+
+        window.Show();
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+
+        Execute(viewModel.ActualSizeCommand);
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+
+        var scrollViewer = control.GetVisualDescendants().OfType<ScrollViewer>()
+            .First(viewer => viewer.Content is Border);
+
+        Assert.Equal(ScrollBarVisibility.Visible, scrollViewer.HorizontalScrollBarVisibility);
+        Assert.Equal(ScrollBarVisibility.Visible, scrollViewer.VerticalScrollBarVisibility);
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public async Task Designer_ToolbarTogglesUseBoundStateWithoutCommandDoubleToggle()
+    {
+        using var viewModel = new ReportDesignerViewModel(CreateDesignerSource());
+        var control = new ReportDesignerControl
+        {
+            DataContext = viewModel,
+            Width = 1280,
+            Height = 860
+        };
+        var window = new Window
+        {
+            Width = 1320,
+            Height = 900,
+            Content = control
+        };
+
+        window.Show();
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+
+        var toggles = control.GetVisualDescendants().OfType<ToggleButton>().ToArray();
+        var rulersToggle = toggles.Single(toggle => toggle.Content is TextBlock { Text: "Rulers" });
+        var previewToggle = toggles.Single(toggle => toggle.Content is TextBlock { Text: "Preview" });
+
+        Assert.Null(rulersToggle.Command);
+        Assert.Null(previewToggle.Command);
+
+        rulersToggle.IsChecked = false;
+        previewToggle.IsChecked = false;
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+
+        Assert.False(viewModel.ShowRulers);
+        Assert.False(viewModel.ShowSurfacePreviewBackground);
+
+        rulersToggle.IsChecked = true;
+        previewToggle.IsChecked = true;
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+
+        Assert.True(viewModel.ShowRulers);
+        Assert.True(viewModel.ShowSurfacePreviewBackground);
+
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public async Task Designer_SmallItemsKeepActualSelectionBoundsWithExpandedHitTargets()
+    {
+        using var viewModel = new ReportDesignerViewModel(CreateSelectionGeometrySource());
+        var control = new ReportDesignerControl
+        {
+            DataContext = viewModel,
+            Width = 1200,
+            Height = 860
+        };
+        var window = new Window
+        {
+            Width = 1240,
+            Height = 900,
+            Content = control
+        };
+
+        window.Show();
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+
+        var lineCanvasItem = Assert.Single(viewModel.DesignItems, item => item.Item is LineItem);
+        var lineItem = Assert.IsType<LineItem>(lineCanvasItem.Item);
+        Assert.Equal(lineItem.Bounds.Width, (float)lineCanvasItem.Width);
+        Assert.Equal(lineItem.Bounds.Height, (float)lineCanvasItem.Height);
+        Assert.True(lineCanvasItem.SurfaceHostHeight > lineCanvasItem.Height);
+        Assert.True(lineCanvasItem.InteractionPaddingY > 0d);
+
+        viewModel.SelectedCanvasItem = lineCanvasItem;
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+        lineCanvasItem = Assert.Single(viewModel.DesignItems, item => ReferenceEquals(item.Item, lineItem));
+
+        Assert.Equal(lineCanvasItem.Left, lineItem.Bounds.X, 3);
+        Assert.Equal(lineCanvasItem.Top, lineItem.Bounds.Y, 3);
+        Assert.Equal(lineCanvasItem.Left, lineCanvasItem.SurfaceHostLeft, 3);
+        Assert.True(lineCanvasItem.SurfaceHostTop < lineCanvasItem.Top);
+        Assert.Equal(lineCanvasItem.Width, lineCanvasItem.SurfaceHostWidth, 3);
+        Assert.True(lineCanvasItem.SurfaceHostHeight > lineCanvasItem.Height);
+
+        var tinyTextCanvasItem = Assert.Single(
+            viewModel.DesignItems,
+            item => item.Item is TextItem textItem && string.Equals(textItem.Id, "tiny-caption", StringComparison.Ordinal));
+        var tinyTextItem = Assert.IsType<TextItem>(tinyTextCanvasItem.Item);
+        Assert.Equal(tinyTextItem.Bounds.Width, (float)tinyTextCanvasItem.Width);
+        Assert.Equal(tinyTextItem.Bounds.Height, (float)tinyTextCanvasItem.Height);
+        Assert.True(tinyTextCanvasItem.SurfaceHostWidth > tinyTextCanvasItem.Width);
+        Assert.True(tinyTextCanvasItem.SurfaceHostHeight > tinyTextCanvasItem.Height);
 
         window.Close();
     }
@@ -1023,6 +1149,46 @@ public sealed class ReportDesignerControlHeadlessTests
         };
         source.ReferencedReports[detailReport.Id] = detailReport;
         return source;
+    }
+
+    private static ReportViewerSource CreateSelectionGeometrySource()
+    {
+        var report = new ReportDefinition
+        {
+            Id = "selection-geometry",
+            Name = "Selection Geometry",
+            Sections =
+            {
+                new ReportSection
+                {
+                    Id = "main",
+                    Name = "Main",
+                    BodyItems =
+                    {
+                        new LineItem
+                        {
+                            Id = "divider",
+                            Name = "Divider",
+                            Bounds = new ReportItemBounds(40f, 96f, 240f, 1f),
+                            X2 = 280f,
+                            Y2 = 97f
+                        },
+                        new TextItem
+                        {
+                            Id = "tiny-caption",
+                            Name = "Tiny Caption",
+                            StaticText = "FY26",
+                            Bounds = new ReportItemBounds(48f, 132f, 12f, 12f)
+                        }
+                    }
+                }
+            }
+        };
+
+        return new ReportViewerSource
+        {
+            ReportDefinition = report
+        };
     }
 
     private static ReportViewerSource CreateDataWorkspaceSource()

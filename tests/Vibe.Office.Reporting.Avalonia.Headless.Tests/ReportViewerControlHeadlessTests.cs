@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
@@ -180,6 +181,44 @@ public sealed class ReportViewerControlHeadlessTests
     }
 
     [AvaloniaFact]
+    public async Task Viewer_PagesToggleUsesBoundStateWithoutCommandDoubleToggle()
+    {
+        using var viewModel = new ReportViewerViewModel(new ReportViewerSessionService());
+        await viewModel.LoadAsync(CreateViewerSource());
+
+        var control = new ReportViewerControl
+        {
+            DataContext = viewModel,
+            Width = 1400,
+            Height = 900
+        };
+        var window = new Window
+        {
+            Width = 1440,
+            Height = 960,
+            Content = control
+        };
+
+        window.Show();
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+
+        var pagesToggle = control.GetVisualDescendants().OfType<ToggleButton>()
+            .Single(toggle => toggle.Content is TextBlock { Text: "Pages" });
+
+        Assert.Null(pagesToggle.Command);
+
+        pagesToggle.IsChecked = true;
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+        Assert.True(viewModel.IsThumbnailTrayOpen);
+
+        pagesToggle.IsChecked = false;
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+        Assert.False(viewModel.IsThumbnailTrayOpen);
+
+        window.Close();
+    }
+
+    [AvaloniaFact]
     public async Task Viewer_DrillthroughAndBackNavigationWork()
     {
         using var viewModel = new ReportViewerViewModel(new ReportViewerSessionService());
@@ -202,6 +241,24 @@ public sealed class ReportViewerControlHeadlessTests
         Assert.Equal("main-report", viewModel.Source!.ReportDefinition.Id);
         viewModel.SearchQuery = "Preview Title";
         Assert.NotEmpty(viewModel.SearchResults);
+    }
+
+    [AvaloniaFact]
+    public async Task Viewer_DrillthroughWithPromptedTargetReopensParametersPane()
+    {
+        using var viewModel = new ReportViewerViewModel(new ReportViewerSessionService());
+        await viewModel.LoadAsync(CreateViewerSourceWithPromptedDrillthrough());
+
+        using var searchPaneSubscription = viewModel.OpenSearchPaneCommand.Execute().Subscribe();
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+        Assert.True(viewModel.IsSearchPaneActive);
+
+        var drillthrough = Assert.Single(viewModel.DrillthroughItems);
+        await viewModel.NavigateToDrillthroughAsync(drillthrough.Entry);
+
+        Assert.Equal("detail-prompted-report", viewModel.Source!.ReportDefinition.Id);
+        Assert.Equal(PaneVisibilityState.Open, viewModel.LeftDrawerState);
+        Assert.True(viewModel.IsParametersPaneActive);
     }
 
     [AvaloniaFact]
@@ -455,6 +512,79 @@ public sealed class ReportViewerControlHeadlessTests
                 }
             }
         };
+    }
+
+    private static ReportViewerSource CreateViewerSourceWithPromptedDrillthrough()
+    {
+        var detailReport = new ReportDefinition
+        {
+            Id = "detail-prompted-report",
+            Name = "Detail Prompted Report",
+            Parameters =
+            {
+                new ReportParameterDefinition
+                {
+                    Id = "Company",
+                    DisplayName = "Company",
+                    Prompt = "Select company",
+                    DataType = ReportParameterDataType.String,
+                    Visibility = ReportParameterVisibility.Visible
+                }
+            },
+            Sections =
+            {
+                new ReportSection
+                {
+                    Id = "detail",
+                    Name = "Detail",
+                    BodyItems =
+                    {
+                        new TextItem
+                        {
+                            Id = "detail-body",
+                            Name = "Detail Body",
+                            ValueExpression = "Parameters.Company",
+                            Bounds = new ReportItemBounds(0f, 0f, 320f, 24f)
+                        }
+                    }
+                }
+            }
+        };
+
+        var mainReport = new ReportDefinition
+        {
+            Id = "main-drillthrough-report",
+            Name = "Main Drillthrough Report",
+            Sections =
+            {
+                new ReportSection
+                {
+                    Id = "main",
+                    Name = "Main",
+                    BodyItems =
+                    {
+                        new TextItem
+                        {
+                            Id = "open-detail",
+                            Name = "Open Detail",
+                            StaticText = "Open Prompted Detail",
+                            DrillthroughAction = new ReportDrillthroughAction
+                            {
+                                ReportReferenceId = "detail-prompted-report"
+                            },
+                            Bounds = new ReportItemBounds(0f, 0f, 320f, 24f)
+                        }
+                    }
+                }
+            }
+        };
+
+        var source = new ReportViewerSource
+        {
+            ReportDefinition = mainReport
+        };
+        source.ReferencedReports[detailReport.Id] = detailReport;
+        return source;
     }
 
     private static ReportViewerExecutionSnapshot CreateStubSnapshot(bool includeDrillthrough = false)

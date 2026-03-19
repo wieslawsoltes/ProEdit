@@ -1448,6 +1448,7 @@ public sealed partial class ReportViewerViewModel : ReactiveObject, IDisposable
         CopyReports(Source.ReferencedReports, nextSource.ReferencedReports);
         CopyValues(Source.Globals, nextSource.Globals);
 
+        ResetLayoutInitialization();
         if (await LoadCoreAsync(nextSource, entry.Action.Parameters, resetBackStack: false, null, CancellationToken.None))
         {
             _navigationStack.Push(frame);

@@ -144,11 +144,11 @@ public sealed class ReportDesignerSurfaceItemControl : ContentControl
             return;
         }
 
-        var position = e.GetPosition(this);
+        var position = TranslateToItemSpace(e.GetPosition(this), canvasItem);
         if (designer.TryApplyDesignerDrop(
                 payload,
-                canvasItem.Left + position.X,
-                canvasItem.Top + position.Y,
+                canvasItem.Left + Math.Clamp(position.X, 0d, canvasItem.Width),
+                canvasItem.Top + Math.Clamp(position.Y, 0d, canvasItem.Height),
                 canvasItem))
         {
             if (FindStablePointerHost() is InputElement hostElement)
@@ -184,10 +184,11 @@ public sealed class ReportDesignerSurfaceItemControl : ContentControl
             return ReportDesignerSurfaceResizeHandle.Move;
         }
 
-        var isLeft = position.X <= HandleHitPadding;
-        var isRight = Bounds.Width - position.X <= HandleHitPadding;
-        var isTop = position.Y <= HandleHitPadding;
-        var isBottom = Bounds.Height - position.Y <= HandleHitPadding;
+        var itemPosition = TranslateToItemSpace(position, item);
+        var isLeft = itemPosition.X <= HandleHitPadding;
+        var isRight = item.Width - itemPosition.X <= HandleHitPadding;
+        var isTop = itemPosition.Y <= HandleHitPadding;
+        var isBottom = item.Height - itemPosition.Y <= HandleHitPadding;
 
         if (isLeft && isTop)
         {
@@ -230,6 +231,13 @@ public sealed class ReportDesignerSurfaceItemControl : ContentControl
         }
 
         return ReportDesignerSurfaceResizeHandle.Move;
+    }
+
+    private static Point TranslateToItemSpace(Point hostPosition, ReportDesignerCanvasItemViewModel item)
+    {
+        return new Point(
+            hostPosition.X - item.InteractionPaddingX,
+            hostPosition.Y - item.InteractionPaddingY);
     }
 
     private Point GetStablePointerPosition(PointerEventArgs e)

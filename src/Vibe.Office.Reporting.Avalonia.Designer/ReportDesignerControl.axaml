@@ -99,13 +99,11 @@
                     Content="+"
                     Command="{Binding ZoomInCommand}" />
             <ToggleButton Theme="{StaticResource DesignerToolToggleButtonTheme}"
-                          IsChecked="{Binding ShowRulers}"
-                          Command="{Binding ToggleRulersCommand}">
+                          IsChecked="{Binding ShowRulers}">
               <TextBlock Text="Rulers" />
             </ToggleButton>
             <ToggleButton Theme="{StaticResource DesignerToolToggleButtonTheme}"
-                          IsChecked="{Binding ShowSurfacePreviewBackground}"
-                          Command="{Binding TogglePreviewBackgroundCommand}">
+                          IsChecked="{Binding ShowSurfacePreviewBackground}">
               <TextBlock Text="Preview" />
             </ToggleButton>
             <Button Theme="{StaticResource DesignerActionButtonTheme}"
