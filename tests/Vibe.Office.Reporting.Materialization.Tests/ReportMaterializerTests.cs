@@ -179,6 +179,137 @@ public sealed class ReportMaterializerTests
     }
 
     [Fact]
+    public async Task MaterializeAsync_AppliesTablixFiltersBeforeDetailExpansion()
+    {
+        var reportDefinition = new ReportDefinition
+        {
+            Id = "filtered-tablix",
+            Name = "Filtered Tablix",
+            Parameters =
+            {
+                new ReportParameterDefinition
+                {
+                    Id = "Donor",
+                    DisplayName = "Donor",
+                    DataType = ReportParameterDataType.String
+                }
+            },
+            DataSources =
+            {
+                new ReportDataSourceDefinition
+                {
+                    Id = "donors-source",
+                    ProviderId = ReportProviderIds.InMemory,
+                    Options =
+                    {
+                        ["sourceKey"] = "donors"
+                    }
+                }
+            },
+            DataSets =
+            {
+                new ReportDataSetDefinition
+                {
+                    Id = "donors",
+                    DataSourceId = "donors-source"
+                }
+            },
+            Sections =
+            {
+                new ReportSection
+                {
+                    Id = "main",
+                    Name = "Main",
+                    BodyItems =
+                    {
+                        new TablixItem
+                        {
+                            Id = "donor-table",
+                            Name = "Donor Table",
+                            DataSetId = "donors",
+                            Bounds = new ReportItemBounds(0f, 0f, 300f, 90f),
+                            Filters =
+                            {
+                                new ReportFilterDefinition
+                                {
+                                    Expression = "Fields.Name",
+                                    Operator = ReportFilterOperator.Equal,
+                                    ValueExpression = "Parameters.Donor"
+                                }
+                            },
+                            Columns =
+                            {
+                                new ReportTablixColumnDefinition { Id = "name", Width = 150f },
+                                new ReportTablixColumnDefinition { Id = "amount", Width = 80f }
+                            },
+                            Rows =
+                            {
+                                new ReportTablixRowDefinition
+                                {
+                                    Id = "header",
+                                    IsHeader = true,
+                                    Cells =
+                                    {
+                                        new ReportTablixCellDefinition { Text = "Name" },
+                                        new ReportTablixCellDefinition { Text = "Amount" }
+                                    }
+                                },
+                                new ReportTablixRowDefinition
+                                {
+                                    Id = "detail",
+                                    Cells =
+                                    {
+                                        new ReportTablixCellDefinition { ValueExpression = "Fields.Name" },
+                                        new ReportTablixCellDefinition { ValueExpression = "Fields.Amount" }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        var hostData = new ReportHostDataRegistry();
+        hostData.RegisterInMemorySource(
+            "donors",
+            new ReportDictionaryDataSource(
+                new List<IReadOnlyDictionary<string, object?>>
+                {
+                    new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["Name"] = "Jarred Pierce",
+                        ["Amount"] = 2500
+                    },
+                    new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["Name"] = "Roberto Hilario",
+                        ["Amount"] = 3700
+                    }
+                }));
+
+        var materializer = new ReportMaterializer(new ReportExpressionCompiler());
+        var request = new ReportMaterializationRequest
+        {
+            ReportDefinition = reportDefinition,
+            ProviderRegistry = ReportDataProviders.CreateDefaultRegistry(),
+            HostDataRegistry = hostData
+        };
+        request.ParameterValues["Donor"] = ReportParameterValue.FromScalar("Roberto Hilario");
+
+        var result = await materializer.MaterializeAsync(request);
+
+        Assert.False(result.HasErrors);
+        var report = Assert.IsType<MaterializedReport>(result.MaterializedReport);
+        Assert.Equal(2, report.DataSets[0].Rows.Count);
+        var tablix = Assert.IsType<MaterializedTablixReportItem>(Assert.Single(report.Sections[0].BodyItems));
+        Assert.Equal(2, tablix.Rows.Count);
+        Assert.True(tablix.Rows[0].IsHeader);
+        Assert.Equal("Roberto Hilario", tablix.Rows[1].Cells[0].Text);
+        Assert.Equal("3700", tablix.Rows[1].Cells[1].Text);
+    }
+
+    [Fact]
     public async Task MaterializeAsync_ResolvesSharedTemplatesAndSubreports()
     {
         var subreportDefinition = new ReportDefinition

@@ -95,6 +95,7 @@ internal static class ReportTemplateModelNormalizer
             case GaugeItem:
                 break;
             case TablixItem tablix:
+                tablix.Filters ??= [];
                 tablix.Columns ??= [];
                 tablix.Rows ??= [];
                 foreach (var row in tablix.Rows)

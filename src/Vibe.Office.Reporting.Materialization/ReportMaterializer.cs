@@ -667,84 +667,686 @@ public sealed class ReportMaterializer : IReportMaterializer
             return materialized;
         }
 
-        var rows = ToScopeRows(dataSet.Rows);
+        var chartScopeRows = ResolveScopedDataRows(dataSet.Rows, context.ScopeRows);
         var chart = new ChartModel
         {
-            Type = ChartType.Bar,
-            BarDirection = ChartBarDirection.Column,
-            Title = EvaluateStringExpression(item.TitleExpression, context, path + ".titleExpression", diagnostics)
+            Type = item.Type,
+            BarDirection = item.BarDirection,
+            Title = EvaluateStringExpression(item.TitleExpression, context, path + ".titleExpression", diagnostics),
+            TitleTextStyle = CloneChartTextStyle(item.TitleTextStyle),
+            TitlePosition = item.TitlePosition,
+            PaletteName = item.PaletteName,
+            ChartAreaStyle = CloneChartStyle(item.ChartAreaStyle),
+            PlotAreaStyle = CloneChartStyle(item.PlotAreaStyle),
+            Legend = CloneChartLegend(item.Legend)
         };
+        CloneChartAxes(item.Axes, chart.Axes);
 
-        var seriesMap = new Dictionary<string, ChartSeries>(StringComparer.OrdinalIgnoreCase);
-        for (var rowIndex = 0; rowIndex < dataSet.Rows.Count; rowIndex++)
+        if (item.Type is ChartType.Treemap or ChartType.Sunburst)
         {
-            var row = dataSet.Rows[rowIndex];
-            var rowContext = CreateReportContext(
+            var hierarchyRoots = BuildShapeChartHierarchy(
+                item,
+                chartScopeRows,
                 resolvedParameters,
-                row.Values,
-                rows,
                 globals,
                 runtime,
-                ReportExpressionScopeKind.Row,
-                item.DataSetId,
-                rowIndex,
-                context.NamedScopes);
-
-            var category = EvaluateStringExpression(item.CategoryExpression, rowContext, path + ".categoryExpression", diagnostics);
-            for (var seriesIndex = 0; seriesIndex < item.Series.Count; seriesIndex++)
+                context,
+                path,
+                diagnostics);
+            foreach (var root in hierarchyRoots)
             {
-                var seriesDefinition = item.Series[seriesIndex];
-                var seriesPath = $"{path}.series[{seriesIndex}]";
-                var seriesName = EvaluateStringExpression(seriesDefinition.NameExpression, rowContext, seriesPath + ".nameExpression", diagnostics);
-                if (string.IsNullOrWhiteSpace(seriesName))
-                {
-                    seriesName = $"Series {seriesIndex + 1}";
-                }
+                chart.HierarchyRoots.Add(root);
+            }
 
-                var rawValue = EvaluateExpression(seriesDefinition.ValueExpression, rowContext, seriesPath + ".valueExpression", diagnostics);
+            materialized.Model = chart;
+            return materialized;
+        }
+
+        var categoryBuckets = BuildChartCategoryBuckets(
+            item,
+            chartScopeRows,
+            resolvedParameters,
+            globals,
+            runtime,
+            context,
+            path,
+            diagnostics);
+        if (categoryBuckets.Count == 0)
+        {
+            materialized.Model = chart;
+            return materialized;
+        }
+
+        for (var seriesIndex = 0; seriesIndex < item.Series.Count; seriesIndex++)
+        {
+            var seriesDefinition = item.Series[seriesIndex];
+            var seriesPath = $"{path}.series[{seriesIndex}]";
+            var representativeContext = categoryBuckets[0].Context;
+            var seriesName = EvaluateStringExpression(seriesDefinition.NameExpression, representativeContext, seriesPath + ".nameExpression", diagnostics);
+            if (string.IsNullOrWhiteSpace(seriesName))
+            {
+                seriesName = $"Series {seriesIndex + 1}";
+            }
+
+            var chartSeries = new ChartSeries
+            {
+                Name = seriesName,
+                Style = BuildChartSeriesStyle(item.Type, seriesDefinition, representativeContext, seriesPath, diagnostics),
+                DataLabels = CloneChartDataLabels(seriesDefinition.DataLabels),
+                UseSmoothedLine = seriesDefinition.UseSmoothedLine
+            };
+
+            for (var categoryIndex = 0; categoryIndex < categoryBuckets.Count; categoryIndex++)
+            {
+                var categoryBucket = categoryBuckets[categoryIndex];
+                var rawValue = EvaluateExpression(seriesDefinition.ValueExpression, categoryBucket.Context, seriesPath + ".valueExpression", diagnostics);
                 if (!TryConvertToDouble(rawValue, runtime.Culture, out var numericValue))
                 {
                     continue;
                 }
 
-                if (!seriesMap.TryGetValue(seriesName, out var chartSeries))
-                {
-                    chartSeries = new ChartSeries
-                    {
-                        Name = seriesName
-                    };
-                    seriesMap[seriesName] = chartSeries;
-                    chart.Series.Add(chartSeries);
-                }
-
                 var point = new ChartPoint
                 {
-                    Category = category,
+                    Category = categoryBucket.Label,
                     Value = numericValue
                 };
 
-                var colorText = EvaluateStringExpression(
-                    seriesDefinition.ColorExpression,
-                    rowContext.CreateWithSelfValue(numericValue),
-                    seriesPath + ".colorExpression",
-                    diagnostics);
-                if (TryParseColor(colorText, out var color))
+                if (item.Type != ChartType.Line
+                    && item.Type != ChartType.Scatter
+                    && item.Type != ChartType.Radar
+                    && item.Type != ChartType.Area)
                 {
-                    point.Style = new ChartStyle
+                    var colorText = EvaluateStringExpression(
+                        seriesDefinition.ColorExpression,
+                        categoryBucket.Context.CreateWithSelfValue(numericValue),
+                        seriesPath + ".colorExpression",
+                        diagnostics);
+                    if (TryParseColor(colorText, out var color))
                     {
-                        Fill = new ChartFillStyle
-                        {
-                            Color = color
-                        }
-                    };
+                        point.Style = CreateChartColorStyle(item.Type, color);
+                    }
                 }
 
                 chartSeries.Points.Add(point);
             }
+
+            chart.Series.Add(chartSeries);
         }
 
         materialized.Model = chart;
         return materialized;
+    }
+
+    private List<ChartHierarchyNode> BuildShapeChartHierarchy(
+        ChartItem item,
+        IReadOnlyList<IReadOnlyDictionary<string, object?>> sourceRows,
+        IReadOnlyDictionary<string, ReportParameterValue> resolvedParameters,
+        IReadOnlyDictionary<string, object?> globals,
+        MaterializationRuntime runtime,
+        ReportExpressionContext fallbackContext,
+        string path,
+        List<ReportDiagnostic> diagnostics)
+    {
+        var categoryLevels = item.CategoryLevels;
+        if (categoryLevels.Count == 0)
+        {
+            var fallbackLevel = new ReportChartCategoryLevelDefinition
+            {
+                GroupExpression = item.CategoryExpression,
+                LabelExpression = item.CategoryLabelExpression,
+                SortExpression = item.CategorySortExpression,
+                SortDirection = item.CategorySortDirection
+            };
+
+            if (!string.IsNullOrWhiteSpace(fallbackLevel.GroupExpression) || !string.IsNullOrWhiteSpace(fallbackLevel.LabelExpression))
+            {
+                categoryLevels = new List<ReportChartCategoryLevelDefinition> { fallbackLevel };
+            }
+        }
+
+        if (categoryLevels.Count == 0 || item.Series.Count == 0 || sourceRows.Count == 0)
+        {
+            return new List<ChartHierarchyNode>();
+        }
+
+        var valueSeries = item.Series[0];
+        return BuildChartHierarchyLevelNodes(
+            item,
+            valueSeries,
+            categoryLevels,
+            0,
+            sourceRows,
+            resolvedParameters,
+            globals,
+            runtime,
+            fallbackContext,
+            path,
+            diagnostics);
+    }
+
+    private List<ChartHierarchyNode> BuildChartHierarchyLevelNodes(
+        ChartItem item,
+        ReportChartSeriesDefinition seriesDefinition,
+        IReadOnlyList<ReportChartCategoryLevelDefinition> categoryLevels,
+        int levelIndex,
+        IReadOnlyList<IReadOnlyDictionary<string, object?>> sourceRows,
+        IReadOnlyDictionary<string, ReportParameterValue> resolvedParameters,
+        IReadOnlyDictionary<string, object?> globals,
+        MaterializationRuntime runtime,
+        ReportExpressionContext fallbackContext,
+        string path,
+        List<ReportDiagnostic> diagnostics)
+    {
+        var nodes = new List<ChartHierarchyNode>();
+        if (levelIndex >= categoryLevels.Count || sourceRows.Count == 0)
+        {
+            return nodes;
+        }
+
+        var level = categoryLevels[levelIndex];
+        var scopeRows = sourceRows;
+        var buckets = new List<ChartHierarchyBucket>();
+        var bucketsByKey = new Dictionary<string, ChartHierarchyBucket>(StringComparer.Ordinal);
+        for (var rowIndex = 0; rowIndex < sourceRows.Count; rowIndex++)
+        {
+            var row = sourceRows[rowIndex];
+            var rowContext = CreateReportContext(
+                resolvedParameters,
+                row,
+                scopeRows,
+                globals,
+                runtime,
+                ReportExpressionScopeKind.Row,
+                item.DataSetId,
+                rowIndex,
+                fallbackContext.NamedScopes);
+
+            var groupExpression = !string.IsNullOrWhiteSpace(level.GroupExpression)
+                ? level.GroupExpression
+                : level.LabelExpression;
+            var groupValue = EvaluateExpression(groupExpression, rowContext, $"{path}.categoryLevels[{levelIndex}].groupExpression", diagnostics);
+            var bucketKey = CreateChartCategoryKey(groupValue, rowIndex, runtime.Culture);
+            if (!bucketsByKey.TryGetValue(bucketKey, out var bucket))
+            {
+                bucket = new ChartHierarchyBucket(bucketKey, row, new List<IReadOnlyDictionary<string, object?>>(), string.Empty, null, rowIndex);
+                bucketsByKey[bucketKey] = bucket;
+                buckets.Add(bucket);
+            }
+
+            bucket.Rows.Add(row);
+            if (string.IsNullOrWhiteSpace(bucket.Label))
+            {
+                bucket.Label = EvaluateStringExpression(
+                    !string.IsNullOrWhiteSpace(level.LabelExpression) ? level.LabelExpression : level.GroupExpression,
+                    rowContext,
+                    $"{path}.categoryLevels[{levelIndex}].labelExpression",
+                    diagnostics)
+                    ?? Convert.ToString(groupValue, runtime.Culture)
+                    ?? (rowIndex + 1).ToString(runtime.Culture);
+            }
+
+            if (bucket.SortValue is null && !string.IsNullOrWhiteSpace(level.SortExpression))
+            {
+                bucket.SortValue = EvaluateExpression(level.SortExpression, rowContext, $"{path}.categoryLevels[{levelIndex}].sortExpression", diagnostics);
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(level.SortExpression))
+        {
+            buckets.Sort((left, right) =>
+            {
+                var comparison = CompareChartSortValues(left.SortValue, right.SortValue, runtime.Culture);
+                return level.SortDirection == ReportSortDirection.Descending ? -comparison : comparison;
+            });
+        }
+
+        for (var bucketIndex = 0; bucketIndex < buckets.Count; bucketIndex++)
+        {
+            var bucket = buckets[bucketIndex];
+            var groupContext = CreateReportContext(
+                resolvedParameters,
+                bucket.RepresentativeFields,
+                bucket.Rows,
+                globals,
+                runtime,
+                ReportExpressionScopeKind.Group,
+                item.DataSetId,
+                bucketIndex,
+                fallbackContext.NamedScopes);
+
+            var node = new ChartHierarchyNode
+            {
+                Key = bucket.Key,
+                Label = bucket.Label,
+                DataLabel = CloneChartDataLabels(seriesDefinition.DataLabels)
+            };
+
+            var rawValue = EvaluateExpression(seriesDefinition.ValueExpression, groupContext, $"{path}.series[0].valueExpression", diagnostics);
+            if (TryConvertToDouble(rawValue, runtime.Culture, out var numericValue))
+            {
+                node.Value = numericValue;
+            }
+
+            var colorText = EvaluateStringExpression(
+                seriesDefinition.ColorExpression,
+                groupContext.CreateWithSelfValue(node.Value),
+                $"{path}.series[0].colorExpression",
+                diagnostics);
+            if (TryParseColor(colorText, out var color))
+            {
+                node.Style = CreateChartColorStyle(item.Type, color);
+            }
+
+            if (levelIndex + 1 < categoryLevels.Count)
+            {
+                var children = BuildChartHierarchyLevelNodes(
+                    item,
+                    seriesDefinition,
+                    categoryLevels,
+                    levelIndex + 1,
+                    bucket.Rows,
+                    resolvedParameters,
+                    globals,
+                    runtime,
+                    fallbackContext,
+                    path,
+                    diagnostics);
+                foreach (var child in children)
+                {
+                    node.Children.Add(child);
+                }
+
+                if (node.Children.Count > 0)
+                {
+                    var sum = 0d;
+                    for (var childIndex = 0; childIndex < node.Children.Count; childIndex++)
+                    {
+                        sum += node.Children[childIndex].Value;
+                    }
+
+                    if (node.Value <= 0d)
+                    {
+                        node.Value = sum;
+                    }
+                }
+            }
+
+            nodes.Add(node);
+        }
+
+        return nodes;
+    }
+
+    private List<ChartCategoryBucket> BuildChartCategoryBuckets(
+        ChartItem item,
+        IReadOnlyList<IReadOnlyDictionary<string, object?>> sourceRows,
+        IReadOnlyDictionary<string, ReportParameterValue> resolvedParameters,
+        IReadOnlyDictionary<string, object?> globals,
+        MaterializationRuntime runtime,
+        ReportExpressionContext fallbackContext,
+        string path,
+        List<ReportDiagnostic> diagnostics)
+    {
+        var buckets = new List<ChartCategoryBucket>();
+        if (sourceRows.Count == 0)
+        {
+            return buckets;
+        }
+
+        var scopeRows = sourceRows;
+        var bucketsByKey = new Dictionary<string, ChartCategoryBucket>(StringComparer.Ordinal);
+        for (var rowIndex = 0; rowIndex < sourceRows.Count; rowIndex++)
+        {
+            var row = sourceRows[rowIndex];
+            var rowContext = CreateReportContext(
+                resolvedParameters,
+                row,
+                scopeRows,
+                globals,
+                runtime,
+                ReportExpressionScopeKind.Row,
+                item.DataSetId,
+                rowIndex,
+                fallbackContext.NamedScopes);
+
+            var categoryValue = EvaluateExpression(
+                !string.IsNullOrWhiteSpace(item.CategoryExpression) ? item.CategoryExpression : item.CategoryLabelExpression,
+                rowContext,
+                path + ".categoryExpression",
+                diagnostics);
+            var bucketKey = CreateChartCategoryKey(categoryValue, rowIndex, runtime.Culture);
+            if (!bucketsByKey.TryGetValue(bucketKey, out var bucket))
+            {
+                bucket = new ChartCategoryBucket(
+                    bucketKey,
+                    row,
+                    new List<IReadOnlyDictionary<string, object?>>(),
+                    string.Empty,
+                    null,
+                    rowIndex);
+                bucketsByKey[bucketKey] = bucket;
+                buckets.Add(bucket);
+            }
+
+            bucket.Rows.Add(row);
+            if (string.IsNullOrWhiteSpace(bucket.Label))
+            {
+                bucket.Label = EvaluateStringExpression(
+                    !string.IsNullOrWhiteSpace(item.CategoryLabelExpression) ? item.CategoryLabelExpression : item.CategoryExpression,
+                    rowContext,
+                    path + ".categoryLabelExpression",
+                    diagnostics)
+                    ?? Convert.ToString(categoryValue, runtime.Culture)
+                    ?? (rowIndex + 1).ToString(runtime.Culture);
+            }
+
+            if (bucket.SortValue is null && !string.IsNullOrWhiteSpace(item.CategorySortExpression))
+            {
+                bucket.SortValue = EvaluateExpression(item.CategorySortExpression, rowContext, path + ".categorySortExpression", diagnostics);
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(item.CategorySortExpression))
+        {
+            buckets.Sort((left, right) =>
+            {
+                var comparison = CompareChartSortValues(left.SortValue, right.SortValue, runtime.Culture);
+                return item.CategorySortDirection == ReportSortDirection.Descending ? -comparison : comparison;
+            });
+        }
+
+        for (var index = 0; index < buckets.Count; index++)
+        {
+            var bucket = buckets[index];
+            bucket.Context = CreateReportContext(
+                resolvedParameters,
+                bucket.RepresentativeFields,
+                bucket.Rows,
+                globals,
+                runtime,
+                ReportExpressionScopeKind.Group,
+                item.DataSetId,
+                index,
+                fallbackContext.NamedScopes);
+        }
+
+        return buckets;
+    }
+
+    private static string CreateChartCategoryKey(object? categoryValue, int rowIndex, CultureInfo culture)
+    {
+        if (categoryValue is null)
+        {
+            return $"__row_{rowIndex}";
+        }
+
+        return categoryValue switch
+        {
+            DateTimeOffset dateTimeOffset => dateTimeOffset.ToString("O", CultureInfo.InvariantCulture),
+            DateTime dateTime => dateTime.ToString("O", CultureInfo.InvariantCulture),
+            IFormattable formattable => formattable.ToString(null, CultureInfo.InvariantCulture),
+            _ => Convert.ToString(categoryValue, culture) ?? $"__row_{rowIndex}"
+        };
+    }
+
+    private static int CompareChartSortValues(object? left, object? right, CultureInfo culture)
+    {
+        if (left is null && right is null)
+        {
+            return 0;
+        }
+
+        if (left is null)
+        {
+            return -1;
+        }
+
+        if (right is null)
+        {
+            return 1;
+        }
+
+        if (TryConvertToDouble(left, culture, out var leftNumber)
+            && TryConvertToDouble(right, culture, out var rightNumber))
+        {
+            return leftNumber.CompareTo(rightNumber);
+        }
+
+        if (left is DateTimeOffset leftOffset && right is DateTimeOffset rightOffset)
+        {
+            return leftOffset.CompareTo(rightOffset);
+        }
+
+        if (left is DateTime leftDate && right is DateTime rightDate)
+        {
+            return leftDate.CompareTo(rightDate);
+        }
+
+        return culture.CompareInfo.Compare(
+            Convert.ToString(left, culture) ?? string.Empty,
+            Convert.ToString(right, culture) ?? string.Empty,
+            CompareOptions.IgnoreCase);
+    }
+
+    private ChartStyle? BuildChartSeriesStyle(
+        ChartType chartType,
+        ReportChartSeriesDefinition definition,
+        ReportExpressionContext context,
+        string path,
+        List<ReportDiagnostic> diagnostics)
+    {
+        var style = CloneChartStyle(definition.Style) ?? new ChartStyle();
+        var colorExpression = definition.ColorExpression;
+        if (!string.IsNullOrWhiteSpace(colorExpression))
+        {
+            var colorText = EvaluateStringExpression(colorExpression, context, path + ".colorExpression", diagnostics);
+            if (TryParseColor(colorText, out var color))
+            {
+                var colorStyle = CreateChartColorStyle(chartType, color);
+                style = MergeChartStyles(style, colorStyle);
+            }
+        }
+
+        return style.Fill is null && style.Line is null && style.Effects is null ? null : style;
+    }
+
+    private static ChartStyle CreateChartColorStyle(ChartType chartType, Vibe.Office.Primitives.DocColor color)
+    {
+        if (chartType is ChartType.Line or ChartType.Scatter or ChartType.Radar or ChartType.Area)
+        {
+            return new ChartStyle
+            {
+                Line = new ChartLineStyle
+                {
+                    Color = color
+                }
+            };
+        }
+
+        return new ChartStyle
+        {
+            Fill = new ChartFillStyle
+            {
+                Color = color
+            },
+            Line = new ChartLineStyle
+            {
+                Color = color
+            }
+        };
+    }
+
+    private static ChartStyle MergeChartStyles(ChartStyle primary, ChartStyle secondary)
+    {
+        primary.Fill ??= secondary.Fill is null ? null : CloneChartFillStyle(secondary.Fill);
+        primary.Line ??= secondary.Line is null ? null : CloneChartLineStyle(secondary.Line);
+
+        if (secondary.Fill?.Color.HasValue == true)
+        {
+            primary.Fill ??= new ChartFillStyle();
+            primary.Fill.Color = secondary.Fill.Color;
+            primary.Fill.IsNone = secondary.Fill.IsNone;
+        }
+
+        if (secondary.Line is not null)
+        {
+            primary.Line ??= new ChartLineStyle();
+            primary.Line.Color = secondary.Line.Color ?? primary.Line.Color;
+            primary.Line.Width = secondary.Line.Width ?? primary.Line.Width;
+            primary.Line.Style = secondary.Line.Style ?? primary.Line.Style;
+            primary.Line.IsNone = secondary.Line.IsNone;
+        }
+
+        return primary;
+    }
+
+    private static ChartStyle? CloneChartStyle(ChartStyle? style)
+    {
+        if (style is null)
+        {
+            return null;
+        }
+
+        return new ChartStyle
+        {
+            Fill = CloneChartFillStyle(style.Fill),
+            Line = CloneChartLineStyle(style.Line),
+            Effects = style.Effects is null
+                ? null
+                : new ChartEffectStyle
+                {
+                    Shadow = style.Effects.Shadow is null
+                        ? null
+                        : new ChartShadowEffect
+                        {
+                            BlurRadius = style.Effects.Shadow.BlurRadius,
+                            Distance = style.Effects.Shadow.Distance,
+                            Direction = style.Effects.Shadow.Direction,
+                            Color = style.Effects.Shadow.Color
+                        }
+                }
+        };
+    }
+
+    private static ChartFillStyle? CloneChartFillStyle(ChartFillStyle? fill)
+    {
+        if (fill is null)
+        {
+            return null;
+        }
+
+        return new ChartFillStyle
+        {
+            IsNone = fill.IsNone,
+            Color = fill.Color
+        };
+    }
+
+    private static ChartLineStyle? CloneChartLineStyle(ChartLineStyle? line)
+    {
+        if (line is null)
+        {
+            return null;
+        }
+
+        return new ChartLineStyle
+        {
+            IsNone = line.IsNone,
+            Color = line.Color,
+            Width = line.Width,
+            Style = line.Style
+        };
+    }
+
+    private static ChartLegend? CloneChartLegend(ChartLegend? legend)
+    {
+        if (legend is null)
+        {
+            return null;
+        }
+
+        return new ChartLegend
+        {
+            IsVisible = legend.IsVisible,
+            Position = legend.Position,
+            Overlay = legend.Overlay,
+            TextStyle = CloneChartTextStyle(legend.TextStyle)
+        };
+    }
+
+    private static ChartDataLabelSettings? CloneChartDataLabels(ChartDataLabelSettings? settings)
+    {
+        if (settings is null)
+        {
+            return null;
+        }
+
+        return new ChartDataLabelSettings
+        {
+            IsHidden = settings.IsHidden,
+            ShowValue = settings.ShowValue,
+            ShowCategoryName = settings.ShowCategoryName,
+            ShowSeriesName = settings.ShowSeriesName,
+            ShowPercent = settings.ShowPercent,
+            ShowBubbleSize = settings.ShowBubbleSize,
+            ShowLegendKey = settings.ShowLegendKey,
+            ShowLeaderLines = settings.ShowLeaderLines,
+            Position = settings.Position,
+            NumberFormat = settings.NumberFormat,
+            TextStyle = CloneChartTextStyle(settings.TextStyle),
+            ShapeStyle = CloneChartStyle(settings.ShapeStyle)
+        };
+    }
+
+    private static void CloneChartAxes(IReadOnlyList<ChartAxis> source, List<ChartAxis> target)
+    {
+        for (var index = 0; index < source.Count; index++)
+        {
+            target.Add(CloneChartAxis(source[index]));
+        }
+    }
+
+    private static ChartAxis CloneChartAxis(ChartAxis axis)
+    {
+        return new ChartAxis
+        {
+            AxisId = axis.AxisId,
+            CrossAxisId = axis.CrossAxisId,
+            Kind = axis.Kind,
+            Position = axis.Position,
+            IsVisible = axis.IsVisible,
+            Minimum = axis.Minimum,
+            Maximum = axis.Maximum,
+            MajorUnit = axis.MajorUnit,
+            MinorUnit = axis.MinorUnit,
+            MajorTickMark = axis.MajorTickMark,
+            MinorTickMark = axis.MinorTickMark,
+            TickLabelPosition = axis.TickLabelPosition,
+            NumberFormat = axis.NumberFormat,
+            Title = axis.Title,
+            LineStyle = CloneChartLineStyle(axis.LineStyle),
+            MajorGridlineStyle = CloneChartLineStyle(axis.MajorGridlineStyle),
+            MinorGridlineStyle = CloneChartLineStyle(axis.MinorGridlineStyle),
+            LabelTextStyle = CloneChartTextStyle(axis.LabelTextStyle),
+            TitleTextStyle = CloneChartTextStyle(axis.TitleTextStyle)
+        };
+    }
+
+    private static ChartTextStyle? CloneChartTextStyle(ChartTextStyle? style)
+    {
+        if (style is null)
+        {
+            return null;
+        }
+
+        return new ChartTextStyle
+        {
+            FontFamily = style.FontFamily,
+            FontSize = style.FontSize,
+            Color = style.Color,
+            Bold = style.Bold,
+            Italic = style.Italic
+        };
     }
 
     private async ValueTask<MaterializedContainerReportItem> MaterializeContainerItemAsync(
@@ -829,10 +1431,11 @@ public sealed class ReportMaterializer : IReportMaterializer
         var dataSet = FindDataSet(materializedDataSets, item.DataSetId);
         if (dataSet is not null)
         {
+            var gaugeScopeRows = ResolveScopedDataRows(dataSet.Rows, context.ScopeRows);
             evaluationContext = CreateReportContext(
                 resolvedParameters,
-                dataSet.Rows.Count > 0 ? dataSet.Rows[0].Values : EmptyFields,
-                ToScopeRows(dataSet.Rows),
+                gaugeScopeRows.Count > 0 ? gaugeScopeRows[0] : EmptyFields,
+                gaugeScopeRows,
                 globals,
                 runtime,
                 ReportExpressionScopeKind.Group,
@@ -891,6 +1494,15 @@ public sealed class ReportMaterializer : IReportMaterializer
         IReadOnlyList<MaterializedDataRow> dataRows = dataSet is null
             ? Array.Empty<MaterializedDataRow>()
             : dataSet.Rows;
+        dataRows = ApplyTablixFilters(
+            item,
+            dataRows,
+            resolvedParameters,
+            globals,
+            runtime,
+            context,
+            path,
+            diagnostics);
         var scopeRows = ToScopeRows(dataRows);
 
         if (item.RowMembers.Count > 0)
@@ -986,6 +1598,115 @@ public sealed class ReportMaterializer : IReportMaterializer
         }
 
         return materialized;
+    }
+
+    private IReadOnlyList<MaterializedDataRow> ApplyTablixFilters(
+        TablixItem item,
+        IReadOnlyList<MaterializedDataRow> dataRows,
+        IReadOnlyDictionary<string, ReportParameterValue> resolvedParameters,
+        IReadOnlyDictionary<string, object?> globals,
+        MaterializationRuntime runtime,
+        ReportExpressionContext context,
+        string path,
+        List<ReportDiagnostic> diagnostics)
+    {
+        if (item.Filters.Count == 0 || dataRows.Count == 0)
+        {
+            return dataRows;
+        }
+
+        var compiledFilters = new List<(ICompiledReportExpression Left, ICompiledReportExpression Right, ReportFilterOperator Operator)>();
+        for (var filterIndex = 0; filterIndex < item.Filters.Count; filterIndex++)
+        {
+            var filter = item.Filters[filterIndex];
+            var leftCompilation = _expressionCompiler.Compile(filter.Expression);
+            AppendExpressionDiagnostics(leftCompilation.Diagnostics, $"{path}.filters[{filterIndex}].expression", diagnostics);
+            var rightCompilation = _expressionCompiler.Compile(filter.ValueExpression);
+            AppendExpressionDiagnostics(rightCompilation.Diagnostics, $"{path}.filters[{filterIndex}].valueExpression", diagnostics);
+            if (leftCompilation.Expression is null || leftCompilation.HasErrors
+                || rightCompilation.Expression is null || rightCompilation.HasErrors)
+            {
+                continue;
+            }
+
+            compiledFilters.Add((leftCompilation.Expression, rightCompilation.Expression, filter.Operator));
+        }
+
+        if (compiledFilters.Count == 0)
+        {
+            return dataRows;
+        }
+
+        var scopeRows = ToScopeRows(dataRows);
+        var filteredRows = new List<MaterializedDataRow>(dataRows.Count);
+        for (var rowIndex = 0; rowIndex < dataRows.Count; rowIndex++)
+        {
+            var row = dataRows[rowIndex];
+            var rowContext = CreateReportContext(
+                resolvedParameters,
+                row.Values,
+                scopeRows,
+                globals,
+                runtime,
+                ReportExpressionScopeKind.Row,
+                item.DataSetId,
+                rowIndex,
+                context.NamedScopes);
+
+            var includeRow = true;
+            for (var filterIndex = 0; filterIndex < compiledFilters.Count; filterIndex++)
+            {
+                var filter = compiledFilters[filterIndex];
+                if (!filter.Left.TryEvaluate(rowContext, out var left, out var leftDiagnostic))
+                {
+                    diagnostics.Add(CloneDiagnostic(leftDiagnostic!, $"{path}.filters[{filterIndex}]"));
+                    includeRow = false;
+                    break;
+                }
+
+                if (!filter.Right.TryEvaluate(rowContext, out var right, out var rightDiagnostic))
+                {
+                    diagnostics.Add(CloneDiagnostic(rightDiagnostic!, $"{path}.filters[{filterIndex}]"));
+                    includeRow = false;
+                    break;
+                }
+
+                if (!EvaluateTablixFilter(left, filter.Operator, right, runtime.Culture))
+                {
+                    includeRow = false;
+                    break;
+                }
+            }
+
+            if (includeRow)
+            {
+                filteredRows.Add(row);
+            }
+        }
+
+        return filteredRows;
+    }
+
+    private static bool EvaluateTablixFilter(
+        object? left,
+        ReportFilterOperator filterOperator,
+        object? right,
+        CultureInfo culture)
+    {
+        return filterOperator switch
+        {
+            ReportFilterOperator.Equal => CompareTablixValues(left, right, culture) == 0,
+            ReportFilterOperator.NotEqual => CompareTablixValues(left, right, culture) != 0,
+            ReportFilterOperator.GreaterThan => CompareTablixValues(left, right, culture) > 0,
+            ReportFilterOperator.GreaterThanOrEqual => CompareTablixValues(left, right, culture) >= 0,
+            ReportFilterOperator.LessThan => CompareTablixValues(left, right, culture) < 0,
+            ReportFilterOperator.LessThanOrEqual => CompareTablixValues(left, right, culture) <= 0,
+            ReportFilterOperator.Contains => culture.CompareInfo.IndexOf(
+                Convert.ToString(left, culture) ?? string.Empty,
+                Convert.ToString(right, culture) ?? string.Empty,
+                CompareOptions.IgnoreCase) >= 0,
+            _ => false
+        };
     }
 
     private void MaterializeTablixMembers(
@@ -3018,7 +3739,40 @@ public sealed class ReportMaterializer : IReportMaterializer
             return true;
         }
 
-        return false;
+        return ReportColorParser.TryParse(value.Trim(), out color);
+    }
+
+    private static IReadOnlyList<IReadOnlyDictionary<string, object?>> ResolveScopedDataRows(
+        IReadOnlyList<MaterializedDataRow> dataRows,
+        IReadOnlyList<IReadOnlyDictionary<string, object?>> activeScopeRows)
+    {
+        if (dataRows.Count == 0)
+        {
+            return EmptyScopeRows;
+        }
+
+        if (activeScopeRows.Count == 0)
+        {
+            return ToScopeRows(dataRows);
+        }
+
+        var availableRows = new HashSet<IReadOnlyDictionary<string, object?>>(ReferenceEqualityComparer.Instance);
+        for (var index = 0; index < dataRows.Count; index++)
+        {
+            availableRows.Add(dataRows[index].Values);
+        }
+
+        var scopedRows = new List<IReadOnlyDictionary<string, object?>>(activeScopeRows.Count);
+        for (var index = 0; index < activeScopeRows.Count; index++)
+        {
+            var row = activeScopeRows[index];
+            if (availableRows.Contains(row))
+            {
+                scopedRows.Add(row);
+            }
+        }
+
+        return scopedRows.Count > 0 ? scopedRows : ToScopeRows(dataRows);
     }
 
     private static readonly IReadOnlyDictionary<string, object?> EmptyFields =
@@ -3030,6 +3784,21 @@ public sealed class ReportMaterializer : IReportMaterializer
     private static readonly IReadOnlyDictionary<string, IReadOnlyList<IReadOnlyDictionary<string, object?>>> EmptyNamedScopes =
         new Dictionary<string, IReadOnlyList<IReadOnlyDictionary<string, object?>>>(StringComparer.OrdinalIgnoreCase);
 
+    private sealed class ReferenceEqualityComparer : IEqualityComparer<IReadOnlyDictionary<string, object?>>
+    {
+        public static readonly ReferenceEqualityComparer Instance = new();
+
+        public bool Equals(IReadOnlyDictionary<string, object?>? x, IReadOnlyDictionary<string, object?>? y)
+        {
+            return ReferenceEquals(x, y);
+        }
+
+        public int GetHashCode(IReadOnlyDictionary<string, object?> obj)
+        {
+            return System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(obj);
+        }
+    }
+
     private sealed record MaterializationRuntime(
         ReportDataProviderRegistry ProviderRegistry,
         ReportHostDataRegistry HostDataRegistry,
@@ -3037,6 +3806,70 @@ public sealed class ReportMaterializer : IReportMaterializer
         CultureInfo Culture,
         CultureInfo UiCulture,
         TimeZoneInfo TimeZone);
+
+    private sealed class ChartCategoryBucket
+    {
+        public ChartCategoryBucket(
+            string key,
+            IReadOnlyDictionary<string, object?> representativeFields,
+            List<IReadOnlyDictionary<string, object?>> rows,
+            string label,
+            object? sortValue,
+            int sourceIndex)
+        {
+            Key = key;
+            RepresentativeFields = representativeFields;
+            Rows = rows;
+            Label = label;
+            SortValue = sortValue;
+            SourceIndex = sourceIndex;
+        }
+
+        public string Key { get; }
+
+        public IReadOnlyDictionary<string, object?> RepresentativeFields { get; }
+
+        public List<IReadOnlyDictionary<string, object?>> Rows { get; }
+
+        public string Label { get; set; }
+
+        public object? SortValue { get; set; }
+
+        public int SourceIndex { get; }
+
+        public ReportExpressionContext Context { get; set; } = null!;
+    }
+
+    private sealed class ChartHierarchyBucket
+    {
+        public ChartHierarchyBucket(
+            string key,
+            IReadOnlyDictionary<string, object?> representativeFields,
+            List<IReadOnlyDictionary<string, object?>> rows,
+            string label,
+            object? sortValue,
+            int sourceIndex)
+        {
+            Key = key;
+            RepresentativeFields = representativeFields;
+            Rows = rows;
+            Label = label;
+            SortValue = sortValue;
+            SourceIndex = sourceIndex;
+        }
+
+        public string Key { get; }
+
+        public IReadOnlyDictionary<string, object?> RepresentativeFields { get; }
+
+        public List<IReadOnlyDictionary<string, object?>> Rows { get; }
+
+        public string Label { get; set; }
+
+        public object? SortValue { get; set; }
+
+        public int SourceIndex { get; }
+    }
 
     private sealed record TablixGroupInstance(
         object? Key,

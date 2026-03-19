@@ -800,6 +800,149 @@ public sealed class ReportDocumentComposerTests
         Assert.Equal(8f, nestedFloating.Anchor.OffsetY);
     }
 
+    [Fact]
+    public async Task ComposeAsync_FlowsSingleColumnWidthTablixAcrossMultiColumnPageSettings()
+    {
+        var report = new MaterializedReport
+        {
+            Id = "labels",
+            Name = "Labels",
+            Sections =
+            {
+                new MaterializedReportSection
+                {
+                    Id = "main",
+                    Name = "Main",
+                    PageSettings = new ReportPageSettings
+                    {
+                        Width = 612f,
+                        Height = 792f,
+                        MarginLeft = 15.8f,
+                        MarginRight = 15.8f,
+                        MarginTop = 36f,
+                        MarginBottom = 36f,
+                        ColumnCount = 3,
+                        ColumnGap = 10.08f
+                    },
+                    BodyItems =
+                    {
+                        CreateLabelsTablix()
+                    }
+                }
+            }
+        };
+
+        var composer = new ReportDocumentComposer();
+        var result = await composer.ComposeAsync(new ReportDocumentCompositionRequest
+        {
+            MaterializedReport = report
+        });
+
+        Assert.False(result.HasErrors);
+        var document = Assert.IsType<Document>(result.Document);
+        var section = Assert.Single(document.Sections);
+        Assert.Equal(3, section.Properties.ColumnCount);
+
+        var table = Assert.Single(document.Blocks.OfType<TableBlock>());
+        Assert.Null(table.Properties.FloatingAnchor);
+    }
+
+    [Fact]
+    public async Task ComposeAsync_FlowsSingleRootOriginAlignedTablixOnSingleColumnPages()
+    {
+        var tablix = new MaterializedTablixReportItem
+        {
+            SourceItemId = "country-sales",
+            Name = "Country Sales",
+            Bounds = new ReportItemBounds(1.3334401f, 0f, 945.60004f, 115.200005f),
+            RepeatHeaderRows = true
+        };
+
+        tablix.Columns.Add(new MaterializedTablixColumn { Id = "salesperson", Width = 158.4f });
+        tablix.Columns.Add(new MaterializedTablixColumn { Id = "sales", Width = 96f });
+        tablix.Columns.Add(new MaterializedTablixColumn { Id = "trend", Width = 134.4f });
+        tablix.Columns.Add(new MaterializedTablixColumn { Id = "country-total", Width = 134.4f });
+        tablix.Columns.Add(new MaterializedTablixColumn { Id = "overall", Width = 110.4f });
+        tablix.Columns.Add(new MaterializedTablixColumn { Id = "quota", Width = 96f });
+        tablix.Columns.Add(new MaterializedTablixColumn { Id = "variance", Width = 96f });
+        tablix.Columns.Add(new MaterializedTablixColumn { Id = "indicator", Width = 81.6f });
+        tablix.Columns.Add(new MaterializedTablixColumn { Id = "icon", Width = 38.4f });
+
+        tablix.Rows.Add(new MaterializedTablixRow
+        {
+            Height = 24f,
+            IsHeader = true,
+            Cells =
+            {
+                new MaterializedTablixCell { Text = "Salesperson" },
+                new MaterializedTablixCell { Text = "Sales" },
+                new MaterializedTablixCell { Text = "Trend" },
+                new MaterializedTablixCell { Text = "% of Country Total" },
+                new MaterializedTablixCell { Text = "Overall %" },
+                new MaterializedTablixCell { Text = "Quota" },
+                new MaterializedTablixCell { Text = "Variance" },
+                new MaterializedTablixCell { Text = string.Empty }
+            }
+        });
+
+        for (var index = 0; index < 12; index++)
+        {
+            tablix.Rows.Add(new MaterializedTablixRow
+            {
+                Height = 24f,
+                Cells =
+                {
+                    new MaterializedTablixCell { Text = $"Country {index}" },
+                    new MaterializedTablixCell { Text = "$1,000" },
+                    new MaterializedTablixCell { Text = "Trend" },
+                    new MaterializedTablixCell { Text = "100%" },
+                    new MaterializedTablixCell { Text = "5%" },
+                    new MaterializedTablixCell { Text = "$900" },
+                    new MaterializedTablixCell { Text = "10%" },
+                    new MaterializedTablixCell { Text = "Up" }
+                }
+            });
+        }
+
+        var report = new MaterializedReport
+        {
+            Id = "country-sales",
+            Name = "Country Sales",
+            Sections =
+            {
+                new MaterializedReportSection
+                {
+                    Id = "main",
+                    Name = "Main",
+                    PageSettings = new ReportPageSettings
+                    {
+                        Width = 1056f,
+                        Height = 816f,
+                        MarginLeft = 24f,
+                        MarginTop = 24f,
+                        MarginRight = 24f,
+                        MarginBottom = 24f
+                    },
+                    BodyItems =
+                    {
+                        tablix
+                    }
+                }
+            }
+        };
+
+        var composer = new ReportDocumentComposer();
+        var result = await composer.ComposeAsync(new ReportDocumentCompositionRequest
+        {
+            MaterializedReport = report
+        });
+
+        Assert.False(result.HasErrors);
+        var document = Assert.IsType<Document>(result.Document);
+        var table = Assert.Single(document.Blocks.OfType<TableBlock>());
+        Assert.Null(table.Properties.FloatingAnchor);
+    }
+
     private static string GetDocumentText(Document document)
     {
         var builder = new System.Text.StringBuilder();
@@ -905,5 +1048,46 @@ public sealed class ReportDocumentComposerTests
                 builder.AppendLine("[Image]");
                 break;
         }
+    }
+
+    private static MaterializedTablixReportItem CreateLabelsTablix()
+    {
+        var tablix = new MaterializedTablixReportItem
+        {
+            SourceItemId = "labels",
+            Bounds = new ReportItemBounds(0f, 0f, 186.7f, 72f)
+        };
+
+        tablix.Columns.Add(new MaterializedTablixColumn
+        {
+            Id = "label",
+            Width = 186.7f
+        });
+
+        tablix.Rows.Add(new MaterializedTablixRow
+        {
+            Height = 72f,
+            Cells =
+            {
+                new MaterializedTablixCell
+                {
+                    Text = "Ebony E. Gill\n3235 Mi Casa Court\nBirmingham AL 35203\nUnited States"
+                }
+            }
+        });
+
+        tablix.Rows.Add(new MaterializedTablixRow
+        {
+            Height = 72f,
+            Cells =
+            {
+                new MaterializedTablixCell
+                {
+                    Text = "Baha Nueimat\n12308 Neupor Lane\nCharlotte CT 41050\nUnited States"
+                }
+            }
+        });
+
+        return tablix;
     }
 }

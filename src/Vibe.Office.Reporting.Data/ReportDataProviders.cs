@@ -317,7 +317,9 @@ internal sealed class EnterDataReportDataProvider : IReportDataProvider
 
         try
         {
-            return ValueTask.FromResult(ParseEnterDataQuery(dataSet, context.Culture));
+            var table = ParseEnterDataQuery(dataSet, context.Culture);
+            ApplyEnterDataQueryParameters(table, context.DataSetParameters, context.Culture);
+            return ValueTask.FromResult(table);
         }
         catch (XmlException ex)
         {
@@ -423,6 +425,56 @@ internal sealed class EnterDataReportDataProvider : IReportDataProvider
         }
 
         return table;
+    }
+
+    private static void ApplyEnterDataQueryParameters(
+        ReportDataTable table,
+        IReadOnlyDictionary<string, object?> dataSetParameters,
+        CultureInfo culture)
+    {
+        if (table.Rows.Count == 0 || dataSetParameters.Count == 0)
+        {
+            return;
+        }
+
+        var matchingParameters = dataSetParameters
+            .Where(pair => table.Fields.Any(field => field.Name.Equals(pair.Key, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+        if (matchingParameters.Count == 0)
+        {
+            return;
+        }
+
+        var filteredRows = new List<ReportDataRecord>(table.Rows.Count);
+        for (var rowIndex = 0; rowIndex < table.Rows.Count; rowIndex++)
+        {
+            var row = table.Rows[rowIndex];
+            var includeRow = true;
+            for (var parameterIndex = 0; parameterIndex < matchingParameters.Count; parameterIndex++)
+            {
+                var parameter = matchingParameters[parameterIndex];
+                row.Values.TryGetValue(parameter.Key, out var fieldValue);
+                if (parameter.Value is null)
+                {
+                    includeRow = false;
+                    break;
+                }
+
+                if (!ReportDataRuntimeHelpers.AreEqual(fieldValue, parameter.Value, culture))
+                {
+                    includeRow = false;
+                    break;
+                }
+            }
+
+            if (includeRow)
+            {
+                filteredRows.Add(row);
+            }
+        }
+
+        table.Rows.Clear();
+        table.Rows.AddRange(filteredRows);
     }
 
     private static object? ParseExpectedEnterDataValue(

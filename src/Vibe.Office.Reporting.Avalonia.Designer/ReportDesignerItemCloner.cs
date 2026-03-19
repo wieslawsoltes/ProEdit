@@ -1,4 +1,5 @@
 using System.Globalization;
+using Vibe.Office.Documents;
 using Vibe.Office.Reporting;
 
 namespace Vibe.Office.Reporting.Avalonia.Designer;
@@ -98,8 +99,17 @@ internal static class ReportDesignerItemCloner
         var clone = new ChartItem
         {
             DataSetId = item.DataSetId,
+            Type = item.Type,
+            BarDirection = item.BarDirection,
             CategoryExpression = item.CategoryExpression,
+            CategoryLabelExpression = item.CategoryLabelExpression,
+            CategorySortExpression = item.CategorySortExpression,
+            CategorySortDirection = item.CategorySortDirection,
             TitleExpression = item.TitleExpression,
+            ChartAreaStyle = CloneChartStyle(item.ChartAreaStyle),
+            PlotAreaStyle = CloneChartStyle(item.PlotAreaStyle),
+            Legend = CloneChartLegend(item.Legend),
+            Axes = item.Axes.Select(CloneAxis).ToList(),
             Series = item.Series.Select(CloneSeries).ToList()
         };
 
@@ -131,6 +141,7 @@ internal static class ReportDesignerItemCloner
         {
             DataSetId = item.DataSetId,
             RepeatHeaderRows = item.RepeatHeaderRows,
+            Filters = item.Filters.Select(CloneFilter).ToList(),
             Columns = item.Columns.Select(CloneColumn).ToList(),
             Rows = item.Rows.Select(CloneRow).ToList(),
             RowMembers = item.RowMembers.Select(CloneMember).ToList(),
@@ -205,9 +216,138 @@ internal static class ReportDesignerItemCloner
     {
         return new ReportChartSeriesDefinition
         {
+            Type = series.Type,
+            BarDirection = series.BarDirection,
             NameExpression = series.NameExpression,
             ValueExpression = series.ValueExpression,
-            ColorExpression = series.ColorExpression
+            ColorExpression = series.ColorExpression,
+            Style = CloneChartStyle(series.Style),
+            UseSmoothedLine = series.UseSmoothedLine
+        };
+    }
+
+    private static ChartStyle? CloneChartStyle(ChartStyle? style)
+    {
+        if (style is null)
+        {
+            return null;
+        }
+
+        return new ChartStyle
+        {
+            Fill = style.Fill is null
+                ? null
+                : new ChartFillStyle
+                {
+                    IsNone = style.Fill.IsNone,
+                    Color = style.Fill.Color
+                },
+            Line = style.Line is null
+                ? null
+                : new ChartLineStyle
+                {
+                    IsNone = style.Line.IsNone,
+                    Color = style.Line.Color,
+                    Width = style.Line.Width,
+                    Style = style.Line.Style
+                },
+            Effects = style.Effects is null
+                ? null
+                : new ChartEffectStyle
+                {
+                    Shadow = style.Effects.Shadow is null
+                        ? null
+                        : new ChartShadowEffect
+                        {
+                            BlurRadius = style.Effects.Shadow.BlurRadius,
+                            Distance = style.Effects.Shadow.Distance,
+                            Direction = style.Effects.Shadow.Direction,
+                            Color = style.Effects.Shadow.Color
+                        }
+                }
+        };
+    }
+
+    private static ChartLegend? CloneChartLegend(ChartLegend? legend)
+    {
+        if (legend is null)
+        {
+            return null;
+        }
+
+        return new ChartLegend
+        {
+            IsVisible = legend.IsVisible,
+            Position = legend.Position,
+            Overlay = legend.Overlay,
+            TextStyle = CloneChartTextStyle(legend.TextStyle)
+        };
+    }
+
+    private static ChartAxis CloneAxis(ChartAxis axis)
+    {
+        return new ChartAxis
+        {
+            AxisId = axis.AxisId,
+            CrossAxisId = axis.CrossAxisId,
+            Kind = axis.Kind,
+            Position = axis.Position,
+            IsVisible = axis.IsVisible,
+            Minimum = axis.Minimum,
+            Maximum = axis.Maximum,
+            MajorUnit = axis.MajorUnit,
+            MinorUnit = axis.MinorUnit,
+            MajorTickMark = axis.MajorTickMark,
+            MinorTickMark = axis.MinorTickMark,
+            TickLabelPosition = axis.TickLabelPosition,
+            NumberFormat = axis.NumberFormat,
+            Title = axis.Title,
+            LineStyle = axis.LineStyle is null
+                ? null
+                : new ChartLineStyle
+                {
+                    IsNone = axis.LineStyle.IsNone,
+                    Color = axis.LineStyle.Color,
+                    Width = axis.LineStyle.Width,
+                    Style = axis.LineStyle.Style
+                },
+            MajorGridlineStyle = axis.MajorGridlineStyle is null
+                ? null
+                : new ChartLineStyle
+                {
+                    IsNone = axis.MajorGridlineStyle.IsNone,
+                    Color = axis.MajorGridlineStyle.Color,
+                    Width = axis.MajorGridlineStyle.Width,
+                    Style = axis.MajorGridlineStyle.Style
+                },
+            MinorGridlineStyle = axis.MinorGridlineStyle is null
+                ? null
+                : new ChartLineStyle
+                {
+                    IsNone = axis.MinorGridlineStyle.IsNone,
+                    Color = axis.MinorGridlineStyle.Color,
+                    Width = axis.MinorGridlineStyle.Width,
+                    Style = axis.MinorGridlineStyle.Style
+                },
+            LabelTextStyle = CloneChartTextStyle(axis.LabelTextStyle),
+            TitleTextStyle = CloneChartTextStyle(axis.TitleTextStyle)
+        };
+    }
+
+    private static ChartTextStyle? CloneChartTextStyle(ChartTextStyle? style)
+    {
+        if (style is null)
+        {
+            return null;
+        }
+
+        return new ChartTextStyle
+        {
+            FontFamily = style.FontFamily,
+            FontSize = style.FontSize,
+            Color = style.Color,
+            Bold = style.Bold,
+            Italic = style.Italic
         };
     }
 
@@ -217,6 +357,16 @@ internal static class ReportDesignerItemCloner
         {
             Id = column.Id,
             Width = column.Width
+        };
+    }
+
+    private static ReportFilterDefinition CloneFilter(ReportFilterDefinition filter)
+    {
+        return new ReportFilterDefinition
+        {
+            Expression = filter.Expression,
+            Operator = filter.Operator,
+            ValueExpression = filter.ValueExpression
         };
     }
 

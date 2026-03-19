@@ -44,7 +44,7 @@ public sealed partial class SkiaDocumentRenderer
             canvas.DrawRect(rect, borderPaint);
         }
 
-        if (model is null || model.Series.Count == 0)
+        if (model is null || (model.Series.Count == 0 && model.HierarchyRoots.Count == 0))
         {
             DrawChartPlaceholder(canvas, rect, options, "Chart");
             return;
@@ -54,10 +54,23 @@ public sealed partial class SkiaDocumentRenderer
         var titleHeight = 0f;
         if (!string.IsNullOrWhiteSpace(model.Title))
         {
-            using var titlePaint = CreateTextPaint(null, options.TextColor, MathF.Max(10f, rect.Height * 0.08f), SKTextAlign.Center);
-            var titleY = rect.Top + titlePaint.TextSize + 2f;
-            canvas.DrawText(model.Title, rect.MidX, titleY, titlePaint);
-            titleHeight = titlePaint.TextSize + padding * 0.5f;
+            var titleTextSize = model.TitleTextStyle?.FontSize ?? MathF.Max(10f, MathF.Min(18f, rect.Height * 0.06f));
+            var titleAlign = model.TitlePosition switch
+            {
+                ChartTitlePosition.TopLeft => SKTextAlign.Left,
+                ChartTitlePosition.TopRight => SKTextAlign.Right,
+                _ => SKTextAlign.Center
+            };
+            using var titlePaint = CreateTextPaint(model.TitleTextStyle, options.TextColor, titleTextSize, titleAlign);
+            var titleX = titleAlign switch
+            {
+                SKTextAlign.Left => rect.Left + padding,
+                SKTextAlign.Right => rect.Right - padding,
+                _ => rect.MidX
+            };
+            var titleY = rect.Top + padding * 0.35f + titlePaint.TextSize;
+            canvas.DrawText(model.Title, titleX, titleY, titlePaint);
+            titleHeight = titlePaint.TextSize + padding * 0.7f;
         }
 
         var contentRect = new SKRect(
@@ -127,6 +140,12 @@ public sealed partial class SkiaDocumentRenderer
                 break;
             case ChartType.Doughnut:
                 DrawDoughnutChart(canvas, plotRect, model, options);
+                break;
+            case ChartType.Treemap:
+                DrawTreemapChart(canvas, plotRect, model, options);
+                break;
+            case ChartType.Sunburst:
+                DrawSunburstChart(canvas, plotRect, model, options);
                 break;
             case ChartType.Line:
                 DrawLineChart(canvas, plotRect, model, horizontalAxis, verticalAxis, options);
@@ -275,7 +294,7 @@ public sealed partial class SkiaDocumentRenderer
                     var barRight = barLeft + barWidth - gap * 2f;
                     var barTop = baseY - height;
 
-                    var fallback = ResolveChartPaletteColor(seriesIndex);
+                    var fallback = ResolveChartPaletteColor(model, seriesIndex);
                     if (TryResolveFillColor(point?.Style, series.Style, fallback, out var fill))
                     {
                         using var barPaint = CreateFillPaint(fill, series.Style?.Effects?.Shadow);
@@ -338,7 +357,7 @@ public sealed partial class SkiaDocumentRenderer
                     var barBottom = barTop + barHeight - gap * 2f;
                     var barRight = baseX + width;
 
-                    var fallback = ResolveChartPaletteColor(seriesIndex);
+                    var fallback = ResolveChartPaletteColor(model, seriesIndex);
                     if (TryResolveFillColor(point?.Style, series.Style, fallback, out var fill))
                     {
                         using var barPaint = CreateFillPaint(fill, series.Style?.Effects?.Shadow);
@@ -460,7 +479,7 @@ public sealed partial class SkiaDocumentRenderer
                 continue;
             }
 
-            var fallback = ResolveChartPaletteColor(seriesIndex);
+            var fallback = ResolveChartPaletteColor(model, seriesIndex);
             if (!TryResolveLineStyle(series.Style, fallback, 2f, true, out var lineColor, out var lineWidth, out var lineStyle))
             {
                 continue;
@@ -468,6 +487,8 @@ public sealed partial class SkiaDocumentRenderer
 
             using var paint = CreateLinePaint(lineColor, lineWidth, lineStyle);
             using var path = new SKPath();
+            var points = ArrayPool<SKPoint>.Shared.Rent(series.Points.Count);
+            var pointLength = 0;
             for (var i = 0; i < series.Points.Count; i++)
             {
                 var value = Math.Max(0d, series.Points[i].Value);
@@ -486,17 +507,12 @@ public sealed partial class SkiaDocumentRenderer
 
                 var x = GetCategoryPosition(model, plotRect, i, pointCount, true);
                 var y = MapValueToY(stackedValue, valueScale, plotRect);
-                if (i == 0)
-                {
-                    path.MoveTo(x, y);
-                }
-                else
-                {
-                    path.LineTo(x, y);
-                }
+                points[pointLength++] = new SKPoint(x, y);
             }
 
+            AppendLineSeriesPath(path, points, pointLength, series.UseSmoothedLine);
             canvas.DrawPath(path, paint);
+            ArrayPool<SKPoint>.Shared.Return(points);
 
             var drawLabels = series.Points.Count > 0;
             if (drawLabels)
@@ -663,7 +679,7 @@ public sealed partial class SkiaDocumentRenderer
                     }
                 }
 
-                var fallback = ResolveChartPaletteColor(seriesIndex);
+                var fallback = ResolveChartPaletteColor(model, seriesIndex);
                 if (!TryResolveFillColor(series.Style, fallback, true, out var fillColor))
                 {
                     continue;
@@ -814,7 +830,7 @@ public sealed partial class SkiaDocumentRenderer
         for (var seriesIndex = 0; seriesIndex < seriesCount; seriesIndex++)
         {
             var series = model.Series[seriesIndex];
-            var fallback = ResolveChartPaletteColor(seriesIndex);
+            var fallback = ResolveChartPaletteColor(model, seriesIndex);
             for (var i = 0; i < series.Points.Count; i++)
             {
                 var point = series.Points[i];
@@ -874,7 +890,7 @@ public sealed partial class SkiaDocumentRenderer
             var value = Math.Max(0, series.Points[i].Value);
             var sweep = (float)(value / total) * 360f;
             var point = series.Points[i];
-            var fallback = ResolveChartPaletteColor(i);
+            var fallback = ResolveChartPaletteColor(model, i);
             if (TryResolveFillColor(point.Style, series.Style, fallback, out var fillColor))
             {
                 using var paint = CreateFillPaint(fillColor, series.Style?.Effects?.Shadow);
@@ -963,7 +979,7 @@ public sealed partial class SkiaDocumentRenderer
             var value = Math.Max(0, series.Points[i].Value);
             var sweep = (float)(value / total) * 360f;
             var point = series.Points[i];
-            var fallback = ResolveChartPaletteColor(i);
+            var fallback = ResolveChartPaletteColor(model, i);
 
             if (TryResolveFillColor(point.Style, series.Style, fallback, out var fillColor))
             {
@@ -1021,6 +1037,272 @@ public sealed partial class SkiaDocumentRenderer
         }
     }
 
+    private static void DrawTreemapChart(SKCanvas canvas, SKRect plotRect, ChartModel model, RenderOptions options)
+    {
+        if (model.HierarchyRoots.Count == 0)
+        {
+            DrawChartPlaceholder(canvas, plotRect, options, "Treemap");
+            return;
+        }
+
+        DrawTreemapNodes(canvas, plotRect, model, model.HierarchyRoots, 0, options, Array.Empty<int>());
+    }
+
+    private static void DrawTreemapNodes(
+        SKCanvas canvas,
+        SKRect rect,
+        ChartModel model,
+        IReadOnlyList<ChartHierarchyNode> nodes,
+        int depth,
+        RenderOptions options,
+        IReadOnlyList<int> path)
+    {
+        if (rect.Width <= 4f || rect.Height <= 4f || nodes.Count == 0)
+        {
+            return;
+        }
+
+        var total = 0d;
+        for (var index = 0; index < nodes.Count; index++)
+        {
+            total += Math.Max(0d, nodes[index].Value);
+        }
+
+        if (total <= 0d)
+        {
+            return;
+        }
+
+        var horizontal = rect.Width >= rect.Height;
+        var cursor = horizontal ? rect.Left : rect.Top;
+        for (var index = 0; index < nodes.Count; index++)
+        {
+            var node = nodes[index];
+            var value = Math.Max(0d, node.Value);
+            if (value <= 0d)
+            {
+                continue;
+            }
+
+            var fraction = (float)(value / total);
+            SKRect nodeRect;
+            if (horizontal)
+            {
+                var width = index == nodes.Count - 1 ? rect.Right - cursor : rect.Width * fraction;
+                nodeRect = new SKRect(cursor, rect.Top, cursor + width, rect.Bottom);
+                cursor += width;
+            }
+            else
+            {
+                var height = index == nodes.Count - 1 ? rect.Bottom - cursor : rect.Height * fraction;
+                nodeRect = new SKRect(rect.Left, cursor, rect.Right, cursor + height);
+                cursor += height;
+            }
+
+            var resolvedPath = AppendHierarchyPath(path, index);
+            DrawTreemapNode(canvas, nodeRect, model, node, resolvedPath, options);
+
+            if (node.Children.Count > 0)
+            {
+                var inset = MathF.Max(2f, MathF.Min(nodeRect.Width, nodeRect.Height) * 0.015f);
+                var childRect = new SKRect(nodeRect.Left + inset, nodeRect.Top + inset, nodeRect.Right - inset, nodeRect.Bottom - inset);
+                DrawTreemapNodes(canvas, childRect, model, node.Children, depth + 1, options, resolvedPath);
+            }
+        }
+    }
+
+    private static void DrawTreemapNode(
+        SKCanvas canvas,
+        SKRect rect,
+        ChartModel model,
+        ChartHierarchyNode node,
+        IReadOnlyList<int> path,
+        RenderOptions options)
+    {
+        if (rect.Width <= 2f || rect.Height <= 2f)
+        {
+            return;
+        }
+
+        var fill = ResolveHierarchyNodeColor(model, node, path, options);
+        using var fillPaint = CreateFillPaint(fill, node.Style?.Effects?.Shadow);
+        canvas.DrawRect(rect, fillPaint);
+
+        if (TryResolveLineStyle(node.Style, options.PlaceholderStrokeColor, 1f, true, out var borderColor, out var borderWidth, out var borderDash))
+        {
+            using var borderPaint = CreateLinePaint(borderColor, borderWidth, borderDash);
+            canvas.DrawRect(rect, borderPaint);
+        }
+        else
+        {
+            using var borderPaint = CreateLinePaint(new DocColor(211, 211, 211), 0.75f, DocBorderStyle.Single);
+            canvas.DrawRect(rect, borderPaint);
+        }
+
+        if (rect.Width < 48f || rect.Height < 22f)
+        {
+            return;
+        }
+
+        var textColor = GetContrastingTextColor(fill);
+        var textSize = MathF.Max(8f, MathF.Min(14f, MathF.Min(rect.Width, rect.Height) * 0.1f));
+        using var labelPaint = CreateTextPaint(node.DataLabel?.TextStyle, textColor, textSize, SKTextAlign.Left);
+        var lines = BuildTreemapLabelLines(node, labelPaint, rect.Width - 8f);
+        if (lines.Count == 0)
+        {
+            return;
+        }
+
+        var y = rect.Top + 4f + labelPaint.TextSize;
+        for (var lineIndex = 0; lineIndex < lines.Count; lineIndex++)
+        {
+            if (y > rect.Bottom - 2f)
+            {
+                break;
+            }
+
+            canvas.DrawText(lines[lineIndex], rect.Left + 4f, y, labelPaint);
+            y += labelPaint.TextSize * 1.15f;
+        }
+    }
+
+    private static void DrawSunburstChart(SKCanvas canvas, SKRect plotRect, ChartModel model, RenderOptions options)
+    {
+        if (model.HierarchyRoots.Count == 0)
+        {
+            DrawChartPlaceholder(canvas, plotRect, options, "Sunburst");
+            return;
+        }
+
+        var maxDepth = Math.Max(1, GetHierarchyDepth(model.HierarchyRoots));
+        var radius = MathF.Min(plotRect.Width, plotRect.Height) * 0.48f;
+        var innerRadius = MathF.Max(14f, radius * 0.18f);
+        var ringThickness = MathF.Max(12f, (radius - innerRadius) / maxDepth);
+        var center = new SKPoint(plotRect.MidX, plotRect.MidY);
+        var total = 0d;
+        for (var index = 0; index < model.HierarchyRoots.Count; index++)
+        {
+            total += Math.Max(0d, model.HierarchyRoots[index].Value);
+        }
+
+        if (total <= 0d)
+        {
+            DrawChartPlaceholder(canvas, plotRect, options, "Sunburst");
+            return;
+        }
+
+        var startAngle = -90f;
+        for (var index = 0; index < model.HierarchyRoots.Count; index++)
+        {
+            var node = model.HierarchyRoots[index];
+            var sweep = (float)(Math.Max(0d, node.Value) / total * 360d);
+            if (sweep <= 0f)
+            {
+                continue;
+            }
+
+            DrawSunburstNode(
+                canvas,
+                model,
+                center,
+                innerRadius,
+                ringThickness,
+                node,
+                startAngle,
+                sweep,
+                0,
+                AppendHierarchyPath(Array.Empty<int>(), index),
+                options);
+            startAngle += sweep;
+        }
+    }
+
+    private static void DrawSunburstNode(
+        SKCanvas canvas,
+        ChartModel model,
+        SKPoint center,
+        float innerRadius,
+        float ringThickness,
+        ChartHierarchyNode node,
+        float startAngle,
+        float sweepAngle,
+        int depth,
+        IReadOnlyList<int> path,
+        RenderOptions options)
+    {
+        var ringInner = innerRadius + depth * ringThickness;
+        var ringOuter = ringInner + ringThickness;
+        var fill = ResolveHierarchyNodeColor(model, node, path, options);
+        using (var slicePath = CreateDoughnutSlicePath(center.X, center.Y, ringOuter, ringInner, startAngle, sweepAngle))
+        {
+            using var fillPaint = CreateFillPaint(fill, node.Style?.Effects?.Shadow);
+            canvas.DrawPath(slicePath, fillPaint);
+
+            if (TryResolveLineStyle(node.Style, DocColor.White, 1f, true, out var lineColor, out var lineWidth, out var lineDash))
+            {
+                using var borderPaint = CreateLinePaint(lineColor, lineWidth, lineDash);
+                canvas.DrawPath(slicePath, borderPaint);
+            }
+            else
+            {
+                using var borderPaint = CreateLinePaint(DocColor.White, 0.8f, DocBorderStyle.Single);
+                canvas.DrawPath(slicePath, borderPaint);
+            }
+        }
+
+        if (sweepAngle >= 12f)
+        {
+            var labelRadius = ringInner + (ringOuter - ringInner) * 0.5f;
+            var labelAngle = startAngle + sweepAngle * 0.5f;
+            var radians = DegreesToRadians(labelAngle);
+            var labelPoint = new SKPoint(
+                center.X + MathF.Cos(radians) * labelRadius,
+                center.Y + MathF.Sin(radians) * labelRadius);
+            var labelSettings = node.DataLabel ?? new ChartDataLabelSettings
+            {
+                ShowValue = true,
+                TextStyle = new ChartTextStyle
+                {
+                    FontSize = MathF.Max(8f, ringThickness * 0.24f),
+                    Color = GetContrastingTextColor(fill)
+                }
+            };
+            labelSettings.ShowValue ??= true;
+            labelSettings.TextStyle ??= new ChartTextStyle();
+            labelSettings.TextStyle.FontSize ??= MathF.Max(8f, ringThickness * 0.24f);
+            labelSettings.TextStyle.Color ??= GetContrastingTextColor(fill);
+            var labelText = BuildDataLabelText(labelSettings, node.Label, null, node.Value, null, null)
+                ?? FormatChartValue(node.Value, labelSettings.NumberFormat);
+            DrawChartLabel(
+                canvas,
+                labelText,
+                labelPoint,
+                labelSettings,
+                options,
+                MathF.Max(8f, ringThickness * 0.24f));
+        }
+
+        if (node.Children.Count == 0 || node.Value <= 0d)
+        {
+            return;
+        }
+
+        var childStart = startAngle;
+        for (var childIndex = 0; childIndex < node.Children.Count; childIndex++)
+        {
+            var child = node.Children[childIndex];
+            var childSweep = (float)(Math.Max(0d, child.Value) / node.Value * sweepAngle);
+            if (childSweep <= 0f)
+            {
+                continue;
+            }
+
+            var childPath = AppendHierarchyPath(path, childIndex);
+            DrawSunburstNode(canvas, model, center, innerRadius, ringThickness, child, childStart, childSweep, depth + 1, childPath, options);
+            childStart += childSweep;
+        }
+    }
+
     private static void DrawRadarChart(SKCanvas canvas, SKRect plotRect, ChartModel model, RenderOptions options)
     {
         var seriesCount = model.Series.Count;
@@ -1073,7 +1355,7 @@ public sealed partial class SkiaDocumentRenderer
                 continue;
             }
 
-            var fallback = ResolveChartPaletteColor(seriesIndex);
+            var fallback = ResolveChartPaletteColor(model, seriesIndex);
             var hasLine = TryResolveLineStyle(series.Style, fallback, 1.5f, true, out var lineColor, out var lineWidth, out var lineStyle);
             var fillColor = default(DocColor);
             var hasFill = model.RadarStyle == ChartRadarStyle.Filled
@@ -1223,7 +1505,7 @@ public sealed partial class SkiaDocumentRenderer
         for (var seriesIndex = 0; seriesIndex < seriesCount; seriesIndex++)
         {
             var series = model.Series[seriesIndex];
-            var fallback = ResolveChartPaletteColor(seriesIndex);
+            var fallback = ResolveChartPaletteColor(model, seriesIndex);
             for (var i = 0; i < series.Points.Count; i++)
             {
                 var point = series.Points[i];
@@ -1260,9 +1542,29 @@ public sealed partial class SkiaDocumentRenderer
         }
     }
 
-    private static DocColor ResolveChartPaletteColor(int index)
+    private static DocColor ResolveChartPaletteColor(ChartModel model, int index)
     {
-        var palette = new[]
+        var palette = ResolveChartPalette(model.PaletteName);
+
+        return palette[index % palette.Count];
+    }
+
+    private static IReadOnlyList<DocColor> ResolveChartPalette(string? paletteName)
+    {
+        if (string.Equals(paletteName, "EarthTones", StringComparison.OrdinalIgnoreCase))
+        {
+            return new[]
+            {
+                new DocColor(252, 139, 14),
+                new DocColor(201, 140, 29),
+                new DocColor(194, 83, 4),
+                new DocColor(115, 153, 34),
+                new DocColor(210, 139, 59),
+                new DocColor(153, 107, 56)
+            };
+        }
+
+        return new[]
         {
             new DocColor(79, 129, 189),
             new DocColor(192, 80, 77),
@@ -1271,8 +1573,6 @@ public sealed partial class SkiaDocumentRenderer
             new DocColor(75, 172, 198),
             new DocColor(247, 150, 70)
         };
-
-        return palette[index % palette.Length];
     }
 
     private static bool TryResolveFillColor(ChartStyle? style, DocColor fallback, bool fallbackWhenUnset, out DocColor color)
@@ -1500,18 +1800,31 @@ public sealed partial class SkiaDocumentRenderer
 
     private readonly struct LegendEntryLayout
     {
-        public LegendEntryLayout(string text, DocColor color, SKRect marker, SKPoint textOrigin)
+        public LegendEntryLayout(
+            string text,
+            DocColor color,
+            SKRect marker,
+            SKPoint textOrigin,
+            bool useLineMarker,
+            float lineWidth,
+            DocBorderStyle lineStyle)
         {
             Text = text;
             Color = color;
             Marker = marker;
             TextOrigin = textOrigin;
+            UseLineMarker = useLineMarker;
+            LineWidth = lineWidth;
+            LineStyle = lineStyle;
         }
 
         public string Text { get; }
         public DocColor Color { get; }
         public SKRect Marker { get; }
         public SKPoint TextOrigin { get; }
+        public bool UseLineMarker { get; }
+        public float LineWidth { get; }
+        public DocBorderStyle LineStyle { get; }
     }
 
     private sealed class ChartLegendLayout
@@ -1565,7 +1878,7 @@ public sealed partial class SkiaDocumentRenderer
             return null;
         }
 
-        var entries = new List<(string Text, DocColor Color)>();
+        var entries = new List<(string Text, DocColor Color, bool UseLineMarker, float LineWidth, DocBorderStyle LineStyle)>();
         if (model.Type == ChartType.Pie || model.Type == ChartType.Doughnut)
         {
             var series = model.Series.FirstOrDefault();
@@ -1575,10 +1888,20 @@ public sealed partial class SkiaDocumentRenderer
                 {
                     var point = series.Points[i];
                     var text = point.Category ?? $"Item {i + 1}";
-                    var fallback = ResolveChartPaletteColor(i);
+                    var fallback = ResolveChartPaletteColor(model, i);
                     var color = TryResolveFillColor(point.Style, series.Style, fallback, out var fill) ? fill : fallback;
-                    entries.Add((text, color));
+                    entries.Add((text, color, false, 1f, DocBorderStyle.Single));
                 }
+            }
+        }
+        else if (model.Type == ChartType.Treemap || model.Type == ChartType.Sunburst)
+        {
+            for (var index = 0; index < model.HierarchyRoots.Count; index++)
+            {
+                var node = model.HierarchyRoots[index];
+                var text = node.Label ?? $"Item {index + 1}";
+                var color = ResolveHierarchyNodeColor(model, node, AppendHierarchyPath(Array.Empty<int>(), index), options);
+                entries.Add((text, color, false, 1f, DocBorderStyle.Single));
             }
         }
         else
@@ -1587,20 +1910,21 @@ public sealed partial class SkiaDocumentRenderer
             {
                 var series = model.Series[i];
                 var text = series.Name ?? $"Series {i + 1}";
-                var fallback = ResolveChartPaletteColor(i);
+                var fallback = ResolveChartPaletteColor(model, i);
                 DocColor color;
                 if (model.Type == ChartType.Line || model.Type == ChartType.Scatter || model.Type == ChartType.Radar)
                 {
-                    color = TryResolveLineStyle(series.Style, fallback, 2f, true, out var lineColor, out _, out _)
+                    var hasLineStyle = TryResolveLineStyle(series.Style, fallback, 2f, true, out var lineColor, out var lineWidth, out var lineStyle);
+                    color = hasLineStyle
                         ? lineColor
                         : fallback;
+                    entries.Add((text, color, true, hasLineStyle ? lineWidth : 2f, hasLineStyle ? lineStyle : DocBorderStyle.Single));
                 }
                 else
                 {
                     color = TryResolveFillColor(series.Style, fallback, true, out var fill) ? fill : fallback;
+                    entries.Add((text, color, false, 1f, DocBorderStyle.Single));
                 }
-
-                entries.Add((text, color));
             }
         }
 
@@ -1644,7 +1968,7 @@ public sealed partial class SkiaDocumentRenderer
                 var marker = new SKRect(bounds.Left + padding, cursorY + (lineHeight - markerSize) * 0.5f,
                     bounds.Left + padding + markerSize, cursorY + (lineHeight - markerSize) * 0.5f + markerSize);
                 var textOrigin = new SKPoint(marker.Right + gap, cursorY + textPaint.TextSize);
-                entryLayouts.Add(new LegendEntryLayout(entry.Text, entry.Color, marker, textOrigin));
+                entryLayouts.Add(new LegendEntryLayout(entry.Text, entry.Color, marker, textOrigin, entry.UseLineMarker, entry.LineWidth, entry.LineStyle));
                 cursorY += lineHeight;
             }
         }
@@ -1668,7 +1992,7 @@ public sealed partial class SkiaDocumentRenderer
                 var marker = new SKRect(cursorX, cursorY + (lineHeight - markerSize) * 0.5f,
                     cursorX + markerSize, cursorY + (lineHeight - markerSize) * 0.5f + markerSize);
                 var textOrigin = new SKPoint(marker.Right + gap, cursorY + textPaint.TextSize);
-                entryLayouts.Add(new LegendEntryLayout(entry.Text, entry.Color, marker, textOrigin));
+                entryLayouts.Add(new LegendEntryLayout(entry.Text, entry.Color, marker, textOrigin, entry.UseLineMarker, entry.LineWidth, entry.LineStyle));
 
                 cursorX += itemWidth + gap;
                 maxX = MathF.Max(maxX, cursorX);
@@ -1676,8 +2000,18 @@ public sealed partial class SkiaDocumentRenderer
 
             var width = MathF.Min(available.Width, MathF.Max(maxX - available.Left + padding, padding * 2f + markerSize));
             var height = MathF.Min(available.Height, cursorY - available.Top + lineHeight + padding);
-            var left = available.Left + (available.Width - width) * 0.5f;
-            var top = legend.Position == ChartLegendPosition.Bottom ? available.Bottom - height : available.Top;
+            var left = legend.Position switch
+            {
+                ChartLegendPosition.TopLeft or ChartLegendPosition.BottomLeft => available.Left,
+                ChartLegendPosition.TopRight or ChartLegendPosition.BottomRight => available.Right - width,
+                _ => available.Left + (available.Width - width) * 0.5f
+            };
+            var top = legend.Position switch
+            {
+                ChartLegendPosition.Bottom or ChartLegendPosition.BottomLeft or ChartLegendPosition.BottomRight
+                    => available.Bottom - height,
+                _ => available.Top
+            };
             bounds = new SKRect(left, top, left + width, top + height);
 
             var offsetX = bounds.Left - available.Left;
@@ -1690,7 +2024,7 @@ public sealed partial class SkiaDocumentRenderer
                     var marker = entry.Marker;
                     marker.Offset(offsetX, offsetY);
                     var textOrigin = new SKPoint(entry.TextOrigin.X + offsetX, entry.TextOrigin.Y + offsetY);
-                    entryLayouts[i] = new LegendEntryLayout(entry.Text, entry.Color, marker, textOrigin);
+                    entryLayouts[i] = new LegendEntryLayout(entry.Text, entry.Color, marker, textOrigin, entry.UseLineMarker, entry.LineWidth, entry.LineStyle);
                 }
             }
         }
@@ -1703,8 +2037,18 @@ public sealed partial class SkiaDocumentRenderer
         using var textPaint = CreateTextPaint(layout.TextStyle, options.TextColor, layout.TextSize, SKTextAlign.Left);
         foreach (var entry in layout.Entries)
         {
-            using var markerPaint = CreateFillPaint(entry.Color, null);
-            canvas.DrawRect(entry.Marker, markerPaint);
+            if (entry.UseLineMarker)
+            {
+                using var linePaint = CreateLinePaint(entry.Color, MathF.Max(1.5f, entry.LineWidth), entry.LineStyle);
+                var y = entry.Marker.MidY;
+                canvas.DrawLine(entry.Marker.Left, y, entry.Marker.Right, y, linePaint);
+            }
+            else
+            {
+                using var markerPaint = CreateFillPaint(entry.Color, null);
+                canvas.DrawRect(entry.Marker, markerPaint);
+            }
+
             canvas.DrawText(entry.Text, entry.TextOrigin.X, entry.TextOrigin.Y, textPaint);
         }
     }
@@ -1715,8 +2059,10 @@ public sealed partial class SkiaDocumentRenderer
         {
             ChartLegendPosition.Left => new SKRect(legendBounds.Right, rect.Top, rect.Right, rect.Bottom),
             ChartLegendPosition.Right => new SKRect(rect.Left, rect.Top, legendBounds.Left, rect.Bottom),
-            ChartLegendPosition.Top => new SKRect(rect.Left, legendBounds.Bottom, rect.Right, rect.Bottom),
-            ChartLegendPosition.Bottom => new SKRect(rect.Left, rect.Top, rect.Right, legendBounds.Top),
+            ChartLegendPosition.Top or ChartLegendPosition.TopLeft or ChartLegendPosition.TopRight
+                => new SKRect(rect.Left, legendBounds.Bottom, rect.Right, rect.Bottom),
+            ChartLegendPosition.Bottom or ChartLegendPosition.BottomLeft or ChartLegendPosition.BottomRight
+                => new SKRect(rect.Left, rect.Top, rect.Right, legendBounds.Top),
             ChartLegendPosition.Corner => new SKRect(rect.Left, rect.Top, legendBounds.Left, rect.Bottom),
             _ => rect
         };
@@ -1724,7 +2070,11 @@ public sealed partial class SkiaDocumentRenderer
 
     private static bool RequiresCartesianAxes(ChartType type)
     {
-        return type != ChartType.Pie && type != ChartType.Doughnut && type != ChartType.Radar;
+        return type != ChartType.Pie
+            && type != ChartType.Doughnut
+            && type != ChartType.Radar
+            && type != ChartType.Treemap
+            && type != ChartType.Sunburst;
     }
 
     private static SKRect BuildCartesianLayout(
@@ -1777,6 +2127,26 @@ public sealed partial class SkiaDocumentRenderer
             else
             {
                 plotRect.Left += extent;
+            }
+        }
+
+        if (horizontalAxis is not null
+            && horizontalAxis.Axis.IsVisible
+            && horizontalAxis.Axis.Kind == ChartAxisKind.Category
+            && horizontalAxis.Labels.Length > 0)
+        {
+            using var labelPaint = CreateTextPaint(horizontalAxis.Axis.LabelTextStyle, options.TextColor, horizontalAxis.LabelTextSize, SKTextAlign.Center);
+            var maxLabelWidth = 0f;
+            for (var i = 0; i < horizontalAxis.Labels.Length; i++)
+            {
+                maxLabelWidth = MathF.Max(maxLabelWidth, labelPaint.MeasureText(horizontalAxis.Labels[i]));
+            }
+
+            var inset = MathF.Min(plotRect.Width * 0.12f, MathF.Max(0f, maxLabelWidth * 0.5f));
+            if (inset > 0f)
+            {
+                plotRect.Left += inset;
+                plotRect.Right -= inset;
             }
         }
 
@@ -2135,6 +2505,121 @@ public sealed partial class SkiaDocumentRenderer
         return labels;
     }
 
+    private static List<string> BuildTreemapLabelLines(ChartHierarchyNode node, SKPaint paint, float availableWidth)
+    {
+        var lines = new List<string>(2);
+        if (!string.IsNullOrWhiteSpace(node.Label))
+        {
+            var label = TrimTextToWidth(node.Label, paint, availableWidth);
+            if (!string.IsNullOrWhiteSpace(label))
+            {
+                lines.Add(label);
+            }
+        }
+
+        var showValue = node.DataLabel?.ShowValue != false;
+        var valueText = showValue ? FormatChartValue(node.Value, node.DataLabel?.NumberFormat) : null;
+        if (!string.IsNullOrWhiteSpace(valueText) && paint.MeasureText(valueText) <= availableWidth)
+        {
+            lines.Add(valueText);
+        }
+
+        return lines;
+    }
+
+    private static string TrimTextToWidth(string text, SKPaint paint, float availableWidth)
+    {
+        if (string.IsNullOrWhiteSpace(text) || paint.MeasureText(text) <= availableWidth)
+        {
+            return text;
+        }
+
+        const string ellipsis = "...";
+        for (var length = text.Length - 1; length > 0; length--)
+        {
+            var candidate = text[..length].TrimEnd() + ellipsis;
+            if (paint.MeasureText(candidate) <= availableWidth)
+            {
+                return candidate;
+            }
+        }
+
+        return ellipsis;
+    }
+
+    private static DocColor ResolveHierarchyNodeColor(ChartModel model, ChartHierarchyNode node, IReadOnlyList<int> path, RenderOptions options)
+    {
+        if (TryResolveFillColor(node.Style, options.PlaceholderFillColor, false, out var explicitFill))
+        {
+            return explicitFill;
+        }
+
+        var rootIndex = path.Count == 0 ? 0 : path[0];
+        var baseColor = ResolveChartPaletteColor(model, rootIndex);
+        if (path.Count <= 1)
+        {
+            return baseColor;
+        }
+
+        var factor = MathF.Min(0.45f, (path.Count - 1) * 0.12f);
+        return TintColor(baseColor, factor);
+    }
+
+    private static DocColor TintColor(DocColor color, float factor)
+    {
+        factor = Math.Clamp(factor, 0f, 1f);
+        return new DocColor(
+            (byte)(color.R + (255 - color.R) * factor),
+            (byte)(color.G + (255 - color.G) * factor),
+            (byte)(color.B + (255 - color.B) * factor),
+            color.A);
+    }
+
+    private static DocColor GetContrastingTextColor(DocColor fill)
+    {
+        var luma = (fill.R * 299 + fill.G * 587 + fill.B * 114) / 1000;
+        return luma >= 150 ? DocColor.Black : DocColor.White;
+    }
+
+    private static int GetHierarchyDepth(IReadOnlyList<ChartHierarchyNode> nodes)
+    {
+        var maxDepth = 0;
+        for (var index = 0; index < nodes.Count; index++)
+        {
+            maxDepth = Math.Max(maxDepth, GetHierarchyDepth(nodes[index]));
+        }
+
+        return maxDepth;
+    }
+
+    private static int GetHierarchyDepth(ChartHierarchyNode node)
+    {
+        var maxDepth = 1;
+        for (var index = 0; index < node.Children.Count; index++)
+        {
+            maxDepth = Math.Max(maxDepth, 1 + GetHierarchyDepth(node.Children[index]));
+        }
+
+        return maxDepth;
+    }
+
+    private static int[] AppendHierarchyPath(IReadOnlyList<int> path, int index)
+    {
+        var result = new int[path.Count + 1];
+        for (var pathIndex = 0; pathIndex < path.Count; pathIndex++)
+        {
+            result[pathIndex] = path[pathIndex];
+        }
+
+        result[^1] = index;
+        return result;
+    }
+
+    private static float DegreesToRadians(float degrees)
+    {
+        return degrees * (MathF.PI / 180f);
+    }
+
     private static float GetCategoryPosition(ChartModel model, SKRect plotRect, int index, int count, bool isHorizontal)
     {
         if (count <= 1)
@@ -2157,8 +2642,49 @@ public sealed partial class SkiaDocumentRenderer
 
         var span = isHorizontal ? plotRect.Width : plotRect.Height;
         var startPos = isHorizontal ? plotRect.Left : plotRect.Top;
+        if (model.Type == ChartType.Line || model.Type == ChartType.Area)
+        {
+            var bucket = span / count;
+            return startPos + bucket * (index + 0.5f);
+        }
+
         var step = span / (count - 1);
         return startPos + index * step;
+    }
+
+    private static void AppendLineSeriesPath(SKPath path, SKPoint[] points, int count, bool useSmoothCurve)
+    {
+        if (count <= 0)
+        {
+            return;
+        }
+
+        path.MoveTo(points[0]);
+        if (!useSmoothCurve || count < 3)
+        {
+            for (var i = 1; i < count; i++)
+            {
+                path.LineTo(points[i]);
+            }
+
+            return;
+        }
+
+        for (var i = 0; i < count - 1; i++)
+        {
+            var p0 = i > 0 ? points[i - 1] : points[i];
+            var p1 = points[i];
+            var p2 = points[i + 1];
+            var p3 = i + 2 < count ? points[i + 2] : points[i + 1];
+
+            var c1 = new SKPoint(
+                p1.X + ((p2.X - p0.X) / 6f),
+                p1.Y + ((p2.Y - p0.Y) / 6f));
+            var c2 = new SKPoint(
+                p2.X - ((p3.X - p1.X) / 6f),
+                p2.Y - ((p3.Y - p1.Y) / 6f));
+            path.CubicTo(c1, c2, p2);
+        }
     }
 
     private static void DrawCartesianAxes(SKCanvas canvas, SKRect plotRect, ChartAxisLayout? horizontalAxis, ChartAxisLayout? verticalAxis, RenderOptions options)

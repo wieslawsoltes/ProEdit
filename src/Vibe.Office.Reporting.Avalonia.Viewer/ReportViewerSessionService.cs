@@ -277,8 +277,8 @@ public sealed class ReportViewerSessionService : IReportViewerSessionService
         {
             cancellationToken.ThrowIfCancellationRequested();
             var page = layout.Pages[pageIndex];
-            var widthPx = Math.Max(1, (int)MathF.Ceiling(layout.Settings.PageWidth * effectiveDpi / DipsPerInch));
-            var heightPx = Math.Max(1, (int)MathF.Ceiling(layout.Settings.PageHeight * effectiveDpi / DipsPerInch));
+            var widthPx = Math.Max(1, (int)MathF.Ceiling(page.Bounds.Width * effectiveDpi / DipsPerInch));
+            var heightPx = Math.Max(1, (int)MathF.Ceiling(page.Bounds.Height * effectiveDpi / DipsPerInch));
             using var surface = SKSurface.Create(new SKImageInfo(widthPx, heightPx, SKColorType.Bgra8888, SKAlphaType.Premul));
             if (surface is null)
             {
@@ -314,6 +314,8 @@ public sealed class ReportViewerSessionService : IReportViewerSessionService
             PageColor = DocColor.White,
             PageBorderColor = new DocColor(220, 220, 220),
             PageBorderThickness = 1f,
+            SvgRenderMode = SvgRenderMode.Rasterize,
+            SvgRasterizationScale = 2f,
             ShowCaret = false,
             ShowInvisibles = false,
             ShowLayout = false,
