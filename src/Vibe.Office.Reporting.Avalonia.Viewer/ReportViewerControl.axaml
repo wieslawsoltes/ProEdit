@@ -8,88 +8,166 @@
   </UserControl.Styles>
 
   <Grid RowDefinitions="Auto,*"
-        ColumnDefinitions="300,5,*">
-    <Border Grid.Row="0"
-            Grid.ColumnSpan="3"
+        ColumnDefinitions="Auto,Auto,*">
+    <Border Grid.ColumnSpan="3"
             Classes="viewer-toolbar">
-      <ScrollViewer HorizontalScrollBarVisibility="Auto"
-                    VerticalScrollBarVisibility="Disabled">
-        <Grid ColumnDefinitions="Auto,Auto,*,Auto"
-              ColumnSpacing="12">
-          <StackPanel Orientation="Horizontal"
-                      Spacing="8">
-            <Button Theme="{StaticResource ViewerPrimaryActionButtonTheme}"
-                    Content="Refresh"
-                    Command="{Binding RefreshCommand}"
-                    IsEnabled="{Binding CanRefresh}" />
-            <Button Theme="{StaticResource ViewerActionButtonTheme}"
-                    Content="Back"
-                    Command="{Binding GoBackCommand}"
-                    IsEnabled="{Binding CanGoBack}" />
-            <Button Theme="{StaticResource ViewerActionButtonTheme}"
-                    Content="Prev"
-                    Command="{Binding PreviousPageCommand}"
-                    IsEnabled="{Binding CanNavigatePrevious}" />
-            <Button Theme="{StaticResource ViewerActionButtonTheme}"
-                    Content="Next"
-                    Command="{Binding NextPageCommand}"
-                    IsEnabled="{Binding CanNavigateNext}" />
-          </StackPanel>
+      <Grid ColumnDefinitions="Auto,Auto,*,Auto"
+            ColumnSpacing="10">
+        <StackPanel Orientation="Horizontal"
+                    Spacing="6">
+          <Button Theme="{StaticResource ViewerPrimaryActionButtonTheme}"
+                  Content="Refresh"
+                  Command="{Binding RefreshCommand}"
+                  IsEnabled="{Binding CanRefresh}" />
+          <Button Theme="{StaticResource ViewerActionButtonTheme}"
+                  Content="Back"
+                  Command="{Binding GoBackCommand}"
+                  IsEnabled="{Binding CanGoBack}" />
+          <Button Theme="{StaticResource ViewerActionButtonTheme}"
+                  Content="Prev"
+                  Command="{Binding PreviousPageCommand}"
+                  IsEnabled="{Binding CanNavigatePrevious}" />
+          <Button Theme="{StaticResource ViewerActionButtonTheme}"
+                  Content="Next"
+                  Command="{Binding NextPageCommand}"
+                  IsEnabled="{Binding CanNavigateNext}" />
+          <Border Classes="viewer-status-pill">
+            <TextBlock Classes="viewer-helper"
+                       Text="{Binding PageDisplayText}" />
+          </Border>
+        </StackPanel>
 
-          <StackPanel Grid.Column="1"
-                      Orientation="Horizontal"
-                      Spacing="8">
-            <Border Classes="viewer-status-pill">
-              <TextBlock Classes="viewer-helper"
-                         Text="{Binding PageDisplayText}" />
-            </Border>
-            <ComboBox Classes="viewer-editor"
-                      Width="110"
-                      ItemsSource="{Binding ZoomLevels}"
-                      SelectedItem="{Binding ZoomFactor, Mode=TwoWay}" />
-          </StackPanel>
+        <StackPanel Grid.Column="1"
+                    Orientation="Horizontal"
+                    Spacing="6">
+          <Button Theme="{StaticResource ViewerActionButtonTheme}"
+                  Content="Fit Width"
+                  Command="{Binding FitWidthCommand}" />
+          <Button Theme="{StaticResource ViewerActionButtonTheme}"
+                  Content="Fit Page"
+                  Command="{Binding FitPageCommand}" />
+          <Button Theme="{StaticResource ViewerActionButtonTheme}"
+                  Content="Actual"
+                  Command="{Binding ActualSizeCommand}" />
+          <Button Theme="{StaticResource ViewerActionButtonTheme}"
+                  Content="-"
+                  Command="{Binding ZoomOutCommand}" />
+          <ComboBox Classes="viewer-editor"
+                    Width="110"
+                    ItemsSource="{Binding ZoomLevels}"
+                    SelectedItem="{Binding ZoomFactor, Mode=TwoWay}" />
+          <Button Theme="{StaticResource ViewerActionButtonTheme}"
+                  Content="+"
+                  Command="{Binding ZoomInCommand}" />
+          <ToggleButton Theme="{StaticResource ViewerToolToggleButtonTheme}"
+                        IsChecked="{Binding IsThumbnailTrayOpen}"
+                        Command="{Binding ToggleThumbnailsCommand}">
+            <TextBlock Text="Pages" />
+          </ToggleButton>
+        </StackPanel>
 
-          <StackPanel Grid.Column="2"
-                      Orientation="Horizontal"
-                      HorizontalAlignment="Right"
-                      Spacing="8">
-            <Border Classes="viewer-status-pill">
-              <TextBlock Classes="viewer-helper"
-                         Text="{Binding StatusMessage}" />
-            </Border>
-          </StackPanel>
+        <Border Grid.Column="2"
+                HorizontalAlignment="Right"
+                Classes="viewer-status-pill">
+          <TextBlock Classes="viewer-helper"
+                     Text="{Binding StatusMessage}" />
+        </Border>
 
-          <StackPanel Grid.Column="3"
-                      Orientation="Horizontal"
-                      Spacing="8">
-            <ComboBox Classes="viewer-editor"
-                      Width="120"
-                      ItemsSource="{Binding ExportFormats}"
-                      SelectedItem="{Binding SelectedExportFormat, Mode=TwoWay}" />
-            <Button Theme="{StaticResource ViewerActionButtonTheme}"
-                    Content="Export"
-                    Command="{Binding ExportCommand}"
-                    IsEnabled="{Binding CanExport}" />
-            <Button Theme="{StaticResource ViewerActionButtonTheme}"
-                    Content="Print"
-                    Command="{Binding PrintCommand}"
-                    IsEnabled="{Binding CanPrint}" />
-          </StackPanel>
-        </Grid>
-      </ScrollViewer>
+        <StackPanel Grid.Column="3"
+                    Orientation="Horizontal"
+                    Spacing="6">
+          <ComboBox Classes="viewer-editor"
+                    Width="120"
+                    ItemsSource="{Binding ExportFormats}"
+                    SelectedItem="{Binding SelectedExportFormat, Mode=TwoWay}" />
+          <Button Theme="{StaticResource ViewerActionButtonTheme}"
+                  Content="Export"
+                  Command="{Binding ExportCommand}"
+                  IsEnabled="{Binding CanExport}" />
+          <Button Theme="{StaticResource ViewerActionButtonTheme}"
+                  Content="Print"
+                  Command="{Binding PrintCommand}"
+                  IsEnabled="{Binding CanPrint}" />
+        </StackPanel>
+      </Grid>
     </Border>
 
     <Border Grid.Row="1"
-            Grid.Column="0"
-            Classes="viewer-sidebar">
-      <TabControl Theme="{StaticResource ViewerPaneTabControlTheme}"
-                  SelectedIndex="{Binding SelectedPaneIndex, Mode=TwoWay}">
-        <TabItem Header="Parameters"
-                 Theme="{StaticResource ViewerPaneTabItemTheme}">
-          <Grid RowDefinitions="*,Auto"
-                RowSpacing="10"
-                Margin="10">
-            <ScrollViewer VerticalScrollBarVisibility="Auto">
+            Classes="viewer-rail">
+      <StackPanel Margin="6,8"
+                  Spacing="6">
+        <Button Theme="{StaticResource ViewerRailButtonTheme}"
+                Content="Params"
+                Command="{Binding OpenParametersPaneCommand}" />
+        <Button Theme="{StaticResource ViewerRailButtonTheme}"
+                Content="Outline"
+                Command="{Binding OpenOutlinePaneCommand}" />
+        <Button Theme="{StaticResource ViewerRailButtonTheme}"
+                Content="Search"
+                Command="{Binding OpenSearchPaneCommand}" />
+        <Button Theme="{StaticResource ViewerRailButtonTheme}"
+                Content="Diag"
+                Command="{Binding OpenDiagnosticsPaneCommand}" />
+        <Button Theme="{StaticResource ViewerRailButtonTheme}"
+                Content="Drill"
+                Command="{Binding OpenDrillthroughPaneCommand}" />
+      </StackPanel>
+    </Border>
+
+    <Border Grid.Row="1"
+            Grid.Column="1"
+            Width="320"
+            Classes="viewer-drawer"
+            IsVisible="{Binding IsLeftDrawerVisible}">
+      <Grid RowDefinitions="Auto,*">
+        <Border Classes="viewer-drawer-header">
+          <Grid ColumnDefinitions="*,Auto,Auto"
+                ColumnSpacing="6">
+            <StackPanel Orientation="Horizontal"
+                        Spacing="6">
+              <Border Classes="viewer-status-pill"
+                      IsVisible="{Binding IsParametersPaneActive}">
+                <TextBlock Classes="viewer-helper"
+                           Text="Parameters" />
+              </Border>
+              <Border Classes="viewer-status-pill"
+                      IsVisible="{Binding IsOutlinePaneActive}">
+                <TextBlock Classes="viewer-helper"
+                           Text="Outline" />
+              </Border>
+              <Border Classes="viewer-status-pill"
+                      IsVisible="{Binding IsSearchPaneActive}">
+                <TextBlock Classes="viewer-helper"
+                           Text="Search" />
+              </Border>
+              <Border Classes="viewer-status-pill"
+                      IsVisible="{Binding IsDiagnosticsPaneActive}">
+                <TextBlock Classes="viewer-helper"
+                           Text="Diagnostics" />
+              </Border>
+              <Border Classes="viewer-status-pill"
+                      IsVisible="{Binding IsDrillthroughPaneActive}">
+                <TextBlock Classes="viewer-helper"
+                           Text="Drillthrough" />
+              </Border>
+            </StackPanel>
+            <Button Grid.Column="1"
+                    Theme="{StaticResource ViewerActionButtonTheme}"
+                    Content="Pin"
+                    Command="{Binding TogglePinLeftDrawerCommand}" />
+            <Button Grid.Column="2"
+                    Theme="{StaticResource ViewerActionButtonTheme}"
+                    Content="Close"
+                    Command="{Binding CloseLeftDrawerCommand}" />
+          </Grid>
+        </Border>
+
+        <ScrollViewer Grid.Row="1"
+                      VerticalScrollBarVisibility="Auto">
+          <Grid Margin="10">
+            <Grid IsVisible="{Binding IsParametersPaneActive}"
+                  RowDefinitions="*,Auto"
+                  RowSpacing="10">
               <ItemsControl ItemsSource="{Binding Parameters}">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="local:ReportViewerParameterViewModel">
@@ -125,148 +203,129 @@
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
-            </ScrollViewer>
-            <StackPanel Grid.Row="1"
-                        Orientation="Horizontal"
-                        Spacing="8">
-              <Button Theme="{StaticResource ViewerPrimaryActionButtonTheme}"
-                      Content="Apply"
-                      Command="{Binding ApplyParametersCommand}"
-                      IsEnabled="{Binding CanRefresh}" />
-              <Button Theme="{StaticResource ViewerActionButtonTheme}"
-                      Content="Reset"
-                      Command="{Binding ResetParametersCommand}"
-                      IsEnabled="{Binding CanRefresh}" />
-            </StackPanel>
-          </Grid>
-        </TabItem>
+              <StackPanel Grid.Row="1"
+                          Orientation="Horizontal"
+                          Spacing="8">
+                <Button Theme="{StaticResource ViewerPrimaryActionButtonTheme}"
+                        Content="Apply"
+                        Command="{Binding ApplyParametersCommand}"
+                        IsEnabled="{Binding CanRefresh}" />
+                <Button Theme="{StaticResource ViewerActionButtonTheme}"
+                        Content="Reset"
+                        Command="{Binding ResetParametersCommand}"
+                        IsEnabled="{Binding CanRefresh}" />
+              </StackPanel>
+            </Grid>
 
-        <TabItem Header="Outline"
-                 Theme="{StaticResource ViewerPaneTabItemTheme}">
-          <ListBox Margin="10"
-                   ItemsSource="{Binding DocumentMapEntries}"
-                   SelectedItem="{Binding SelectedDocumentMapEntry, Mode=TwoWay}">
-            <ListBox.ItemTemplate>
-              <DataTemplate x:DataType="local:ReportViewerDocumentMapEntryViewModel">
-                <Grid ColumnDefinitions="*,Auto"
-                      ColumnSpacing="10"
-                      Margin="{Binding IndentMargin}">
-                  <Button Theme="{StaticResource ViewerActionButtonTheme}"
-                          HorizontalAlignment="Stretch"
-                          HorizontalContentAlignment="Left"
-                          Command="{Binding NavigateCommand}">
-                    <TextBlock Text="{Binding Label}" />
-                  </Button>
-                  <TextBlock Grid.Column="1"
-                             VerticalAlignment="Center"
-                             Classes="viewer-helper"
-                             Text="{Binding PageText}" />
-                </Grid>
-              </DataTemplate>
-            </ListBox.ItemTemplate>
-          </ListBox>
-        </TabItem>
-
-        <TabItem Header="Search"
-                 Theme="{StaticResource ViewerPaneTabItemTheme}">
-          <Grid RowDefinitions="Auto,*"
-                RowSpacing="10"
-                Margin="10">
-            <TextBox Classes="viewer-editor"
-                     Watermark="Search report"
-                     Text="{Binding SearchQuery, Mode=TwoWay}" />
-            <ListBox Grid.Row="1"
-                     ItemsSource="{Binding SearchResults}"
-                     SelectedItem="{Binding SelectedSearchResult, Mode=TwoWay}">
+            <ListBox IsVisible="{Binding IsOutlinePaneActive}"
+                     ItemsSource="{Binding DocumentMapEntries}"
+                     SelectedItem="{Binding SelectedDocumentMapEntry, Mode=TwoWay}">
               <ListBox.ItemTemplate>
-                <DataTemplate x:DataType="local:ReportViewerSearchResultViewModel">
-                  <Border Classes="viewer-card">
-                    <Grid RowDefinitions="Auto,Auto"
-                          RowSpacing="6">
-                      <Button Theme="{StaticResource ViewerActionButtonTheme}"
-                              HorizontalAlignment="Stretch"
-                              HorizontalContentAlignment="Left"
-                              Command="{Binding NavigateCommand}">
-                        <TextBlock Text="{Binding Snippet}"
-                                   TextWrapping="Wrap" />
-                      </Button>
-                      <TextBlock Grid.Row="1"
-                                 Classes="viewer-helper"
-                                 Text="{Binding PageText}" />
-                    </Grid>
-                  </Border>
-                </DataTemplate>
-              </ListBox.ItemTemplate>
-            </ListBox>
-          </Grid>
-        </TabItem>
-
-        <TabItem Header="Diagnostics"
-                 Theme="{StaticResource ViewerPaneTabItemTheme}">
-          <ListBox Margin="10"
-                   ItemsSource="{Binding Diagnostics}">
-            <ListBox.ItemTemplate>
-              <DataTemplate x:DataType="local:ReportViewerDiagnosticViewModel">
-                <Border Classes="viewer-card">
-                  <StackPanel Spacing="4">
-                    <TextBlock Classes="viewer-label"
-                               Text="{Binding Severity}" />
-                    <TextBlock Text="{Binding Code}" />
-                    <TextBlock Text="{Binding Message}"
-                               TextWrapping="Wrap" />
-                    <TextBlock Classes="viewer-helper"
-                               Text="{Binding Path}" />
-                  </StackPanel>
-                </Border>
-              </DataTemplate>
-            </ListBox.ItemTemplate>
-          </ListBox>
-        </TabItem>
-
-        <TabItem Header="Drillthrough"
-                 Theme="{StaticResource ViewerPaneTabItemTheme}">
-          <ListBox Margin="10"
-                   ItemsSource="{Binding DrillthroughItems}"
-                   SelectedItem="{Binding SelectedDrillthroughItem, Mode=TwoWay}">
-            <ListBox.ItemTemplate>
-              <DataTemplate x:DataType="local:ReportViewerDrillthroughItemViewModel">
-                <Border Classes="viewer-card">
-                  <StackPanel Spacing="6">
+                <DataTemplate x:DataType="local:ReportViewerDocumentMapEntryViewModel">
+                  <Grid ColumnDefinitions="*,Auto"
+                        ColumnSpacing="10"
+                        Margin="{Binding IndentMargin}">
                     <Button Theme="{StaticResource ViewerActionButtonTheme}"
                             HorizontalAlignment="Stretch"
                             HorizontalContentAlignment="Left"
                             Command="{Binding NavigateCommand}">
                       <TextBlock Text="{Binding Label}" />
                     </Button>
-                    <TextBlock Text="{Binding Description}"
-                               TextWrapping="Wrap" />
-                    <TextBlock Classes="viewer-helper"
+                    <TextBlock Grid.Column="1"
+                               VerticalAlignment="Center"
+                               Classes="viewer-helper"
                                Text="{Binding PageText}" />
-                  </StackPanel>
-                </Border>
-              </DataTemplate>
-            </ListBox.ItemTemplate>
-          </ListBox>
-        </TabItem>
-      </TabControl>
+                  </Grid>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+
+            <Grid IsVisible="{Binding IsSearchPaneActive}"
+                  RowDefinitions="Auto,*"
+                  RowSpacing="10">
+              <TextBox Classes="viewer-editor"
+                       Watermark="Search report"
+                       Text="{Binding SearchQuery, Mode=TwoWay}" />
+              <ListBox Grid.Row="1"
+                       ItemsSource="{Binding SearchResults}"
+                       SelectedItem="{Binding SelectedSearchResult, Mode=TwoWay}">
+                <ListBox.ItemTemplate>
+                  <DataTemplate x:DataType="local:ReportViewerSearchResultViewModel">
+                    <Border Classes="viewer-card">
+                      <Grid RowDefinitions="Auto,Auto"
+                            RowSpacing="6">
+                        <Button Theme="{StaticResource ViewerActionButtonTheme}"
+                                HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Left"
+                                Command="{Binding NavigateCommand}">
+                          <TextBlock Text="{Binding Snippet}"
+                                     TextWrapping="Wrap" />
+                        </Button>
+                        <TextBlock Grid.Row="1"
+                                   Classes="viewer-helper"
+                                   Text="{Binding PageText}" />
+                      </Grid>
+                    </Border>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+            </Grid>
+
+            <ListBox IsVisible="{Binding IsDiagnosticsPaneActive}"
+                     ItemsSource="{Binding Diagnostics}">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="local:ReportViewerDiagnosticViewModel">
+                  <Border Classes="viewer-card">
+                    <StackPanel Spacing="4">
+                      <TextBlock Classes="viewer-label"
+                                 Text="{Binding Severity}" />
+                      <TextBlock Text="{Binding Code}" />
+                      <TextBlock Text="{Binding Message}"
+                                 TextWrapping="Wrap" />
+                      <TextBlock Classes="viewer-helper"
+                                 Text="{Binding Path}" />
+                    </StackPanel>
+                  </Border>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+
+            <ListBox IsVisible="{Binding IsDrillthroughPaneActive}"
+                     ItemsSource="{Binding DrillthroughItems}"
+                     SelectedItem="{Binding SelectedDrillthroughItem, Mode=TwoWay}">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="local:ReportViewerDrillthroughItemViewModel">
+                  <Border Classes="viewer-card">
+                    <StackPanel Spacing="6">
+                      <Button Theme="{StaticResource ViewerActionButtonTheme}"
+                              HorizontalAlignment="Stretch"
+                              HorizontalContentAlignment="Left"
+                              Command="{Binding NavigateCommand}">
+                        <TextBlock Text="{Binding Label}" />
+                      </Button>
+                      <TextBlock Text="{Binding Description}"
+                                 TextWrapping="Wrap" />
+                      <TextBlock Classes="viewer-helper"
+                                 Text="{Binding PageText}" />
+                    </StackPanel>
+                  </Border>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </Grid>
+        </ScrollViewer>
+      </Grid>
     </Border>
 
-    <GridSplitter Grid.Row="1"
-                  Grid.Column="1"
-                  Classes="viewer-splitter"
-                  HorizontalAlignment="Stretch"
-                  ResizeDirection="Columns" />
-
-    <Border Grid.Row="1"
-            Grid.Column="2"
-            Classes="viewer-preview">
-      <Grid RowDefinitions="*,Auto"
-            RowSpacing="0">
+    <local:ReportViewerViewportHost Grid.Row="1"
+                                    Grid.Column="2"
+                                    Classes="viewer-preview">
+      <Grid RowDefinitions="*,Auto">
         <ScrollViewer HorizontalScrollBarVisibility="Auto"
                       VerticalScrollBarVisibility="Auto">
           <Grid HorizontalAlignment="Center"
                 VerticalAlignment="Top"
-                Margin="24">
+                Margin="28">
             <Border Classes="viewer-page-shell">
               <Image Source="{Binding SelectedPage.Bitmap}"
                      Width="{Binding SelectedPage.DisplayWidth}"
@@ -277,31 +336,34 @@
           </Grid>
         </ScrollViewer>
 
-        <ListBox Grid.Row="1"
-                 ItemsSource="{Binding Pages}"
-                 SelectedItem="{Binding SelectedPage, Mode=TwoWay}"
-                 Classes="viewer-thumbnails">
-          <ListBox.ItemsPanel>
-            <ItemsPanelTemplate>
-              <StackPanel Orientation="Horizontal" />
-            </ItemsPanelTemplate>
-          </ListBox.ItemsPanel>
-          <ListBox.ItemTemplate>
-            <DataTemplate x:DataType="local:ReportViewerPageViewModel">
-              <Border Classes="viewer-thumbnail">
-                <StackPanel Spacing="6">
-                  <Image Source="{Binding Bitmap}"
-                         Width="{Binding ThumbnailWidth}"
-                         Height="{Binding ThumbnailHeight}"
-                         Stretch="Uniform" />
-                  <TextBlock HorizontalAlignment="Center"
-                             Text="{Binding PageNumber}" />
-                </StackPanel>
-              </Border>
-            </DataTemplate>
-          </ListBox.ItemTemplate>
-        </ListBox>
+        <Border Grid.Row="1"
+                Classes="viewer-filmstrip"
+                IsVisible="{Binding IsThumbnailTrayOpen}">
+          <ListBox ItemsSource="{Binding Pages}"
+                   SelectedItem="{Binding SelectedPage, Mode=TwoWay}"
+                   Classes="viewer-thumbnails">
+            <ListBox.ItemsPanel>
+              <ItemsPanelTemplate>
+                <StackPanel Orientation="Horizontal" />
+              </ItemsPanelTemplate>
+            </ListBox.ItemsPanel>
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="local:ReportViewerPageViewModel">
+                <Border Classes="viewer-thumbnail">
+                  <StackPanel Spacing="6">
+                    <Image Source="{Binding Bitmap}"
+                           Width="{Binding ThumbnailWidth}"
+                           Height="{Binding ThumbnailHeight}"
+                           Stretch="Uniform" />
+                    <TextBlock HorizontalAlignment="Center"
+                               Text="{Binding PageNumber}" />
+                  </StackPanel>
+                </Border>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </Border>
       </Grid>
-    </Border>
+    </local:ReportViewerViewportHost>
   </Grid>
 </UserControl>

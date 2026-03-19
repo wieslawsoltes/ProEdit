@@ -122,10 +122,77 @@
       <Setter Property="BorderBrush" Value="{DynamicResource ViewerAccentPressedBrush}" />
     </Style>
     </ControlTheme>
+
+    <ControlTheme x:Key="ViewerRailButtonTheme"
+                  TargetType="Button"
+                  BasedOn="{StaticResource ViewerActionButtonTheme}">
+      <Setter Property="Padding" Value="10,8" />
+      <Setter Property="MinWidth" Value="74" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="Background" Value="{DynamicResource ViewerSurfaceAltBrush}" />
+      <Setter Property="CornerRadius" Value="8" />
+    </ControlTheme>
+
+    <ControlTheme x:Key="ViewerToolToggleButtonTheme"
+                  TargetType="ToggleButton">
+      <Setter Property="Background" Value="{DynamicResource ViewerSurfaceBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource ViewerTextMutedBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ViewerBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Padding" Value="10,6" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Name="PART_ViewerToggleRoot"
+                  Background="{TemplateBinding Background}"
+                  BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}"
+                  CornerRadius="{TemplateBinding CornerRadius}">
+            <ContentPresenter Content="{TemplateBinding Content}"
+                              ContentTemplate="{TemplateBinding ContentTemplate}"
+                              Padding="{TemplateBinding Padding}"
+                              HorizontalContentAlignment="Center"
+                              VerticalContentAlignment="Center" />
+          </Border>
+        </ControlTemplate>
+      </Setter>
+
+      <Style Selector="^:pointerover /template/ Border#PART_ViewerToggleRoot">
+        <Setter Property="Background" Value="{DynamicResource ViewerHoverBrush}" />
+      </Style>
+      <Style Selector="^:checked">
+        <Setter Property="Foreground" Value="{DynamicResource ViewerTextBrush}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+      </Style>
+      <Style Selector="^:checked /template/ Border#PART_ViewerToggleRoot">
+        <Setter Property="Background" Value="{DynamicResource ViewerAccentSoftBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource ViewerAccentBrush}" />
+      </Style>
+    </ControlTheme>
   </Styles.Resources>
 
   <Style Selector="Border.viewer-toolbar">
     <Setter Property="Padding" Value="8,6,10,6" />
+    <Setter Property="Background" Value="{DynamicResource ViewerChromeBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ViewerBorderBrush}" />
+    <Setter Property="BorderThickness" Value="0,0,0,1" />
+  </Style>
+
+  <Style Selector="Border.viewer-rail">
+    <Setter Property="Width" Value="88" />
+    <Setter Property="Background" Value="{DynamicResource ViewerChromeBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ViewerBorderBrush}" />
+    <Setter Property="BorderThickness" Value="0,0,1,0" />
+  </Style>
+
+  <Style Selector="Border.viewer-drawer">
+    <Setter Property="Background" Value="{DynamicResource ViewerSurfaceBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ViewerBorderBrush}" />
+    <Setter Property="BorderThickness" Value="0,0,1,0" />
+  </Style>
+
+  <Style Selector="Border.viewer-drawer-header">
+    <Setter Property="Padding" Value="8,6,8,6" />
     <Setter Property="Background" Value="{DynamicResource ViewerChromeBrush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource ViewerBorderBrush}" />
     <Setter Property="BorderThickness" Value="0,0,0,1" />
@@ -148,6 +215,13 @@
 
   <Style Selector="Border.viewer-preview">
     <Setter Property="Background" Value="{DynamicResource ViewerStageBrush}" />
+  </Style>
+
+  <Style Selector="Border.viewer-filmstrip">
+    <Setter Property="Padding" Value="8,0,8,8" />
+    <Setter Property="Background" Value="{DynamicResource ViewerChromeBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ViewerBorderBrush}" />
+    <Setter Property="BorderThickness" Value="0,1,0,0" />
   </Style>
 
   <Style Selector="Border.viewer-card">
