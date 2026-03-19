@@ -7,8 +7,10 @@ using Avalonia.VisualTree;
 using System.Reactive;
 using System.Text;
 using ReactiveUI;
+using ReactiveUI.Avalonia;
 using Vibe.Office.Documents;
 using Vibe.Office.Reporting;
+using Vibe.Office.Reporting.Avalonia;
 using Vibe.Office.Reporting.Avalonia.Designer;
 using Vibe.Office.Reporting.Avalonia.Viewer;
 using Vibe.Office.Reporting.Data;
@@ -25,6 +27,10 @@ namespace Vibe.Reporting.App.Headless.Tests;
 
 public sealed class HeadlessTestApp : Application
 {
+    public override void Initialize()
+    {
+        RxApp.MainThreadScheduler = AvaloniaScheduler.Instance;
+    }
 }
 
 public static class HeadlessTestAppBuilder
@@ -126,6 +132,127 @@ public sealed class ReportingStudioAppTests
         Assert.Contains(window.GetVisualDescendants().OfType<TextBlock>(), text => string.Equals(text.Text, "VibeOffice Reporting", StringComparison.Ordinal));
         Assert.NotNull(viewModel.ViewerViewModel.CurrentSnapshot);
         Assert.NotEmpty(viewModel.ViewerViewModel.Pages);
+
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public async Task MainWindow_ModeSwitchingPreservesPerModePaneState()
+    {
+        var workspaceFactory = new ReportingStudioWorkspaceFactory();
+        var service = CreateDocumentService(workspaceFactory);
+        using var viewModel = new ReportingStudioViewModel(new StubReportingStudioFilePickerService(), service);
+        await viewModel.InitializeAsync();
+
+        var window = new MainWindow
+        {
+            Width = 1680,
+            Height = 1024,
+            DataContext = viewModel
+        };
+
+        window.Show();
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+
+        Execute(viewModel.DesignerViewModel.OpenReportDataPaneCommand);
+        Execute(viewModel.DesignerViewModel.TogglePinLeftDrawerCommand);
+        Assert.Equal(PaneVisibilityState.Pinned, viewModel.DesignerViewModel.LeftDrawerState);
+
+        Execute(viewModel.ShowRunCommand);
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+        Assert.True(viewModel.IsRunMode);
+
+        Execute(viewModel.ViewerViewModel.OpenSearchPaneCommand);
+        Execute(viewModel.ViewerViewModel.ToggleThumbnailsCommand);
+        Assert.Equal(PaneVisibilityState.Open, viewModel.ViewerViewModel.LeftDrawerState);
+        Assert.True(viewModel.ViewerViewModel.IsSearchPaneActive);
+        Assert.True(viewModel.ViewerViewModel.IsThumbnailTrayOpen);
+
+        Execute(viewModel.ShowDesignCommand);
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+        Assert.True(viewModel.IsDesignMode);
+        Assert.Equal(PaneVisibilityState.Pinned, viewModel.DesignerViewModel.LeftDrawerState);
+
+        Execute(viewModel.ShowRunCommand);
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+        Assert.Equal(PaneVisibilityState.Open, viewModel.ViewerViewModel.LeftDrawerState);
+        Assert.True(viewModel.ViewerViewModel.IsSearchPaneActive);
+        Assert.True(viewModel.ViewerViewModel.IsThumbnailTrayOpen);
+
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public async Task MainWindow_DefaultModesFavorCanvasBounds()
+    {
+        var workspaceFactory = new ReportingStudioWorkspaceFactory();
+        var service = CreateDocumentService(workspaceFactory);
+        using var viewModel = new ReportingStudioViewModel(new StubReportingStudioFilePickerService(), service);
+        await viewModel.InitializeAsync();
+
+        var window = new MainWindow
+        {
+            Width = 1680,
+            Height = 1024,
+            DataContext = viewModel
+        };
+
+        window.Show();
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+
+        var designSurface = window.GetVisualDescendants()
+            .OfType<ReportDesignerDesignSurface>()
+            .First(surface => surface.IsVisible);
+        Assert.True(designSurface.Bounds.Width > 1000d);
+        Assert.True(designSurface.Bounds.Height > 640d);
+
+        Execute(viewModel.ShowRunCommand);
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+
+        var viewportHost = window.GetVisualDescendants()
+            .OfType<ReportViewerViewportHost>()
+            .First(host => host.IsVisible);
+        Assert.True(viewportHost.Bounds.Width > 1000d);
+        Assert.True(viewportHost.Bounds.Height > 640d);
+
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public async Task MainWindow_CapturesCanvasFirstShellBaselines_WhenRequested()
+    {
+        var screenshotRoot = Environment.GetEnvironmentVariable("AVALONIA_SCREENSHOT_DIR");
+        if (string.IsNullOrWhiteSpace(screenshotRoot))
+        {
+            return;
+        }
+
+        Directory.CreateDirectory(screenshotRoot);
+
+        var workspaceFactory = new ReportingStudioWorkspaceFactory();
+        var service = CreateDocumentService(workspaceFactory);
+        using var viewModel = new ReportingStudioViewModel(new StubReportingStudioFilePickerService(), service);
+        await viewModel.InitializeAsync();
+
+        var window = new MainWindow
+        {
+            Width = 1680,
+            Height = 1024,
+            DataContext = viewModel
+        };
+
+        window.Show();
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+
+        SaveFrame(window, screenshotRoot, "studio-default-design.png");
+
+        Execute(viewModel.ShowRunCommand);
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+
+        SaveFrame(window, screenshotRoot, "studio-default-run.png");
+
+        Assert.True(File.Exists(Path.Combine(screenshotRoot, "studio-default-design.png")));
+        Assert.True(File.Exists(Path.Combine(screenshotRoot, "studio-default-run.png")));
 
         window.Close();
     }
@@ -335,7 +462,7 @@ public sealed class ReportingStudioAppTests
         window.Show();
         await Dispatcher.UIThread.InvokeAsync(static () => { });
 
-        var frame = Avalonia.Headless.HeadlessWindowExtensions.CaptureRenderedFrame(window);
+        var frame = global::Avalonia.Headless.HeadlessWindowExtensions.CaptureRenderedFrame(window);
         Assert.NotNull(frame);
         var path = Path.Combine(screenshotRoot, "invoice-viewer-preview.png");
         frame!.Save(path);
@@ -525,6 +652,19 @@ public sealed class ReportingStudioAppTests
         {
             Directory.Delete(path, recursive: true);
         }
+    }
+
+    private static void Execute(ReactiveCommand<Unit, Unit> command)
+    {
+        using var subscription = command.Execute().Subscribe();
+    }
+
+    private static void SaveFrame(Window window, string screenshotRoot, string fileName)
+    {
+        var frame = Avalonia.Headless.HeadlessWindowExtensions.CaptureRenderedFrame(window);
+        Assert.NotNull(frame);
+        var path = Path.Combine(screenshotRoot, fileName);
+        frame!.Save(path);
     }
 
     private static IEnumerable<ShapeInline> EnumerateShapeInlines(Document document)

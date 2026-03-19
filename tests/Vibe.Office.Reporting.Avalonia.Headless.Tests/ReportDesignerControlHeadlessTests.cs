@@ -1,8 +1,10 @@
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using ReactiveUI;
+using Vibe.Office.Reporting.Avalonia;
 using Vibe.Office.Printing;
 using Vibe.Office.Reporting.Avalonia.Designer;
 using Vibe.Office.Reporting.Avalonia.Viewer;
@@ -41,6 +43,93 @@ public sealed class ReportDesignerControlHeadlessTests
         Assert.NotNull(control.GetVisualDescendants().OfType<ReportDesignerReportDataPane>().FirstOrDefault());
         Assert.NotNull(control.GetVisualDescendants().OfType<ReportDesignerGroupingPane>().FirstOrDefault());
         Assert.NotNull(control.GetVisualDescendants().OfType<ReportDesignerPropertiesPane>().FirstOrDefault());
+
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public async Task Designer_DefaultLayoutStartsCanvasFirst()
+    {
+        using var viewModel = new ReportDesignerViewModel(CreateDesignerSource());
+        var control = new ReportDesignerControl
+        {
+            DataContext = viewModel,
+            Width = 1600,
+            Height = 980
+        };
+        var window = new Window
+        {
+            Width = 1680,
+            Height = 1024,
+            Content = control
+        };
+
+        window.Show();
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+
+        var designSurface = Assert.Single(control.GetVisualDescendants().OfType<ReportDesignerDesignSurface>());
+
+        Assert.Equal(PaneVisibilityState.Closed, viewModel.LeftDrawerState);
+        Assert.Equal(PaneVisibilityState.Closed, viewModel.RightDrawerState);
+        Assert.Equal(PaneVisibilityState.Closed, viewModel.ContextTrayState);
+        Assert.Equal(0d, viewModel.LeftDrawerWidth);
+        Assert.Equal(0d, viewModel.RightDrawerWidth);
+        Assert.True(designSurface.Bounds.Width > 1050d);
+        Assert.True(designSurface.Bounds.Height > 640d);
+
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public async Task Designer_DrawersAndContextTrayStayCanvasFirstAndContextual()
+    {
+        using var viewModel = new ReportDesignerViewModel(CreateDesignerSource());
+        var control = new ReportDesignerControl
+        {
+            DataContext = viewModel,
+            Width = 1600,
+            Height = 980
+        };
+        var window = new Window
+        {
+            Width = 1680,
+            Height = 1024,
+            Content = control
+        };
+
+        window.Show();
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+
+        var designSurface = Assert.Single(control.GetVisualDescendants().OfType<ReportDesignerDesignSurface>());
+        var closedWidth = designSurface.Bounds.Width;
+
+        Execute(viewModel.OpenReportDataPaneCommand);
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+        Assert.Equal(PaneVisibilityState.Open, viewModel.LeftDrawerState);
+        Assert.True(viewModel.IsLeftDrawerVisible);
+        Assert.True(designSurface.Bounds.Width < closedWidth);
+
+        Execute(viewModel.TogglePinLeftDrawerCommand);
+        Assert.Equal(PaneVisibilityState.Pinned, viewModel.LeftDrawerState);
+
+        Execute(viewModel.AddTablixItemCommand);
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+        Assert.True(viewModel.ShowGroupingTray);
+        Assert.True(viewModel.IsContextTrayVisible);
+
+        Execute(viewModel.AddChartItemCommand);
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+        Assert.True(viewModel.ShowChartDataTray);
+        Assert.True(viewModel.IsContextTrayVisible);
+
+        Execute(viewModel.OpenParameterLayoutTrayCommand);
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+        Assert.True(viewModel.ShowParameterLayoutTray);
+
+        Execute(viewModel.CloseLeftDrawerCommand);
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+        Assert.Equal(PaneVisibilityState.Closed, viewModel.LeftDrawerState);
+        Assert.True(designSurface.Bounds.Width >= closedWidth);
 
         window.Close();
     }
@@ -737,6 +826,48 @@ public sealed class ReportDesignerControlHeadlessTests
         Assert.Equal(74d, nestedSubreportItem.Top, 3);
     }
 
+    [AvaloniaFact]
+    public async Task Designer_CapturesCanvasFirstBaselines_WhenRequested()
+    {
+        var screenshotRoot = Environment.GetEnvironmentVariable("AVALONIA_SCREENSHOT_DIR");
+        if (string.IsNullOrWhiteSpace(screenshotRoot))
+        {
+            return;
+        }
+
+        Directory.CreateDirectory(screenshotRoot);
+
+        using var viewModel = new ReportDesignerViewModel(CreateDesignerSource());
+        var control = new ReportDesignerControl
+        {
+            DataContext = viewModel,
+            Width = 1600,
+            Height = 980
+        };
+        var window = new Window
+        {
+            Width = 1680,
+            Height = 1024,
+            Content = control
+        };
+
+        window.Show();
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+
+        SaveFrame(window, screenshotRoot, "designer-default-design.png");
+
+        Execute(viewModel.OpenReportDataPaneCommand);
+        Execute(viewModel.TogglePinLeftDrawerCommand);
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+
+        SaveFrame(window, screenshotRoot, "designer-left-drawer-pinned.png");
+
+        Assert.True(File.Exists(Path.Combine(screenshotRoot, "designer-default-design.png")));
+        Assert.True(File.Exists(Path.Combine(screenshotRoot, "designer-left-drawer-pinned.png")));
+
+        window.Close();
+    }
+
     private static void Execute(ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> command)
     {
         using var subscription = command.Execute().Subscribe();
@@ -759,6 +890,14 @@ public sealed class ReportDesignerControlHeadlessTests
                 yield return child;
             }
         }
+    }
+
+    private static void SaveFrame(Window window, string screenshotRoot, string fileName)
+    {
+        var frame = global::Avalonia.Headless.HeadlessWindowExtensions.CaptureRenderedFrame(window);
+        Assert.NotNull(frame);
+        var path = Path.Combine(screenshotRoot, fileName);
+        frame!.Save(path);
     }
 
     private static ReportViewerSource CreateDesignerSource()

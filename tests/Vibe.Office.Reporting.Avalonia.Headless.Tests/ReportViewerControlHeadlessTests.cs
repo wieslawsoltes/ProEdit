@@ -4,6 +4,9 @@ using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using ReactiveUI;
+using ReactiveUI.Avalonia;
+using Vibe.Office.Reporting.Avalonia;
 using Vibe.Office.Documents;
 using Vibe.Office.Printing;
 using Vibe.Office.Reporting.Avalonia.Viewer;
@@ -16,6 +19,10 @@ namespace Vibe.Office.Reporting.Avalonia.Headless.Tests;
 
 public sealed class HeadlessTestApp : Application
 {
+    public override void Initialize()
+    {
+        RxApp.MainThreadScheduler = AvaloniaScheduler.Instance;
+    }
 }
 
 public static class HeadlessTestAppBuilder
@@ -85,7 +92,9 @@ public sealed class ReportViewerControlHeadlessTests
         Assert.Equal("Updated Title", viewModel.Parameters[0].TextValue);
 
         viewModel.ZoomFactor = 1.5f;
-        viewModel.SelectedPaneIndex = (int)ReportViewerPane.Search;
+        using var searchPaneSubscription = viewModel.OpenSearchPaneCommand.Execute().Subscribe();
+        using var pinPaneSubscription = viewModel.TogglePinLeftDrawerCommand.Execute().Subscribe();
+        using var thumbnailsSubscription = viewModel.ToggleThumbnailsCommand.Execute().Subscribe();
         var state = viewModel.CaptureState();
 
         using var restoredViewModel = new ReportViewerViewModel(service);
@@ -95,6 +104,79 @@ public sealed class ReportViewerControlHeadlessTests
         Assert.Equal(1.5f, restoredViewModel.ZoomFactor);
         Assert.Equal("Updated Title", restoredViewModel.SearchQuery);
         Assert.Equal((int)ReportViewerPane.Search, restoredViewModel.SelectedPaneIndex);
+        Assert.Equal(PaneVisibilityState.Pinned, restoredViewModel.LeftDrawerState);
+        Assert.True(restoredViewModel.IsThumbnailTrayOpen);
+    }
+
+    [AvaloniaFact]
+    public async Task Viewer_DefaultLayoutStartsCanvasFirstWhenParametersAreResolved()
+    {
+        using var viewModel = new ReportViewerViewModel(new ReportViewerSessionService());
+        await viewModel.LoadAsync(CreateViewerSource());
+
+        var control = new ReportViewerControl
+        {
+            DataContext = viewModel,
+            Width = 1560,
+            Height = 960
+        };
+        var window = new Window
+        {
+            Width = 1680,
+            Height = 1024,
+            Content = control
+        };
+
+        window.Show();
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+
+        var viewportHost = Assert.Single(control.GetVisualDescendants().OfType<ReportViewerViewportHost>());
+
+        Assert.Equal(PaneVisibilityState.Closed, viewModel.LeftDrawerState);
+        Assert.False(viewModel.IsLeftDrawerVisible);
+        Assert.False(viewModel.IsThumbnailTrayOpen);
+        Assert.True(viewportHost.Bounds.Width > 1000d);
+        Assert.True(viewportHost.Bounds.Height > 620d);
+
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public async Task Viewer_OpensParametersDrawerOnlyWhenVisibleInputIsUnresolved()
+    {
+        using var resolvedViewModel = new ReportViewerViewModel(new ReportViewerSessionService());
+        await resolvedViewModel.LoadAsync(CreateViewerSource());
+        Assert.Equal(PaneVisibilityState.Closed, resolvedViewModel.LeftDrawerState);
+
+        using var unresolvedViewModel = new ReportViewerViewModel(new ReportViewerSessionService());
+        await unresolvedViewModel.LoadAsync(CreateViewerSourceWithPromptedParameter());
+
+        Assert.Equal(PaneVisibilityState.Open, unresolvedViewModel.LeftDrawerState);
+        Assert.True(unresolvedViewModel.IsParametersPaneActive);
+        Assert.False(unresolvedViewModel.IsThumbnailTrayOpen);
+    }
+
+    [AvaloniaFact]
+    public async Task Viewer_LeftRailCommandsSwitchPaneAndToggleFilmstrip()
+    {
+        using var viewModel = new ReportViewerViewModel(new ReportViewerSessionService());
+        await viewModel.LoadAsync(CreateViewerSource());
+
+        var selectedPage = viewModel.SelectedPage;
+
+        using var searchPaneSubscription = viewModel.OpenSearchPaneCommand.Execute().Subscribe();
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+        Assert.True(viewModel.IsSearchPaneActive);
+        Assert.True(viewModel.IsLeftDrawerVisible);
+
+        using var diagnosticsPaneSubscription = viewModel.OpenDiagnosticsPaneCommand.Execute().Subscribe();
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+        Assert.True(viewModel.IsDiagnosticsPaneActive);
+
+        using var thumbnailsSubscription = viewModel.ToggleThumbnailsCommand.Execute().Subscribe();
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+        Assert.True(viewModel.IsThumbnailTrayOpen);
+        Assert.Same(selectedPage, viewModel.SelectedPage);
     }
 
     [AvaloniaFact]
@@ -208,6 +290,27 @@ public sealed class ReportViewerControlHeadlessTests
         Assert.Equal("Print pipeline failed.", viewModel.StatusMessage);
     }
 
+    [AvaloniaFact]
+    public async Task Viewer_CapturesCanvasFirstBaselines_WhenRequested()
+    {
+        var screenshotRoot = Environment.GetEnvironmentVariable("AVALONIA_SCREENSHOT_DIR");
+        if (string.IsNullOrWhiteSpace(screenshotRoot))
+        {
+            return;
+        }
+
+        Directory.CreateDirectory(screenshotRoot);
+
+        await using var defaultWindow = await CreateViewerWindowAsync(CreateViewerSource(), 1680, 1024);
+        SaveFrame(defaultWindow.Window, screenshotRoot, "viewer-default-run.png");
+
+        await using var parameterWindow = await CreateViewerWindowAsync(CreateViewerSourceWithPromptedParameter(), 1680, 1024);
+        SaveFrame(parameterWindow.Window, screenshotRoot, "viewer-parameters-open.png");
+
+        Assert.True(File.Exists(Path.Combine(screenshotRoot, "viewer-default-run.png")));
+        Assert.True(File.Exists(Path.Combine(screenshotRoot, "viewer-parameters-open.png")));
+    }
+
     private static ReportViewerSource CreateViewerSource()
     {
         var detailReport = new ReportDefinition
@@ -313,6 +416,47 @@ public sealed class ReportViewerControlHeadlessTests
         return source;
     }
 
+    private static ReportViewerSource CreateViewerSourceWithPromptedParameter()
+    {
+        return new ReportViewerSource
+        {
+            ReportDefinition = new ReportDefinition
+            {
+                Id = "prompted-report",
+                Name = "Prompted Report",
+                Parameters =
+                {
+                    new ReportParameterDefinition
+                    {
+                        Id = "Company",
+                        DisplayName = "Company",
+                        Prompt = "Select company",
+                        DataType = ReportParameterDataType.String,
+                        Visibility = ReportParameterVisibility.Visible
+                    }
+                },
+                Sections =
+                {
+                    new ReportSection
+                    {
+                        Id = "main",
+                        Name = "Main",
+                        BodyItems =
+                        {
+                            new TextItem
+                            {
+                                Id = "body",
+                                Name = "Body",
+                                ValueExpression = "Parameters.Company",
+                                Bounds = new ReportItemBounds(0f, 0f, 320f, 26f)
+                            }
+                        }
+                    }
+                }
+            }
+        };
+    }
+
     private static ReportViewerExecutionSnapshot CreateStubSnapshot(bool includeDrillthrough = false)
     {
         var snapshot = new ReportViewerExecutionSnapshot
@@ -383,6 +527,54 @@ public sealed class ReportViewerControlHeadlessTests
         if (File.Exists(path))
         {
             File.Delete(path);
+        }
+    }
+
+    private static async Task<ViewerWindowHandle> CreateViewerWindowAsync(ReportViewerSource source, double width, double height)
+    {
+        var viewModel = new ReportViewerViewModel(new ReportViewerSessionService());
+        await viewModel.LoadAsync(source);
+
+        var window = new Window
+        {
+            Width = width,
+            Height = height,
+            Content = new ReportViewerControl
+            {
+                DataContext = viewModel
+            }
+        };
+
+        window.Show();
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+        return new ViewerWindowHandle(window, viewModel);
+    }
+
+    private static void SaveFrame(Window window, string screenshotRoot, string fileName)
+    {
+        var frame = global::Avalonia.Headless.HeadlessWindowExtensions.CaptureRenderedFrame(window);
+        Assert.NotNull(frame);
+        var path = Path.Combine(screenshotRoot, fileName);
+        frame!.Save(path);
+    }
+
+    private sealed class ViewerWindowHandle : IAsyncDisposable
+    {
+        public ViewerWindowHandle(Window window, ReportViewerViewModel viewModel)
+        {
+            Window = window;
+            ViewModel = viewModel;
+        }
+
+        public Window Window { get; }
+
+        public ReportViewerViewModel ViewModel { get; }
+
+        public ValueTask DisposeAsync()
+        {
+            Window.Close();
+            ViewModel.Dispose();
+            return ValueTask.CompletedTask;
         }
     }
 
