@@ -504,6 +504,16 @@ public sealed class ReportRdlSerializerTests
             Assert.NotEmpty(chart.Axes);
             Assert.All(chart.Axes, static axis => Assert.False(axis.IsVisible));
         });
+
+        var dataBar = Assert.Single(charts, static chart => chart.Id == "DataBar1");
+        var valueAxis = Assert.Single(dataBar.Axes, static axis =>
+            axis.Kind == ChartAxisKind.Value
+            && axis.SyncMaximum
+            && string.Equals(axis.SyncScopeName, "Tablix1", StringComparison.Ordinal));
+        Assert.Equal(0d, valueAxis.Minimum);
+        Assert.NotNull(valueAxis.MaximumExpression);
+        Assert.Equal("Tablix1", valueAxis.SyncScopeName);
+        Assert.True(valueAxis.SyncMaximum);
     }
 
     [Fact]

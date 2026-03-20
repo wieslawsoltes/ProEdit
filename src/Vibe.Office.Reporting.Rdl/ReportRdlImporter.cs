@@ -1794,6 +1794,10 @@ internal sealed class ReportRdlImporter
     {
         var style = axisElement.Element(_xmlNamespace + "Style");
         var titleStyle = axisElement.Element(_xmlNamespace + "ChartAxisTitle")?.Element(_xmlNamespace + "Style");
+        var minimumExpression = NormalizeChartAxisExpression(
+            ReportRdlExpressions.ToNativeValueExpression(axisElement.Element(_xmlNamespace + "Minimum")?.Value));
+        var maximumExpression = NormalizeChartAxisExpression(
+            ReportRdlExpressions.ToNativeValueExpression(axisElement.Element(_xmlNamespace + "Maximum")?.Value));
         return new ChartAxis
         {
             Kind = kind,
@@ -1802,6 +1806,12 @@ internal sealed class ReportRdlImporter
                 axisElement.Element(_xmlNamespace + "Visible")?.Value,
                 axisElement.Element(_xmlNamespace + "Hidden")?.Value,
                 defaultValue: true),
+            Minimum = TryParseFiniteChartAxisBound(minimumExpression),
+            Maximum = TryParseFiniteChartAxisBound(maximumExpression),
+            MinimumExpression = minimumExpression,
+            MaximumExpression = maximumExpression,
+            SyncScopeName = axisElement.Element(ReportRdlNamespaces.Designer + "SyncScope")?.Value?.Trim(),
+            SyncMaximum = ParseBoolean(axisElement.Element(ReportRdlNamespaces.Designer + "SyncMaximum")?.Value),
             NumberFormat = style?.Element(_xmlNamespace + "Format")?.Value?.Trim(),
             Title = axisElement.Element(_xmlNamespace + "ChartAxisTitle")?.Element(_xmlNamespace + "Caption")?.Value?.Trim(),
             LineStyle = ReadChartLineStyle(style?.Element(_xmlNamespace + "Border"), path + "/Style/Border"),
@@ -1810,6 +1820,37 @@ internal sealed class ReportRdlImporter
             LabelTextStyle = ReadChartTextStyle(style),
             TitleTextStyle = ReadChartTextStyle(titleStyle)
         };
+    }
+
+    private static string? NormalizeChartAxisExpression(string? expression)
+    {
+        if (string.IsNullOrWhiteSpace(expression))
+        {
+            return null;
+        }
+
+        var trimmed = expression.Trim();
+        return trimmed.Equals("'NaN'", StringComparison.OrdinalIgnoreCase)
+            || trimmed.Equals("NaN", StringComparison.OrdinalIgnoreCase)
+            ? null
+            : trimmed;
+    }
+
+    private static double? TryParseFiniteChartAxisBound(string? expression)
+    {
+        if (string.IsNullOrWhiteSpace(expression))
+        {
+            return null;
+        }
+
+        if (double.TryParse(expression, NumberStyles.Float, CultureInfo.InvariantCulture, out var numericValue)
+            && !double.IsNaN(numericValue)
+            && !double.IsInfinity(numericValue))
+        {
+            return numericValue;
+        }
+
+        return null;
     }
 
     private ChartLegend? ReadChartLegend(XElement? legendElement, string path)

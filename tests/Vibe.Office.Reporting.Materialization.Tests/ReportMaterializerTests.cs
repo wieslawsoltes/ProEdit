@@ -1,3 +1,4 @@
+using Vibe.Office.Documents;
 using Vibe.Office.Reporting.Data;
 using Vibe.Office.Reporting.Expressions;
 using Vibe.Office.Reporting.Materialization;
@@ -176,6 +177,106 @@ public sealed class ReportMaterializerTests
         Assert.Equal(2, chartItem.Model.Series[0].Points.Count);
         Assert.Equal("West", chartItem.Model.Series[0].Points[0].Category);
         Assert.Equal(10d, chartItem.Model.Series[0].Points[0].Value);
+    }
+
+    [Fact]
+    public async Task MaterializeAsync_EvaluatesChartAxisBoundsFromNamedScopes()
+    {
+        var reportDefinition = new ReportDefinition
+        {
+            Id = "chart-axis",
+            Name = "Chart Axis",
+            DataSources =
+            {
+                new ReportDataSourceDefinition
+                {
+                    Id = "sales-source",
+                    ProviderId = ReportProviderIds.InMemory,
+                    Options =
+                    {
+                        ["sourceKey"] = "sales"
+                    }
+                }
+            },
+            DataSets =
+            {
+                new ReportDataSetDefinition
+                {
+                    Id = "sales",
+                    DataSourceId = "sales-source"
+                }
+            },
+            Sections =
+            {
+                new ReportSection
+                {
+                    Id = "main",
+                    Name = "Main",
+                    BodyItems =
+                    {
+                        new ChartItem
+                        {
+                            Id = "sales-chart",
+                            Name = "Sales Chart",
+                            DataSetId = "sales",
+                            CategoryExpression = "Fields.Region",
+                            Bounds = new ReportItemBounds(0f, 0f, 320f, 180f),
+                            Axes =
+                            {
+                                new ChartAxis
+                                {
+                                    Kind = ChartAxisKind.Value,
+                                    MinimumExpression = "0",
+                                    MaximumExpression = "Max(Fields.Amount, \"sales\")",
+                                    SyncScopeName = "sales",
+                                    SyncMaximum = true
+                                }
+                            },
+                            Series =
+                            {
+                                new ReportChartSeriesDefinition
+                                {
+                                    NameExpression = "'Amount'",
+                                    ValueExpression = "Fields.Amount"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        var hostData = new ReportHostDataRegistry();
+        hostData.RegisterInMemorySource(
+            "sales",
+            new ReportDictionaryDataSource(
+                new List<IReadOnlyDictionary<string, object?>>
+                {
+                    new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["Region"] = "West",
+                        ["Amount"] = 10m
+                    },
+                    new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["Region"] = "East",
+                        ["Amount"] = 20m
+                    }
+                }));
+
+        var materializer = new ReportMaterializer(new ReportExpressionCompiler());
+        var result = await materializer.MaterializeAsync(new ReportMaterializationRequest
+        {
+            ReportDefinition = reportDefinition,
+            ProviderRegistry = ReportDataProviders.CreateDefaultRegistry(),
+            HostDataRegistry = hostData
+        });
+
+        Assert.False(result.HasErrors);
+        var chart = Assert.IsType<MaterializedChartReportItem>(Assert.Single(result.MaterializedReport!.Sections[0].BodyItems));
+        var valueAxis = Assert.Single(chart.Model!.Axes, static axis => axis.Kind == ChartAxisKind.Value);
+        Assert.Equal(0d, valueAxis.Minimum);
+        Assert.Equal(20d, valueAxis.Maximum);
     }
 
     [Fact]

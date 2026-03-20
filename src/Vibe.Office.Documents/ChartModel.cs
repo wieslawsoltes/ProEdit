@@ -102,6 +102,10 @@ public sealed class ChartAxis
     public bool IsVisible { get; set; } = true;
     public double? Minimum { get; set; }
     public double? Maximum { get; set; }
+    public string? MinimumExpression { get; set; }
+    public string? MaximumExpression { get; set; }
+    public string? SyncScopeName { get; set; }
+    public bool SyncMaximum { get; set; }
     public double? MajorUnit { get; set; }
     public double? MinorUnit { get; set; }
     public ChartTickMark MajorTickMark { get; set; } = ChartTickMark.Outside;

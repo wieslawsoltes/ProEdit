@@ -681,6 +681,16 @@ public sealed class ReportMaterializer : IReportMaterializer
             Legend = CloneChartLegend(item.Legend)
         };
         CloneChartAxes(item.Axes, chart.Axes);
+        EvaluateChartAxes(
+            chart.Axes,
+            item,
+            chartScopeRows,
+            resolvedParameters,
+            globals,
+            runtime,
+            context,
+            path,
+            diagnostics);
 
         if (item.Type is ChartType.Treemap or ChartType.Sunburst)
         {
@@ -990,6 +1000,36 @@ public sealed class ReportMaterializer : IReportMaterializer
         var buckets = new List<ChartCategoryBucket>();
         if (sourceRows.Count == 0)
         {
+            return buckets;
+        }
+
+        if (string.IsNullOrWhiteSpace(item.CategoryExpression)
+            && string.IsNullOrWhiteSpace(item.CategoryLabelExpression))
+        {
+            var scopeContext = CreateReportContext(
+                resolvedParameters,
+                sourceRows[0],
+                sourceRows,
+                globals,
+                runtime,
+                ReportExpressionScopeKind.Group,
+                fallbackContext.ScopeName ?? item.DataSetId,
+                0,
+                fallbackContext.NamedScopes);
+            scopeContext.RowIndex = fallbackContext.RowIndex;
+            scopeContext.SelfValue = fallbackContext.SelfValue;
+            scopeContext.PageNumber = fallbackContext.PageNumber;
+            scopeContext.TotalPages = fallbackContext.TotalPages;
+            buckets.Add(new ChartCategoryBucket(
+                "__scope_0",
+                sourceRows[0],
+                new List<IReadOnlyDictionary<string, object?>>(sourceRows),
+                string.Empty,
+                null,
+                0)
+            {
+                Context = scopeContext
+            });
             return buckets;
         }
 
@@ -1317,6 +1357,10 @@ public sealed class ReportMaterializer : IReportMaterializer
             IsVisible = axis.IsVisible,
             Minimum = axis.Minimum,
             Maximum = axis.Maximum,
+            MinimumExpression = axis.MinimumExpression,
+            MaximumExpression = axis.MaximumExpression,
+            SyncScopeName = axis.SyncScopeName,
+            SyncMaximum = axis.SyncMaximum,
             MajorUnit = axis.MajorUnit,
             MinorUnit = axis.MinorUnit,
             MajorTickMark = axis.MajorTickMark,
@@ -1330,6 +1374,87 @@ public sealed class ReportMaterializer : IReportMaterializer
             LabelTextStyle = CloneChartTextStyle(axis.LabelTextStyle),
             TitleTextStyle = CloneChartTextStyle(axis.TitleTextStyle)
         };
+    }
+
+    private void EvaluateChartAxes(
+        List<ChartAxis> axes,
+        ChartItem item,
+        IReadOnlyList<IReadOnlyDictionary<string, object?>> chartScopeRows,
+        IReadOnlyDictionary<string, ReportParameterValue> resolvedParameters,
+        IReadOnlyDictionary<string, object?> globals,
+        MaterializationRuntime runtime,
+        ReportExpressionContext fallbackContext,
+        string path,
+        List<ReportDiagnostic> diagnostics)
+    {
+        if (axes.Count == 0)
+        {
+            return;
+        }
+
+        for (var axisIndex = 0; axisIndex < axes.Count; axisIndex++)
+        {
+            var axis = axes[axisIndex];
+            var evaluationScopeRows = chartScopeRows;
+            var evaluationScopeName = fallbackContext.ScopeName ?? item.DataSetId;
+            if (!string.IsNullOrWhiteSpace(axis.SyncScopeName))
+            {
+                if (fallbackContext.NamedScopes.TryGetValue(axis.SyncScopeName, out var namedScopeRows)
+                    && namedScopeRows.Count > 0)
+                {
+                    evaluationScopeRows = namedScopeRows;
+                }
+
+                evaluationScopeName = axis.SyncScopeName;
+            }
+
+            var evaluationContext = CreateReportContext(
+                resolvedParameters,
+                evaluationScopeRows.Count > 0 ? evaluationScopeRows[0] : fallbackContext.Fields,
+                evaluationScopeRows,
+                globals,
+                runtime,
+                ReportExpressionScopeKind.Group,
+                evaluationScopeName,
+                namedScopes: fallbackContext.NamedScopes);
+            evaluationContext.RowIndex = fallbackContext.RowIndex;
+            evaluationContext.SelfValue = fallbackContext.SelfValue;
+            evaluationContext.PageNumber = fallbackContext.PageNumber;
+            evaluationContext.TotalPages = fallbackContext.TotalPages;
+
+            axis.Minimum = ResolveFiniteAxisBound(
+                axis.MinimumExpression,
+                evaluationContext,
+                $"{path}.axes[{axisIndex}].minimumExpression",
+                diagnostics)
+                ?? axis.Minimum;
+            axis.Maximum = ResolveFiniteAxisBound(
+                axis.MaximumExpression,
+                evaluationContext,
+                $"{path}.axes[{axisIndex}].maximumExpression",
+                diagnostics)
+                ?? axis.Maximum;
+
+            if (axis.Minimum.HasValue && axis.Maximum.HasValue && axis.Maximum.Value < axis.Minimum.Value)
+            {
+                axis.Maximum = axis.Minimum;
+            }
+        }
+    }
+
+    private double? ResolveFiniteAxisBound(
+        string? expression,
+        ReportExpressionContext context,
+        string path,
+        List<ReportDiagnostic> diagnostics)
+    {
+        var value = EvaluateNumericExpression(expression, context, path, diagnostics);
+        if (!value.HasValue || double.IsNaN(value.Value) || double.IsInfinity(value.Value))
+        {
+            return null;
+        }
+
+        return value.Value;
     }
 
     private static ChartTextStyle? CloneChartTextStyle(ChartTextStyle? style)
@@ -1504,6 +1629,7 @@ public sealed class ReportMaterializer : IReportMaterializer
             path,
             diagnostics);
         var scopeRows = ToScopeRows(dataRows);
+        var tablixNamedScopes = AppendNamedScope(context.NamedScopes, item.Id, scopeRows);
 
         if (item.RowMembers.Count > 0)
         {
@@ -1517,7 +1643,7 @@ public sealed class ReportMaterializer : IReportMaterializer
                     runtime,
                     ReportExpressionScopeKind.Group,
                     item.DataSetId,
-                    namedScopes: context.NamedScopes);
+                    namedScopes: tablixNamedScopes);
             MaterializeTablixMembers(
                 item.RowMembers,
                 item,
@@ -1582,7 +1708,7 @@ public sealed class ReportMaterializer : IReportMaterializer
                     ReportExpressionScopeKind.Row,
                     item.DataSetId,
                     detailIndex,
-                    context.NamedScopes);
+                    tablixNamedScopes);
                 materialized.Rows.Add(MaterializeTablixRow(
                     rowDefinition,
                     rowContext,
