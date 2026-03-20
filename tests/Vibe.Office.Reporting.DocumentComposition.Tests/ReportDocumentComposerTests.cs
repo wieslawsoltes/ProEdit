@@ -116,6 +116,47 @@ public sealed class ReportDocumentComposerTests
     }
 
     [Fact]
+    public async Task ComposeAsync_RendersStateIndicatorGaugeAsImageInline()
+    {
+        var report = new MaterializedReport
+        {
+            Id = "gauges",
+            Name = "Gauges",
+            Sections =
+            {
+                new MaterializedReportSection
+                {
+                    Id = "main",
+                    Name = "Main",
+                    BodyItems =
+                    {
+                        new MaterializedGaugeReportItem
+                        {
+                            SourceItemId = "variance-indicator",
+                            Name = "Variance Indicator",
+                            GaugeKind = ReportGaugeKind.StateIndicator,
+                            Value = -1d,
+                            Bounds = new ReportItemBounds(24f, 32f, 28f, 28f)
+                        }
+                    }
+                }
+            }
+        };
+
+        var composer = new ReportDocumentComposer();
+        var result = await composer.ComposeAsync(new ReportDocumentCompositionRequest
+        {
+            MaterializedReport = report
+        });
+
+        Assert.False(result.HasErrors);
+        var document = Assert.IsType<Document>(result.Document);
+        var anchor = Assert.Single(document.Blocks.OfType<ParagraphBlock>(), static paragraph => paragraph.FloatingObjects.Count > 0);
+        var image = Assert.IsType<ImageInline>(Assert.Single(anchor.FloatingObjects).Content);
+        Assert.Equal("image/svg+xml", image.ContentType);
+    }
+
+    [Fact]
     public async Task ComposeAsync_BindsTemplateContentAndAddsSectionBreaks()
     {
         var nestedReport = new MaterializedReport

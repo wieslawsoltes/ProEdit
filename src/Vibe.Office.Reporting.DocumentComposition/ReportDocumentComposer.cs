@@ -1367,10 +1367,66 @@ public sealed class ReportDocumentComposer : IReportDocumentComposer
     {
         return item.GaugeKind switch
         {
+            ReportGaugeKind.StateIndicator => CreateStateIndicatorInline(item, bounds),
             ReportGaugeKind.Radial => CreateRadialGaugeInline(item, bounds),
             ReportGaugeKind.Linear => CreateLinearGaugeInline(item, bounds),
             _ => CreateGaugeShapeInline(item, bounds)
         };
+    }
+
+    private static Inline CreateStateIndicatorInline(MaterializedGaugeReportItem item, ReportItemBounds bounds)
+    {
+        var width = Math.Max(1f, bounds.Width);
+        var height = Math.Max(1f, bounds.Height);
+        var color = ResolveGaugeStateColor(item.Value);
+        var fill = $"rgb({color.R},{color.G},{color.B})";
+        var centerX = width / 2f;
+        var centerY = height / 2f;
+        var diameter = MathF.Max(8f, MathF.Min(width, height) * 0.58f);
+        var radius = diameter / 2f;
+        var iconSvg = item.Value switch
+        {
+            >= 1d => string.Create(
+                CultureInfo.InvariantCulture,
+                $"""<circle cx="{centerX:0.###}" cy="{centerY:0.###}" r="{radius:0.###}" fill="{fill}" />"""),
+            >= 0d => CreateStateIndicatorTriangleSvg(centerX, centerY, diameter, fill),
+            _ => CreateStateIndicatorDiamondSvg(centerX, centerY, diameter, fill)
+        };
+
+        var svg = string.Create(
+            CultureInfo.InvariantCulture,
+            $$"""
+            <svg xmlns="http://www.w3.org/2000/svg" width="{{width:0.###}}" height="{{height:0.###}}" viewBox="0 0 {{width:0.###}} {{height:0.###}}">
+              {{iconSvg}}
+            </svg>
+            """);
+
+        return new ImageInline(Encoding.UTF8.GetBytes(svg), width, height, "image/svg+xml");
+    }
+
+    private static string CreateStateIndicatorTriangleSvg(float centerX, float centerY, float diameter, string fill)
+    {
+        var halfWidth = diameter * 0.54f;
+        var halfHeight = diameter * 0.5f;
+        var topY = centerY - halfHeight;
+        var baseY = centerY + halfHeight;
+        var leftX = centerX - halfWidth;
+        var rightX = centerX + halfWidth;
+        return string.Create(
+            CultureInfo.InvariantCulture,
+            $"""<polygon points="{centerX:0.###},{topY:0.###} {rightX:0.###},{baseY:0.###} {leftX:0.###},{baseY:0.###}" fill="{fill}" />""");
+    }
+
+    private static string CreateStateIndicatorDiamondSvg(float centerX, float centerY, float diameter, string fill)
+    {
+        var radius = diameter * 0.52f;
+        var topY = centerY - radius;
+        var bottomY = centerY + radius;
+        var leftX = centerX - radius;
+        var rightX = centerX + radius;
+        return string.Create(
+            CultureInfo.InvariantCulture,
+            $"""<polygon points="{centerX:0.###},{topY:0.###} {rightX:0.###},{centerY:0.###} {centerX:0.###},{bottomY:0.###} {leftX:0.###},{centerY:0.###}" fill="{fill}" />""");
     }
 
     private static Inline CreateRadialGaugeInline(MaterializedGaugeReportItem item, ReportItemBounds bounds)
