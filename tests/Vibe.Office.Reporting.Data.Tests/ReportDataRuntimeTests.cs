@@ -279,7 +279,7 @@ public sealed class ReportDataRuntimeTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_EnterDataProvider_AppliesMatchingDataSetParametersToEmbeddedRows()
+    public async Task ExecuteAsync_EnterDataProvider_DoesNotApplyQueryParametersToEmbeddedRows()
     {
         var reportDefinition = new ReportDefinition
         {
@@ -348,9 +348,9 @@ public sealed class ReportDataRuntimeTests
 
         Assert.False(result.HasErrors);
         var dataSet = Assert.IsType<ReportDataTable>(result.DataSet);
-        var row = Assert.Single(dataSet.Rows);
-        Assert.Equal("Roberto Hilario", Assert.IsType<string>(row.Values["Name"]));
-        Assert.Equal(3700, Assert.IsType<int>(row.Values["Amount"]));
+        Assert.Equal(2, dataSet.Rows.Count);
+        Assert.Equal("Jarred Pierce", Assert.IsType<string>(dataSet.Rows[0].Values["Name"]));
+        Assert.Equal("Roberto Hilario", Assert.IsType<string>(dataSet.Rows[1].Values["Name"]));
     }
 
     [Fact]

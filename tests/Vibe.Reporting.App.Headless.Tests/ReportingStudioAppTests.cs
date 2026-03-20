@@ -686,6 +686,10 @@ public sealed class ReportingStudioAppTests
 
         var parameters = await ResolveSampleParametersAsync(viewerService, workspace.Source);
         var snapshot = await viewerService.ExecuteAsync(workspace.Source, parameters);
+        var dsMain = snapshot.ExecutionResult.MaterializedReport?.DataSets
+            .FirstOrDefault(static dataSet => string.Equals(dataSet.Id, "dsMain", StringComparison.Ordinal));
+        Assert.NotNull(dsMain);
+        Assert.NotEmpty(dsMain!.Rows);
 
         var materializedCharts = snapshot.ExecutionResult.MaterializedReport is null
             ? new List<MaterializedChartReportItem>()
@@ -699,12 +703,32 @@ public sealed class ReportingStudioAppTests
         Assert.Equal(ChartType.Sunburst, materializedCharts[1].Model?.Type);
         Assert.Equal("EarthTones", materializedCharts[0].Model?.PaletteName);
         Assert.Equal("EarthTones", materializedCharts[1].Model?.PaletteName);
+        Assert.NotNull(materializedCharts[0].Model);
+        Assert.NotNull(materializedCharts[1].Model);
+        Assert.NotEmpty(materializedCharts[0].Model!.HierarchyRoots);
+        Assert.NotEmpty(materializedCharts[1].Model!.HierarchyRoots);
 
         Assert.NotEmpty(snapshot.PreviewPages);
         var previewPage = snapshot.PreviewPages[0];
         using var bitmap = SKBitmap.Decode(previewPage.ImageBytes);
         Assert.NotNull(bitmap);
         Assert.True(previewPage.ImageBytes.Length > 0, "Expected the shape-chart sample to produce a preview bitmap.");
+
+        var treemapPixels = CountNonWhitePixels(
+            bitmap!,
+            (int)(previewPage.Width * 0.03),
+            (int)(previewPage.Height * 0.23),
+            (int)(previewPage.Width * 0.48),
+            (int)(previewPage.Height * 0.73));
+        var sunburstPixels = CountNonWhitePixels(
+            bitmap,
+            (int)(previewPage.Width * 0.50),
+            (int)(previewPage.Height * 0.23),
+            (int)(previewPage.Width * 0.98),
+            (int)(previewPage.Height * 0.73));
+
+        Assert.True(treemapPixels > 8000, $"Expected visible treemap content in the left chart region, but found only {treemapPixels} non-white pixels.");
+        Assert.True(sunburstPixels > 8000, $"Expected visible sunburst content in the right chart region, but found only {sunburstPixels} non-white pixels.");
     }
 
     [Fact]
