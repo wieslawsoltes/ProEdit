@@ -1,8 +1,13 @@
+using System.ComponentModel;
 using System.Reactive.Disposables;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Templates;
+using Avalonia.Input;
+using Avalonia.Media;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 
 namespace Vibe.Office.Reporting.Avalonia.Designer;
@@ -14,10 +19,43 @@ public sealed class ReportDesignerSurfaceScrollHost : ContentControl
 {
     private readonly SerialDisposable _horizontalSubscription = new();
     private readonly SerialDisposable _verticalSubscription = new();
-    private ScrollViewer? _scrollViewer;
+    private readonly SerialDisposable _layoutSubscription = new();
+    private readonly SerialDisposable _contentRootSubscription = new();
+    private readonly SerialDisposable _viewModelSubscription = new();
+    private Border? _viewport;
+    private ContentPresenter? _contentPresenter;
+    private TranslateTransform? _contentTransform;
+    private Visual? _contentRoot;
     private ScrollBar? _horizontalScrollBar;
     private ScrollBar? _verticalScrollBar;
     private bool _isSynchronizing;
+    private double _currentViewportWidth;
+    private double _currentViewportHeight;
+    private double _currentContentWidth;
+    private double _currentContentHeight;
+
+    protected override Size MeasureOverride(Size availableSize)
+    {
+        var measured = base.MeasureOverride(availableSize);
+
+        var width = double.IsInfinity(availableSize.Width)
+            ? measured.Width
+            : availableSize.Width;
+        var height = double.IsInfinity(availableSize.Height)
+            ? measured.Height
+            : availableSize.Height;
+
+        return new Size(
+            Math.Max(0d, width),
+            Math.Max(0d, height));
+    }
+
+    protected override void OnDataContextChanged(EventArgs e)
+    {
+        base.OnDataContextChanged(e);
+        AttachViewModelSubscription();
+        Dispatcher.UIThread.Post(UpdateScrollBars, DispatcherPriority.Loaded);
+    }
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
@@ -25,13 +63,24 @@ public sealed class ReportDesignerSurfaceScrollHost : ContentControl
 
         DetachParts();
 
-        _scrollViewer = e.NameScope.Find<ScrollViewer>("PART_ScrollViewer");
+        _viewport = e.NameScope.Find<Border>("PART_Viewport");
+        _contentPresenter = e.NameScope.Find<ContentPresenter>("PART_ContentPresenter");
+        _contentTransform = _contentPresenter?.RenderTransform as TranslateTransform;
         _horizontalScrollBar = e.NameScope.Find<ScrollBar>("PART_HorizontalScrollBar");
         _verticalScrollBar = e.NameScope.Find<ScrollBar>("PART_VerticalScrollBar");
 
-        if (_scrollViewer is not null)
+        if (_viewport is not null && _contentPresenter is not null)
         {
-            _scrollViewer.ScrollChanged += OnScrollViewerScrollChanged;
+            var layoutSubscriptions = new CompositeDisposable
+            {
+                _viewport.GetObservable(BoundsProperty)
+                    .Subscribe(_ => UpdateScrollBars()),
+                _contentPresenter.GetObservable(BoundsProperty)
+                    .Subscribe(_ => UpdateScrollBars()),
+                _contentPresenter.GetObservable(IsVisibleProperty)
+                    .Subscribe(_ => UpdateScrollBars())
+            };
+            _layoutSubscription.Disposable = layoutSubscriptions;
         }
 
         if (_horizontalScrollBar is not null)
@@ -46,7 +95,8 @@ public sealed class ReportDesignerSurfaceScrollHost : ContentControl
                 .Subscribe(OnVerticalScrollBarValueChanged);
         }
 
-        UpdateScrollBars();
+        AttachViewModelSubscription();
+        Dispatcher.UIThread.Post(ResolveContentRootAndUpdate, DispatcherPriority.Loaded);
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
@@ -57,72 +107,111 @@ public sealed class ReportDesignerSurfaceScrollHost : ContentControl
 
     private void DetachParts()
     {
-        if (_scrollViewer is not null)
-        {
-            _scrollViewer.ScrollChanged -= OnScrollViewerScrollChanged;
-            _scrollViewer = null;
-        }
-
         _horizontalSubscription.Disposable = Disposable.Empty;
         _verticalSubscription.Disposable = Disposable.Empty;
+        _layoutSubscription.Disposable = Disposable.Empty;
+        _contentRootSubscription.Disposable = Disposable.Empty;
+        _viewModelSubscription.Disposable = Disposable.Empty;
+        _viewport = null;
+        _contentPresenter = null;
+        _contentTransform = null;
+        _contentRoot = null;
         _horizontalScrollBar = null;
         _verticalScrollBar = null;
     }
 
-    private void OnScrollViewerScrollChanged(object? sender, ScrollChangedEventArgs e)
-    {
-        UpdateScrollBars();
-    }
-
     private void OnHorizontalScrollBarValueChanged(double value)
     {
-        if (_isSynchronizing || _scrollViewer is null)
+        if (_isSynchronizing)
         {
             return;
         }
 
-        _scrollViewer.Offset = _scrollViewer.Offset.WithX(value);
+        ApplyContentOffset();
     }
 
     private void OnVerticalScrollBarValueChanged(double value)
     {
-        if (_isSynchronizing || _scrollViewer is null)
+        if (_isSynchronizing)
         {
             return;
         }
 
-        _scrollViewer.Offset = _scrollViewer.Offset.WithY(value);
+        ApplyContentOffset();
+    }
+
+    protected override void OnPointerWheelChanged(PointerWheelEventArgs e)
+    {
+        base.OnPointerWheelChanged(e);
+
+        if (_verticalScrollBar is null)
+        {
+            return;
+        }
+
+        var delta = e.Delta.Y;
+        if (Math.Abs(delta) < double.Epsilon)
+        {
+            return;
+        }
+
+        var step = Math.Max(24d, _verticalScrollBar.SmallChange);
+        _verticalScrollBar.Value = Math.Clamp(
+            _verticalScrollBar.Value - (delta * step),
+            _verticalScrollBar.Minimum,
+            _verticalScrollBar.Maximum);
+        e.Handled = true;
     }
 
     private void UpdateScrollBars()
     {
-        if (_scrollViewer is null)
+        if (_viewport is null || _contentPresenter is null)
         {
             return;
         }
+
+        var viewportWidth = Math.Max(0d, _viewport.Bounds.Width);
+        var viewportHeight = Math.Max(0d, _viewport.Bounds.Height);
+        var contentWidth = Math.Max(0d, _contentRoot?.Bounds.Width ?? _contentPresenter.Bounds.Width);
+        var contentHeight = Math.Max(0d, _contentRoot?.Bounds.Height ?? _contentPresenter.Bounds.Height);
+        if (DataContext is ReportDesignerViewModel designer)
+        {
+            contentWidth = Math.Max(contentWidth, designer.SurfaceStageWidth);
+            contentHeight = Math.Max(contentHeight, designer.SurfaceStageHeight);
+        }
+
+        _currentViewportWidth = viewportWidth;
+        _currentViewportHeight = viewportHeight;
+        _currentContentWidth = contentWidth;
+        _currentContentHeight = contentHeight;
+
+        var horizontalMaximum = Math.Max(0d, contentWidth - viewportWidth);
+        var verticalMaximum = Math.Max(0d, contentHeight - viewportHeight);
 
         _isSynchronizing = true;
         try
         {
             UpdateScrollBar(
                 _horizontalScrollBar,
-                _scrollViewer.Offset.X,
-                _scrollViewer.ScrollBarMaximum.X,
-                _scrollViewer.Viewport.Width,
-                _scrollViewer.SmallChange.Width,
-                _scrollViewer.LargeChange.Width);
+                _horizontalScrollBar?.Value ?? 0d,
+                horizontalMaximum,
+                viewportWidth,
+                32d,
+                Math.Max(48d, viewportWidth * 0.85d));
             UpdateScrollBar(
                 _verticalScrollBar,
-                _scrollViewer.Offset.Y,
-                _scrollViewer.ScrollBarMaximum.Y,
-                _scrollViewer.Viewport.Height,
-                _scrollViewer.SmallChange.Height,
-                _scrollViewer.LargeChange.Height);
+                _verticalScrollBar?.Value ?? 0d,
+                verticalMaximum,
+                viewportHeight,
+                32d,
+                Math.Max(48d, viewportHeight * 0.85d));
         }
         finally
         {
             _isSynchronizing = false;
         }
+
+        ApplyContentOffset();
     }
 
     private static void UpdateScrollBar(
@@ -144,5 +233,61 @@ public sealed class ReportDesignerSurfaceScrollHost : ContentControl
         scrollBar.SmallChange = Math.Max(1d, smallChange);
         scrollBar.LargeChange = Math.Max(1d, largeChange);
         scrollBar.Value = Math.Clamp(value, 0d, scrollBar.Maximum);
+    }
+
+    private void ApplyContentOffset()
+    {
+        if (_contentTransform is null)
+        {
+            return;
+        }
+
+        var horizontalOverflow = Math.Max(0d, _currentContentWidth - _currentViewportWidth);
+        var verticalOverflow = Math.Max(0d, _currentContentHeight - _currentViewportHeight);
+
+        _contentTransform.X = horizontalOverflow <= 0d
+            ? Math.Max(0d, (_currentViewportWidth - _currentContentWidth) * 0.5d)
+            : -(_horizontalScrollBar?.Value ?? 0d);
+        _contentTransform.Y = verticalOverflow <= 0d
+            ? 0d
+            : -(_verticalScrollBar?.Value ?? 0d);
+    }
+
+    private void ResolveContentRootAndUpdate()
+    {
+        var contentRoot = _contentPresenter?.GetVisualChildren().FirstOrDefault();
+        if (!ReferenceEquals(_contentRoot, contentRoot))
+        {
+            _contentRoot = contentRoot;
+            _contentRootSubscription.Disposable = _contentRoot is not null
+                ? _contentRoot.GetObservable(Visual.BoundsProperty).Subscribe(_ => UpdateScrollBars())
+                : Disposable.Empty;
+        }
+
+        UpdateScrollBars();
+    }
+
+    private void AttachViewModelSubscription()
+    {
+        if (DataContext is not INotifyPropertyChanged notifyPropertyChanged)
+        {
+            _viewModelSubscription.Disposable = Disposable.Empty;
+            return;
+        }
+
+        PropertyChangedEventHandler handler = (_, args) =>
+        {
+            if (string.IsNullOrEmpty(args.PropertyName)
+                || string.Equals(args.PropertyName, nameof(ReportDesignerViewModel.SurfaceScaledWidth), StringComparison.Ordinal)
+                || string.Equals(args.PropertyName, nameof(ReportDesignerViewModel.SurfaceScaledHeight), StringComparison.Ordinal)
+                || string.Equals(args.PropertyName, nameof(ReportDesignerViewModel.SurfaceStageWidth), StringComparison.Ordinal)
+                || string.Equals(args.PropertyName, nameof(ReportDesignerViewModel.SurfaceStageHeight), StringComparison.Ordinal))
+            {
+                UpdateScrollBars();
+            }
+        };
+
+        notifyPropertyChanged.PropertyChanged += handler;
+        _viewModelSubscription.Disposable = Disposable.Create(() => notifyPropertyChanged.PropertyChanged -= handler);
     }
 }

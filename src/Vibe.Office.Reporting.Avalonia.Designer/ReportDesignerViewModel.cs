@@ -2755,6 +2755,8 @@ public sealed partial class ReportDesignerViewModel : ReactiveObject, IDisposabl
         this.RaisePropertyChanged(nameof(SurfaceHeight));
         this.RaisePropertyChanged(nameof(SurfaceScaledWidth));
         this.RaisePropertyChanged(nameof(SurfaceScaledHeight));
+        this.RaisePropertyChanged(nameof(SurfaceStageWidth));
+        this.RaisePropertyChanged(nameof(SurfaceStageHeight));
         this.RaisePropertyChanged(nameof(SurfaceDisplayText));
         this.RaisePropertyChanged(nameof(SurfaceZoomDisplayText));
         this.RaisePropertyChanged(nameof(SurfaceMarginLeft));
@@ -3992,6 +3994,8 @@ public sealed partial class ReportDesignerViewModel : ReactiveObject, IDisposabl
         this.RaisePropertyChanged(nameof(SurfaceHeight));
         this.RaisePropertyChanged(nameof(SurfaceScaledWidth));
         this.RaisePropertyChanged(nameof(SurfaceScaledHeight));
+        this.RaisePropertyChanged(nameof(SurfaceStageWidth));
+        this.RaisePropertyChanged(nameof(SurfaceStageHeight));
         this.RaisePropertyChanged(nameof(SurfaceDisplayText));
         this.RaisePropertyChanged(nameof(SurfaceZoomDisplayText));
         this.RaisePropertyChanged(nameof(SurfaceMarginLeft));

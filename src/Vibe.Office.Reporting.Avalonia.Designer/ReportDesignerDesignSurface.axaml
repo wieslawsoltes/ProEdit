@@ -46,7 +46,9 @@
     </DataTemplate>
   </UserControl.Resources>
 
-  <Grid RowDefinitions="Auto,*"
+  <Grid MinWidth="0"
+        MinHeight="0"
+        RowDefinitions="Auto,*"
         ColumnDefinitions="Auto,*">
     <Border Grid.Column="1"
             Classes="designer-ruler-top"
@@ -105,8 +107,14 @@
     </Border>
 
     <designer:ReportDesignerSurfaceScrollHost Grid.Row="1"
-                                              Grid.Column="1">
-      <Border Classes="designer-surface-stage">
+                                              Grid.Column="1"
+                                              MinWidth="0"
+                                              MinHeight="0">
+      <Border Classes="designer-surface-stage"
+              Width="{Binding SurfaceStageWidth}"
+              Height="{Binding SurfaceStageHeight}"
+              HorizontalAlignment="Left"
+              VerticalAlignment="Top">
         <Border Classes="designer-page"
                 Padding="0"
                 Width="{Binding SurfaceScaledWidth}"

@@ -200,23 +200,20 @@ public sealed class ReportDesignerControlHeadlessTests
         window.Show();
         await Dispatcher.UIThread.InvokeAsync(static () => { });
 
-        Execute(viewModel.ActualSizeCommand);
+        Execute(viewModel.ZoomInCommand);
+        Execute(viewModel.ZoomInCommand);
         await Dispatcher.UIThread.InvokeAsync(static () => { });
 
         var scrollHost = control.GetVisualDescendants()
             .OfType<ReportDesignerSurfaceScrollHost>()
             .Single();
-        var scrollViewer = scrollHost.GetVisualDescendants().OfType<ScrollViewer>()
-            .Single();
-
-        Assert.Equal(ScrollBarVisibility.Hidden, scrollViewer.HorizontalScrollBarVisibility);
-        Assert.Equal(ScrollBarVisibility.Hidden, scrollViewer.VerticalScrollBarVisibility);
-        Assert.False(scrollViewer.AllowAutoHide);
 
         var scrollBars = scrollHost.GetVisualDescendants().OfType<ScrollBar>().ToArray();
         Assert.True(scrollBars.Length >= 2);
         Assert.Contains(scrollBars, static bar => bar.Orientation == Orientation.Horizontal && bar.IsVisible);
-        Assert.Contains(scrollBars, static bar => bar.Orientation == Orientation.Vertical && bar.IsVisible);
+        Assert.True(
+            scrollBars.Any(static bar => bar.Orientation == Orientation.Vertical && bar.IsVisible && bar.Maximum > 0d && bar.ViewportSize > 0d),
+            $"Vertical scrollbars: {string.Join(" | ", scrollBars.Select(bar => $"{bar.Orientation} visible={bar.IsVisible} max={bar.Maximum} viewport={bar.ViewportSize} value={bar.Value} bounds={bar.Bounds}"))} || ancestors: {string.Join(" -> ", scrollHost.GetVisualAncestors().Select(static visual => $"{visual.GetType().Name}:{visual.Bounds}"))}");
         window.Close();
     }
 

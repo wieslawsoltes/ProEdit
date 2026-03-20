@@ -51,6 +51,9 @@
     </Border>
 
     <Grid Grid.Column="2"
+          Grid.RowSpan="3"
+          MinWidth="0"
+          MinHeight="0"
           RowDefinitions="Auto,*,Auto">
       <Border Classes="designer-canvas-toolbar">
         <Grid ColumnDefinitions="Auto,*,Auto"
@@ -117,8 +120,12 @@
       </Border>
 
       <Border Grid.Row="1"
+              x:Name="PART_CanvasHost"
+              MinWidth="0"
+              MinHeight="0"
               Classes="designer-main designer-canvas-host">
-        <designer:ReportDesignerDesignSurface />
+        <designer:ReportDesignerDesignSurface MinWidth="0"
+                                             MinHeight="0" />
       </Border>
 
       <Border Grid.Row="2"

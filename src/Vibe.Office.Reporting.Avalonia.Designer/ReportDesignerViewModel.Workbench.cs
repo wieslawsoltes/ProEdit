@@ -141,6 +141,16 @@ public sealed partial class ReportDesignerViewModel
     public double SurfaceScaledHeight => SurfaceHeight * SurfaceZoomFactor;
 
     /// <summary>
+    /// Gets the staged surface width including the canvas-stage padding.
+    /// </summary>
+    public double SurfaceStageWidth => SurfaceScaledWidth + 48d;
+
+    /// <summary>
+    /// Gets the staged surface height including the canvas-stage padding.
+    /// </summary>
+    public double SurfaceStageHeight => SurfaceScaledHeight + 48d;
+
+    /// <summary>
     /// Gets the design-surface zoom text.
     /// </summary>
     public string SurfaceZoomDisplayText => $"{Math.Round(SurfaceZoomFactor * 100d, MidpointRounding.AwayFromZero):0}%";
@@ -753,6 +763,8 @@ public sealed partial class ReportDesignerViewModel
         this.RaisePropertyChanged(nameof(SurfaceZoomFactor));
         this.RaisePropertyChanged(nameof(SurfaceScaledWidth));
         this.RaisePropertyChanged(nameof(SurfaceScaledHeight));
+        this.RaisePropertyChanged(nameof(SurfaceStageWidth));
+        this.RaisePropertyChanged(nameof(SurfaceStageHeight));
         this.RaisePropertyChanged(nameof(SurfaceZoomDisplayText));
         UpdateViewStateStatus(statusMessage);
     }

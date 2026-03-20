@@ -200,21 +200,28 @@
 
     <ControlTheme x:Key="{x:Type designer:ReportDesignerSurfaceScrollHost}"
                   TargetType="designer:ReportDesignerSurfaceScrollHost">
+      <Setter Property="HorizontalContentAlignment" Value="Left" />
+      <Setter Property="VerticalContentAlignment" Value="Top" />
       <Setter Property="Template">
         <ControlTemplate>
           <Grid RowDefinitions="*,Auto"
                 ColumnDefinitions="*,Auto">
-            <ScrollViewer x:Name="PART_ScrollViewer"
-                          Grid.Row="0"
-                          Grid.Column="0"
-                          HorizontalScrollBarVisibility="Hidden"
-                          VerticalScrollBarVisibility="Hidden"
-                          AllowAutoHide="False">
+            <Border x:Name="PART_Viewport"
+                    Grid.Row="0"
+                    Grid.Column="0"
+                    ClipToBounds="True">
               <ContentPresenter Content="{TemplateBinding Content}"
-                                ContentTemplate="{TemplateBinding ContentTemplate}"
-                                HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
-            </ScrollViewer>
+                                x:Name="PART_ContentPresenter"
+                ContentTemplate="{TemplateBinding ContentTemplate}"
+                                HorizontalAlignment="Left"
+                                VerticalAlignment="Top"
+                HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}">
+                <ContentPresenter.RenderTransform>
+                  <TranslateTransform />
+                </ContentPresenter.RenderTransform>
+              </ContentPresenter>
+            </Border>
             <ScrollBar x:Name="PART_VerticalScrollBar"
                        Grid.Row="0"
                        Grid.Column="1"

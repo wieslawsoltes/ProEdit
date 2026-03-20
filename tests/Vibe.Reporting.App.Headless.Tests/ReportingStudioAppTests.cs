@@ -1,7 +1,9 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.Layout;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using SkiaSharp;
@@ -215,6 +217,36 @@ public sealed class ReportingStudioAppTests
             .First(host => host.IsVisible);
         Assert.True(viewportHost.Bounds.Width > 1000d);
         Assert.True(viewportHost.Bounds.Height > 640d);
+
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public async Task MainWindow_DesignerSurfaceUsesStageExtentForScrollOverflow()
+    {
+        var workspaceFactory = new ReportingStudioWorkspaceFactory();
+        var service = CreateDocumentService(workspaceFactory);
+        using var viewModel = new ReportingStudioViewModel(new StubReportingStudioFilePickerService(), service);
+        await viewModel.InitializeAsync();
+
+        var window = new MainWindow
+        {
+            Width = 1680,
+            Height = 1024,
+            DataContext = viewModel
+        };
+
+        window.Show();
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+
+        var scrollHost = window.GetVisualDescendants()
+            .OfType<ReportDesignerSurfaceScrollHost>()
+            .Single(host => host.IsVisible);
+        var scrollBars = scrollHost.GetVisualDescendants().OfType<ScrollBar>().ToArray();
+        var verticalBar = Assert.Single(scrollBars, static bar => bar.Orientation == Orientation.Vertical);
+
+        Assert.True(verticalBar.IsVisible);
+        Assert.True(verticalBar.Maximum > 0d, $"Expected vertical overflow in the live studio shell, but got max={verticalBar.Maximum}, viewport={verticalBar.ViewportSize}, bounds={verticalBar.Bounds}.");
 
         window.Close();
     }
