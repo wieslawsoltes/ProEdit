@@ -3360,20 +3360,13 @@ public sealed class DocumentLayouter
 
                 var headerTop = page.Bounds.Y + section.HeaderOffset;
                 var footerTop = page.Bounds.Bottom - section.FooterOffset - footerLayout.Height;
+
                 var headerLines = OffsetHeaderFooterLines(headerLayout.Lines, page.Bounds.X + section.MarginLeft, headerTop);
-                var footerLines = OffsetHeaderFooterLines(footerLayout.Lines, page.Bounds.X + section.MarginLeft, footerTop);
                 var headerTables = OffsetHeaderFooterTables(headerLayout.Tables, page.Bounds.X + section.MarginLeft, headerTop);
-                var footerTables = OffsetHeaderFooterTables(footerLayout.Tables, page.Bounds.X + section.MarginLeft, footerTop);
                 var headerFloatingObjects = BuildHeaderFooterFloatingObjects(
                     headerBlocks,
                     headerLines,
                     headerLayout.ParagraphLineRanges,
-                    page,
-                    section);
-                var footerFloatingObjects = BuildHeaderFooterFloatingObjects(
-                    footerBlocks,
-                    footerLines,
-                    footerLayout.ParagraphLineRanges,
                     page,
                     section);
                 var headerFrameObjects = BuildHeaderFooterFrameObjects(
@@ -3382,12 +3375,46 @@ public sealed class DocumentLayouter
                     section,
                     page.Bounds.X + section.MarginLeft,
                     headerTop);
+
+                var footerLines = OffsetHeaderFooterLines(footerLayout.Lines, page.Bounds.X + section.MarginLeft, footerTop);
+                var footerTables = OffsetHeaderFooterTables(footerLayout.Tables, page.Bounds.X + section.MarginLeft, footerTop);
+                var footerFloatingObjects = BuildHeaderFooterFloatingObjects(
+                    footerBlocks,
+                    footerLines,
+                    footerLayout.ParagraphLineRanges,
+                    page,
+                    section);
                 var footerFrameObjects = BuildHeaderFooterFrameObjects(
                     footerLayout.FrameLayouts,
                     page,
                     section,
                     page.Bounds.X + section.MarginLeft,
                     footerTop);
+
+                var actualFooterHeight = MeasureHeaderFooterExtent(
+                    footerTop,
+                    footerLines,
+                    footerTables,
+                    footerFloatingObjects,
+                    footerFrameObjects);
+                if (actualFooterHeight > footerLayout.Height + 0.1f)
+                {
+                    footerTop = page.Bounds.Bottom - section.FooterOffset - actualFooterHeight;
+                    footerLines = OffsetHeaderFooterLines(footerLayout.Lines, page.Bounds.X + section.MarginLeft, footerTop);
+                    footerTables = OffsetHeaderFooterTables(footerLayout.Tables, page.Bounds.X + section.MarginLeft, footerTop);
+                    footerFloatingObjects = BuildHeaderFooterFloatingObjects(
+                        footerBlocks,
+                        footerLines,
+                        footerLayout.ParagraphLineRanges,
+                        page,
+                        section);
+                    footerFrameObjects = BuildHeaderFooterFrameObjects(
+                        footerLayout.FrameLayouts,
+                        page,
+                        section,
+                        page.Bounds.X + section.MarginLeft,
+                        footerTop);
+                }
                 var floatingObjects = new List<FloatingLayoutObject>(
                     headerFloatingObjects.Count
                     + footerFloatingObjects.Count
@@ -10042,6 +10069,54 @@ public sealed class DocumentLayouter
         }
 
         return result;
+    }
+
+    private static float MeasureHeaderFooterExtent(
+        float top,
+        IReadOnlyList<HeaderFooterLine> lines,
+        IReadOnlyList<TableLayout> tables,
+        IReadOnlyList<FloatingLayoutObject> floatingObjects,
+        IReadOnlyList<FloatingLayoutObject> frameObjects)
+    {
+        var bottom = top;
+
+        for (var i = 0; i < lines.Count; i++)
+        {
+            var lineBottom = lines[i].Y + lines[i].LineHeight;
+            if (lineBottom > bottom)
+            {
+                bottom = lineBottom;
+            }
+        }
+
+        for (var i = 0; i < tables.Count; i++)
+        {
+            var tableBottom = tables[i].Bounds.Bottom;
+            if (tableBottom > bottom)
+            {
+                bottom = tableBottom;
+            }
+        }
+
+        for (var i = 0; i < floatingObjects.Count; i++)
+        {
+            var floatingBottom = floatingObjects[i].Bounds.Bottom;
+            if (floatingBottom > bottom)
+            {
+                bottom = floatingBottom;
+            }
+        }
+
+        for (var i = 0; i < frameObjects.Count; i++)
+        {
+            var frameBottom = frameObjects[i].Bounds.Bottom;
+            if (frameBottom > bottom)
+            {
+                bottom = frameBottom;
+            }
+        }
+
+        return Math.Max(0f, bottom - top);
     }
 
     private static List<TableLayout> OffsetHeaderFooterTables(IReadOnlyList<TableLayout> tables, float offsetX, float offsetY)

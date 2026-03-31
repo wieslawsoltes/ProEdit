@@ -141,6 +141,16 @@ public sealed partial class ReportDesignerViewModel
     public double SurfaceScaledHeight => SurfaceHeight * SurfaceZoomFactor;
 
     /// <summary>
+    /// Gets the staged surface width including the canvas-stage padding.
+    /// </summary>
+    public double SurfaceStageWidth => SurfaceScaledWidth + 48d;
+
+    /// <summary>
+    /// Gets the staged surface height including the canvas-stage padding.
+    /// </summary>
+    public double SurfaceStageHeight => SurfaceScaledHeight + 48d;
+
+    /// <summary>
     /// Gets the design-surface zoom text.
     /// </summary>
     public string SurfaceZoomDisplayText => $"{Math.Round(SurfaceZoomFactor * 100d, MidpointRounding.AwayFromZero):0}%";
@@ -459,35 +469,35 @@ public sealed partial class ReportDesignerViewModel
                         preset.ToString(CultureInfo.InvariantCulture),
                         preset.ToString("0", CultureInfo.InvariantCulture) + "%"))));
 
-        BeginInsertTextBoxCommand = ReactiveCommand.Create(() => SelectInsertTool(ReportDesignerInsertTool.TextBox));
-        BeginInsertTablixCommand = ReactiveCommand.Create(() => SelectInsertTool(ReportDesignerInsertTool.Tablix));
-        BeginInsertChartCommand = ReactiveCommand.Create(() => SelectInsertTool(ReportDesignerInsertTool.Chart));
-        BeginInsertRectangleCommand = ReactiveCommand.Create(() => SelectInsertTool(ReportDesignerInsertTool.Rectangle));
-        BeginInsertLineCommand = ReactiveCommand.Create(() => SelectInsertTool(ReportDesignerInsertTool.Line));
-        BeginInsertImageCommand = ReactiveCommand.Create(() => SelectInsertTool(ReportDesignerInsertTool.Image));
-        BeginInsertSubreportCommand = ReactiveCommand.Create(() => SelectInsertTool(ReportDesignerInsertTool.Subreport));
-        BeginInsertTemplateCommand = ReactiveCommand.Create(() => SelectInsertTool(ReportDesignerInsertTool.Template));
-        CancelInsertToolCommand = ReactiveCommand.Create(CancelInsertTool);
-        DuplicateSelectedCommand = ReactiveCommand.Create(DuplicateSelectedItem);
-        BringSelectedForwardCommand = ReactiveCommand.Create(BringSelectedForward);
-        SendSelectedBackwardCommand = ReactiveCommand.Create(SendSelectedBackward);
-        BringSelectedToFrontCommand = ReactiveCommand.Create(BringSelectedToFront);
-        SendSelectedToBackCommand = ReactiveCommand.Create(SendSelectedToBack);
-        AddRowGroupCommand = ReactiveCommand.Create(AddSelectedRowGroup);
-        AddColumnGroupCommand = ReactiveCommand.Create(AddSelectedColumnGroup);
-        AddParentRowGroupCommand = ReactiveCommand.Create(AddSelectedParentRowGroup);
-        AddChildRowGroupCommand = ReactiveCommand.Create(AddSelectedChildRowGroup);
-        AddAdjacentRowGroupCommand = ReactiveCommand.Create(AddSelectedAdjacentRowGroup);
-        AddParentColumnGroupCommand = ReactiveCommand.Create(AddSelectedParentColumnGroup);
-        AddChildColumnGroupCommand = ReactiveCommand.Create(AddSelectedChildColumnGroup);
-        AddAdjacentColumnGroupCommand = ReactiveCommand.Create(AddSelectedAdjacentColumnGroup);
-        AddRowTotalCommand = ReactiveCommand.Create(AddSelectedRowTotal);
-        AddColumnTotalCommand = ReactiveCommand.Create(AddSelectedColumnTotal);
-        RemoveSelectedGroupCommand = ReactiveCommand.Create(RemoveSelectedRowGroup);
-        ZoomInCommand = ReactiveCommand.Create(ZoomIn);
-        ZoomOutCommand = ReactiveCommand.Create(ZoomOut);
-        ActualSizeCommand = ReactiveCommand.Create(ResetZoomToActualSize);
-        FitPageCommand = ReactiveCommand.Create(FitPageToViewport);
+        BeginInsertTextBoxCommand = DesignerCommandFactory.Create(() => SelectInsertTool(ReportDesignerInsertTool.TextBox));
+        BeginInsertTablixCommand = DesignerCommandFactory.Create(() => SelectInsertTool(ReportDesignerInsertTool.Tablix));
+        BeginInsertChartCommand = DesignerCommandFactory.Create(() => SelectInsertTool(ReportDesignerInsertTool.Chart));
+        BeginInsertRectangleCommand = DesignerCommandFactory.Create(() => SelectInsertTool(ReportDesignerInsertTool.Rectangle));
+        BeginInsertLineCommand = DesignerCommandFactory.Create(() => SelectInsertTool(ReportDesignerInsertTool.Line));
+        BeginInsertImageCommand = DesignerCommandFactory.Create(() => SelectInsertTool(ReportDesignerInsertTool.Image));
+        BeginInsertSubreportCommand = DesignerCommandFactory.Create(() => SelectInsertTool(ReportDesignerInsertTool.Subreport));
+        BeginInsertTemplateCommand = DesignerCommandFactory.Create(() => SelectInsertTool(ReportDesignerInsertTool.Template));
+        CancelInsertToolCommand = DesignerCommandFactory.Create(CancelInsertTool);
+        DuplicateSelectedCommand = DesignerCommandFactory.Create(DuplicateSelectedItem);
+        BringSelectedForwardCommand = DesignerCommandFactory.Create(BringSelectedForward);
+        SendSelectedBackwardCommand = DesignerCommandFactory.Create(SendSelectedBackward);
+        BringSelectedToFrontCommand = DesignerCommandFactory.Create(BringSelectedToFront);
+        SendSelectedToBackCommand = DesignerCommandFactory.Create(SendSelectedToBack);
+        AddRowGroupCommand = DesignerCommandFactory.Create(AddSelectedRowGroup);
+        AddColumnGroupCommand = DesignerCommandFactory.Create(AddSelectedColumnGroup);
+        AddParentRowGroupCommand = DesignerCommandFactory.Create(AddSelectedParentRowGroup);
+        AddChildRowGroupCommand = DesignerCommandFactory.Create(AddSelectedChildRowGroup);
+        AddAdjacentRowGroupCommand = DesignerCommandFactory.Create(AddSelectedAdjacentRowGroup);
+        AddParentColumnGroupCommand = DesignerCommandFactory.Create(AddSelectedParentColumnGroup);
+        AddChildColumnGroupCommand = DesignerCommandFactory.Create(AddSelectedChildColumnGroup);
+        AddAdjacentColumnGroupCommand = DesignerCommandFactory.Create(AddSelectedAdjacentColumnGroup);
+        AddRowTotalCommand = DesignerCommandFactory.Create(AddSelectedRowTotal);
+        AddColumnTotalCommand = DesignerCommandFactory.Create(AddSelectedColumnTotal);
+        RemoveSelectedGroupCommand = DesignerCommandFactory.Create(RemoveSelectedRowGroup);
+        ZoomInCommand = DesignerCommandFactory.Create(ZoomIn);
+        ZoomOutCommand = DesignerCommandFactory.Create(ZoomOut);
+        ActualSizeCommand = DesignerCommandFactory.Create(ResetZoomToActualSize);
+        FitPageCommand = DesignerCommandFactory.Create(FitPageToViewport);
 
         BuildInsertToolEntries();
         SyncSelectedZoomOption();
@@ -753,6 +763,8 @@ public sealed partial class ReportDesignerViewModel
         this.RaisePropertyChanged(nameof(SurfaceZoomFactor));
         this.RaisePropertyChanged(nameof(SurfaceScaledWidth));
         this.RaisePropertyChanged(nameof(SurfaceScaledHeight));
+        this.RaisePropertyChanged(nameof(SurfaceStageWidth));
+        this.RaisePropertyChanged(nameof(SurfaceStageHeight));
         this.RaisePropertyChanged(nameof(SurfaceZoomDisplayText));
         UpdateViewStateStatus(statusMessage);
     }

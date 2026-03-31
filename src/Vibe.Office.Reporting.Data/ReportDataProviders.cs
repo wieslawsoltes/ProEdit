@@ -317,7 +317,8 @@ internal sealed class EnterDataReportDataProvider : IReportDataProvider
 
         try
         {
-            return ValueTask.FromResult(ParseEnterDataQuery(dataSet, context.Culture));
+            var table = ParseEnterDataQuery(dataSet, context.Culture);
+            return ValueTask.FromResult(table);
         }
         catch (XmlException ex)
         {
@@ -424,7 +425,6 @@ internal sealed class EnterDataReportDataProvider : IReportDataProvider
 
         return table;
     }
-
     private static object? ParseExpectedEnterDataValue(
         string rawValue,
         ReportParameterDataType dataType,

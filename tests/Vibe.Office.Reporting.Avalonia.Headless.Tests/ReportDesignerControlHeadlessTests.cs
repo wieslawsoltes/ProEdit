@@ -1,8 +1,12 @@
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.Layout;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using ReactiveUI;
+using Vibe.Office.Reporting.Avalonia;
 using Vibe.Office.Printing;
 using Vibe.Office.Reporting.Avalonia.Designer;
 using Vibe.Office.Reporting.Avalonia.Viewer;
@@ -41,6 +45,268 @@ public sealed class ReportDesignerControlHeadlessTests
         Assert.NotNull(control.GetVisualDescendants().OfType<ReportDesignerReportDataPane>().FirstOrDefault());
         Assert.NotNull(control.GetVisualDescendants().OfType<ReportDesignerGroupingPane>().FirstOrDefault());
         Assert.NotNull(control.GetVisualDescendants().OfType<ReportDesignerPropertiesPane>().FirstOrDefault());
+
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public async Task Designer_DefaultLayoutStartsCanvasFirst()
+    {
+        using var viewModel = new ReportDesignerViewModel(CreateDesignerSource());
+        var control = new ReportDesignerControl
+        {
+            DataContext = viewModel,
+            Width = 1600,
+            Height = 980
+        };
+        var window = new Window
+        {
+            Width = 1680,
+            Height = 1024,
+            Content = control
+        };
+
+        window.Show();
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+
+        var designSurface = Assert.Single(control.GetVisualDescendants().OfType<ReportDesignerDesignSurface>());
+
+        Assert.Equal(PaneVisibilityState.Closed, viewModel.LeftDrawerState);
+        Assert.Equal(PaneVisibilityState.Closed, viewModel.RightDrawerState);
+        Assert.Equal(PaneVisibilityState.Closed, viewModel.ContextTrayState);
+        Assert.Equal(0d, viewModel.LeftDrawerWidth);
+        Assert.Equal(0d, viewModel.RightDrawerWidth);
+        Assert.True(designSurface.Bounds.Width > 1050d);
+        Assert.True(designSurface.Bounds.Height > 640d);
+
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public async Task Designer_DrawersAndContextTrayStayCanvasFirstAndContextual()
+    {
+        using var viewModel = new ReportDesignerViewModel(CreateDesignerSource());
+        var control = new ReportDesignerControl
+        {
+            DataContext = viewModel,
+            Width = 1600,
+            Height = 980
+        };
+        var window = new Window
+        {
+            Width = 1680,
+            Height = 1024,
+            Content = control
+        };
+
+        window.Show();
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+
+        var designSurface = Assert.Single(control.GetVisualDescendants().OfType<ReportDesignerDesignSurface>());
+        var closedWidth = designSurface.Bounds.Width;
+
+        Execute(viewModel.OpenReportDataPaneCommand);
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+        Assert.Equal(PaneVisibilityState.Open, viewModel.LeftDrawerState);
+        Assert.True(viewModel.IsLeftDrawerVisible);
+        Assert.True(designSurface.Bounds.Width < closedWidth);
+
+        Execute(viewModel.TogglePinLeftDrawerCommand);
+        Assert.Equal(PaneVisibilityState.Pinned, viewModel.LeftDrawerState);
+
+        Execute(viewModel.AddTablixItemCommand);
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+        Assert.True(viewModel.ShowGroupingTray);
+        Assert.True(viewModel.IsContextTrayVisible);
+
+        Execute(viewModel.AddChartItemCommand);
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+        Assert.True(viewModel.ShowChartDataTray);
+        Assert.True(viewModel.IsContextTrayVisible);
+
+        Execute(viewModel.OpenParameterLayoutTrayCommand);
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+        Assert.True(viewModel.ShowParameterLayoutTray);
+
+        Execute(viewModel.CloseLeftDrawerCommand);
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+        Assert.Equal(PaneVisibilityState.Closed, viewModel.LeftDrawerState);
+        Assert.True(designSurface.Bounds.Width >= closedWidth);
+
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public async Task Designer_RightInspectorDrawerExposesResizeHandleAndHonorsWidthState()
+    {
+        using var viewModel = new ReportDesignerViewModel(CreateDesignerSource());
+        var control = new ReportDesignerControl
+        {
+            DataContext = viewModel,
+            Width = 1600,
+            Height = 980
+        };
+        var window = new Window
+        {
+            Width = 1680,
+            Height = 1024,
+            Content = control
+        };
+
+        window.Show();
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+
+        Execute(viewModel.OpenPropertiesInspectorCommand);
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+
+        var resizeHandle = Assert.Single(control.GetVisualDescendants().OfType<ReportDesignerDrawerResizeHandle>());
+        var drawer = control.GetVisualDescendants()
+            .OfType<Border>()
+            .Single(border => border.Classes.Contains("designer-drawer-right"));
+        var initialWidth = drawer.Bounds.Width;
+
+        Assert.True(resizeHandle.IsVisible);
+        Assert.Equal(PaneVisibilityState.Open, viewModel.RightDrawerState);
+        Assert.Equal(336d, viewModel.InspectorDrawerWidth);
+
+        viewModel.InspectorDrawerWidth = 440d;
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+
+        Assert.Equal(440d, viewModel.InspectorDrawerWidth);
+        Assert.Equal(440d, viewModel.RightDrawerWidth);
+        Assert.True(drawer.Bounds.Width > initialWidth);
+        Assert.InRange(drawer.Bounds.Width, 432d, 448d);
+
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public async Task Designer_PageSurfaceExposesVisibleScrollBarsForPageViews()
+    {
+        using var viewModel = new ReportDesignerViewModel(CreateDesignerSource());
+        var control = new ReportDesignerControl
+        {
+            DataContext = viewModel,
+            Width = 960,
+            Height = 720
+        };
+        var window = new Window
+        {
+            Width = 980,
+            Height = 760,
+            Content = control
+        };
+
+        window.Show();
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+
+        Execute(viewModel.ZoomInCommand);
+        Execute(viewModel.ZoomInCommand);
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+
+        var scrollHost = control.GetVisualDescendants()
+            .OfType<ReportDesignerSurfaceScrollHost>()
+            .Single();
+
+        var scrollBars = scrollHost.GetVisualDescendants().OfType<ScrollBar>().ToArray();
+        Assert.True(scrollBars.Length >= 2);
+        Assert.Contains(scrollBars, static bar => bar.Orientation == Orientation.Horizontal && bar.IsVisible);
+        Assert.True(
+            scrollBars.Any(static bar => bar.Orientation == Orientation.Vertical && bar.IsVisible && bar.Maximum > 0d && bar.ViewportSize > 0d),
+            $"Vertical scrollbars: {string.Join(" | ", scrollBars.Select(bar => $"{bar.Orientation} visible={bar.IsVisible} max={bar.Maximum} viewport={bar.ViewportSize} value={bar.Value} bounds={bar.Bounds}"))} || ancestors: {string.Join(" -> ", scrollHost.GetVisualAncestors().Select(static visual => $"{visual.GetType().Name}:{visual.Bounds}"))}");
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public async Task Designer_ToolbarTogglesUseBoundStateWithoutCommandDoubleToggle()
+    {
+        using var viewModel = new ReportDesignerViewModel(CreateDesignerSource());
+        var control = new ReportDesignerControl
+        {
+            DataContext = viewModel,
+            Width = 1280,
+            Height = 860
+        };
+        var window = new Window
+        {
+            Width = 1320,
+            Height = 900,
+            Content = control
+        };
+
+        window.Show();
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+
+        var toggles = control.GetVisualDescendants().OfType<ToggleButton>().ToArray();
+        var rulersToggle = toggles.Single(toggle => toggle.Content is TextBlock { Text: "Rulers" });
+        var previewToggle = toggles.Single(toggle => toggle.Content is TextBlock { Text: "Preview" });
+
+        Assert.Null(rulersToggle.Command);
+        Assert.Null(previewToggle.Command);
+
+        rulersToggle.IsChecked = false;
+        previewToggle.IsChecked = false;
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+
+        Assert.False(viewModel.ShowRulers);
+        Assert.False(viewModel.ShowSurfacePreviewBackground);
+
+        rulersToggle.IsChecked = true;
+        previewToggle.IsChecked = true;
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+
+        Assert.True(viewModel.ShowRulers);
+        Assert.True(viewModel.ShowSurfacePreviewBackground);
+
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public async Task Designer_SmallItemsKeepActualSelectionBoundsWithExpandedHitTargets()
+    {
+        using var viewModel = new ReportDesignerViewModel(CreateSelectionGeometrySource());
+        var control = new ReportDesignerControl
+        {
+            DataContext = viewModel,
+            Width = 1200,
+            Height = 860
+        };
+        var window = new Window
+        {
+            Width = 1240,
+            Height = 900,
+            Content = control
+        };
+
+        window.Show();
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+
+        var lineCanvasItem = Assert.Single(viewModel.DesignItems, item => item.Item is LineItem);
+        var lineItem = Assert.IsType<LineItem>(lineCanvasItem.Item);
+        Assert.Equal(lineItem.Bounds.Width, (float)lineCanvasItem.Width);
+        Assert.Equal(lineItem.Bounds.Height, (float)lineCanvasItem.Height);
+        Assert.True(lineCanvasItem.SurfaceHostHeight > lineCanvasItem.Height);
+        Assert.True(lineCanvasItem.InteractionPaddingY > 0d);
+
+        viewModel.SelectedCanvasItem = lineCanvasItem;
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+        lineCanvasItem = Assert.Single(viewModel.DesignItems, item => ReferenceEquals(item.Item, lineItem));
+
+        Assert.Equal(lineCanvasItem.Left, lineItem.Bounds.X, 3);
+        Assert.Equal(lineCanvasItem.Top, lineItem.Bounds.Y, 3);
+        Assert.Equal(lineCanvasItem.Left, lineCanvasItem.SurfaceHostLeft, 3);
+        Assert.True(lineCanvasItem.SurfaceHostTop < lineCanvasItem.Top);
+        Assert.Equal(lineCanvasItem.Width, lineCanvasItem.SurfaceHostWidth, 3);
+        Assert.True(lineCanvasItem.SurfaceHostHeight > lineCanvasItem.Height);
+
+        var tinyTextCanvasItem = Assert.Single(
+            viewModel.DesignItems,
+            item => item.Item is TextItem textItem && string.Equals(textItem.Id, "tiny-caption", StringComparison.Ordinal));
+        var tinyTextItem = Assert.IsType<TextItem>(tinyTextCanvasItem.Item);
+        Assert.Equal(tinyTextItem.Bounds.Width, (float)tinyTextCanvasItem.Width);
+        Assert.Equal(tinyTextItem.Bounds.Height, (float)tinyTextCanvasItem.Height);
+        Assert.True(tinyTextCanvasItem.SurfaceHostWidth > tinyTextCanvasItem.Width);
+        Assert.True(tinyTextCanvasItem.SurfaceHostHeight > tinyTextCanvasItem.Height);
 
         window.Close();
     }
@@ -284,6 +550,61 @@ public sealed class ReportDesignerControlHeadlessTests
 
         Assert.Equal("72", xProperty.Value);
         Assert.Equal("364", widthProperty.Value);
+    }
+
+    [Fact]
+    public void Designer_SurfaceInteractionResizesTablixStructure()
+    {
+        using var viewModel = new ReportDesignerViewModel(CreateGroupingDesignerSource());
+        viewModel.SelectedCanvasItem = Assert.Single(viewModel.DesignItems, item => item.Item is TablixItem);
+
+        var canvasItem = viewModel.SelectedCanvasItem!;
+        var tablix = Assert.IsType<TablixItem>(canvasItem.Item);
+        var originalWidth = tablix.Bounds.Width;
+        var originalHeight = tablix.Bounds.Height;
+        var originalColumnTotal = tablix.Columns.Sum(static column => column.Width);
+        var originalRowTotal = tablix.Rows.Sum(static row => row.Height > 0f ? row.Height : 0f);
+
+        Assert.True(viewModel.TryResizeSurfaceItemByDelta(
+            canvasItem,
+            ReportDesignerSurfaceResizeHandle.SouthEast,
+            80d,
+            48d));
+
+        viewModel.CompleteSurfaceInteraction(canvasItem);
+
+        Assert.True(tablix.Bounds.Width > originalWidth);
+        Assert.True(tablix.Bounds.Height > originalHeight);
+        Assert.Equal(tablix.Bounds.Width, tablix.Columns.Sum(static column => column.Width), 3);
+        Assert.Equal(tablix.Bounds.Height, tablix.Rows.Sum(static row => row.Height), 3);
+        Assert.True(tablix.Columns.Sum(static column => column.Width) > originalColumnTotal);
+        Assert.True(tablix.Rows.Sum(static row => row.Height) > originalRowTotal);
+    }
+
+    [Fact]
+    public void Designer_PropertyEditsResizeTablixStructure()
+    {
+        using var viewModel = new ReportDesignerViewModel(CreateGroupingDesignerSource());
+        viewModel.SelectedCanvasItem = Assert.Single(viewModel.DesignItems, item => item.Item is TablixItem);
+
+        var tablix = Assert.IsType<TablixItem>(viewModel.SelectedCanvasItem!.Item);
+        var originalWidth = tablix.Bounds.Width;
+        var originalHeight = tablix.Bounds.Height;
+
+        var widthProperty = Assert.IsType<ReportDesignerTextPropertyViewModel>(
+            viewModel.PropertyEntries.First(property => property.Id == "item.width"));
+        var heightProperty = Assert.IsType<ReportDesignerTextPropertyViewModel>(
+            viewModel.PropertyEntries.First(property => property.Id == "item.height"));
+
+        widthProperty.Value = "600";
+        heightProperty.Value = "300";
+
+        Assert.Equal(600f, tablix.Bounds.Width);
+        Assert.Equal(300f, tablix.Bounds.Height);
+        Assert.Equal(tablix.Bounds.Width, tablix.Columns.Sum(static column => column.Width), 3);
+        Assert.Equal(tablix.Bounds.Height, tablix.Rows.Sum(static row => row.Height), 3);
+        Assert.True(tablix.Bounds.Width > originalWidth);
+        Assert.True(tablix.Bounds.Height > originalHeight);
     }
 
     [AvaloniaFact]
@@ -737,6 +1058,48 @@ public sealed class ReportDesignerControlHeadlessTests
         Assert.Equal(74d, nestedSubreportItem.Top, 3);
     }
 
+    [AvaloniaFact]
+    public async Task Designer_CapturesCanvasFirstBaselines_WhenRequested()
+    {
+        var screenshotRoot = Environment.GetEnvironmentVariable("AVALONIA_SCREENSHOT_DIR");
+        if (string.IsNullOrWhiteSpace(screenshotRoot))
+        {
+            return;
+        }
+
+        Directory.CreateDirectory(screenshotRoot);
+
+        using var viewModel = new ReportDesignerViewModel(CreateDesignerSource());
+        var control = new ReportDesignerControl
+        {
+            DataContext = viewModel,
+            Width = 1600,
+            Height = 980
+        };
+        var window = new Window
+        {
+            Width = 1680,
+            Height = 1024,
+            Content = control
+        };
+
+        window.Show();
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+
+        SaveFrame(window, screenshotRoot, "designer-default-design.png");
+
+        Execute(viewModel.OpenReportDataPaneCommand);
+        Execute(viewModel.TogglePinLeftDrawerCommand);
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+
+        SaveFrame(window, screenshotRoot, "designer-left-drawer-pinned.png");
+
+        Assert.True(File.Exists(Path.Combine(screenshotRoot, "designer-default-design.png")));
+        Assert.True(File.Exists(Path.Combine(screenshotRoot, "designer-left-drawer-pinned.png")));
+
+        window.Close();
+    }
+
     private static void Execute(ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> command)
     {
         using var subscription = command.Execute().Subscribe();
@@ -759,6 +1122,14 @@ public sealed class ReportDesignerControlHeadlessTests
                 yield return child;
             }
         }
+    }
+
+    private static void SaveFrame(Window window, string screenshotRoot, string fileName)
+    {
+        var frame = global::Avalonia.Headless.HeadlessWindowExtensions.CaptureRenderedFrame(window);
+        Assert.NotNull(frame);
+        var path = Path.Combine(screenshotRoot, fileName);
+        frame!.Save(path);
     }
 
     private static ReportViewerSource CreateDesignerSource()
@@ -884,6 +1255,46 @@ public sealed class ReportDesignerControlHeadlessTests
         };
         source.ReferencedReports[detailReport.Id] = detailReport;
         return source;
+    }
+
+    private static ReportViewerSource CreateSelectionGeometrySource()
+    {
+        var report = new ReportDefinition
+        {
+            Id = "selection-geometry",
+            Name = "Selection Geometry",
+            Sections =
+            {
+                new ReportSection
+                {
+                    Id = "main",
+                    Name = "Main",
+                    BodyItems =
+                    {
+                        new LineItem
+                        {
+                            Id = "divider",
+                            Name = "Divider",
+                            Bounds = new ReportItemBounds(40f, 96f, 240f, 1f),
+                            X2 = 280f,
+                            Y2 = 97f
+                        },
+                        new TextItem
+                        {
+                            Id = "tiny-caption",
+                            Name = "Tiny Caption",
+                            StaticText = "FY26",
+                            Bounds = new ReportItemBounds(48f, 132f, 12f, 12f)
+                        }
+                    }
+                }
+            }
+        };
+
+        return new ReportViewerSource
+        {
+            ReportDefinition = report
+        };
     }
 
     private static ReportViewerSource CreateDataWorkspaceSource()

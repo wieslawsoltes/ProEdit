@@ -1,3 +1,4 @@
+using Vibe.Office.Documents;
 using Vibe.Office.Reporting.Data;
 using Vibe.Office.Reporting.Expressions;
 using Vibe.Office.Reporting.Materialization;
@@ -176,6 +177,237 @@ public sealed class ReportMaterializerTests
         Assert.Equal(2, chartItem.Model.Series[0].Points.Count);
         Assert.Equal("West", chartItem.Model.Series[0].Points[0].Category);
         Assert.Equal(10d, chartItem.Model.Series[0].Points[0].Value);
+    }
+
+    [Fact]
+    public async Task MaterializeAsync_EvaluatesChartAxisBoundsFromNamedScopes()
+    {
+        var reportDefinition = new ReportDefinition
+        {
+            Id = "chart-axis",
+            Name = "Chart Axis",
+            DataSources =
+            {
+                new ReportDataSourceDefinition
+                {
+                    Id = "sales-source",
+                    ProviderId = ReportProviderIds.InMemory,
+                    Options =
+                    {
+                        ["sourceKey"] = "sales"
+                    }
+                }
+            },
+            DataSets =
+            {
+                new ReportDataSetDefinition
+                {
+                    Id = "sales",
+                    DataSourceId = "sales-source"
+                }
+            },
+            Sections =
+            {
+                new ReportSection
+                {
+                    Id = "main",
+                    Name = "Main",
+                    BodyItems =
+                    {
+                        new ChartItem
+                        {
+                            Id = "sales-chart",
+                            Name = "Sales Chart",
+                            DataSetId = "sales",
+                            CategoryExpression = "Fields.Region",
+                            Bounds = new ReportItemBounds(0f, 0f, 320f, 180f),
+                            Axes =
+                            {
+                                new ChartAxis
+                                {
+                                    Kind = ChartAxisKind.Value,
+                                    MinimumExpression = "0",
+                                    MaximumExpression = "Max(Fields.Amount, \"sales\")",
+                                    SyncScopeName = "sales",
+                                    SyncMaximum = true
+                                }
+                            },
+                            Series =
+                            {
+                                new ReportChartSeriesDefinition
+                                {
+                                    NameExpression = "'Amount'",
+                                    ValueExpression = "Fields.Amount"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        var hostData = new ReportHostDataRegistry();
+        hostData.RegisterInMemorySource(
+            "sales",
+            new ReportDictionaryDataSource(
+                new List<IReadOnlyDictionary<string, object?>>
+                {
+                    new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["Region"] = "West",
+                        ["Amount"] = 10m
+                    },
+                    new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["Region"] = "East",
+                        ["Amount"] = 20m
+                    }
+                }));
+
+        var materializer = new ReportMaterializer(new ReportExpressionCompiler());
+        var result = await materializer.MaterializeAsync(new ReportMaterializationRequest
+        {
+            ReportDefinition = reportDefinition,
+            ProviderRegistry = ReportDataProviders.CreateDefaultRegistry(),
+            HostDataRegistry = hostData
+        });
+
+        Assert.False(result.HasErrors);
+        var chart = Assert.IsType<MaterializedChartReportItem>(Assert.Single(result.MaterializedReport!.Sections[0].BodyItems));
+        var valueAxis = Assert.Single(chart.Model!.Axes, static axis => axis.Kind == ChartAxisKind.Value);
+        Assert.Equal(0d, valueAxis.Minimum);
+        Assert.Equal(20d, valueAxis.Maximum);
+    }
+
+    [Fact]
+    public async Task MaterializeAsync_AppliesTablixFiltersBeforeDetailExpansion()
+    {
+        var reportDefinition = new ReportDefinition
+        {
+            Id = "filtered-tablix",
+            Name = "Filtered Tablix",
+            Parameters =
+            {
+                new ReportParameterDefinition
+                {
+                    Id = "Donor",
+                    DisplayName = "Donor",
+                    DataType = ReportParameterDataType.String
+                }
+            },
+            DataSources =
+            {
+                new ReportDataSourceDefinition
+                {
+                    Id = "donors-source",
+                    ProviderId = ReportProviderIds.InMemory,
+                    Options =
+                    {
+                        ["sourceKey"] = "donors"
+                    }
+                }
+            },
+            DataSets =
+            {
+                new ReportDataSetDefinition
+                {
+                    Id = "donors",
+                    DataSourceId = "donors-source"
+                }
+            },
+            Sections =
+            {
+                new ReportSection
+                {
+                    Id = "main",
+                    Name = "Main",
+                    BodyItems =
+                    {
+                        new TablixItem
+                        {
+                            Id = "donor-table",
+                            Name = "Donor Table",
+                            DataSetId = "donors",
+                            Bounds = new ReportItemBounds(0f, 0f, 300f, 90f),
+                            Filters =
+                            {
+                                new ReportFilterDefinition
+                                {
+                                    Expression = "Fields.Name",
+                                    Operator = ReportFilterOperator.Equal,
+                                    ValueExpression = "Parameters.Donor"
+                                }
+                            },
+                            Columns =
+                            {
+                                new ReportTablixColumnDefinition { Id = "name", Width = 150f },
+                                new ReportTablixColumnDefinition { Id = "amount", Width = 80f }
+                            },
+                            Rows =
+                            {
+                                new ReportTablixRowDefinition
+                                {
+                                    Id = "header",
+                                    IsHeader = true,
+                                    Cells =
+                                    {
+                                        new ReportTablixCellDefinition { Text = "Name" },
+                                        new ReportTablixCellDefinition { Text = "Amount" }
+                                    }
+                                },
+                                new ReportTablixRowDefinition
+                                {
+                                    Id = "detail",
+                                    Cells =
+                                    {
+                                        new ReportTablixCellDefinition { ValueExpression = "Fields.Name" },
+                                        new ReportTablixCellDefinition { ValueExpression = "Fields.Amount" }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        var hostData = new ReportHostDataRegistry();
+        hostData.RegisterInMemorySource(
+            "donors",
+            new ReportDictionaryDataSource(
+                new List<IReadOnlyDictionary<string, object?>>
+                {
+                    new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["Name"] = "Jarred Pierce",
+                        ["Amount"] = 2500
+                    },
+                    new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["Name"] = "Roberto Hilario",
+                        ["Amount"] = 3700
+                    }
+                }));
+
+        var materializer = new ReportMaterializer(new ReportExpressionCompiler());
+        var request = new ReportMaterializationRequest
+        {
+            ReportDefinition = reportDefinition,
+            ProviderRegistry = ReportDataProviders.CreateDefaultRegistry(),
+            HostDataRegistry = hostData
+        };
+        request.ParameterValues["Donor"] = ReportParameterValue.FromScalar("Roberto Hilario");
+
+        var result = await materializer.MaterializeAsync(request);
+
+        Assert.False(result.HasErrors);
+        var report = Assert.IsType<MaterializedReport>(result.MaterializedReport);
+        Assert.Equal(2, report.DataSets[0].Rows.Count);
+        var tablix = Assert.IsType<MaterializedTablixReportItem>(Assert.Single(report.Sections[0].BodyItems));
+        Assert.Equal(2, tablix.Rows.Count);
+        Assert.True(tablix.Rows[0].IsHeader);
+        Assert.Equal("Roberto Hilario", tablix.Rows[1].Cells[0].Text);
+        Assert.Equal("3700", tablix.Rows[1].Cells[1].Text);
     }
 
     [Fact]

@@ -10,12 +10,16 @@ public sealed class ChartModel
     public ChartRadarStyle RadarStyle { get; set; } = ChartRadarStyle.Standard;
     public float DoughnutHoleSize { get; set; } = 0.5f;
     public string? Title { get; set; }
+    public ChartTextStyle? TitleTextStyle { get; set; }
+    public ChartTitlePosition TitlePosition { get; set; } = ChartTitlePosition.Center;
+    public string? PaletteName { get; set; }
     public ChartStyle? ChartAreaStyle { get; set; }
     public ChartStyle? PlotAreaStyle { get; set; }
     public ChartLegend? Legend { get; set; }
     public ChartDataLabelSettings? DataLabels { get; set; }
     public List<ChartAxis> Axes { get; } = new List<ChartAxis>();
     public List<ChartSeries> Series { get; } = new List<ChartSeries>();
+    public List<ChartHierarchyNode> HierarchyRoots { get; } = new List<ChartHierarchyNode>();
 }
 
 public sealed class ChartSeries
@@ -23,6 +27,7 @@ public sealed class ChartSeries
     public string? Name { get; set; }
     public ChartStyle? Style { get; set; }
     public ChartDataLabelSettings? DataLabels { get; set; }
+    public bool UseSmoothedLine { get; set; }
     public List<ChartPoint> Points { get; } = new List<ChartPoint>();
 }
 
@@ -46,7 +51,26 @@ public enum ChartType
     Area,
     Doughnut,
     Radar,
-    Bubble
+    Bubble,
+    Treemap,
+    Sunburst
+}
+
+public enum ChartTitlePosition
+{
+    Center,
+    TopLeft,
+    TopRight
+}
+
+public sealed class ChartHierarchyNode
+{
+    public string? Key { get; set; }
+    public string? Label { get; set; }
+    public double Value { get; set; }
+    public ChartStyle? Style { get; set; }
+    public ChartDataLabelSettings? DataLabel { get; set; }
+    public List<ChartHierarchyNode> Children { get; } = new List<ChartHierarchyNode>();
 }
 
 public enum ChartStacking
@@ -78,6 +102,10 @@ public sealed class ChartAxis
     public bool IsVisible { get; set; } = true;
     public double? Minimum { get; set; }
     public double? Maximum { get; set; }
+    public string? MinimumExpression { get; set; }
+    public string? MaximumExpression { get; set; }
+    public string? SyncScopeName { get; set; }
+    public bool SyncMaximum { get; set; }
     public double? MajorUnit { get; set; }
     public double? MinorUnit { get; set; }
     public ChartTickMark MajorTickMark { get; set; } = ChartTickMark.Outside;
@@ -136,7 +164,11 @@ public enum ChartLegendPosition
     Left,
     Top,
     Bottom,
-    Corner
+    Corner,
+    TopLeft,
+    TopRight,
+    BottomLeft,
+    BottomRight
 }
 
 public sealed class ChartDataLabelSettings

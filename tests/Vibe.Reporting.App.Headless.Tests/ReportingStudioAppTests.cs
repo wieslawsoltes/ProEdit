@@ -1,14 +1,19 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.Layout;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using SkiaSharp;
 using System.Reactive;
 using System.Text;
 using ReactiveUI;
+using ReactiveUI.Avalonia;
 using Vibe.Office.Documents;
 using Vibe.Office.Reporting;
+using Vibe.Office.Reporting.Avalonia;
 using Vibe.Office.Reporting.Avalonia.Designer;
 using Vibe.Office.Reporting.Avalonia.Viewer;
 using Vibe.Office.Reporting.Data;
@@ -25,6 +30,10 @@ namespace Vibe.Reporting.App.Headless.Tests;
 
 public sealed class HeadlessTestApp : Application
 {
+    public override void Initialize()
+    {
+        RxApp.MainThreadScheduler = AvaloniaScheduler.Instance;
+    }
 }
 
 public static class HeadlessTestAppBuilder
@@ -126,6 +135,181 @@ public sealed class ReportingStudioAppTests
         Assert.Contains(window.GetVisualDescendants().OfType<TextBlock>(), text => string.Equals(text.Text, "VibeOffice Reporting", StringComparison.Ordinal));
         Assert.NotNull(viewModel.ViewerViewModel.CurrentSnapshot);
         Assert.NotEmpty(viewModel.ViewerViewModel.Pages);
+
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public async Task MainWindow_ModeSwitchingPreservesPerModePaneState()
+    {
+        var workspaceFactory = new ReportingStudioWorkspaceFactory();
+        var service = CreateDocumentService(workspaceFactory);
+        using var viewModel = new ReportingStudioViewModel(new StubReportingStudioFilePickerService(), service);
+        await viewModel.InitializeAsync();
+
+        var window = new MainWindow
+        {
+            Width = 1680,
+            Height = 1024,
+            DataContext = viewModel
+        };
+
+        window.Show();
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+
+        Execute(viewModel.DesignerViewModel.OpenReportDataPaneCommand);
+        Execute(viewModel.DesignerViewModel.TogglePinLeftDrawerCommand);
+        Assert.Equal(PaneVisibilityState.Pinned, viewModel.DesignerViewModel.LeftDrawerState);
+
+        Execute(viewModel.ShowRunCommand);
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+        Assert.True(viewModel.IsRunMode);
+
+        Execute(viewModel.ViewerViewModel.OpenSearchPaneCommand);
+        Execute(viewModel.ViewerViewModel.ToggleThumbnailsCommand);
+        Assert.Equal(PaneVisibilityState.Open, viewModel.ViewerViewModel.LeftDrawerState);
+        Assert.True(viewModel.ViewerViewModel.IsSearchPaneActive);
+        Assert.True(viewModel.ViewerViewModel.IsThumbnailTrayOpen);
+
+        Execute(viewModel.ShowDesignCommand);
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+        Assert.True(viewModel.IsDesignMode);
+        Assert.Equal(PaneVisibilityState.Pinned, viewModel.DesignerViewModel.LeftDrawerState);
+
+        Execute(viewModel.ShowRunCommand);
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+        Assert.Equal(PaneVisibilityState.Open, viewModel.ViewerViewModel.LeftDrawerState);
+        Assert.True(viewModel.ViewerViewModel.IsSearchPaneActive);
+        Assert.True(viewModel.ViewerViewModel.IsThumbnailTrayOpen);
+
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public async Task MainWindow_DefaultModesFavorCanvasBounds()
+    {
+        var workspaceFactory = new ReportingStudioWorkspaceFactory();
+        var service = CreateDocumentService(workspaceFactory);
+        using var viewModel = new ReportingStudioViewModel(new StubReportingStudioFilePickerService(), service);
+        await viewModel.InitializeAsync();
+
+        var window = new MainWindow
+        {
+            Width = 1680,
+            Height = 1024,
+            DataContext = viewModel
+        };
+
+        window.Show();
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+
+        var designSurface = window.GetVisualDescendants()
+            .OfType<ReportDesignerDesignSurface>()
+            .First(surface => surface.IsVisible);
+        Assert.True(designSurface.Bounds.Width > 1000d);
+        Assert.True(designSurface.Bounds.Height > 640d);
+
+        Execute(viewModel.ShowRunCommand);
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+
+        var viewportHost = window.GetVisualDescendants()
+            .OfType<ReportViewerViewportHost>()
+            .First(host => host.IsVisible);
+        Assert.True(viewportHost.Bounds.Width > 1000d);
+        Assert.True(viewportHost.Bounds.Height > 640d);
+
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public async Task MainWindow_DesignerSurfaceUsesStageExtentForScrollOverflow()
+    {
+        var workspaceFactory = new ReportingStudioWorkspaceFactory();
+        var service = CreateDocumentService(workspaceFactory);
+        using var viewModel = new ReportingStudioViewModel(new StubReportingStudioFilePickerService(), service);
+        await viewModel.InitializeAsync();
+
+        var window = new MainWindow
+        {
+            Width = 1680,
+            Height = 1024,
+            DataContext = viewModel
+        };
+
+        window.Show();
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+
+        var scrollHost = window.GetVisualDescendants()
+            .OfType<ReportDesignerSurfaceScrollHost>()
+            .Single(host => host.IsVisible);
+        var scrollBars = scrollHost.GetVisualDescendants().OfType<ScrollBar>().ToArray();
+        var verticalBar = Assert.Single(scrollBars, static bar => bar.Orientation == Orientation.Vertical);
+
+        Assert.True(verticalBar.IsVisible);
+        Assert.True(verticalBar.Maximum > 0d, $"Expected vertical overflow in the live studio shell, but got max={verticalBar.Maximum}, viewport={verticalBar.ViewportSize}, bounds={verticalBar.Bounds}.");
+
+        window.Close();
+    }
+
+    [Fact]
+    public async Task SampleWorkspace_UsesCondensedNarrativeBrief()
+    {
+        var workspaceFactory = new ReportingStudioWorkspaceFactory();
+        var viewerService = new ReportViewerSessionService();
+        var workspace = workspaceFactory.CreateSampleWorkspace();
+        var briefTemplate = Assert.Single(
+            workspace.Source.ReportDefinition.SharedTemplates,
+            template => string.Equals(template.Id, "narrative-brief", StringComparison.Ordinal));
+
+        Assert.DoesNotContain("# {{Title}}", briefTemplate.Content, StringComparison.Ordinal);
+        Assert.DoesNotContain("Use the designer to edit the definition", briefTemplate.Content, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("minimum revenue threshold", briefTemplate.Content, StringComparison.OrdinalIgnoreCase);
+
+        var suppliedParameters = await ResolveSampleParametersAsync(viewerService, workspace.Source);
+        var snapshot = await viewerService.ExecuteAsync(workspace.Source, suppliedParameters);
+
+        var document = Assert.IsType<Document>(snapshot.ExecutionResult.Document);
+        var documentText = CollectDocumentText(document);
+
+        Assert.Contains("minimum revenue threshold", documentText, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Use the designer to edit the definition", documentText, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [AvaloniaFact]
+    public async Task MainWindow_CapturesCanvasFirstShellBaselines_WhenRequested()
+    {
+        var screenshotRoot = Environment.GetEnvironmentVariable("AVALONIA_SCREENSHOT_DIR");
+        if (string.IsNullOrWhiteSpace(screenshotRoot))
+        {
+            return;
+        }
+
+        Directory.CreateDirectory(screenshotRoot);
+
+        var workspaceFactory = new ReportingStudioWorkspaceFactory();
+        var service = CreateDocumentService(workspaceFactory);
+        using var viewModel = new ReportingStudioViewModel(new StubReportingStudioFilePickerService(), service);
+        await viewModel.InitializeAsync();
+
+        var window = new MainWindow
+        {
+            Width = 1680,
+            Height = 1024,
+            DataContext = viewModel
+        };
+
+        window.Show();
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+
+        SaveFrame(window, screenshotRoot, "studio-default-design.png");
+
+        Execute(viewModel.ShowRunCommand);
+        await Dispatcher.UIThread.InvokeAsync(static () => { });
+
+        SaveFrame(window, screenshotRoot, "studio-default-run.png");
+
+        Assert.True(File.Exists(Path.Combine(screenshotRoot, "studio-default-design.png")));
+        Assert.True(File.Exists(Path.Combine(screenshotRoot, "studio-default-run.png")));
 
         window.Close();
     }
@@ -293,6 +477,32 @@ public sealed class ReportingStudioAppTests
         Assert.Contains(
             layout.HeaderFooters[0].FloatingObjects,
             static floating => floating.Bounds.Y > 900f);
+        var pageBottom = layout.Pages[0].Bounds.Bottom;
+        var footerLineBottom = layout.HeaderFooters[0].FooterLines.Max(static line => line.Y + line.LineHeight);
+        var footerFloatingBottom = layout.HeaderFooters[0].FloatingObjects
+            .Where(static floating => floating.Bounds.Y > 900f)
+            .Max(static floating => floating.Bounds.Bottom);
+        Assert.True(
+            Math.Max(footerLineBottom, footerFloatingBottom) <= pageBottom + 0.5f,
+            $"Expected invoice footer content to stay within the page bottom {pageBottom}, but observed footer bottom {Math.Max(footerLineBottom, footerFloatingBottom)}.");
+
+        var previewPage = Assert.Single(snapshot.PreviewPages);
+        using var previewBitmap = SKBitmap.Decode(previewPage.ImageBytes);
+        Assert.NotNull(previewBitmap);
+        var footerPixels = CountNonWhitePixels(
+            previewBitmap!,
+            (int)(previewPage.Width * 0.02),
+            (int)(previewPage.Height * 0.86),
+            (int)(previewPage.Width * 0.98),
+            (int)(previewPage.Height * 0.99));
+        var pageNumberPixels = CountNonWhitePixels(
+            previewBitmap,
+            (int)(previewPage.Width * 0.82),
+            (int)(previewPage.Height * 0.90),
+            (int)(previewPage.Width * 0.98),
+            (int)(previewPage.Height * 0.995));
+        Assert.True(footerPixels > 1500, $"Expected visible invoice footer content near the page bottom, but found only {footerPixels} non-white pixels.");
+        Assert.True(pageNumberPixels > 100, $"Expected visible page-number/footer content in the lower-right corner, but found only {pageNumberPixels} non-white pixels.");
         Assert.True(workspace.Source.ReportDefinition.ConsumeContainerWhitespace);
         Assert.Contains(EnumerateReportItems(workspace.Source.ReportDefinition.Sections[0].BodyItems), static item => item.KeepTogether);
     }
@@ -335,7 +545,7 @@ public sealed class ReportingStudioAppTests
         window.Show();
         await Dispatcher.UIThread.InvokeAsync(static () => { });
 
-        var frame = Avalonia.Headless.HeadlessWindowExtensions.CaptureRenderedFrame(window);
+        var frame = global::Avalonia.Headless.HeadlessWindowExtensions.CaptureRenderedFrame(window);
         Assert.NotNull(frame);
         var path = Path.Combine(screenshotRoot, "invoice-viewer-preview.png");
         frame!.Save(path);
@@ -343,6 +553,40 @@ public sealed class ReportingStudioAppTests
         Assert.True(File.Exists(path));
         window.Close();
         viewerViewModel.Dispose();
+    }
+
+    [Fact]
+    public async Task SampleCorpus_LetterHonorsSelectedDonorParameter_WhenAvailable()
+    {
+        var letterPath = Path.Combine(SampleCorpusPath, "Letter.rdl");
+        if (!File.Exists(letterPath))
+        {
+            return;
+        }
+
+        var workspaceFactory = new ReportingStudioWorkspaceFactory();
+        var service = CreateDocumentService(workspaceFactory);
+        var viewerService = new ReportViewerSessionService();
+
+        var opened = await service.ImportRdlAsync(letterPath);
+        var workspace = Assert.IsType<ReportingStudioWorkspace>(opened.Workspace);
+
+        var suppliedParameters = new Dictionary<string, ReportParameterValue>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Donor"] = ReportParameterValue.FromScalar("Roberto Hilario")
+        };
+
+        var snapshot = await viewerService.ExecuteAsync(workspace.Source, suppliedParameters);
+
+        var document = Assert.IsType<Document>(snapshot.ExecutionResult.Document);
+        var documentText = CollectDocumentText(document);
+
+        Assert.Contains("Roberto Hilario", documentText, StringComparison.Ordinal);
+        Assert.Contains("Relecloud", documentText, StringComparison.Ordinal);
+        Assert.DoesNotContain("Jarred Pierce", documentText, StringComparison.Ordinal);
+        Assert.DoesNotContain("Janey Lobo", documentText, StringComparison.Ordinal);
+        Assert.DoesNotContain("Tailwind Traders", documentText, StringComparison.Ordinal);
+        Assert.DoesNotContain("Fourth Coffee", documentText, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -368,6 +612,230 @@ public sealed class ReportingStudioAppTests
         var writeResult = serializer.Write(workspace.Source.ReportDefinition);
         Assert.Empty(writeResult.Diagnostics);
         Assert.Contains("<BreakLocation>Between</BreakLocation>", writeResult.Xml, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task SampleCorpus_RegionalSalesRendersLandscapePreviewWithGaugeAndFullChart_WhenAvailable()
+    {
+        var regionalSalesPath = Path.Combine(SampleCorpusPath, "RegionalSales.rdl");
+        if (!File.Exists(regionalSalesPath))
+        {
+            return;
+        }
+
+        var workspaceFactory = new ReportingStudioWorkspaceFactory();
+        var service = CreateDocumentService(workspaceFactory);
+        var viewerService = new ReportViewerSessionService();
+
+        var opened = await service.ImportRdlAsync(regionalSalesPath);
+        var workspace = Assert.IsType<ReportingStudioWorkspace>(opened.Workspace);
+        var parameters = await ResolveSampleParametersAsync(viewerService, workspace.Source);
+        var snapshot = await viewerService.ExecuteAsync(workspace.Source, parameters);
+
+        Assert.NotEmpty(snapshot.PreviewPages);
+        var previewPage = snapshot.PreviewPages[0];
+        Assert.True(previewPage.Width > previewPage.Height);
+        Assert.InRange(previewPage.Width, 1300, 1340);
+        Assert.InRange(previewPage.Height, 1000, 1040);
+
+        using var bitmap = SKBitmap.Decode(previewPage.ImageBytes);
+        Assert.NotNull(bitmap);
+
+        var gaugePixels = CountNonWhitePixels(
+            bitmap!,
+            (int)(previewPage.Width * 0.72),
+            (int)(previewPage.Height * 0.18),
+            (int)(previewPage.Width * 0.98),
+            (int)(previewPage.Height * 0.43));
+        var rightChartPixels = CountNonWhitePixels(
+            bitmap,
+            (int)(previewPage.Width * 0.78),
+            (int)(previewPage.Height * 0.36),
+            (int)(previewPage.Width * 0.96),
+            (int)(previewPage.Height * 0.66));
+
+        Assert.True(gaugePixels > 1500, $"Expected rendered gauge content in the upper-right KPI region, but found only {gaugePixels} non-white pixels.");
+        Assert.True(rightChartPixels > 2500, $"Expected rendered chart content through the rightmost months, but found only {rightChartPixels} non-white pixels.");
+    }
+
+    [Fact]
+    public async Task SampleCorpus_OrganizationExpendituresRendersShapeCharts_WhenAvailable()
+    {
+        var organizationExpendituresPath = Path.Combine(SampleCorpusPath, "OrganizationExpenditures.rdl");
+        if (!File.Exists(organizationExpendituresPath))
+        {
+            return;
+        }
+
+        var workspaceFactory = new ReportingStudioWorkspaceFactory();
+        var service = CreateDocumentService(workspaceFactory);
+        var viewerService = new ReportViewerSessionService();
+
+        var opened = await service.ImportRdlAsync(organizationExpendituresPath);
+        var workspace = Assert.IsType<ReportingStudioWorkspace>(opened.Workspace);
+
+        var importedCharts = EnumerateReportItems(workspace.Source.ReportDefinition.Sections[0].BodyItems)
+            .OfType<ChartItem>()
+            .OrderBy(static chart => chart.Bounds.X)
+            .ToList();
+        Assert.Equal(2, importedCharts.Count);
+        Assert.Equal(ChartType.Treemap, importedCharts[0].Type);
+        Assert.Equal(ChartType.Sunburst, importedCharts[1].Type);
+        Assert.Equal("EarthTones", importedCharts[0].PaletteName);
+        Assert.Equal("EarthTones", importedCharts[1].PaletteName);
+
+        var parameters = await ResolveSampleParametersAsync(viewerService, workspace.Source);
+        var snapshot = await viewerService.ExecuteAsync(workspace.Source, parameters);
+        var dsMain = snapshot.ExecutionResult.MaterializedReport?.DataSets
+            .FirstOrDefault(static dataSet => string.Equals(dataSet.Id, "dsMain", StringComparison.Ordinal));
+        Assert.NotNull(dsMain);
+        Assert.NotEmpty(dsMain!.Rows);
+
+        var materializedCharts = snapshot.ExecutionResult.MaterializedReport is null
+            ? new List<MaterializedChartReportItem>()
+            : EnumerateMaterializedReportItems(snapshot.ExecutionResult.MaterializedReport.Sections.SelectMany(static section => section.BodyItems))
+                .OfType<MaterializedChartReportItem>()
+                .OrderBy(static chart => chart.Bounds.X)
+                .ToList();
+
+        Assert.Equal(2, materializedCharts.Count);
+        Assert.Equal(ChartType.Treemap, materializedCharts[0].Model?.Type);
+        Assert.Equal(ChartType.Sunburst, materializedCharts[1].Model?.Type);
+        Assert.Equal("EarthTones", materializedCharts[0].Model?.PaletteName);
+        Assert.Equal("EarthTones", materializedCharts[1].Model?.PaletteName);
+        Assert.NotNull(materializedCharts[0].Model);
+        Assert.NotNull(materializedCharts[1].Model);
+        Assert.NotEmpty(materializedCharts[0].Model!.HierarchyRoots);
+        Assert.NotEmpty(materializedCharts[1].Model!.HierarchyRoots);
+
+        Assert.NotEmpty(snapshot.PreviewPages);
+        var previewPage = snapshot.PreviewPages[0];
+        using var bitmap = SKBitmap.Decode(previewPage.ImageBytes);
+        Assert.NotNull(bitmap);
+        Assert.True(previewPage.ImageBytes.Length > 0, "Expected the shape-chart sample to produce a preview bitmap.");
+
+        var treemapPixels = CountNonWhitePixels(
+            bitmap!,
+            (int)(previewPage.Width * 0.03),
+            (int)(previewPage.Height * 0.23),
+            (int)(previewPage.Width * 0.48),
+            (int)(previewPage.Height * 0.73));
+        var sunburstPixels = CountNonWhitePixels(
+            bitmap,
+            (int)(previewPage.Width * 0.50),
+            (int)(previewPage.Height * 0.23),
+            (int)(previewPage.Width * 0.98),
+            (int)(previewPage.Height * 0.73));
+
+        Assert.True(treemapPixels > 8000, $"Expected visible treemap content in the left chart region, but found only {treemapPixels} non-white pixels.");
+        Assert.True(sunburstPixels > 8000, $"Expected visible sunburst content in the right chart region, but found only {sunburstPixels} non-white pixels.");
+    }
+
+    [Fact]
+    public async Task SampleCorpus_LabelsUsesAllConfiguredPageColumns_WhenAvailable()
+    {
+        var labelsPath = Path.Combine(SampleCorpusPath, "Labels.rdl");
+        if (!File.Exists(labelsPath))
+        {
+            return;
+        }
+
+        var workspaceFactory = new ReportingStudioWorkspaceFactory();
+        var service = CreateDocumentService(workspaceFactory);
+        var viewerService = new ReportViewerSessionService();
+
+        var opened = await service.ImportRdlAsync(labelsPath);
+        var workspace = Assert.IsType<ReportingStudioWorkspace>(opened.Workspace);
+        var snapshot = await viewerService.ExecuteAsync(workspace.Source, new Dictionary<string, ReportParameterValue>(StringComparer.OrdinalIgnoreCase));
+
+        Assert.NotEmpty(snapshot.PreviewPages);
+        var previewPage = snapshot.PreviewPages[0];
+        using var bitmap = SKBitmap.Decode(previewPage.ImageBytes);
+        Assert.NotNull(bitmap);
+
+        var leftColumnPixels = CountNonWhitePixels(
+            bitmap!,
+            (int)(previewPage.Width * 0.02),
+            (int)(previewPage.Height * 0.02),
+            (int)(previewPage.Width * 0.31),
+            (int)(previewPage.Height * 0.95));
+        var centerColumnPixels = CountNonWhitePixels(
+            bitmap,
+            (int)(previewPage.Width * 0.35),
+            (int)(previewPage.Height * 0.02),
+            (int)(previewPage.Width * 0.65),
+            (int)(previewPage.Height * 0.95));
+        var rightColumnPixels = CountNonWhitePixels(
+            bitmap,
+            (int)(previewPage.Width * 0.69),
+            (int)(previewPage.Height * 0.02),
+            (int)(previewPage.Width * 0.98),
+            (int)(previewPage.Height * 0.95));
+
+        Assert.True(leftColumnPixels > 5000, $"Expected rendered label content in the left page column, but found only {leftColumnPixels} non-white pixels.");
+        Assert.True(centerColumnPixels > 5000, $"Expected rendered label content in the center page column, but found only {centerColumnPixels} non-white pixels.");
+        Assert.True(rightColumnPixels > 5000, $"Expected rendered label content in the right page column, but found only {rightColumnPixels} non-white pixels.");
+    }
+
+    [Fact]
+    public async Task SampleCorpus_CountrySalesPerformanceShowsDataRegionOnFirstPage_WhenAvailable()
+    {
+        var reportPath = Path.Combine(SampleCorpusPath, "CountrySalesPerformance.rdl");
+        if (!File.Exists(reportPath))
+        {
+            return;
+        }
+
+        var workspaceFactory = new ReportingStudioWorkspaceFactory();
+        var service = CreateDocumentService(workspaceFactory);
+        var viewerService = new ReportViewerSessionService();
+
+        var opened = await service.ImportRdlAsync(reportPath);
+        var workspace = Assert.IsType<ReportingStudioWorkspace>(opened.Workspace);
+        var parameters = await ResolveSampleParametersAsync(viewerService, workspace.Source);
+        var snapshot = await viewerService.ExecuteAsync(workspace.Source, parameters);
+
+        Assert.True(snapshot.PreviewPages.Count >= 1);
+        using var bitmap = SKBitmap.Decode(snapshot.PreviewPages[0].ImageBytes);
+        Assert.NotNull(bitmap);
+
+        var firstPage = snapshot.PreviewPages[0];
+        var leftDataPixels = CountNonWhitePixels(
+            bitmap!,
+            (int)(firstPage.Width * 0.02),
+            (int)(firstPage.Height * 0.20),
+            (int)(firstPage.Width * 0.32),
+            (int)(firstPage.Height * 0.70));
+        var trendPixels = CountNonWhitePixels(
+            bitmap,
+            (int)(firstPage.Width * 0.34),
+            (int)(firstPage.Height * 0.20),
+            (int)(firstPage.Width * 0.58),
+            (int)(firstPage.Height * 0.70));
+        var rightIndicatorPixels = CountNonWhitePixels(
+            bitmap,
+            (int)(firstPage.Width * 0.80),
+            (int)(firstPage.Height * 0.20),
+            (int)(firstPage.Width * 0.97),
+            (int)(firstPage.Height * 0.70));
+        var firstRowBarColumns = CountColumnsWithNonWhitePixels(
+            bitmap,
+            (int)(firstPage.Width * 0.255),
+            (int)(firstPage.Height * 0.215),
+            (int)(firstPage.Width * 0.405),
+            (int)(firstPage.Height * 0.285));
+        var firstRowSparkColumns = CountColumnsWithNonWhitePixels(
+            bitmap,
+            (int)(firstPage.Width * 0.385),
+            (int)(firstPage.Height * 0.215),
+            (int)(firstPage.Width * 0.545),
+            (int)(firstPage.Height * 0.285));
+
+        Assert.True(leftDataPixels > 10000, $"Expected visible tablix data in the left body region, but found only {leftDataPixels} non-white pixels.");
+        Assert.True(trendPixels > 3500, $"Expected visible trend chart content in the center body region, but found only {trendPixels} non-white pixels.");
+        Assert.True(rightIndicatorPixels > 4000, $"Expected visible variance indicator content in the right body region, but found only {rightIndicatorPixels} non-white pixels.");
+        Assert.True(firstRowBarColumns > 70, $"Expected the first row data-bar cell to render across the cell width, but found non-white pixels in only {firstRowBarColumns} columns.");
+        Assert.True(firstRowSparkColumns > 70, $"Expected the first row sparkline cell to render across the cell width, but found non-white pixels in only {firstRowSparkColumns} columns.");
     }
 
     private static ReportingStudioDocumentService CreateDocumentService(ReportingStudioWorkspaceFactory workspaceFactory)
@@ -410,6 +878,87 @@ public sealed class ReportingStudioAppTests
         }
 
         return supplied;
+    }
+
+    private static int CountNonWhitePixels(SKBitmap bitmap, int left, int top, int right, int bottom)
+    {
+        var clampedLeft = Math.Max(0, left);
+        var clampedTop = Math.Max(0, top);
+        var clampedRight = Math.Min(bitmap.Width, right);
+        var clampedBottom = Math.Min(bitmap.Height, bottom);
+        var count = 0;
+
+        for (var y = clampedTop; y < clampedBottom; y++)
+        {
+            for (var x = clampedLeft; x < clampedRight; x++)
+            {
+                var pixel = bitmap.GetPixel(x, y);
+                if (pixel.Red < 250 || pixel.Green < 250 || pixel.Blue < 250 || pixel.Alpha < 250)
+                {
+                    count++;
+                }
+            }
+        }
+
+        return count;
+    }
+
+    private static int CountColumnsWithNonWhitePixels(SKBitmap bitmap, int left, int top, int right, int bottom)
+    {
+        var clampedLeft = Math.Max(0, left);
+        var clampedTop = Math.Max(0, top);
+        var clampedRight = Math.Min(bitmap.Width, right);
+        var clampedBottom = Math.Min(bitmap.Height, bottom);
+        var count = 0;
+
+        for (var x = clampedLeft; x < clampedRight; x++)
+        {
+            var active = false;
+            for (var y = clampedTop; y < clampedBottom; y++)
+            {
+                var pixel = bitmap.GetPixel(x, y);
+                if (pixel.Red < 250 || pixel.Green < 250 || pixel.Blue < 250 || pixel.Alpha < 250)
+                {
+                    active = true;
+                    break;
+                }
+            }
+
+            if (active)
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    private static int CountMatchingPixels(
+        SKBitmap bitmap,
+        int left,
+        int top,
+        int right,
+        int bottom,
+        Func<SKColor, bool> predicate)
+    {
+        var clampedLeft = Math.Max(0, left);
+        var clampedTop = Math.Max(0, top);
+        var clampedRight = Math.Min(bitmap.Width, right);
+        var clampedBottom = Math.Min(bitmap.Height, bottom);
+        var count = 0;
+
+        for (var y = clampedTop; y < clampedBottom; y++)
+        {
+            for (var x = clampedLeft; x < clampedRight; x++)
+            {
+                if (predicate(bitmap.GetPixel(x, y)))
+                {
+                    count++;
+                }
+            }
+        }
+
+        return count;
     }
 
     private static Task ExecuteAsync(ReactiveCommand<Unit, Unit> command)
@@ -525,6 +1074,19 @@ public sealed class ReportingStudioAppTests
         {
             Directory.Delete(path, recursive: true);
         }
+    }
+
+    private static void Execute(ReactiveCommand<Unit, Unit> command)
+    {
+        using var subscription = command.Execute().Subscribe();
+    }
+
+    private static void SaveFrame(Window window, string screenshotRoot, string fileName)
+    {
+        var frame = Avalonia.Headless.HeadlessWindowExtensions.CaptureRenderedFrame(window);
+        Assert.NotNull(frame);
+        var path = Path.Combine(screenshotRoot, fileName);
+        frame!.Save(path);
     }
 
     private static IEnumerable<ShapeInline> EnumerateShapeInlines(Document document)

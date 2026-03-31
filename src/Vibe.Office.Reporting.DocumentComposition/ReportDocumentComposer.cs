@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using Vibe.Office.Documents;
 using Vibe.Office.Html;
@@ -68,7 +69,14 @@ public sealed class ReportDocumentComposer : IReportDocumentComposer
                     document.Blocks.Add(CreateBookmarkParagraph(section.Bookmark));
                 }
 
-                ComposeItems(section.BodyItems, document, document.Blocks, diagnostics, cancellationToken, consumeContainerWhitespace: report.ConsumeContainerWhitespace);
+                ComposeItems(
+                    section.BodyItems,
+                    document,
+                    document.Blocks,
+                    diagnostics,
+                    cancellationToken,
+                    consumeContainerWhitespace: report.ConsumeContainerWhitespace,
+                    pageSettings: section.PageSettings);
                 continue;
             }
 
@@ -98,7 +106,14 @@ public sealed class ReportDocumentComposer : IReportDocumentComposer
                 document.Blocks.Add(CreateBookmarkParagraph(section.Bookmark));
             }
 
-            ComposeItems(section.BodyItems, document, document.Blocks, diagnostics, cancellationToken, consumeContainerWhitespace: report.ConsumeContainerWhitespace);
+            ComposeItems(
+                section.BodyItems,
+                document,
+                document.Blocks,
+                diagnostics,
+                cancellationToken,
+                consumeContainerWhitespace: report.ConsumeContainerWhitespace,
+                pageSettings: section.PageSettings);
         }
     }
 
@@ -131,7 +146,8 @@ public sealed class ReportDocumentComposer : IReportDocumentComposer
         float offsetX = 0f,
         float offsetY = 0f,
         bool consumeContainerWhitespace = false,
-        bool anchorToParagraphOrigin = false)
+        bool anchorToParagraphOrigin = false,
+        ReportPageSettings? pageSettings = null)
     {
         var layouts = NormalizeItemLayouts(items, offsetX, offsetY, consumeContainerWhitespace);
         ComposeNormalizedItems(
@@ -141,7 +157,8 @@ public sealed class ReportDocumentComposer : IReportDocumentComposer
             diagnostics,
             cancellationToken,
             consumeContainerWhitespace,
-            anchorToParagraphOrigin);
+            anchorToParagraphOrigin,
+            pageSettings);
     }
 
     private static void ComposeNormalizedItems(
@@ -151,7 +168,8 @@ public sealed class ReportDocumentComposer : IReportDocumentComposer
         List<ReportDiagnostic> diagnostics,
         CancellationToken cancellationToken,
         bool consumeContainerWhitespace,
-        bool anchorToParagraphOrigin)
+        bool anchorToParagraphOrigin,
+        ReportPageSettings? pageSettings)
     {
         ParagraphBlock? floatingAnchor = null;
 
@@ -250,6 +268,18 @@ public sealed class ReportDocumentComposer : IReportDocumentComposer
                             floatingAnchor = null;
                         }
 
+                        if (ShouldComposeTablixInFlow(
+                                tablixItem,
+                                localBounds,
+                                anchorToParagraphOrigin,
+                                pageSettings,
+                                isSingleRootItem: layouts.Count == 1))
+                        {
+                            targetBlocks.Add(tables[tableIndex]);
+                            floatingAnchor = null;
+                            continue;
+                        }
+
                         EnsureFloatingAnchor(targetBlocks, ref floatingAnchor);
                         tables[tableIndex].Properties.FloatingAnchor = CreateFloatingAnchor(localBounds, tablixItem.ZIndex, anchorToParagraphOrigin);
                         targetBlocks.Add(tables[tableIndex]);
@@ -270,6 +300,48 @@ public sealed class ReportDocumentComposer : IReportDocumentComposer
                 floatingAnchor = null;
             }
         }
+    }
+
+    private static bool ShouldComposeTablixInFlow(
+        MaterializedTablixReportItem item,
+        ReportItemBounds bounds,
+        bool anchorToParagraphOrigin,
+        ReportPageSettings? pageSettings,
+        bool isSingleRootItem)
+    {
+        if (anchorToParagraphOrigin || pageSettings is null)
+        {
+            return false;
+        }
+
+        if (bounds.X > 2f || bounds.Y > 1f)
+        {
+            return false;
+        }
+
+        var columnCount = Math.Max(1, pageSettings.ColumnCount);
+        var usableWidth = Math.Max(
+            1f,
+            pageSettings.Width
+            - pageSettings.MarginLeft
+            - pageSettings.MarginRight
+            - (Math.Max(0, columnCount - 1) * Math.Max(0f, pageSettings.ColumnGap)));
+        var columnWidth = usableWidth / columnCount;
+        var tablixWidth = item.Columns.Count > 0
+            ? item.Columns.Sum(static column => Math.Max(1f, column.Width))
+            : Math.Max(1f, bounds.Width);
+
+        if (columnCount > 1)
+        {
+            return tablixWidth <= columnWidth + 1f;
+        }
+
+        if (!isSingleRootItem)
+        {
+            return false;
+        }
+
+        return tablixWidth <= usableWidth + 1f;
     }
 
     private static ParagraphBlock CreateTextParagraph(MaterializedTextReportItem item)
@@ -1291,7 +1363,133 @@ public sealed class ReportDocumentComposer : IReportDocumentComposer
         return shape;
     }
 
-    private static ShapeInline CreateGaugeInline(MaterializedGaugeReportItem item, ReportItemBounds bounds)
+    private static Inline CreateGaugeInline(MaterializedGaugeReportItem item, ReportItemBounds bounds)
+    {
+        return item.GaugeKind switch
+        {
+            ReportGaugeKind.StateIndicator => CreateStateIndicatorInline(item, bounds),
+            ReportGaugeKind.Radial => CreateRadialGaugeInline(item, bounds),
+            ReportGaugeKind.Linear => CreateLinearGaugeInline(item, bounds),
+            _ => CreateGaugeShapeInline(item, bounds)
+        };
+    }
+
+    private static Inline CreateStateIndicatorInline(MaterializedGaugeReportItem item, ReportItemBounds bounds)
+    {
+        var width = Math.Max(1f, bounds.Width);
+        var height = Math.Max(1f, bounds.Height);
+        var color = ResolveGaugeStateColor(item.Value);
+        var fill = $"rgb({color.R},{color.G},{color.B})";
+        var centerX = width / 2f;
+        var centerY = height / 2f;
+        var diameter = MathF.Max(8f, MathF.Min(width, height) * 0.58f);
+        var radius = diameter / 2f;
+        var iconSvg = item.Value switch
+        {
+            >= 1d => string.Create(
+                CultureInfo.InvariantCulture,
+                $"""<circle cx="{centerX:0.###}" cy="{centerY:0.###}" r="{radius:0.###}" fill="{fill}" />"""),
+            >= 0d => CreateStateIndicatorTriangleSvg(centerX, centerY, diameter, fill),
+            _ => CreateStateIndicatorDiamondSvg(centerX, centerY, diameter, fill)
+        };
+
+        var svg = string.Create(
+            CultureInfo.InvariantCulture,
+            $$"""
+            <svg xmlns="http://www.w3.org/2000/svg" width="{{width:0.###}}" height="{{height:0.###}}" viewBox="0 0 {{width:0.###}} {{height:0.###}}">
+              {{iconSvg}}
+            </svg>
+            """);
+
+        return new ImageInline(Encoding.UTF8.GetBytes(svg), width, height, "image/svg+xml");
+    }
+
+    private static string CreateStateIndicatorTriangleSvg(float centerX, float centerY, float diameter, string fill)
+    {
+        var halfWidth = diameter * 0.54f;
+        var halfHeight = diameter * 0.5f;
+        var topY = centerY - halfHeight;
+        var baseY = centerY + halfHeight;
+        var leftX = centerX - halfWidth;
+        var rightX = centerX + halfWidth;
+        return string.Create(
+            CultureInfo.InvariantCulture,
+            $"""<polygon points="{centerX:0.###},{topY:0.###} {rightX:0.###},{baseY:0.###} {leftX:0.###},{baseY:0.###}" fill="{fill}" />""");
+    }
+
+    private static string CreateStateIndicatorDiamondSvg(float centerX, float centerY, float diameter, string fill)
+    {
+        var radius = diameter * 0.52f;
+        var topY = centerY - radius;
+        var bottomY = centerY + radius;
+        var leftX = centerX - radius;
+        var rightX = centerX + radius;
+        return string.Create(
+            CultureInfo.InvariantCulture,
+            $"""<polygon points="{centerX:0.###},{topY:0.###} {rightX:0.###},{centerY:0.###} {centerX:0.###},{bottomY:0.###} {leftX:0.###},{centerY:0.###}" fill="{fill}" />""");
+    }
+
+    private static Inline CreateRadialGaugeInline(MaterializedGaugeReportItem item, ReportItemBounds bounds)
+    {
+        var width = Math.Max(1f, bounds.Width);
+        var height = Math.Max(1f, bounds.Height);
+        var label = item.Label;
+        if (string.IsNullOrWhiteSpace(label))
+        {
+            label = FormatGaugeValue(item);
+        }
+
+        var ratio = ComputeGaugeRatio(item);
+        var strokeWidth = MathF.Max(8f, MathF.Min(width, height) * 0.12f);
+        var centerX = width / 2f;
+        var centerY = height * 0.78f;
+        var radius = Math.Max(6f, MathF.Min(width * 0.34f, height * 0.52f) - strokeWidth * 0.5f);
+        var backgroundArcPath = CreateSvgArcPath(centerX, centerY, radius, 180d, 360d);
+        var progressArcPath = CreateSvgArcPath(centerX, centerY, radius, 180d, 180d + (Math.Clamp(ratio, 0d, 1d) * 180d));
+        var accent = item.TargetValue.HasValue && item.Value.HasValue && item.Value.Value < item.TargetValue.Value
+            ? "#c0433a"
+            : "#444343";
+        var fontSize = MathF.Max(10f, height * 0.2f);
+        var textY = centerY - radius * 0.15f;
+        var svg = string.Create(
+            CultureInfo.InvariantCulture,
+            $$"""
+            <svg xmlns="http://www.w3.org/2000/svg" width="{{width:0.###}}" height="{{height:0.###}}" viewBox="0 0 {{width:0.###}} {{height:0.###}}">
+              <path d="{{backgroundArcPath}}" fill="none" stroke="#d9d9d9" stroke-width="{{strokeWidth:0.###}}" stroke-linecap="round" />
+              <path d="{{progressArcPath}}" fill="none" stroke="{{accent}}" stroke-width="{{strokeWidth:0.###}}" stroke-linecap="round" />
+              <text x="{{centerX:0.###}}" y="{{textY:0.###}}" font-family="Segoe UI, Arial, sans-serif" font-size="{{fontSize:0.###}}" font-weight="500" fill="#222222" text-anchor="middle" dominant-baseline="middle">{{EscapeSvgText(label ?? string.Empty)}}</text>
+            </svg>
+            """);
+
+        return new ImageInline(Encoding.UTF8.GetBytes(svg), width, height, "image/svg+xml");
+    }
+
+    private static Inline CreateLinearGaugeInline(MaterializedGaugeReportItem item, ReportItemBounds bounds)
+    {
+        var width = Math.Max(1f, bounds.Width);
+        var height = Math.Max(1f, bounds.Height);
+        var ratio = ComputeGaugeRatio(item);
+        var label = string.IsNullOrWhiteSpace(item.Label) ? FormatGaugeValue(item) : item.Label!;
+        var accent = item.TargetValue.HasValue && item.Value.HasValue && item.Value.Value < item.TargetValue.Value
+            ? "#c0433a"
+            : "#62a245";
+        var corner = MathF.Max(2f, height * 0.2f);
+        var fillWidth = MathF.Max(0f, (width - 4f) * (float)ratio);
+        var fontSize = MathF.Max(9f, height * 0.35f);
+        var svg = string.Create(
+            CultureInfo.InvariantCulture,
+            $$"""
+            <svg xmlns="http://www.w3.org/2000/svg" width="{{width:0.###}}" height="{{height:0.###}}" viewBox="0 0 {{width:0.###}} {{height:0.###}}">
+              <rect x="1" y="1" width="{{Math.Max(1f, width - 2f):0.###}}" height="{{Math.Max(1f, height - 2f):0.###}}" rx="{{corner:0.###}}" ry="{{corner:0.###}}" fill="#f3f5f7" stroke="#c9d1d9" stroke-width="1" />
+              <rect x="2" y="2" width="{{Math.Max(0f, fillWidth):0.###}}" height="{{Math.Max(0f, height - 4f):0.###}}" rx="{{Math.Max(1f, corner - 1f):0.###}}" ry="{{Math.Max(1f, corner - 1f):0.###}}" fill="{{accent}}" />
+              <text x="{{width / 2f:0.###}}" y="{{height / 2f:0.###}}" font-family="Segoe UI, Arial, sans-serif" font-size="{{fontSize:0.###}}" font-weight="600" fill="#222222" text-anchor="middle" dominant-baseline="middle">{{EscapeSvgText(label)}}</text>
+            </svg>
+            """);
+
+        return new ImageInline(Encoding.UTF8.GetBytes(svg), width, height, "image/svg+xml");
+    }
+
+    private static ShapeInline CreateGaugeShapeInline(MaterializedGaugeReportItem item, ReportItemBounds bounds)
     {
         var shape = CreateEmptyTextShapeInline(bounds.Width, bounds.Height);
         shape.Name = item.Name;
@@ -1324,6 +1522,61 @@ public sealed class ReportDocumentComposer : IReportDocumentComposer
         return shape;
     }
 
+    private static double ComputeGaugeRatio(MaterializedGaugeReportItem item)
+    {
+        var minimum = item.Minimum ?? 0d;
+        var maximum = item.Maximum ?? item.TargetValue ?? 0d;
+        var value = item.Value ?? 0d;
+        var range = maximum - minimum;
+        if (range <= double.Epsilon)
+        {
+            return 0d;
+        }
+
+        return Math.Clamp((value - minimum) / range, 0d, 1d);
+    }
+
+    private static string CreateSvgArcPath(float centerX, float centerY, float radius, double startAngleDegrees, double endAngleDegrees)
+    {
+        var normalizedEndAngle = Math.Max(startAngleDegrees, endAngleDegrees);
+        var sweep = normalizedEndAngle - startAngleDegrees;
+        if (sweep <= 0.01d)
+        {
+            var point = ConvertPolarToSvgPoint(centerX, centerY, radius, startAngleDegrees);
+            return string.Create(CultureInfo.InvariantCulture, $"M {point.X:0.###} {point.Y:0.###}");
+        }
+
+        var start = ConvertPolarToSvgPoint(centerX, centerY, radius, startAngleDegrees);
+        var end = ConvertPolarToSvgPoint(centerX, centerY, radius, normalizedEndAngle);
+        var largeArcFlag = sweep > 180d ? 1 : 0;
+        return string.Create(
+            CultureInfo.InvariantCulture,
+            $"M {start.X:0.###} {start.Y:0.###} A {radius:0.###} {radius:0.###} 0 {largeArcFlag} 1 {end.X:0.###} {end.Y:0.###}");
+    }
+
+    private static (float X, float Y) ConvertPolarToSvgPoint(float centerX, float centerY, float radius, double angleDegrees)
+    {
+        var radians = angleDegrees * (Math.PI / 180d);
+        var x = centerX + (float)(Math.Cos(radians) * radius);
+        var y = centerY + (float)(Math.Sin(radians) * radius);
+        return (x, y);
+    }
+
+    private static string EscapeSvgText(string value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return string.Empty;
+        }
+
+        return value
+            .Replace("&", "&amp;", StringComparison.Ordinal)
+            .Replace("<", "&lt;", StringComparison.Ordinal)
+            .Replace(">", "&gt;", StringComparison.Ordinal)
+            .Replace("\"", "&quot;", StringComparison.Ordinal)
+            .Replace("'", "&apos;", StringComparison.Ordinal);
+    }
+
     private static ShapeInline CreateContainerInline(
         MaterializedContainerReportItem item,
         ReportItemBounds bounds,
@@ -1347,7 +1600,8 @@ public sealed class ReportDocumentComposer : IReportDocumentComposer
             diagnostics,
             cancellationToken,
             consumeContainerWhitespace,
-            anchorToParagraphOrigin: true);
+            anchorToParagraphOrigin: true,
+            pageSettings: null);
         return shape;
     }
 

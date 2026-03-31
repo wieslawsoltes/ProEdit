@@ -31,7 +31,8 @@
   </UserControl.Resources>
 
   <Border Classes="designer-pane designer-pane-left">
-    <TabControl Theme="{StaticResource DesignerPaneTabControlTheme}">
+    <TabControl Theme="{StaticResource DesignerPaneTabControlTheme}"
+                SelectedIndex="{Binding SelectedReportDataPaneTabIndex, Mode=TwoWay}">
       <TabItem Header="Report Data"
                Theme="{StaticResource DesignerPaneTabItemTheme}">
         <Grid RowDefinitions="Auto,*,Auto"
@@ -162,6 +163,53 @@
               </TreeDataTemplate>
             </TreeView.ItemTemplate>
           </TreeView>
+        </Grid>
+      </TabItem>
+
+      <TabItem Header="Templates"
+               Theme="{StaticResource DesignerPaneTabItemTheme}">
+        <Grid RowDefinitions="Auto,*"
+              RowSpacing="10"
+              Margin="10">
+          <StackPanel Spacing="2">
+            <TextBlock Classes="designer-panel-title"
+                       Text="Templates" />
+            <TextBlock Classes="designer-helper"
+                       Text="Shared report templates and reusable fragments available for drag, apply, and editing workflows." />
+          </StackPanel>
+
+          <Grid Grid.Row="1"
+                RowDefinitions="Auto,*"
+                RowSpacing="8">
+            <StackPanel Orientation="Horizontal"
+                        Spacing="8">
+              <Button Theme="{StaticResource DesignerActionButtonTheme}"
+                      Content="Add Shared Template"
+                      Command="{Binding AddSharedTemplateCommand}" />
+              <Button Theme="{StaticResource DesignerActionButtonTheme}"
+                      Content="Remove"
+                      Command="{Binding RemoveSelectedCommand}"
+                      IsEnabled="{Binding CanRemoveSelected}" />
+            </StackPanel>
+
+            <ListBox Grid.Row="1"
+                     ItemsSource="{Binding SharedTemplateEntries}"
+                     SelectedItem="{Binding SelectedSharedTemplateEntry, Mode=TwoWay}">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="designer:ReportDesignerSelectionEntryViewModel">
+                  <Border Classes="designer-property-shell">
+                    <StackPanel Spacing="4">
+                      <TextBlock FontWeight="SemiBold"
+                                 Text="{Binding Title}" />
+                      <TextBlock Classes="designer-helper"
+                                 Text="{Binding Subtitle}"
+                                 TextWrapping="Wrap" />
+                    </StackPanel>
+                  </Border>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </Grid>
         </Grid>
       </TabItem>
     </TabControl>

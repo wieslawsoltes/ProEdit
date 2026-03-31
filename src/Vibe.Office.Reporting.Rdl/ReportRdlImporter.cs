@@ -264,7 +264,7 @@ internal sealed class ReportRdlImporter
 
             ReadDataSetParameters(queryElement, definition, path + "/Query");
             ReadFieldDefinitions(dataSetElement, definition, path);
-            ReadFilters(dataSetElement, definition, path);
+            ReadFilters(dataSetElement, definition.Filters, path);
             ReadSorts(dataSetElement, definition, path);
 
             report.DataSets.Add(definition);
@@ -331,9 +331,9 @@ internal sealed class ReportRdlImporter
         }
     }
 
-    private void ReadFilters(XElement dataSetElement, ReportDataSetDefinition definition, string path)
+    private void ReadFilters(XElement ownerElement, List<ReportFilterDefinition> filters, string path)
     {
-        var filtersElement = dataSetElement.Element(_xmlNamespace + "Filters");
+        var filtersElement = ownerElement.Element(_xmlNamespace + "Filters");
         if (filtersElement is null)
         {
             return;
@@ -343,7 +343,7 @@ internal sealed class ReportRdlImporter
         foreach (var filterElement in filtersElement.Elements(_xmlNamespace + "Filter"))
         {
             var operatorText = filterElement.Element(_xmlNamespace + "Operator")?.Value?.Trim();
-            definition.Filters.Add(new ReportFilterDefinition
+            filters.Add(new ReportFilterDefinition
             {
                 Expression = ReportRdlExpressions.ToNativeExpression(filterElement.Element(_xmlNamespace + "FilterExpression")?.Value) ?? string.Empty,
                 Operator = ParseFilterOperator(operatorText),
@@ -858,25 +858,31 @@ internal sealed class ReportRdlImporter
         item.DataSetId = itemElement.Element(_xmlNamespace + "DataSetName")?.Value?.Trim();
         item.StyleName = _styleCatalog.Intern(itemElement.Element(_xmlNamespace + "Style"), _xmlNamespace, path, _diagnostics);
 
-        var categoryMember = itemElement
+        var categoryMemberRoot = itemElement
             .Element(_xmlNamespace + "ChartCategoryHierarchy")
             ?.Element(_xmlNamespace + "ChartMembers")
             ?.Element(_xmlNamespace + "ChartMember");
-        item.CategoryExpression =
-            ReportRdlExpressions.ToNativeScalarExpression(
-                categoryMember?.Element(_xmlNamespace + "Group")
-                    ?.Element(_xmlNamespace + "GroupExpressions")
-                    ?.Element(_xmlNamespace + "GroupExpression")
-                    ?.Value)
-            ?? ReportRdlExpressions.ToNativeScalarExpression(categoryMember?.Element(_xmlNamespace + "Label")?.Value);
+        item.CategoryLevels.AddRange(ReadChartCategoryLevels(categoryMemberRoot));
+        var categoryMember = item.CategoryLevels.Count > 0 ? item.CategoryLevels[0] : null;
+        item.CategoryExpression = categoryMember?.GroupExpression;
+        item.CategoryLabelExpression = categoryMember?.LabelExpression;
+        item.CategorySortExpression = categoryMember?.SortExpression;
+        item.CategorySortDirection = categoryMember?.SortDirection ?? ReportSortDirection.Ascending;
 
+        if (string.IsNullOrWhiteSpace(item.CategoryExpression))
+        {
+            item.CategoryExpression = item.CategoryLabelExpression;
+        }
+
+        var chartTitle = itemElement.Element(_xmlNamespace + "ChartTitles")
+            ?.Element(_xmlNamespace + "ChartTitle");
         item.TitleExpression =
             ReportRdlExpressions.ToNativeScalarExpression(
-                itemElement.Element(_xmlNamespace + "ChartTitles")
-                    ?.Element(_xmlNamespace + "ChartTitle")
-                    ?.Element(_xmlNamespace + "Caption")
-                    ?.Value)
+                chartTitle?.Element(_xmlNamespace + "Caption")?.Value)
             ?? ReportRdlExpressions.ToNativeScalarExpression(itemElement.Element(_xmlNamespace + "Title")?.Value);
+        item.TitleTextStyle = ReadChartTextStyle(chartTitle?.Element(_xmlNamespace + "Style"));
+        item.TitlePosition = ParseChartTitlePosition(chartTitle?.Element(_xmlNamespace + "Position")?.Value);
+        item.PaletteName = itemElement.Element(_xmlNamespace + "Palette")?.Value?.Trim();
 
         var seriesLabels = itemElement
             .Element(_xmlNamespace + "ChartSeriesHierarchy")
@@ -889,12 +895,37 @@ internal sealed class ReportRdlImporter
             ?.Elements(_xmlNamespace + "ChartSeries")
             .ToList() ?? new List<XElement>();
 
+        var chartArea = itemElement
+            .Element(_xmlNamespace + "ChartAreas")
+            ?.Elements(_xmlNamespace + "ChartArea")
+            .FirstOrDefault();
+        item.ChartAreaStyle = ReadChartStyle(chartArea?.Element(_xmlNamespace + "Style"), path + "/ChartAreas/ChartArea[0]/Style");
+        item.PlotAreaStyle = ReadChartStyle(chartArea?.Element(_xmlNamespace + "ChartInnerPlotPosition")?.Element(_xmlNamespace + "Style"), path + "/ChartAreas/ChartArea[0]/ChartInnerPlotPosition/Style");
+        item.Legend = ReadChartLegend(
+            itemElement.Element(_xmlNamespace + "ChartLegends")
+                ?.Elements(_xmlNamespace + "ChartLegend")
+                .FirstOrDefault(),
+            path + "/ChartLegends/ChartLegend[0]");
+        item.Axes.AddRange(ReadChartAxes(chartArea, path + "/ChartAreas/ChartArea[0]"));
+
         for (var index = 0; index < seriesCollection.Count; index++)
         {
             var seriesElement = seriesCollection[index];
             var labelElement = index < seriesLabels.Count ? seriesLabels[index] : null;
+            var chartTypeText = seriesElement.Element(_xmlNamespace + "Type")?.Value;
+            var chartSubtypeText = seriesElement.Element(_xmlNamespace + "Subtype")?.Value;
+            var chartType = ParseChartType(chartTypeText, chartSubtypeText);
+            var barDirection = ParseChartBarDirection(chartTypeText, chartType);
+            if (index == 0)
+            {
+                item.Type = chartType;
+                item.BarDirection = barDirection;
+            }
+
             item.Series.Add(new ReportChartSeriesDefinition
             {
+                Type = chartType,
+                BarDirection = barDirection,
                 NameExpression =
                     ReportRdlExpressions.ToNativeScalarExpression(labelElement?.Element(_xmlNamespace + "Label")?.Value)
                     ?? ReportRdlExpressions.ToNativeScalarExpression((string?)seriesElement.Attribute("Name")),
@@ -912,8 +943,25 @@ internal sealed class ReportRdlImporter
                             ?.Element(_xmlNamespace + "DataValue")
                             ?.Element(_xmlNamespace + "Value")
                             ?.Value),
+                Style = ReadChartStyle(
+                    seriesElement.Element(_xmlNamespace + "ChartDataPoints")
+                        ?.Element(_xmlNamespace + "ChartDataPoint")
+                        ?.Element(_xmlNamespace + "Style"),
+                    $"{path}/ChartData/ChartSeriesCollection/ChartSeries[{index}]/ChartDataPoints/ChartDataPoint[0]/Style"),
+                DataLabels = ReadChartDataLabelSettings(
+                    seriesElement.Element(_xmlNamespace + "ChartDataPoints")
+                        ?.Element(_xmlNamespace + "ChartDataPoint")
+                        ?.Element(_xmlNamespace + "ChartDataLabel")),
                 ColorExpression = ReportRdlExpressions.ToNativeScalarExpression(
-                    seriesElement.Element(_xmlNamespace + "Style")?.Element(_xmlNamespace + "Color")?.Value)
+                    seriesElement.Element(_xmlNamespace + "ChartDataPoints")
+                        ?.Element(_xmlNamespace + "ChartDataPoint")
+                        ?.Element(_xmlNamespace + "Style")
+                        ?.Element(_xmlNamespace + "Color")
+                        ?.Value),
+                UseSmoothedLine = string.Equals(
+                    seriesElement.Element(_xmlNamespace + "Subtype")?.Value?.Trim(),
+                    "Smooth",
+                    StringComparison.OrdinalIgnoreCase)
             });
         }
 
@@ -926,6 +974,7 @@ internal sealed class ReportRdlImporter
         ApplyCommonProperties(item, itemElement, path, offsetX, offsetY);
         item.DataSetId = itemElement.Element(_xmlNamespace + "DataSetName")?.Value?.Trim();
         item.StyleName = _styleCatalog.Intern(itemElement.Element(_xmlNamespace + "Style"), _xmlNamespace, path, _diagnostics);
+        ReadFilters(itemElement, item.Filters, path);
 
         var body = itemElement.Element(_xmlNamespace + "TablixBody");
         var columns = body?.Element(_xmlNamespace + "TablixColumns")?.Elements(_xmlNamespace + "TablixColumn").ToList()
@@ -1712,6 +1761,440 @@ internal sealed class ReportRdlImporter
             "right" => ParagraphAlignment.Right,
             "justify" => ParagraphAlignment.Justify,
             "left" or "general" => ParagraphAlignment.Left,
+            _ => null
+        };
+    }
+
+    private List<ChartAxis> ReadChartAxes(XElement? chartAreaElement, string path)
+    {
+        var axes = new List<ChartAxis>();
+        if (chartAreaElement is null)
+        {
+            return axes;
+        }
+
+        var categoryAxes = chartAreaElement.Element(_xmlNamespace + "ChartCategoryAxes")?.Elements(_xmlNamespace + "ChartAxis").ToList()
+            ?? new List<XElement>();
+        for (var index = 0; index < categoryAxes.Count; index++)
+        {
+            axes.Add(ReadChartAxis(categoryAxes[index], ChartAxisKind.Category, $"{path}/ChartCategoryAxes/ChartAxis[{index}]"));
+        }
+
+        var valueAxes = chartAreaElement.Element(_xmlNamespace + "ChartValueAxes")?.Elements(_xmlNamespace + "ChartAxis").ToList()
+            ?? new List<XElement>();
+        for (var index = 0; index < valueAxes.Count; index++)
+        {
+            axes.Add(ReadChartAxis(valueAxes[index], ChartAxisKind.Value, $"{path}/ChartValueAxes/ChartAxis[{index}]"));
+        }
+
+        return axes;
+    }
+
+    private ChartAxis ReadChartAxis(XElement axisElement, ChartAxisKind kind, string path)
+    {
+        var style = axisElement.Element(_xmlNamespace + "Style");
+        var titleStyle = axisElement.Element(_xmlNamespace + "ChartAxisTitle")?.Element(_xmlNamespace + "Style");
+        var minimumExpression = NormalizeChartAxisExpression(
+            ReportRdlExpressions.ToNativeValueExpression(axisElement.Element(_xmlNamespace + "Minimum")?.Value));
+        var maximumExpression = NormalizeChartAxisExpression(
+            ReportRdlExpressions.ToNativeValueExpression(axisElement.Element(_xmlNamespace + "Maximum")?.Value));
+        return new ChartAxis
+        {
+            Kind = kind,
+            Position = ResolveChartAxisPosition(kind, axisElement.Element(_xmlNamespace + "Location")?.Value),
+            IsVisible = ResolveVisibility(
+                axisElement.Element(_xmlNamespace + "Visible")?.Value,
+                axisElement.Element(_xmlNamespace + "Hidden")?.Value,
+                defaultValue: true),
+            Minimum = TryParseFiniteChartAxisBound(minimumExpression),
+            Maximum = TryParseFiniteChartAxisBound(maximumExpression),
+            MinimumExpression = minimumExpression,
+            MaximumExpression = maximumExpression,
+            SyncScopeName = axisElement.Element(ReportRdlNamespaces.Designer + "SyncScope")?.Value?.Trim(),
+            SyncMaximum = ParseBoolean(axisElement.Element(ReportRdlNamespaces.Designer + "SyncMaximum")?.Value),
+            NumberFormat = style?.Element(_xmlNamespace + "Format")?.Value?.Trim(),
+            Title = axisElement.Element(_xmlNamespace + "ChartAxisTitle")?.Element(_xmlNamespace + "Caption")?.Value?.Trim(),
+            LineStyle = ReadChartLineStyle(style?.Element(_xmlNamespace + "Border"), path + "/Style/Border"),
+            MajorGridlineStyle = ReadGridlineStyle(axisElement.Element(_xmlNamespace + "ChartMajorGridLines"), path + "/ChartMajorGridLines"),
+            MinorGridlineStyle = ReadGridlineStyle(axisElement.Element(_xmlNamespace + "ChartMinorGridLines"), path + "/ChartMinorGridLines"),
+            LabelTextStyle = ReadChartTextStyle(style),
+            TitleTextStyle = ReadChartTextStyle(titleStyle)
+        };
+    }
+
+    private static string? NormalizeChartAxisExpression(string? expression)
+    {
+        if (string.IsNullOrWhiteSpace(expression))
+        {
+            return null;
+        }
+
+        var trimmed = expression.Trim();
+        return trimmed.Equals("'NaN'", StringComparison.OrdinalIgnoreCase)
+            || trimmed.Equals("NaN", StringComparison.OrdinalIgnoreCase)
+            ? null
+            : trimmed;
+    }
+
+    private static double? TryParseFiniteChartAxisBound(string? expression)
+    {
+        if (string.IsNullOrWhiteSpace(expression))
+        {
+            return null;
+        }
+
+        if (double.TryParse(expression, NumberStyles.Float, CultureInfo.InvariantCulture, out var numericValue)
+            && !double.IsNaN(numericValue)
+            && !double.IsInfinity(numericValue))
+        {
+            return numericValue;
+        }
+
+        return null;
+    }
+
+    private ChartLegend? ReadChartLegend(XElement? legendElement, string path)
+    {
+        if (legendElement is null)
+        {
+            return null;
+        }
+
+        return new ChartLegend
+        {
+            IsVisible = !ParseBoolean(legendElement.Element(_xmlNamespace + "Hidden")?.Value),
+            Position = ParseLegendPosition(legendElement.Element(_xmlNamespace + "Position")?.Value),
+            Overlay = ParseBoolean(legendElement.Element(_xmlNamespace + "DockOutsideChartArea")?.Value),
+            TextStyle = ReadChartTextStyle(legendElement.Element(_xmlNamespace + "Style"))
+        };
+    }
+
+    private ChartDataLabelSettings? ReadChartDataLabelSettings(XElement? dataLabelElement)
+    {
+        if (dataLabelElement is null)
+        {
+            return null;
+        }
+
+        var style = dataLabelElement.Element(_xmlNamespace + "Style");
+        var visible = ParseOptionalBoolean(dataLabelElement.Element(_xmlNamespace + "Visible")?.Value);
+        var settings = new ChartDataLabelSettings
+        {
+            IsHidden = visible.HasValue ? !visible.Value : null,
+            ShowValue = ParseOptionalBoolean(dataLabelElement.Element(_xmlNamespace + "UseValueAsLabel")?.Value),
+            ShowCategoryName = ParseOptionalBoolean(dataLabelElement.Element(_xmlNamespace + "ShowCategoryName")?.Value),
+            ShowSeriesName = ParseOptionalBoolean(dataLabelElement.Element(_xmlNamespace + "ShowSeriesName")?.Value),
+            ShowPercent = ParseOptionalBoolean(dataLabelElement.Element(_xmlNamespace + "ShowPercent")?.Value),
+            ShowBubbleSize = ParseOptionalBoolean(dataLabelElement.Element(_xmlNamespace + "ShowBubbleSize")?.Value),
+            ShowLegendKey = ParseOptionalBoolean(dataLabelElement.Element(_xmlNamespace + "ShowLegendKey")?.Value),
+            ShowLeaderLines = ParseOptionalBoolean(dataLabelElement.Element(_xmlNamespace + "ShowLeaderLines")?.Value),
+            NumberFormat = style?.Element(_xmlNamespace + "Format")?.Value?.Trim(),
+            TextStyle = ReadChartTextStyle(style)
+        };
+
+        return settings.IsHidden.HasValue
+               || settings.ShowValue.HasValue
+               || settings.ShowCategoryName.HasValue
+               || settings.ShowSeriesName.HasValue
+               || settings.ShowPercent.HasValue
+               || settings.ShowBubbleSize.HasValue
+               || settings.ShowLegendKey.HasValue
+               || settings.ShowLeaderLines.HasValue
+               || !string.IsNullOrWhiteSpace(settings.NumberFormat)
+               || settings.TextStyle is not null
+            ? settings
+            : null;
+    }
+
+    private ChartStyle? ReadChartStyle(XElement? styleElement, string path)
+    {
+        if (styleElement is null)
+        {
+            return null;
+        }
+
+        var fill = ReadChartFillStyle(styleElement);
+        var line = ReadChartLineStyle(styleElement.Element(_xmlNamespace + "Border"), path + "/Border");
+        if (fill is null && line is null)
+        {
+            return null;
+        }
+
+        return new ChartStyle
+        {
+            Fill = fill,
+            Line = line
+        };
+    }
+
+    private ChartFillStyle? ReadChartFillStyle(XElement styleElement)
+    {
+        var backgroundColor = styleElement.Element(_xmlNamespace + "BackgroundColor")?.Value?.Trim();
+        if (string.IsNullOrWhiteSpace(backgroundColor))
+        {
+            return null;
+        }
+
+        if (!ReportColorParser.TryParse(backgroundColor, out var color))
+        {
+            return null;
+        }
+
+        return color.A == 0
+            ? new ChartFillStyle { IsNone = true }
+            : new ChartFillStyle { Color = color };
+    }
+
+    private ChartLineStyle? ReadChartLineStyle(XElement? borderElement, string path)
+    {
+        if (borderElement is null)
+        {
+            return null;
+        }
+
+        var chartLine = new ChartLineStyle();
+        var style = ParseChartBorderStyle(borderElement.Element(_xmlNamespace + "Style")?.Value);
+        if (style == DocBorderStyle.None)
+        {
+            chartLine.IsNone = true;
+        }
+        else if (style.HasValue)
+        {
+            chartLine.Style = style.Value;
+        }
+
+        var width = borderElement.Element(_xmlNamespace + "Width")?.Value;
+        if (!string.IsNullOrWhiteSpace(width))
+        {
+            chartLine.Width = ReportRdlMeasurements.Parse(width, path + "/Width", _diagnostics);
+        }
+
+        var colorText = borderElement.Element(_xmlNamespace + "Color")?.Value?.Trim();
+        if (!string.IsNullOrWhiteSpace(colorText) && ReportColorParser.TryParse(colorText, out var color))
+        {
+            chartLine.Color = color;
+        }
+
+        return chartLine.IsNone || chartLine.Width.HasValue || chartLine.Style.HasValue || chartLine.Color.HasValue
+            ? chartLine
+            : null;
+    }
+
+    private ChartLineStyle? ReadGridlineStyle(XElement? gridLineElement, string path)
+    {
+        if (gridLineElement is null)
+        {
+            return null;
+        }
+
+        if (!ParseBoolean(gridLineElement.Element(_xmlNamespace + "Enabled")?.Value, defaultValue: true))
+        {
+            return new ChartLineStyle { IsNone = true };
+        }
+
+        return ReadChartLineStyle(gridLineElement.Element(_xmlNamespace + "Style")?.Element(_xmlNamespace + "Border"), path + "/Style/Border");
+    }
+
+    private ChartTextStyle? ReadChartTextStyle(XElement? styleElement)
+    {
+        if (styleElement is null)
+        {
+            return null;
+        }
+
+        var textStyle = new ChartTextStyle
+        {
+            FontFamily = styleElement.Element(_xmlNamespace + "FontFamily")?.Value?.Trim(),
+            FontSize = TryReadOptionalMeasurement(styleElement.Element(_xmlNamespace + "FontSize")?.Value),
+            Bold = ParseBooleanOrNull(styleElement.Element(_xmlNamespace + "FontWeight")?.Value, "bold"),
+            Italic = ParseBooleanOrNull(styleElement.Element(_xmlNamespace + "FontStyle")?.Value, "italic")
+        };
+
+        var colorText = styleElement.Element(_xmlNamespace + "Color")?.Value?.Trim();
+        if (!string.IsNullOrWhiteSpace(colorText) && ReportColorParser.TryParse(colorText, out var color))
+        {
+            textStyle.Color = color;
+        }
+
+        return textStyle.FontFamily is not null
+               || textStyle.FontSize.HasValue
+               || textStyle.Color.HasValue
+               || textStyle.Bold.HasValue
+               || textStyle.Italic.HasValue
+            ? textStyle
+            : null;
+    }
+
+    private static float? TryReadOptionalMeasurement(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var diagnostics = new List<ReportDiagnostic>();
+        var parsed = ReportRdlMeasurements.Parse(value, "$.chartMeasurement", diagnostics, fallback: float.NaN);
+        return float.IsNaN(parsed) ? null : parsed;
+    }
+
+    private static bool? ParseBooleanOrNull(string? value, string truthyToken)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        return string.Equals(value.Trim(), truthyToken, StringComparison.OrdinalIgnoreCase)
+            ? true
+            : string.Equals(value.Trim(), "normal", StringComparison.OrdinalIgnoreCase)
+                ? false
+                : null;
+    }
+
+    private static bool? ParseOptionalBoolean(string? value)
+    {
+        return bool.TryParse(value, out var parsed) ? parsed : null;
+    }
+
+    private static bool ResolveVisibility(string? visibleValue, string? hiddenValue, bool defaultValue)
+    {
+        var visible = ParseOptionalBoolean(visibleValue);
+        if (visible.HasValue)
+        {
+            return visible.Value;
+        }
+
+        var hidden = ParseOptionalBoolean(hiddenValue);
+        if (hidden.HasValue)
+        {
+            return !hidden.Value;
+        }
+
+        return defaultValue;
+    }
+
+    private static ChartAxisPosition ResolveChartAxisPosition(ChartAxisKind kind, string? location)
+    {
+        var opposite = string.Equals(location?.Trim(), "Opposite", StringComparison.OrdinalIgnoreCase);
+        return kind switch
+        {
+            ChartAxisKind.Category => opposite ? ChartAxisPosition.Top : ChartAxisPosition.Bottom,
+            ChartAxisKind.Value => opposite ? ChartAxisPosition.Right : ChartAxisPosition.Left,
+            _ => ChartAxisPosition.Bottom
+        };
+    }
+
+    private static ChartLegendPosition ParseLegendPosition(string? value)
+    {
+        return value?.Trim().ToLowerInvariant() switch
+        {
+            "leftcenter" or "left" => ChartLegendPosition.Left,
+            "topcenter" or "top" => ChartLegendPosition.Top,
+            "bottomcenter" or "bottom" => ChartLegendPosition.Bottom,
+            "topleft" => ChartLegendPosition.TopLeft,
+            "topright" => ChartLegendPosition.TopRight,
+            "bottomleft" => ChartLegendPosition.BottomLeft,
+            "bottomright" => ChartLegendPosition.BottomRight,
+            "righttop" or "corner" => ChartLegendPosition.Corner,
+            _ => ChartLegendPosition.Right
+        };
+    }
+
+    private static ChartType ParseChartType(string? value, string? subtype)
+    {
+        return value?.Trim().ToLowerInvariant() switch
+        {
+            "bar" or "column" => ChartType.Bar,
+            "line" => ChartType.Line,
+            "pie" => ChartType.Pie,
+            "doughnut" => ChartType.Doughnut,
+            "scatter" or "point" => ChartType.Scatter,
+            "area" => ChartType.Area,
+            "radar" => ChartType.Radar,
+            "bubble" => ChartType.Bubble,
+            "shape" => ParseShapeChartSubtype(subtype),
+            _ => ChartType.Bar
+        };
+    }
+
+    private static ChartType ParseShapeChartSubtype(string? subtype)
+    {
+        return subtype?.Trim().ToLowerInvariant() switch
+        {
+            "treemap" => ChartType.Treemap,
+            "sunburst" => ChartType.Sunburst,
+            _ => ChartType.Bar
+        };
+    }
+
+    private static ChartBarDirection ParseChartBarDirection(string? value, ChartType chartType)
+    {
+        if (chartType != ChartType.Bar)
+        {
+            return ChartBarDirection.Column;
+        }
+
+        return value?.Trim().ToLowerInvariant() switch
+        {
+            "bar" => ChartBarDirection.Bar,
+            _ => ChartBarDirection.Column
+        };
+    }
+
+    private static ChartTitlePosition ParseChartTitlePosition(string? value)
+    {
+        return value?.Trim().ToLowerInvariant() switch
+        {
+            "topleft" => ChartTitlePosition.TopLeft,
+            "topright" => ChartTitlePosition.TopRight,
+            _ => ChartTitlePosition.Center
+        };
+    }
+
+    private List<ReportChartCategoryLevelDefinition> ReadChartCategoryLevels(XElement? categoryMember)
+    {
+        var levels = new List<ReportChartCategoryLevelDefinition>();
+        while (categoryMember is not null)
+        {
+            levels.Add(new ReportChartCategoryLevelDefinition
+            {
+                GroupExpression = ReportRdlExpressions.ToNativeScalarExpression(
+                    categoryMember.Element(_xmlNamespace + "Group")
+                        ?.Element(_xmlNamespace + "GroupExpressions")
+                        ?.Element(_xmlNamespace + "GroupExpression")
+                        ?.Value),
+                LabelExpression = ReportRdlExpressions.ToNativeScalarExpression(
+                    categoryMember.Element(_xmlNamespace + "Label")?.Value),
+                SortExpression = ReportRdlExpressions.ToNativeExpression(
+                    categoryMember.Element(_xmlNamespace + "SortExpressions")
+                        ?.Element(_xmlNamespace + "SortExpression")
+                        ?.Element(_xmlNamespace + "Value")
+                        ?.Value),
+                SortDirection = ParseSortDirection(
+                    categoryMember.Element(_xmlNamespace + "SortExpressions")
+                        ?.Element(_xmlNamespace + "SortExpression")
+                        ?.Element(_xmlNamespace + "Direction")
+                        ?.Value)
+            });
+
+            categoryMember = categoryMember
+                .Element(_xmlNamespace + "ChartMembers")
+                ?.Elements(_xmlNamespace + "ChartMember")
+                .FirstOrDefault();
+        }
+
+        return levels;
+    }
+
+    private static DocBorderStyle? ParseChartBorderStyle(string? value)
+    {
+        return value?.Trim().ToLowerInvariant() switch
+        {
+            "none" => DocBorderStyle.None,
+            "dashed" => DocBorderStyle.Dashed,
+            "dotted" => DocBorderStyle.Dotted,
+            "double" => DocBorderStyle.Double,
+            "default" or "solid" or "ridge" or "groove" or "outset" or "inset" or "windowinset" => DocBorderStyle.Single,
             _ => null
         };
     }

@@ -4,21 +4,18 @@
              x:Class="Vibe.Reporting.App.Controls.ReportingStudioHeaderBar"
              x:DataType="vm:ReportingStudioViewModel">
   <Border Classes="studio-title-strip">
-    <Grid ColumnDefinitions="Auto,*,Auto"
-          ColumnSpacing="16">
-      <StackPanel Orientation="Horizontal"
-                  VerticalAlignment="Center"
-                  Spacing="10">
-        <TextBlock Classes="studio-app-title"
-                   Text="VibeOffice Reporting" />
-        <Border Classes="studio-chip studio-chip-accent">
-          <TextBlock Classes="studio-caption"
-                     Text="{Binding ActiveDocumentMode}" />
-        </Border>
-      </StackPanel>
-
-      <StackPanel Grid.Column="1"
-                  Spacing="2">
+    <Grid ColumnDefinitions="*,Auto"
+          ColumnSpacing="12">
+      <StackPanel Spacing="2">
+        <StackPanel Orientation="Horizontal"
+                    Spacing="10">
+          <TextBlock Classes="studio-app-title"
+                     Text="VibeOffice Reporting" />
+          <Border Classes="studio-chip studio-chip-accent">
+            <TextBlock Classes="studio-caption"
+                       Text="{Binding ActiveDocumentMode}" />
+          </Border>
+        </StackPanel>
         <TextBlock Classes="studio-document-title"
                    Text="{Binding DesignerViewModel.ReportDefinition.Name}" />
         <TextBlock Classes="studio-path-text"
@@ -27,17 +24,13 @@
                    TextTrimming="CharacterEllipsis" />
       </StackPanel>
 
-      <StackPanel Grid.Column="2"
+      <StackPanel Grid.Column="1"
                   Orientation="Horizontal"
                   VerticalAlignment="Center"
                   Spacing="8">
         <Border Classes="studio-chip">
           <TextBlock Classes="studio-caption"
                      Text="{Binding PreviewStateText}" />
-        </Border>
-        <Border Classes="studio-chip">
-          <TextBlock Classes="studio-caption"
-                     Text="{Binding WorkspaceSummaryText}" />
         </Border>
       </StackPanel>
     </Grid>

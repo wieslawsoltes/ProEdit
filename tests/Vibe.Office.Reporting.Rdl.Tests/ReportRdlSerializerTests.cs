@@ -444,6 +444,79 @@ public sealed class ReportRdlSerializerTests
     }
 
     [Fact]
+    public void Read_ImportsOrganizationExpendituresShapeCharts_WhenSampleAvailable()
+    {
+        var organizationExpendituresPath = Path.Combine(ResolveSampleCorpusPath(), "OrganizationExpenditures.rdl");
+        if (!File.Exists(organizationExpendituresPath))
+        {
+            return;
+        }
+
+        var result = _serializer.Read(File.ReadAllText(organizationExpendituresPath));
+
+        Assert.False(result.HasErrors);
+        var report = Assert.IsType<ReportDefinition>(result.ReportDefinition);
+        var section = Assert.Single(report.Sections);
+        var charts = section.BodyItems
+            .OfType<ChartItem>()
+            .OrderBy(static chart => chart.Bounds.X)
+            .ToList();
+
+        Assert.Equal(2, charts.Count);
+
+        var treemap = charts[0];
+        Assert.Equal(ChartType.Treemap, treemap.Type);
+        Assert.Equal("EarthTones", treemap.PaletteName);
+        Assert.Single(treemap.CategoryLevels);
+        Assert.True(treemap.Series[0].DataLabels?.ShowValue);
+        Assert.Equal("#,0,;(#,0,)", treemap.Series[0].DataLabels?.NumberFormat);
+
+        var sunburst = charts[1];
+        Assert.Equal(ChartType.Sunburst, sunburst.Type);
+        Assert.Equal("EarthTones", sunburst.PaletteName);
+        Assert.Equal(3, sunburst.CategoryLevels.Count);
+        Assert.True(sunburst.Series[0].DataLabels?.ShowValue);
+        Assert.Equal("#,0,;(#,0,)", sunburst.Series[0].DataLabels?.NumberFormat);
+    }
+
+    [Fact]
+    public void Read_CountrySalesPerformanceImportsEmbeddedMicrochartAxesAsHidden_WhenSampleAvailable()
+    {
+        var reportPath = Path.Combine(ResolveSampleCorpusPath(), "CountrySalesPerformance.rdl");
+        if (!File.Exists(reportPath))
+        {
+            return;
+        }
+
+        var result = _serializer.Read(File.ReadAllText(reportPath));
+
+        Assert.False(result.HasErrors);
+        var report = Assert.IsType<ReportDefinition>(result.ReportDefinition);
+        var charts = EnumerateItems(report.Sections[0].BodyItems)
+            .OfType<ChartItem>()
+            .Where(static chart => chart.Id is "DataBar1" or "DataBar2" or "Sparkline1" or "Sparkline2" or "Sparkline3")
+            .OrderBy(static chart => chart.Id, StringComparer.Ordinal)
+            .ToList();
+
+        Assert.Equal(5, charts.Count);
+        Assert.All(charts, static chart =>
+        {
+            Assert.NotEmpty(chart.Axes);
+            Assert.All(chart.Axes, static axis => Assert.False(axis.IsVisible));
+        });
+
+        var dataBar = Assert.Single(charts, static chart => chart.Id == "DataBar1");
+        var valueAxis = Assert.Single(dataBar.Axes, static axis =>
+            axis.Kind == ChartAxisKind.Value
+            && axis.SyncMaximum
+            && string.Equals(axis.SyncScopeName, "Tablix1", StringComparison.Ordinal));
+        Assert.Equal(0d, valueAxis.Minimum);
+        Assert.NotNull(valueAxis.MaximumExpression);
+        Assert.Equal("Tablix1", valueAxis.SyncScopeName);
+        Assert.True(valueAxis.SyncMaximum);
+    }
+
+    [Fact]
     public void Write_EmitsDefaultFontFamilyExtension_WhenPresent()
     {
         var report = new ReportDefinition
@@ -699,6 +772,180 @@ public sealed class ReportRdlSerializerTests
         Assert.Contains("<KeepWithGroup>After</KeepWithGroup>", result.Xml, StringComparison.Ordinal);
         Assert.Contains("<ToggleItem>CategoryCell</ToggleItem>", result.Xml, StringComparison.Ordinal);
         Assert.Contains("<Height>0.25in</Height>", result.Xml, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Read_ImportsTablixFilters()
+    {
+        const string xml =
+            """
+            <Report xmlns="http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition"
+                    xmlns:rd="http://schemas.microsoft.com/SQLServer/reporting/reportdesigner">
+              <rd:ReportID>tablix-filters</rd:ReportID>
+              <DataSources>
+                <DataSource Name="Donors">
+                  <ConnectionProperties>
+                    <DataProvider>ENTERDATA</DataProvider>
+                    <ConnectString />
+                  </ConnectionProperties>
+                </DataSource>
+              </DataSources>
+              <DataSets>
+                <DataSet Name="Donors">
+                  <Query>
+                    <DataSourceName>Donors</DataSourceName>
+                    <CommandText>&lt;Query&gt;&lt;XmlData&gt;&lt;Data /&gt;&lt;/XmlData&gt;&lt;/Query&gt;</CommandText>
+                  </Query>
+                  <Fields>
+                    <Field Name="Name">
+                      <DataField>Name</DataField>
+                    </Field>
+                  </Fields>
+                </DataSet>
+              </DataSets>
+              <ReportSections>
+                <ReportSection>
+                  <Body>
+                    <ReportItems>
+                      <Tablix Name="DonorTable">
+                        <TablixBody>
+                          <TablixColumns>
+                            <TablixColumn>
+                              <Width>1in</Width>
+                            </TablixColumn>
+                          </TablixColumns>
+                          <TablixRows>
+                            <TablixRow>
+                              <Height>0.25in</Height>
+                              <TablixCells>
+                                <TablixCell>
+                                  <CellContents>
+                                    <Textbox Name="DonorName">
+                                      <CanGrow>true</CanGrow>
+                                      <Paragraphs>
+                                        <Paragraph>
+                                          <TextRuns>
+                                            <TextRun>
+                                              <Value>=Fields!Name.Value</Value>
+                                            </TextRun>
+                                          </TextRuns>
+                                        </Paragraph>
+                                      </Paragraphs>
+                                    </Textbox>
+                                  </CellContents>
+                                </TablixCell>
+                              </TablixCells>
+                            </TablixRow>
+                          </TablixRows>
+                        </TablixBody>
+                        <TablixColumnHierarchy>
+                          <TablixMembers>
+                            <TablixMember />
+                          </TablixMembers>
+                        </TablixColumnHierarchy>
+                        <TablixRowHierarchy>
+                          <TablixMembers>
+                            <TablixMember>
+                              <Group Name="Details" />
+                            </TablixMember>
+                          </TablixMembers>
+                        </TablixRowHierarchy>
+                        <DataSetName>Donors</DataSetName>
+                        <Filters>
+                          <Filter>
+                            <FilterExpression>=Fields!Name.Value</FilterExpression>
+                            <Operator>Equal</Operator>
+                            <FilterValues>
+                              <FilterValue>=Parameters!Donor.Value</FilterValue>
+                            </FilterValues>
+                          </Filter>
+                        </Filters>
+                      </Tablix>
+                    </ReportItems>
+                    <Height>1in</Height>
+                  </Body>
+                  <Width>2in</Width>
+                  <Page>
+                    <PageHeight>11in</PageHeight>
+                    <PageWidth>8.5in</PageWidth>
+                    <LeftMargin>1in</LeftMargin>
+                    <RightMargin>1in</RightMargin>
+                    <TopMargin>1in</TopMargin>
+                    <BottomMargin>1in</BottomMargin>
+                  </Page>
+                </ReportSection>
+              </ReportSections>
+            </Report>
+            """;
+
+        var result = _serializer.Read(xml);
+
+        Assert.False(result.HasErrors);
+        var report = Assert.IsType<ReportDefinition>(result.ReportDefinition);
+        var tablix = Assert.IsType<TablixItem>(Assert.Single(report.Sections[0].BodyItems));
+        var filter = Assert.Single(tablix.Filters);
+        Assert.Equal("Fields.Name", filter.Expression);
+        Assert.Equal(ReportFilterOperator.Equal, filter.Operator);
+        Assert.Equal("Parameters.Donor", filter.ValueExpression);
+    }
+
+    [Fact]
+    public void Write_EmitsTablixFilters()
+    {
+        var report = new ReportDefinition
+        {
+            Id = "tablix-filters-export",
+            Name = "Tablix Filters Export",
+            Sections =
+            {
+                new ReportSection
+                {
+                    Id = "main",
+                    Name = "Main",
+                    BodyItems =
+                    {
+                        new TablixItem
+                        {
+                            Id = "DonorTable",
+                            DataSetId = "Donors",
+                            Columns =
+                            {
+                                new ReportTablixColumnDefinition { Id = "col1", Width = 96f }
+                            },
+                            Rows =
+                            {
+                                new ReportTablixRowDefinition
+                                {
+                                    Id = "detail",
+                                    Height = 24f,
+                                    Cells =
+                                    {
+                                        new ReportTablixCellDefinition { ValueExpression = "Fields.Name" }
+                                    }
+                                }
+                            },
+                            Filters =
+                            {
+                                new ReportFilterDefinition
+                                {
+                                    Expression = "Fields.Name",
+                                    Operator = ReportFilterOperator.Equal,
+                                    ValueExpression = "Parameters.Donor"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        var result = _serializer.Write(report);
+
+        Assert.False(result.HasErrors);
+        Assert.Contains("<Filters>", result.Xml, StringComparison.Ordinal);
+        Assert.Contains("<FilterExpression>=Fields!Name.Value</FilterExpression>", result.Xml, StringComparison.Ordinal);
+        Assert.Contains("<Operator>Equal</Operator>", result.Xml, StringComparison.Ordinal);
+        Assert.Contains("<FilterValue>=Parameters!Donor.Value</FilterValue>", result.Xml, StringComparison.Ordinal);
     }
 
     [Fact]

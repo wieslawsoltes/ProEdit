@@ -7,175 +7,222 @@
     <StyleInclude Source="avares://Vibe.Office.Reporting.Avalonia.Designer/Themes/ReportDesignerTheme.axaml" />
   </UserControl.Styles>
 
-  <Grid RowDefinitions="Auto,*,Auto"
-        ColumnDefinitions="300,5,*,5,348">
-    <Border Grid.Row="0"
-            Grid.ColumnSpan="5"
-            Classes="designer-command-strip">
-      <Grid RowDefinitions="Auto,Auto"
-            ColumnDefinitions="*,Auto,Auto"
-            ColumnSpacing="12"
-            RowSpacing="10">
-        <StackPanel Spacing="2">
-          <TextBlock Classes="designer-panel-title"
-                     Text="Report Designer" />
-          <TextBlock Classes="designer-helper"
-                     Text="{Binding SelectedObjectTitle}" />
-        </StackPanel>
-
-        <StackPanel Grid.Column="1"
-                    Orientation="Horizontal"
-                    HorizontalAlignment="Right"
-                    Spacing="8">
-          <Border Classes="designer-status-pill">
-            <TextBlock Classes="designer-helper"
-                       Text="{Binding CurrentSectionName}" />
-          </Border>
-          <Border Classes="designer-status-pill">
-            <TextBlock Classes="designer-helper"
-                       Text="{Binding SurfaceDisplayText}" />
-          </Border>
-          <Border Classes="designer-status-pill">
-            <TextBlock Classes="designer-helper"
-                       Text="{Binding StatusMessage}" />
-          </Border>
-        </StackPanel>
-
-        <StackPanel Grid.Column="2"
-                    Orientation="Horizontal"
-                    Spacing="8">
-          <Button Theme="{StaticResource DesignerActionButtonTheme}"
-                  Content="Remove"
-                  Command="{Binding RemoveSelectedCommand}"
-                  IsEnabled="{Binding CanRemoveSelected}" />
-          <Button Theme="{StaticResource DesignerPrimaryActionButtonTheme}"
-                  Content="Run Preview"
-                  Command="{Binding RefreshPreviewCommand}" />
-        </StackPanel>
-
-        <StackPanel Grid.Row="1"
-                    Grid.ColumnSpan="3"
-                    Orientation="Horizontal"
-                    Spacing="8">
-          <Border Classes="designer-status-pill">
-            <TextBlock Classes="designer-helper"
-                       Text="{Binding ActiveInsertToolDisplayText}" />
-          </Border>
-          <Button Theme="{StaticResource DesignerActionButtonTheme}"
-                  Content="Text Box"
-                  Command="{Binding BeginInsertTextBoxCommand}" />
-          <Button Theme="{StaticResource DesignerActionButtonTheme}"
-                  Content="Table"
-                  Command="{Binding BeginInsertTablixCommand}" />
-          <Button Theme="{StaticResource DesignerActionButtonTheme}"
-                  Content="Chart"
-                  Command="{Binding BeginInsertChartCommand}" />
-          <Button Theme="{StaticResource DesignerActionButtonTheme}"
-                  Content="Rectangle"
-                  Command="{Binding BeginInsertRectangleCommand}" />
-          <Button Theme="{StaticResource DesignerActionButtonTheme}"
-                  Content="Line"
-                  Command="{Binding BeginInsertLineCommand}" />
-          <Button Theme="{StaticResource DesignerActionButtonTheme}"
-                  Content="Image"
-                  Command="{Binding BeginInsertImageCommand}" />
-          <Button Theme="{StaticResource DesignerActionButtonTheme}"
-                  Content="Subreport"
-                  Command="{Binding BeginInsertSubreportCommand}" />
-          <Button Theme="{StaticResource DesignerActionButtonTheme}"
-                  Content="Template"
-                  Command="{Binding BeginInsertTemplateCommand}" />
-          <Button Theme="{StaticResource DesignerActionButtonTheme}"
-                  Content="Cancel Tool"
-                  Command="{Binding CancelInsertToolCommand}"
-                  IsEnabled="{Binding HasActiveInsertTool}" />
-
-          <Border Width="1"
-                  Height="28"
-                  Background="{DynamicResource DesignerBorderBrush}" />
-
-          <Button Theme="{StaticResource DesignerActionButtonTheme}"
-                  Content="Duplicate"
-                  Command="{Binding DuplicateSelectedCommand}" />
-          <Button Theme="{StaticResource DesignerActionButtonTheme}"
-                  Content="Bring Front"
-                  Command="{Binding BringSelectedToFrontCommand}" />
-          <Button Theme="{StaticResource DesignerActionButtonTheme}"
-                  Content="Send Back"
-                  Command="{Binding SendSelectedToBackCommand}" />
-          <Button Theme="{StaticResource DesignerActionButtonTheme}"
-                  Content="Bring Forward"
-                  Command="{Binding BringSelectedForwardCommand}" />
-          <Button Theme="{StaticResource DesignerActionButtonTheme}"
-                  Content="Send Backward"
-                  Command="{Binding SendSelectedBackwardCommand}" />
-        </StackPanel>
-      </Grid>
+  <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto"
+        RowDefinitions="Auto,*,Auto">
+    <Border Grid.RowSpan="3"
+            Classes="designer-rail">
+      <StackPanel Margin="6,8"
+                  Spacing="6">
+        <Button Theme="{StaticResource DesignerRailButtonTheme}"
+                Content="Data"
+                Command="{Binding OpenReportDataPaneCommand}" />
+        <Button Theme="{StaticResource DesignerRailButtonTheme}"
+                Content="Outline"
+                Command="{Binding OpenOutlinePaneCommand}" />
+        <Button Theme="{StaticResource DesignerRailButtonTheme}"
+                Content="Templates"
+                Command="{Binding OpenTemplateLibraryPaneCommand}" />
+      </StackPanel>
     </Border>
 
-    <designer:ReportDesignerReportDataPane Grid.Row="1"
-                                           Grid.RowSpan="2"
-                                           Grid.Column="0" />
-
-    <GridSplitter Grid.Row="1"
-                  Grid.RowSpan="2"
-                  Grid.Column="1"
-                  Classes="designer-splitter"
-                  HorizontalAlignment="Stretch"
-                  ResizeDirection="Columns" />
-
-    <Border Grid.Row="1"
-            Grid.Column="2"
-            Classes="designer-main">
-      <Grid RowDefinitions="Auto,Auto,*">
-        <Border Classes="designer-surface-banner">
-          <Grid ColumnDefinitions="*,Auto"
-                ColumnSpacing="12">
-            <StackPanel Spacing="2">
-              <TextBlock Classes="designer-panel-title"
-                         Text="{Binding CurrentSectionName}" />
-              <TextBlock Classes="designer-helper"
-                         Text="{Binding SelectedObjectType}" />
-            </StackPanel>
-            <TextBlock Grid.Column="1"
-                       VerticalAlignment="Center"
-                       Classes="designer-helper"
-                       Text="{Binding SurfaceDisplayText}" />
+    <Border Grid.Column="1"
+            Grid.RowSpan="3"
+            Width="{Binding LeftDrawerWidth}"
+            Classes="designer-drawer designer-drawer-left"
+            IsVisible="{Binding IsLeftDrawerVisible}">
+      <Grid RowDefinitions="Auto,*">
+        <Border Classes="designer-drawer-header">
+          <Grid ColumnDefinitions="*,Auto,Auto"
+                ColumnSpacing="6">
+            <TextBlock Classes="designer-panel-title"
+                       Text="Workspace" />
+            <Button Grid.Column="1"
+                    Theme="{StaticResource DesignerActionButtonTheme}"
+                    Content="Pin"
+                    Command="{Binding TogglePinLeftDrawerCommand}" />
+            <Button Grid.Column="2"
+                    Theme="{StaticResource DesignerActionButtonTheme}"
+                    Content="Close"
+                    Command="{Binding CloseLeftDrawerCommand}" />
           </Grid>
         </Border>
-
-        <designer:ReportDesignerParameterLayoutPane Grid.Row="1"
-                                                   IsVisible="{Binding ShowParameterLayoutPane}" />
-
-        <designer:ReportDesignerDesignSurface Grid.Row="2" />
+        <designer:ReportDesignerReportDataPane Grid.Row="1" />
       </Grid>
     </Border>
 
-    <Grid Grid.Row="2"
-          Grid.Column="2">
-      <designer:ReportDesignerGroupingPane IsVisible="{Binding ShowGroupingPane}" />
-      <designer:ReportDesignerChartDataPane IsVisible="{Binding ShowChartDataPane}" />
-      <Border Classes="designer-grouping-pane"
-              IsVisible="{Binding ShowContextPanePlaceholder}">
-        <StackPanel Spacing="4">
-          <TextBlock Classes="designer-panel-title"
-                     Text="{Binding ContextPanePlaceholderTitle}" />
-          <TextBlock Classes="designer-helper"
-                     Text="{Binding ContextPanePlaceholderText}"
-                     TextWrapping="Wrap" />
-        </StackPanel>
+    <Grid Grid.Column="2"
+          Grid.RowSpan="3"
+          MinWidth="0"
+          MinHeight="0"
+          RowDefinitions="Auto,*,Auto">
+      <Border Classes="designer-canvas-toolbar">
+        <Grid ColumnDefinitions="Auto,*,Auto"
+              ColumnSpacing="10">
+          <StackPanel Orientation="Horizontal"
+                      Spacing="6">
+            <Border Classes="designer-status-pill">
+              <TextBlock Classes="designer-helper"
+                         Text="{Binding CurrentSectionName}" />
+            </Border>
+            <Border Classes="designer-status-pill">
+              <TextBlock Classes="designer-helper"
+                         Text="{Binding SurfaceDisplayText}" />
+            </Border>
+            <Border Classes="designer-status-pill"
+                    IsVisible="{Binding HasActiveInsertTool}">
+              <TextBlock Classes="designer-helper"
+                         Text="{Binding ActiveInsertToolDisplayText}" />
+            </Border>
+          </StackPanel>
+
+          <StackPanel Grid.Column="2"
+                      Orientation="Horizontal"
+                      HorizontalAlignment="Right"
+                      Spacing="6">
+            <Button Theme="{StaticResource DesignerActionButtonTheme}"
+                    Content="Fit Page"
+                    Command="{Binding FitPageCommand}" />
+            <Button Theme="{StaticResource DesignerActionButtonTheme}"
+                    Content="Actual"
+                    Command="{Binding ActualSizeCommand}" />
+            <Button Theme="{StaticResource DesignerActionButtonTheme}"
+                    Content="-"
+                    Command="{Binding ZoomOutCommand}" />
+            <ComboBox Classes="designer-editor"
+                      Width="108"
+                      ItemsSource="{Binding ZoomOptions}"
+                      SelectedItem="{Binding SelectedZoomOption, Mode=TwoWay}">
+              <ComboBox.ItemTemplate>
+                <DataTemplate x:DataType="designer:ReportDesignerChoiceOptionViewModel">
+                  <TextBlock Text="{Binding Label}" />
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
+            <Button Theme="{StaticResource DesignerActionButtonTheme}"
+                    Content="+"
+                    Command="{Binding ZoomInCommand}" />
+            <ToggleButton Theme="{StaticResource DesignerToolToggleButtonTheme}"
+                          IsChecked="{Binding ShowRulers}">
+              <TextBlock Text="Rulers" />
+            </ToggleButton>
+            <ToggleButton Theme="{StaticResource DesignerToolToggleButtonTheme}"
+                          IsChecked="{Binding ShowSurfacePreviewBackground}">
+              <TextBlock Text="Preview" />
+            </ToggleButton>
+            <Button Theme="{StaticResource DesignerActionButtonTheme}"
+                    Content="Parameters"
+                    Command="{Binding OpenParameterLayoutTrayCommand}" />
+            <Button Theme="{StaticResource DesignerPrimaryActionButtonTheme}"
+                    Content="Run Preview"
+                    Command="{Binding RefreshPreviewCommand}" />
+          </StackPanel>
+        </Grid>
+      </Border>
+
+      <Border Grid.Row="1"
+              x:Name="PART_CanvasHost"
+              MinWidth="0"
+              MinHeight="0"
+              Classes="designer-main designer-canvas-host">
+        <designer:ReportDesignerDesignSurface MinWidth="0"
+                                             MinHeight="0" />
+      </Border>
+
+      <Border Grid.Row="2"
+              Classes="designer-context-tray"
+              IsVisible="{Binding IsContextTrayVisible}">
+        <Grid RowDefinitions="Auto,*"
+              RowSpacing="8">
+          <Grid ColumnDefinitions="*,Auto,Auto"
+                ColumnSpacing="6">
+            <StackPanel Orientation="Horizontal"
+                        Spacing="8">
+              <Border Classes="designer-status-pill"
+                      IsVisible="{Binding ShowGroupingTray}">
+                <TextBlock Classes="designer-helper"
+                           Text="Grouping" />
+              </Border>
+              <Border Classes="designer-status-pill"
+                      IsVisible="{Binding ShowChartDataTray}">
+                <TextBlock Classes="designer-helper"
+                           Text="Chart Data" />
+              </Border>
+              <Border Classes="designer-status-pill"
+                      IsVisible="{Binding ShowParameterLayoutTray}">
+                <TextBlock Classes="designer-helper"
+                           Text="Parameter Layout" />
+              </Border>
+            </StackPanel>
+            <Button Grid.Column="1"
+                    Theme="{StaticResource DesignerActionButtonTheme}"
+                    Content="Pin"
+                    Command="{Binding TogglePinContextTrayCommand}" />
+            <Button Grid.Column="2"
+                    Theme="{StaticResource DesignerActionButtonTheme}"
+                    Content="Close"
+                    Command="{Binding CloseContextTrayCommand}" />
+          </Grid>
+
+          <Grid Grid.Row="1">
+            <designer:ReportDesignerGroupingPane IsVisible="{Binding ShowGroupingTray}" />
+            <designer:ReportDesignerChartDataPane IsVisible="{Binding ShowChartDataTray}" />
+            <designer:ReportDesignerParameterLayoutPane IsVisible="{Binding ShowParameterLayoutTray}" />
+          </Grid>
+        </Grid>
       </Border>
     </Grid>
 
-    <GridSplitter Grid.Row="1"
-                  Grid.RowSpan="2"
-                  Grid.Column="3"
-                  Classes="designer-splitter"
-                  HorizontalAlignment="Stretch"
-                  ResizeDirection="Columns" />
+    <designer:ReportDesignerDrawerResizeHandle Grid.Column="3"
+                                               Classes="designer-splitter"
+                                               IsVisible="{Binding IsRightDrawerVisible}"
+                                               TargetWidth="{Binding InspectorDrawerWidth, Mode=TwoWay}"
+                                               MinimumTargetWidth="280"
+                                               MaximumTargetWidth="640"
+                                               InvertDelta="True" />
 
-    <designer:ReportDesignerPropertiesPane Grid.Row="1"
-                                           Grid.RowSpan="2"
-                                           Grid.Column="4" />
+    <Border Grid.Column="4"
+            Grid.RowSpan="3"
+            Width="{Binding RightDrawerWidth}"
+            Classes="designer-drawer designer-drawer-right"
+            IsVisible="{Binding IsRightDrawerVisible}">
+      <Grid RowDefinitions="Auto,*">
+        <Border Classes="designer-drawer-header">
+          <Grid ColumnDefinitions="*,Auto,Auto"
+                ColumnSpacing="6">
+            <TextBlock Classes="designer-panel-title"
+                       Text="Inspector" />
+            <Button Grid.Column="1"
+                    Theme="{StaticResource DesignerActionButtonTheme}"
+                    Content="Pin"
+                    Command="{Binding TogglePinRightDrawerCommand}" />
+            <Button Grid.Column="2"
+                    Theme="{StaticResource DesignerActionButtonTheme}"
+                    Content="Close"
+                    Command="{Binding CloseRightDrawerCommand}" />
+          </Grid>
+        </Border>
+        <designer:ReportDesignerPropertiesPane Grid.Row="1" />
+      </Grid>
+    </Border>
+
+    <Border Grid.Column="5"
+            Grid.RowSpan="3"
+            Classes="designer-rail designer-rail-right">
+      <StackPanel Margin="6,8"
+                  Spacing="6">
+        <Button Theme="{StaticResource DesignerRailButtonTheme}"
+                Content="Props"
+                Command="{Binding OpenPropertiesInspectorCommand}" />
+        <Button Theme="{StaticResource DesignerRailButtonTheme}"
+                Content="Params"
+                Command="{Binding OpenParametersInspectorCommand}" />
+        <Button Theme="{StaticResource DesignerRailButtonTheme}"
+                Content="Data"
+                Command="{Binding OpenDataInspectorCommand}" />
+        <Button Theme="{StaticResource DesignerRailButtonTheme}"
+                Content="Expr"
+                Command="{Binding OpenExpressionsInspectorCommand}" />
+      </StackPanel>
+    </Border>
   </Grid>
 </UserControl>

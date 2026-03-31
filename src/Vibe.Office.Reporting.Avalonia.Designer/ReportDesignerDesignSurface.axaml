@@ -46,7 +46,9 @@
     </DataTemplate>
   </UserControl.Resources>
 
-  <Grid RowDefinitions="Auto,*"
+  <Grid MinWidth="0"
+        MinHeight="0"
+        RowDefinitions="Auto,*"
         ColumnDefinitions="Auto,*">
     <Border Grid.Column="1"
             Classes="designer-ruler-top"
@@ -104,11 +106,15 @@
       </ItemsControl>
     </Border>
 
-    <ScrollViewer Grid.Row="1"
-                  Grid.Column="1"
-                  HorizontalScrollBarVisibility="Auto"
-                  VerticalScrollBarVisibility="Auto">
-      <Border Classes="designer-surface-stage">
+    <designer:ReportDesignerSurfaceScrollHost Grid.Row="1"
+                                              Grid.Column="1"
+                                              MinWidth="0"
+                                              MinHeight="0">
+      <Border Classes="designer-surface-stage"
+              Width="{Binding SurfaceStageWidth}"
+              Height="{Binding SurfaceStageHeight}"
+              HorizontalAlignment="Left"
+              VerticalAlignment="Top">
         <Border Classes="designer-page"
                 Padding="0"
                 Width="{Binding SurfaceScaledWidth}"
@@ -129,7 +135,7 @@
 
               <Image Source="{Binding SurfacePreviewPage.Bitmap}"
                      Stretch="Fill"
-                     IsVisible="{Binding HasCurrentSurfacePreview}" />
+                     IsVisible="{Binding HasVisibleSurfacePreview}" />
 
               <Border HorizontalAlignment="Right"
                       VerticalAlignment="Top"
@@ -164,30 +170,31 @@
                 </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="designer:ReportDesignerCanvasItemViewModel">
-                    <designer:ReportDesignerSurfaceItemControl Canvas.Left="{Binding Left}"
-                                                               Canvas.Top="{Binding Top}"
+                    <designer:ReportDesignerSurfaceItemControl Canvas.Left="{Binding SurfaceHostLeft}"
+                                                               Canvas.Top="{Binding SurfaceHostTop}"
                                                                Canvas.ZIndex="{Binding ZIndex}"
-                                                               Width="{Binding Width}"
-                                                               Height="{Binding Height}">
-                      <Grid>
-                        <Border Background="{Binding FillBrush}"
-                                BorderBrush="{Binding BorderBrush}"
-                                BorderThickness="{Binding BorderThicknessValue}"
-                                CornerRadius="2" />
+                                                               Width="{Binding SurfaceHostWidth}"
+                                                               Height="{Binding SurfaceHostHeight}">
+                      <Grid Margin="{Binding SurfaceChromeMargin}">
+                        <Grid ClipToBounds="True">
+                          <Border Background="{Binding FillBrush}"
+                                  BorderBrush="{Binding BorderBrush}"
+                                  BorderThickness="{Binding BorderThicknessValue}"
+                                  CornerRadius="2" />
 
-                        <Border HorizontalAlignment="Left"
-                                VerticalAlignment="Top"
-                                Margin="8,8,0,0"
-                                Background="{Binding BadgeBrush}"
-                                IsVisible="{Binding ShowBadge}">
-                          <TextBlock Margin="6,2"
-                                     Classes="designer-helper"
-                                     Foreground="{Binding BadgeForegroundBrush}"
-                                     Text="{Binding BadgeText}" />
-                        </Border>
+                          <Border HorizontalAlignment="Left"
+                                  VerticalAlignment="Top"
+                                  Margin="8,8,0,0"
+                                  Background="{Binding BadgeBrush}"
+                                  IsVisible="{Binding ShowBadge}">
+                            <TextBlock Margin="6,2"
+                                       Classes="designer-helper"
+                                       Foreground="{Binding BadgeForegroundBrush}"
+                                       Text="{Binding BadgeText}" />
+                          </Border>
 
-                        <Grid Margin="{Binding ContentPadding}"
-                              IsVisible="{Binding ShowSemanticContent}">
+                          <Grid Margin="{Binding ContentPadding}"
+                                IsVisible="{Binding ShowSemanticContent}">
                           <TextBlock IsVisible="{Binding IsTextItem}"
                                      Foreground="{Binding ForegroundBrush}"
                                      FontSize="{Binding FontSizeValue}"
@@ -285,19 +292,20 @@
                                   Height="{Binding LineThicknessValue}"
                                   VerticalAlignment="Center" />
 
-                          <Grid IsVisible="{Binding IsShapeItem}">
-                            <Border Background="{Binding ShapeBackgroundBrush}"
-                                    BorderBrush="{Binding ShapeBorderBrush}"
-                                    BorderThickness="1"
-                                    IsVisible="{Binding ShowsRectangularShape}" />
-                            <Ellipse Fill="{Binding ShapeBackgroundBrush}"
-                                     Stroke="{Binding ShapeBorderBrush}"
-                                     StrokeThickness="1"
-                                     IsVisible="{Binding IsEllipseShape}" />
-                            <TextBlock HorizontalAlignment="Center"
-                                       VerticalAlignment="Center"
-                                       Classes="designer-helper"
-                                       Text="{Binding ContentText}" />
+                            <Grid IsVisible="{Binding IsShapeItem}">
+                              <Border Background="{Binding ShapeBackgroundBrush}"
+                                      BorderBrush="{Binding ShapeBorderBrush}"
+                                      BorderThickness="1"
+                                      IsVisible="{Binding ShowsRectangularShape}" />
+                              <Ellipse Fill="{Binding ShapeBackgroundBrush}"
+                                       Stroke="{Binding ShapeBorderBrush}"
+                                       StrokeThickness="1"
+                                       IsVisible="{Binding IsEllipseShape}" />
+                              <TextBlock HorizontalAlignment="Center"
+                                         VerticalAlignment="Center"
+                                         Classes="designer-helper"
+                                         Text="{Binding ContentText}" />
+                            </Grid>
                           </Grid>
                         </Grid>
 
@@ -393,6 +401,6 @@
           </Border>
         </Border>
       </Border>
-    </ScrollViewer>
+    </designer:ReportDesignerSurfaceScrollHost>
   </Grid>
 </UserControl>

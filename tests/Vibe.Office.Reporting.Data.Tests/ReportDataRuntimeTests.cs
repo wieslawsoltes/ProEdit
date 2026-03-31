@@ -279,6 +279,81 @@ public sealed class ReportDataRuntimeTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_EnterDataProvider_DoesNotApplyQueryParametersToEmbeddedRows()
+    {
+        var reportDefinition = new ReportDefinition
+        {
+            DataSources =
+            {
+                new ReportDataSourceDefinition
+                {
+                    Id = "enterdata-source",
+                    ProviderId = ReportProviderIds.EnterData
+                }
+            },
+            DataSets =
+            {
+                new ReportDataSetDefinition
+                {
+                    Id = "donors",
+                    DataSourceId = "enterdata-source",
+                    Query =
+                        """
+                        <Query>
+                          <XmlData>
+                            <Data>
+                              <Row>
+                                <Name>Jarred Pierce</Name>
+                                <Amount>2500</Amount>
+                              </Row>
+                              <Row>
+                                <Name>Roberto Hilario</Name>
+                                <Amount>3700</Amount>
+                              </Row>
+                            </Data>
+                          </XmlData>
+                        </Query>
+                        """,
+                    Parameters =
+                    {
+                        new ReportDataSetParameterDefinition
+                        {
+                            Name = "Name",
+                            ValueExpression = "Parameters.Donor"
+                        }
+                    },
+                    ExpectedFields =
+                    {
+                        new ReportFieldDefinition { Name = "Name", DataType = ReportParameterDataType.String },
+                        new ReportFieldDefinition { Name = "Amount", DataType = ReportParameterDataType.Integer }
+                    }
+                }
+            }
+        };
+
+        var executionRequest = new ReportDataSetExecutionRequest
+        {
+            ReportDefinition = reportDefinition,
+            DataSetId = "donors",
+            ProviderRegistry = ReportDataProviders.CreateDefaultRegistry(),
+            HostDataRegistry = new ReportHostDataRegistry(),
+            Culture = InvariantCulture,
+            UiCulture = InvariantCulture,
+            TimeZone = TimeZoneInfo.Utc
+        };
+        executionRequest.ParameterValues["Donor"] = ReportParameterValue.FromScalar("Roberto Hilario");
+
+        var executor = new ReportDataSetExecutor(new ReportExpressionCompiler());
+        var result = await executor.ExecuteAsync(executionRequest);
+
+        Assert.False(result.HasErrors);
+        var dataSet = Assert.IsType<ReportDataTable>(result.DataSet);
+        Assert.Equal(2, dataSet.Rows.Count);
+        Assert.Equal("Jarred Pierce", Assert.IsType<string>(dataSet.Rows[0].Values["Name"]));
+        Assert.Equal("Roberto Hilario", Assert.IsType<string>(dataSet.Rows[1].Values["Name"]));
+    }
+
+    [Fact]
     public async Task ExecuteAsync_SqlProvider_UsesResolvedDataSetParameters()
     {
         var connector = new StubSqlConnector();

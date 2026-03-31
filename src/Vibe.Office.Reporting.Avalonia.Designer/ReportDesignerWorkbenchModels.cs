@@ -110,7 +110,7 @@ public sealed class ReportDesignerInsertToolEntryViewModel : ReactiveObject
         Label = label ?? throw new ArgumentNullException(nameof(label));
         Description = description ?? string.Empty;
         _selectTool = selectTool ?? throw new ArgumentNullException(nameof(selectTool));
-        SelectCommand = ReactiveCommand.Create(() => _selectTool(Tool));
+        SelectCommand = DesignerCommandFactory.Create(() => _selectTool(Tool));
     }
 
     /// <summary>

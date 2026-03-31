@@ -298,6 +298,16 @@ public sealed class ReportViewerState
     /// Gets or sets the selected bookmark name.
     /// </summary>
     public string? SelectedBookmark { get; set; }
+
+    /// <summary>
+    /// Gets or sets the viewer drawer visibility state.
+    /// </summary>
+    public PaneVisibilityState LeftDrawerState { get; set; } = PaneVisibilityState.Closed;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the thumbnail filmstrip is expanded.
+    /// </summary>
+    public bool IsThumbnailTrayOpen { get; set; }
 }
 
 /// <summary>

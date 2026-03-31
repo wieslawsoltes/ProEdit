@@ -705,6 +705,9 @@ public static class DocumentClone
             RadarStyle = source.RadarStyle,
             DoughnutHoleSize = source.DoughnutHoleSize,
             Title = source.Title,
+            TitleTextStyle = CloneChartTextStyle(source.TitleTextStyle),
+            TitlePosition = source.TitlePosition,
+            PaletteName = source.PaletteName,
             ChartAreaStyle = CloneChartStyle(source.ChartAreaStyle),
             PlotAreaStyle = CloneChartStyle(source.PlotAreaStyle),
             Legend = CloneChartLegend(source.Legend),
@@ -721,6 +724,11 @@ public static class DocumentClone
             clone.Series.Add(CloneChartSeries(series));
         }
 
+        foreach (var root in source.HierarchyRoots)
+        {
+            clone.HierarchyRoots.Add(CloneChartHierarchyNode(root));
+        }
+
         return clone;
     }
 
@@ -730,7 +738,8 @@ public static class DocumentClone
         {
             Name = source.Name,
             Style = CloneChartStyle(source.Style),
-            DataLabels = CloneChartDataLabels(source.DataLabels)
+            DataLabels = CloneChartDataLabels(source.DataLabels),
+            UseSmoothedLine = source.UseSmoothedLine
         };
 
         foreach (var point in source.Points)
@@ -752,6 +761,25 @@ public static class DocumentClone
             Style = CloneChartStyle(source.Style),
             DataLabel = CloneChartDataLabels(source.DataLabel)
         };
+    }
+
+    private static ChartHierarchyNode CloneChartHierarchyNode(ChartHierarchyNode source)
+    {
+        var clone = new ChartHierarchyNode
+        {
+            Key = source.Key,
+            Label = source.Label,
+            Value = source.Value,
+            Style = CloneChartStyle(source.Style),
+            DataLabel = CloneChartDataLabels(source.DataLabel)
+        };
+
+        foreach (var child in source.Children)
+        {
+            clone.Children.Add(CloneChartHierarchyNode(child));
+        }
+
+        return clone;
     }
 
     private static ChartAxis CloneChartAxis(ChartAxis source)

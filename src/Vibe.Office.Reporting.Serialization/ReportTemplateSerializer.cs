@@ -634,6 +634,7 @@ public sealed class ReportTemplateSerializer : IReportTemplateSerializer
         ValidateArray(item["items"] as JsonArray, $"{path}.items", diagnostics, ValidateItem);
         ValidateArray(item["columns"] as JsonArray, $"{path}.columns", diagnostics, ValidateTablixColumn);
         ValidateArray(item["rows"] as JsonArray, $"{path}.rows", diagnostics, ValidateTablixRow);
+        ValidateArray(item["filters"] as JsonArray, $"{path}.filters", diagnostics, ValidateFilter);
         ValidateArray(item["parameters"] as JsonArray, $"{path}.parameters", diagnostics, ValidateParameterBinding);
     }
 
@@ -684,7 +685,7 @@ public sealed class ReportTemplateSerializer : IReportTemplateSerializer
                     "rawRdlXml"]);
                 break;
             case "TablixItem":
-                properties.AddRange(["dataSetId", "repeatHeaderRows", "columns", "rows"]);
+                properties.AddRange(["dataSetId", "repeatHeaderRows", "filters", "columns", "rows"]);
                 break;
             case "SubreportItem":
                 properties.AddRange(["reportReferenceId", "parameters"]);

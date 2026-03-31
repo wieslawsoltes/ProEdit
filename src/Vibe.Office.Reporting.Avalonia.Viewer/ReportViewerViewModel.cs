@@ -389,7 +389,9 @@ public sealed class ReportViewerDocumentMapEntryViewModel
         ArgumentNullException.ThrowIfNull(entry);
         ArgumentNullException.ThrowIfNull(navigate);
         Entry = entry;
-        NavigateCommand = ReactiveCommand.Create(() => navigate(entry));
+        NavigateCommand = ReactiveCommand.Create(
+            () => navigate(entry),
+            outputScheduler: RxApp.MainThreadScheduler);
     }
 
     /// <summary>
@@ -443,7 +445,9 @@ public sealed class ReportViewerSearchResultViewModel
         ArgumentNullException.ThrowIfNull(entry);
         ArgumentNullException.ThrowIfNull(navigate);
         Entry = entry;
-        NavigateCommand = ReactiveCommand.Create(() => navigate(entry));
+        NavigateCommand = ReactiveCommand.Create(
+            () => navigate(entry),
+            outputScheduler: RxApp.MainThreadScheduler);
     }
 
     /// <summary>
@@ -522,7 +526,9 @@ public sealed class ReportViewerDrillthroughItemViewModel
         ArgumentNullException.ThrowIfNull(entry);
         ArgumentNullException.ThrowIfNull(navigate);
         Entry = entry;
-        NavigateCommand = ReactiveCommand.CreateFromTask(() => navigate(entry));
+        NavigateCommand = ReactiveCommand.CreateFromTask(
+            () => navigate(entry),
+            outputScheduler: RxApp.MainThreadScheduler);
     }
 
     /// <summary>
@@ -556,7 +562,7 @@ public sealed class ReportViewerDrillthroughItemViewModel
 /// <summary>
 /// View model for the Avalonia report viewer surface.
 /// </summary>
-public sealed class ReportViewerViewModel : ReactiveObject, IDisposable
+public sealed partial class ReportViewerViewModel : ReactiveObject, IDisposable
 {
     private readonly ObservableCollection<ReportViewerDiagnosticViewModel> _diagnostics = new();
     private readonly ObservableCollection<ReportViewerDocumentMapEntryViewModel> _documentMapEntries = new();
@@ -619,14 +625,19 @@ public sealed class ReportViewerViewModel : ReactiveObject, IDisposable
         ZoomLevels = new[] { 0.5f, 0.75f, 1f, 1.25f, 1.5f, 2f };
         SelectedExportFormat = ReportExportFormat.Pdf;
 
-        RefreshCommand = ReactiveCommand.CreateFromTask(RefreshAsync);
-        ApplyParametersCommand = ReactiveCommand.CreateFromTask(ApplyParametersAsync);
-        ResetParametersCommand = ReactiveCommand.CreateFromTask(ResetParametersAsync);
-        PreviousPageCommand = ReactiveCommand.Create(() => NavigateToPage(SelectedPage is null ? 0 : SelectedPage.PageIndex - 1));
-        NextPageCommand = ReactiveCommand.Create(() => NavigateToPage(SelectedPage is null ? 0 : SelectedPage.PageIndex + 1));
-        ExportCommand = ReactiveCommand.CreateFromTask(ExportAsync);
-        PrintCommand = ReactiveCommand.CreateFromTask(PrintAsync);
-        GoBackCommand = ReactiveCommand.CreateFromTask(GoBackAsync);
+        RefreshCommand = ReactiveCommand.CreateFromTask(RefreshAsync, outputScheduler: RxApp.MainThreadScheduler);
+        ApplyParametersCommand = ReactiveCommand.CreateFromTask(ApplyParametersAsync, outputScheduler: RxApp.MainThreadScheduler);
+        ResetParametersCommand = ReactiveCommand.CreateFromTask(ResetParametersAsync, outputScheduler: RxApp.MainThreadScheduler);
+        PreviousPageCommand = ReactiveCommand.Create(
+            () => NavigateToPage(SelectedPage is null ? 0 : SelectedPage.PageIndex - 1),
+            outputScheduler: RxApp.MainThreadScheduler);
+        NextPageCommand = ReactiveCommand.Create(
+            () => NavigateToPage(SelectedPage is null ? 0 : SelectedPage.PageIndex + 1),
+            outputScheduler: RxApp.MainThreadScheduler);
+        ExportCommand = ReactiveCommand.CreateFromTask(ExportAsync, outputScheduler: RxApp.MainThreadScheduler);
+        PrintCommand = ReactiveCommand.CreateFromTask(PrintAsync, outputScheduler: RxApp.MainThreadScheduler);
+        GoBackCommand = ReactiveCommand.CreateFromTask(GoBackAsync, outputScheduler: RxApp.MainThreadScheduler);
+        InitializeLayoutCommands();
 
         UpdateCommandState();
     }
@@ -748,7 +759,17 @@ public sealed class ReportViewerViewModel : ReactiveObject, IDisposable
     public int SelectedPaneIndex
     {
         get => _selectedPaneIndex;
-        set => this.RaiseAndSetIfChanged(ref _selectedPaneIndex, Math.Clamp(value, 0, 4));
+        set
+        {
+            var clamped = Math.Clamp(value, 0, 4);
+            if (_selectedPaneIndex == clamped)
+            {
+                return;
+            }
+
+            this.RaiseAndSetIfChanged(ref _selectedPaneIndex, clamped);
+            RaiseLayoutStatePropertiesChanged();
+        }
     }
 
     /// <summary>
@@ -958,6 +979,7 @@ public sealed class ReportViewerViewModel : ReactiveObject, IDisposable
     public ValueTask LoadAsync(ReportViewerSource source, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(source);
+        ResetLayoutInitialization();
         return new ValueTask(LoadCoreAsync(
             source,
             new Dictionary<string, ReportParameterValue>(StringComparer.OrdinalIgnoreCase),
@@ -978,7 +1000,9 @@ public sealed class ReportViewerViewModel : ReactiveObject, IDisposable
             SelectedPageIndex = SelectedPage?.PageIndex ?? 0,
             ZoomFactor = ZoomFactor,
             SearchQuery = SearchQuery,
-            SelectedBookmark = SelectedDocumentMapEntry?.Entry.Bookmark
+            SelectedBookmark = SelectedDocumentMapEntry?.Entry.Bookmark,
+            LeftDrawerState = LeftDrawerState,
+            IsThumbnailTrayOpen = IsThumbnailTrayOpen
         };
     }
 
@@ -1017,7 +1041,8 @@ public sealed class ReportViewerViewModel : ReactiveObject, IDisposable
 
         try
         {
-            var restoredState = stateToRestore ?? _pendingState ?? CaptureState();
+            var requestedState = stateToRestore ?? _pendingState;
+            var restoredState = requestedState ?? CaptureState();
             var effectiveParameters = CloneParameters(suppliedParameters);
             var parameterResolution = await _sessionService.ResolveParametersAsync(source, effectiveParameters, cancellationToken);
             if (TrySeedDefaultAvailableValues(parameterResolution, effectiveParameters))
@@ -1034,6 +1059,12 @@ public sealed class ReportViewerViewModel : ReactiveObject, IDisposable
 
             Source = source;
             RebuildParameters(parameterResolution);
+            ApplyDefaultLayoutState(parameterResolution, requestedState);
+            if (requestedState is null)
+            {
+                restoredState = CaptureState();
+            }
+
             ApplySnapshot(snapshot);
             ApplyStateCore(restoredState);
             _pendingState = null;
@@ -1417,6 +1448,7 @@ public sealed class ReportViewerViewModel : ReactiveObject, IDisposable
         CopyReports(Source.ReferencedReports, nextSource.ReferencedReports);
         CopyValues(Source.Globals, nextSource.Globals);
 
+        ResetLayoutInitialization();
         if (await LoadCoreAsync(nextSource, entry.Action.Parameters, resetBackStack: false, null, CancellationToken.None))
         {
             _navigationStack.Push(frame);
@@ -1430,6 +1462,8 @@ public sealed class ReportViewerViewModel : ReactiveObject, IDisposable
         SelectedPaneIndex = (int)state.ActivePane;
         ZoomFactor = state.ZoomFactor <= 0f ? 1f : state.ZoomFactor;
         SearchQuery = state.SearchQuery ?? string.Empty;
+        LeftDrawerState = state.LeftDrawerState;
+        IsThumbnailTrayOpen = state.IsThumbnailTrayOpen;
 
         if (!string.IsNullOrWhiteSpace(state.SelectedBookmark))
         {

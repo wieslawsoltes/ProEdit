@@ -348,6 +348,16 @@ public enum ReportGaugeKind
 public sealed class ChartItem : ReportItem
 {
     /// <summary>
+    /// Gets or sets the chart type.
+    /// </summary>
+    public ChartType Type { get; set; } = ChartType.Bar;
+
+    /// <summary>
+    /// Gets or sets the bar direction when the chart is a bar chart.
+    /// </summary>
+    public ChartBarDirection BarDirection { get; set; } = ChartBarDirection.Column;
+
+    /// <summary>
     /// Gets or sets the backing dataset identifier.
     /// </summary>
     public string? DataSetId { get; set; }
@@ -358,9 +368,64 @@ public sealed class ChartItem : ReportItem
     public string? CategoryExpression { get; set; }
 
     /// <summary>
+    /// Gets or sets the optional category label expression.
+    /// </summary>
+    public string? CategoryLabelExpression { get; set; }
+
+    /// <summary>
+    /// Gets or sets the optional category sort expression.
+    /// </summary>
+    public string? CategorySortExpression { get; set; }
+
+    /// <summary>
+    /// Gets or sets the category sort direction.
+    /// </summary>
+    public ReportSortDirection CategorySortDirection { get; set; } = ReportSortDirection.Ascending;
+
+    /// <summary>
     /// Gets or sets the title expression.
     /// </summary>
     public string? TitleExpression { get; set; }
+
+    /// <summary>
+    /// Gets or sets the optional chart title text style.
+    /// </summary>
+    public ChartTextStyle? TitleTextStyle { get; set; }
+
+    /// <summary>
+    /// Gets or sets the chart title position.
+    /// </summary>
+    public ChartTitlePosition TitlePosition { get; set; } = ChartTitlePosition.Center;
+
+    /// <summary>
+    /// Gets or sets the imported RDL palette name.
+    /// </summary>
+    public string? PaletteName { get; set; }
+
+    /// <summary>
+    /// Gets or sets the optional chart area style.
+    /// </summary>
+    public ChartStyle? ChartAreaStyle { get; set; }
+
+    /// <summary>
+    /// Gets or sets the optional plot area style.
+    /// </summary>
+    public ChartStyle? PlotAreaStyle { get; set; }
+
+    /// <summary>
+    /// Gets or sets the optional chart legend definition.
+    /// </summary>
+    public ChartLegend? Legend { get; set; }
+
+    /// <summary>
+    /// Gets the cartesian/radar axis definitions.
+    /// </summary>
+    public List<ChartAxis> Axes { get; set; } = new();
+
+    /// <summary>
+    /// Gets the chart category hierarchy levels.
+    /// </summary>
+    public List<ReportChartCategoryLevelDefinition> CategoryLevels { get; set; } = new();
 
     /// <summary>
     /// Gets the series definitions.
@@ -420,6 +485,16 @@ public sealed class GaugeItem : ReportItem
 public sealed class ReportChartSeriesDefinition
 {
     /// <summary>
+    /// Gets or sets the chart type for the series.
+    /// </summary>
+    public ChartType? Type { get; set; }
+
+    /// <summary>
+    /// Gets or sets the bar direction when the series uses a bar chart.
+    /// </summary>
+    public ChartBarDirection? BarDirection { get; set; }
+
+    /// <summary>
     /// Gets or sets the series name expression.
     /// </summary>
     public string? NameExpression { get; set; }
@@ -433,6 +508,47 @@ public sealed class ReportChartSeriesDefinition
     /// Gets or sets the optional color expression.
     /// </summary>
     public string? ColorExpression { get; set; }
+
+    /// <summary>
+    /// Gets or sets the optional static chart style.
+    /// </summary>
+    public ChartStyle? Style { get; set; }
+
+    /// <summary>
+    /// Gets or sets the series-level data label settings.
+    /// </summary>
+    public ChartDataLabelSettings? DataLabels { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether line-style series should render with a smoothed spline.
+    /// </summary>
+    public bool UseSmoothedLine { get; set; }
+}
+
+/// <summary>
+/// Defines one chart category hierarchy level.
+/// </summary>
+public sealed class ReportChartCategoryLevelDefinition
+{
+    /// <summary>
+    /// Gets or sets the group expression for the level.
+    /// </summary>
+    public string? GroupExpression { get; set; }
+
+    /// <summary>
+    /// Gets or sets the label expression for the level.
+    /// </summary>
+    public string? LabelExpression { get; set; }
+
+    /// <summary>
+    /// Gets or sets the optional sort expression for the level.
+    /// </summary>
+    public string? SortExpression { get; set; }
+
+    /// <summary>
+    /// Gets or sets the sort direction for the level.
+    /// </summary>
+    public ReportSortDirection SortDirection { get; set; } = ReportSortDirection.Ascending;
 }
 
 /// <summary>
@@ -449,6 +565,11 @@ public sealed class TablixItem : ReportItem
     /// Gets or sets whether header rows repeat on each page.
     /// </summary>
     public bool RepeatHeaderRows { get; set; } = true;
+
+    /// <summary>
+    /// Gets the tablix-level filters applied after dataset execution and before grouping/materialization.
+    /// </summary>
+    public List<ReportFilterDefinition> Filters { get; set; } = new();
 
     /// <summary>
     /// Gets the column definitions.

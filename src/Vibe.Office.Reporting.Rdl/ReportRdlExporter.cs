@@ -1,5 +1,7 @@
 using System.Globalization;
 using System.Xml.Linq;
+using Vibe.Office.Documents;
+using Vibe.Office.Primitives;
 
 namespace Vibe.Office.Reporting.Rdl;
 
@@ -291,15 +293,20 @@ internal sealed class ReportRdlExporter
 
     private XElement? WriteFilters(ReportDataSetDefinition dataSet)
     {
-        if (dataSet.Filters.Count == 0)
+        return WriteFilters(dataSet.Filters);
+    }
+
+    private XElement? WriteFilters(IReadOnlyList<ReportFilterDefinition> filters)
+    {
+        if (filters.Count == 0)
         {
             return null;
         }
 
         var filtersElement = new XElement(_xmlNamespace + "Filters");
-        for (var index = 0; index < dataSet.Filters.Count; index++)
+        for (var index = 0; index < filters.Count; index++)
         {
-            var filter = dataSet.Filters[index];
+            var filter = filters[index];
             filtersElement.Add(
                 new XElement(
                     _xmlNamespace + "Filter",
@@ -729,18 +736,10 @@ internal sealed class ReportRdlExporter
             _xmlNamespace + "Chart",
             new XAttribute("Name", ResolveName(item.Name, item.Id, "Chart")));
 
-        var categoryMember = new XElement(_xmlNamespace + "ChartMember");
-        if (!string.IsNullOrWhiteSpace(item.CategoryExpression))
-        {
-            categoryMember.Add(
-                new XElement(
-                    _xmlNamespace + "Group",
-                    new XAttribute("Name", ResolveName(item.Id, "Chart", "CategoryGroup")),
-                    new XElement(
-                        _xmlNamespace + "GroupExpressions",
-                        new XElement(_xmlNamespace + "GroupExpression", ReportRdlExpressions.ToRdlExpression(item.CategoryExpression)))));
-            categoryMember.Add(new XElement(_xmlNamespace + "Label", ReportRdlExpressions.ToRdlScalarValue(item.CategoryExpression) ?? string.Empty));
-        }
+        var categoryLevels = item.CategoryLevels.Count > 0
+            ? item.CategoryLevels
+            : BuildFallbackChartCategoryLevels(item);
+        var categoryMember = WriteChartCategoryMember(categoryLevels, 0, item);
 
         element.Add(
             new XElement(
@@ -770,15 +769,11 @@ internal sealed class ReportRdlExporter
             var chartSeries = new XElement(
                 _xmlNamespace + "ChartSeries",
                 new XAttribute("Name", ResolveName(item.Id, $"Series{index + 1}")),
-                new XElement(_xmlNamespace + "Type", "Column"),
-                new XElement(_xmlNamespace + "Subtype", "Plain"),
+                new XElement(_xmlNamespace + "Type", ResolveChartSeriesType(item, series)),
+                new XElement(_xmlNamespace + "Subtype", ResolveChartSeriesSubtype(item, series)),
                 new XElement(
                     _xmlNamespace + "ChartDataPoints",
-                    new XElement(
-                        _xmlNamespace + "ChartDataPoint",
-                        new XElement(
-                            _xmlNamespace + "ChartDataPointValues",
-                            new XElement(_xmlNamespace + "Y", ReportRdlExpressions.ToRdlExpression(series.ValueExpression) ?? "=Nothing")))));
+                    WriteChartDataPoint(series)));
 
             if (!string.IsNullOrWhiteSpace(series.ColorExpression))
             {
@@ -794,6 +789,11 @@ internal sealed class ReportRdlExporter
         element.Add(new XElement(_xmlNamespace + "ChartSeriesHierarchy", chartMembers));
         element.Add(new XElement(_xmlNamespace + "ChartData", seriesCollection));
         element.Add(new XElement(_xmlNamespace + "ChartAreas", new XElement(_xmlNamespace + "ChartArea", new XAttribute("Name", "Default"))));
+        if (!string.IsNullOrWhiteSpace(item.PaletteName))
+        {
+            element.Add(new XElement(_xmlNamespace + "Palette", item.PaletteName));
+        }
+
         if (!string.IsNullOrWhiteSpace(item.DataSetId))
         {
             element.Add(new XElement(_xmlNamespace + "DataSetName", item.DataSetId));
@@ -801,17 +801,259 @@ internal sealed class ReportRdlExporter
 
         if (!string.IsNullOrWhiteSpace(item.TitleExpression))
         {
+            var chartTitle = new XElement(
+                _xmlNamespace + "ChartTitle",
+                new XElement(_xmlNamespace + "Caption", ReportRdlExpressions.ToRdlScalarValue(item.TitleExpression) ?? string.Empty));
+            if (item.TitleTextStyle is not null)
+            {
+                chartTitle.Add(WriteChartTextStyle(_xmlNamespace + "Style", item.TitleTextStyle));
+            }
+
+            if (item.TitlePosition != ChartTitlePosition.Center)
+            {
+                chartTitle.Add(new XElement(_xmlNamespace + "Position", ResolveChartTitlePosition(item.TitlePosition)));
+            }
+
             element.Add(
                 new XElement(
                     _xmlNamespace + "ChartTitles",
-                    new XElement(
-                        _xmlNamespace + "ChartTitle",
-                        new XElement(_xmlNamespace + "Caption", ReportRdlExpressions.ToRdlScalarValue(item.TitleExpression) ?? string.Empty))));
+                    chartTitle));
         }
 
         WriteCommonItemProperties(element, item);
         AppendStyle(element, item.StyleName, null);
         return element;
+    }
+
+    private List<ReportChartCategoryLevelDefinition> BuildFallbackChartCategoryLevels(ChartItem item)
+    {
+        var levels = new List<ReportChartCategoryLevelDefinition>();
+        if (!string.IsNullOrWhiteSpace(item.CategoryExpression) || !string.IsNullOrWhiteSpace(item.CategoryLabelExpression))
+        {
+            levels.Add(new ReportChartCategoryLevelDefinition
+            {
+                GroupExpression = item.CategoryExpression,
+                LabelExpression = item.CategoryLabelExpression,
+                SortExpression = item.CategorySortExpression,
+                SortDirection = item.CategorySortDirection
+            });
+        }
+
+        return levels;
+    }
+
+    private XElement WriteChartCategoryMember(IReadOnlyList<ReportChartCategoryLevelDefinition> levels, int index, ChartItem item)
+    {
+        var member = new XElement(_xmlNamespace + "ChartMember");
+        if (index >= levels.Count)
+        {
+            return member;
+        }
+
+        var level = levels[index];
+        if (!string.IsNullOrWhiteSpace(level.GroupExpression))
+        {
+            member.Add(
+                new XElement(
+                    _xmlNamespace + "Group",
+                    new XAttribute("Name", ResolveName(item.Id, $"Chart{index + 1}", "CategoryGroup")),
+                    new XElement(
+                        _xmlNamespace + "GroupExpressions",
+                        new XElement(_xmlNamespace + "GroupExpression", ReportRdlExpressions.ToRdlExpression(level.GroupExpression)))));
+        }
+
+        if (!string.IsNullOrWhiteSpace(level.SortExpression))
+        {
+            member.Add(
+                new XElement(
+                    _xmlNamespace + "SortExpressions",
+                    new XElement(
+                        _xmlNamespace + "SortExpression",
+                        new XElement(_xmlNamespace + "Value", ReportRdlExpressions.ToRdlExpression(level.SortExpression)),
+                        new XElement(_xmlNamespace + "Direction", level.SortDirection == ReportSortDirection.Descending ? "Descending" : "Ascending"))));
+        }
+
+        if (!string.IsNullOrWhiteSpace(level.LabelExpression))
+        {
+            member.Add(new XElement(_xmlNamespace + "Label", ReportRdlExpressions.ToRdlScalarValue(level.LabelExpression) ?? string.Empty));
+        }
+        else if (!string.IsNullOrWhiteSpace(level.GroupExpression))
+        {
+            member.Add(new XElement(_xmlNamespace + "Label", ReportRdlExpressions.ToRdlScalarValue(level.GroupExpression) ?? string.Empty));
+        }
+
+        if (index + 1 < levels.Count)
+        {
+            member.Add(
+                new XElement(
+                    _xmlNamespace + "ChartMembers",
+                    WriteChartCategoryMember(levels, index + 1, item)));
+        }
+
+        return member;
+    }
+
+    private XElement WriteChartTextStyle(XName elementName, ChartTextStyle style)
+    {
+        var element = new XElement(elementName);
+        if (!string.IsNullOrWhiteSpace(style.FontFamily))
+        {
+            element.Add(new XElement(_xmlNamespace + "FontFamily", style.FontFamily));
+        }
+
+        if (style.FontSize.HasValue)
+        {
+            element.Add(new XElement(_xmlNamespace + "FontSize", FormattableString.Invariant($"{style.FontSize.Value:0.##}pt")));
+        }
+
+        if (style.Bold == true)
+        {
+            element.Add(new XElement(_xmlNamespace + "FontWeight", "Bold"));
+        }
+
+        if (style.Italic == true)
+        {
+            element.Add(new XElement(_xmlNamespace + "FontStyle", "Italic"));
+        }
+
+        if (style.Color.HasValue)
+        {
+            element.Add(new XElement(_xmlNamespace + "Color", FormatChartColor(style.Color.Value)));
+        }
+
+        return element;
+    }
+
+    private XElement WriteChartDataPoint(ReportChartSeriesDefinition series)
+    {
+        var point = new XElement(
+            _xmlNamespace + "ChartDataPoint",
+            new XElement(
+                _xmlNamespace + "ChartDataPointValues",
+                new XElement(_xmlNamespace + "Y", ReportRdlExpressions.ToRdlExpression(series.ValueExpression) ?? "=Nothing")));
+
+        var dataLabel = WriteChartDataLabel(series.DataLabels);
+        if (dataLabel is not null)
+        {
+            point.Add(dataLabel);
+        }
+
+        return point;
+    }
+
+    private XElement? WriteChartDataLabel(ChartDataLabelSettings? settings)
+    {
+        if (settings is null)
+        {
+            return null;
+        }
+
+        var element = new XElement(_xmlNamespace + "ChartDataLabel");
+        if (settings.TextStyle is not null || !string.IsNullOrWhiteSpace(settings.NumberFormat))
+        {
+            var style = settings.TextStyle is not null
+                ? WriteChartTextStyle(_xmlNamespace + "Style", settings.TextStyle)
+                : new XElement(_xmlNamespace + "Style");
+            if (!string.IsNullOrWhiteSpace(settings.NumberFormat))
+            {
+                style.Add(new XElement(_xmlNamespace + "Format", settings.NumberFormat));
+            }
+
+            if (style.HasElements)
+            {
+                element.Add(style);
+            }
+        }
+
+        if (settings.ShowValue.HasValue)
+        {
+            element.Add(new XElement(_xmlNamespace + "UseValueAsLabel", settings.ShowValue.Value));
+        }
+
+        if (settings.IsHidden.HasValue)
+        {
+            element.Add(new XElement(_xmlNamespace + "Visible", !settings.IsHidden.Value));
+        }
+
+        if (settings.ShowCategoryName.HasValue)
+        {
+            element.Add(new XElement(_xmlNamespace + "ShowCategoryName", settings.ShowCategoryName.Value));
+        }
+
+        if (settings.ShowSeriesName.HasValue)
+        {
+            element.Add(new XElement(_xmlNamespace + "ShowSeriesName", settings.ShowSeriesName.Value));
+        }
+
+        if (settings.ShowPercent.HasValue)
+        {
+            element.Add(new XElement(_xmlNamespace + "ShowPercent", settings.ShowPercent.Value));
+        }
+
+        if (settings.ShowBubbleSize.HasValue)
+        {
+            element.Add(new XElement(_xmlNamespace + "ShowBubbleSize", settings.ShowBubbleSize.Value));
+        }
+
+        if (settings.ShowLegendKey.HasValue)
+        {
+            element.Add(new XElement(_xmlNamespace + "ShowLegendKey", settings.ShowLegendKey.Value));
+        }
+
+        if (settings.ShowLeaderLines.HasValue)
+        {
+            element.Add(new XElement(_xmlNamespace + "ShowLeaderLines", settings.ShowLeaderLines.Value));
+        }
+
+        return element.HasElements ? element : null;
+    }
+
+    private static string ResolveChartTitlePosition(ChartTitlePosition position)
+    {
+        return position switch
+        {
+            ChartTitlePosition.TopLeft => "TopLeft",
+            ChartTitlePosition.TopRight => "TopRight",
+            _ => "TopCenter"
+        };
+    }
+
+    private static string FormatChartColor(DocColor color)
+    {
+        return color.A == byte.MaxValue
+            ? FormattableString.Invariant($"#{color.R:X2}{color.G:X2}{color.B:X2}")
+            : FormattableString.Invariant($"#{color.A:X2}{color.R:X2}{color.G:X2}{color.B:X2}");
+    }
+
+    private static string ResolveChartSeriesType(ChartItem item, ReportChartSeriesDefinition series)
+    {
+        var chartType = series.Type ?? item.Type;
+        var barDirection = series.BarDirection ?? item.BarDirection;
+        return chartType switch
+        {
+            ChartType.Line => "Line",
+            ChartType.Pie => "Pie",
+            ChartType.Doughnut => "Doughnut",
+            ChartType.Scatter => "Scatter",
+            ChartType.Area => "Area",
+            ChartType.Radar => "Radar",
+            ChartType.Bubble => "Bubble",
+            ChartType.Treemap => "Shape",
+            ChartType.Sunburst => "Shape",
+            ChartType.Bar when barDirection == ChartBarDirection.Bar => "Bar",
+            _ => "Column"
+        };
+    }
+
+    private static string ResolveChartSeriesSubtype(ChartItem item, ReportChartSeriesDefinition series)
+    {
+        var chartType = series.Type ?? item.Type;
+        return chartType switch
+        {
+            ChartType.Treemap => "TreeMap",
+            ChartType.Sunburst => "Sunburst",
+            _ => series.UseSmoothedLine ? "Smooth" : "Plain"
+        };
     }
 
     private XElement WriteGauge(GaugeItem item, string path)
@@ -960,6 +1202,12 @@ internal sealed class ReportRdlExporter
         if (!string.IsNullOrWhiteSpace(item.DataSetId))
         {
             element.Add(new XElement(_xmlNamespace + "DataSetName", item.DataSetId));
+        }
+
+        var filters = WriteFilters(item.Filters);
+        if (filters is not null)
+        {
+            element.Add(filters);
         }
 
         WriteCommonItemProperties(element, item);

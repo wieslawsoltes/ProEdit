@@ -32,7 +32,7 @@ public sealed class ReportDesignerExplorerNodeViewModel : ReactiveObject
         Category = category;
         Target = target;
         Children = new ObservableCollection<ReportDesignerExplorerNodeViewModel>();
-        SelectCommand = ReactiveCommand.Create(() => selectAction(this));
+        SelectCommand = DesignerCommandFactory.Create(() => selectAction(this));
     }
 
     /// <summary>
@@ -212,6 +212,8 @@ public sealed class ReportDesignerSurfaceBarViewModel
 /// </summary>
 public sealed class ReportDesignerCanvasItemViewModel : ReactiveObject
 {
+    private const double MinimumSurfaceHitTargetExtent = 18d;
+
     private readonly ObservableCollection<ReportDesignerSurfaceBarViewModel> _previewBars = new();
     private readonly ObservableCollection<ReportDesignerSurfaceRowViewModel> _previewRows = new();
     private string _badgeBrush = "#FFE8F1FB";
@@ -242,6 +244,8 @@ public sealed class ReportDesignerCanvasItemViewModel : ReactiveObject
     private double _top;
     private double _width = 48d;
     private double _height = 36d;
+    private double _interactionPaddingX;
+    private double _interactionPaddingY;
     private int _zIndex;
 
     internal ReportDesignerCanvasItemViewModel(
@@ -252,7 +256,7 @@ public sealed class ReportDesignerCanvasItemViewModel : ReactiveObject
         ArgumentNullException.ThrowIfNull(selectAction);
         PreviewRows = new ReadOnlyObservableCollection<ReportDesignerSurfaceRowViewModel>(_previewRows);
         PreviewBars = new ReadOnlyObservableCollection<ReportDesignerSurfaceBarViewModel>(_previewBars);
-        SelectCommand = ReactiveCommand.Create(() =>
+        SelectCommand = DesignerCommandFactory.Create(() =>
         {
             if (!IsReadOnly)
             {
@@ -290,7 +294,17 @@ public sealed class ReportDesignerCanvasItemViewModel : ReactiveObject
     public double Left
     {
         get => _left;
-        internal set => this.RaiseAndSetIfChanged(ref _left, Math.Max(0d, value));
+        internal set
+        {
+            var normalized = Math.Max(0d, value);
+            if (Math.Abs(_left - normalized) < 0.01d)
+            {
+                return;
+            }
+
+            this.RaiseAndSetIfChanged(ref _left, normalized);
+            this.RaisePropertyChanged(nameof(SurfaceHostLeft));
+        }
     }
 
     /// <summary>
@@ -299,7 +313,17 @@ public sealed class ReportDesignerCanvasItemViewModel : ReactiveObject
     public double Top
     {
         get => _top;
-        internal set => this.RaiseAndSetIfChanged(ref _top, Math.Max(0d, value));
+        internal set
+        {
+            var normalized = Math.Max(0d, value);
+            if (Math.Abs(_top - normalized) < 0.01d)
+            {
+                return;
+            }
+
+            this.RaiseAndSetIfChanged(ref _top, normalized);
+            this.RaisePropertyChanged(nameof(SurfaceHostTop));
+        }
     }
 
     /// <summary>
@@ -308,7 +332,17 @@ public sealed class ReportDesignerCanvasItemViewModel : ReactiveObject
     public double Width
     {
         get => _width;
-        internal set => this.RaiseAndSetIfChanged(ref _width, Math.Max(48d, value));
+        internal set
+        {
+            var normalized = Math.Max(1d, value);
+            if (Math.Abs(_width - normalized) < 0.01d)
+            {
+                return;
+            }
+
+            this.RaiseAndSetIfChanged(ref _width, normalized);
+            RefreshInteractionHostGeometry();
+        }
     }
 
     /// <summary>
@@ -317,8 +351,54 @@ public sealed class ReportDesignerCanvasItemViewModel : ReactiveObject
     public double Height
     {
         get => _height;
-        internal set => this.RaiseAndSetIfChanged(ref _height, Math.Max(36d, value));
+        internal set
+        {
+            var normalized = Math.Max(1d, value);
+            if (Math.Abs(_height - normalized) < 0.01d)
+            {
+                return;
+            }
+
+            this.RaiseAndSetIfChanged(ref _height, normalized);
+            RefreshInteractionHostGeometry();
+        }
     }
+
+    /// <summary>
+    /// Gets the horizontal padding added around small items so they remain easy to select.
+    /// </summary>
+    public double InteractionPaddingX => _interactionPaddingX;
+
+    /// <summary>
+    /// Gets the vertical padding added around small items so they remain easy to select.
+    /// </summary>
+    public double InteractionPaddingY => _interactionPaddingY;
+
+    /// <summary>
+    /// Gets the left coordinate of the interactive host that wraps the item.
+    /// </summary>
+    public double SurfaceHostLeft => Left - InteractionPaddingX;
+
+    /// <summary>
+    /// Gets the top coordinate of the interactive host that wraps the item.
+    /// </summary>
+    public double SurfaceHostTop => Top - InteractionPaddingY;
+
+    /// <summary>
+    /// Gets the width of the interactive host that wraps the item.
+    /// </summary>
+    public double SurfaceHostWidth => Width + (InteractionPaddingX * 2d);
+
+    /// <summary>
+    /// Gets the height of the interactive host that wraps the item.
+    /// </summary>
+    public double SurfaceHostHeight => Height + (InteractionPaddingY * 2d);
+
+    /// <summary>
+    /// Gets the margin that restores the actual report-item bounds inside the interactive host.
+    /// </summary>
+    public string SurfaceChromeMargin =>
+        $"{FormatNumber((float)InteractionPaddingX)},{FormatNumber((float)InteractionPaddingY)},{FormatNumber((float)InteractionPaddingX)},{FormatNumber((float)InteractionPaddingY)}";
 
     /// <summary>
     /// Gets the canvas z-order.
@@ -1038,6 +1118,19 @@ public sealed class ReportDesignerCanvasItemViewModel : ReactiveObject
         var channel = Math.Clamp((int)Math.Round(alpha * 255d, MidpointRounding.AwayFromZero), 0, 255);
         return $"#{channel:X2}{normalized}";
     }
+
+    private void RefreshInteractionHostGeometry()
+    {
+        _interactionPaddingX = Math.Max(0d, Math.Ceiling((MinimumSurfaceHitTargetExtent - _width) / 2d));
+        _interactionPaddingY = Math.Max(0d, Math.Ceiling((MinimumSurfaceHitTargetExtent - _height) / 2d));
+        this.RaisePropertyChanged(nameof(InteractionPaddingX));
+        this.RaisePropertyChanged(nameof(InteractionPaddingY));
+        this.RaisePropertyChanged(nameof(SurfaceHostLeft));
+        this.RaisePropertyChanged(nameof(SurfaceHostTop));
+        this.RaisePropertyChanged(nameof(SurfaceHostWidth));
+        this.RaisePropertyChanged(nameof(SurfaceHostHeight));
+        this.RaisePropertyChanged(nameof(SurfaceChromeMargin));
+    }
 }
 
 /// <summary>
@@ -1059,7 +1152,7 @@ public sealed class ReportDesignerSelectionEntryViewModel : ReactiveObject
         _title = title ?? string.Empty;
         _subtitle = subtitle ?? string.Empty;
         ArgumentNullException.ThrowIfNull(selectAction);
-        SelectCommand = ReactiveCommand.Create(() => selectAction(this));
+        SelectCommand = DesignerCommandFactory.Create(() => selectAction(this));
     }
 
     /// <summary>
@@ -1447,7 +1540,7 @@ public sealed class ReportDesignerTemplateGalleryItemViewModel : ReactiveObject
         Category = category ?? throw new ArgumentNullException(nameof(category));
         Description = description ?? throw new ArgumentNullException(nameof(description));
         ArgumentNullException.ThrowIfNull(applyAction);
-        ApplyCommand = ReactiveCommand.Create(() => applyAction(this));
+        ApplyCommand = DesignerCommandFactory.Create(() => applyAction(this));
     }
 
     /// <summary>
@@ -1553,23 +1646,24 @@ public sealed partial class ReportDesignerViewModel : ReactiveObject, IDisposabl
         ExpressionEntries = new ReadOnlyObservableCollection<ReportDesignerExpressionEntryViewModel>(_expressionEntries);
         TemplateGalleryItems = new ReadOnlyObservableCollection<ReportDesignerTemplateGalleryItemViewModel>(_galleryItems);
 
-        RefreshPreviewCommand = ReactiveCommand.CreateFromTask(RefreshPreviewAsync);
-        AddSectionCommand = ReactiveCommand.Create(AddSection);
-        AddTextItemCommand = ReactiveCommand.Create(AddTextItem);
-        AddChartItemCommand = ReactiveCommand.Create(AddChartItem);
-        AddTablixItemCommand = ReactiveCommand.Create(AddTablixItem);
-        AddTemplateItemCommand = ReactiveCommand.Create(AddTemplateItem);
-        AddParameterCommand = ReactiveCommand.Create(AddParameter);
-        AddDataSourceCommand = ReactiveCommand.Create(AddDataSource);
-        AddDataSetCommand = ReactiveCommand.Create(AddDataSet);
-        AddSharedTemplateCommand = ReactiveCommand.Create(AddSharedTemplate);
-        RemoveSelectedCommand = ReactiveCommand.Create(RemoveSelected);
-        ApplySelectedExpressionCommand = ReactiveCommand.Create(ApplySelectedExpression);
-        ApplySelectedTemplateCommand = ReactiveCommand.Create(ApplySelectedTemplate);
+        RefreshPreviewCommand = DesignerCommandFactory.CreateFromTask(RefreshPreviewAsync);
+        AddSectionCommand = DesignerCommandFactory.Create(AddSection);
+        AddTextItemCommand = DesignerCommandFactory.Create(AddTextItem);
+        AddChartItemCommand = DesignerCommandFactory.Create(AddChartItem);
+        AddTablixItemCommand = DesignerCommandFactory.Create(AddTablixItem);
+        AddTemplateItemCommand = DesignerCommandFactory.Create(AddTemplateItem);
+        AddParameterCommand = DesignerCommandFactory.Create(AddParameter);
+        AddDataSourceCommand = DesignerCommandFactory.Create(AddDataSource);
+        AddDataSetCommand = DesignerCommandFactory.Create(AddDataSet);
+        AddSharedTemplateCommand = DesignerCommandFactory.Create(AddSharedTemplate);
+        RemoveSelectedCommand = DesignerCommandFactory.Create(RemoveSelected);
+        ApplySelectedExpressionCommand = DesignerCommandFactory.Create(ApplySelectedExpression);
+        ApplySelectedTemplateCommand = DesignerCommandFactory.Create(ApplySelectedTemplate);
         InitializeDataWorkspace();
         InitializeTemplateWorkspace();
         InitializeWorkbench();
         InitializeContextPanes();
+        InitializeLayoutWorkspace();
 
         EnsureMinimumStructure();
         BuildTemplateGallery();
@@ -2091,6 +2185,7 @@ public sealed partial class ReportDesignerViewModel : ReactiveObject, IDisposabl
             UpdateSurfacePreviewMode();
             this.RaisePropertyChanged(nameof(SurfacePreviewPage));
             this.RaisePropertyChanged(nameof(HasCurrentSurfacePreview));
+            this.RaisePropertyChanged(nameof(HasVisibleSurfacePreview));
 
             StatusMessage = previewUpdated
                 ? PreviewViewModel.StatusMessage
@@ -2660,6 +2755,8 @@ public sealed partial class ReportDesignerViewModel : ReactiveObject, IDisposabl
         this.RaisePropertyChanged(nameof(SurfaceHeight));
         this.RaisePropertyChanged(nameof(SurfaceScaledWidth));
         this.RaisePropertyChanged(nameof(SurfaceScaledHeight));
+        this.RaisePropertyChanged(nameof(SurfaceStageWidth));
+        this.RaisePropertyChanged(nameof(SurfaceStageHeight));
         this.RaisePropertyChanged(nameof(SurfaceDisplayText));
         this.RaisePropertyChanged(nameof(SurfaceZoomDisplayText));
         this.RaisePropertyChanged(nameof(SurfaceMarginLeft));
@@ -2669,6 +2766,7 @@ public sealed partial class ReportDesignerViewModel : ReactiveObject, IDisposabl
         this.RaisePropertyChanged(nameof(SurfacePrintAreaMargin));
         this.RaisePropertyChanged(nameof(SurfacePreviewPage));
         this.RaisePropertyChanged(nameof(HasCurrentSurfacePreview));
+        this.RaisePropertyChanged(nameof(HasVisibleSurfacePreview));
         this.RaisePropertyChanged(nameof(SurfaceSelectionSummaryText));
     }
 
@@ -3285,13 +3383,27 @@ public sealed partial class ReportDesignerViewModel : ReactiveObject, IDisposabl
         AddTextProperty("item.width", "Width", "Item width in DIPs.", FormatFloat(item.Bounds.Width), false, value =>
             TryApplyFloat(value, parsed =>
             {
-                item.Bounds = item.Bounds with { Width = parsed };
+                var currentBounds = item.Bounds;
+                var width = Math.Max(DesignerMinItemWidth, parsed);
+                if (item is TablixItem tablixItem)
+                {
+                    ResizeTablixStructure(tablixItem, currentBounds.Width, currentBounds.Height, width, currentBounds.Height);
+                }
+
+                item.Bounds = currentBounds with { Width = width };
                 OnModelChanged("Updated item width.");
             }));
         AddTextProperty("item.height", "Height", "Item height in DIPs.", FormatFloat(item.Bounds.Height), false, value =>
             TryApplyFloat(value, parsed =>
             {
-                item.Bounds = item.Bounds with { Height = parsed };
+                var currentBounds = item.Bounds;
+                var height = Math.Max(DesignerMinItemHeight, parsed);
+                if (item is TablixItem tablixItem)
+                {
+                    ResizeTablixStructure(tablixItem, currentBounds.Width, currentBounds.Height, currentBounds.Width, height);
+                }
+
+                item.Bounds = currentBounds with { Height = height };
                 OnModelChanged("Updated item height.");
             }));
         AddTextProperty("item.zIndex", "Z-Order", "Layer order within the current container.", item.ZIndex.ToString(CultureInfo.InvariantCulture), false, value =>
@@ -3882,6 +3994,8 @@ public sealed partial class ReportDesignerViewModel : ReactiveObject, IDisposabl
         this.RaisePropertyChanged(nameof(SurfaceHeight));
         this.RaisePropertyChanged(nameof(SurfaceScaledWidth));
         this.RaisePropertyChanged(nameof(SurfaceScaledHeight));
+        this.RaisePropertyChanged(nameof(SurfaceStageWidth));
+        this.RaisePropertyChanged(nameof(SurfaceStageHeight));
         this.RaisePropertyChanged(nameof(SurfaceDisplayText));
         this.RaisePropertyChanged(nameof(SurfaceZoomDisplayText));
         this.RaisePropertyChanged(nameof(SurfaceMarginLeft));
@@ -3891,6 +4005,7 @@ public sealed partial class ReportDesignerViewModel : ReactiveObject, IDisposabl
         this.RaisePropertyChanged(nameof(SurfacePrintAreaMargin));
         this.RaisePropertyChanged(nameof(SurfacePreviewPage));
         this.RaisePropertyChanged(nameof(HasCurrentSurfacePreview));
+        this.RaisePropertyChanged(nameof(HasVisibleSurfacePreview));
         this.RaisePropertyChanged(nameof(SurfaceSelectionSummaryText));
         this.RaisePropertyChanged(nameof(SelectedObjectTitle));
         this.RaisePropertyChanged(nameof(SelectedObjectType));
@@ -3948,6 +4063,7 @@ public sealed partial class ReportDesignerViewModel : ReactiveObject, IDisposabl
         IsPreviewDirty = true;
         UpdateSurfacePreviewMode();
         this.RaisePropertyChanged(nameof(HasCurrentSurfacePreview));
+        this.RaisePropertyChanged(nameof(HasVisibleSurfacePreview));
         StatusMessage = message + " Preview is out of date.";
     }
 
