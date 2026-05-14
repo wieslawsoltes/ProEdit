@@ -1,6 +1,6 @@
-# VibeOffice
+# ProEdit
 
-VibeOffice is a modular .NET office suite and document engine built around Avalonia, ReactiveUI, and Skia. The repo provides document models, layout and rendering pipelines, editing services, printing and PDF backends, collaboration components, and Avalonia UI shells that can be composed into end-user tools.
+ProEdit is a modular .NET office suite and document engine built around Avalonia, ReactiveUI, and Skia. The repo provides document models, layout and rendering pipelines, editing services, printing and PDF backends, collaboration components, and Avalonia UI shells that can be composed into end-user tools.
 
 ## Key Areas
 - Documents and primitives
@@ -16,13 +16,13 @@ Prerequisites: .NET 10 SDK.
 Build the solution:
 
 ```bash
-dotnet build VibeOffice.slnx
+dotnet build ProEdit.slnx
 ```
 
 Run the desktop app:
 
 ```bash
-dotnet run --project src/Vibe.Word.App/Vibe.Word.App.csproj
+dotnet run --project src/ProEdit.Word.App/ProEdit.Word.App.csproj
 ```
 
 ## Documentation

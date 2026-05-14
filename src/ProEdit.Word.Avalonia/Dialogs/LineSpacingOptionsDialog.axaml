@@ -1,0 +1,74 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:ProEdit.Word.Avalonia"
+        x:Class="ProEdit.Word.Avalonia.LineSpacingOptionsDialog"
+        Width="360"
+        Height="240"
+        WindowStartupLocation="CenterOwner"
+        Title="Line Spacing">
+  <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto"
+        ColumnDefinitions="Auto,*"
+        RowSpacing="8"
+        ColumnSpacing="8"
+        Margin="12">
+    <TextBlock Text="Line spacing:"
+               VerticalAlignment="Center" />
+    <ComboBox x:Name="LineSpacingCombo"
+              Grid.Column="1"
+              Width="180"
+              SelectionChanged="OnLineSpacingSelectionChanged">
+      <ComboBoxItem Content="Single"
+                    Tag="{x:Static local:LineSpacingOptionKind.Single}" />
+      <ComboBoxItem Content="1.15"
+                    Tag="{x:Static local:LineSpacingOptionKind.One15}" />
+      <ComboBoxItem Content="1.5"
+                    Tag="{x:Static local:LineSpacingOptionKind.One5}" />
+      <ComboBoxItem Content="Double"
+                    Tag="{x:Static local:LineSpacingOptionKind.Double}" />
+      <ComboBoxItem Content="At least"
+                    Tag="{x:Static local:LineSpacingOptionKind.AtLeast}" />
+      <ComboBoxItem Content="Exactly"
+                    Tag="{x:Static local:LineSpacingOptionKind.Exactly}" />
+      <ComboBoxItem Content="Multiple"
+                    Tag="{x:Static local:LineSpacingOptionKind.Multiple}" />
+    </ComboBox>
+
+    <TextBlock Grid.Row="1"
+               Text="At:"
+               VerticalAlignment="Center" />
+    <TextBox x:Name="AtTextBox"
+             Grid.Row="1"
+             Grid.Column="1"
+             Width="100" />
+
+    <TextBlock Grid.Row="2"
+               Text="Before:"
+               VerticalAlignment="Center" />
+    <TextBox x:Name="BeforeTextBox"
+             Grid.Row="2"
+             Grid.Column="1"
+             Width="100" />
+
+    <TextBlock Grid.Row="3"
+               Text="After:"
+               VerticalAlignment="Center" />
+    <TextBox x:Name="AfterTextBox"
+             Grid.Row="3"
+             Grid.Column="1"
+             Width="100" />
+
+    <StackPanel Grid.Row="4"
+                Grid.ColumnSpan="2"
+                Orientation="Horizontal"
+                HorizontalAlignment="Right"
+                Margin="0,8,0,0"
+                Spacing="8">
+      <Button Content="OK"
+              Width="80"
+              Click="OnOkClick" />
+      <Button Content="Cancel"
+              Width="80"
+              Click="OnCancelClick" />
+    </StackPanel>
+  </Grid>
+</Window>

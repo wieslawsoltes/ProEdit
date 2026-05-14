@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <PropertyGroup>
+    <PackageDescription>PDF document integration with the ProEdit document model.</PackageDescription>
+    <PackageTags>proedit;pdf;documents</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\\ProEdit.Pdf\\ProEdit.Pdf.csproj" />
+    <ProjectReference Include="..\\ProEdit.Documents\\ProEdit.Documents.csproj" />
+    <ProjectReference Include="..\\ProEdit.Primitives\\ProEdit.Primitives.csproj" />
+  </ItemGroup>
+</Project>

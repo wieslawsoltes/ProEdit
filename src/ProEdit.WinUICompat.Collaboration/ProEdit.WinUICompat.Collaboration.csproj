@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk" TreatAsLocalProperty="_IsUnoUISolution">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <_IsUnoUISolution></_IsUnoUISolution>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageDescription>Collaboration behavior for ProEdit WinUI rich text compatibility controls.</PackageDescription>
+    <PackageTags>proedit;collaboration;uno;richeditbox</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ProEdit.Collaboration\ProEdit.Collaboration.csproj" />
+    <ProjectReference Include="..\ProEdit.Collaboration.Protocol\ProEdit.Collaboration.Protocol.csproj" />
+    <ProjectReference Include="..\ProEdit.Collaboration.UI\ProEdit.Collaboration.UI.csproj" />
+    <ProjectReference Include="..\ProEdit.WinUICompat\ProEdit.WinUICompat.csproj" />
+    <ProjectReference Include="..\ProEdit.WinUICompat.Uno\ProEdit.WinUICompat.Uno.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,26 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <PropertyGroup>
+    <PackageDescription>Skia rendering backend for ProEdit.</PackageDescription>
+    <PackageTags>proedit;rendering;skia</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\\ProEdit.Primitives\\ProEdit.Primitives.csproj" />
+    <ProjectReference Include="..\\ProEdit.Documents\\ProEdit.Documents.csproj" />
+    <ProjectReference Include="..\\ProEdit.Layout\\ProEdit.Layout.csproj" />
+    <ProjectReference Include="..\\ProEdit.Rendering\\ProEdit.Rendering.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="SkiaSharp" />
+    <PackageReference Include="SkiaSharp.HarfBuzz" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" />
+    <PackageReference Include="Svg.Skia" />
+  </ItemGroup>
+</Project>

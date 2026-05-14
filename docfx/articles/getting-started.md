@@ -6,19 +6,19 @@
 ## Build
 
 ```bash
-dotnet build VibeOffice.slnx
+dotnet build ProEdit.slnx
 ```
 
 ## Run the Desktop App
 
 ```bash
-dotnet run --project src/Vibe.Word.App/Vibe.Word.App.csproj
+dotnet run --project src/ProEdit.Word.App/ProEdit.Word.App.csproj
 ```
 
 ## Run Tests
 
 ```bash
-dotnet test VibeOffice.slnx
+dotnet test ProEdit.slnx
 ```
 
 ## Build Docs

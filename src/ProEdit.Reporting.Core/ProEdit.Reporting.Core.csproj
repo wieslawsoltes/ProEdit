@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageDescription>Core report-definition model and execution contracts for ProEdit reporting.</PackageDescription>
+    <PackageTags>proedit;reporting;reports;model</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\\ProEdit.Documents\\ProEdit.Documents.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,138 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:designer="using:ProEdit.Reporting.Avalonia.Designer"
+             x:Class="ProEdit.Reporting.Avalonia.Designer.ReportDesignerGroupingPane"
+             x:DataType="designer:ReportDesignerViewModel">
+  <Border Classes="designer-grouping-pane">
+    <Grid RowDefinitions="Auto,*"
+          RowSpacing="8">
+      <Grid ColumnDefinitions="*,Auto"
+            ColumnSpacing="10">
+        <StackPanel Spacing="2">
+          <TextBlock Classes="designer-panel-title"
+                     Text="Grouping" />
+          <TextBlock Classes="designer-helper"
+                     Text="Row and column groups for the current tablix selection. Drag fields here from Report Data or use Parent, Child, Adjacent, and Total commands to shape the tablix hierarchy." />
+        </StackPanel>
+        <StackPanel Grid.Column="1"
+                    Orientation="Horizontal"
+                    Spacing="8">
+          <CheckBox VerticalAlignment="Center"
+                    Content="Advanced Mode"
+                    IsChecked="{Binding ShowAdvancedGroupingMode, Mode=TwoWay}" />
+          <Button Theme="{StaticResource DesignerActionButtonTheme}"
+                  Content="Remove Group"
+                  Command="{Binding RemoveSelectedGroupCommand}"
+                  IsEnabled="{Binding CanRemoveSelectedGroup}" />
+          <Border Classes="designer-status-pill">
+            <TextBlock Classes="designer-helper"
+                       Text="{Binding GroupingStatusText}" />
+          </Border>
+        </StackPanel>
+      </Grid>
+
+      <Grid Grid.Row="1"
+            ColumnDefinitions="*,10,*">
+        <designer:ReportDesignerGroupingDropZoneControl DropTarget="RowGroups">
+          <Border Classes="designer-group-card">
+          <Grid RowDefinitions="Auto,Auto,*"
+                RowSpacing="8">
+            <TextBlock Classes="designer-panel-title"
+                       Text="Row Groups" />
+            <StackPanel Grid.Row="1"
+                        Orientation="Horizontal"
+                        Spacing="6">
+              <Button Theme="{StaticResource DesignerActionButtonTheme}"
+                      Content="Parent"
+                      Command="{Binding AddParentRowGroupCommand}"
+                      IsEnabled="{Binding CanAddParentRowGroup}" />
+              <Button Theme="{StaticResource DesignerActionButtonTheme}"
+                      Content="Child"
+                      Command="{Binding AddChildRowGroupCommand}"
+                      IsEnabled="{Binding CanAddChildRowGroup}" />
+              <Button Theme="{StaticResource DesignerActionButtonTheme}"
+                      Content="Adjacent"
+                      Command="{Binding AddAdjacentRowGroupCommand}"
+                      IsEnabled="{Binding CanAddAdjacentRowGroup}" />
+              <Button Theme="{StaticResource DesignerActionButtonTheme}"
+                      Content="Total"
+                      Command="{Binding AddRowTotalCommand}"
+                      IsEnabled="{Binding CanAddRowTotal}" />
+            </StackPanel>
+            <ListBox Grid.Row="2"
+                     Classes="designer-pane-list"
+                     ItemsSource="{Binding RowGroupEntries}"
+                     SelectedItem="{Binding SelectedRowGroupEntry, Mode=TwoWay}">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="designer:ReportDesignerGroupingEntryViewModel">
+                  <Border Classes="designer-list-item-card">
+                    <StackPanel Spacing="2">
+                      <TextBlock Classes="designer-label"
+                                 Text="{Binding Title}" />
+                      <TextBlock Classes="designer-helper"
+                                 Text="{Binding Subtitle}"
+                                 TextWrapping="Wrap" />
+                    </StackPanel>
+                  </Border>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </Grid>
+          </Border>
+        </designer:ReportDesignerGroupingDropZoneControl>
+
+        <designer:ReportDesignerGroupingDropZoneControl Grid.Column="2"
+                                                        DropTarget="ColumnGroups">
+        <Border Classes="designer-group-card">
+          <Grid RowDefinitions="Auto,Auto,Auto,*"
+                RowSpacing="8">
+            <TextBlock Classes="designer-panel-title"
+                       Text="Column Groups" />
+            <TextBlock Grid.Row="1"
+                       Classes="designer-helper"
+                       Text="{Binding ShowAdvancedGroupingMode, StringFormat='Advanced Mode: {0}. Drag fields here from Report Data to create matrix-style column groups.'}" />
+            <StackPanel Grid.Row="2"
+                        Orientation="Horizontal"
+                        Spacing="6">
+              <Button Theme="{StaticResource DesignerActionButtonTheme}"
+                      Content="Parent"
+                      Command="{Binding AddParentColumnGroupCommand}"
+                      IsEnabled="{Binding CanAddParentColumnGroup}" />
+              <Button Theme="{StaticResource DesignerActionButtonTheme}"
+                      Content="Child"
+                      Command="{Binding AddChildColumnGroupCommand}"
+                      IsEnabled="{Binding CanAddChildColumnGroup}" />
+              <Button Theme="{StaticResource DesignerActionButtonTheme}"
+                      Content="Adjacent"
+                      Command="{Binding AddAdjacentColumnGroupCommand}"
+                      IsEnabled="{Binding CanAddAdjacentColumnGroup}" />
+              <Button Theme="{StaticResource DesignerActionButtonTheme}"
+                      Content="Total"
+                      Command="{Binding AddColumnTotalCommand}"
+                      IsEnabled="{Binding CanAddColumnTotal}" />
+            </StackPanel>
+            <ListBox Grid.Row="3"
+                     Classes="designer-pane-list"
+                     ItemsSource="{Binding ColumnGroupEntries}"
+                     SelectedItem="{Binding SelectedColumnGroupEntry, Mode=TwoWay}">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="designer:ReportDesignerGroupingEntryViewModel">
+                  <Border Classes="designer-list-item-card">
+                    <StackPanel Spacing="2">
+                      <TextBlock Classes="designer-label"
+                                 Text="{Binding Title}" />
+                      <TextBlock Classes="designer-helper"
+                                 Text="{Binding Subtitle}"
+                                 TextWrapping="Wrap" />
+                    </StackPanel>
+                  </Border>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </Grid>
+        </Border>
+        </designer:ReportDesignerGroupingDropZoneControl>
+      </Grid>
+    </Grid>
+  </Border>
+</UserControl>

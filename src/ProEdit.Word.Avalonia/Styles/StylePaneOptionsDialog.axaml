@@ -1,0 +1,56 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="ProEdit.Word.Avalonia.StylePaneOptionsDialog"
+        Width="360"
+        Height="320"
+        WindowStartupLocation="CenterOwner"
+        Title="Style Pane Options">
+  <Grid Margin="12"
+        RowDefinitions="*,Auto">
+    <StackPanel Spacing="10">
+      <StackPanel Spacing="4">
+        <TextBlock Text="Select styles to show:" />
+        <ComboBox x:Name="FilterCombo">
+          <ComboBoxItem Content="All styles" />
+          <ComboBoxItem Content="In use" />
+          <ComboBoxItem Content="Quick styles" />
+          <ComboBoxItem Content="Recommended" />
+        </ComboBox>
+      </StackPanel>
+
+      <StackPanel Spacing="4">
+        <TextBlock Text="Select how list is sorted:" />
+        <ComboBox x:Name="SortCombo">
+          <ComboBoxItem Content="Alphabetical" />
+          <ComboBoxItem Content="By priority" />
+        </ComboBox>
+      </StackPanel>
+
+      <StackPanel Spacing="4">
+        <TextBlock Text="Select style types:" />
+        <ComboBox x:Name="TypeCombo">
+          <ComboBoxItem Content="All types" />
+          <ComboBoxItem Content="Paragraph" />
+          <ComboBoxItem Content="Character" />
+          <ComboBoxItem Content="Table" />
+        </ComboBox>
+      </StackPanel>
+
+      <CheckBox x:Name="ShowPreviewCheckBox"
+                Content="Show preview" />
+      <CheckBox x:Name="ShowHiddenCheckBox"
+                Content="Show hidden styles" />
+    </StackPanel>
+
+    <StackPanel Grid.Row="1"
+                Orientation="Horizontal"
+                HorizontalAlignment="Right"
+                Spacing="8"
+                Margin="0,12,0,0">
+      <Button x:Name="OkButton"
+              Content="OK" />
+      <Button x:Name="CancelButton"
+              Content="Cancel" />
+    </StackPanel>
+  </Grid>
+</Window>

@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageDescription>RDL import and export for the supported ProEdit reporting subset.</PackageDescription>
+    <PackageTags>proedit;reporting;rdl;ssrs</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\\ProEdit.Reporting.Core\\ProEdit.Reporting.Core.csproj" />
+  </ItemGroup>
+
+</Project>

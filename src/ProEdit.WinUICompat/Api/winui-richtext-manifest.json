@@ -1,0 +1,46 @@
+{
+  "types": [
+    {
+      "name": "ProEdit.WinUICompat.Controls.RichEditBox",
+      "file": "src/ProEdit.WinUICompat.Uno/Controls/RichEditBox.cs",
+      "events": ["TextChanged", "SelectionChanged"],
+      "properties": ["Document", "TextDocument", "Selection", "CaretPosition", "AcceptsTab", "AcceptsReturn", "IsReadOnly", "IsReadOnlyCaretVisible", "IsDocumentEnabled", "IsProofingEnabled", "IsSpellingEnabled", "IsGrammarEnabled", "IsStyleEnabled"],
+      "methods": ["BeginChange", "EndChange", "Copy", "Cut", "Paste", "Undo", "Redo", "SelectAll", "Select", "ReplaceText", "GetPositionFromPoint", "GetSpellingError", "GetSpellingErrorRange", "GetNextSpellingErrorPosition", "SetProofingDiagnostics", "ClearProofingDiagnostics", "ShouldSerializeDocument"]
+    },
+    {
+      "name": "ProEdit.WinUICompat.Controls.RichTextBlock",
+      "file": "src/ProEdit.WinUICompat.Uno/Controls/RichTextBlock.cs",
+      "events": [],
+      "properties": ["Blocks", "OverflowContentTarget", "MaxLines", "HasOverflowContent"],
+      "methods": ["RefreshOverflowLayout"]
+    },
+    {
+      "name": "ProEdit.WinUICompat.Controls.RichTextBlockOverflow",
+      "file": "src/ProEdit.WinUICompat.Uno/Controls/RichTextBlockOverflow.cs",
+      "events": [],
+      "properties": ["OverflowContentTarget", "ContentSource", "Source", "HasOverflowContent"],
+      "methods": []
+    },
+    {
+      "name": "ProEdit.WinUICompat.Documents.Paragraph",
+      "file": "src/ProEdit.WinUICompat/Documents/Paragraph.cs",
+      "events": [],
+      "properties": ["Inlines", "TextIndent"],
+      "methods": []
+    },
+    {
+      "name": "ProEdit.WinUICompat.Documents.Run",
+      "file": "src/ProEdit.WinUICompat/Documents/Run.cs",
+      "events": [],
+      "properties": ["Text"],
+      "methods": []
+    },
+    {
+      "name": "ProEdit.WinUICompat.Text.RichEditTextDocument",
+      "file": "src/ProEdit.WinUICompat/Text/RichEditTextDocument.cs",
+      "events": [],
+      "properties": ["Document", "Selection", "SelectionStartOffset", "SelectionEndOffset"],
+      "methods": ["GetText", "SetText", "SetSelection", "Undo", "Redo", "GetRange"]
+    }
+  ]
+}

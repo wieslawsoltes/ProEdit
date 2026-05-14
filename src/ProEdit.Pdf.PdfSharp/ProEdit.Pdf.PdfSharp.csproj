@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <PropertyGroup>
+    <PackageDescription>PDF generation via PDFsharp for ProEdit.</PackageDescription>
+    <PackageTags>proedit;pdf;pdfsharp;generation</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="PDFsharp" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\\ProEdit.Pdf\\ProEdit.Pdf.csproj" />
+  </ItemGroup>
+</Project>

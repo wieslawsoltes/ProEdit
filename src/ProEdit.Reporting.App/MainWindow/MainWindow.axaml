@@ -1,0 +1,33 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:ProEdit.Reporting.App.Controls"
+        xmlns:designer="clr-namespace:ProEdit.Reporting.Avalonia.Designer;assembly=ProEdit.Reporting.Avalonia.Designer"
+        xmlns:viewer="clr-namespace:ProEdit.Reporting.Avalonia.Viewer;assembly=ProEdit.Reporting.Avalonia.Viewer"
+        xmlns:vm="using:ProEdit.Reporting.App.ViewModels"
+        x:Class="ProEdit.Reporting.App.MainWindow"
+        x:DataType="vm:ReportingStudioViewModel"
+        Width="1680"
+        Height="1024"
+        MinWidth="1280"
+        MinHeight="820"
+        Title="{Binding WindowTitle}">
+  <Grid RowDefinitions="Auto,Auto,*,Auto">
+    <controls:ReportingStudioHeaderBar />
+
+    <controls:ReportingStudioCommandBar Grid.Row="1" />
+
+    <Border Grid.Row="2"
+            Classes="studio-workspace">
+      <Grid>
+        <Border IsVisible="{Binding IsDesignMode}">
+          <designer:ReportDesignerControl DataContext="{Binding DesignerViewModel}" />
+        </Border>
+        <Border IsVisible="{Binding IsRunMode}">
+          <viewer:ReportViewerControl DataContext="{Binding ViewerViewModel}" />
+        </Border>
+      </Grid>
+    </Border>
+
+    <controls:ReportingStudioStatusStrip Grid.Row="3" />
+  </Grid>
+</Window>

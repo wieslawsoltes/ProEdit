@@ -3,19 +3,19 @@
 ## Build
 
 ```bash
-dotnet build VibeOffice.slnx
+dotnet build ProEdit.slnx
 ```
 
 ## Test
 
 ```bash
-dotnet test VibeOffice.slnx
+dotnet test ProEdit.slnx
 ```
 
 ## Benchmarks
 
 ```bash
-dotnet run --project benchmarks/Vibe.Office.Layout.Benchmarks/Vibe.Office.Layout.Benchmarks.csproj
+dotnet run --project benchmarks/ProEdit.Layout.Benchmarks/ProEdit.Layout.Benchmarks.csproj
 ```
 
 ## Docs

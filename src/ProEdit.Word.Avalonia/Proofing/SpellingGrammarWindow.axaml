@@ -1,0 +1,51 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="ProEdit.Word.Avalonia.SpellingGrammarWindow"
+        Title="Spelling &amp; Grammar"
+        Width="680"
+        Height="440"
+        MinWidth="520"
+        MinHeight="360">
+  <Grid RowDefinitions="Auto,*" Margin="12" ColumnSpacing="12">
+    <TextBlock x:Name="IssueSummaryText"
+               FontSize="14"
+               FontWeight="SemiBold"
+               Text="Spelling &amp; Grammar" />
+    <Grid Grid.Row="1" ColumnDefinitions="*,220" ColumnSpacing="16" RowSpacing="10">
+      <StackPanel Grid.Column="0" Spacing="8">
+        <TextBlock x:Name="IssueKindText"
+                   FontSize="13"
+                   FontWeight="SemiBold" />
+        <Border BorderBrush="#D0D0D0" BorderThickness="1" Padding="10" CornerRadius="4">
+          <TextBlock x:Name="ContextText"
+                     TextWrapping="Wrap" />
+        </Border>
+        <TextBlock x:Name="IssueMessageText"
+                   Foreground="#606060"
+                   TextWrapping="Wrap" />
+      </StackPanel>
+
+      <StackPanel Grid.Column="1" Spacing="8">
+        <TextBlock Text="Suggestions" FontWeight="SemiBold" />
+        <ListBox x:Name="SuggestionsList" Height="160" />
+
+        <Button x:Name="ChangeButton" Content="Change" />
+        <Button x:Name="ChangeAllButton" Content="Change All" />
+        <Button x:Name="AutoCorrectButton" Content="AutoCorrect" />
+
+        <Separator />
+
+        <Button x:Name="IgnoreButton" Content="Ignore Once" />
+        <Button x:Name="IgnoreAllButton" Content="Ignore All" />
+        <Button x:Name="AddButton" Content="Add to Dictionary" />
+
+        <Separator />
+
+        <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Left">
+          <Button x:Name="PreviousButton" Content="Previous" />
+          <Button x:Name="NextButton" Content="Next" />
+        </StackPanel>
+      </StackPanel>
+    </Grid>
+  </Grid>
+</Window>

@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <PluginOutputDirs>$(MSBuildThisFileDirectory)..\ProEdit.Word.App\bin\$(Configuration)\$(TargetFramework)\Plugins\;$(MSBuildThisFileDirectory)..\ProEdit.Word.Avalonia\bin\$(Configuration)\$(TargetFramework)\Plugins\</PluginOutputDirs>
+  </PropertyGroup>
+  <PropertyGroup>
+    <PackageDescription>Grammar API plugin integration for ProEdit proofing.</PackageDescription>
+    <PackageTags>proedit;proofing;grammar</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ProEdit.Editing\ProEdit.Editing.csproj" />
+  </ItemGroup>
+
+  <Target Name="CopyPluginToOutputs" AfterTargets="Build" Condition="'$(DesignTimeBuild)' != 'true'">
+    <ItemGroup>
+      <PluginOutputDir Include="$(PluginOutputDirs)" />
+    </ItemGroup>
+    <MakeDir Directories="@(PluginOutputDir)" />
+    <Copy SourceFiles="$(TargetPath)"
+          DestinationFolder="%(PluginOutputDir.Identity)"
+          SkipUnchangedFiles="true" />
+  </Target>
+</Project>

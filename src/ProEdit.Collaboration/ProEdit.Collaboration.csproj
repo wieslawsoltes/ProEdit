@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>ProEdit.Collaboration</PackageId>
+  </PropertyGroup>
+  <PropertyGroup>
+    <PackageDescription>CRDT collaboration core for ProEdit documents.</PackageDescription>
+    <PackageTags>proedit;collaboration;crdt</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ProEdit.Documents\ProEdit.Documents.csproj" />
+    <ProjectReference Include="..\ProEdit.OpenXml\ProEdit.OpenXml.csproj" />
+    <ProjectReference Include="..\ProEdit.Primitives\ProEdit.Primitives.csproj" />
+  </ItemGroup>
+</Project>

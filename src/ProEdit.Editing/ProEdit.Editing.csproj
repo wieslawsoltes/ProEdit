@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <PropertyGroup>
+    <PackageDescription>Editing services, selection, and proofing utilities for ProEdit.</PackageDescription>
+    <PackageTags>proedit;editing;proofing;spelling</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\\ProEdit.Documents\\ProEdit.Documents.csproj" />
+    <ProjectReference Include="..\\ProEdit.Documents.Rtf\\ProEdit.Documents.Rtf.csproj" />
+    <ProjectReference Include="..\\ProEdit.Layout\\ProEdit.Layout.csproj" />
+    <ProjectReference Include="..\\ProEdit.Primitives\\ProEdit.Primitives.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="WeCantSpell.Hunspell" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Proofing\\Resources\\*.aff" />
+    <EmbeddedResource Include="Proofing\\Resources\\*.dic" />
+  </ItemGroup>
+</Project>

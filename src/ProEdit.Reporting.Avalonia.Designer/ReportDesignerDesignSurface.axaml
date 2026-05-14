@@ -1,0 +1,406 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:designer="using:ProEdit.Reporting.Avalonia.Designer"
+             x:Class="ProEdit.Reporting.Avalonia.Designer.ReportDesignerDesignSurface"
+             x:DataType="designer:ReportDesignerViewModel">
+  <UserControl.Resources>
+    <DataTemplate x:Key="DesignerSurfaceCellTemplate"
+                  x:DataType="designer:ReportDesignerSurfaceCellViewModel">
+      <Border Width="{Binding Width}"
+              Classes="designer-surface-table-cell"
+              Background="{Binding BackgroundBrush}">
+        <TextBlock Text="{Binding Text}"
+                   TextWrapping="Wrap" />
+      </Border>
+    </DataTemplate>
+
+    <DataTemplate x:Key="DesignerSurfaceRowTemplate"
+                  x:DataType="designer:ReportDesignerSurfaceRowViewModel">
+      <ItemsControl ItemsSource="{Binding Cells}"
+                    ItemTemplate="{StaticResource DesignerSurfaceCellTemplate}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <StackPanel Orientation="Horizontal" />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+      </ItemsControl>
+    </DataTemplate>
+
+    <DataTemplate x:Key="DesignerSurfaceBarTemplate"
+                  x:DataType="designer:ReportDesignerSurfaceBarViewModel">
+      <Grid RowDefinitions="*,Auto"
+            Width="44">
+        <Border Grid.Row="0"
+                VerticalAlignment="Bottom"
+                CornerRadius="3,3,0,0"
+                MinHeight="18"
+                Height="{Binding DisplayHeight}"
+                Background="{Binding FillBrush}" />
+        <TextBlock Grid.Row="1"
+                   Margin="0,6,0,0"
+                   Classes="designer-helper"
+                   Text="{Binding Label}"
+                   TextAlignment="Center"
+                   TextWrapping="Wrap" />
+      </Grid>
+    </DataTemplate>
+  </UserControl.Resources>
+
+  <Grid MinWidth="0"
+        MinHeight="0"
+        RowDefinitions="Auto,*"
+        ColumnDefinitions="Auto,*">
+    <Border Grid.Column="1"
+            Classes="designer-ruler-top"
+            IsVisible="{Binding ShowRulers}">
+      <ItemsControl ItemsSource="{Binding HorizontalRulerTicks}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <Canvas />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="designer:ReportDesignerRulerTickViewModel">
+            <Grid Canvas.Left="{Binding Offset}"
+                  Width="1"
+                  Height="24">
+              <Border VerticalAlignment="Bottom"
+                      Width="1"
+                      Height="{Binding TickLength}"
+                      Classes="designer-ruler-line" />
+              <TextBlock Margin="4,2,0,0"
+                         Classes="designer-helper"
+                         IsVisible="{Binding ShowLabel}"
+                         Text="{Binding Label}" />
+            </Grid>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </Border>
+
+    <Border Grid.Row="1"
+            Classes="designer-ruler-left"
+            IsVisible="{Binding ShowRulers}">
+      <ItemsControl ItemsSource="{Binding VerticalRulerTicks}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <Canvas />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="designer:ReportDesignerRulerTickViewModel">
+            <Grid Canvas.Top="{Binding Offset}"
+                  Width="28"
+                  Height="1">
+              <Border HorizontalAlignment="Right"
+                      Width="{Binding TickLength}"
+                      Height="1"
+                      Classes="designer-ruler-line" />
+              <TextBlock Margin="2,-7,0,0"
+                         Classes="designer-helper"
+                         IsVisible="{Binding ShowLabel}"
+                         Text="{Binding Label}" />
+            </Grid>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </Border>
+
+    <designer:ReportDesignerSurfaceScrollHost Grid.Row="1"
+                                              Grid.Column="1"
+                                              MinWidth="0"
+                                              MinHeight="0">
+      <Border Classes="designer-surface-stage"
+              Width="{Binding SurfaceStageWidth}"
+              Height="{Binding SurfaceStageHeight}"
+              HorizontalAlignment="Left"
+              VerticalAlignment="Top">
+        <Border Classes="designer-page"
+                Padding="0"
+                Width="{Binding SurfaceScaledWidth}"
+                Height="{Binding SurfaceScaledHeight}">
+          <Border x:Name="PART_DesignPage"
+                  Background="Transparent"
+                  Width="{Binding SurfaceWidth}"
+                  Height="{Binding SurfaceHeight}"
+                  RenderTransformOrigin="0,0">
+            <Border.RenderTransform>
+              <ScaleTransform ScaleX="{Binding SurfaceZoomFactor}"
+                              ScaleY="{Binding SurfaceZoomFactor}" />
+            </Border.RenderTransform>
+            <designer:ReportDesignerSurfaceCanvasControl>
+            <Grid ClipToBounds="True">
+              <Border Classes="designer-print-area-guide"
+                      Margin="{Binding SurfacePrintAreaMargin}" />
+
+              <Image Source="{Binding SurfacePreviewPage.Bitmap}"
+                     Stretch="Fill"
+                     IsVisible="{Binding HasVisibleSurfacePreview}" />
+
+              <Border HorizontalAlignment="Right"
+                      VerticalAlignment="Top"
+                      Margin="12"
+                      Classes="designer-surface-banner-pill"
+                      IsVisible="{Binding IsPreviewDirty}">
+                <TextBlock Classes="designer-helper"
+                           Text="Preview out of date" />
+              </Border>
+
+              <Border HorizontalAlignment="Left"
+                      VerticalAlignment="Top"
+                      Margin="12"
+                      Classes="designer-surface-insert-pill"
+                      IsVisible="{Binding HasActiveInsertTool}">
+                <StackPanel Orientation="Horizontal"
+                            Spacing="8">
+                  <TextBlock Classes="designer-helper"
+                             Text="Insert" />
+                  <TextBlock FontWeight="SemiBold"
+                             Text="{Binding ActiveInsertToolDisplayText}" />
+                  <TextBlock Classes="designer-helper"
+                             Text="Click or drag to place." />
+                </StackPanel>
+              </Border>
+
+              <ItemsControl ItemsSource="{Binding DesignItems}">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <Canvas />
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="designer:ReportDesignerCanvasItemViewModel">
+                    <designer:ReportDesignerSurfaceItemControl Canvas.Left="{Binding SurfaceHostLeft}"
+                                                               Canvas.Top="{Binding SurfaceHostTop}"
+                                                               Canvas.ZIndex="{Binding ZIndex}"
+                                                               Width="{Binding SurfaceHostWidth}"
+                                                               Height="{Binding SurfaceHostHeight}">
+                      <Grid Margin="{Binding SurfaceChromeMargin}">
+                        <Grid ClipToBounds="True">
+                          <Border Background="{Binding FillBrush}"
+                                  BorderBrush="{Binding BorderBrush}"
+                                  BorderThickness="{Binding BorderThicknessValue}"
+                                  CornerRadius="2" />
+
+                          <Border HorizontalAlignment="Left"
+                                  VerticalAlignment="Top"
+                                  Margin="8,8,0,0"
+                                  Background="{Binding BadgeBrush}"
+                                  IsVisible="{Binding ShowBadge}">
+                            <TextBlock Margin="6,2"
+                                       Classes="designer-helper"
+                                       Foreground="{Binding BadgeForegroundBrush}"
+                                       Text="{Binding BadgeText}" />
+                          </Border>
+
+                          <Grid Margin="{Binding ContentPadding}"
+                                IsVisible="{Binding ShowSemanticContent}">
+                          <TextBlock IsVisible="{Binding IsTextItem}"
+                                     Foreground="{Binding ForegroundBrush}"
+                                     FontSize="{Binding FontSizeValue}"
+                                     FontStyle="{Binding FontStyle}"
+                                     FontWeight="{Binding FontWeight}"
+                                     Text="{Binding ContentText}"
+                                     TextWrapping="Wrap" />
+
+                          <Grid IsVisible="{Binding IsChartItem}"
+                                RowDefinitions="Auto,*">
+                            <TextBlock Foreground="{Binding ForegroundBrush}"
+                                       FontSize="13"
+                                       FontWeight="SemiBold"
+                                       Text="{Binding ContentText}" />
+                            <Grid Grid.Row="1"
+                                  Margin="0,14,0,0"
+                                  RowDefinitions="*,Auto">
+                              <Border Grid.Row="0"
+                                      Classes="designer-chart-plot" />
+                              <ItemsControl Grid.Row="0"
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Bottom"
+                                            ItemTemplate="{StaticResource DesignerSurfaceBarTemplate}"
+                                            ItemsSource="{Binding PreviewBars}">
+                                <ItemsControl.ItemsPanel>
+                                  <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal"
+                                                Spacing="10" />
+                                  </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                              </ItemsControl>
+                            </Grid>
+                          </Grid>
+
+                          <Grid IsVisible="{Binding IsTablixItem}"
+                                RowDefinitions="Auto,*">
+                            <TextBlock Foreground="{Binding ForegroundBrush}"
+                                       FontSize="13"
+                                       FontWeight="SemiBold"
+                                       Text="{Binding ContentText}" />
+                            <ItemsControl Grid.Row="1"
+                                          Margin="0,12,0,0"
+                                          ItemTemplate="{StaticResource DesignerSurfaceRowTemplate}"
+                                          ItemsSource="{Binding PreviewRows}" />
+                          </Grid>
+
+                          <StackPanel IsVisible="{Binding IsTemplateItem}"
+                                      Spacing="8">
+                            <TextBlock Foreground="{Binding ForegroundBrush}"
+                                       FontSize="13"
+                                       FontWeight="SemiBold"
+                                       Text="{Binding ContentText}" />
+                            <TextBlock Classes="designer-helper"
+                                       Text="{Binding DetailText}"
+                                       TextWrapping="Wrap" />
+                          </StackPanel>
+
+                          <StackPanel IsVisible="{Binding IsSubreportItem}"
+                                      Spacing="8">
+                            <TextBlock Foreground="{Binding ForegroundBrush}"
+                                       FontSize="13"
+                                       FontWeight="SemiBold"
+                                       Text="{Binding ContentText}" />
+                            <TextBlock Classes="designer-helper"
+                                       Text="{Binding DetailText}"
+                                       TextWrapping="Wrap" />
+                          </StackPanel>
+
+                          <StackPanel IsVisible="{Binding IsContainerItem}"
+                                      Spacing="6">
+                            <TextBlock Foreground="{Binding ForegroundBrush}"
+                                       FontSize="13"
+                                       FontWeight="SemiBold"
+                                       Text="{Binding Label}" />
+                            <TextBlock Classes="designer-helper"
+                                       Text="{Binding DetailText}"
+                                       TextWrapping="Wrap" />
+                          </StackPanel>
+
+                          <StackPanel IsVisible="{Binding IsImageItem}"
+                                      Spacing="6"
+                                      VerticalAlignment="Center">
+                            <Border HorizontalAlignment="Center"
+                                    Width="42"
+                                    Height="42"
+                                    CornerRadius="21"
+                                    Classes="designer-image-glyph" />
+                            <TextBlock Classes="designer-helper"
+                                       HorizontalAlignment="Center"
+                                       Text="{Binding ContentText}" />
+                          </StackPanel>
+
+                          <Border IsVisible="{Binding IsLineItem}"
+                                  Background="{Binding LineBrush}"
+                                  Height="{Binding LineThicknessValue}"
+                                  VerticalAlignment="Center" />
+
+                            <Grid IsVisible="{Binding IsShapeItem}">
+                              <Border Background="{Binding ShapeBackgroundBrush}"
+                                      BorderBrush="{Binding ShapeBorderBrush}"
+                                      BorderThickness="1"
+                                      IsVisible="{Binding ShowsRectangularShape}" />
+                              <Ellipse Fill="{Binding ShapeBackgroundBrush}"
+                                       Stroke="{Binding ShapeBorderBrush}"
+                                       StrokeThickness="1"
+                                       IsVisible="{Binding IsEllipseShape}" />
+                              <TextBlock HorizontalAlignment="Center"
+                                         VerticalAlignment="Center"
+                                         Classes="designer-helper"
+                                         Text="{Binding ContentText}" />
+                            </Grid>
+                          </Grid>
+                        </Grid>
+
+                        <Grid IsVisible="{Binding IsSelected}"
+                              IsHitTestVisible="False">
+                          <Border BorderBrush="{Binding BorderBrush}"
+                                  BorderThickness="2"
+                                  CornerRadius="2" />
+                          <Grid IsVisible="{Binding ShowSelectionHandles}">
+                            <Border Width="8"
+                                    Height="8"
+                                    HorizontalAlignment="Left"
+                                    VerticalAlignment="Top"
+                                    Margin="-4,-4,0,0"
+                                    Background="{Binding SelectionHandleBrush}" />
+                            <Border Width="8"
+                                    Height="8"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Top"
+                                    Margin="0,-4,0,0"
+                                    Background="{Binding SelectionHandleBrush}" />
+                            <Border Width="8"
+                                    Height="8"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Top"
+                                    Margin="0,-4,-4,0"
+                                    Background="{Binding SelectionHandleBrush}" />
+                            <Border Width="8"
+                                    Height="8"
+                                    HorizontalAlignment="Left"
+                                    VerticalAlignment="Center"
+                                    Margin="-4,0,0,0"
+                                    Background="{Binding SelectionHandleBrush}" />
+                            <Border Width="8"
+                                    Height="8"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Center"
+                                    Margin="0,0,-4,0"
+                                    Background="{Binding SelectionHandleBrush}" />
+                            <Border Width="8"
+                                    Height="8"
+                                    HorizontalAlignment="Left"
+                                    VerticalAlignment="Bottom"
+                                    Margin="-4,0,0,-4"
+                                    Background="{Binding SelectionHandleBrush}" />
+                            <Border Width="8"
+                                    Height="8"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Bottom"
+                                    Margin="0,0,0,-4"
+                                    Background="{Binding SelectionHandleBrush}" />
+                            <Border Width="8"
+                                    Height="8"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Bottom"
+                                    Margin="0,0,-4,-4"
+                                    Background="{Binding SelectionHandleBrush}" />
+                          </Grid>
+                        </Grid>
+                      </Grid>
+                    </designer:ReportDesignerSurfaceItemControl>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+
+              <ItemsControl ItemsSource="{Binding SnapGuides}">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <Canvas />
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="designer:ReportDesignerSnapGuideViewModel">
+                    <Canvas IsHitTestVisible="False">
+                      <Border Canvas.Left="0"
+                              Canvas.Top="{Binding Offset}"
+                              Width="{Binding Length}"
+                              Height="1"
+                              Classes="designer-snap-guide"
+                              IsVisible="{Binding IsHorizontal}" />
+                      <Border Canvas.Left="{Binding Offset}"
+                              Canvas.Top="0"
+                              Width="1"
+                              Height="{Binding Length}"
+                              Classes="designer-snap-guide"
+                              IsVisible="{Binding IsVertical}" />
+                    </Canvas>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </Grid>
+            </designer:ReportDesignerSurfaceCanvasControl>
+          </Border>
+        </Border>
+      </Border>
+    </designer:ReportDesignerSurfaceScrollHost>
+  </Grid>
+</UserControl>

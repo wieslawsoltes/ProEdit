@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageDescription>WinUI-compatible rich text abstractions and converters for ProEdit.</PackageDescription>
+    <PackageTags>proedit;winui;richtext;compatibility</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ProEdit.Documents\ProEdit.Documents.csproj" />
+    <ProjectReference Include="..\ProEdit.Editing\ProEdit.Editing.csproj" />
+    <ProjectReference Include="..\ProEdit.FlowDocument\ProEdit.FlowDocument.csproj" />
+    <ProjectReference Include="..\ProEdit.FlowDocument.Documents\ProEdit.FlowDocument.Documents.csproj" />
+    <ProjectReference Include="..\ProEdit.Primitives\ProEdit.Primitives.csproj" />
+    <ProjectReference Include="..\ProEdit.Rendering.Skia\ProEdit.Rendering.Skia.csproj" />
+    <ProjectReference Include="..\ProEdit.Word.Editor\ProEdit.Word.Editor.csproj" />
+  </ItemGroup>
+</Project>

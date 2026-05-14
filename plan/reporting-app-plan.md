@@ -4,7 +4,7 @@ Date: 2026-03-17
 
 ## Goal
 
-Create a dedicated Avalonia desktop application for VibeOffice reporting that exposes:
+Create a dedicated Avalonia desktop application for ProEdit reporting that exposes:
 
 - the native report designer
 - the full report viewer
@@ -15,10 +15,10 @@ Create a dedicated Avalonia desktop application for VibeOffice reporting that ex
 
 ## Product Shape
 
-The new app should be a standalone desktop shell, separate from `Vibe.Word.App`, centered on the existing reporting controls:
+The new app should be a standalone desktop shell, separate from `ProEdit.Word.App`, centered on the existing reporting controls:
 
-- `Vibe.Office.Reporting.Avalonia.Designer`
-- `Vibe.Office.Reporting.Avalonia.Viewer`
+- `ProEdit.Reporting.Avalonia.Designer`
+- `ProEdit.Reporting.Avalonia.Viewer`
 
 The shell should not reimplement reporting runtime logic. It should orchestrate:
 
@@ -77,13 +77,13 @@ The app should keep seams for future expansion:
 
 ### Projects
 
-- `src/Vibe.Reporting.App`
+- `src/ProEdit.Reporting.App`
   - Avalonia desktop app host
   - shell view model
   - file picker service
   - sample report/data factory
   - window and app resources
-- `tests/Vibe.Reporting.App.Headless.Tests`
+- `tests/ProEdit.Reporting.App.Headless.Tests`
   - shell smoke coverage with Avalonia Headless
 
 ### Runtime Composition

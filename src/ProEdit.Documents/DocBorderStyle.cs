@@ -1,0 +1,18 @@
+namespace ProEdit.Documents;
+
+public enum DocBorderStyle
+{
+    None,
+    Single,
+    Double,
+    Dotted,
+    Dashed,
+    DotDash,
+    DotDotDash,
+    Thick,
+    Hairline,
+    Triple,
+    ThickThin,
+    ThinThick,
+    ThinThickThin
+}

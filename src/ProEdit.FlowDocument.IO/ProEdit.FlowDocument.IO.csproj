@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <PropertyGroup>
+    <PackageDescription>Reusable FlowDocument file conversion services for DOCX, Markdown, RTF, PDF, EPS, PostScript, XPS, and OXPS formats.</PackageDescription>
+    <PackageTags>proedit;flowdocument;docx;markdown;rtf;pdf;eps;postscript;ps;xps;oxps;conversion</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ProEdit.Documents\ProEdit.Documents.csproj" />
+    <ProjectReference Include="..\ProEdit.Documents.Rtf\ProEdit.Documents.Rtf.csproj" />
+    <ProjectReference Include="..\ProEdit.FlowDocument\ProEdit.FlowDocument.csproj" />
+    <ProjectReference Include="..\ProEdit.FlowDocument.Documents\ProEdit.FlowDocument.Documents.csproj" />
+    <ProjectReference Include="..\ProEdit.Layout\ProEdit.Layout.csproj" />
+    <ProjectReference Include="..\ProEdit.Markdown\ProEdit.Markdown.csproj" />
+    <ProjectReference Include="..\ProEdit.OpenXml\ProEdit.OpenXml.csproj" />
+    <ProjectReference Include="..\ProEdit.Pdf\ProEdit.Pdf.csproj" />
+    <ProjectReference Include="..\ProEdit.Pdf.Documents\ProEdit.Pdf.Documents.csproj" />
+    <ProjectReference Include="..\ProEdit.Pdf.PdfPig\ProEdit.Pdf.PdfPig.csproj" />
+    <ProjectReference Include="..\ProEdit.Printing\ProEdit.Printing.csproj" />
+    <ProjectReference Include="..\ProEdit.Printing.Documents\ProEdit.Printing.Documents.csproj" />
+    <ProjectReference Include="..\ProEdit.Printing.Skia\ProEdit.Printing.Skia.csproj" />
+    <ProjectReference Include="..\ProEdit.Printing.System\ProEdit.Printing.System.csproj" />
+    <ProjectReference Include="..\ProEdit.PostScript\ProEdit.PostScript.csproj" />
+    <ProjectReference Include="..\ProEdit.Xps\ProEdit.Xps.csproj" />
+  </ItemGroup>
+</Project>

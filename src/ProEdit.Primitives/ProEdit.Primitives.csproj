@@ -1,0 +1,12 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <PropertyGroup>
+    <PackageDescription>Primitive types and low-level structures for ProEdit documents and rendering.</PackageDescription>
+    <PackageTags>proedit;primitives;geometry;document</PackageTags>
+  </PropertyGroup>
+</Project>

@@ -1,0 +1,29 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:collab="clr-namespace:ProEdit.Collaboration.UI.ViewModels;assembly=ProEdit.Collaboration.UI"
+             x:Class="ProEdit.Word.Avalonia.CollabBanner"
+             x:DataType="collab:CollabConflictViewModel">
+    <Border Background="#FFF4F4"
+            BorderBrush="#F0C2C2"
+            BorderThickness="0,0,0,1"
+            Padding="8"
+            IsVisible="{Binding HasError}">
+        <Grid ColumnDefinitions="*,Auto,Auto"
+              ColumnSpacing="8">
+            <TextBlock Text="{Binding ErrorMessage}"
+                       Foreground="#8A1F1F"
+                       VerticalAlignment="Center"
+                       TextWrapping="Wrap" />
+            <Button Grid.Column="1"
+                    Content="Reconnect"
+                    Command="{Binding ReconnectCommand}"
+                    Padding="10,2"
+                    Height="24" />
+            <Button Grid.Column="2"
+                    Content="Dismiss"
+                    Command="{Binding DismissCommand}"
+                    Padding="10,2"
+                    Height="24" />
+        </Grid>
+    </Border>
+</UserControl>

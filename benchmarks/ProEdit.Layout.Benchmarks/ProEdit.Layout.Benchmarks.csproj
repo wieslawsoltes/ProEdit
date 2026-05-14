@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\\..\\src\\ProEdit.Layout\\ProEdit.Layout.csproj" />
+    <ProjectReference Include="..\\..\\src\\ProEdit.Editing\\ProEdit.Editing.csproj" />
+    <ProjectReference Include="..\\..\\src\\ProEdit.Documents\\ProEdit.Documents.csproj" />
+    <ProjectReference Include="..\\..\\src\\ProEdit.FlowDocument.Documents\\ProEdit.FlowDocument.Documents.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" />
+  </ItemGroup>
+</Project>

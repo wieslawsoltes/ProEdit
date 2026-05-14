@@ -1,0 +1,217 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:designer="using:ProEdit.Reporting.Avalonia.Designer"
+             x:Class="ProEdit.Reporting.Avalonia.Designer.ReportDesignerReportDataPane"
+             x:DataType="designer:ReportDesignerViewModel">
+  <UserControl.Resources>
+    <TreeDataTemplate x:Key="ReportDataNodeTemplate"
+                      x:DataType="designer:ReportDesignerDataNodeViewModel"
+                      ItemsSource="{Binding Children}">
+      <designer:ReportDesignerDataNodeDragControl>
+        <Border Classes="designer-data-tree-node">
+          <Grid ColumnDefinitions="Auto,*,Auto"
+                ColumnSpacing="8">
+            <Border Classes="designer-tag">
+              <TextBlock Classes="designer-helper"
+                         Text="{Binding KindLabel}" />
+            </Border>
+            <StackPanel Grid.Column="1"
+                        Spacing="1">
+              <TextBlock Classes="designer-label"
+                         Text="{Binding Title}" />
+              <TextBlock Classes="designer-helper"
+                         IsVisible="{Binding HasSubtitle}"
+                         Text="{Binding Subtitle}"
+                         TextWrapping="Wrap" />
+            </StackPanel>
+          </Grid>
+        </Border>
+      </designer:ReportDesignerDataNodeDragControl>
+    </TreeDataTemplate>
+  </UserControl.Resources>
+
+  <Border Classes="designer-pane designer-pane-left">
+    <TabControl Theme="{StaticResource DesignerPaneTabControlTheme}"
+                SelectedIndex="{Binding SelectedReportDataPaneTabIndex, Mode=TwoWay}">
+      <TabItem Header="Report Data"
+               Theme="{StaticResource DesignerPaneTabItemTheme}">
+        <Grid RowDefinitions="Auto,*,Auto"
+              RowSpacing="8"
+              Margin="10">
+          <Border Classes="designer-pane-section">
+            <Grid ColumnDefinitions="Auto,Auto,Auto,8,Auto,Auto"
+                  RowDefinitions="Auto,Auto"
+                  ColumnSpacing="6"
+                  RowSpacing="6">
+              <Button Theme="{StaticResource DesignerActionButtonTheme}"
+                      Content="Add Source"
+                      Command="{Binding AddDataSourceCommand}" />
+              <Button Grid.Column="1"
+                      Theme="{StaticResource DesignerActionButtonTheme}"
+                      Content="Add Dataset"
+                      Command="{Binding AddDataSetCommand}" />
+              <Button Grid.Column="2"
+                      Theme="{StaticResource DesignerActionButtonTheme}"
+                      Content="Calc Field"
+                      Command="{Binding AddCalculatedFieldCommand}"
+                      IsEnabled="{Binding HasSelectedDataSet}" />
+              <Button Grid.Row="1"
+                      Theme="{StaticResource DesignerActionButtonTheme}"
+                      Content="Preview"
+                      Command="{Binding PreviewSelectedDataSetCommand}"
+                      IsEnabled="{Binding CanPreviewSelectedDataSet}" />
+              <Button Grid.Row="1"
+                      Grid.Column="1"
+                      Theme="{StaticResource DesignerActionButtonTheme}"
+                      Content="Refresh Fields"
+                      Command="{Binding RefreshSelectedDataSetFieldsCommand}"
+                      IsEnabled="{Binding CanRefreshSelectedDataSetFields}" />
+              <Button Grid.Row="1"
+                      Grid.Column="2"
+                      Theme="{StaticResource DesignerActionButtonTheme}"
+                      Content="Insert Field"
+                      Command="{Binding InsertSelectedDataFieldCommand}"
+                      IsEnabled="{Binding CanInsertSelectedField}" />
+              <Button Grid.Row="1"
+                      Grid.Column="4"
+                      Theme="{StaticResource DesignerActionButtonTheme}"
+                      Content="Bind Data"
+                      Command="{Binding BindSelectedDataSetCommand}"
+                      IsEnabled="{Binding CanBindSelectedDataSet}" />
+              <Button Grid.Row="1"
+                      Grid.Column="5"
+                      Theme="{StaticResource DesignerActionButtonTheme}"
+                      Content="Remove"
+                      Command="{Binding RemoveSelectedCommand}"
+                      IsEnabled="{Binding CanRemoveSelected}" />
+            </Grid>
+          </Border>
+
+          <Border Grid.Row="1"
+                  Classes="designer-pane-section">
+            <Grid RowDefinitions="Auto,*"
+                  RowSpacing="8">
+              <StackPanel Spacing="2">
+                <TextBlock Classes="designer-panel-title"
+                           Text="Report Data" />
+                <TextBlock Classes="designer-helper"
+                           Text="Power BI Report Builder style data tree for parameters, sources, datasets, built-in fields, images, and live query metadata. Drag fields or images to the design surface, grouping pane, chart-data buckets, or parameter pane." />
+              </StackPanel>
+
+              <TreeView Grid.Row="1"
+                        ItemTemplate="{StaticResource ReportDataNodeTemplate}"
+                        ItemsSource="{Binding ReportDataNodes}"
+                        SelectedItem="{Binding SelectedDataNode, Mode=TwoWay}" />
+            </Grid>
+          </Border>
+
+          <Border Grid.Row="2"
+                  Classes="designer-pane-section">
+            <Grid RowDefinitions="Auto,Auto,Auto"
+                  RowSpacing="6">
+              <TextBlock Classes="designer-panel-title"
+                         Text="{Binding SelectedDataWorkspaceTitle}" />
+              <TextBlock Grid.Row="1"
+                         Classes="designer-helper"
+                         Text="{Binding SelectedDataWorkspaceSubtitle}"
+                         TextWrapping="Wrap" />
+              <StackPanel Grid.Row="2"
+                          Orientation="Horizontal"
+                          Spacing="6">
+                <Border Classes="designer-status-pill">
+                  <TextBlock Classes="designer-helper"
+                             Text="{Binding DataWorkspaceStatusMessage}" />
+                </Border>
+                <Border Classes="designer-status-pill"
+                        IsVisible="{Binding HasSelectedDataField}">
+                  <TextBlock Classes="designer-helper"
+                             Text="{Binding SelectedDataFieldExpression}" />
+                </Border>
+              </StackPanel>
+            </Grid>
+          </Border>
+        </Grid>
+      </TabItem>
+
+      <TabItem Header="Outline"
+               Theme="{StaticResource DesignerPaneTabItemTheme}">
+        <Grid RowDefinitions="Auto,*"
+              RowSpacing="10"
+              Margin="10">
+          <StackPanel Spacing="2">
+            <TextBlock Classes="designer-panel-title"
+                       Text="Outline" />
+            <TextBlock Classes="designer-helper"
+                       Text="Sections, items, and reusable report assets." />
+          </StackPanel>
+
+          <TreeView Grid.Row="1"
+                    ItemsSource="{Binding ExplorerNodes}"
+                    SelectedItem="{Binding SelectedExplorerNode, Mode=TwoWay}">
+            <TreeView.ItemTemplate>
+              <TreeDataTemplate x:DataType="designer:ReportDesignerExplorerNodeViewModel"
+                                ItemsSource="{Binding Children}">
+                <StackPanel Orientation="Horizontal"
+                            Spacing="8">
+                  <Border Classes="designer-tag">
+                    <TextBlock Classes="designer-helper"
+                               Text="{Binding Category}" />
+                  </Border>
+                  <TextBlock Text="{Binding Label}"
+                             TextWrapping="NoWrap" />
+                </StackPanel>
+              </TreeDataTemplate>
+            </TreeView.ItemTemplate>
+          </TreeView>
+        </Grid>
+      </TabItem>
+
+      <TabItem Header="Templates"
+               Theme="{StaticResource DesignerPaneTabItemTheme}">
+        <Grid RowDefinitions="Auto,*"
+              RowSpacing="10"
+              Margin="10">
+          <StackPanel Spacing="2">
+            <TextBlock Classes="designer-panel-title"
+                       Text="Templates" />
+            <TextBlock Classes="designer-helper"
+                       Text="Shared report templates and reusable fragments available for drag, apply, and editing workflows." />
+          </StackPanel>
+
+          <Grid Grid.Row="1"
+                RowDefinitions="Auto,*"
+                RowSpacing="8">
+            <StackPanel Orientation="Horizontal"
+                        Spacing="8">
+              <Button Theme="{StaticResource DesignerActionButtonTheme}"
+                      Content="Add Shared Template"
+                      Command="{Binding AddSharedTemplateCommand}" />
+              <Button Theme="{StaticResource DesignerActionButtonTheme}"
+                      Content="Remove"
+                      Command="{Binding RemoveSelectedCommand}"
+                      IsEnabled="{Binding CanRemoveSelected}" />
+            </StackPanel>
+
+            <ListBox Grid.Row="1"
+                     ItemsSource="{Binding SharedTemplateEntries}"
+                     SelectedItem="{Binding SelectedSharedTemplateEntry, Mode=TwoWay}">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="designer:ReportDesignerSelectionEntryViewModel">
+                  <Border Classes="designer-property-shell">
+                    <StackPanel Spacing="4">
+                      <TextBlock FontWeight="SemiBold"
+                                 Text="{Binding Title}" />
+                      <TextBlock Classes="designer-helper"
+                                 Text="{Binding Subtitle}"
+                                 TextWrapping="Wrap" />
+                    </StackPanel>
+                  </Border>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </Grid>
+        </Grid>
+      </TabItem>
+    </TabControl>
+  </Border>
+</UserControl>

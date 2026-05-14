@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <PropertyGroup>
+    <PackageDescription>RTF import/export support for ProEdit documents.</PackageDescription>
+    <PackageTags>proedit;documents;rtf;import;export</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ProEdit.Documents\ProEdit.Documents.csproj" />
+  </ItemGroup>
+</Project>

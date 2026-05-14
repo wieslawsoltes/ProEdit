@@ -1,0 +1,30 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ProEdit.Reporting.App.ViewModels"
+             x:Class="ProEdit.Reporting.App.Controls.ReportingStudioStatusStrip"
+             x:DataType="vm:ReportingStudioViewModel">
+  <Border Classes="studio-status-strip">
+    <Grid ColumnDefinitions="*,Auto,Auto,Auto"
+          ColumnSpacing="10">
+      <TextBlock VerticalAlignment="Center"
+                 Classes="studio-path-text"
+                 Text="{Binding StatusMessage}"
+                 TextTrimming="CharacterEllipsis" />
+      <Border Grid.Column="1"
+              Classes="studio-chip">
+        <TextBlock Classes="studio-caption"
+                   Text="{Binding CurrentMode}" />
+      </Border>
+      <Border Grid.Column="2"
+              Classes="studio-chip">
+        <TextBlock Classes="studio-caption"
+                   Text="{Binding DesignerViewModel.SurfaceZoomDisplayText}" />
+      </Border>
+      <Border Grid.Column="3"
+              Classes="studio-chip studio-chip-accent">
+        <TextBlock Classes="studio-caption"
+                   Text="{Binding DiagnosticsSummaryText}" />
+      </Border>
+    </Grid>
+  </Border>
+</UserControl>

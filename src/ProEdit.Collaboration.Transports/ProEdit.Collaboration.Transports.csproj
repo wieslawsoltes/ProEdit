@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>ProEdit.Collaboration.Transports</PackageId>
+  </PropertyGroup>
+  <PropertyGroup>
+    <PackageDescription>Transport abstractions and implementations for ProEdit collaboration.</PackageDescription>
+    <PackageTags>proedit;collaboration;transport</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ProEdit.Collaboration\ProEdit.Collaboration.csproj" />
+    <ProjectReference Include="..\ProEdit.Collaboration.Protocol\ProEdit.Collaboration.Protocol.csproj" />
+  </ItemGroup>
+</Project>

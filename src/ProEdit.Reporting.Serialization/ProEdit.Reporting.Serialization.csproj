@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageDescription>Template serialization and schema versioning for ProEdit reporting.</PackageDescription>
+    <PackageTags>proedit;reporting;serialization;json</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\\ProEdit.Reporting.Core\\ProEdit.Reporting.Core.csproj" />
+  </ItemGroup>
+
+</Project>

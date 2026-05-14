@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageDescription>Data providers and dataset execution for ProEdit reporting.</PackageDescription>
+    <PackageTags>proedit;reporting;data;datasets</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\\ProEdit.Reporting.Core\\ProEdit.Reporting.Core.csproj" />
+    <ProjectReference Include="..\\ProEdit.Reporting.Expressions\\ProEdit.Reporting.Expressions.csproj" />
+  </ItemGroup>
+
+</Project>

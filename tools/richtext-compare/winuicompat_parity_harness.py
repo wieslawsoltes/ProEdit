@@ -131,7 +131,7 @@ def main() -> int:
     parser.add_argument(
         "--manifest",
         type=Path,
-        default=repo_root / "src/Vibe.Office.WinUICompat/Api/winui-richtext-manifest.json",
+        default=repo_root / "src/ProEdit.WinUICompat/Api/winui-richtext-manifest.json",
     )
     parser.add_argument(
         "--fixtures",
@@ -180,19 +180,19 @@ def main() -> int:
     )
 
     if not args.skip_build:
-        results.append(_run_command("Build WinUICompat sample", ["dotnet", "build", "src/Vibe.WinUICompat.App/Vibe.WinUICompat.App.csproj", "-v", "minimal"], cwd=root))
+        results.append(_run_command("Build WinUICompat sample", ["dotnet", "build", "src/ProEdit.WinUICompat.App/ProEdit.WinUICompat.App.csproj", "-v", "minimal"], cwd=root))
 
     results.append(
         _run_command(
             "Core tests",
-            ["dotnet", "test", "tests/Vibe.Office.WinUICompat.Tests/Vibe.Office.WinUICompat.Tests.csproj", "-v", "minimal"],
+            ["dotnet", "test", "tests/ProEdit.WinUICompat.Tests/ProEdit.WinUICompat.Tests.csproj", "-v", "minimal"],
             cwd=root,
         )
     )
     results.append(
         _run_command(
             "Uno tests",
-            ["dotnet", "test", "tests/Vibe.Office.WinUICompat.Uno.Tests/Vibe.Office.WinUICompat.Uno.Tests.csproj", "-v", "minimal"],
+            ["dotnet", "test", "tests/ProEdit.WinUICompat.Uno.Tests/ProEdit.WinUICompat.Uno.Tests.csproj", "-v", "minimal"],
             cwd=root,
         )
     )

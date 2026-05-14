@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageDescription>Export pipeline for ProEdit reporting.</PackageDescription>
+    <PackageTags>proedit;reporting;export;pdf;docx;csv;xlsx</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\\ProEdit.Reporting.Core\\ProEdit.Reporting.Core.csproj" />
+    <ProjectReference Include="..\\ProEdit.Reporting.DocumentComposition\\ProEdit.Reporting.DocumentComposition.csproj" />
+    <ProjectReference Include="..\\ProEdit.Documents\\ProEdit.Documents.csproj" />
+    <ProjectReference Include="..\\ProEdit.Documents.Rtf\\ProEdit.Documents.Rtf.csproj" />
+    <ProjectReference Include="..\\ProEdit.Html\\ProEdit.Html.csproj" />
+    <ProjectReference Include="..\\ProEdit.Layout\\ProEdit.Layout.csproj" />
+    <ProjectReference Include="..\\ProEdit.Markdown\\ProEdit.Markdown.csproj" />
+    <ProjectReference Include="..\\ProEdit.OpenXml\\ProEdit.OpenXml.csproj" />
+    <ProjectReference Include="..\\ProEdit.PostScript\\ProEdit.PostScript.csproj" />
+    <ProjectReference Include="..\\ProEdit.Printing\\ProEdit.Printing.csproj" />
+    <ProjectReference Include="..\\ProEdit.Printing.Documents\\ProEdit.Printing.Documents.csproj" />
+    <ProjectReference Include="..\\ProEdit.Printing.Skia\\ProEdit.Printing.Skia.csproj" />
+    <ProjectReference Include="..\\ProEdit.Printing.System\\ProEdit.Printing.System.csproj" />
+    <ProjectReference Include="..\\ProEdit.Xps\\ProEdit.Xps.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="DocumentFormat.OpenXml" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageDescription>Shared data binding from reporting connectors into ProEdit documents.</PackageDescription>
+    <PackageTags>proedit;documents;reporting;data;binding</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ProEdit.Documents\ProEdit.Documents.csproj" />
+    <ProjectReference Include="..\ProEdit.Reporting.Data\ProEdit.Reporting.Data.csproj" />
+  </ItemGroup>
+
+</Project>

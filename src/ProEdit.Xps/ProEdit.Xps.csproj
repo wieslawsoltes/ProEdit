@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <PropertyGroup>
+    <PackageDescription>XPS/OXPS conversion services for ProEdit.</PackageDescription>
+    <PackageTags>proedit;xps;oxps;ghostscript;conversion</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ProEdit.Documents\ProEdit.Documents.csproj" />
+    <ProjectReference Include="..\ProEdit.Layout\ProEdit.Layout.csproj" />
+    <ProjectReference Include="..\ProEdit.Pdf\ProEdit.Pdf.csproj" />
+    <ProjectReference Include="..\ProEdit.Pdf.Documents\ProEdit.Pdf.Documents.csproj" />
+    <ProjectReference Include="..\ProEdit.Pdf.PdfPig\ProEdit.Pdf.PdfPig.csproj" />
+    <ProjectReference Include="..\ProEdit.Printing\ProEdit.Printing.csproj" />
+    <ProjectReference Include="..\ProEdit.Printing.Documents\ProEdit.Printing.Documents.csproj" />
+    <ProjectReference Include="..\ProEdit.Printing.Skia\ProEdit.Printing.Skia.csproj" />
+    <ProjectReference Include="..\ProEdit.Printing.System\ProEdit.Printing.System.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,13 +1,13 @@
 # FlowDocument
 
-The FlowDocument stack provides a WPF-style document object model for Avalonia XAML, a converter to the VibeOffice document model, and a read-only renderer based on the existing layout + Skia rendering pipeline.
+The FlowDocument stack provides a WPF-style document object model for Avalonia XAML, a converter to the ProEdit document model, and a read-only renderer based on the existing layout + Skia rendering pipeline.
 
 ## Projects
 
-- `Vibe.Office.FlowDocument`: FlowDocument object model and collections.
-- `Vibe.Office.FlowDocument.Documents`: FlowDocument → `Vibe.Office.Documents.Document` converter.
-- `Vibe.Office.FlowDocument.Avalonia`: `FlowDocumentView` control for rendering.
-- `Vibe.FlowDocument.App`: Sample app demonstrating `FlowDocumentView`.
+- `ProEdit.FlowDocument`: FlowDocument object model and collections.
+- `ProEdit.FlowDocument.Documents`: FlowDocument → `ProEdit.Documents.Document` converter.
+- `ProEdit.FlowDocument.Avalonia`: `FlowDocumentView` control for rendering.
+- `ProEdit.FlowDocument.App`: Sample app demonstrating `FlowDocumentView`.
 
 ## FlowDocumentView
 
@@ -27,7 +27,7 @@ Example usage:
 
 ## Conversion Notes
 
-The converter maps FlowDocument blocks and inlines into the VibeOffice document model:
+The converter maps FlowDocument blocks and inlines into the ProEdit document model:
 
 - Paragraph and inline formatting is mapped into `ParagraphProperties` and `TextStyleProperties`.
 - Lists map to `ListInfo` with nested levels.
@@ -40,9 +40,9 @@ The converter maps FlowDocument blocks and inlines into the VibeOffice document 
 Run the sample:
 
 ```bash
-cd /Users/wieslawsoltes/GitHub/VibeOffice
+cd /Users/wieslawsoltes/GitHub/ProEdit
 
-dotnet run --project src/Vibe.FlowDocument.App/Vibe.FlowDocument.App.csproj
+dotnet run --project src/ProEdit.FlowDocument.App/ProEdit.FlowDocument.App.csproj
 ```
 
 The app showcases lists, tables with row spans, hyperlinks, figures/floaters, and embedded inline/block UI containers declared in both code and XAML.
@@ -63,7 +63,7 @@ This enables roundtrip scenarios where editor-hosted updates can be mirrored bac
 
 ## FlowDocument Overview Parity Samples
 
-`Vibe.FlowDocument.App` includes a strict pass of the official WPF `Flow Document Overview` samples.
+`ProEdit.FlowDocument.App` includes a strict pass of the official WPF `Flow Document Overview` samples.
 
 - Each sample tab is rendered side-by-side as `Verbatim` and `Avalonia-adapted`.
 - The tab set includes the XAML snippets and the C# code-only snippet variants referenced by:
@@ -77,7 +77,7 @@ Current adaptation note:
 
 ## Use with RichTextBox
 
-`FlowDocument` is also the document surface for `Vibe.Office.RichText.Avalonia.RichTextBox`.
+`FlowDocument` is also the document surface for `ProEdit.RichText.Avalonia.RichTextBox`.
 
 - Author content in FlowDocument XAML.
 - Bind or assign it to `RichTextBox.Document`.

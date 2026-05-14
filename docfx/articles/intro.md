@@ -1,6 +1,6 @@
 # Introduction
 
-VibeOffice is a set of libraries and apps for word-processing style documents. The repo is split into core document and format components, rendering and printing stacks, collaboration infrastructure, and Avalonia-based UI shells.
+ProEdit is a set of libraries and apps for word-processing style documents. The repo is split into core document and format components, rendering and printing stacks, collaboration infrastructure, and Avalonia-based UI shells.
 
 ## Goals
 - Modular components that can be used independently

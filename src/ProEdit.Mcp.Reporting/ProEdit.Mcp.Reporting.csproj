@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageDescription>MCP reporting tools and resources for ProEdit reporting.</PackageDescription>
+    <PackageTags>proedit;mcp;reporting;exports;connectors</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\\ProEdit.Mcp\\ProEdit.Mcp.csproj" />
+    <ProjectReference Include="..\\ProEdit.Reporting.Service\\ProEdit.Reporting.Service.csproj" />
+    <ProjectReference Include="..\\ProEdit.Reporting.Export\\ProEdit.Reporting.Export.csproj" />
+    <ProjectReference Include="..\\ProEdit.Reporting.Serialization\\ProEdit.Reporting.Serialization.csproj" />
+    <ProjectReference Include="..\\ProEdit.Reporting.Data\\ProEdit.Reporting.Data.csproj" />
+  </ItemGroup>
+
+</Project>

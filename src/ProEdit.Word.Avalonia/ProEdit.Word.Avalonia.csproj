@@ -1,0 +1,59 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(IsDocFxBuild)' == 'true'">
+    <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
+    <CompilerGeneratedFilesOutputPath>Generated</CompilerGeneratedFilesOutputPath>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(IsDocFxBuild)' == 'true'">
+    <Compile Remove="Generated\\**\\*.cs" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(IsDocFxMetadata)' == 'true'">
+    <Compile Remove="Generated\\Avalonia.Generators\\**\\*.cs" />
+  </ItemGroup>
+  <PropertyGroup>
+    <PackageDescription>Avalonia UI for the ProEdit Word editor.</PackageDescription>
+    <PackageTags>proedit;avalonia;editor;word</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Skia" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+    <PackageReference Include="Avalonia.Fonts.Inter" />
+    <PackageReference Include="ReactiveUI" />
+    <PackageReference Include="ReactiveUI.Avalonia" />
+    <PackageReference Include="ReactiveUI.SourceGenerators">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\\ProEdit.Rendering\\ProEdit.Rendering.csproj" />
+    <ProjectReference Include="..\\ProEdit.Rendering.Skia\\ProEdit.Rendering.Skia.csproj" />
+    <ProjectReference Include="..\\ProEdit.Ribbon.Avalonia\\ProEdit.Ribbon.Avalonia.csproj" />
+    <ProjectReference Include="..\\ProEdit.Collaboration.Editor\\ProEdit.Collaboration.Editor.csproj" />
+    <ProjectReference Include="..\\ProEdit.Collaboration.UI\\ProEdit.Collaboration.UI.csproj" />
+    <ProjectReference Include="..\\ProEdit.Editing\\ProEdit.Editing.csproj" />
+    <ProjectReference Include="..\\ProEdit.Documents.Rtf\\ProEdit.Documents.Rtf.csproj" />
+    <ProjectReference Include="..\\ProEdit.PostScript\\ProEdit.PostScript.csproj" />
+    <ProjectReference Include="..\\ProEdit.Xps\\ProEdit.Xps.csproj" />
+    <ProjectReference Include="..\\ProEdit.Html\\ProEdit.Html.csproj" />
+    <ProjectReference Include="..\\ProEdit.Markdown\\ProEdit.Markdown.csproj" />
+    <ProjectReference Include="..\\ProEdit.Macros\\ProEdit.Macros.csproj" />
+    <ProjectReference Include="..\\ProEdit.Pdf\\ProEdit.Pdf.csproj" />
+    <ProjectReference Include="..\\ProEdit.Pdf.Documents\\ProEdit.Pdf.Documents.csproj" />
+    <ProjectReference Include="..\\ProEdit.Pdf.PdfPig\\ProEdit.Pdf.PdfPig.csproj" />
+    <ProjectReference Include="..\\ProEdit.Pdf.PdfSharp\\ProEdit.Pdf.PdfSharp.csproj" />
+    <ProjectReference Include="..\\ProEdit.Printing.Avalonia\\ProEdit.Printing.Avalonia.csproj" />
+    <ProjectReference Include="..\\ProEdit.Printing.Documents\\ProEdit.Printing.Documents.csproj" />
+    <ProjectReference Include="..\\ProEdit.Printing.Skia\\ProEdit.Printing.Skia.csproj" />
+    <ProjectReference Include="..\\ProEdit.Printing.System\\ProEdit.Printing.System.csproj" />
+    <ProjectReference Include="..\\ProEdit.Word.Editor\\ProEdit.Word.Editor.csproj" />
+    <ProjectReference Include="..\\ProEdit.OpenXml\\ProEdit.OpenXml.csproj" />
+  </ItemGroup>
+</Project>

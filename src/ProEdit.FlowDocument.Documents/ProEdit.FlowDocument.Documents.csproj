@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <PropertyGroup>
+    <PackageDescription>FlowDocument to ProEdit document conversion.</PackageDescription>
+    <PackageTags>proedit;flowdocument;documents;conversion</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ProEdit.FlowDocument\ProEdit.FlowDocument.csproj" />
+    <ProjectReference Include="..\ProEdit.Documents\ProEdit.Documents.csproj" />
+    <ProjectReference Include="..\ProEdit.Layout\ProEdit.Layout.csproj" />
+  </ItemGroup>
+</Project>

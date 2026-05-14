@@ -1,0 +1,108 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="ProEdit.Word.Avalonia.ProofingOptionsWindow"
+        Title="Proofing Options"
+        Width="760"
+        Height="520"
+        MinWidth="640"
+        MinHeight="420">
+  <Grid RowDefinitions="*,Auto">
+    <TabControl x:Name="Tabs" Grid.Row="0">
+      <TabItem Header="Languages">
+        <Grid Margin="10" RowDefinitions="Auto,*">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBox x:Name="LanguageInput" Width="120" Watermark="en-US" />
+            <Button x:Name="AddLanguageButton" Content="Add" />
+            <Button x:Name="RemoveLanguageButton" Content="Remove" />
+          </StackPanel>
+          <ListBox x:Name="LanguageList" Grid.Row="1" Margin="0,8,0,0">
+            <ListBox.ItemTemplate>
+              <DataTemplate x:CompileBindings="False">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <TextBlock Text="{Binding Language}" Width="120" />
+                  <ComboBox ItemsSource="{Binding Profiles}"
+                            SelectedItem="{Binding SelectedProfile}"
+                            Width="240">
+                    <ComboBox.ItemTemplate>
+                      <DataTemplate x:CompileBindings="False">
+                        <TextBlock Text="{Binding Name}" />
+                      </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                  </ComboBox>
+                </StackPanel>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </Grid>
+      </TabItem>
+      <TabItem Header="Profiles">
+        <Grid Margin="10" ColumnDefinitions="220,*">
+          <StackPanel Grid.Column="0" Spacing="8">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <Button x:Name="AddProfileButton" Content="Add" />
+              <Button x:Name="RemoveProfileButton" Content="Remove" />
+            </StackPanel>
+            <ListBox x:Name="ProfilesList">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:CompileBindings="False">
+                  <TextBlock Text="{Binding Name}" />
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </StackPanel>
+          <StackPanel Grid.Column="1" Spacing="6" Margin="12,0,0,0">
+            <TextBlock Text="Profile Name" FontWeight="SemiBold" />
+            <TextBox x:Name="ProfileNameBox" />
+            <TextBlock Text="Spell Engine" FontWeight="SemiBold" Margin="0,6,0,0" />
+            <ComboBox x:Name="SpellEngineCombo" />
+            <TextBlock Text="Grammar Engine" FontWeight="SemiBold" Margin="0,6,0,0" />
+            <ComboBox x:Name="GrammarEngineCombo" />
+            <TextBlock Text="Style Engine" FontWeight="SemiBold" Margin="0,6,0,0" />
+            <ComboBox x:Name="StyleEngineCombo" />
+          </StackPanel>
+        </Grid>
+      </TabItem>
+      <TabItem Header="Engines">
+        <Grid Margin="10" ColumnDefinitions="260,*">
+          <StackPanel Grid.Column="0" Spacing="8">
+            <TextBlock Text="Engines" FontWeight="SemiBold" />
+            <ListBox x:Name="EngineList" Height="200">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:CompileBindings="False">
+                  <TextBlock Text="{Binding DisplayLabel}" />
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+            <TextBlock Text="Plugin Assemblies" FontWeight="SemiBold" Margin="0,6,0,0" />
+            <ListBox x:Name="PluginList" Height="160" />
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <Button x:Name="AddPluginButton" Content="Add..." />
+              <Button x:Name="RemovePluginButton" Content="Remove" />
+            </StackPanel>
+          </StackPanel>
+          <StackPanel Grid.Column="1" Spacing="6" Margin="12,0,0,0">
+            <TextBlock Text="Engine Settings" FontWeight="SemiBold" />
+            <ListBox x:Name="EngineSettingsList" Height="260">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:CompileBindings="False">
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <TextBox Text="{Binding Key, Mode=TwoWay}" Width="160" />
+                    <TextBox Text="{Binding Value, Mode=TwoWay}" Width="240" />
+                  </StackPanel>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <Button x:Name="AddSettingButton" Content="Add Setting" />
+              <Button x:Name="RemoveSettingButton" Content="Remove" />
+            </StackPanel>
+          </StackPanel>
+        </Grid>
+      </TabItem>
+    </TabControl>
+    <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="10">
+      <Button x:Name="OkButton" Content="OK" Width="90" />
+      <Button x:Name="CancelButton" Content="Cancel" Width="90" />
+    </StackPanel>
+  </Grid>
+</Window>

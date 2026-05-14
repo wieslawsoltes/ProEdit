@@ -1,0 +1,137 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:designer="using:ProEdit.Reporting.Avalonia.Designer"
+             x:Class="ProEdit.Reporting.Avalonia.Designer.ReportDesignerChartDataPane"
+             x:DataType="designer:ReportDesignerViewModel">
+  <Border Classes="designer-grouping-pane">
+    <Grid RowDefinitions="Auto,*"
+          RowSpacing="8">
+      <Grid ColumnDefinitions="*,Auto"
+            ColumnSpacing="10">
+        <StackPanel Spacing="2">
+          <TextBlock Classes="designer-panel-title"
+                     Text="Chart Data" />
+          <TextBlock Classes="designer-helper"
+                     Text="Drag fields from Report Data to Category Groups, Series Groups, or Values. This mirrors the chart-data buckets in Report Builder." />
+        </StackPanel>
+
+        <StackPanel Grid.Column="1"
+                    Orientation="Horizontal"
+                    Spacing="8">
+          <ComboBox Classes="designer-editor"
+                    Width="180"
+                    ItemsSource="{Binding ChartDataSetOptions}"
+                    SelectedItem="{Binding SelectedChartDataSetOption, Mode=TwoWay}">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="designer:ReportDesignerChoiceOptionViewModel">
+                <TextBlock Text="{Binding Label}" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+          <Button Theme="{StaticResource DesignerActionButtonTheme}"
+                  Content="Add Value"
+                  Command="{Binding AddChartSeriesCommand}" />
+          <Button Theme="{StaticResource DesignerActionButtonTheme}"
+                  Content="Remove Value"
+                  Command="{Binding RemoveSelectedChartSeriesCommand}"
+                  IsEnabled="{Binding HasSelectedChartSeries}" />
+          <Border Classes="designer-status-pill">
+            <TextBlock Classes="designer-helper"
+                       Text="{Binding ChartDataStatusMessage}" />
+          </Border>
+        </StackPanel>
+      </Grid>
+
+      <Grid Grid.Row="1"
+            ColumnDefinitions="*,10,*,10,*">
+        <designer:ReportDesignerChartDataDropZoneControl DropTarget="CategoryGroups">
+          <Border Classes="designer-group-card">
+            <StackPanel Spacing="8">
+              <TextBlock Classes="designer-panel-title"
+                         Text="Category Groups" />
+              <TextBlock Classes="designer-helper"
+                         Text="Drop one field here to define the chart category axis." />
+              <TextBox Classes="designer-editor"
+                       Watermark="Fields.Region"
+                       Text="{Binding ChartCategoryExpressionText, Mode=TwoWay}" />
+              <Button Theme="{StaticResource DesignerActionButtonTheme}"
+                      Content="Use Selected Field"
+                      Command="{Binding ApplySelectedFieldToChartCategoryCommand}"
+                      IsEnabled="{Binding CanApplySelectedFieldToChartCategory}" />
+            </StackPanel>
+          </Border>
+        </designer:ReportDesignerChartDataDropZoneControl>
+
+        <designer:ReportDesignerChartDataDropZoneControl Grid.Column="2"
+                                                         DropTarget="Values">
+          <Border Classes="designer-group-card">
+            <Grid RowDefinitions="Auto,Auto,*"
+                  RowSpacing="8">
+              <TextBlock Classes="designer-panel-title"
+                         Text="Values" />
+              <Button Grid.Row="1"
+                      Theme="{StaticResource DesignerActionButtonTheme}"
+                      Content="Use Selected Field"
+                      Command="{Binding ApplySelectedFieldToChartValueCommand}"
+                      IsEnabled="{Binding CanApplySelectedFieldToChartValue}" />
+              <ListBox Grid.Row="2"
+                       Classes="designer-pane-list"
+                       ItemsSource="{Binding ChartSeriesEntries}"
+                       SelectedItem="{Binding SelectedChartSeriesEntry, Mode=TwoWay}">
+                <ListBox.ItemTemplate>
+                  <DataTemplate x:DataType="designer:ReportDesignerChartSeriesEntryViewModel">
+                    <Border Classes="designer-list-item-card">
+                      <StackPanel Spacing="6">
+                        <TextBox Classes="designer-editor"
+                                 Watermark="Series label expression"
+                                 Text="{Binding NameExpression, Mode=TwoWay}" />
+                        <TextBox Classes="designer-editor"
+                                 Watermark="Series value expression"
+                                 Text="{Binding ValueExpression, Mode=TwoWay}" />
+                        <TextBox Classes="designer-editor"
+                                 Watermark="Color expression"
+                                 Text="{Binding ColorExpression, Mode=TwoWay}" />
+                      </StackPanel>
+                    </Border>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+            </Grid>
+          </Border>
+        </designer:ReportDesignerChartDataDropZoneControl>
+
+        <designer:ReportDesignerChartDataDropZoneControl Grid.Column="4"
+                                                         DropTarget="SeriesGroups">
+          <Border Classes="designer-group-card">
+            <Grid RowDefinitions="Auto,Auto,*"
+                  RowSpacing="8">
+              <TextBlock Classes="designer-panel-title"
+                         Text="Series Groups" />
+              <Button Grid.Row="1"
+                      Theme="{StaticResource DesignerActionButtonTheme}"
+                      Content="Use Selected Field"
+                      Command="{Binding ApplySelectedFieldToChartSeriesGroupCommand}"
+                      IsEnabled="{Binding CanApplySelectedFieldToChartSeriesGroup}" />
+              <ItemsControl Grid.Row="2"
+                            ItemsSource="{Binding ChartSeriesEntries}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="designer:ReportDesignerChartSeriesEntryViewModel">
+                    <Border Classes="designer-list-item-card">
+                      <StackPanel Spacing="4">
+                        <TextBlock Classes="designer-label"
+                                   Text="{Binding Label}" />
+                        <TextBlock Classes="designer-helper"
+                                   Text="{Binding NameExpression}"
+                                   TextWrapping="Wrap" />
+                      </StackPanel>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </Grid>
+          </Border>
+        </designer:ReportDesignerChartDataDropZoneControl>
+      </Grid>
+    </Grid>
+  </Border>
+</UserControl>

@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\ProEdit.Collaboration\ProEdit.Collaboration.csproj" />
+    <ProjectReference Include="..\..\src\ProEdit.Collaboration.Editor\ProEdit.Collaboration.Editor.csproj" />
+    <ProjectReference Include="..\..\src\ProEdit.Collaboration.Protocol\ProEdit.Collaboration.Protocol.csproj" />
+    <ProjectReference Include="..\..\src\ProEdit.Collaboration.Server\ProEdit.Collaboration.Server.csproj" />
+    <ProjectReference Include="..\..\src\ProEdit.Collaboration.Transports\ProEdit.Collaboration.Transports.csproj" />
+    <ProjectReference Include="..\..\src\ProEdit.Collaboration.UI\ProEdit.Collaboration.UI.csproj" />
+    <ProjectReference Include="..\..\src\ProEdit.Word.Editor\ProEdit.Word.Editor.csproj" />
+    <ProjectReference Include="..\..\src\ProEdit.Editing\ProEdit.Editing.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+</Project>

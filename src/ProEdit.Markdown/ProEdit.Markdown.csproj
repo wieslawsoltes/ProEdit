@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <PropertyGroup>
+    <PackageDescription>Markdown import and export helpers for ProEdit documents.</PackageDescription>
+    <PackageTags>proedit;markdown;import;export</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\\ProEdit.Documents\\ProEdit.Documents.csproj" />
+    <ProjectReference Include="..\\ProEdit.Editing\\ProEdit.Editing.csproj" />
+    <ProjectReference Include="..\\ProEdit.Html\\ProEdit.Html.csproj" />
+  </ItemGroup>
+</Project>

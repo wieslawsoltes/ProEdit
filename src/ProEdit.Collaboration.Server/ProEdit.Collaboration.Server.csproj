@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>ProEdit.Collaboration.Server</PackageId>
+  </PropertyGroup>
+  <PropertyGroup>
+    <PackageDescription>WebSocket relay server for ProEdit collaboration.</PackageDescription>
+    <PackageTags>proedit;collaboration;server;websocket</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ProEdit.Collaboration.Protocol\ProEdit.Collaboration.Protocol.csproj" />
+  </ItemGroup>
+</Project>

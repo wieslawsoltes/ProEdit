@@ -1,0 +1,26 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="ProEdit.Word.Avalonia.MessageDialog"
+        Width="520"
+        Height="320"
+        WindowStartupLocation="CenterOwner"
+        Title="Message">
+  <Grid RowDefinitions="*,Auto"
+        RowSpacing="10"
+        Margin="12">
+    <TextBox x:Name="MessageText"
+             IsReadOnly="True"
+             AcceptsReturn="True"
+             TextWrapping="Wrap"
+             ScrollViewer.VerticalScrollBarVisibility="Auto"
+             ScrollViewer.HorizontalScrollBarVisibility="Auto" />
+    <StackPanel Grid.Row="1"
+                Orientation="Horizontal"
+                HorizontalAlignment="Right"
+                Spacing="8">
+      <Button Content="OK"
+              Width="80"
+              Click="OnOkClick" />
+    </StackPanel>
+  </Grid>
+</Window>

@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageDescription>Expression parsing, compilation, and runtime evaluation for ProEdit reporting.</PackageDescription>
+    <PackageTags>proedit;reporting;expressions;evaluator</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\\ProEdit.Reporting.Core\\ProEdit.Reporting.Core.csproj" />
+  </ItemGroup>
+
+</Project>

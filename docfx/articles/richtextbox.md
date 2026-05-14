@@ -1,16 +1,16 @@
 # RichTextBox
 
-`Vibe.Office.RichText.Avalonia.RichTextBox` is an editable rich text control for Avalonia that reuses the existing VibeOffice editor, layout, and rendering infrastructure.
+`ProEdit.RichText.Avalonia.RichTextBox` is an editable rich text control for Avalonia that reuses the existing ProEdit editor, layout, and rendering infrastructure.
 
 ## Project
 
-- `src/Vibe.Office.RichText.Avalonia/` control, range/pointer API, bridge, clipboard parsing, and theme.
+- `src/ProEdit.RichText.Avalonia/` control, range/pointer API, bridge, clipboard parsing, and theme.
 
 ## Goals
 
 - Use the FlowDocument object model for authoring in XAML and code.
 - Reuse the Word editor engine for editing behavior, undo/redo, selection, and command routing.
-- Keep conversion between `FlowDocument` and `Vibe.Office.Documents.Document` synchronized.
+- Keep conversion between `FlowDocument` and `ProEdit.Documents.Document` synchronized.
 - Support embedded inline and block UI containers through existing placeholder/shape marker infrastructure.
 
 ## Quick Start
@@ -18,8 +18,8 @@
 ```xml
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:fd="clr-namespace:Vibe.Office.FlowDocument;assembly=Vibe.Office.FlowDocument"
-        xmlns:rich="clr-namespace:Vibe.Office.RichText.Avalonia;assembly=Vibe.Office.RichText.Avalonia">
+        xmlns:fd="clr-namespace:ProEdit.FlowDocument;assembly=ProEdit.FlowDocument"
+        xmlns:rich="clr-namespace:ProEdit.RichText.Avalonia;assembly=ProEdit.RichText.Avalonia">
   <rich:RichTextBox>
     <rich:RichTextBox.Document>
       <fd:FlowDocument PagePadding="72,72,72,72">
@@ -63,15 +63,15 @@ Key methods:
 
 ## Testing
 
-- Headless control tests: `tests/Vibe.Office.RichText.Avalonia.Headless.Tests/`.
-- Input router behavior tests: `tests/Vibe.Word.Editor.Tests/EditorCommandInputRouterTests.cs`.
+- Headless control tests: `tests/ProEdit.RichText.Avalonia.Headless.Tests/`.
+- Input router behavior tests: `tests/ProEdit.Word.Editor.Tests/EditorCommandInputRouterTests.cs`.
 
 ## Sample
 
 Run the FlowDocument sample app:
 
 ```bash
-dotnet run --project src/Vibe.FlowDocument.App/Vibe.FlowDocument.App.csproj
+dotnet run --project src/ProEdit.FlowDocument.App/ProEdit.FlowDocument.App.csproj
 ```
 
 Use the `RichTextBox Smoke` tab to validate editing and selection behavior.

@@ -1,0 +1,23 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <PropertyGroup>
+    <PackageDescription>OpenXML import and export for ProEdit documents.</PackageDescription>
+    <PackageTags>proedit;openxml;docx;import;export</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\\ProEdit.Documents\\ProEdit.Documents.csproj" />
+    <ProjectReference Include="..\\ProEdit.Documents.Rtf\\ProEdit.Documents.Rtf.csproj" />
+    <ProjectReference Include="..\\ProEdit.Macros\\ProEdit.Macros.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="DocumentFormat.OpenXml" />
+    <PackageReference Include="OpenMcdf" />
+  </ItemGroup>
+</Project>

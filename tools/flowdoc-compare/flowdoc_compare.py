@@ -497,7 +497,7 @@ def write_report(
     lines.append("# FlowDocument Model Comparison")
     lines.append("")
     lines.append(f"WPF source: `{wpf_root}`")
-    lines.append(f"VibeOffice source: `{ours_root}`")
+    lines.append(f"ProEdit source: `{ours_root}`")
     lines.append("")
     lines.append("## Summary")
     lines.append("")
@@ -514,7 +514,7 @@ def write_report(
     lines.append("")
 
     if missing_types:
-        lines.append("## Missing Types (in VibeOffice)")
+        lines.append("## Missing Types (in ProEdit)")
         lines.append("")
         for name in sorted(missing_types):
             lines.append(f"- {name}")
@@ -610,9 +610,9 @@ def write_report(
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Compare WPF FlowDocument model to VibeOffice FlowDocument model.")
+    parser = argparse.ArgumentParser(description="Compare WPF FlowDocument model to ProEdit FlowDocument model.")
     parser.add_argument("--wpf", required=True, help="Path to WPF System.Windows.Documents folder.")
-    parser.add_argument("--ours", required=True, help="Path to Vibe.Office.FlowDocument folder.")
+    parser.add_argument("--ours", required=True, help="Path to ProEdit.FlowDocument folder.")
     parser.add_argument("--out", required=True, help="Output markdown report path.")
     parser.add_argument("--include-all", action="store_true", help="Include all public types in namespace.")
     parser.add_argument(
@@ -632,7 +632,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--roundtrip-project",
-        help="Optional path to the roundtrip test project (defaults to tests/Vibe.Office.FlowDocument.Tests/Vibe.Office.FlowDocument.Tests.csproj).",
+        help="Optional path to the roundtrip test project (defaults to tests/ProEdit.FlowDocument.Tests/ProEdit.FlowDocument.Tests.csproj).",
     )
     parser.add_argument(
         "--roundtrip-filter",
@@ -655,7 +655,7 @@ def main() -> int:
     allowlist.update(args.allow)
 
     wpf_model = build_model(wpf_root, args.namespace, args.include_all, allowlist)
-    ours_model = build_model(ours_root, "Vibe.Office.FlowDocument", True, allowlist)
+    ours_model = build_model(ours_root, "ProEdit.FlowDocument", True, allowlist)
 
     missing_types, extra_types, property_diff = compare_models(wpf_model, ours_model)
 
@@ -668,8 +668,8 @@ def main() -> int:
             project_path = (
                 repo_root
                 / "tests"
-                / "Vibe.Office.FlowDocument.Tests"
-                / "Vibe.Office.FlowDocument.Tests.csproj"
+                / "ProEdit.FlowDocument.Tests"
+                / "ProEdit.FlowDocument.Tests.csproj"
             ).resolve()
 
         roundtrip_result = run_roundtrip_validation(fixtures_path, project_path, args.roundtrip_filter)

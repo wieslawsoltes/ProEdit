@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageDescription>Document composition for ProEdit reporting.</PackageDescription>
+    <PackageTags>proedit;reporting;document;composition</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\\ProEdit.Reporting.Core\\ProEdit.Reporting.Core.csproj" />
+    <ProjectReference Include="..\\ProEdit.Documents\\ProEdit.Documents.csproj" />
+    <ProjectReference Include="..\\ProEdit.Html\\ProEdit.Html.csproj" />
+    <ProjectReference Include="..\\ProEdit.Markdown\\ProEdit.Markdown.csproj" />
+    <ProjectReference Include="..\\ProEdit.OpenXml\\ProEdit.OpenXml.csproj" />
+  </ItemGroup>
+
+</Project>

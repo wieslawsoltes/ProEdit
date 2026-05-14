@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageDescription>Semantic report materialization for ProEdit reporting.</PackageDescription>
+    <PackageTags>proedit;reporting;materialization</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\\ProEdit.Reporting.Core\\ProEdit.Reporting.Core.csproj" />
+    <ProjectReference Include="..\\ProEdit.Reporting.Data\\ProEdit.Reporting.Data.csproj" />
+    <ProjectReference Include="..\\ProEdit.Reporting.Expressions\\ProEdit.Reporting.Expressions.csproj" />
+  </ItemGroup>
+
+</Project>

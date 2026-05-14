@@ -1,0 +1,67 @@
+using ProEdit.FlowDocument.IO;
+using Xunit;
+
+namespace ProEdit.FlowDocument.IO.Tests;
+
+public sealed class XpsRuntimeOptionsTests
+{
+    [Fact]
+    public void ApplyOverrides_UsesGhostscriptPathAndTimeout()
+    {
+        var options = new XpsConversionOptions
+        {
+            GhostscriptPath = "gs",
+            ProcessTimeout = TimeSpan.FromSeconds(30)
+        };
+
+        var result = XpsRuntimeOptions.ApplyOverrides(options, " /custom/gs ", "90.5");
+
+        Assert.Same(options, result);
+        Assert.Equal("/custom/gs", options.GhostscriptPath);
+        Assert.Equal(TimeSpan.FromSeconds(90.5), options.ProcessTimeout);
+    }
+
+    [Fact]
+    public void ApplyOverrides_IgnoresInvalidTimeoutAndWhitespacePath()
+    {
+        var options = new XpsConversionOptions
+        {
+            GhostscriptPath = "gs",
+            ProcessTimeout = TimeSpan.FromSeconds(30)
+        };
+
+        XpsRuntimeOptions.ApplyOverrides(options, " ", "-1");
+
+        Assert.Equal("gs", options.GhostscriptPath);
+        Assert.Equal(TimeSpan.FromSeconds(30), options.ProcessTimeout);
+    }
+
+    [Theory]
+    [InlineData("1", 1)]
+    [InlineData("2.5", 2.5)]
+    [InlineData(" 3 ", 3)]
+    public void TryParseTimeoutSeconds_ReturnsExpectedValues(string input, double expectedSeconds)
+    {
+        var parsed = XpsRuntimeOptions.TryParseTimeoutSeconds(input, out var timeout);
+
+        Assert.True(parsed);
+        Assert.Equal(TimeSpan.FromSeconds(expectedSeconds), timeout);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("  ")]
+    [InlineData("abc")]
+    [InlineData("0")]
+    [InlineData("-10")]
+    [InlineData("NaN")]
+    [InlineData("Infinity")]
+    public void TryParseTimeoutSeconds_RejectsInvalidValues(string? input)
+    {
+        var parsed = XpsRuntimeOptions.TryParseTimeoutSeconds(input, out var timeout);
+
+        Assert.False(parsed);
+        Assert.Equal(default, timeout);
+    }
+}

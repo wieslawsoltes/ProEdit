@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageDescription>MCP document tools and resources for ProEdit documents.</PackageDescription>
+    <PackageTags>proedit;mcp;documents;content-controls;mail-merge</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\\ProEdit.Mcp\\ProEdit.Mcp.csproj" />
+    <ProjectReference Include="..\\ProEdit.Documents.Data\\ProEdit.Documents.Data.csproj" />
+    <ProjectReference Include="..\\ProEdit.Reporting.Core\\ProEdit.Reporting.Core.csproj" />
+    <ProjectReference Include="..\\ProEdit.Reporting.Data\\ProEdit.Reporting.Data.csproj" />
+  </ItemGroup>
+
+</Project>

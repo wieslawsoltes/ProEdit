@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>ProEdit.Collaboration.Protocol</PackageId>
+  </PropertyGroup>
+  <PropertyGroup>
+    <PackageDescription>Wire protocol types for ProEdit collaboration.</PackageDescription>
+    <PackageTags>proedit;collaboration;protocol</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ProEdit.Collaboration\ProEdit.Collaboration.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageDescription>Standalone Avalonia reporting studio for ProEdit viewer and designer workflows.</PackageDescription>
+    <PackageTags>proedit;reporting;avalonia;designer;viewer;studio</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Desktop" />
+    <PackageReference Include="Avalonia.Fonts.Inter" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+    <PackageReference Include="ReactiveUI" />
+    <PackageReference Include="ReactiveUI.Avalonia" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\\ProEdit.Reporting.Avalonia.Designer\\ProEdit.Reporting.Avalonia.Designer.csproj" />
+    <ProjectReference Include="..\\ProEdit.Reporting.Avalonia.Viewer\\ProEdit.Reporting.Avalonia.Viewer.csproj" />
+    <ProjectReference Include="..\\ProEdit.Reporting.Core\\ProEdit.Reporting.Core.csproj" />
+    <ProjectReference Include="..\\ProEdit.Reporting.Data\\ProEdit.Reporting.Data.csproj" />
+    <ProjectReference Include="..\\ProEdit.Reporting.Rdl\\ProEdit.Reporting.Rdl.csproj" />
+    <ProjectReference Include="..\\ProEdit.Reporting.Serialization\\ProEdit.Reporting.Serialization.csproj" />
+  </ItemGroup>
+</Project>

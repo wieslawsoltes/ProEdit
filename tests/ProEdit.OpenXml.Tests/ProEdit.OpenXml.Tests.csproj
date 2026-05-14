@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\\..\\src\\ProEdit.OpenXml\\ProEdit.OpenXml.csproj" />
+    <ProjectReference Include="..\\..\\src\\ProEdit.Layout\\ProEdit.Layout.csproj" />
+    <ProjectReference Include="..\\..\\src\\ProEdit.Rendering\\ProEdit.Rendering.csproj" />
+    <ProjectReference Include="..\\..\\src\\ProEdit.Rendering.Skia\\ProEdit.Rendering.Skia.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="OpenMcdf" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+</Project>

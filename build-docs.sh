@@ -6,5 +6,5 @@ export IsDocFxMetadata=true
 dotnet tool restore
 dotnet docfx docfx/docfx.json
 unset IsDocFxMetadata
-rm -rf src/Vibe.Office.Printing.Avalonia/Generated
-rm -rf src/Vibe.Word.Avalonia/Generated
+rm -rf src/ProEdit.Printing.Avalonia/Generated
+rm -rf src/ProEdit.Word.Avalonia/Generated

@@ -6,7 +6,7 @@
       "representable": true,
       "status": "supported",
       "description": "RichTextBox exposes vertical scrolling across multi-page content, including documents loaded from DOCX.",
-      "project": "tests/Vibe.Office.RichText.Avalonia.Headless.Tests/Vibe.Office.RichText.Avalonia.Headless.Tests.csproj",
+      "project": "tests/ProEdit.RichText.Avalonia.Headless.Tests/ProEdit.RichText.Avalonia.Headless.Tests.csproj",
       "validation": [
         "AutomationPeer_ExposesValueAndScrollProviders",
         "AutomationPeer_ExposesScrollProvider_ForDocxLoadedDocument"
@@ -20,15 +20,15 @@
       "description": "Style-only run and paragraph definitions resolve into visible FlowDocument formatting (bold/italic and paragraph-level style effects).",
       "validation": [
         {
-          "project": "tests/Vibe.Office.FlowDocument.Tests/Vibe.Office.FlowDocument.Tests.csproj",
+          "project": "tests/ProEdit.FlowDocument.Tests/ProEdit.FlowDocument.Tests.csproj",
           "test": "ConvertsCharacterStyleOnlyRun_ToVisibleFlowFormatting"
         },
         {
-          "project": "tests/Vibe.Office.FlowDocument.Tests/Vibe.Office.FlowDocument.Tests.csproj",
+          "project": "tests/ProEdit.FlowDocument.Tests/ProEdit.FlowDocument.Tests.csproj",
           "test": "ConvertsParagraphStyleInheritance_ToParagraphLevelFlowProperties"
         },
         {
-          "project": "tests/Vibe.Office.FlowDocument.IO.Tests/Vibe.Office.FlowDocument.IO.Tests.csproj",
+          "project": "tests/ProEdit.FlowDocument.IO.Tests/ProEdit.FlowDocument.IO.Tests.csproj",
           "test": "SaveAndLoadDocx_PreservesFlowCompatibleFormatting"
         }
       ]
@@ -41,15 +41,15 @@
       "description": "Flow-compatible table features (row spans, cell borders, shading, padding, and alignment semantics) are preserved across import and export converters.",
       "validation": [
         {
-          "project": "tests/Vibe.Office.FlowDocument.Tests/Vibe.Office.FlowDocument.Tests.csproj",
+          "project": "tests/ProEdit.FlowDocument.Tests/ProEdit.FlowDocument.Tests.csproj",
           "test": "ConvertsTableStyleConditions_ToFlowTableCellVisuals"
         },
         {
-          "project": "tests/Vibe.Office.FlowDocument.Tests/Vibe.Office.FlowDocument.Tests.csproj",
+          "project": "tests/ProEdit.FlowDocument.Tests/ProEdit.FlowDocument.Tests.csproj",
           "test": "ConvertsTableCellVisualPropertiesToDocumentModel"
         },
         {
-          "project": "tests/Vibe.Office.FlowDocument.IO.Tests/Vibe.Office.FlowDocument.IO.Tests.csproj",
+          "project": "tests/ProEdit.FlowDocument.IO.Tests/ProEdit.FlowDocument.IO.Tests.csproj",
           "test": "SaveAndLoadDocx_PreservesFlowCompatibleFormatting"
         }
       ]
@@ -60,7 +60,7 @@
       "representable": true,
       "status": "supported",
       "description": "Flow block and paragraph keep/page-break/line-height visual semantics map into the shared document model.",
-      "project": "tests/Vibe.Office.FlowDocument.Tests/Vibe.Office.FlowDocument.Tests.csproj",
+      "project": "tests/ProEdit.FlowDocument.Tests/ProEdit.FlowDocument.Tests.csproj",
       "validation": [
         "ConvertsParagraphVisualPropertiesToDocumentModel"
       ]
@@ -71,7 +71,7 @@
       "representable": true,
       "status": "supported",
       "description": "Core flow roundtrip fixtures (core structures, nested lists, embedded markers) pass parity checks.",
-      "project": "tests/Vibe.Office.FlowDocument.Tests/Vibe.Office.FlowDocument.Tests.csproj",
+      "project": "tests/ProEdit.FlowDocument.Tests/ProEdit.FlowDocument.Tests.csproj",
       "validation": [
         "RoundtripFixtureSet"
       ]

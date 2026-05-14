@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <PropertyGroup>
+    <PackageDescription>Sample app showcasing FlowDocumentView.</PackageDescription>
+    <PackageTags>proedit;flowdocument;avalonia;sample</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Desktop" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+    <PackageReference Include="Avalonia.Fonts.Inter" />
+    <PackageReference Include="ReactiveUI" />
+    <PackageReference Include="ReactiveUI.Avalonia" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ProEdit.FlowDocument\ProEdit.FlowDocument.csproj" />
+    <ProjectReference Include="..\ProEdit.FlowDocument.Avalonia\ProEdit.FlowDocument.Avalonia.csproj" />
+    <ProjectReference Include="..\ProEdit.FlowDocument.IO\ProEdit.FlowDocument.IO.csproj" />
+    <ProjectReference Include="..\ProEdit.RichText.Avalonia\ProEdit.RichText.Avalonia.csproj" />
+  </ItemGroup>
+</Project>

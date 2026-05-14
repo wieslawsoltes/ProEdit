@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageDescription>Optional host-side repository, scheduling, delivery, audit, and service orchestration for ProEdit reporting.</PackageDescription>
+    <PackageTags>proedit;reporting;service;repository;scheduling</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ProEdit.Reporting.Core\ProEdit.Reporting.Core.csproj" />
+    <ProjectReference Include="..\ProEdit.Reporting.Data\ProEdit.Reporting.Data.csproj" />
+    <ProjectReference Include="..\ProEdit.Reporting.DocumentComposition\ProEdit.Reporting.DocumentComposition.csproj" />
+    <ProjectReference Include="..\ProEdit.Reporting.Export\ProEdit.Reporting.Export.csproj" />
+    <ProjectReference Include="..\ProEdit.Reporting.Expressions\ProEdit.Reporting.Expressions.csproj" />
+    <ProjectReference Include="..\ProEdit.Reporting.Materialization\ProEdit.Reporting.Materialization.csproj" />
+    <ProjectReference Include="..\ProEdit.Reporting.Serialization\ProEdit.Reporting.Serialization.csproj" />
+  </ItemGroup>
+
+</Project>

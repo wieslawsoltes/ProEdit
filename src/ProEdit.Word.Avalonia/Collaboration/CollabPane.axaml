@@ -1,0 +1,116 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:collab="clr-namespace:ProEdit.Collaboration.UI.ViewModels;assembly=ProEdit.Collaboration.UI"
+             xmlns:local="clr-namespace:ProEdit.Word.Avalonia"
+             x:Class="ProEdit.Word.Avalonia.CollabPane"
+             x:DataType="collab:CollabShellViewModel">
+    <UserControl.Resources>
+        <local:CollabColorBrushConverter x:Key="CollabColorBrushConverter" />
+        <local:CollabNullableIntConverter x:Key="CollabNullableIntConverter" />
+    </UserControl.Resources>
+    <Border Background="#F7F7F7"
+            BorderBrush="#DDDDDD"
+            BorderThickness="1,0,0,1"
+            Width="320"
+            IsVisible="{Binding IsPaneVisible}">
+        <DockPanel>
+            <Border DockPanel.Dock="Top"
+                    Background="#ECEFF3"
+                    Padding="8">
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Text="Collaboration"
+                               Foreground="#404040"
+                               FontWeight="SemiBold" />
+                    <Button Grid.Column="1"
+                            Content="Close"
+                            Command="{Binding TogglePaneCommand}"
+                            Height="24"
+                            Padding="8,0"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center" />
+                </Grid>
+            </Border>
+            <TabControl>
+                <TabItem Header="Participants">
+                    <ScrollViewer Margin="8"
+                                  VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled">
+                        <Grid RowDefinitions="Auto,*">
+                            <TextBlock Text="{Binding Participants.Count, StringFormat=Participants: {0}}"
+                                       Foreground="#404040"
+                                       Margin="0,0,0,6" />
+                            <ListBox Grid.Row="1"
+                                     ItemsSource="{Binding Participants.Participants}"
+                                     ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate x:DataType="collab:CollabParticipantViewModel">
+                                        <Grid ColumnDefinitions="Auto,*"
+                                              ColumnSpacing="8">
+                                            <Ellipse Width="10"
+                                                     Height="10"
+                                                     Fill="{Binding Color, Converter={StaticResource CollabColorBrushConverter}}"
+                                                     VerticalAlignment="Center" />
+                                            <StackPanel Grid.Column="1">
+                                                <TextBlock Text="{Binding DisplayName}"
+                                                           FontSize="12"
+                                                           Foreground="#333333" />
+                                                <TextBlock Text="{Binding LastActiveUtc, StringFormat=Last active: {0:g}}"
+                                                           FontSize="10"
+                                                           Foreground="#666666" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Grid>
+                    </ScrollViewer>
+                </TabItem>
+                <TabItem Header="Diagnostics">
+                    <ScrollViewer Margin="8"
+                                  VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="{Binding Status.SyncLag, StringFormat=Sync lag: {0:g}}"
+                                       Foreground="#404040" />
+                            <TextBlock Text="{Binding Status.OpQueueDepth, StringFormat=Op queue: {0}}"
+                                       Foreground="#404040" />
+                            <TextBlock Text="{Binding Status.SnapshotAge, StringFormat=Snapshot age: {0:g}}"
+                                       Foreground="#404040" />
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+                <TabItem Header="Settings">
+                    <ScrollViewer Margin="8"
+                                  VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="Transport"
+                                       Foreground="#404040" />
+                            <ComboBox ItemsSource="{Binding Settings.TransportModes}"
+                                      SelectedItem="{Binding Settings.TransportMode, Mode=TwoWay}" />
+                            <TextBlock Text="Server URL"
+                                       Foreground="#404040" />
+                            <TextBox Text="{Binding Settings.ServerUrl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                            <TextBlock Text="{Binding Settings.SharedPathLabel}"
+                                       Foreground="#404040"
+                                       IsVisible="{Binding Settings.ShowSharedPathEditor}" />
+                            <TextBox Text="{Binding Settings.SharedPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                     IsVisible="{Binding Settings.ShowSharedPathEditor}" />
+                            <TextBlock Text="Session Path"
+                                       Foreground="#404040"
+                                       IsVisible="{Binding Settings.ShowResolvedSharedPath}" />
+                            <TextBox Text="{Binding Settings.ResolvedSharedPath}"
+                                     IsReadOnly="True"
+                                     Watermark="Join to generate a session path"
+                                     IsVisible="{Binding Settings.ShowResolvedSharedPath}" />
+                            <TextBlock Text="Local Broker Port"
+                                       Foreground="#404040" />
+                            <TextBox Text="{Binding Settings.LocalBrokerPort, Mode=TwoWay, Converter={StaticResource CollabNullableIntConverter}, UpdateSourceTrigger=PropertyChanged}" />
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+            </TabControl>
+        </DockPanel>
+    </Border>
+</UserControl>

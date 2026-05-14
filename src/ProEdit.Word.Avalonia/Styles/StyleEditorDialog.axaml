@@ -1,0 +1,85 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="ProEdit.Word.Avalonia.StyleEditorDialog"
+        Width="520"
+        Height="480"
+        WindowStartupLocation="CenterOwner"
+        Title="Style">
+  <Grid Margin="12"
+        RowDefinitions="*,Auto">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+      <StackPanel Spacing="10">
+        <StackPanel Orientation="Horizontal"
+                    Spacing="8">
+          <TextBlock Text="Name:"
+                     Width="120" />
+          <TextBox x:Name="StyleNameBox"
+                   Width="280" />
+        </StackPanel>
+        <StackPanel Orientation="Horizontal"
+                    Spacing="8">
+          <TextBlock Text="Style type:"
+                     Width="120" />
+          <ComboBox x:Name="StyleTypeCombo"
+                    Width="180">
+            <ComboBoxItem Content="Paragraph" />
+            <ComboBoxItem Content="Character" />
+            <ComboBoxItem Content="Table" />
+          </ComboBox>
+        </StackPanel>
+        <StackPanel Orientation="Horizontal"
+                    Spacing="8">
+          <TextBlock Text="Based on:"
+                     Width="120" />
+          <ComboBox x:Name="BasedOnCombo"
+                    Width="280" />
+        </StackPanel>
+        <StackPanel Orientation="Horizontal"
+                    Spacing="8">
+          <TextBlock Text="Next style:"
+                     Width="120" />
+          <ComboBox x:Name="NextStyleCombo"
+                    Width="280" />
+        </StackPanel>
+        <StackPanel Orientation="Horizontal"
+                    Spacing="8">
+          <TextBlock Text="Linked style:"
+                     Width="120" />
+          <ComboBox x:Name="LinkedStyleCombo"
+                    Width="280" />
+        </StackPanel>
+
+        <StackPanel Orientation="Horizontal"
+                    Spacing="8">
+          <TextBlock Text="Formatting:"
+                     Width="120" />
+          <StackPanel Orientation="Horizontal"
+                      Spacing="6">
+            <Button x:Name="FontButton"
+                    Content="Font..." />
+            <Button x:Name="ParagraphButton"
+                    Content="Paragraph..." />
+            <Button x:Name="TableButton"
+                    Content="Table..." />
+          </StackPanel>
+        </StackPanel>
+
+        <CheckBox x:Name="QuickStyleCheckBox"
+                  Content="Add to Quick Styles" />
+        <CheckBox x:Name="AutoRedefineCheckBox"
+                  Content="Automatically update" />
+      </StackPanel>
+    </ScrollViewer>
+
+    <StackPanel Grid.Row="1"
+                Orientation="Horizontal"
+                HorizontalAlignment="Right"
+                Spacing="8"
+                Margin="0,12,0,0">
+      <Button x:Name="OkButton"
+              Content="OK" />
+      <Button x:Name="CancelButton"
+              Content="Cancel" />
+    </StackPanel>
+  </Grid>
+</Window>

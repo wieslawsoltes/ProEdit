@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageDescription>Avalonia RichTextBox control for FlowDocument editing on ProEdit infrastructure.</PackageDescription>
+    <PackageTags>proedit;richtextbox;flowdocument;avalonia</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ProEdit.Documents\ProEdit.Documents.csproj" />
+    <ProjectReference Include="..\ProEdit.Editing\ProEdit.Editing.csproj" />
+    <ProjectReference Include="..\ProEdit.FlowDocument\ProEdit.FlowDocument.csproj" />
+    <ProjectReference Include="..\ProEdit.FlowDocument.Documents\ProEdit.FlowDocument.Documents.csproj" />
+    <ProjectReference Include="..\ProEdit.Word.Avalonia\ProEdit.Word.Avalonia.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Compare WPF RichTextBox public members against Vibe RichTextBox members.
+"""Compare WPF RichTextBox public members against ProEdit RichTextBox members.
 
 Usage:
   python3 tools/richtext-compare/richtextbox_compare.py \
     --wpf /path/to/wpf/RichTextBox.cs \
-    --ours /path/to/Vibe.Office.RichText.Avalonia/RichTextBox.cs \
+    --ours /path/to/ProEdit.RichText.Avalonia/RichTextBox.cs \
     --out /path/to/report.md
 """
 
@@ -110,14 +110,14 @@ def to_markdown(report: dict, wpf_path: Path, ours_path: Path) -> str:
     lines.append("# RichTextBox API Compare Report")
     lines.append("")
     lines.append(f"- WPF source: `{wpf_path}`")
-    lines.append(f"- Vibe source: `{ours_path}`")
+    lines.append(f"- ProEdit source: `{ours_path}`")
     lines.append("")
     lines.append("## Summary")
     lines.append("")
     lines.append(f"- WPF public member count: `{report['wpf']['total']}`")
-    lines.append(f"- Vibe public member count: `{report['ours']['total']}`")
-    lines.append(f"- Missing member count (WPF -> Vibe): `{report['missing']['total']}`")
-    lines.append(f"- Extra member count (Vibe -> WPF): `{report['extra']['total']}`")
+    lines.append(f"- ProEdit public member count: `{report['ours']['total']}`")
+    lines.append(f"- Missing member count (WPF -> ProEdit): `{report['missing']['total']}`")
+    lines.append(f"- Extra member count (ProEdit -> WPF): `{report['extra']['total']}`")
     lines.append("")
     lines.append("## Missing Members")
     lines.append("")
@@ -141,9 +141,9 @@ def to_markdown(report: dict, wpf_path: Path, ours_path: Path) -> str:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Compare WPF and Vibe RichTextBox API members.")
+    parser = argparse.ArgumentParser(description="Compare WPF and ProEdit RichTextBox API members.")
     parser.add_argument("--wpf", required=True, type=Path, help="Path to WPF RichTextBox.cs")
-    parser.add_argument("--ours", required=True, type=Path, help="Path to Vibe RichTextBox.cs")
+    parser.add_argument("--ours", required=True, type=Path, help="Path to ProEdit RichTextBox.cs")
     parser.add_argument("--out", required=True, type=Path, help="Path to markdown output report")
     parser.add_argument("--json-out", type=Path, default=None, help="Optional JSON output path")
     args = parser.parse_args()

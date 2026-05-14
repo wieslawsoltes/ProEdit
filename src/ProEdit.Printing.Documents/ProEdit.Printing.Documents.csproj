@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <PropertyGroup>
+    <PackageDescription>Document-to-print conversion for ProEdit.</PackageDescription>
+    <PackageTags>proedit;printing;documents</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\\ProEdit.Printing\\ProEdit.Printing.csproj" />
+    <ProjectReference Include="..\\ProEdit.Documents\\ProEdit.Documents.csproj" />
+    <ProjectReference Include="..\\ProEdit.Editing\\ProEdit.Editing.csproj" />
+    <ProjectReference Include="..\\ProEdit.Layout\\ProEdit.Layout.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,18 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:collab="clr-namespace:ProEdit.Collaboration.UI.ViewModels;assembly=ProEdit.Collaboration.UI"
+             xmlns:local="clr-namespace:ProEdit.Word.Avalonia"
+             x:Class="ProEdit.Word.Avalonia.CollabStatusChip"
+             x:DataType="collab:CollabSessionViewModel">
+    <UserControl.Resources>
+        <local:CollabColorBrushConverter x:Key="CollabColorBrushConverter" />
+    </UserControl.Resources>
+    <Border Background="{Binding StatusColor, Converter={StaticResource CollabColorBrushConverter}}"
+            CornerRadius="10"
+            Padding="8,2">
+        <TextBlock Text="{Binding StatusText}"
+                   Foreground="White"
+                   FontSize="11"
+                   FontWeight="SemiBold" />
+    </Border>
+</UserControl>

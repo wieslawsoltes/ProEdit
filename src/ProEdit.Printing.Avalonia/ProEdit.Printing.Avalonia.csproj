@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(IsDocFxBuild)' == 'true'">
+    <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
+    <CompilerGeneratedFilesOutputPath>Generated</CompilerGeneratedFilesOutputPath>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(IsDocFxBuild)' == 'true'">
+    <Compile Remove="Generated\\**\\*.cs" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(IsDocFxMetadata)' == 'true'">
+    <Compile Remove="Generated\\Avalonia.Generators\\**\\*.cs" />
+  </ItemGroup>
+  <PropertyGroup>
+    <PackageDescription>Avalonia UI and ViewModels for ProEdit printing.</PackageDescription>
+    <PackageTags>proedit;printing;avalonia;ui</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+    <PackageReference Include="ReactiveUI" />
+    <PackageReference Include="ReactiveUI.Avalonia" />
+    <PackageReference Include="ReactiveUI.SourceGenerators">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\\ProEdit.Printing\\ProEdit.Printing.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <PropertyGroup>
+    <PackageDescription>Editor integration for ProEdit collaboration.</PackageDescription>
+    <PackageTags>proedit;collaboration;editor</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ProEdit.Collaboration\ProEdit.Collaboration.csproj" />
+    <ProjectReference Include="..\ProEdit.Collaboration.Protocol\ProEdit.Collaboration.Protocol.csproj" />
+    <ProjectReference Include="..\ProEdit.Editing\ProEdit.Editing.csproj" />
+    <ProjectReference Include="..\ProEdit.Documents\ProEdit.Documents.csproj" />
+  </ItemGroup>
+</Project>
