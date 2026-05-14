@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Struct EditorParagraphSnapshot | ProEdit </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Struct EditorParagraphSnapshot | ProEdit ">
+      
+      
+      <link rel="icon" href="../favicon.ico">
+      <link rel="stylesheet" href="../public/docfx.min.css">
+      <link rel="stylesheet" href="../public/main.css">
+      <meta name="docfx:navrel" content="../toc.html">
+      <meta name="docfx:tocrel" content="toc.html">
+      
+      
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/wieslawsoltes/ProEdit/new/main/apiSpec/new?filename=ProEdit_Editing_EditorParagraphSnapshot.md&amp;value=---%0Auid%3A%20ProEdit.Editing.EditorParagraphSnapshot%0Asummary%3A%20&#39;*You%20can%20override%20summary%20for%20the%20API%20here%20using%20*MARKDOWN*%20syntax&#39;%0A---%0A%0A*Please%20type%20below%20more%20information%20about%20this%20API%3A*%0A%0A">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="ManagedReference">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../index.html">
+            <img id="logo" class="svg" src="../images/logo.svg" alt="">
+            
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="ProEdit.Editing.EditorParagraphSnapshot">
+
+
+
+  <h1 id="ProEdit_Editing_EditorParagraphSnapshot" data-uid="ProEdit.Editing.EditorParagraphSnapshot" class="text-break">
+Struct EditorParagraphSnapshot  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorRibbonServices.cs/#L83"><i class="bi bi-code-slash"></i></a>
+  </h1>
+
+  <div class="facts text-secondary">
+    <dl><dt>Namespace</dt><dd><a class="xref" href="ProEdit.html">ProEdit</a>.<a class="xref" href="ProEdit.Editing.html">Editing</a></dd></dl>
+  <dl><dt>Assembly</dt><dd>ProEdit.Editing.dll</dd></dl>
+  </div>
+
+  <div class="markdown summary"></div>
+  <div class="markdown conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public readonly record struct EditorParagraphSnapshot : IEquatable&lt;EditorParagraphSnapshot&gt;</code></pre>
+  </div>
+
+
+
+
+
+  <dl class="typelist implements">
+    <dt>Implements</dt>
+    <dd>
+      <div><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.iequatable-1">IEquatable</a>&lt;<a class="xref" href="ProEdit.Editing.EditorParagraphSnapshot.html">EditorParagraphSnapshot</a>&gt;</div>
+    </dd>
+  </dl>
+
+
+  <dl class="typelist inheritedMembers">
+    <dt>Inherited Members</dt>
+    <dd>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.valuetype.equals">ValueType.Equals(object)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.valuetype.gethashcode">ValueType.GetHashCode()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.valuetype.tostring">ValueType.ToString()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)">object.Equals(object, object)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.gettype">object.GetType()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.referenceequals">object.ReferenceEquals(object, object)</a>
+    </div>
+  </dd></dl>
+
+
+
+
+
+
+  <h2 class="section" id="constructors">Constructors
+</h2>
+
+
+  <a id="ProEdit_Editing_EditorParagraphSnapshot__ctor_" data-uid="ProEdit.Editing.EditorParagraphSnapshot.#ctor*"></a>
+
+  <h3 id="ProEdit_Editing_EditorParagraphSnapshot__ctor_ProEdit_Editing_EditorValue_ProEdit_Documents_ParagraphAlignment__ProEdit_Editing_EditorValue_System_Single__ProEdit_Editing_EditorValue_System_Single__ProEdit_Editing_EditorValue_System_Single__ProEdit_Editing_EditorValue_System_Single__ProEdit_Editing_EditorValue_System_Single__ProEdit_Editing_EditorValue_System_Int32__ProEdit_Editing_EditorValue_ProEdit_Documents_DocLineSpacingRule__ProEdit_Editing_EditorValue_ProEdit_Documents_ListKind__ProEdit_Editing_EditorValue_System_Int32__ProEdit_Editing_EditorValue_ProEdit_Primitives_DocColor__ProEdit_Editing_EditorValue_System_Boolean__ProEdit_Editing_EditorValue_System_Boolean__ProEdit_Editing_EditorValue_System_Boolean__ProEdit_Editing_EditorValue_System_Boolean__ProEdit_Editing_EditorValue_System_Boolean__ProEdit_Editing_EditorValue_System_Boolean__ProEdit_Editing_EditorValue_System_Boolean__ProEdit_Editing_EditorValue_ProEdit_Documents_DocTextDirection__" data-uid="ProEdit.Editing.EditorParagraphSnapshot.#ctor(ProEdit.Editing.EditorValue{ProEdit.Documents.ParagraphAlignment},ProEdit.Editing.EditorValue{System.Single},ProEdit.Editing.EditorValue{System.Single},ProEdit.Editing.EditorValue{System.Single},ProEdit.Editing.EditorValue{System.Single},ProEdit.Editing.EditorValue{System.Single},ProEdit.Editing.EditorValue{System.Int32},ProEdit.Editing.EditorValue{ProEdit.Documents.DocLineSpacingRule},ProEdit.Editing.EditorValue{ProEdit.Documents.ListKind},ProEdit.Editing.EditorValue{System.Int32},ProEdit.Editing.EditorValue{ProEdit.Primitives.DocColor},ProEdit.Editing.EditorValue{System.Boolean},ProEdit.Editing.EditorValue{System.Boolean},ProEdit.Editing.EditorValue{System.Boolean},ProEdit.Editing.EditorValue{System.Boolean},ProEdit.Editing.EditorValue{System.Boolean},ProEdit.Editing.EditorValue{System.Boolean},ProEdit.Editing.EditorValue{System.Boolean},ProEdit.Editing.EditorValue{ProEdit.Documents.DocTextDirection})">
+  EditorParagraphSnapshot(EditorValue&lt;ParagraphAlignment&gt;, EditorValue&lt;float&gt;, EditorValue&lt;float&gt;, EditorValue&lt;float&gt;, EditorValue&lt;float&gt;, EditorValue&lt;float&gt;, EditorValue&lt;int&gt;, EditorValue&lt;DocLineSpacingRule&gt;, EditorValue&lt;ListKind&gt;, EditorValue&lt;int&gt;, EditorValue&lt;DocColor&gt;, EditorValue&lt;bool&gt;, EditorValue&lt;bool&gt;, EditorValue&lt;bool&gt;, EditorValue&lt;bool&gt;, EditorValue&lt;bool&gt;, EditorValue&lt;bool&gt;, EditorValue&lt;bool&gt;, EditorValue&lt;DocTextDirection&gt;)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorRibbonServices.cs/#L83"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public EditorParagraphSnapshot(EditorValue&lt;ParagraphAlignment&gt; Alignment, EditorValue&lt;float&gt; IndentLeft, EditorValue&lt;float&gt; IndentRight, EditorValue&lt;float&gt; FirstLineIndent, EditorValue&lt;float&gt; SpacingBefore, EditorValue&lt;float&gt; SpacingAfter, EditorValue&lt;int&gt; LineSpacing, EditorValue&lt;DocLineSpacingRule&gt; LineSpacingRule, EditorValue&lt;ListKind&gt; ListKind, EditorValue&lt;int&gt; ListLevel, EditorValue&lt;DocColor&gt; ShadingColor, EditorValue&lt;bool&gt; KeepWithNext, EditorValue&lt;bool&gt; KeepLinesTogether, EditorValue&lt;bool&gt; WidowControl, EditorValue&lt;bool&gt; PageBreakBefore, EditorValue&lt;bool&gt; SuppressLineNumbers, EditorValue&lt;bool&gt; ContextualSpacing, EditorValue&lt;bool&gt; Bidi, EditorValue&lt;DocTextDirection&gt; TextDirection)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>Alignment</code> <a class="xref" href="ProEdit.Editing.EditorValue-1.html">EditorValue</a>&lt;<a class="xref" href="ProEdit.Documents.ParagraphAlignment.html">ParagraphAlignment</a>&gt;</dt>
+    <dd></dd>
+    <dt><code>IndentLeft</code> <a class="xref" href="ProEdit.Editing.EditorValue-1.html">EditorValue</a>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a>&gt;</dt>
+    <dd></dd>
+    <dt><code>IndentRight</code> <a class="xref" href="ProEdit.Editing.EditorValue-1.html">EditorValue</a>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a>&gt;</dt>
+    <dd></dd>
+    <dt><code>FirstLineIndent</code> <a class="xref" href="ProEdit.Editing.EditorValue-1.html">EditorValue</a>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a>&gt;</dt>
+    <dd></dd>
+    <dt><code>SpacingBefore</code> <a class="xref" href="ProEdit.Editing.EditorValue-1.html">EditorValue</a>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a>&gt;</dt>
+    <dd></dd>
+    <dt><code>SpacingAfter</code> <a class="xref" href="ProEdit.Editing.EditorValue-1.html">EditorValue</a>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a>&gt;</dt>
+    <dd></dd>
+    <dt><code>LineSpacing</code> <a class="xref" href="ProEdit.Editing.EditorValue-1.html">EditorValue</a>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">int</a>&gt;</dt>
+    <dd></dd>
+    <dt><code>LineSpacingRule</code> <a class="xref" href="ProEdit.Editing.EditorValue-1.html">EditorValue</a>&lt;<a class="xref" href="ProEdit.Documents.DocLineSpacingRule.html">DocLineSpacingRule</a>&gt;</dt>
+    <dd></dd>
+    <dt><code>ListKind</code> <a class="xref" href="ProEdit.Editing.EditorValue-1.html">EditorValue</a>&lt;<a class="xref" href="ProEdit.Documents.ListKind.html">ListKind</a>&gt;</dt>
+    <dd></dd>
+    <dt><code>ListLevel</code> <a class="xref" href="ProEdit.Editing.EditorValue-1.html">EditorValue</a>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">int</a>&gt;</dt>
+    <dd></dd>
+    <dt><code>ShadingColor</code> <a class="xref" href="ProEdit.Editing.EditorValue-1.html">EditorValue</a>&lt;<a class="xref" href="ProEdit.Primitives.DocColor.html">DocColor</a>&gt;</dt>
+    <dd></dd>
+    <dt><code>KeepWithNext</code> <a class="xref" href="ProEdit.Editing.EditorValue-1.html">EditorValue</a>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a>&gt;</dt>
+    <dd></dd>
+    <dt><code>KeepLinesTogether</code> <a class="xref" href="ProEdit.Editing.EditorValue-1.html">EditorValue</a>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a>&gt;</dt>
+    <dd></dd>
+    <dt><code>WidowControl</code> <a class="xref" href="ProEdit.Editing.EditorValue-1.html">EditorValue</a>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a>&gt;</dt>
+    <dd></dd>
+    <dt><code>PageBreakBefore</code> <a class="xref" href="ProEdit.Editing.EditorValue-1.html">EditorValue</a>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a>&gt;</dt>
+    <dd></dd>
+    <dt><code>SuppressLineNumbers</code> <a class="xref" href="ProEdit.Editing.EditorValue-1.html">EditorValue</a>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a>&gt;</dt>
+    <dd></dd>
+    <dt><code>ContextualSpacing</code> <a class="xref" href="ProEdit.Editing.EditorValue-1.html">EditorValue</a>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a>&gt;</dt>
+    <dd></dd>
+    <dt><code>Bidi</code> <a class="xref" href="ProEdit.Editing.EditorValue-1.html">EditorValue</a>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a>&gt;</dt>
+    <dd></dd>
+    <dt><code>TextDirection</code> <a class="xref" href="ProEdit.Editing.EditorValue-1.html">EditorValue</a>&lt;<a class="xref" href="ProEdit.Documents.DocTextDirection.html">DocTextDirection</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <h2 class="section" id="properties">Properties
+</h2>
+
+
+  <a id="ProEdit_Editing_EditorParagraphSnapshot_Alignment_" data-uid="ProEdit.Editing.EditorParagraphSnapshot.Alignment*"></a>
+
+  <h3 id="ProEdit_Editing_EditorParagraphSnapshot_Alignment" data-uid="ProEdit.Editing.EditorParagraphSnapshot.Alignment">
+  Alignment
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorRibbonServices.cs/#L84"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public EditorValue&lt;ParagraphAlignment&gt; Alignment { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Editing.EditorValue-1.html">EditorValue</a>&lt;<a class="xref" href="ProEdit.Documents.ParagraphAlignment.html">ParagraphAlignment</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_EditorParagraphSnapshot_Bidi_" data-uid="ProEdit.Editing.EditorParagraphSnapshot.Bidi*"></a>
+
+  <h3 id="ProEdit_Editing_EditorParagraphSnapshot_Bidi" data-uid="ProEdit.Editing.EditorParagraphSnapshot.Bidi">
+  Bidi
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorRibbonServices.cs/#L101"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public EditorValue&lt;bool&gt; Bidi { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Editing.EditorValue-1.html">EditorValue</a>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_EditorParagraphSnapshot_ContextualSpacing_" data-uid="ProEdit.Editing.EditorParagraphSnapshot.ContextualSpacing*"></a>
+
+  <h3 id="ProEdit_Editing_EditorParagraphSnapshot_ContextualSpacing" data-uid="ProEdit.Editing.EditorParagraphSnapshot.ContextualSpacing">
+  ContextualSpacing
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorRibbonServices.cs/#L100"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public EditorValue&lt;bool&gt; ContextualSpacing { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Editing.EditorValue-1.html">EditorValue</a>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_EditorParagraphSnapshot_FirstLineIndent_" data-uid="ProEdit.Editing.EditorParagraphSnapshot.FirstLineIndent*"></a>
+
+  <h3 id="ProEdit_Editing_EditorParagraphSnapshot_FirstLineIndent" data-uid="ProEdit.Editing.EditorParagraphSnapshot.FirstLineIndent">
+  FirstLineIndent
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorRibbonServices.cs/#L87"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public EditorValue&lt;float&gt; FirstLineIndent { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Editing.EditorValue-1.html">EditorValue</a>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_EditorParagraphSnapshot_IndentLeft_" data-uid="ProEdit.Editing.EditorParagraphSnapshot.IndentLeft*"></a>
+
+  <h3 id="ProEdit_Editing_EditorParagraphSnapshot_IndentLeft" data-uid="ProEdit.Editing.EditorParagraphSnapshot.IndentLeft">
+  IndentLeft
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorRibbonServices.cs/#L85"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public EditorValue&lt;float&gt; IndentLeft { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Editing.EditorValue-1.html">EditorValue</a>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_EditorParagraphSnapshot_IndentRight_" data-uid="ProEdit.Editing.EditorParagraphSnapshot.IndentRight*"></a>
+
+  <h3 id="ProEdit_Editing_EditorParagraphSnapshot_IndentRight" data-uid="ProEdit.Editing.EditorParagraphSnapshot.IndentRight">
+  IndentRight
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorRibbonServices.cs/#L86"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public EditorValue&lt;float&gt; IndentRight { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Editing.EditorValue-1.html">EditorValue</a>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_EditorParagraphSnapshot_KeepLinesTogether_" data-uid="ProEdit.Editing.EditorParagraphSnapshot.KeepLinesTogether*"></a>
+
+  <h3 id="ProEdit_Editing_EditorParagraphSnapshot_KeepLinesTogether" data-uid="ProEdit.Editing.EditorParagraphSnapshot.KeepLinesTogether">
+  KeepLinesTogether
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorRibbonServices.cs/#L96"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public EditorValue&lt;bool&gt; KeepLinesTogether { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Editing.EditorValue-1.html">EditorValue</a>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_EditorParagraphSnapshot_KeepWithNext_" data-uid="ProEdit.Editing.EditorParagraphSnapshot.KeepWithNext*"></a>
+
+  <h3 id="ProEdit_Editing_EditorParagraphSnapshot_KeepWithNext" data-uid="ProEdit.Editing.EditorParagraphSnapshot.KeepWithNext">
+  KeepWithNext
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorRibbonServices.cs/#L95"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public EditorValue&lt;bool&gt; KeepWithNext { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Editing.EditorValue-1.html">EditorValue</a>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_EditorParagraphSnapshot_LineSpacing_" data-uid="ProEdit.Editing.EditorParagraphSnapshot.LineSpacing*"></a>
+
+  <h3 id="ProEdit_Editing_EditorParagraphSnapshot_LineSpacing" data-uid="ProEdit.Editing.EditorParagraphSnapshot.LineSpacing">
+  LineSpacing
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorRibbonServices.cs/#L90"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public EditorValue&lt;int&gt; LineSpacing { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Editing.EditorValue-1.html">EditorValue</a>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">int</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_EditorParagraphSnapshot_LineSpacingRule_" data-uid="ProEdit.Editing.EditorParagraphSnapshot.LineSpacingRule*"></a>
+
+  <h3 id="ProEdit_Editing_EditorParagraphSnapshot_LineSpacingRule" data-uid="ProEdit.Editing.EditorParagraphSnapshot.LineSpacingRule">
+  LineSpacingRule
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorRibbonServices.cs/#L91"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public EditorValue&lt;DocLineSpacingRule&gt; LineSpacingRule { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Editing.EditorValue-1.html">EditorValue</a>&lt;<a class="xref" href="ProEdit.Documents.DocLineSpacingRule.html">DocLineSpacingRule</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_EditorParagraphSnapshot_ListKind_" data-uid="ProEdit.Editing.EditorParagraphSnapshot.ListKind*"></a>
+
+  <h3 id="ProEdit_Editing_EditorParagraphSnapshot_ListKind" data-uid="ProEdit.Editing.EditorParagraphSnapshot.ListKind">
+  ListKind
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorRibbonServices.cs/#L92"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public EditorValue&lt;ListKind&gt; ListKind { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Editing.EditorValue-1.html">EditorValue</a>&lt;<a class="xref" href="ProEdit.Documents.ListKind.html">ListKind</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_EditorParagraphSnapshot_ListLevel_" data-uid="ProEdit.Editing.EditorParagraphSnapshot.ListLevel*"></a>
+
+  <h3 id="ProEdit_Editing_EditorParagraphSnapshot_ListLevel" data-uid="ProEdit.Editing.EditorParagraphSnapshot.ListLevel">
+  ListLevel
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorRibbonServices.cs/#L93"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public EditorValue&lt;int&gt; ListLevel { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Editing.EditorValue-1.html">EditorValue</a>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">int</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_EditorParagraphSnapshot_PageBreakBefore_" data-uid="ProEdit.Editing.EditorParagraphSnapshot.PageBreakBefore*"></a>
+
+  <h3 id="ProEdit_Editing_EditorParagraphSnapshot_PageBreakBefore" data-uid="ProEdit.Editing.EditorParagraphSnapshot.PageBreakBefore">
+  PageBreakBefore
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorRibbonServices.cs/#L98"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public EditorValue&lt;bool&gt; PageBreakBefore { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Editing.EditorValue-1.html">EditorValue</a>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_EditorParagraphSnapshot_ShadingColor_" data-uid="ProEdit.Editing.EditorParagraphSnapshot.ShadingColor*"></a>
+
+  <h3 id="ProEdit_Editing_EditorParagraphSnapshot_ShadingColor" data-uid="ProEdit.Editing.EditorParagraphSnapshot.ShadingColor">
+  ShadingColor
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorRibbonServices.cs/#L94"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public EditorValue&lt;DocColor&gt; ShadingColor { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Editing.EditorValue-1.html">EditorValue</a>&lt;<a class="xref" href="ProEdit.Primitives.DocColor.html">DocColor</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_EditorParagraphSnapshot_SpacingAfter_" data-uid="ProEdit.Editing.EditorParagraphSnapshot.SpacingAfter*"></a>
+
+  <h3 id="ProEdit_Editing_EditorParagraphSnapshot_SpacingAfter" data-uid="ProEdit.Editing.EditorParagraphSnapshot.SpacingAfter">
+  SpacingAfter
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorRibbonServices.cs/#L89"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public EditorValue&lt;float&gt; SpacingAfter { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Editing.EditorValue-1.html">EditorValue</a>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_EditorParagraphSnapshot_SpacingBefore_" data-uid="ProEdit.Editing.EditorParagraphSnapshot.SpacingBefore*"></a>
+
+  <h3 id="ProEdit_Editing_EditorParagraphSnapshot_SpacingBefore" data-uid="ProEdit.Editing.EditorParagraphSnapshot.SpacingBefore">
+  SpacingBefore
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorRibbonServices.cs/#L88"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public EditorValue&lt;float&gt; SpacingBefore { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Editing.EditorValue-1.html">EditorValue</a>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_EditorParagraphSnapshot_SuppressLineNumbers_" data-uid="ProEdit.Editing.EditorParagraphSnapshot.SuppressLineNumbers*"></a>
+
+  <h3 id="ProEdit_Editing_EditorParagraphSnapshot_SuppressLineNumbers" data-uid="ProEdit.Editing.EditorParagraphSnapshot.SuppressLineNumbers">
+  SuppressLineNumbers
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorRibbonServices.cs/#L99"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public EditorValue&lt;bool&gt; SuppressLineNumbers { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Editing.EditorValue-1.html">EditorValue</a>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_EditorParagraphSnapshot_TextDirection_" data-uid="ProEdit.Editing.EditorParagraphSnapshot.TextDirection*"></a>
+
+  <h3 id="ProEdit_Editing_EditorParagraphSnapshot_TextDirection" data-uid="ProEdit.Editing.EditorParagraphSnapshot.TextDirection">
+  TextDirection
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorRibbonServices.cs/#L102"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public EditorValue&lt;DocTextDirection&gt; TextDirection { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Editing.EditorValue-1.html">EditorValue</a>&lt;<a class="xref" href="ProEdit.Documents.DocTextDirection.html">DocTextDirection</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_EditorParagraphSnapshot_WidowControl_" data-uid="ProEdit.Editing.EditorParagraphSnapshot.WidowControl*"></a>
+
+  <h3 id="ProEdit_Editing_EditorParagraphSnapshot_WidowControl" data-uid="ProEdit.Editing.EditorParagraphSnapshot.WidowControl">
+  WidowControl
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorRibbonServices.cs/#L97"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public EditorValue&lt;bool&gt; WidowControl { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Editing.EditorValue-1.html">EditorValue</a>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorRibbonServices.cs/#L83" class="edit-link">Edit this page</a>
+        </div>
+
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          <span>Made with <a href="https://dotnet.github.io/docfx">docfx</a></span>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

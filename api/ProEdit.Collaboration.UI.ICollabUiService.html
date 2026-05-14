@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Interface ICollabUiService | ProEdit </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Interface ICollabUiService | ProEdit ">
+      
+      <meta name="description" content="Exposes collaboration state for UI integration.">
+      <link rel="icon" href="../favicon.ico">
+      <link rel="stylesheet" href="../public/docfx.min.css">
+      <link rel="stylesheet" href="../public/main.css">
+      <meta name="docfx:navrel" content="../toc.html">
+      <meta name="docfx:tocrel" content="toc.html">
+      
+      
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/wieslawsoltes/ProEdit/new/main/apiSpec/new?filename=ProEdit_Collaboration_UI_ICollabUiService.md&amp;value=---%0Auid%3A%20ProEdit.Collaboration.UI.ICollabUiService%0Asummary%3A%20&#39;*You%20can%20override%20summary%20for%20the%20API%20here%20using%20*MARKDOWN*%20syntax&#39;%0A---%0A%0A*Please%20type%20below%20more%20information%20about%20this%20API%3A*%0A%0A">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="ManagedReference">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../index.html">
+            <img id="logo" class="svg" src="../images/logo.svg" alt="">
+            
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="ProEdit.Collaboration.UI.ICollabUiService">
+
+
+
+  <h1 id="ProEdit_Collaboration_UI_ICollabUiService" data-uid="ProEdit.Collaboration.UI.ICollabUiService" class="text-break">
+Interface ICollabUiService  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Collaboration.UI/CollabUiContracts.cs/#L101"><i class="bi bi-code-slash"></i></a>
+  </h1>
+
+  <div class="facts text-secondary">
+    <dl><dt>Namespace</dt><dd><a class="xref" href="ProEdit.html">ProEdit</a>.<a class="xref" href="ProEdit.Collaboration.html">Collaboration</a>.<a class="xref" href="ProEdit.Collaboration.UI.html">UI</a></dd></dl>
+  <dl><dt>Assembly</dt><dd>ProEdit.Collaboration.UI.dll</dd></dl>
+  </div>
+
+  <div class="markdown summary"><p>Exposes collaboration state for UI integration.</p>
+</div>
+  <div class="markdown conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public interface ICollabUiService</code></pre>
+  </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <h2 class="section" id="properties">Properties
+</h2>
+
+
+  <a id="ProEdit_Collaboration_UI_ICollabUiService_ConnectionMessage_" data-uid="ProEdit.Collaboration.UI.ICollabUiService.ConnectionMessage*"></a>
+
+  <h3 id="ProEdit_Collaboration_UI_ICollabUiService_ConnectionMessage" data-uid="ProEdit.Collaboration.UI.ICollabUiService.ConnectionMessage">
+  ConnectionMessage
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Collaboration.UI/CollabUiContracts.cs/#L111"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets the latest connection message or error details.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">string? ConnectionMessage { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Collaboration_UI_ICollabUiService_ConnectionState_" data-uid="ProEdit.Collaboration.UI.ICollabUiService.ConnectionState*"></a>
+
+  <h3 id="ProEdit_Collaboration_UI_ICollabUiService_ConnectionState" data-uid="ProEdit.Collaboration.UI.ICollabUiService.ConnectionState">
+  ConnectionState
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Collaboration.UI/CollabUiContracts.cs/#L106"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets the current connection state.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">CollabConnectionState ConnectionState { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Collaboration.UI.CollabConnectionState.html">CollabConnectionState</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Collaboration_UI_ICollabUiService_DocumentId_" data-uid="ProEdit.Collaboration.UI.ICollabUiService.DocumentId*"></a>
+
+  <h3 id="ProEdit_Collaboration_UI_ICollabUiService_DocumentId" data-uid="ProEdit.Collaboration.UI.ICollabUiService.DocumentId">
+  DocumentId
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Collaboration.UI/CollabUiContracts.cs/#L116"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets the document identifier for the current session.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">Guid DocumentId { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.guid">Guid</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Collaboration_UI_ICollabUiService_LocalBrokerPort_" data-uid="ProEdit.Collaboration.UI.ICollabUiService.LocalBrokerPort*"></a>
+
+  <h3 id="ProEdit_Collaboration_UI_ICollabUiService_LocalBrokerPort" data-uid="ProEdit.Collaboration.UI.ICollabUiService.LocalBrokerPort">
+  LocalBrokerPort
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Collaboration.UI/CollabUiContracts.cs/#L146"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets the local broker port when <a class="xref" href="ProEdit.Collaboration.UI.ICollabUiService.html#ProEdit_Collaboration_UI_ICollabUiService_TransportMode">TransportMode</a> is <a class="xref" href="ProEdit.Collaboration.UI.CollabTransportMode.html#ProEdit_Collaboration_UI_CollabTransportMode_LocalBroker">LocalBroker</a>.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">int? LocalBrokerPort { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">int</a>?</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Collaboration_UI_ICollabUiService_OpQueueDepth_" data-uid="ProEdit.Collaboration.UI.ICollabUiService.OpQueueDepth*"></a>
+
+  <h3 id="ProEdit_Collaboration_UI_ICollabUiService_OpQueueDepth" data-uid="ProEdit.Collaboration.UI.ICollabUiService.OpQueueDepth">
+  OpQueueDepth
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Collaboration.UI/CollabUiContracts.cs/#L166"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets the depth of the outbound operation queue.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">int OpQueueDepth { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">int</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Collaboration_UI_ICollabUiService_Participants_" data-uid="ProEdit.Collaboration.UI.ICollabUiService.Participants*"></a>
+
+  <h3 id="ProEdit_Collaboration_UI_ICollabUiService_Participants" data-uid="ProEdit.Collaboration.UI.ICollabUiService.Participants">
+  Participants
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Collaboration.UI/CollabUiContracts.cs/#L151"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets the current list of collaborators.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">IReadOnlyList&lt;CollabParticipant&gt; Participants { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;<a class="xref" href="ProEdit.Collaboration.UI.CollabParticipant.html">CollabParticipant</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Collaboration_UI_ICollabUiService_Presence_" data-uid="ProEdit.Collaboration.UI.ICollabUiService.Presence*"></a>
+
+  <h3 id="ProEdit_Collaboration_UI_ICollabUiService_Presence" data-uid="ProEdit.Collaboration.UI.ICollabUiService.Presence">
+  Presence
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Collaboration.UI/CollabUiContracts.cs/#L156"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets the latest presence states.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">IReadOnlyList&lt;PresenceState&gt; Presence { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;<a class="xref" href="ProEdit.Collaboration.PresenceState.html">PresenceState</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Collaboration_UI_ICollabUiService_ResolvedSharedPath_" data-uid="ProEdit.Collaboration.UI.ICollabUiService.ResolvedSharedPath*"></a>
+
+  <h3 id="ProEdit_Collaboration_UI_ICollabUiService_ResolvedSharedPath" data-uid="ProEdit.Collaboration.UI.ICollabUiService.ResolvedSharedPath">
+  ResolvedSharedPath
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Collaboration.UI/CollabUiContracts.cs/#L141"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets the resolved shared path used by the current transport mode.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">string? ResolvedSharedPath { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Collaboration_UI_ICollabUiService_ServerUrl_" data-uid="ProEdit.Collaboration.UI.ICollabUiService.ServerUrl*"></a>
+
+  <h3 id="ProEdit_Collaboration_UI_ICollabUiService_ServerUrl" data-uid="ProEdit.Collaboration.UI.ICollabUiService.ServerUrl">
+  ServerUrl
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Collaboration.UI/CollabUiContracts.cs/#L131"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets the server URL when <a class="xref" href="ProEdit.Collaboration.UI.ICollabUiService.html#ProEdit_Collaboration_UI_ICollabUiService_TransportMode">TransportMode</a> is <a class="xref" href="ProEdit.Collaboration.UI.CollabTransportMode.html#ProEdit_Collaboration_UI_CollabTransportMode_Server">Server</a>.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">string? ServerUrl { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Collaboration_UI_ICollabUiService_SessionId_" data-uid="ProEdit.Collaboration.UI.ICollabUiService.SessionId*"></a>
+
+  <h3 id="ProEdit_Collaboration_UI_ICollabUiService_SessionId" data-uid="ProEdit.Collaboration.UI.ICollabUiService.SessionId">
+  SessionId
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Collaboration.UI/CollabUiContracts.cs/#L121"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets the session identifier for the current connection.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">Guid SessionId { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.guid">Guid</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Collaboration_UI_ICollabUiService_SharedPath_" data-uid="ProEdit.Collaboration.UI.ICollabUiService.SharedPath*"></a>
+
+  <h3 id="ProEdit_Collaboration_UI_ICollabUiService_SharedPath" data-uid="ProEdit.Collaboration.UI.ICollabUiService.SharedPath">
+  SharedPath
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Collaboration.UI/CollabUiContracts.cs/#L136"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets the shared path when <a class="xref" href="ProEdit.Collaboration.UI.ICollabUiService.html#ProEdit_Collaboration_UI_ICollabUiService_TransportMode">TransportMode</a> is <a class="xref" href="ProEdit.Collaboration.UI.CollabTransportMode.html#ProEdit_Collaboration_UI_CollabTransportMode_SharedFile">SharedFile</a>.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">string? SharedPath { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Collaboration_UI_ICollabUiService_SnapshotAge_" data-uid="ProEdit.Collaboration.UI.ICollabUiService.SnapshotAge*"></a>
+
+  <h3 id="ProEdit_Collaboration_UI_ICollabUiService_SnapshotAge" data-uid="ProEdit.Collaboration.UI.ICollabUiService.SnapshotAge">
+  SnapshotAge
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Collaboration.UI/CollabUiContracts.cs/#L171"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets the age of the latest snapshot.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">TimeSpan SnapshotAge { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.timespan">TimeSpan</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Collaboration_UI_ICollabUiService_SyncLag_" data-uid="ProEdit.Collaboration.UI.ICollabUiService.SyncLag*"></a>
+
+  <h3 id="ProEdit_Collaboration_UI_ICollabUiService_SyncLag" data-uid="ProEdit.Collaboration.UI.ICollabUiService.SyncLag">
+  SyncLag
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Collaboration.UI/CollabUiContracts.cs/#L161"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets the estimated synchronization lag.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">TimeSpan SyncLag { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.timespan">TimeSpan</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Collaboration_UI_ICollabUiService_TransportMode_" data-uid="ProEdit.Collaboration.UI.ICollabUiService.TransportMode*"></a>
+
+  <h3 id="ProEdit_Collaboration_UI_ICollabUiService_TransportMode" data-uid="ProEdit.Collaboration.UI.ICollabUiService.TransportMode">
+  TransportMode
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Collaboration.UI/CollabUiContracts.cs/#L126"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets the transport mode for collaboration.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">CollabTransportMode TransportMode { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Collaboration.UI.CollabTransportMode.html">CollabTransportMode</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <h2 class="section" id="methods">Methods
+</h2>
+
+
+  <a id="ProEdit_Collaboration_UI_ICollabUiService_ClearError_" data-uid="ProEdit.Collaboration.UI.ICollabUiService.ClearError*"></a>
+
+  <h3 id="ProEdit_Collaboration_UI_ICollabUiService_ClearError" data-uid="ProEdit.Collaboration.UI.ICollabUiService.ClearError">
+  ClearError()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Collaboration.UI/CollabUiContracts.cs/#L221"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Clears any active error message.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">void ClearError()</code></pre>
+  </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Collaboration_UI_ICollabUiService_JoinAsync_" data-uid="ProEdit.Collaboration.UI.ICollabUiService.JoinAsync*"></a>
+
+  <h3 id="ProEdit_Collaboration_UI_ICollabUiService_JoinAsync_System_Threading_CancellationToken_" data-uid="ProEdit.Collaboration.UI.ICollabUiService.JoinAsync(System.Threading.CancellationToken)">
+  JoinAsync(CancellationToken)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Collaboration.UI/CollabUiContracts.cs/#L181"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Initiates a collaboration session.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">ValueTask JoinAsync(CancellationToken cancellationToken = default)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>cancellationToken</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken">CancellationToken</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.valuetask">ValueTask</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Collaboration_UI_ICollabUiService_LeaveAsync_" data-uid="ProEdit.Collaboration.UI.ICollabUiService.LeaveAsync*"></a>
+
+  <h3 id="ProEdit_Collaboration_UI_ICollabUiService_LeaveAsync_System_Threading_CancellationToken_" data-uid="ProEdit.Collaboration.UI.ICollabUiService.LeaveAsync(System.Threading.CancellationToken)">
+  LeaveAsync(CancellationToken)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Collaboration.UI/CollabUiContracts.cs/#L186"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Leaves the current collaboration session.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">ValueTask LeaveAsync(CancellationToken cancellationToken = default)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>cancellationToken</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken">CancellationToken</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.valuetask">ValueTask</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Collaboration_UI_ICollabUiService_ReconnectAsync_" data-uid="ProEdit.Collaboration.UI.ICollabUiService.ReconnectAsync*"></a>
+
+  <h3 id="ProEdit_Collaboration_UI_ICollabUiService_ReconnectAsync_System_Threading_CancellationToken_" data-uid="ProEdit.Collaboration.UI.ICollabUiService.ReconnectAsync(System.Threading.CancellationToken)">
+  ReconnectAsync(CancellationToken)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Collaboration.UI/CollabUiContracts.cs/#L196"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Attempts to reconnect after a failure.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">ValueTask ReconnectAsync(CancellationToken cancellationToken = default)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>cancellationToken</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken">CancellationToken</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.valuetask">ValueTask</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Collaboration_UI_ICollabUiService_SetConnectionState_" data-uid="ProEdit.Collaboration.UI.ICollabUiService.SetConnectionState*"></a>
+
+  <h3 id="ProEdit_Collaboration_UI_ICollabUiService_SetConnectionState_ProEdit_Collaboration_UI_CollabConnectionState_System_String_" data-uid="ProEdit.Collaboration.UI.ICollabUiService.SetConnectionState(ProEdit.Collaboration.UI.CollabConnectionState,System.String)">
+  SetConnectionState(CollabConnectionState, string?)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Collaboration.UI/CollabUiContracts.cs/#L216"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Updates the connection state and optional message.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">void SetConnectionState(CollabConnectionState state, string? message = null)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>state</code> <a class="xref" href="ProEdit.Collaboration.UI.CollabConnectionState.html">CollabConnectionState</a></dt>
+    <dd></dd>
+    <dt><code>message</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Collaboration_UI_ICollabUiService_ShareAsync_" data-uid="ProEdit.Collaboration.UI.ICollabUiService.ShareAsync*"></a>
+
+  <h3 id="ProEdit_Collaboration_UI_ICollabUiService_ShareAsync_System_Threading_CancellationToken_" data-uid="ProEdit.Collaboration.UI.ICollabUiService.ShareAsync(System.Threading.CancellationToken)">
+  ShareAsync(CancellationToken)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Collaboration.UI/CollabUiContracts.cs/#L191"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Starts a share flow for the current session.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">ValueTask ShareAsync(CancellationToken cancellationToken = default)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>cancellationToken</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken">CancellationToken</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.valuetask">ValueTask</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Collaboration_UI_ICollabUiService_UpdateDiagnostics_" data-uid="ProEdit.Collaboration.UI.ICollabUiService.UpdateDiagnostics*"></a>
+
+  <h3 id="ProEdit_Collaboration_UI_ICollabUiService_UpdateDiagnostics_System_TimeSpan_System_Int32_System_TimeSpan_" data-uid="ProEdit.Collaboration.UI.ICollabUiService.UpdateDiagnostics(System.TimeSpan,System.Int32,System.TimeSpan)">
+  UpdateDiagnostics(TimeSpan, int, TimeSpan)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Collaboration.UI/CollabUiContracts.cs/#L211"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Updates diagnostics metrics for the session.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">void UpdateDiagnostics(TimeSpan syncLag, int opQueueDepth, TimeSpan snapshotAge)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>syncLag</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.timespan">TimeSpan</a></dt>
+    <dd></dd>
+    <dt><code>opQueueDepth</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">int</a></dt>
+    <dd></dd>
+    <dt><code>snapshotAge</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.timespan">TimeSpan</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Collaboration_UI_ICollabUiService_UpdateParticipants_" data-uid="ProEdit.Collaboration.UI.ICollabUiService.UpdateParticipants*"></a>
+
+  <h3 id="ProEdit_Collaboration_UI_ICollabUiService_UpdateParticipants_System_Collections_Generic_IReadOnlyList_ProEdit_Collaboration_UI_CollabParticipant__" data-uid="ProEdit.Collaboration.UI.ICollabUiService.UpdateParticipants(System.Collections.Generic.IReadOnlyList{ProEdit.Collaboration.UI.CollabParticipant})">
+  UpdateParticipants(IReadOnlyList&lt;CollabParticipant&gt;)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Collaboration.UI/CollabUiContracts.cs/#L206"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Replaces the list of active participants.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">void UpdateParticipants(IReadOnlyList&lt;CollabParticipant&gt; participants)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>participants</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;<a class="xref" href="ProEdit.Collaboration.UI.CollabParticipant.html">CollabParticipant</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Collaboration_UI_ICollabUiService_UpdatePresence_" data-uid="ProEdit.Collaboration.UI.ICollabUiService.UpdatePresence*"></a>
+
+  <h3 id="ProEdit_Collaboration_UI_ICollabUiService_UpdatePresence_ProEdit_Collaboration_PresenceState_System_Nullable_System_TimeSpan__" data-uid="ProEdit.Collaboration.UI.ICollabUiService.UpdatePresence(ProEdit.Collaboration.PresenceState,System.Nullable{System.TimeSpan})">
+  UpdatePresence(PresenceState, TimeSpan?)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Collaboration.UI/CollabUiContracts.cs/#L201"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Updates the presence registry with a new state.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">void UpdatePresence(PresenceState presence, TimeSpan? timeToLive = null)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>presence</code> <a class="xref" href="ProEdit.Collaboration.PresenceState.html">PresenceState</a></dt>
+    <dd></dd>
+    <dt><code>timeToLive</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.timespan">TimeSpan</a>?</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <h2 class="section" id="events">Events
+</h2>
+
+
+
+  <h3 id="ProEdit_Collaboration_UI_ICollabUiService_StateChanged" data-uid="ProEdit.Collaboration.UI.ICollabUiService.StateChanged">
+  StateChanged
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Collaboration.UI/CollabUiContracts.cs/#L176"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Raised whenever the collaboration state changes.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">event EventHandler? StateChanged</code></pre>
+  </div>
+
+
+
+
+
+
+  <h4 class="section">Event Type</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.eventhandler">EventHandler</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Collaboration.UI/CollabUiContracts.cs/#L101" class="edit-link">Edit this page</a>
+        </div>
+
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          <span>Made with <a href="https://dotnet.github.io/docfx">docfx</a></span>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

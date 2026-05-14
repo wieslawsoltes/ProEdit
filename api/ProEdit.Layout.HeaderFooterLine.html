@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Class HeaderFooterLine | ProEdit </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Class HeaderFooterLine | ProEdit ">
+      
+      
+      <link rel="icon" href="../favicon.ico">
+      <link rel="stylesheet" href="../public/docfx.min.css">
+      <link rel="stylesheet" href="../public/main.css">
+      <meta name="docfx:navrel" content="../toc.html">
+      <meta name="docfx:tocrel" content="toc.html">
+      
+      
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/wieslawsoltes/ProEdit/new/main/apiSpec/new?filename=ProEdit_Layout_HeaderFooterLine.md&amp;value=---%0Auid%3A%20ProEdit.Layout.HeaderFooterLine%0Asummary%3A%20&#39;*You%20can%20override%20summary%20for%20the%20API%20here%20using%20*MARKDOWN*%20syntax&#39;%0A---%0A%0A*Please%20type%20below%20more%20information%20about%20this%20API%3A*%0A%0A">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="ManagedReference">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../index.html">
+            <img id="logo" class="svg" src="../images/logo.svg" alt="">
+            
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="ProEdit.Layout.HeaderFooterLine">
+
+
+
+  <h1 id="ProEdit_Layout_HeaderFooterLine" data-uid="ProEdit.Layout.HeaderFooterLine" class="text-break">
+Class HeaderFooterLine  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Layout/HeaderFooterLine.cs/#L5"><i class="bi bi-code-slash"></i></a>
+  </h1>
+
+  <div class="facts text-secondary">
+    <dl><dt>Namespace</dt><dd><a class="xref" href="ProEdit.html">ProEdit</a>.<a class="xref" href="ProEdit.Layout.html">Layout</a></dd></dl>
+  <dl><dt>Assembly</dt><dd>ProEdit.Layout.dll</dd></dl>
+  </div>
+
+  <div class="markdown summary"></div>
+  <div class="markdown conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public sealed record HeaderFooterLine : IEquatable&lt;HeaderFooterLine&gt;</code></pre>
+  </div>
+
+
+
+
+  <dl class="typelist inheritance">
+    <dt>Inheritance</dt>
+    <dd>
+      <div><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object">object</a></div>
+      <div><span class="xref">HeaderFooterLine</span></div>
+    </dd>
+  </dl>
+
+  <dl class="typelist implements">
+    <dt>Implements</dt>
+    <dd>
+      <div><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.iequatable-1">IEquatable</a>&lt;<a class="xref" href="ProEdit.Layout.HeaderFooterLine.html">HeaderFooterLine</a>&gt;</div>
+    </dd>
+  </dl>
+
+
+  <dl class="typelist inheritedMembers">
+    <dt>Inherited Members</dt>
+    <dd>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)">object.Equals(object)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)">object.Equals(object, object)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.gethashcode">object.GetHashCode()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.gettype">object.GetType()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.referenceequals">object.ReferenceEquals(object, object)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.tostring">object.ToString()</a>
+    </div>
+  </dd></dl>
+
+
+
+
+
+
+  <h2 class="section" id="constructors">Constructors
+</h2>
+
+
+  <a id="ProEdit_Layout_HeaderFooterLine__ctor_" data-uid="ProEdit.Layout.HeaderFooterLine.#ctor*"></a>
+
+  <h3 id="ProEdit_Layout_HeaderFooterLine__ctor_System_Int32_System_Int32_System_Int32_System_Single_System_Single_System_Single_ProEdit_Layout_TextSlice_System_String_System_Single_System_Single_System_Single_System_Collections_Generic_IReadOnlyList_ProEdit_Layout_LayoutRun__System_Collections_Generic_IReadOnlyList_ProEdit_Layout_LayoutImage__System_Collections_Generic_IReadOnlyList_ProEdit_Layout_LayoutShape__System_Collections_Generic_IReadOnlyList_ProEdit_Layout_LayoutChart__System_Collections_Generic_IReadOnlyList_ProEdit_Layout_LayoutEquation__System_Collections_Generic_IReadOnlyList_ProEdit_Layout_LayoutRuby__System_Nullable_ProEdit_Documents_DocTextDirection__System_Boolean_" data-uid="ProEdit.Layout.HeaderFooterLine.#ctor(System.Int32,System.Int32,System.Int32,System.Single,System.Single,System.Single,ProEdit.Layout.TextSlice,System.String,System.Single,System.Single,System.Single,System.Collections.Generic.IReadOnlyList{ProEdit.Layout.LayoutRun},System.Collections.Generic.IReadOnlyList{ProEdit.Layout.LayoutImage},System.Collections.Generic.IReadOnlyList{ProEdit.Layout.LayoutShape},System.Collections.Generic.IReadOnlyList{ProEdit.Layout.LayoutChart},System.Collections.Generic.IReadOnlyList{ProEdit.Layout.LayoutEquation},System.Collections.Generic.IReadOnlyList{ProEdit.Layout.LayoutRuby},System.Nullable{ProEdit.Documents.DocTextDirection},System.Boolean)">
+  HeaderFooterLine(int, int, int, float, float, float, TextSlice, string?, float, float, float, IReadOnlyList&lt;LayoutRun&gt;, IReadOnlyList&lt;LayoutImage&gt;, IReadOnlyList&lt;LayoutShape&gt;, IReadOnlyList&lt;LayoutChart&gt;, IReadOnlyList&lt;LayoutEquation&gt;, IReadOnlyList&lt;LayoutRuby&gt;, DocTextDirection?, bool)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Layout/HeaderFooterLine.cs/#L5"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public HeaderFooterLine(int ParagraphIndex, int StartOffset, int Length, float X, float Y, float Width, TextSlice TextSlice, string? Prefix, float PrefixWidth, float LineHeight, float Ascent, IReadOnlyList&lt;LayoutRun&gt; Runs, IReadOnlyList&lt;LayoutImage&gt; Images, IReadOnlyList&lt;LayoutShape&gt; Shapes, IReadOnlyList&lt;LayoutChart&gt; Charts, IReadOnlyList&lt;LayoutEquation&gt; Equations, IReadOnlyList&lt;LayoutRuby&gt; Rubies, DocTextDirection? TextDirection, bool IsRtl = false)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>ParagraphIndex</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">int</a></dt>
+    <dd></dd>
+    <dt><code>StartOffset</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">int</a></dt>
+    <dd></dd>
+    <dt><code>Length</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">int</a></dt>
+    <dd></dd>
+    <dt><code>X</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+    <dt><code>Y</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+    <dt><code>Width</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+    <dt><code>TextSlice</code> <a class="xref" href="ProEdit.Layout.TextSlice.html">TextSlice</a></dt>
+    <dd></dd>
+    <dt><code>Prefix</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+    <dt><code>PrefixWidth</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+    <dt><code>LineHeight</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+    <dt><code>Ascent</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+    <dt><code>Runs</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;<a class="xref" href="ProEdit.Layout.LayoutRun.html">LayoutRun</a>&gt;</dt>
+    <dd></dd>
+    <dt><code>Images</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;<a class="xref" href="ProEdit.Layout.LayoutImage.html">LayoutImage</a>&gt;</dt>
+    <dd></dd>
+    <dt><code>Shapes</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;<a class="xref" href="ProEdit.Layout.LayoutShape.html">LayoutShape</a>&gt;</dt>
+    <dd></dd>
+    <dt><code>Charts</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;<a class="xref" href="ProEdit.Layout.LayoutChart.html">LayoutChart</a>&gt;</dt>
+    <dd></dd>
+    <dt><code>Equations</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;<a class="xref" href="ProEdit.Layout.LayoutEquation.html">LayoutEquation</a>&gt;</dt>
+    <dd></dd>
+    <dt><code>Rubies</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;<a class="xref" href="ProEdit.Layout.LayoutRuby.html">LayoutRuby</a>&gt;</dt>
+    <dd></dd>
+    <dt><code>TextDirection</code> <a class="xref" href="ProEdit.Documents.DocTextDirection.html">DocTextDirection</a>?</dt>
+    <dd></dd>
+    <dt><code>IsRtl</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <h2 class="section" id="properties">Properties
+</h2>
+
+
+  <a id="ProEdit_Layout_HeaderFooterLine_Ascent_" data-uid="ProEdit.Layout.HeaderFooterLine.Ascent*"></a>
+
+  <h3 id="ProEdit_Layout_HeaderFooterLine_Ascent" data-uid="ProEdit.Layout.HeaderFooterLine.Ascent">
+  Ascent
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Layout/HeaderFooterLine.cs/#L16"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public float Ascent { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Layout_HeaderFooterLine_Charts_" data-uid="ProEdit.Layout.HeaderFooterLine.Charts*"></a>
+
+  <h3 id="ProEdit_Layout_HeaderFooterLine_Charts" data-uid="ProEdit.Layout.HeaderFooterLine.Charts">
+  Charts
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Layout/HeaderFooterLine.cs/#L20"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public IReadOnlyList&lt;LayoutChart&gt; Charts { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;<a class="xref" href="ProEdit.Layout.LayoutChart.html">LayoutChart</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Layout_HeaderFooterLine_Equations_" data-uid="ProEdit.Layout.HeaderFooterLine.Equations*"></a>
+
+  <h3 id="ProEdit_Layout_HeaderFooterLine_Equations" data-uid="ProEdit.Layout.HeaderFooterLine.Equations">
+  Equations
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Layout/HeaderFooterLine.cs/#L21"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public IReadOnlyList&lt;LayoutEquation&gt; Equations { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;<a class="xref" href="ProEdit.Layout.LayoutEquation.html">LayoutEquation</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Layout_HeaderFooterLine_Images_" data-uid="ProEdit.Layout.HeaderFooterLine.Images*"></a>
+
+  <h3 id="ProEdit_Layout_HeaderFooterLine_Images" data-uid="ProEdit.Layout.HeaderFooterLine.Images">
+  Images
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Layout/HeaderFooterLine.cs/#L18"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public IReadOnlyList&lt;LayoutImage&gt; Images { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;<a class="xref" href="ProEdit.Layout.LayoutImage.html">LayoutImage</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Layout_HeaderFooterLine_IsRtl_" data-uid="ProEdit.Layout.HeaderFooterLine.IsRtl*"></a>
+
+  <h3 id="ProEdit_Layout_HeaderFooterLine_IsRtl" data-uid="ProEdit.Layout.HeaderFooterLine.IsRtl">
+  IsRtl
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Layout/HeaderFooterLine.cs/#L24"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool IsRtl { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Layout_HeaderFooterLine_Length_" data-uid="ProEdit.Layout.HeaderFooterLine.Length*"></a>
+
+  <h3 id="ProEdit_Layout_HeaderFooterLine_Length" data-uid="ProEdit.Layout.HeaderFooterLine.Length">
+  Length
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Layout/HeaderFooterLine.cs/#L8"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public int Length { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">int</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Layout_HeaderFooterLine_LineHeight_" data-uid="ProEdit.Layout.HeaderFooterLine.LineHeight*"></a>
+
+  <h3 id="ProEdit_Layout_HeaderFooterLine_LineHeight" data-uid="ProEdit.Layout.HeaderFooterLine.LineHeight">
+  LineHeight
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Layout/HeaderFooterLine.cs/#L15"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public float LineHeight { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Layout_HeaderFooterLine_ParagraphIndex_" data-uid="ProEdit.Layout.HeaderFooterLine.ParagraphIndex*"></a>
+
+  <h3 id="ProEdit_Layout_HeaderFooterLine_ParagraphIndex" data-uid="ProEdit.Layout.HeaderFooterLine.ParagraphIndex">
+  ParagraphIndex
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Layout/HeaderFooterLine.cs/#L6"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public int ParagraphIndex { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">int</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Layout_HeaderFooterLine_Prefix_" data-uid="ProEdit.Layout.HeaderFooterLine.Prefix*"></a>
+
+  <h3 id="ProEdit_Layout_HeaderFooterLine_Prefix" data-uid="ProEdit.Layout.HeaderFooterLine.Prefix">
+  Prefix
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Layout/HeaderFooterLine.cs/#L13"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public string? Prefix { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Layout_HeaderFooterLine_PrefixWidth_" data-uid="ProEdit.Layout.HeaderFooterLine.PrefixWidth*"></a>
+
+  <h3 id="ProEdit_Layout_HeaderFooterLine_PrefixWidth" data-uid="ProEdit.Layout.HeaderFooterLine.PrefixWidth">
+  PrefixWidth
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Layout/HeaderFooterLine.cs/#L14"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public float PrefixWidth { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Layout_HeaderFooterLine_Rubies_" data-uid="ProEdit.Layout.HeaderFooterLine.Rubies*"></a>
+
+  <h3 id="ProEdit_Layout_HeaderFooterLine_Rubies" data-uid="ProEdit.Layout.HeaderFooterLine.Rubies">
+  Rubies
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Layout/HeaderFooterLine.cs/#L22"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public IReadOnlyList&lt;LayoutRuby&gt; Rubies { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;<a class="xref" href="ProEdit.Layout.LayoutRuby.html">LayoutRuby</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Layout_HeaderFooterLine_Runs_" data-uid="ProEdit.Layout.HeaderFooterLine.Runs*"></a>
+
+  <h3 id="ProEdit_Layout_HeaderFooterLine_Runs" data-uid="ProEdit.Layout.HeaderFooterLine.Runs">
+  Runs
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Layout/HeaderFooterLine.cs/#L17"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public IReadOnlyList&lt;LayoutRun&gt; Runs { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;<a class="xref" href="ProEdit.Layout.LayoutRun.html">LayoutRun</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Layout_HeaderFooterLine_Shapes_" data-uid="ProEdit.Layout.HeaderFooterLine.Shapes*"></a>
+
+  <h3 id="ProEdit_Layout_HeaderFooterLine_Shapes" data-uid="ProEdit.Layout.HeaderFooterLine.Shapes">
+  Shapes
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Layout/HeaderFooterLine.cs/#L19"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public IReadOnlyList&lt;LayoutShape&gt; Shapes { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;<a class="xref" href="ProEdit.Layout.LayoutShape.html">LayoutShape</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Layout_HeaderFooterLine_StartOffset_" data-uid="ProEdit.Layout.HeaderFooterLine.StartOffset*"></a>
+
+  <h3 id="ProEdit_Layout_HeaderFooterLine_StartOffset" data-uid="ProEdit.Layout.HeaderFooterLine.StartOffset">
+  StartOffset
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Layout/HeaderFooterLine.cs/#L7"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public int StartOffset { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">int</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Layout_HeaderFooterLine_Text_" data-uid="ProEdit.Layout.HeaderFooterLine.Text*"></a>
+
+  <h3 id="ProEdit_Layout_HeaderFooterLine_Text" data-uid="ProEdit.Layout.HeaderFooterLine.Text">
+  Text
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Layout/HeaderFooterLine.cs/#L28"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public string Text { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Layout_HeaderFooterLine_TextDirection_" data-uid="ProEdit.Layout.HeaderFooterLine.TextDirection*"></a>
+
+  <h3 id="ProEdit_Layout_HeaderFooterLine_TextDirection" data-uid="ProEdit.Layout.HeaderFooterLine.TextDirection">
+  TextDirection
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Layout/HeaderFooterLine.cs/#L23"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public DocTextDirection? TextDirection { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Documents.DocTextDirection.html">DocTextDirection</a>?</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Layout_HeaderFooterLine_TextSlice_" data-uid="ProEdit.Layout.HeaderFooterLine.TextSlice*"></a>
+
+  <h3 id="ProEdit_Layout_HeaderFooterLine_TextSlice" data-uid="ProEdit.Layout.HeaderFooterLine.TextSlice">
+  TextSlice
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Layout/HeaderFooterLine.cs/#L12"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public TextSlice TextSlice { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Layout.TextSlice.html">TextSlice</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Layout_HeaderFooterLine_TextSpan_" data-uid="ProEdit.Layout.HeaderFooterLine.TextSpan*"></a>
+
+  <h3 id="ProEdit_Layout_HeaderFooterLine_TextSpan" data-uid="ProEdit.Layout.HeaderFooterLine.TextSpan">
+  TextSpan
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Layout/HeaderFooterLine.cs/#L30"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public ReadOnlySpan&lt;char&gt; TextSpan { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.readonlyspan-1">ReadOnlySpan</a>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.char">char</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Layout_HeaderFooterLine_Width_" data-uid="ProEdit.Layout.HeaderFooterLine.Width*"></a>
+
+  <h3 id="ProEdit_Layout_HeaderFooterLine_Width" data-uid="ProEdit.Layout.HeaderFooterLine.Width">
+  Width
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Layout/HeaderFooterLine.cs/#L11"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public float Width { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Layout_HeaderFooterLine_X_" data-uid="ProEdit.Layout.HeaderFooterLine.X*"></a>
+
+  <h3 id="ProEdit_Layout_HeaderFooterLine_X" data-uid="ProEdit.Layout.HeaderFooterLine.X">
+  X
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Layout/HeaderFooterLine.cs/#L9"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public float X { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Layout_HeaderFooterLine_Y_" data-uid="ProEdit.Layout.HeaderFooterLine.Y*"></a>
+
+  <h3 id="ProEdit_Layout_HeaderFooterLine_Y" data-uid="ProEdit.Layout.HeaderFooterLine.Y">
+  Y
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Layout/HeaderFooterLine.cs/#L10"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public float Y { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Layout/HeaderFooterLine.cs/#L5" class="edit-link">Edit this page</a>
+        </div>
+
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          <span>Made with <a href="https://dotnet.github.io/docfx">docfx</a></span>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

@@ -1,0 +1,1090 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Class PageSectionSettings | ProEdit </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Class PageSectionSettings | ProEdit ">
+      
+      
+      <link rel="icon" href="../favicon.ico">
+      <link rel="stylesheet" href="../public/docfx.min.css">
+      <link rel="stylesheet" href="../public/main.css">
+      <meta name="docfx:navrel" content="../toc.html">
+      <meta name="docfx:tocrel" content="toc.html">
+      
+      
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/wieslawsoltes/ProEdit/new/main/apiSpec/new?filename=ProEdit_Layout_PageSectionSettings.md&amp;value=---%0Auid%3A%20ProEdit.Layout.PageSectionSettings%0Asummary%3A%20&#39;*You%20can%20override%20summary%20for%20the%20API%20here%20using%20*MARKDOWN*%20syntax&#39;%0A---%0A%0A*Please%20type%20below%20more%20information%20about%20this%20API%3A*%0A%0A">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="ManagedReference">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../index.html">
+            <img id="logo" class="svg" src="../images/logo.svg" alt="">
+            
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="ProEdit.Layout.PageSectionSettings">
+
+
+
+  <h1 id="ProEdit_Layout_PageSectionSettings" data-uid="ProEdit.Layout.PageSectionSettings" class="text-break">
+Class PageSectionSettings  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Layout/PageSectionSettings.cs/#L6"><i class="bi bi-code-slash"></i></a>
+  </h1>
+
+  <div class="facts text-secondary">
+    <dl><dt>Namespace</dt><dd><a class="xref" href="ProEdit.html">ProEdit</a>.<a class="xref" href="ProEdit.Layout.html">Layout</a></dd></dl>
+  <dl><dt>Assembly</dt><dd>ProEdit.Layout.dll</dd></dl>
+  </div>
+
+  <div class="markdown summary"></div>
+  <div class="markdown conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public sealed record PageSectionSettings : IEquatable&lt;PageSectionSettings&gt;</code></pre>
+  </div>
+
+
+
+
+  <dl class="typelist inheritance">
+    <dt>Inheritance</dt>
+    <dd>
+      <div><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object">object</a></div>
+      <div><span class="xref">PageSectionSettings</span></div>
+    </dd>
+  </dl>
+
+  <dl class="typelist implements">
+    <dt>Implements</dt>
+    <dd>
+      <div><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.iequatable-1">IEquatable</a>&lt;<a class="xref" href="ProEdit.Layout.PageSectionSettings.html">PageSectionSettings</a>&gt;</div>
+    </dd>
+  </dl>
+
+
+  <dl class="typelist inheritedMembers">
+    <dt>Inherited Members</dt>
+    <dd>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)">object.Equals(object)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)">object.Equals(object, object)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.gethashcode">object.GetHashCode()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.gettype">object.GetType()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.referenceequals">object.ReferenceEquals(object, object)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.tostring">object.ToString()</a>
+    </div>
+  </dd></dl>
+
+
+
+
+
+
+  <h2 class="section" id="constructors">Constructors
+</h2>
+
+
+  <a id="ProEdit_Layout_PageSectionSettings__ctor_" data-uid="ProEdit.Layout.PageSectionSettings.#ctor*"></a>
+
+  <h3 id="ProEdit_Layout_PageSectionSettings__ctor_System_Single_System_Single_System_Single_System_Single_System_Single_System_Single_System_Single_System_Single_System_Single_System_Boolean_System_Boolean_System_Int32_System_Single_System_Boolean_System_Boolean_System_Collections_Generic_IReadOnlyList_System_Single__System_Collections_Generic_IReadOnlyList_System_Single__ProEdit_Documents_DocGridSettings_System_Nullable_ProEdit_Primitives_DocColor__ProEdit_Documents_PageBorders_ProEdit_Documents_LineNumberingSettings_ProEdit_Documents_PageNumberingSettings_System_Int32_" data-uid="ProEdit.Layout.PageSectionSettings.#ctor(System.Single,System.Single,System.Single,System.Single,System.Single,System.Single,System.Single,System.Single,System.Single,System.Boolean,System.Boolean,System.Int32,System.Single,System.Boolean,System.Boolean,System.Collections.Generic.IReadOnlyList{System.Single},System.Collections.Generic.IReadOnlyList{System.Single},ProEdit.Documents.DocGridSettings,System.Nullable{ProEdit.Primitives.DocColor},ProEdit.Documents.PageBorders,ProEdit.Documents.LineNumberingSettings,ProEdit.Documents.PageNumberingSettings,System.Int32)">
+  PageSectionSettings(float, float, float, float, float, float, float, float, float, bool, bool, int, float, bool, bool, IReadOnlyList&lt;float&gt;, IReadOnlyList&lt;float&gt;, DocGridSettings?, DocColor?, PageBorders?, LineNumberingSettings?, PageNumberingSettings?, int)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Layout/PageSectionSettings.cs/#L6"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public PageSectionSettings(float PageWidth, float PageHeight, float MarginLeft, float MarginTop, float MarginRight, float MarginBottom, float HeaderOffset, float FooterOffset, float Gutter, bool GutterAtTop, bool MirrorMargins, int ColumnCount, float ColumnGap, bool ColumnSeparator, bool ColumnEqualWidth, IReadOnlyList&lt;float&gt; ColumnWidths, IReadOnlyList&lt;float&gt; ColumnGaps, DocGridSettings? DocGrid, DocColor? PageBackgroundColor, PageBorders? PageBorders, LineNumberingSettings? LineNumbering, PageNumberingSettings? PageNumbering, int SectionIndex)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>PageWidth</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+    <dt><code>PageHeight</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+    <dt><code>MarginLeft</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+    <dt><code>MarginTop</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+    <dt><code>MarginRight</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+    <dt><code>MarginBottom</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+    <dt><code>HeaderOffset</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+    <dt><code>FooterOffset</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+    <dt><code>Gutter</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+    <dt><code>GutterAtTop</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+    <dt><code>MirrorMargins</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+    <dt><code>ColumnCount</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">int</a></dt>
+    <dd></dd>
+    <dt><code>ColumnGap</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+    <dt><code>ColumnSeparator</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+    <dt><code>ColumnEqualWidth</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+    <dt><code>ColumnWidths</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a>&gt;</dt>
+    <dd></dd>
+    <dt><code>ColumnGaps</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a>&gt;</dt>
+    <dd></dd>
+    <dt><code>DocGrid</code> <a class="xref" href="ProEdit.Documents.DocGridSettings.html">DocGridSettings</a></dt>
+    <dd></dd>
+    <dt><code>PageBackgroundColor</code> <a class="xref" href="ProEdit.Primitives.DocColor.html">DocColor</a>?</dt>
+    <dd></dd>
+    <dt><code>PageBorders</code> <a class="xref" href="ProEdit.Documents.PageBorders.html">PageBorders</a></dt>
+    <dd></dd>
+    <dt><code>LineNumbering</code> <a class="xref" href="ProEdit.Documents.LineNumberingSettings.html">LineNumberingSettings</a></dt>
+    <dd></dd>
+    <dt><code>PageNumbering</code> <a class="xref" href="ProEdit.Documents.PageNumberingSettings.html">PageNumberingSettings</a></dt>
+    <dd></dd>
+    <dt><code>SectionIndex</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">int</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <h2 class="section" id="properties">Properties
+</h2>
+
+
+  <a id="ProEdit_Layout_PageSectionSettings_ColumnCount_" data-uid="ProEdit.Layout.PageSectionSettings.ColumnCount*"></a>
+
+  <h3 id="ProEdit_Layout_PageSectionSettings_ColumnCount" data-uid="ProEdit.Layout.PageSectionSettings.ColumnCount">
+  ColumnCount
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Layout/PageSectionSettings.cs/#L18"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public int ColumnCount { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">int</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Layout_PageSectionSettings_ColumnEqualWidth_" data-uid="ProEdit.Layout.PageSectionSettings.ColumnEqualWidth*"></a>
+
+  <h3 id="ProEdit_Layout_PageSectionSettings_ColumnEqualWidth" data-uid="ProEdit.Layout.PageSectionSettings.ColumnEqualWidth">
+  ColumnEqualWidth
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Layout/PageSectionSettings.cs/#L21"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool ColumnEqualWidth { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Layout_PageSectionSettings_ColumnGap_" data-uid="ProEdit.Layout.PageSectionSettings.ColumnGap*"></a>
+
+  <h3 id="ProEdit_Layout_PageSectionSettings_ColumnGap" data-uid="ProEdit.Layout.PageSectionSettings.ColumnGap">
+  ColumnGap
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Layout/PageSectionSettings.cs/#L19"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public float ColumnGap { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Layout_PageSectionSettings_ColumnGaps_" data-uid="ProEdit.Layout.PageSectionSettings.ColumnGaps*"></a>
+
+  <h3 id="ProEdit_Layout_PageSectionSettings_ColumnGaps" data-uid="ProEdit.Layout.PageSectionSettings.ColumnGaps">
+  ColumnGaps
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Layout/PageSectionSettings.cs/#L23"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public IReadOnlyList&lt;float&gt; ColumnGaps { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Layout_PageSectionSettings_ColumnSeparator_" data-uid="ProEdit.Layout.PageSectionSettings.ColumnSeparator*"></a>
+
+  <h3 id="ProEdit_Layout_PageSectionSettings_ColumnSeparator" data-uid="ProEdit.Layout.PageSectionSettings.ColumnSeparator">
+  ColumnSeparator
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Layout/PageSectionSettings.cs/#L20"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool ColumnSeparator { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Layout_PageSectionSettings_ColumnWidths_" data-uid="ProEdit.Layout.PageSectionSettings.ColumnWidths*"></a>
+
+  <h3 id="ProEdit_Layout_PageSectionSettings_ColumnWidths" data-uid="ProEdit.Layout.PageSectionSettings.ColumnWidths">
+  ColumnWidths
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Layout/PageSectionSettings.cs/#L22"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public IReadOnlyList&lt;float&gt; ColumnWidths { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Layout_PageSectionSettings_DocGrid_" data-uid="ProEdit.Layout.PageSectionSettings.DocGrid*"></a>
+
+  <h3 id="ProEdit_Layout_PageSectionSettings_DocGrid" data-uid="ProEdit.Layout.PageSectionSettings.DocGrid">
+  DocGrid
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Layout/PageSectionSettings.cs/#L24"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public DocGridSettings? DocGrid { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Documents.DocGridSettings.html">DocGridSettings</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Layout_PageSectionSettings_FooterOffset_" data-uid="ProEdit.Layout.PageSectionSettings.FooterOffset*"></a>
+
+  <h3 id="ProEdit_Layout_PageSectionSettings_FooterOffset" data-uid="ProEdit.Layout.PageSectionSettings.FooterOffset">
+  FooterOffset
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Layout/PageSectionSettings.cs/#L14"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public float FooterOffset { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Layout_PageSectionSettings_Gutter_" data-uid="ProEdit.Layout.PageSectionSettings.Gutter*"></a>
+
+  <h3 id="ProEdit_Layout_PageSectionSettings_Gutter" data-uid="ProEdit.Layout.PageSectionSettings.Gutter">
+  Gutter
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Layout/PageSectionSettings.cs/#L15"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public float Gutter { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Layout_PageSectionSettings_GutterAtTop_" data-uid="ProEdit.Layout.PageSectionSettings.GutterAtTop*"></a>
+
+  <h3 id="ProEdit_Layout_PageSectionSettings_GutterAtTop" data-uid="ProEdit.Layout.PageSectionSettings.GutterAtTop">
+  GutterAtTop
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Layout/PageSectionSettings.cs/#L16"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool GutterAtTop { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Layout_PageSectionSettings_HeaderOffset_" data-uid="ProEdit.Layout.PageSectionSettings.HeaderOffset*"></a>
+
+  <h3 id="ProEdit_Layout_PageSectionSettings_HeaderOffset" data-uid="ProEdit.Layout.PageSectionSettings.HeaderOffset">
+  HeaderOffset
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Layout/PageSectionSettings.cs/#L13"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public float HeaderOffset { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Layout_PageSectionSettings_LineNumbering_" data-uid="ProEdit.Layout.PageSectionSettings.LineNumbering*"></a>
+
+  <h3 id="ProEdit_Layout_PageSectionSettings_LineNumbering" data-uid="ProEdit.Layout.PageSectionSettings.LineNumbering">
+  LineNumbering
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Layout/PageSectionSettings.cs/#L27"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public LineNumberingSettings? LineNumbering { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Documents.LineNumberingSettings.html">LineNumberingSettings</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Layout_PageSectionSettings_MarginBottom_" data-uid="ProEdit.Layout.PageSectionSettings.MarginBottom*"></a>
+
+  <h3 id="ProEdit_Layout_PageSectionSettings_MarginBottom" data-uid="ProEdit.Layout.PageSectionSettings.MarginBottom">
+  MarginBottom
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Layout/PageSectionSettings.cs/#L12"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public float MarginBottom { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Layout_PageSectionSettings_MarginLeft_" data-uid="ProEdit.Layout.PageSectionSettings.MarginLeft*"></a>
+
+  <h3 id="ProEdit_Layout_PageSectionSettings_MarginLeft" data-uid="ProEdit.Layout.PageSectionSettings.MarginLeft">
+  MarginLeft
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Layout/PageSectionSettings.cs/#L9"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public float MarginLeft { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Layout_PageSectionSettings_MarginRight_" data-uid="ProEdit.Layout.PageSectionSettings.MarginRight*"></a>
+
+  <h3 id="ProEdit_Layout_PageSectionSettings_MarginRight" data-uid="ProEdit.Layout.PageSectionSettings.MarginRight">
+  MarginRight
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Layout/PageSectionSettings.cs/#L11"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public float MarginRight { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Layout_PageSectionSettings_MarginTop_" data-uid="ProEdit.Layout.PageSectionSettings.MarginTop*"></a>
+
+  <h3 id="ProEdit_Layout_PageSectionSettings_MarginTop" data-uid="ProEdit.Layout.PageSectionSettings.MarginTop">
+  MarginTop
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Layout/PageSectionSettings.cs/#L10"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public float MarginTop { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Layout_PageSectionSettings_MirrorMargins_" data-uid="ProEdit.Layout.PageSectionSettings.MirrorMargins*"></a>
+
+  <h3 id="ProEdit_Layout_PageSectionSettings_MirrorMargins" data-uid="ProEdit.Layout.PageSectionSettings.MirrorMargins">
+  MirrorMargins
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Layout/PageSectionSettings.cs/#L17"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool MirrorMargins { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Layout_PageSectionSettings_PageBackgroundColor_" data-uid="ProEdit.Layout.PageSectionSettings.PageBackgroundColor*"></a>
+
+  <h3 id="ProEdit_Layout_PageSectionSettings_PageBackgroundColor" data-uid="ProEdit.Layout.PageSectionSettings.PageBackgroundColor">
+  PageBackgroundColor
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Layout/PageSectionSettings.cs/#L25"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public DocColor? PageBackgroundColor { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Primitives.DocColor.html">DocColor</a>?</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Layout_PageSectionSettings_PageBorders_" data-uid="ProEdit.Layout.PageSectionSettings.PageBorders*"></a>
+
+  <h3 id="ProEdit_Layout_PageSectionSettings_PageBorders" data-uid="ProEdit.Layout.PageSectionSettings.PageBorders">
+  PageBorders
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Layout/PageSectionSettings.cs/#L26"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public PageBorders? PageBorders { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Documents.PageBorders.html">PageBorders</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Layout_PageSectionSettings_PageHeight_" data-uid="ProEdit.Layout.PageSectionSettings.PageHeight*"></a>
+
+  <h3 id="ProEdit_Layout_PageSectionSettings_PageHeight" data-uid="ProEdit.Layout.PageSectionSettings.PageHeight">
+  PageHeight
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Layout/PageSectionSettings.cs/#L8"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public float PageHeight { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Layout_PageSectionSettings_PageNumbering_" data-uid="ProEdit.Layout.PageSectionSettings.PageNumbering*"></a>
+
+  <h3 id="ProEdit_Layout_PageSectionSettings_PageNumbering" data-uid="ProEdit.Layout.PageSectionSettings.PageNumbering">
+  PageNumbering
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Layout/PageSectionSettings.cs/#L28"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public PageNumberingSettings? PageNumbering { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Documents.PageNumberingSettings.html">PageNumberingSettings</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Layout_PageSectionSettings_PageWidth_" data-uid="ProEdit.Layout.PageSectionSettings.PageWidth*"></a>
+
+  <h3 id="ProEdit_Layout_PageSectionSettings_PageWidth" data-uid="ProEdit.Layout.PageSectionSettings.PageWidth">
+  PageWidth
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Layout/PageSectionSettings.cs/#L7"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public float PageWidth { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Layout_PageSectionSettings_SectionIndex_" data-uid="ProEdit.Layout.PageSectionSettings.SectionIndex*"></a>
+
+  <h3 id="ProEdit_Layout_PageSectionSettings_SectionIndex" data-uid="ProEdit.Layout.PageSectionSettings.SectionIndex">
+  SectionIndex
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Layout/PageSectionSettings.cs/#L29"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public int SectionIndex { get; init; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">int</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <h2 class="section" id="methods">Methods
+</h2>
+
+
+  <a id="ProEdit_Layout_PageSectionSettings_ApplyOverrides_" data-uid="ProEdit.Layout.PageSectionSettings.ApplyOverrides*"></a>
+
+  <h3 id="ProEdit_Layout_PageSectionSettings_ApplyOverrides_ProEdit_Documents_SectionProperties_" data-uid="ProEdit.Layout.PageSectionSettings.ApplyOverrides(ProEdit.Documents.SectionProperties)">
+  ApplyOverrides(SectionProperties?)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Layout/PageSectionSettings.cs/#L66"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public PageSectionSettings ApplyOverrides(SectionProperties? properties)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>properties</code> <a class="xref" href="ProEdit.Documents.SectionProperties.html">SectionProperties</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Layout.PageSectionSettings.html">PageSectionSettings</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Layout_PageSectionSettings_FromSettings_" data-uid="ProEdit.Layout.PageSectionSettings.FromSettings*"></a>
+
+  <h3 id="ProEdit_Layout_PageSectionSettings_FromSettings_ProEdit_Layout_LayoutSettings_ProEdit_Documents_SectionProperties_System_Int32_System_Boolean_System_Boolean_" data-uid="ProEdit.Layout.PageSectionSettings.FromSettings(ProEdit.Layout.LayoutSettings,ProEdit.Documents.SectionProperties,System.Int32,System.Boolean,System.Boolean)">
+  FromSettings(LayoutSettings, SectionProperties?, int, bool, bool)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Layout/PageSectionSettings.cs/#L31"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static PageSectionSettings FromSettings(LayoutSettings settings, SectionProperties? properties, int sectionIndex, bool mirrorMargins = false, bool gutterAtTop = false)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>settings</code> <a class="xref" href="ProEdit.Layout.LayoutSettings.html">LayoutSettings</a></dt>
+    <dd></dd>
+    <dt><code>properties</code> <a class="xref" href="ProEdit.Documents.SectionProperties.html">SectionProperties</a></dt>
+    <dd></dd>
+    <dt><code>sectionIndex</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">int</a></dt>
+    <dd></dd>
+    <dt><code>mirrorMargins</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+    <dt><code>gutterAtTop</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Layout.PageSectionSettings.html">PageSectionSettings</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Layout_PageSectionSettings_ResolveForPage_" data-uid="ProEdit.Layout.PageSectionSettings.ResolveForPage*"></a>
+
+  <h3 id="ProEdit_Layout_PageSectionSettings_ResolveForPage_System_Int32_" data-uid="ProEdit.Layout.PageSectionSettings.ResolveForPage(System.Int32)">
+  ResolveForPage(int)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Layout/PageSectionSettings.cs/#L118"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public PageSectionSettings ResolveForPage(int pageIndex)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>pageIndex</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">int</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Layout.PageSectionSettings.html">PageSectionSettings</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Layout/PageSectionSettings.cs/#L6" class="edit-link">Edit this page</a>
+        </div>
+
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          <span>Made with <a href="https://dotnet.github.io/docfx">docfx</a></span>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Class DocumentEditHelpers | ProEdit </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Class DocumentEditHelpers | ProEdit ">
+      
+      
+      <link rel="icon" href="../favicon.ico">
+      <link rel="stylesheet" href="../public/docfx.min.css">
+      <link rel="stylesheet" href="../public/main.css">
+      <meta name="docfx:navrel" content="../toc.html">
+      <meta name="docfx:tocrel" content="toc.html">
+      
+      
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/wieslawsoltes/ProEdit/new/main/apiSpec/new?filename=ProEdit_Editing_DocumentEditHelpers.md&amp;value=---%0Auid%3A%20ProEdit.Editing.DocumentEditHelpers%0Asummary%3A%20&#39;*You%20can%20override%20summary%20for%20the%20API%20here%20using%20*MARKDOWN*%20syntax&#39;%0A---%0A%0A*Please%20type%20below%20more%20information%20about%20this%20API%3A*%0A%0A">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="ManagedReference">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../index.html">
+            <img id="logo" class="svg" src="../images/logo.svg" alt="">
+            
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="ProEdit.Editing.DocumentEditHelpers">
+
+
+
+  <h1 id="ProEdit_Editing_DocumentEditHelpers" data-uid="ProEdit.Editing.DocumentEditHelpers" class="text-break">
+Class DocumentEditHelpers  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/DocumentEditHelpers.cs/#L7"><i class="bi bi-code-slash"></i></a>
+  </h1>
+
+  <div class="facts text-secondary">
+    <dl><dt>Namespace</dt><dd><a class="xref" href="ProEdit.html">ProEdit</a>.<a class="xref" href="ProEdit.Editing.html">Editing</a></dd></dl>
+  <dl><dt>Assembly</dt><dd>ProEdit.Editing.dll</dd></dl>
+  </div>
+
+  <div class="markdown summary"></div>
+  <div class="markdown conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static class DocumentEditHelpers</code></pre>
+  </div>
+
+
+
+
+  <dl class="typelist inheritance">
+    <dt>Inheritance</dt>
+    <dd>
+      <div><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object">object</a></div>
+      <div><span class="xref">DocumentEditHelpers</span></div>
+    </dd>
+  </dl>
+
+
+
+  <dl class="typelist inheritedMembers">
+    <dt>Inherited Members</dt>
+    <dd>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)">object.Equals(object)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)">object.Equals(object, object)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.gethashcode">object.GetHashCode()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.gettype">object.GetType()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone">object.MemberwiseClone()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.referenceequals">object.ReferenceEquals(object, object)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.tostring">object.ToString()</a>
+    </div>
+  </dd></dl>
+
+
+
+
+
+
+  <h2 class="section" id="methods">Methods
+</h2>
+
+
+  <a id="ProEdit_Editing_DocumentEditHelpers_BuildParagraphList_" data-uid="ProEdit.Editing.DocumentEditHelpers.BuildParagraphList*"></a>
+
+  <h3 id="ProEdit_Editing_DocumentEditHelpers_BuildParagraphList_ProEdit_Documents_Document_" data-uid="ProEdit.Editing.DocumentEditHelpers.BuildParagraphList(ProEdit.Documents.Document)">
+  BuildParagraphList(Document)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/DocumentEditHelpers.cs/#L9"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static List&lt;ParagraphBlock&gt; BuildParagraphList(Document document)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>document</code> <a class="xref" href="ProEdit.Documents.Document.html">Document</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.generic.list-1">List</a>&lt;<a class="xref" href="ProEdit.Documents.ParagraphBlock.html">ParagraphBlock</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_DocumentEditHelpers_EnsureParagraphInlines_" data-uid="ProEdit.Editing.DocumentEditHelpers.EnsureParagraphInlines*"></a>
+
+  <h3 id="ProEdit_Editing_DocumentEditHelpers_EnsureParagraphInlines_ProEdit_Documents_ParagraphBlock_" data-uid="ProEdit.Editing.DocumentEditHelpers.EnsureParagraphInlines(ProEdit.Documents.ParagraphBlock)">
+  EnsureParagraphInlines(ParagraphBlock)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/DocumentEditHelpers.cs/#L278"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static void EnsureParagraphInlines(ParagraphBlock paragraph)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>paragraph</code> <a class="xref" href="ProEdit.Documents.ParagraphBlock.html">ParagraphBlock</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_DocumentEditHelpers_FindEquationInline_" data-uid="ProEdit.Editing.DocumentEditHelpers.FindEquationInline*"></a>
+
+  <h3 id="ProEdit_Editing_DocumentEditHelpers_FindEquationInline_ProEdit_Documents_ParagraphBlock_System_Int32_" data-uid="ProEdit.Editing.DocumentEditHelpers.FindEquationInline(ProEdit.Documents.ParagraphBlock,System.Int32)">
+  FindEquationInline(ParagraphBlock, int)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/DocumentEditHelpers.cs/#L292"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static EquationInline? FindEquationInline(ParagraphBlock paragraph, int offset)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>paragraph</code> <a class="xref" href="ProEdit.Documents.ParagraphBlock.html">ParagraphBlock</a></dt>
+    <dd></dd>
+    <dt><code>offset</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">int</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Documents.EquationInline.html">EquationInline</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_DocumentEditHelpers_GetInlineLength_" data-uid="ProEdit.Editing.DocumentEditHelpers.GetInlineLength*"></a>
+
+  <h3 id="ProEdit_Editing_DocumentEditHelpers_GetInlineLength_ProEdit_Documents_Inline_" data-uid="ProEdit.Editing.DocumentEditHelpers.GetInlineLength(ProEdit.Documents.Inline)">
+  GetInlineLength(Inline)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/DocumentEditHelpers.cs/#L58"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static int GetInlineLength(Inline inline)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>inline</code> <a class="xref" href="ProEdit.Documents.Inline.html">Inline</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">int</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_DocumentEditHelpers_GetParagraphLength_" data-uid="ProEdit.Editing.DocumentEditHelpers.GetParagraphLength*"></a>
+
+  <h3 id="ProEdit_Editing_DocumentEditHelpers_GetParagraphLength_ProEdit_Documents_ParagraphBlock_" data-uid="ProEdit.Editing.DocumentEditHelpers.GetParagraphLength(ProEdit.Documents.ParagraphBlock)">
+  GetParagraphLength(ParagraphBlock)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/DocumentEditHelpers.cs/#L42"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static int GetParagraphLength(ParagraphBlock paragraph)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>paragraph</code> <a class="xref" href="ProEdit.Documents.ParagraphBlock.html">ParagraphBlock</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">int</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_DocumentEditHelpers_GetParagraphText_" data-uid="ProEdit.Editing.DocumentEditHelpers.GetParagraphText*"></a>
+
+  <h3 id="ProEdit_Editing_DocumentEditHelpers_GetParagraphText_ProEdit_Documents_ParagraphBlock_" data-uid="ProEdit.Editing.DocumentEditHelpers.GetParagraphText(ProEdit.Documents.ParagraphBlock)">
+  GetParagraphText(ParagraphBlock)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/DocumentEditHelpers.cs/#L91"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static string GetParagraphText(ParagraphBlock paragraph)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>paragraph</code> <a class="xref" href="ProEdit.Documents.ParagraphBlock.html">ParagraphBlock</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_DocumentEditHelpers_IsContentControlContentLocked_" data-uid="ProEdit.Editing.DocumentEditHelpers.IsContentControlContentLocked*"></a>
+
+  <h3 id="ProEdit_Editing_DocumentEditHelpers_IsContentControlContentLocked_ProEdit_Documents_ContentControlProperties_" data-uid="ProEdit.Editing.DocumentEditHelpers.IsContentControlContentLocked(ProEdit.Documents.ContentControlProperties)">
+  IsContentControlContentLocked(ContentControlProperties)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/DocumentEditHelpers.cs/#L474"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static bool IsContentControlContentLocked(ContentControlProperties properties)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>properties</code> <a class="xref" href="ProEdit.Documents.ContentControlProperties.html">ContentControlProperties</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_DocumentEditHelpers_IsContentControlSdtLocked_" data-uid="ProEdit.Editing.DocumentEditHelpers.IsContentControlSdtLocked*"></a>
+
+  <h3 id="ProEdit_Editing_DocumentEditHelpers_IsContentControlSdtLocked_ProEdit_Documents_ContentControlProperties_" data-uid="ProEdit.Editing.DocumentEditHelpers.IsContentControlSdtLocked(ProEdit.Documents.ContentControlProperties)">
+  IsContentControlSdtLocked(ContentControlProperties)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/DocumentEditHelpers.cs/#L485"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static bool IsContentControlSdtLocked(ContentControlProperties properties)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>properties</code> <a class="xref" href="ProEdit.Documents.ContentControlProperties.html">ContentControlProperties</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_DocumentEditHelpers_TryFindContentControlAtLayoutOffset_" data-uid="ProEdit.Editing.DocumentEditHelpers.TryFindContentControlAtLayoutOffset*"></a>
+
+  <h3 id="ProEdit_Editing_DocumentEditHelpers_TryFindContentControlAtLayoutOffset_ProEdit_Documents_Document_ProEdit_Documents_ParagraphBlock_System_Int32_ProEdit_Documents_ContentControlProperties__System_Int32__" data-uid="ProEdit.Editing.DocumentEditHelpers.TryFindContentControlAtLayoutOffset(ProEdit.Documents.Document,ProEdit.Documents.ParagraphBlock,System.Int32,ProEdit.Documents.ContentControlProperties@,System.Int32@)">
+  TryFindContentControlAtLayoutOffset(Document, ParagraphBlock, int, out ContentControlProperties, out int)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/DocumentEditHelpers.cs/#L374"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static bool TryFindContentControlAtLayoutOffset(Document document, ParagraphBlock paragraph, int layoutOffset, out ContentControlProperties properties, out int documentOffset)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>document</code> <a class="xref" href="ProEdit.Documents.Document.html">Document</a></dt>
+    <dd></dd>
+    <dt><code>paragraph</code> <a class="xref" href="ProEdit.Documents.ParagraphBlock.html">ParagraphBlock</a></dt>
+    <dd></dd>
+    <dt><code>layoutOffset</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">int</a></dt>
+    <dd></dd>
+    <dt><code>properties</code> <a class="xref" href="ProEdit.Documents.ContentControlProperties.html">ContentControlProperties</a></dt>
+    <dd></dd>
+    <dt><code>documentOffset</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">int</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_DocumentEditHelpers_TryFindContentControlAtOffset_" data-uid="ProEdit.Editing.DocumentEditHelpers.TryFindContentControlAtOffset*"></a>
+
+  <h3 id="ProEdit_Editing_DocumentEditHelpers_TryFindContentControlAtOffset_ProEdit_Documents_ParagraphBlock_System_Int32_ProEdit_Documents_ContentControlProperties__" data-uid="ProEdit.Editing.DocumentEditHelpers.TryFindContentControlAtOffset(ProEdit.Documents.ParagraphBlock,System.Int32,ProEdit.Documents.ContentControlProperties@)">
+  TryFindContentControlAtOffset(ParagraphBlock, int, out ContentControlProperties)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/DocumentEditHelpers.cs/#L314"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static bool TryFindContentControlAtOffset(ParagraphBlock paragraph, int offset, out ContentControlProperties properties)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>paragraph</code> <a class="xref" href="ProEdit.Documents.ParagraphBlock.html">ParagraphBlock</a></dt>
+    <dd></dd>
+    <dt><code>offset</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">int</a></dt>
+    <dd></dd>
+    <dt><code>properties</code> <a class="xref" href="ProEdit.Documents.ContentControlProperties.html">ContentControlProperties</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_DocumentEditHelpers_WrapRangeWithRevisionMarkers_" data-uid="ProEdit.Editing.DocumentEditHelpers.WrapRangeWithRevisionMarkers*"></a>
+
+  <h3 id="ProEdit_Editing_DocumentEditHelpers_WrapRangeWithRevisionMarkers_ProEdit_Documents_ParagraphBlock_System_Int32_System_Int32_ProEdit_Documents_RevisionInfo_" data-uid="ProEdit.Editing.DocumentEditHelpers.WrapRangeWithRevisionMarkers(ProEdit.Documents.ParagraphBlock,System.Int32,System.Int32,ProEdit.Documents.RevisionInfo)">
+  WrapRangeWithRevisionMarkers(ParagraphBlock, int, int, RevisionInfo)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/DocumentEditHelpers.cs/#L149"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static bool WrapRangeWithRevisionMarkers(ParagraphBlock paragraph, int startOffset, int endOffset, RevisionInfo revision)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>paragraph</code> <a class="xref" href="ProEdit.Documents.ParagraphBlock.html">ParagraphBlock</a></dt>
+    <dd></dd>
+    <dt><code>startOffset</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">int</a></dt>
+    <dd></dd>
+    <dt><code>endOffset</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">int</a></dt>
+    <dd></dd>
+    <dt><code>revision</code> <a class="xref" href="ProEdit.Documents.RevisionInfo.html">RevisionInfo</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/DocumentEditHelpers.cs/#L7" class="edit-link">Edit this page</a>
+        </div>
+
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          <span>Made with <a href="https://dotnet.github.io/docfx">docfx</a></span>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

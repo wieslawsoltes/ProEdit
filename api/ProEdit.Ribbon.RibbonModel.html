@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Class RibbonModel | ProEdit </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Class RibbonModel | ProEdit ">
+      
+      
+      <link rel="icon" href="../favicon.ico">
+      <link rel="stylesheet" href="../public/docfx.min.css">
+      <link rel="stylesheet" href="../public/main.css">
+      <meta name="docfx:navrel" content="../toc.html">
+      <meta name="docfx:tocrel" content="toc.html">
+      
+      
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/wieslawsoltes/ProEdit/new/main/apiSpec/new?filename=ProEdit_Ribbon_RibbonModel.md&amp;value=---%0Auid%3A%20ProEdit.Ribbon.RibbonModel%0Asummary%3A%20&#39;*You%20can%20override%20summary%20for%20the%20API%20here%20using%20*MARKDOWN*%20syntax&#39;%0A---%0A%0A*Please%20type%20below%20more%20information%20about%20this%20API%3A*%0A%0A">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="ManagedReference">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../index.html">
+            <img id="logo" class="svg" src="../images/logo.svg" alt="">
+            
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="ProEdit.Ribbon.RibbonModel">
+
+
+
+  <h1 id="ProEdit_Ribbon_RibbonModel" data-uid="ProEdit.Ribbon.RibbonModel" class="text-break">
+Class RibbonModel  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Ribbon/RibbonModel.cs/#L6"><i class="bi bi-code-slash"></i></a>
+  </h1>
+
+  <div class="facts text-secondary">
+    <dl><dt>Namespace</dt><dd><a class="xref" href="ProEdit.html">ProEdit</a>.<a class="xref" href="ProEdit.Ribbon.html">Ribbon</a></dd></dl>
+  <dl><dt>Assembly</dt><dd>ProEdit.Ribbon.dll</dd></dl>
+  </div>
+
+  <div class="markdown summary"></div>
+  <div class="markdown conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public sealed class RibbonModel : INotifyPropertyChanged</code></pre>
+  </div>
+
+
+
+
+  <dl class="typelist inheritance">
+    <dt>Inheritance</dt>
+    <dd>
+      <div><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object">object</a></div>
+      <div><span class="xref">RibbonModel</span></div>
+    </dd>
+  </dl>
+
+  <dl class="typelist implements">
+    <dt>Implements</dt>
+    <dd>
+      <div><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.componentmodel.inotifypropertychanged">INotifyPropertyChanged</a></div>
+    </dd>
+  </dl>
+
+
+  <dl class="typelist inheritedMembers">
+    <dt>Inherited Members</dt>
+    <dd>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)">object.Equals(object)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)">object.Equals(object, object)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.gethashcode">object.GetHashCode()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.gettype">object.GetType()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.referenceequals">object.ReferenceEquals(object, object)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.tostring">object.ToString()</a>
+    </div>
+  </dd></dl>
+
+
+
+
+
+
+  <h2 class="section" id="constructors">Constructors
+</h2>
+
+
+  <a id="ProEdit_Ribbon_RibbonModel__ctor_" data-uid="ProEdit.Ribbon.RibbonModel.#ctor*"></a>
+
+  <h3 id="ProEdit_Ribbon_RibbonModel__ctor_System_Collections_Generic_IEnumerable_ProEdit_Ribbon_RibbonTab__System_Collections_Generic_IEnumerable_ProEdit_Ribbon_RibbonQuickAccessItem__System_Collections_Generic_IEnumerable_ProEdit_Ribbon_RibbonContextualTabSet__" data-uid="ProEdit.Ribbon.RibbonModel.#ctor(System.Collections.Generic.IEnumerable{ProEdit.Ribbon.RibbonTab},System.Collections.Generic.IEnumerable{ProEdit.Ribbon.RibbonQuickAccessItem},System.Collections.Generic.IEnumerable{ProEdit.Ribbon.RibbonContextualTabSet})">
+  RibbonModel(IEnumerable&lt;RibbonTab&gt;, IEnumerable&lt;RibbonQuickAccessItem&gt;?, IEnumerable&lt;RibbonContextualTabSet&gt;?)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Ribbon/RibbonModel.cs/#L19"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public RibbonModel(IEnumerable&lt;RibbonTab&gt; tabs, IEnumerable&lt;RibbonQuickAccessItem&gt;? quickAccess = null, IEnumerable&lt;RibbonContextualTabSet&gt;? contextualSets = null)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>tabs</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1">IEnumerable</a>&lt;<a class="xref" href="ProEdit.Ribbon.RibbonTab.html">RibbonTab</a>&gt;</dt>
+    <dd></dd>
+    <dt><code>quickAccess</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1">IEnumerable</a>&lt;<a class="xref" href="ProEdit.Ribbon.RibbonQuickAccessItem.html">RibbonQuickAccessItem</a>&gt;</dt>
+    <dd></dd>
+    <dt><code>contextualSets</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1">IEnumerable</a>&lt;<a class="xref" href="ProEdit.Ribbon.RibbonContextualTabSet.html">RibbonContextualTabSet</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <h2 class="section" id="properties">Properties
+</h2>
+
+
+  <a id="ProEdit_Ribbon_RibbonModel_ContextualSets_" data-uid="ProEdit.Ribbon.RibbonModel.ContextualSets*"></a>
+
+  <h3 id="ProEdit_Ribbon_RibbonModel_ContextualSets" data-uid="ProEdit.Ribbon.RibbonModel.ContextualSets">
+  ContextualSets
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Ribbon/RibbonModel.cs/#L34"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public ObservableCollection&lt;RibbonContextualTabSet&gt; ContextualSets { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.objectmodel.observablecollection-1">ObservableCollection</a>&lt;<a class="xref" href="ProEdit.Ribbon.RibbonContextualTabSet.html">RibbonContextualTabSet</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Ribbon_RibbonModel_QuickAccess_" data-uid="ProEdit.Ribbon.RibbonModel.QuickAccess*"></a>
+
+  <h3 id="ProEdit_Ribbon_RibbonModel_QuickAccess" data-uid="ProEdit.Ribbon.RibbonModel.QuickAccess">
+  QuickAccess
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Ribbon/RibbonModel.cs/#L33"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public ObservableCollection&lt;RibbonQuickAccessItem&gt; QuickAccess { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.objectmodel.observablecollection-1">ObservableCollection</a>&lt;<a class="xref" href="ProEdit.Ribbon.RibbonQuickAccessItem.html">RibbonQuickAccessItem</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Ribbon_RibbonModel_SelectedTab_" data-uid="ProEdit.Ribbon.RibbonModel.SelectedTab*"></a>
+
+  <h3 id="ProEdit_Ribbon_RibbonModel_SelectedTab" data-uid="ProEdit.Ribbon.RibbonModel.SelectedTab">
+  SelectedTab
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Ribbon/RibbonModel.cs/#L127"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public RibbonTab? SelectedTab { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Ribbon.RibbonTab.html">RibbonTab</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Ribbon_RibbonModel_Tabs_" data-uid="ProEdit.Ribbon.RibbonModel.Tabs*"></a>
+
+  <h3 id="ProEdit_Ribbon_RibbonModel_Tabs" data-uid="ProEdit.Ribbon.RibbonModel.Tabs">
+  Tabs
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Ribbon/RibbonModel.cs/#L32"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public ObservableCollection&lt;RibbonTab&gt; Tabs { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.objectmodel.observablecollection-1">ObservableCollection</a>&lt;<a class="xref" href="ProEdit.Ribbon.RibbonTab.html">RibbonTab</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Ribbon_RibbonModel_TopBarAppBadge_" data-uid="ProEdit.Ribbon.RibbonModel.TopBarAppBadge*"></a>
+
+  <h3 id="ProEdit_Ribbon_RibbonModel_TopBarAppBadge" data-uid="ProEdit.Ribbon.RibbonModel.TopBarAppBadge">
+  TopBarAppBadge
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Ribbon/RibbonModel.cs/#L62"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public string? TopBarAppBadge { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Ribbon_RibbonModel_TopBarAppName_" data-uid="ProEdit.Ribbon.RibbonModel.TopBarAppName*"></a>
+
+  <h3 id="ProEdit_Ribbon_RibbonModel_TopBarAppName" data-uid="ProEdit.Ribbon.RibbonModel.TopBarAppName">
+  TopBarAppName
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Ribbon/RibbonModel.cs/#L49"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public string? TopBarAppName { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Ribbon_RibbonModel_TopBarProfileInitials_" data-uid="ProEdit.Ribbon.RibbonModel.TopBarProfileInitials*"></a>
+
+  <h3 id="ProEdit_Ribbon_RibbonModel_TopBarProfileInitials" data-uid="ProEdit.Ribbon.RibbonModel.TopBarProfileInitials">
+  TopBarProfileInitials
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Ribbon/RibbonModel.cs/#L114"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public string? TopBarProfileInitials { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Ribbon_RibbonModel_TopBarSearch_" data-uid="ProEdit.Ribbon.RibbonModel.TopBarSearch*"></a>
+
+  <h3 id="ProEdit_Ribbon_RibbonModel_TopBarSearch" data-uid="ProEdit.Ribbon.RibbonModel.TopBarSearch">
+  TopBarSearch
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Ribbon/RibbonModel.cs/#L36"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public IRibbonControl? TopBarSearch { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Ribbon.IRibbonControl.html">IRibbonControl</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Ribbon_RibbonModel_TopBarStatusIconKey_" data-uid="ProEdit.Ribbon.RibbonModel.TopBarStatusIconKey*"></a>
+
+  <h3 id="ProEdit_Ribbon_RibbonModel_TopBarStatusIconKey" data-uid="ProEdit.Ribbon.RibbonModel.TopBarStatusIconKey">
+  TopBarStatusIconKey
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Ribbon/RibbonModel.cs/#L101"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public string? TopBarStatusIconKey { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Ribbon_RibbonModel_TopBarStatusText_" data-uid="ProEdit.Ribbon.RibbonModel.TopBarStatusText*"></a>
+
+  <h3 id="ProEdit_Ribbon_RibbonModel_TopBarStatusText" data-uid="ProEdit.Ribbon.RibbonModel.TopBarStatusText">
+  TopBarStatusText
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Ribbon/RibbonModel.cs/#L88"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public string? TopBarStatusText { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Ribbon_RibbonModel_TopBarTitle_" data-uid="ProEdit.Ribbon.RibbonModel.TopBarTitle*"></a>
+
+  <h3 id="ProEdit_Ribbon_RibbonModel_TopBarTitle" data-uid="ProEdit.Ribbon.RibbonModel.TopBarTitle">
+  TopBarTitle
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Ribbon/RibbonModel.cs/#L75"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public string? TopBarTitle { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <h2 class="section" id="methods">Methods
+</h2>
+
+
+  <a id="ProEdit_Ribbon_RibbonModel_AddQuickAccess_" data-uid="ProEdit.Ribbon.RibbonModel.AddQuickAccess*"></a>
+
+  <h3 id="ProEdit_Ribbon_RibbonModel_AddQuickAccess_ProEdit_Ribbon_IRibbonControl_" data-uid="ProEdit.Ribbon.RibbonModel.AddQuickAccess(ProEdit.Ribbon.IRibbonControl)">
+  AddQuickAccess(IRibbonControl)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Ribbon/RibbonModel.cs/#L146"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void AddQuickAccess(IRibbonControl control)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>control</code> <a class="xref" href="ProEdit.Ribbon.IRibbonControl.html">IRibbonControl</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Ribbon_RibbonModel_ContainsQuickAccess_" data-uid="ProEdit.Ribbon.RibbonModel.ContainsQuickAccess*"></a>
+
+  <h3 id="ProEdit_Ribbon_RibbonModel_ContainsQuickAccess_System_String_" data-uid="ProEdit.Ribbon.RibbonModel.ContainsQuickAccess(System.String)">
+  ContainsQuickAccess(string)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Ribbon/RibbonModel.cs/#L171"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool ContainsQuickAccess(string controlId)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>controlId</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Ribbon_RibbonModel_RefreshState_" data-uid="ProEdit.Ribbon.RibbonModel.RefreshState*"></a>
+
+  <h3 id="ProEdit_Ribbon_RibbonModel_RefreshState" data-uid="ProEdit.Ribbon.RibbonModel.RefreshState">
+  RefreshState()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Ribbon/RibbonModel.cs/#L184"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void RefreshState()</code></pre>
+  </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Ribbon_RibbonModel_RemoveQuickAccess_" data-uid="ProEdit.Ribbon.RibbonModel.RemoveQuickAccess*"></a>
+
+  <h3 id="ProEdit_Ribbon_RibbonModel_RemoveQuickAccess_System_String_" data-uid="ProEdit.Ribbon.RibbonModel.RemoveQuickAccess(System.String)">
+  RemoveQuickAccess(string)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Ribbon/RibbonModel.cs/#L157"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool RemoveQuickAccess(string controlId)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>controlId</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <h2 class="section" id="events">Events
+</h2>
+
+
+
+  <h3 id="ProEdit_Ribbon_RibbonModel_PropertyChanged" data-uid="ProEdit.Ribbon.RibbonModel.PropertyChanged">
+  PropertyChanged
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Ribbon/RibbonModel.cs/#L144"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Occurs when a property value changes.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public event PropertyChangedEventHandler? PropertyChanged</code></pre>
+  </div>
+
+
+
+
+
+
+  <h4 class="section">Event Type</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.componentmodel.propertychangedeventhandler">PropertyChangedEventHandler</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Ribbon/RibbonModel.cs/#L6" class="edit-link">Edit this page</a>
+        </div>
+
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          <span>Made with <a href="https://dotnet.github.io/docfx">docfx</a></span>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

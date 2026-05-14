@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Class RibbonGroup | ProEdit </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Class RibbonGroup | ProEdit ">
+      
+      
+      <link rel="icon" href="../favicon.ico">
+      <link rel="stylesheet" href="../public/docfx.min.css">
+      <link rel="stylesheet" href="../public/main.css">
+      <meta name="docfx:navrel" content="../toc.html">
+      <meta name="docfx:tocrel" content="toc.html">
+      
+      
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/wieslawsoltes/ProEdit/new/main/apiSpec/new?filename=ProEdit_Ribbon_RibbonGroup.md&amp;value=---%0Auid%3A%20ProEdit.Ribbon.RibbonGroup%0Asummary%3A%20&#39;*You%20can%20override%20summary%20for%20the%20API%20here%20using%20*MARKDOWN*%20syntax&#39;%0A---%0A%0A*Please%20type%20below%20more%20information%20about%20this%20API%3A*%0A%0A">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="ManagedReference">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../index.html">
+            <img id="logo" class="svg" src="../images/logo.svg" alt="">
+            
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="ProEdit.Ribbon.RibbonGroup">
+
+
+
+  <h1 id="ProEdit_Ribbon_RibbonGroup" data-uid="ProEdit.Ribbon.RibbonGroup" class="text-break">
+Class RibbonGroup  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Ribbon/RibbonGroup.cs/#L3"><i class="bi bi-code-slash"></i></a>
+  </h1>
+
+  <div class="facts text-secondary">
+    <dl><dt>Namespace</dt><dd><a class="xref" href="ProEdit.html">ProEdit</a>.<a class="xref" href="ProEdit.Ribbon.html">Ribbon</a></dd></dl>
+  <dl><dt>Assembly</dt><dd>ProEdit.Ribbon.dll</dd></dl>
+  </div>
+
+  <div class="markdown summary"></div>
+  <div class="markdown conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public sealed class RibbonGroup : RibbonStateNode, IRibbonStateful, INotifyPropertyChanged</code></pre>
+  </div>
+
+
+
+
+  <dl class="typelist inheritance">
+    <dt>Inheritance</dt>
+    <dd>
+      <div><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object">object</a></div>
+      <div><a class="xref" href="ProEdit.Ribbon.RibbonStateNode.html">RibbonStateNode</a></div>
+      <div><span class="xref">RibbonGroup</span></div>
+    </dd>
+  </dl>
+
+  <dl class="typelist implements">
+    <dt>Implements</dt>
+    <dd>
+      <div><a class="xref" href="ProEdit.Ribbon.IRibbonStateful.html">IRibbonStateful</a></div>
+      <div><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.componentmodel.inotifypropertychanged">INotifyPropertyChanged</a></div>
+    </dd>
+  </dl>
+
+
+  <dl class="typelist inheritedMembers">
+    <dt>Inherited Members</dt>
+    <dd>
+    <div>
+      <a class="xref" href="ProEdit.Ribbon.RibbonStateNode.html#ProEdit_Ribbon_RibbonStateNode_IsEnabled">RibbonStateNode.IsEnabled</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Ribbon.RibbonStateNode.html#ProEdit_Ribbon_RibbonStateNode_IsVisible">RibbonStateNode.IsVisible</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Ribbon.RibbonStateNode.html#ProEdit_Ribbon_RibbonStateNode_PropertyChanged">RibbonStateNode.PropertyChanged</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)">object.Equals(object)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)">object.Equals(object, object)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.gethashcode">object.GetHashCode()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.gettype">object.GetType()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.referenceequals">object.ReferenceEquals(object, object)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.tostring">object.ToString()</a>
+    </div>
+  </dd></dl>
+
+
+
+
+
+
+  <h2 class="section" id="constructors">Constructors
+</h2>
+
+
+  <a id="ProEdit_Ribbon_RibbonGroup__ctor_" data-uid="ProEdit.Ribbon.RibbonGroup.#ctor*"></a>
+
+  <h3 id="ProEdit_Ribbon_RibbonGroup__ctor_System_String_System_String_System_Collections_Generic_IReadOnlyList_ProEdit_Ribbon_IRibbonControl__ProEdit_Ribbon_RibbonGroupSizeMode_System_Boolean_System_Boolean_System_Func_System_Boolean__System_Func_System_Boolean__System_String_ProEdit_Ribbon_RibbonGroupLauncher_" data-uid="ProEdit.Ribbon.RibbonGroup.#ctor(System.String,System.String,System.Collections.Generic.IReadOnlyList{ProEdit.Ribbon.IRibbonControl},ProEdit.Ribbon.RibbonGroupSizeMode,System.Boolean,System.Boolean,System.Func{System.Boolean},System.Func{System.Boolean},System.String,ProEdit.Ribbon.RibbonGroupLauncher)">
+  RibbonGroup(string, string, IReadOnlyList&lt;IRibbonControl&gt;, RibbonGroupSizeMode, bool, bool, Func&lt;bool&gt;?, Func&lt;bool&gt;?, string?, RibbonGroupLauncher?)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Ribbon/RibbonGroup.cs/#L8"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public RibbonGroup(string id, string header, IReadOnlyList&lt;IRibbonControl&gt; controls, RibbonGroupSizeMode sizeMode = RibbonGroupSizeMode.Large, bool isEnabled = true, bool isVisible = true, Func&lt;bool&gt;? isEnabledEvaluator = null, Func&lt;bool&gt;? isVisibleEvaluator = null, string? keyTip = null, RibbonGroupLauncher? launcher = null)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>id</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+    <dt><code>header</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+    <dt><code>controls</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;<a class="xref" href="ProEdit.Ribbon.IRibbonControl.html">IRibbonControl</a>&gt;</dt>
+    <dd></dd>
+    <dt><code>sizeMode</code> <a class="xref" href="ProEdit.Ribbon.RibbonGroupSizeMode.html">RibbonGroupSizeMode</a></dt>
+    <dd></dd>
+    <dt><code>isEnabled</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+    <dt><code>isVisible</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+    <dt><code>isEnabledEvaluator</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.func-1">Func</a>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a>&gt;</dt>
+    <dd></dd>
+    <dt><code>isVisibleEvaluator</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.func-1">Func</a>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a>&gt;</dt>
+    <dd></dd>
+    <dt><code>keyTip</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+    <dt><code>launcher</code> <a class="xref" href="ProEdit.Ribbon.RibbonGroupLauncher.html">RibbonGroupLauncher</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <h2 class="section" id="properties">Properties
+</h2>
+
+
+  <a id="ProEdit_Ribbon_RibbonGroup_Controls_" data-uid="ProEdit.Ribbon.RibbonGroup.Controls*"></a>
+
+  <h3 id="ProEdit_Ribbon_RibbonGroup_Controls" data-uid="ProEdit.Ribbon.RibbonGroup.Controls">
+  Controls
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Ribbon/RibbonGroup.cs/#L35"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public IReadOnlyList&lt;IRibbonControl&gt; Controls { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;<a class="xref" href="ProEdit.Ribbon.IRibbonControl.html">IRibbonControl</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Ribbon_RibbonGroup_HasLauncher_" data-uid="ProEdit.Ribbon.RibbonGroup.HasLauncher*"></a>
+
+  <h3 id="ProEdit_Ribbon_RibbonGroup_HasLauncher" data-uid="ProEdit.Ribbon.RibbonGroup.HasLauncher">
+  HasLauncher
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Ribbon/RibbonGroup.cs/#L38"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool HasLauncher { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Ribbon_RibbonGroup_Header_" data-uid="ProEdit.Ribbon.RibbonGroup.Header*"></a>
+
+  <h3 id="ProEdit_Ribbon_RibbonGroup_Header" data-uid="ProEdit.Ribbon.RibbonGroup.Header">
+  Header
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Ribbon/RibbonGroup.cs/#L33"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public string Header { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Ribbon_RibbonGroup_Id_" data-uid="ProEdit.Ribbon.RibbonGroup.Id*"></a>
+
+  <h3 id="ProEdit_Ribbon_RibbonGroup_Id" data-uid="ProEdit.Ribbon.RibbonGroup.Id">
+  Id
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Ribbon/RibbonGroup.cs/#L32"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public string Id { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Ribbon_RibbonGroup_IsCollapsed_" data-uid="ProEdit.Ribbon.RibbonGroup.IsCollapsed*"></a>
+
+  <h3 id="ProEdit_Ribbon_RibbonGroup_IsCollapsed" data-uid="ProEdit.Ribbon.RibbonGroup.IsCollapsed">
+  IsCollapsed
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Ribbon/RibbonGroup.cs/#L46"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool IsCollapsed { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Ribbon_RibbonGroup_KeyTip_" data-uid="ProEdit.Ribbon.RibbonGroup.KeyTip*"></a>
+
+  <h3 id="ProEdit_Ribbon_RibbonGroup_KeyTip" data-uid="ProEdit.Ribbon.RibbonGroup.KeyTip">
+  KeyTip
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Ribbon/RibbonGroup.cs/#L34"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public string? KeyTip { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Ribbon_RibbonGroup_Launcher_" data-uid="ProEdit.Ribbon.RibbonGroup.Launcher*"></a>
+
+  <h3 id="ProEdit_Ribbon_RibbonGroup_Launcher" data-uid="ProEdit.Ribbon.RibbonGroup.Launcher">
+  Launcher
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Ribbon/RibbonGroup.cs/#L37"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public RibbonGroupLauncher? Launcher { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Ribbon.RibbonGroupLauncher.html">RibbonGroupLauncher</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Ribbon_RibbonGroup_Overflow_" data-uid="ProEdit.Ribbon.RibbonGroup.Overflow*"></a>
+
+  <h3 id="ProEdit_Ribbon_RibbonGroup_Overflow" data-uid="ProEdit.Ribbon.RibbonGroup.Overflow">
+  Overflow
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Ribbon/RibbonGroup.cs/#L36"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public RibbonGroupOverflow Overflow { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Ribbon.RibbonGroupOverflow.html">RibbonGroupOverflow</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Ribbon_RibbonGroup_PreferredSizeMode_" data-uid="ProEdit.Ribbon.RibbonGroup.PreferredSizeMode*"></a>
+
+  <h3 id="ProEdit_Ribbon_RibbonGroup_PreferredSizeMode" data-uid="ProEdit.Ribbon.RibbonGroup.PreferredSizeMode">
+  PreferredSizeMode
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Ribbon/RibbonGroup.cs/#L39"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public RibbonGroupSizeMode PreferredSizeMode { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Ribbon.RibbonGroupSizeMode.html">RibbonGroupSizeMode</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Ribbon_RibbonGroup_SizeMode_" data-uid="ProEdit.Ribbon.RibbonGroup.SizeMode*"></a>
+
+  <h3 id="ProEdit_Ribbon_RibbonGroup_SizeMode" data-uid="ProEdit.Ribbon.RibbonGroup.SizeMode">
+  SizeMode
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Ribbon/RibbonGroup.cs/#L40"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public RibbonGroupSizeMode SizeMode { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Ribbon.RibbonGroupSizeMode.html">RibbonGroupSizeMode</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <h2 class="section" id="methods">Methods
+</h2>
+
+
+  <a id="ProEdit_Ribbon_RibbonGroup_RefreshState_" data-uid="ProEdit.Ribbon.RibbonGroup.RefreshState*"></a>
+
+  <h3 id="ProEdit_Ribbon_RibbonGroup_RefreshState" data-uid="ProEdit.Ribbon.RibbonGroup.RefreshState">
+  RefreshState()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Ribbon/RibbonGroup.cs/#L98"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public override void RefreshState()</code></pre>
+  </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Ribbon_RibbonGroup_ResetLayoutMode_" data-uid="ProEdit.Ribbon.RibbonGroup.ResetLayoutMode*"></a>
+
+  <h3 id="ProEdit_Ribbon_RibbonGroup_ResetLayoutMode" data-uid="ProEdit.Ribbon.RibbonGroup.ResetLayoutMode">
+  ResetLayoutMode()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Ribbon/RibbonGroup.cs/#L52"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void ResetLayoutMode()</code></pre>
+  </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Ribbon_RibbonGroup_TrySetCollapsed_" data-uid="ProEdit.Ribbon.RibbonGroup.TrySetCollapsed*"></a>
+
+  <h3 id="ProEdit_Ribbon_RibbonGroup_TrySetCollapsed_System_Boolean_" data-uid="ProEdit.Ribbon.RibbonGroup.TrySetCollapsed(System.Boolean)">
+  TrySetCollapsed(bool)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Ribbon/RibbonGroup.cs/#L58"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool TrySetCollapsed(bool collapsed)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>collapsed</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Ribbon_RibbonGroup_TryStepLayoutMode_" data-uid="ProEdit.Ribbon.RibbonGroup.TryStepLayoutMode*"></a>
+
+  <h3 id="ProEdit_Ribbon_RibbonGroup_TryStepLayoutMode_System_Boolean_" data-uid="ProEdit.Ribbon.RibbonGroup.TryStepLayoutMode(System.Boolean)">
+  TryStepLayoutMode(bool)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Ribbon/RibbonGroup.cs/#L69"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool TryStepLayoutMode(bool shrink)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>shrink</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Ribbon/RibbonGroup.cs/#L3" class="edit-link">Edit this page</a>
+        </div>
+
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          <span>Made with <a href="https://dotnet.github.io/docfx">docfx</a></span>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

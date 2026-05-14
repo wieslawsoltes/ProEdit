@@ -1,0 +1,1387 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Class EditorSelectionService | ProEdit </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Class EditorSelectionService | ProEdit ">
+      
+      
+      <link rel="icon" href="../favicon.ico">
+      <link rel="stylesheet" href="../public/docfx.min.css">
+      <link rel="stylesheet" href="../public/main.css">
+      <meta name="docfx:navrel" content="../toc.html">
+      <meta name="docfx:tocrel" content="toc.html">
+      
+      
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/wieslawsoltes/ProEdit/new/main/apiSpec/new?filename=ProEdit_Editing_EditorSelectionService.md&amp;value=---%0Auid%3A%20ProEdit.Editing.EditorSelectionService%0Asummary%3A%20&#39;*You%20can%20override%20summary%20for%20the%20API%20here%20using%20*MARKDOWN*%20syntax&#39;%0A---%0A%0A*Please%20type%20below%20more%20information%20about%20this%20API%3A*%0A%0A">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="ManagedReference">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../index.html">
+            <img id="logo" class="svg" src="../images/logo.svg" alt="">
+            
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="ProEdit.Editing.EditorSelectionService">
+
+
+
+  <h1 id="ProEdit_Editing_EditorSelectionService" data-uid="ProEdit.Editing.EditorSelectionService" class="text-break">
+Class EditorSelectionService  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorSelectionService.cs/#L7"><i class="bi bi-code-slash"></i></a>
+  </h1>
+
+  <div class="facts text-secondary">
+    <dl><dt>Namespace</dt><dd><a class="xref" href="ProEdit.html">ProEdit</a>.<a class="xref" href="ProEdit.Editing.html">Editing</a></dd></dl>
+  <dl><dt>Assembly</dt><dd>ProEdit.Editing.dll</dd></dl>
+  </div>
+
+  <div class="markdown summary"></div>
+  <div class="markdown conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public sealed class EditorSelectionService</code></pre>
+  </div>
+
+
+
+
+  <dl class="typelist inheritance">
+    <dt>Inheritance</dt>
+    <dd>
+      <div><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object">object</a></div>
+      <div><span class="xref">EditorSelectionService</span></div>
+    </dd>
+  </dl>
+
+
+
+  <dl class="typelist inheritedMembers">
+    <dt>Inherited Members</dt>
+    <dd>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)">object.Equals(object)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)">object.Equals(object, object)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.gethashcode">object.GetHashCode()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.gettype">object.GetType()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.referenceequals">object.ReferenceEquals(object, object)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.tostring">object.ToString()</a>
+    </div>
+  </dd></dl>
+
+
+
+
+
+
+  <h2 class="section" id="constructors">Constructors
+</h2>
+
+
+  <a id="ProEdit_Editing_EditorSelectionService__ctor_" data-uid="ProEdit.Editing.EditorSelectionService.#ctor*"></a>
+
+  <h3 id="ProEdit_Editing_EditorSelectionService__ctor_ProEdit_Documents_Document_ProEdit_Editing_EditorLayoutService_ProEdit_Layout_ITextMeasurer_" data-uid="ProEdit.Editing.EditorSelectionService.#ctor(ProEdit.Documents.Document,ProEdit.Editing.EditorLayoutService,ProEdit.Layout.ITextMeasurer)">
+  EditorSelectionService(Document, EditorLayoutService, ITextMeasurer)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorSelectionService.cs/#L30"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public EditorSelectionService(Document document, EditorLayoutService layoutService, ITextMeasurer measurer)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>document</code> <a class="xref" href="ProEdit.Documents.Document.html">Document</a></dt>
+    <dd></dd>
+    <dt><code>layoutService</code> <a class="xref" href="ProEdit.Editing.EditorLayoutService.html">EditorLayoutService</a></dt>
+    <dd></dd>
+    <dt><code>measurer</code> <a class="xref" href="ProEdit.Layout.ITextMeasurer.html">ITextMeasurer</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <h2 class="section" id="properties">Properties
+</h2>
+
+
+  <a id="ProEdit_Editing_EditorSelectionService_Caret_" data-uid="ProEdit.Editing.EditorSelectionService.Caret*"></a>
+
+  <h3 id="ProEdit_Editing_EditorSelectionService_Caret" data-uid="ProEdit.Editing.EditorSelectionService.Caret">
+  Caret
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorSelectionService.cs/#L21"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public TextPosition Caret { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Documents.TextPosition.html">TextPosition</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_EditorSelectionService_SelectedFloatingObjectId_" data-uid="ProEdit.Editing.EditorSelectionService.SelectedFloatingObjectId*"></a>
+
+  <h3 id="ProEdit_Editing_EditorSelectionService_SelectedFloatingObjectId" data-uid="ProEdit.Editing.EditorSelectionService.SelectedFloatingObjectId">
+  SelectedFloatingObjectId
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorSelectionService.cs/#L25"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public Guid? SelectedFloatingObjectId { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.guid">Guid</a>?</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_EditorSelectionService_SelectedFloatingObjectIds_" data-uid="ProEdit.Editing.EditorSelectionService.SelectedFloatingObjectIds*"></a>
+
+  <h3 id="ProEdit_Editing_EditorSelectionService_SelectedFloatingObjectIds" data-uid="ProEdit.Editing.EditorSelectionService.SelectedFloatingObjectIds">
+  SelectedFloatingObjectIds
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorSelectionService.cs/#L26"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public IReadOnlyList&lt;Guid&gt; SelectedFloatingObjectIds { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.guid">Guid</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_EditorSelectionService_Selection_" data-uid="ProEdit.Editing.EditorSelectionService.Selection*"></a>
+
+  <h3 id="ProEdit_Editing_EditorSelectionService_Selection" data-uid="ProEdit.Editing.EditorSelectionService.Selection">
+  Selection
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorSelectionService.cs/#L22"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public TextRange Selection { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Documents.TextRange.html">TextRange</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_EditorSelectionService_SelectionRanges_" data-uid="ProEdit.Editing.EditorSelectionService.SelectionRanges*"></a>
+
+  <h3 id="ProEdit_Editing_EditorSelectionService_SelectionRanges" data-uid="ProEdit.Editing.EditorSelectionService.SelectionRanges">
+  SelectionRanges
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorSelectionService.cs/#L23"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public IReadOnlyList&lt;TextRange&gt; SelectionRanges { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;<a class="xref" href="ProEdit.Documents.TextRange.html">TextRange</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_EditorSelectionService_TableSelections_" data-uid="ProEdit.Editing.EditorSelectionService.TableSelections*"></a>
+
+  <h3 id="ProEdit_Editing_EditorSelectionService_TableSelections" data-uid="ProEdit.Editing.EditorSelectionService.TableSelections">
+  TableSelections
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorSelectionService.cs/#L24"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public IReadOnlyList&lt;TableSelectionRange&gt; TableSelections { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;<a class="xref" href="ProEdit.Editing.TableSelectionRange.html">TableSelectionRange</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <h2 class="section" id="methods">Methods
+</h2>
+
+
+  <a id="ProEdit_Editing_EditorSelectionService_FindLineIndexForPosition_" data-uid="ProEdit.Editing.EditorSelectionService.FindLineIndexForPosition*"></a>
+
+  <h3 id="ProEdit_Editing_EditorSelectionService_FindLineIndexForPosition_ProEdit_Layout_DocumentLayout_ProEdit_Documents_TextPosition_ProEdit_Layout_LayoutLine__" data-uid="ProEdit.Editing.EditorSelectionService.FindLineIndexForPosition(ProEdit.Layout.DocumentLayout,ProEdit.Documents.TextPosition,ProEdit.Layout.LayoutLine@)">
+  FindLineIndexForPosition(DocumentLayout, TextPosition, out LayoutLine)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorSelectionService.cs/#L1235"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static int FindLineIndexForPosition(DocumentLayout layout, TextPosition position, out LayoutLine line)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>layout</code> <a class="xref" href="ProEdit.Layout.DocumentLayout.html">DocumentLayout</a></dt>
+    <dd></dd>
+    <dt><code>position</code> <a class="xref" href="ProEdit.Documents.TextPosition.html">TextPosition</a></dt>
+    <dd></dd>
+    <dt><code>line</code> <a class="xref" href="ProEdit.Layout.LayoutLine.html">LayoutLine</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">int</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_EditorSelectionService_GetEquationAtCaret_" data-uid="ProEdit.Editing.EditorSelectionService.GetEquationAtCaret*"></a>
+
+  <h3 id="ProEdit_Editing_EditorSelectionService_GetEquationAtCaret" data-uid="ProEdit.Editing.EditorSelectionService.GetEquationAtCaret">
+  GetEquationAtCaret()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorSelectionService.cs/#L636"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public EquationInline? GetEquationAtCaret()</code></pre>
+  </div>
+
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Documents.EquationInline.html">EquationInline</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_EditorSelectionService_GetEquationAtPosition_" data-uid="ProEdit.Editing.EditorSelectionService.GetEquationAtPosition*"></a>
+
+  <h3 id="ProEdit_Editing_EditorSelectionService_GetEquationAtPosition_ProEdit_Documents_TextPosition_" data-uid="ProEdit.Editing.EditorSelectionService.GetEquationAtPosition(ProEdit.Documents.TextPosition)">
+  GetEquationAtPosition(TextPosition)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorSelectionService.cs/#L641"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public EquationInline? GetEquationAtPosition(TextPosition position)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>position</code> <a class="xref" href="ProEdit.Documents.TextPosition.html">TextPosition</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Documents.EquationInline.html">EquationInline</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_EditorSelectionService_MoveDocumentEnd_" data-uid="ProEdit.Editing.EditorSelectionService.MoveDocumentEnd*"></a>
+
+  <h3 id="ProEdit_Editing_EditorSelectionService_MoveDocumentEnd_System_Boolean_" data-uid="ProEdit.Editing.EditorSelectionService.MoveDocumentEnd(System.Boolean)">
+  MoveDocumentEnd(bool)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorSelectionService.cs/#L187"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void MoveDocumentEnd(bool extendSelection)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>extendSelection</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_EditorSelectionService_MoveDocumentStart_" data-uid="ProEdit.Editing.EditorSelectionService.MoveDocumentStart*"></a>
+
+  <h3 id="ProEdit_Editing_EditorSelectionService_MoveDocumentStart_System_Boolean_" data-uid="ProEdit.Editing.EditorSelectionService.MoveDocumentStart(System.Boolean)">
+  MoveDocumentStart(bool)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorSelectionService.cs/#L181"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void MoveDocumentStart(bool extendSelection)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>extendSelection</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_EditorSelectionService_MoveDown_" data-uid="ProEdit.Editing.EditorSelectionService.MoveDown*"></a>
+
+  <h3 id="ProEdit_Editing_EditorSelectionService_MoveDown_System_Boolean_" data-uid="ProEdit.Editing.EditorSelectionService.MoveDown(System.Boolean)">
+  MoveDown(bool)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorSelectionService.cs/#L120"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void MoveDown(bool extendSelection)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>extendSelection</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_EditorSelectionService_MoveLeft_" data-uid="ProEdit.Editing.EditorSelectionService.MoveLeft*"></a>
+
+  <h3 id="ProEdit_Editing_EditorSelectionService_MoveLeft_System_Boolean_" data-uid="ProEdit.Editing.EditorSelectionService.MoveLeft(System.Boolean)">
+  MoveLeft(bool)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorSelectionService.cs/#L42"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void MoveLeft(bool extendSelection)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>extendSelection</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_EditorSelectionService_MoveLineEnd_" data-uid="ProEdit.Editing.EditorSelectionService.MoveLineEnd*"></a>
+
+  <h3 id="ProEdit_Editing_EditorSelectionService_MoveLineEnd_System_Boolean_" data-uid="ProEdit.Editing.EditorSelectionService.MoveLineEnd(System.Boolean)">
+  MoveLineEnd(bool)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorSelectionService.cs/#L163"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void MoveLineEnd(bool extendSelection)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>extendSelection</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_EditorSelectionService_MoveLineStart_" data-uid="ProEdit.Editing.EditorSelectionService.MoveLineStart*"></a>
+
+  <h3 id="ProEdit_Editing_EditorSelectionService_MoveLineStart_System_Boolean_" data-uid="ProEdit.Editing.EditorSelectionService.MoveLineStart(System.Boolean)">
+  MoveLineStart(bool)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorSelectionService.cs/#L144"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void MoveLineStart(bool extendSelection)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>extendSelection</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_EditorSelectionService_MovePageDown_" data-uid="ProEdit.Editing.EditorSelectionService.MovePageDown*"></a>
+
+  <h3 id="ProEdit_Editing_EditorSelectionService_MovePageDown_System_Boolean_" data-uid="ProEdit.Editing.EditorSelectionService.MovePageDown(System.Boolean)">
+  MovePageDown(bool)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorSelectionService.cs/#L208"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void MovePageDown(bool extendSelection)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>extendSelection</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_EditorSelectionService_MovePageUp_" data-uid="ProEdit.Editing.EditorSelectionService.MovePageUp*"></a>
+
+  <h3 id="ProEdit_Editing_EditorSelectionService_MovePageUp_System_Boolean_" data-uid="ProEdit.Editing.EditorSelectionService.MovePageUp(System.Boolean)">
+  MovePageUp(bool)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorSelectionService.cs/#L203"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void MovePageUp(bool extendSelection)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>extendSelection</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_EditorSelectionService_MoveRight_" data-uid="ProEdit.Editing.EditorSelectionService.MoveRight*"></a>
+
+  <h3 id="ProEdit_Editing_EditorSelectionService_MoveRight_System_Boolean_" data-uid="ProEdit.Editing.EditorSelectionService.MoveRight(System.Boolean)">
+  MoveRight(bool)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorSelectionService.cs/#L70"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void MoveRight(bool extendSelection)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>extendSelection</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_EditorSelectionService_MoveUp_" data-uid="ProEdit.Editing.EditorSelectionService.MoveUp*"></a>
+
+  <h3 id="ProEdit_Editing_EditorSelectionService_MoveUp_System_Boolean_" data-uid="ProEdit.Editing.EditorSelectionService.MoveUp(System.Boolean)">
+  MoveUp(bool)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorSelectionService.cs/#L98"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void MoveUp(bool extendSelection)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>extendSelection</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_EditorSelectionService_SelectAll_" data-uid="ProEdit.Editing.EditorSelectionService.SelectAll*"></a>
+
+  <h3 id="ProEdit_Editing_EditorSelectionService_SelectAll" data-uid="ProEdit.Editing.EditorSelectionService.SelectAll">
+  SelectAll()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorSelectionService.cs/#L213"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void SelectAll()</code></pre>
+  </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_EditorSelectionService_SetCaret_" data-uid="ProEdit.Editing.EditorSelectionService.SetCaret*"></a>
+
+  <h3 id="ProEdit_Editing_EditorSelectionService_SetCaret_ProEdit_Documents_TextPosition_ProEdit_Editing_SelectionUpdateMode_" data-uid="ProEdit.Editing.EditorSelectionService.SetCaret(ProEdit.Documents.TextPosition,ProEdit.Editing.SelectionUpdateMode)">
+  SetCaret(TextPosition, SelectionUpdateMode)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorSelectionService.cs/#L588"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void SetCaret(TextPosition position, SelectionUpdateMode mode)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>position</code> <a class="xref" href="ProEdit.Documents.TextPosition.html">TextPosition</a></dt>
+    <dd></dd>
+    <dt><code>mode</code> <a class="xref" href="ProEdit.Editing.SelectionUpdateMode.html">SelectionUpdateMode</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_EditorSelectionService_SetCaret_" data-uid="ProEdit.Editing.EditorSelectionService.SetCaret*"></a>
+
+  <h3 id="ProEdit_Editing_EditorSelectionService_SetCaret_ProEdit_Documents_TextPosition_System_Boolean_" data-uid="ProEdit.Editing.EditorSelectionService.SetCaret(ProEdit.Documents.TextPosition,System.Boolean)">
+  SetCaret(TextPosition, bool)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorSelectionService.cs/#L582"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void SetCaret(TextPosition position, bool extendSelection)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>position</code> <a class="xref" href="ProEdit.Documents.TextPosition.html">TextPosition</a></dt>
+    <dd></dd>
+    <dt><code>extendSelection</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_EditorSelectionService_SetCaretFromPoint_" data-uid="ProEdit.Editing.EditorSelectionService.SetCaretFromPoint*"></a>
+
+  <h3 id="ProEdit_Editing_EditorSelectionService_SetCaretFromPoint_System_Single_System_Single_ProEdit_Editing_SelectionUpdateMode_" data-uid="ProEdit.Editing.EditorSelectionService.SetCaretFromPoint(System.Single,System.Single,ProEdit.Editing.SelectionUpdateMode)">
+  SetCaretFromPoint(float, float, SelectionUpdateMode)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorSelectionService.cs/#L401"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void SetCaretFromPoint(float x, float y, SelectionUpdateMode mode)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>x</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+    <dt><code>y</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+    <dt><code>mode</code> <a class="xref" href="ProEdit.Editing.SelectionUpdateMode.html">SelectionUpdateMode</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_EditorSelectionService_SetCaretFromPoint_" data-uid="ProEdit.Editing.EditorSelectionService.SetCaretFromPoint*"></a>
+
+  <h3 id="ProEdit_Editing_EditorSelectionService_SetCaretFromPoint_System_Single_System_Single_System_Boolean_" data-uid="ProEdit.Editing.EditorSelectionService.SetCaretFromPoint(System.Single,System.Single,System.Boolean)">
+  SetCaretFromPoint(float, float, bool)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorSelectionService.cs/#L395"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void SetCaretFromPoint(float x, float y, bool extendSelection)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>x</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+    <dt><code>y</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+    <dt><code>extendSelection</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_EditorSelectionService_SetSelection_" data-uid="ProEdit.Editing.EditorSelectionService.SetSelection*"></a>
+
+  <h3 id="ProEdit_Editing_EditorSelectionService_SetSelection_ProEdit_Documents_TextRange_ProEdit_Editing_SelectionUpdateMode_" data-uid="ProEdit.Editing.EditorSelectionService.SetSelection(ProEdit.Documents.TextRange,ProEdit.Editing.SelectionUpdateMode)">
+  SetSelection(TextRange, SelectionUpdateMode)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorSelectionService.cs/#L593"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void SetSelection(TextRange selection, SelectionUpdateMode mode)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>selection</code> <a class="xref" href="ProEdit.Documents.TextRange.html">TextRange</a></dt>
+    <dd></dd>
+    <dt><code>mode</code> <a class="xref" href="ProEdit.Editing.SelectionUpdateMode.html">SelectionUpdateMode</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_EditorSelectionService_TryGetCaretPoint_" data-uid="ProEdit.Editing.EditorSelectionService.TryGetCaretPoint*"></a>
+
+  <h3 id="ProEdit_Editing_EditorSelectionService_TryGetCaretPoint_ProEdit_Documents_TextPosition_ProEdit_Primitives_DocPoint__System_Int32__" data-uid="ProEdit.Editing.EditorSelectionService.TryGetCaretPoint(ProEdit.Documents.TextPosition,ProEdit.Primitives.DocPoint@,System.Int32@)">
+  TryGetCaretPoint(TextPosition, out DocPoint, out int)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorSelectionService.cs/#L557"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Attempts to resolve a caret point for an arbitrary position without mutating selection state.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool TryGetCaretPoint(TextPosition position, out DocPoint point, out int lineIndex)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>position</code> <a class="xref" href="ProEdit.Documents.TextPosition.html">TextPosition</a></dt>
+    <dd></dd>
+    <dt><code>point</code> <a class="xref" href="ProEdit.Primitives.DocPoint.html">DocPoint</a></dt>
+    <dd></dd>
+    <dt><code>lineIndex</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">int</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_EditorSelectionService_TryGetCaretPoint_" data-uid="ProEdit.Editing.EditorSelectionService.TryGetCaretPoint*"></a>
+
+  <h3 id="ProEdit_Editing_EditorSelectionService_TryGetCaretPoint_ProEdit_Primitives_DocPoint__System_Int32__" data-uid="ProEdit.Editing.EditorSelectionService.TryGetCaretPoint(ProEdit.Primitives.DocPoint@,System.Int32@)">
+  TryGetCaretPoint(out DocPoint, out int)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorSelectionService.cs/#L532"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool TryGetCaretPoint(out DocPoint point, out int lineIndex)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>point</code> <a class="xref" href="ProEdit.Primitives.DocPoint.html">DocPoint</a></dt>
+    <dd></dd>
+    <dt><code>lineIndex</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">int</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_EditorSelectionService_TryGetContentControlAtCaret_" data-uid="ProEdit.Editing.EditorSelectionService.TryGetContentControlAtCaret*"></a>
+
+  <h3 id="ProEdit_Editing_EditorSelectionService_TryGetContentControlAtCaret_ProEdit_Editing_ContentControlHit__" data-uid="ProEdit.Editing.EditorSelectionService.TryGetContentControlAtCaret(ProEdit.Editing.ContentControlHit@)">
+  TryGetContentControlAtCaret(out ContentControlHit)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorSelectionService.cs/#L653"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool TryGetContentControlAtCaret(out ContentControlHit hit)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>hit</code> <a class="xref" href="ProEdit.Editing.ContentControlHit.html">ContentControlHit</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_EditorSelectionService_TryGetContentControlAtPoint_" data-uid="ProEdit.Editing.EditorSelectionService.TryGetContentControlAtPoint*"></a>
+
+  <h3 id="ProEdit_Editing_EditorSelectionService_TryGetContentControlAtPoint_System_Single_System_Single_ProEdit_Editing_ContentControlHit__" data-uid="ProEdit.Editing.EditorSelectionService.TryGetContentControlAtPoint(System.Single,System.Single,ProEdit.Editing.ContentControlHit@)">
+  TryGetContentControlAtPoint(float, float, out ContentControlHit)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorSelectionService.cs/#L677"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool TryGetContentControlAtPoint(float x, float y, out ContentControlHit hit)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>x</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+    <dt><code>y</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+    <dt><code>hit</code> <a class="xref" href="ProEdit.Editing.ContentControlHit.html">ContentControlHit</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_EditorSelectionService_TryGetContentControlAtPosition_" data-uid="ProEdit.Editing.EditorSelectionService.TryGetContentControlAtPosition*"></a>
+
+  <h3 id="ProEdit_Editing_EditorSelectionService_TryGetContentControlAtPosition_ProEdit_Documents_TextPosition_ProEdit_Editing_ContentControlHit__" data-uid="ProEdit.Editing.EditorSelectionService.TryGetContentControlAtPosition(ProEdit.Documents.TextPosition,ProEdit.Editing.ContentControlHit@)">
+  TryGetContentControlAtPosition(TextPosition, out ContentControlHit)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorSelectionService.cs/#L658"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool TryGetContentControlAtPosition(TextPosition position, out ContentControlHit hit)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>position</code> <a class="xref" href="ProEdit.Documents.TextPosition.html">TextPosition</a></dt>
+    <dd></dd>
+    <dt><code>hit</code> <a class="xref" href="ProEdit.Editing.ContentControlHit.html">ContentControlHit</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_EditorSelectionService_TrySelectFirstFloatingObject_" data-uid="ProEdit.Editing.EditorSelectionService.TrySelectFirstFloatingObject*"></a>
+
+  <h3 id="ProEdit_Editing_EditorSelectionService_TrySelectFirstFloatingObject" data-uid="ProEdit.Editing.EditorSelectionService.TrySelectFirstFloatingObject">
+  TrySelectFirstFloatingObject()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorSelectionService.cs/#L519"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool TrySelectFirstFloatingObject()</code></pre>
+  </div>
+
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_EditorSelectionService_TrySelectFloatingObject_" data-uid="ProEdit.Editing.EditorSelectionService.TrySelectFloatingObject*"></a>
+
+  <h3 id="ProEdit_Editing_EditorSelectionService_TrySelectFloatingObject_System_Guid_" data-uid="ProEdit.Editing.EditorSelectionService.TrySelectFloatingObject(System.Guid)">
+  TrySelectFloatingObject(Guid)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorSelectionService.cs/#L496"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool TrySelectFloatingObject(Guid id)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>id</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.guid">Guid</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_EditorSelectionService_TrySelectParagraphFromPoint_" data-uid="ProEdit.Editing.EditorSelectionService.TrySelectParagraphFromPoint*"></a>
+
+  <h3 id="ProEdit_Editing_EditorSelectionService_TrySelectParagraphFromPoint_System_Single_System_Single_ProEdit_Editing_SelectionUpdateMode_" data-uid="ProEdit.Editing.EditorSelectionService.TrySelectParagraphFromPoint(System.Single,System.Single,ProEdit.Editing.SelectionUpdateMode)">
+  TrySelectParagraphFromPoint(float, float, SelectionUpdateMode)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorSelectionService.cs/#L469"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool TrySelectParagraphFromPoint(float x, float y, SelectionUpdateMode mode)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>x</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+    <dt><code>y</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+    <dt><code>mode</code> <a class="xref" href="ProEdit.Editing.SelectionUpdateMode.html">SelectionUpdateMode</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_EditorSelectionService_TrySelectWordFromPoint_" data-uid="ProEdit.Editing.EditorSelectionService.TrySelectWordFromPoint*"></a>
+
+  <h3 id="ProEdit_Editing_EditorSelectionService_TrySelectWordFromPoint_System_Single_System_Single_ProEdit_Editing_SelectionUpdateMode_" data-uid="ProEdit.Editing.EditorSelectionService.TrySelectWordFromPoint(System.Single,System.Single,ProEdit.Editing.SelectionUpdateMode)">
+  TrySelectWordFromPoint(float, float, SelectionUpdateMode)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorSelectionService.cs/#L437"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool TrySelectWordFromPoint(float x, float y, SelectionUpdateMode mode)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>x</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+    <dt><code>y</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+    <dt><code>mode</code> <a class="xref" href="ProEdit.Editing.SelectionUpdateMode.html">SelectionUpdateMode</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <h2 class="section" id="events">Events
+</h2>
+
+
+
+  <h3 id="ProEdit_Editing_EditorSelectionService_SelectionChanged" data-uid="ProEdit.Editing.EditorSelectionService.SelectionChanged">
+  SelectionChanged
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorSelectionService.cs/#L28"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public event EventHandler&lt;SelectionChangedEventArgs&gt;? SelectionChanged</code></pre>
+  </div>
+
+
+
+
+
+
+  <h4 class="section">Event Type</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.eventhandler-1">EventHandler</a>&lt;<a class="xref" href="ProEdit.Editing.SelectionChangedEventArgs.html">SelectionChangedEventArgs</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorSelectionService.cs/#L7" class="edit-link">Edit this page</a>
+        </div>
+
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          <span>Made with <a href="https://dotnet.github.io/docfx">docfx</a></span>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

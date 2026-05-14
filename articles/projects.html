@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Projects | ProEdit </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Projects | ProEdit ">
+      
+      
+      <link rel="icon" href="../favicon.ico">
+      <link rel="stylesheet" href="../public/docfx.min.css">
+      <link rel="stylesheet" href="../public/main.css">
+      <meta name="docfx:navrel" content="../toc.html">
+      <meta name="docfx:tocrel" content="toc.html">
+      
+      
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/wieslawsoltes/ProEdit/blob/main/docfx/articles/projects.md/#L1">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../index.html">
+            <img id="logo" class="svg" src="../images/logo.svg" alt="">
+            
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="projects">Projects</h1>
+
+<h2 id="core">Core</h2>
+<ul>
+<li><code>src/ProEdit.Primitives/</code> shared primitives and low-level types</li>
+<li><code>src/ProEdit.Documents/</code> document model and shared document structures</li>
+<li><code>src/ProEdit.Layout/</code> layout engine and pagination pipeline</li>
+<li><code>src/ProEdit.Rendering/</code> rendering abstractions and composition</li>
+</ul>
+<h2 id="rendering-backends">Rendering Backends</h2>
+<ul>
+<li><code>src/ProEdit.Rendering.Skia/</code> Skia-based rendering backend</li>
+</ul>
+<h2 id="editing-and-formats">Editing and Formats</h2>
+<ul>
+<li><code>src/ProEdit.Editing/</code> editing services, selection, and proofing utilities</li>
+<li><code>src/ProEdit.Html/</code> HTML conversion and integration helpers</li>
+<li><code>src/ProEdit.Markdown/</code> Markdown conversion and integration helpers</li>
+<li><code>src/ProEdit.OpenXml/</code> OpenXML import and export</li>
+<li><code>src/ProEdit.Pdf/</code> PDF domain abstractions</li>
+<li><code>src/ProEdit.Pdf.Documents/</code> PDF document integration with core models</li>
+<li><code>src/ProEdit.Pdf.PdfPig/</code> PDF parsing via PdfPig</li>
+<li><code>src/ProEdit.Pdf.PdfSharp/</code> PDF generation via PDFsharp</li>
+</ul>
+<h2 id="printing">Printing</h2>
+<ul>
+<li><code>src/ProEdit.Printing/</code> printing abstractions</li>
+<li><code>src/ProEdit.Printing.Documents/</code> document-to-print conversion</li>
+<li><code>src/ProEdit.Printing.Skia/</code> Skia-based print pipeline</li>
+<li><code>src/ProEdit.Printing.System/</code> system print integration</li>
+<li><code>src/ProEdit.Printing.Avalonia/</code> Avalonia UI for printing</li>
+</ul>
+<h2 id="collaboration">Collaboration</h2>
+<ul>
+<li><code>src/ProEdit.Collaboration/</code> CRDT collaboration core</li>
+<li><code>src/ProEdit.Collaboration.Protocol/</code> wire protocol types</li>
+<li><code>src/ProEdit.Collaboration.Transports/</code> transport implementations</li>
+<li><code>src/ProEdit.Collaboration.Server/</code> WebSocket relay server</li>
+<li><code>src/ProEdit.Collaboration.UI/</code> collaboration ViewModels and UI state</li>
+<li><code>src/ProEdit.Collaboration.Editor/</code> editor integration for collaboration</li>
+</ul>
+<h2 id="ui-and-shells">UI and Shells</h2>
+<ul>
+<li><code>src/ProEdit.Ribbon/</code> ribbon abstractions</li>
+<li><code>src/ProEdit.Ribbon.Avalonia/</code> Avalonia ribbon controls</li>
+<li><code>src/ProEdit.Word.Editor/</code> word-processing editor core</li>
+<li><code>src/ProEdit.Word.Avalonia/</code> Avalonia-based editor UI</li>
+<li><code>src/ProEdit.Word.App/</code> desktop app host</li>
+</ul>
+<h2 id="automation-and-macros">Automation and Macros</h2>
+<ul>
+<li><code>src/ProEdit.Vba/</code> VBA core types</li>
+<li><code>src/ProEdit.Vba.Runtime/</code> VBA runtime support</li>
+<li><code>src/ProEdit.Macros/</code> macro orchestration</li>
+</ul>
+<h2 id="proofing">Proofing</h2>
+<ul>
+<li><code>src/ProEdit.Proofing.GrammarApi.Plugin/</code> grammar plugin integration</li>
+</ul>
+<h2 id="tests-and-benchmarks">Tests and Benchmarks</h2>
+<ul>
+<li><code>tests/</code> unit and UI tests</li>
+<li><code>benchmarks/</code> performance benchmarks</li>
+</ul>
+<p>Next: <a href="contributing.html">Contributing</a></p>
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/wieslawsoltes/ProEdit/blob/main/docfx/articles/projects.md/#L1" class="edit-link">Edit this page</a>
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          <span>Made with <a href="https://dotnet.github.io/docfx">docfx</a></span>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

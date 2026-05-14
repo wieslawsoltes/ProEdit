@@ -1,0 +1,1784 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Class RenderOptions | ProEdit </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Class RenderOptions | ProEdit ">
+      
+      
+      <link rel="icon" href="../favicon.ico">
+      <link rel="stylesheet" href="../public/docfx.min.css">
+      <link rel="stylesheet" href="../public/main.css">
+      <meta name="docfx:navrel" content="../toc.html">
+      <meta name="docfx:tocrel" content="toc.html">
+      
+      
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/wieslawsoltes/ProEdit/new/main/apiSpec/new?filename=ProEdit_Rendering_RenderOptions.md&amp;value=---%0Auid%3A%20ProEdit.Rendering.RenderOptions%0Asummary%3A%20&#39;*You%20can%20override%20summary%20for%20the%20API%20here%20using%20*MARKDOWN*%20syntax&#39;%0A---%0A%0A*Please%20type%20below%20more%20information%20about%20this%20API%3A*%0A%0A">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="ManagedReference">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../index.html">
+            <img id="logo" class="svg" src="../images/logo.svg" alt="">
+            
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="ProEdit.Rendering.RenderOptions">
+
+
+
+  <h1 id="ProEdit_Rendering_RenderOptions" data-uid="ProEdit.Rendering.RenderOptions" class="text-break">
+Class RenderOptions  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Rendering/RenderOptions.cs/#L6"><i class="bi bi-code-slash"></i></a>
+  </h1>
+
+  <div class="facts text-secondary">
+    <dl><dt>Namespace</dt><dd><a class="xref" href="ProEdit.html">ProEdit</a>.<a class="xref" href="ProEdit.Rendering.html">Rendering</a></dd></dl>
+  <dl><dt>Assembly</dt><dd>ProEdit.Rendering.dll</dd></dl>
+  </div>
+
+  <div class="markdown summary"></div>
+  <div class="markdown conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public sealed class RenderOptions</code></pre>
+  </div>
+
+
+
+
+  <dl class="typelist inheritance">
+    <dt>Inheritance</dt>
+    <dd>
+      <div><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object">object</a></div>
+      <div><span class="xref">RenderOptions</span></div>
+    </dd>
+  </dl>
+
+
+
+  <dl class="typelist inheritedMembers">
+    <dt>Inherited Members</dt>
+    <dd>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)">object.Equals(object)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)">object.Equals(object, object)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.gethashcode">object.GetHashCode()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.gettype">object.GetType()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.referenceequals">object.ReferenceEquals(object, object)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.tostring">object.ToString()</a>
+    </div>
+  </dd></dl>
+
+
+
+
+
+
+  <h2 class="section" id="properties">Properties
+</h2>
+
+
+  <a id="ProEdit_Rendering_RenderOptions_BackgroundColor_" data-uid="ProEdit.Rendering.RenderOptions.BackgroundColor*"></a>
+
+  <h3 id="ProEdit_Rendering_RenderOptions_BackgroundColor" data-uid="ProEdit.Rendering.RenderOptions.BackgroundColor">
+  BackgroundColor
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Rendering/RenderOptions.cs/#L8"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public DocColor BackgroundColor { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Primitives.DocColor.html">DocColor</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Rendering_RenderOptions_Caret_" data-uid="ProEdit.Rendering.RenderOptions.Caret*"></a>
+
+  <h3 id="ProEdit_Rendering_RenderOptions_Caret" data-uid="ProEdit.Rendering.RenderOptions.Caret">
+  Caret
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Rendering/RenderOptions.cs/#L45"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public TextPosition Caret { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Documents.TextPosition.html">TextPosition</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Rendering_RenderOptions_CaretColor_" data-uid="ProEdit.Rendering.RenderOptions.CaretColor*"></a>
+
+  <h3 id="ProEdit_Rendering_RenderOptions_CaretColor" data-uid="ProEdit.Rendering.RenderOptions.CaretColor">
+  CaretColor
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Rendering/RenderOptions.cs/#L20"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public DocColor CaretColor { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Primitives.DocColor.html">DocColor</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Rendering_RenderOptions_CaretThickness_" data-uid="ProEdit.Rendering.RenderOptions.CaretThickness*"></a>
+
+  <h3 id="ProEdit_Rendering_RenderOptions_CaretThickness" data-uid="ProEdit.Rendering.RenderOptions.CaretThickness">
+  CaretThickness
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Rendering/RenderOptions.cs/#L25"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public float CaretThickness { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Rendering_RenderOptions_ColumnSeparatorColor_" data-uid="ProEdit.Rendering.RenderOptions.ColumnSeparatorColor*"></a>
+
+  <h3 id="ProEdit_Rendering_RenderOptions_ColumnSeparatorColor" data-uid="ProEdit.Rendering.RenderOptions.ColumnSeparatorColor">
+  ColumnSeparatorColor
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Rendering/RenderOptions.cs/#L15"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public DocColor ColumnSeparatorColor { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Primitives.DocColor.html">DocColor</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Rendering_RenderOptions_ColumnSeparatorThickness_" data-uid="ProEdit.Rendering.RenderOptions.ColumnSeparatorThickness*"></a>
+
+  <h3 id="ProEdit_Rendering_RenderOptions_ColumnSeparatorThickness" data-uid="ProEdit.Rendering.RenderOptions.ColumnSeparatorThickness">
+  ColumnSeparatorThickness
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Rendering/RenderOptions.cs/#L16"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public float ColumnSeparatorThickness { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Rendering_RenderOptions_CommentHighlightColor_" data-uid="ProEdit.Rendering.RenderOptions.CommentHighlightColor*"></a>
+
+  <h3 id="ProEdit_Rendering_RenderOptions_CommentHighlightColor" data-uid="ProEdit.Rendering.RenderOptions.CommentHighlightColor">
+  CommentHighlightColor
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Rendering/RenderOptions.cs/#L21"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public DocColor CommentHighlightColor { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Primitives.DocColor.html">DocColor</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Rendering_RenderOptions_DirtyPages_" data-uid="ProEdit.Rendering.RenderOptions.DirtyPages*"></a>
+
+  <h3 id="ProEdit_Rendering_RenderOptions_DirtyPages" data-uid="ProEdit.Rendering.RenderOptions.DirtyPages">
+  DirtyPages
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Rendering/RenderOptions.cs/#L58"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public IReadOnlyList&lt;int&gt;? DirtyPages { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">int</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Rendering_RenderOptions_DirtyVersion_" data-uid="ProEdit.Rendering.RenderOptions.DirtyVersion*"></a>
+
+  <h3 id="ProEdit_Rendering_RenderOptions_DirtyVersion" data-uid="ProEdit.Rendering.RenderOptions.DirtyVersion">
+  DirtyVersion
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Rendering/RenderOptions.cs/#L59"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public long DirtyVersion { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int64">long</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Rendering_RenderOptions_FloatingSelectionColor_" data-uid="ProEdit.Rendering.RenderOptions.FloatingSelectionColor*"></a>
+
+  <h3 id="ProEdit_Rendering_RenderOptions_FloatingSelectionColor" data-uid="ProEdit.Rendering.RenderOptions.FloatingSelectionColor">
+  FloatingSelectionColor
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Rendering/RenderOptions.cs/#L19"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public DocColor FloatingSelectionColor { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Primitives.DocColor.html">DocColor</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Rendering_RenderOptions_GridlineColor_" data-uid="ProEdit.Rendering.RenderOptions.GridlineColor*"></a>
+
+  <h3 id="ProEdit_Rendering_RenderOptions_GridlineColor" data-uid="ProEdit.Rendering.RenderOptions.GridlineColor">
+  GridlineColor
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Rendering/RenderOptions.cs/#L33"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public DocColor GridlineColor { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Primitives.DocColor.html">DocColor</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Rendering_RenderOptions_GridlineSpacing_" data-uid="ProEdit.Rendering.RenderOptions.GridlineSpacing*"></a>
+
+  <h3 id="ProEdit_Rendering_RenderOptions_GridlineSpacing" data-uid="ProEdit.Rendering.RenderOptions.GridlineSpacing">
+  GridlineSpacing
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Rendering/RenderOptions.cs/#L35"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public float GridlineSpacing { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Rendering_RenderOptions_GridlineThickness_" data-uid="ProEdit.Rendering.RenderOptions.GridlineThickness*"></a>
+
+  <h3 id="ProEdit_Rendering_RenderOptions_GridlineThickness" data-uid="ProEdit.Rendering.RenderOptions.GridlineThickness">
+  GridlineThickness
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Rendering/RenderOptions.cs/#L34"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public float GridlineThickness { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Rendering_RenderOptions_HeaderFooterBoundsColor_" data-uid="ProEdit.Rendering.RenderOptions.HeaderFooterBoundsColor*"></a>
+
+  <h3 id="ProEdit_Rendering_RenderOptions_HeaderFooterBoundsColor" data-uid="ProEdit.Rendering.RenderOptions.HeaderFooterBoundsColor">
+  HeaderFooterBoundsColor
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Rendering/RenderOptions.cs/#L13"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public DocColor HeaderFooterBoundsColor { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Primitives.DocColor.html">DocColor</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Rendering_RenderOptions_HeaderFooterBoundsThickness_" data-uid="ProEdit.Rendering.RenderOptions.HeaderFooterBoundsThickness*"></a>
+
+  <h3 id="ProEdit_Rendering_RenderOptions_HeaderFooterBoundsThickness" data-uid="ProEdit.Rendering.RenderOptions.HeaderFooterBoundsThickness">
+  HeaderFooterBoundsThickness
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Rendering/RenderOptions.cs/#L14"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public float HeaderFooterBoundsThickness { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Rendering_RenderOptions_HeaderFooterCaret_" data-uid="ProEdit.Rendering.RenderOptions.HeaderFooterCaret*"></a>
+
+  <h3 id="ProEdit_Rendering_RenderOptions_HeaderFooterCaret" data-uid="ProEdit.Rendering.RenderOptions.HeaderFooterCaret">
+  HeaderFooterCaret
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Rendering/RenderOptions.cs/#L51"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public TextPosition HeaderFooterCaret { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Documents.TextPosition.html">TextPosition</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Rendering_RenderOptions_HeaderFooterMode_" data-uid="ProEdit.Rendering.RenderOptions.HeaderFooterMode*"></a>
+
+  <h3 id="ProEdit_Rendering_RenderOptions_HeaderFooterMode" data-uid="ProEdit.Rendering.RenderOptions.HeaderFooterMode">
+  HeaderFooterMode
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Rendering/RenderOptions.cs/#L49"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public HeaderFooterEditMode HeaderFooterMode { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Rendering.HeaderFooterEditMode.html">HeaderFooterEditMode</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Rendering_RenderOptions_HeaderFooterOverlayColor_" data-uid="ProEdit.Rendering.RenderOptions.HeaderFooterOverlayColor*"></a>
+
+  <h3 id="ProEdit_Rendering_RenderOptions_HeaderFooterOverlayColor" data-uid="ProEdit.Rendering.RenderOptions.HeaderFooterOverlayColor">
+  HeaderFooterOverlayColor
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Rendering/RenderOptions.cs/#L12"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public DocColor HeaderFooterOverlayColor { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Primitives.DocColor.html">DocColor</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Rendering_RenderOptions_HeaderFooterSelection_" data-uid="ProEdit.Rendering.RenderOptions.HeaderFooterSelection*"></a>
+
+  <h3 id="ProEdit_Rendering_RenderOptions_HeaderFooterSelection" data-uid="ProEdit.Rendering.RenderOptions.HeaderFooterSelection">
+  HeaderFooterSelection
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Rendering/RenderOptions.cs/#L50"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public TextRange? HeaderFooterSelection { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Documents.TextRange.html">TextRange</a>?</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Rendering_RenderOptions_InvisiblesColor_" data-uid="ProEdit.Rendering.RenderOptions.InvisiblesColor*"></a>
+
+  <h3 id="ProEdit_Rendering_RenderOptions_InvisiblesColor" data-uid="ProEdit.Rendering.RenderOptions.InvisiblesColor">
+  InvisiblesColor
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Rendering/RenderOptions.cs/#L28"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public DocColor InvisiblesColor { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Primitives.DocColor.html">DocColor</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Rendering_RenderOptions_LayoutGuideColor_" data-uid="ProEdit.Rendering.RenderOptions.LayoutGuideColor*"></a>
+
+  <h3 id="ProEdit_Rendering_RenderOptions_LayoutGuideColor" data-uid="ProEdit.Rendering.RenderOptions.LayoutGuideColor">
+  LayoutGuideColor
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Rendering/RenderOptions.cs/#L30"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public DocColor LayoutGuideColor { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Primitives.DocColor.html">DocColor</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Rendering_RenderOptions_LayoutGuideThickness_" data-uid="ProEdit.Rendering.RenderOptions.LayoutGuideThickness*"></a>
+
+  <h3 id="ProEdit_Rendering_RenderOptions_LayoutGuideThickness" data-uid="ProEdit.Rendering.RenderOptions.LayoutGuideThickness">
+  LayoutGuideThickness
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Rendering/RenderOptions.cs/#L31"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public float LayoutGuideThickness { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Rendering_RenderOptions_PageBorderColor_" data-uid="ProEdit.Rendering.RenderOptions.PageBorderColor*"></a>
+
+  <h3 id="ProEdit_Rendering_RenderOptions_PageBorderColor" data-uid="ProEdit.Rendering.RenderOptions.PageBorderColor">
+  PageBorderColor
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Rendering/RenderOptions.cs/#L10"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public DocColor PageBorderColor { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Primitives.DocColor.html">DocColor</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Rendering_RenderOptions_PageBorderThickness_" data-uid="ProEdit.Rendering.RenderOptions.PageBorderThickness*"></a>
+
+  <h3 id="ProEdit_Rendering_RenderOptions_PageBorderThickness" data-uid="ProEdit.Rendering.RenderOptions.PageBorderThickness">
+  PageBorderThickness
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Rendering/RenderOptions.cs/#L11"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public float PageBorderThickness { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Rendering_RenderOptions_PageColor_" data-uid="ProEdit.Rendering.RenderOptions.PageColor*"></a>
+
+  <h3 id="ProEdit_Rendering_RenderOptions_PageColor" data-uid="ProEdit.Rendering.RenderOptions.PageColor">
+  PageColor
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Rendering/RenderOptions.cs/#L9"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public DocColor PageColor { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Primitives.DocColor.html">DocColor</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Rendering_RenderOptions_PlaceholderFillColor_" data-uid="ProEdit.Rendering.RenderOptions.PlaceholderFillColor*"></a>
+
+  <h3 id="ProEdit_Rendering_RenderOptions_PlaceholderFillColor" data-uid="ProEdit.Rendering.RenderOptions.PlaceholderFillColor">
+  PlaceholderFillColor
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Rendering/RenderOptions.cs/#L22"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public DocColor PlaceholderFillColor { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Primitives.DocColor.html">DocColor</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Rendering_RenderOptions_PlaceholderStrokeColor_" data-uid="ProEdit.Rendering.RenderOptions.PlaceholderStrokeColor*"></a>
+
+  <h3 id="ProEdit_Rendering_RenderOptions_PlaceholderStrokeColor" data-uid="ProEdit.Rendering.RenderOptions.PlaceholderStrokeColor">
+  PlaceholderStrokeColor
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Rendering/RenderOptions.cs/#L23"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public DocColor PlaceholderStrokeColor { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Primitives.DocColor.html">DocColor</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Rendering_RenderOptions_PlaceholderTextColor_" data-uid="ProEdit.Rendering.RenderOptions.PlaceholderTextColor*"></a>
+
+  <h3 id="ProEdit_Rendering_RenderOptions_PlaceholderTextColor" data-uid="ProEdit.Rendering.RenderOptions.PlaceholderTextColor">
+  PlaceholderTextColor
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Rendering/RenderOptions.cs/#L24"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public DocColor PlaceholderTextColor { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Primitives.DocColor.html">DocColor</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Rendering_RenderOptions_SelectedFloatingObjectId_" data-uid="ProEdit.Rendering.RenderOptions.SelectedFloatingObjectId*"></a>
+
+  <h3 id="ProEdit_Rendering_RenderOptions_SelectedFloatingObjectId" data-uid="ProEdit.Rendering.RenderOptions.SelectedFloatingObjectId">
+  SelectedFloatingObjectId
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Rendering/RenderOptions.cs/#L47"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public Guid? SelectedFloatingObjectId { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.guid">Guid</a>?</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Rendering_RenderOptions_SelectedFloatingObjectIds_" data-uid="ProEdit.Rendering.RenderOptions.SelectedFloatingObjectIds*"></a>
+
+  <h3 id="ProEdit_Rendering_RenderOptions_SelectedFloatingObjectIds" data-uid="ProEdit.Rendering.RenderOptions.SelectedFloatingObjectIds">
+  SelectedFloatingObjectIds
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Rendering/RenderOptions.cs/#L48"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public IReadOnlyList&lt;Guid&gt;? SelectedFloatingObjectIds { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.guid">Guid</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Rendering_RenderOptions_Selection_" data-uid="ProEdit.Rendering.RenderOptions.Selection*"></a>
+
+  <h3 id="ProEdit_Rendering_RenderOptions_Selection" data-uid="ProEdit.Rendering.RenderOptions.Selection">
+  Selection
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Rendering/RenderOptions.cs/#L43"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public TextRange? Selection { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Documents.TextRange.html">TextRange</a>?</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Rendering_RenderOptions_SelectionColor_" data-uid="ProEdit.Rendering.RenderOptions.SelectionColor*"></a>
+
+  <h3 id="ProEdit_Rendering_RenderOptions_SelectionColor" data-uid="ProEdit.Rendering.RenderOptions.SelectionColor">
+  SelectionColor
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Rendering/RenderOptions.cs/#L18"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public DocColor SelectionColor { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Primitives.DocColor.html">DocColor</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Rendering_RenderOptions_SelectionRanges_" data-uid="ProEdit.Rendering.RenderOptions.SelectionRanges*"></a>
+
+  <h3 id="ProEdit_Rendering_RenderOptions_SelectionRanges" data-uid="ProEdit.Rendering.RenderOptions.SelectionRanges">
+  SelectionRanges
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Rendering/RenderOptions.cs/#L44"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public IReadOnlyList&lt;TextRange&gt;? SelectionRanges { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;<a class="xref" href="ProEdit.Documents.TextRange.html">TextRange</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Rendering_RenderOptions_ShapeTextCaret_" data-uid="ProEdit.Rendering.RenderOptions.ShapeTextCaret*"></a>
+
+  <h3 id="ProEdit_Rendering_RenderOptions_ShapeTextCaret" data-uid="ProEdit.Rendering.RenderOptions.ShapeTextCaret">
+  ShapeTextCaret
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Rendering/RenderOptions.cs/#L56"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public TextPosition ShapeTextCaret { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Documents.TextPosition.html">TextPosition</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Rendering_RenderOptions_ShapeTextEditingShapeId_" data-uid="ProEdit.Rendering.RenderOptions.ShapeTextEditingShapeId*"></a>
+
+  <h3 id="ProEdit_Rendering_RenderOptions_ShapeTextEditingShapeId" data-uid="ProEdit.Rendering.RenderOptions.ShapeTextEditingShapeId">
+  ShapeTextEditingShapeId
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Rendering/RenderOptions.cs/#L53"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public Guid? ShapeTextEditingShapeId { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.guid">Guid</a>?</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Rendering_RenderOptions_ShapeTextSelection_" data-uid="ProEdit.Rendering.RenderOptions.ShapeTextSelection*"></a>
+
+  <h3 id="ProEdit_Rendering_RenderOptions_ShapeTextSelection" data-uid="ProEdit.Rendering.RenderOptions.ShapeTextSelection">
+  ShapeTextSelection
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Rendering/RenderOptions.cs/#L54"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public TextRange? ShapeTextSelection { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Documents.TextRange.html">TextRange</a>?</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Rendering_RenderOptions_ShapeTextSelectionRanges_" data-uid="ProEdit.Rendering.RenderOptions.ShapeTextSelectionRanges*"></a>
+
+  <h3 id="ProEdit_Rendering_RenderOptions_ShapeTextSelectionRanges" data-uid="ProEdit.Rendering.RenderOptions.ShapeTextSelectionRanges">
+  ShapeTextSelectionRanges
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Rendering/RenderOptions.cs/#L55"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public IReadOnlyList&lt;TextRange&gt;? ShapeTextSelectionRanges { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;<a class="xref" href="ProEdit.Documents.TextRange.html">TextRange</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Rendering_RenderOptions_ShowCaret_" data-uid="ProEdit.Rendering.RenderOptions.ShowCaret*"></a>
+
+  <h3 id="ProEdit_Rendering_RenderOptions_ShowCaret" data-uid="ProEdit.Rendering.RenderOptions.ShowCaret">
+  ShowCaret
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Rendering/RenderOptions.cs/#L46"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool ShowCaret { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Rendering_RenderOptions_ShowGridlines_" data-uid="ProEdit.Rendering.RenderOptions.ShowGridlines*"></a>
+
+  <h3 id="ProEdit_Rendering_RenderOptions_ShowGridlines" data-uid="ProEdit.Rendering.RenderOptions.ShowGridlines">
+  ShowGridlines
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Rendering/RenderOptions.cs/#L32"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool ShowGridlines { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Rendering_RenderOptions_ShowHeaderFooterCaret_" data-uid="ProEdit.Rendering.RenderOptions.ShowHeaderFooterCaret*"></a>
+
+  <h3 id="ProEdit_Rendering_RenderOptions_ShowHeaderFooterCaret" data-uid="ProEdit.Rendering.RenderOptions.ShowHeaderFooterCaret">
+  ShowHeaderFooterCaret
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Rendering/RenderOptions.cs/#L52"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool ShowHeaderFooterCaret { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Rendering_RenderOptions_ShowInvisibles_" data-uid="ProEdit.Rendering.RenderOptions.ShowInvisibles*"></a>
+
+  <h3 id="ProEdit_Rendering_RenderOptions_ShowInvisibles" data-uid="ProEdit.Rendering.RenderOptions.ShowInvisibles">
+  ShowInvisibles
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Rendering/RenderOptions.cs/#L27"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool ShowInvisibles { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Rendering_RenderOptions_ShowLayout_" data-uid="ProEdit.Rendering.RenderOptions.ShowLayout*"></a>
+
+  <h3 id="ProEdit_Rendering_RenderOptions_ShowLayout" data-uid="ProEdit.Rendering.RenderOptions.ShowLayout">
+  ShowLayout
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Rendering/RenderOptions.cs/#L29"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool ShowLayout { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Rendering_RenderOptions_ShowShapeTextCaret_" data-uid="ProEdit.Rendering.RenderOptions.ShowShapeTextCaret*"></a>
+
+  <h3 id="ProEdit_Rendering_RenderOptions_ShowShapeTextCaret" data-uid="ProEdit.Rendering.RenderOptions.ShowShapeTextCaret">
+  ShowShapeTextCaret
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Rendering/RenderOptions.cs/#L57"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool ShowShapeTextCaret { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Rendering_RenderOptions_SvgRasterBackgroundColor_" data-uid="ProEdit.Rendering.RenderOptions.SvgRasterBackgroundColor*"></a>
+
+  <h3 id="ProEdit_Rendering_RenderOptions_SvgRasterBackgroundColor" data-uid="ProEdit.Rendering.RenderOptions.SvgRasterBackgroundColor">
+  SvgRasterBackgroundColor
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Rendering/RenderOptions.cs/#L40"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public DocColor SvgRasterBackgroundColor { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Primitives.DocColor.html">DocColor</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Rendering_RenderOptions_SvgRasterizationScale_" data-uid="ProEdit.Rendering.RenderOptions.SvgRasterizationScale*"></a>
+
+  <h3 id="ProEdit_Rendering_RenderOptions_SvgRasterizationScale" data-uid="ProEdit.Rendering.RenderOptions.SvgRasterizationScale">
+  SvgRasterizationScale
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Rendering/RenderOptions.cs/#L39"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public float SvgRasterizationScale { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Rendering_RenderOptions_SvgRasterizer_" data-uid="ProEdit.Rendering.RenderOptions.SvgRasterizer*"></a>
+
+  <h3 id="ProEdit_Rendering_RenderOptions_SvgRasterizer" data-uid="ProEdit.Rendering.RenderOptions.SvgRasterizer">
+  SvgRasterizer
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Rendering/RenderOptions.cs/#L41"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public ISvgRasterizer? SvgRasterizer { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Rendering.ISvgRasterizer.html">ISvgRasterizer</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Rendering_RenderOptions_SvgRenderMode_" data-uid="ProEdit.Rendering.RenderOptions.SvgRenderMode*"></a>
+
+  <h3 id="ProEdit_Rendering_RenderOptions_SvgRenderMode" data-uid="ProEdit.Rendering.RenderOptions.SvgRenderMode">
+  SvgRenderMode
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Rendering/RenderOptions.cs/#L38"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public SvgRenderMode SvgRenderMode { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Rendering.SvgRenderMode.html">SvgRenderMode</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Rendering_RenderOptions_TextColor_" data-uid="ProEdit.Rendering.RenderOptions.TextColor*"></a>
+
+  <h3 id="ProEdit_Rendering_RenderOptions_TextColor" data-uid="ProEdit.Rendering.RenderOptions.TextColor">
+  TextColor
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Rendering/RenderOptions.cs/#L17"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public DocColor TextColor { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Primitives.DocColor.html">DocColor</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Rendering_RenderOptions_UseHarfBuzz_" data-uid="ProEdit.Rendering.RenderOptions.UseHarfBuzz*"></a>
+
+  <h3 id="ProEdit_Rendering_RenderOptions_UseHarfBuzz" data-uid="ProEdit.Rendering.RenderOptions.UseHarfBuzz">
+  UseHarfBuzz
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Rendering/RenderOptions.cs/#L36"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool UseHarfBuzz { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Rendering_RenderOptions_UsePictureCache_" data-uid="ProEdit.Rendering.RenderOptions.UsePictureCache*"></a>
+
+  <h3 id="ProEdit_Rendering_RenderOptions_UsePictureCache" data-uid="ProEdit.Rendering.RenderOptions.UsePictureCache">
+  UsePictureCache
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Rendering/RenderOptions.cs/#L37"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool UsePictureCache { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Rendering_RenderOptions_VisibleBounds_" data-uid="ProEdit.Rendering.RenderOptions.VisibleBounds*"></a>
+
+  <h3 id="ProEdit_Rendering_RenderOptions_VisibleBounds" data-uid="ProEdit.Rendering.RenderOptions.VisibleBounds">
+  VisibleBounds
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Rendering/RenderOptions.cs/#L60"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public DocRect? VisibleBounds { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Primitives.DocRect.html">DocRect</a>?</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Rendering_RenderOptions_ZoomFactor_" data-uid="ProEdit.Rendering.RenderOptions.ZoomFactor*"></a>
+
+  <h3 id="ProEdit_Rendering_RenderOptions_ZoomFactor" data-uid="ProEdit.Rendering.RenderOptions.ZoomFactor">
+  ZoomFactor
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Rendering/RenderOptions.cs/#L26"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public float ZoomFactor { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Rendering/RenderOptions.cs/#L6" class="edit-link">Edit this page</a>
+        </div>
+
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          <span>Made with <a href="https://dotnet.github.io/docfx">docfx</a></span>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

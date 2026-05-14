@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>FlowDocument | ProEdit </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="FlowDocument | ProEdit ">
+      
+      
+      <link rel="icon" href="../favicon.ico">
+      <link rel="stylesheet" href="../public/docfx.min.css">
+      <link rel="stylesheet" href="../public/main.css">
+      <meta name="docfx:navrel" content="../toc.html">
+      <meta name="docfx:tocrel" content="toc.html">
+      
+      
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/wieslawsoltes/ProEdit/blob/main/docfx/articles/flow-document.md/#L1">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../index.html">
+            <img id="logo" class="svg" src="../images/logo.svg" alt="">
+            
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="flowdocument">FlowDocument</h1>
+
+<p>The FlowDocument stack provides a WPF-style document object model for Avalonia XAML, a converter to the ProEdit document model, and a read-only renderer based on the existing layout + Skia rendering pipeline.</p>
+<h2 id="projects">Projects</h2>
+<ul>
+<li><code>ProEdit.FlowDocument</code>: FlowDocument object model and collections.</li>
+<li><code>ProEdit.FlowDocument.Documents</code>: FlowDocument → <code>ProEdit.Documents.Document</code> converter.</li>
+<li><code>ProEdit.FlowDocument.Avalonia</code>: <code>FlowDocumentView</code> control for rendering.</li>
+<li><code>ProEdit.FlowDocument.App</code>: Sample app demonstrating <code>FlowDocumentView</code>.</li>
+</ul>
+<h2 id="flowdocumentview">FlowDocumentView</h2>
+<p><code>FlowDocumentView</code> is a read-only Avalonia control that renders a <code>FlowDocument</code> through the shared layout and renderer stack (<code>DocumentLayouter</code> + <code>SkiaDocumentRenderer</code>).</p>
+<p>Example usage:</p>
+<pre><code class="lang-xml">&lt;FlowDocumentView
+    FlowDocument=&quot;{Binding Document}&quot;
+    UsePagination=&quot;True&quot;
+    ZoomFactor=&quot;{Binding ZoomFactor}&quot;
+    Background=&quot;#F8F9FD&quot;
+    InlineUiPlaceholderText=&quot;[Inline UI]&quot;
+    BlockUiPlaceholderText=&quot;[Block UI]&quot; /&gt;
+</code></pre>
+<h2 id="conversion-notes">Conversion Notes</h2>
+<p>The converter maps FlowDocument blocks and inlines into the ProEdit document model:</p>
+<ul>
+<li>Paragraph and inline formatting is mapped into <code>ParagraphProperties</code> and <code>TextStyleProperties</code>.</li>
+<li>Lists map to <code>ListInfo</code> with nested levels.</li>
+<li>Tables map to <code>TableBlock</code> with column widths and row-span handling via vertical merges.</li>
+<li>Figures/Floaters convert to floating <code>ShapeInline</code> objects with a text box containing converted blocks.</li>
+<li><code>InlineUIContainer</code> and <code>BlockUIContainer</code> can be converted either to placeholder text (default converter mode) or embedded shape markers with hosted Avalonia controls (<code>FlowDocumentView</code> mode).</li>
+</ul>
+<h2 id="sample-app">Sample App</h2>
+<p>Run the sample:</p>
+<pre><code class="lang-bash">cd /Users/wieslawsoltes/GitHub/ProEdit
+
+dotnet run --project src/ProEdit.FlowDocument.App/ProEdit.FlowDocument.App.csproj
+</code></pre>
+<p>The app showcases lists, tables with row spans, hyperlinks, figures/floaters, and embedded inline/block UI containers declared in both code and XAML.</p>
+<h2 id="bidirectional-conversion">Bidirectional Conversion</h2>
+<p>The FlowDocument pipeline supports both directions:</p>
+<ul>
+<li><code>FlowDocument -&gt; Document</code> through <code>FlowDocumentConverter</code>.</li>
+<li><code>Document -&gt; FlowDocument</code> through <code>DocumentToFlowDocumentConverter</code>.</li>
+</ul>
+<p>This enables roundtrip scenarios where editor-hosted updates can be mirrored back into the FlowDocument object model while preserving key structures such as:</p>
+<ul>
+<li>Nested lists and start indices.</li>
+<li>Tables with row spans.</li>
+<li>Figures/floaters.</li>
+<li>Inline and block UI containers via embedded element markers.</li>
+</ul>
+<h2 id="flowdocument-overview-parity-samples">FlowDocument Overview Parity Samples</h2>
+<p><code>ProEdit.FlowDocument.App</code> includes a strict pass of the official WPF <code>Flow Document Overview</code> samples.</p>
+<ul>
+<li>Each sample tab is rendered side-by-side as <code>Verbatim</code> and <code>Avalonia-adapted</code>.</li>
+<li>The tab set includes the XAML snippets and the C# code-only snippet variants referenced by:
+<ul>
+<li><code>flow-document-overview</code></li>
+<li><code>flow-document-overview#flow_related_classes</code></li>
+</ul>
+</li>
+<li>Schema walkthrough samples (<code>SchemaWalkThrough1</code>, <code>SchemaWalkThrough2</code>, <code>SchemaExample</code>) and collection-operation snippets (<code>_SectionBlocksAdd</code>, <code>_SpanInlinesRemoveLast</code>, <code>_SpanInlinesClear</code>) are included as dedicated tabs.</li>
+</ul>
+<p>Current adaptation note:</p>
+<ul>
+<li>WPF attached typography properties used in <code>_TextElement_TypogXAML</code> are represented with equivalent flow content and available FlowDocument styling metadata in the adapted pane.</li>
+</ul>
+<h2 id="use-with-richtextbox">Use with RichTextBox</h2>
+<p><code>FlowDocument</code> is also the document surface for <code>ProEdit.RichText.Avalonia.RichTextBox</code>.</p>
+<ul>
+<li>Author content in FlowDocument XAML.</li>
+<li>Bind or assign it to <code>RichTextBox.Document</code>.</li>
+<li>The control handles editing through the shared editor engine and keeps the FlowDocument mirror synchronized.</li>
+</ul>
+<p>See: <a href="richtextbox.html">RichTextBox</a></p>
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/wieslawsoltes/ProEdit/blob/main/docfx/articles/flow-document.md/#L1" class="edit-link">Edit this page</a>
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          <span>Made with <a href="https://dotnet.github.io/docfx">docfx</a></span>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

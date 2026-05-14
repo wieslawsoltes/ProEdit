@@ -1,0 +1,1962 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Class EditorController | ProEdit </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Class EditorController | ProEdit ">
+      
+      
+      <link rel="icon" href="../favicon.ico">
+      <link rel="stylesheet" href="../public/docfx.min.css">
+      <link rel="stylesheet" href="../public/main.css">
+      <meta name="docfx:navrel" content="../toc.html">
+      <meta name="docfx:tocrel" content="toc.html">
+      
+      
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/wieslawsoltes/ProEdit/new/main/apiSpec/new?filename=ProEdit_Word_Editor_EditorController.md&amp;value=---%0Auid%3A%20ProEdit.Word.Editor.EditorController%0Asummary%3A%20&#39;*You%20can%20override%20summary%20for%20the%20API%20here%20using%20*MARKDOWN*%20syntax&#39;%0A---%0A%0A*Please%20type%20below%20more%20information%20about%20this%20API%3A*%0A%0A">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="ManagedReference">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../index.html">
+            <img id="logo" class="svg" src="../images/logo.svg" alt="">
+            
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="ProEdit.Word.Editor.EditorController">
+
+
+
+  <h1 id="ProEdit_Word_Editor_EditorController" data-uid="ProEdit.Word.Editor.EditorController" class="text-break">
+Class EditorController  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Editor/EditorController.cs/#L11"><i class="bi bi-code-slash"></i></a>
+  </h1>
+
+  <div class="facts text-secondary">
+    <dl><dt>Namespace</dt><dd><a class="xref" href="ProEdit.html">ProEdit</a>.<a class="xref" href="ProEdit.Word.html">Word</a>.<a class="xref" href="ProEdit.Word.Editor.html">Editor</a></dd></dl>
+  <dl><dt>Assembly</dt><dd>ProEdit.Word.Editor.dll</dd></dl>
+  </div>
+
+  <div class="markdown summary"></div>
+  <div class="markdown conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public sealed class EditorController : IEditorMutableSession, IEditorSession, IEditorBatchEdit, IEditorDirectTextEdit, IContentControlInteractionSession, IEditorLayoutRefreshService, IProofingSpanProviderHost, IEditorChangeInfo</code></pre>
+  </div>
+
+
+
+
+  <dl class="typelist inheritance">
+    <dt>Inheritance</dt>
+    <dd>
+      <div><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object">object</a></div>
+      <div><span class="xref">EditorController</span></div>
+    </dd>
+  </dl>
+
+  <dl class="typelist implements">
+    <dt>Implements</dt>
+    <dd>
+      <div><a class="xref" href="ProEdit.Editing.IEditorMutableSession.html">IEditorMutableSession</a></div>
+      <div><a class="xref" href="ProEdit.Editing.IEditorSession.html">IEditorSession</a></div>
+      <div><a class="xref" href="ProEdit.Editing.IEditorBatchEdit.html">IEditorBatchEdit</a></div>
+      <div><a class="xref" href="ProEdit.Editing.IEditorDirectTextEdit.html">IEditorDirectTextEdit</a></div>
+      <div><a class="xref" href="ProEdit.Editing.IContentControlInteractionSession.html">IContentControlInteractionSession</a></div>
+      <div><a class="xref" href="ProEdit.Editing.IEditorLayoutRefreshService.html">IEditorLayoutRefreshService</a></div>
+      <div><a class="xref" href="ProEdit.Editing.IProofingSpanProviderHost.html">IProofingSpanProviderHost</a></div>
+      <div><a class="xref" href="ProEdit.Editing.IEditorChangeInfo.html">IEditorChangeInfo</a></div>
+    </dd>
+  </dl>
+
+
+  <dl class="typelist inheritedMembers">
+    <dt>Inherited Members</dt>
+    <dd>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)">object.Equals(object)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)">object.Equals(object, object)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.gethashcode">object.GetHashCode()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.gettype">object.GetType()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.referenceequals">object.ReferenceEquals(object, object)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.tostring">object.ToString()</a>
+    </div>
+  </dd></dl>
+
+
+
+
+
+
+  <h2 class="section" id="constructors">Constructors
+</h2>
+
+
+  <a id="ProEdit_Word_Editor_EditorController__ctor_" data-uid="ProEdit.Word.Editor.EditorController.#ctor*"></a>
+
+  <h3 id="ProEdit_Word_Editor_EditorController__ctor_ProEdit_Layout_ITextMeasurer_ProEdit_Documents_Document_" data-uid="ProEdit.Word.Editor.EditorController.#ctor(ProEdit.Layout.ITextMeasurer,ProEdit.Documents.Document)">
+  EditorController(ITextMeasurer, Document?)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Editor/EditorController.cs/#L36"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public EditorController(ITextMeasurer measurer, Document? document = null)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>measurer</code> <a class="xref" href="ProEdit.Layout.ITextMeasurer.html">ITextMeasurer</a></dt>
+    <dd></dd>
+    <dt><code>document</code> <a class="xref" href="ProEdit.Documents.Document.html">Document</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <h2 class="section" id="properties">Properties
+</h2>
+
+
+  <a id="ProEdit_Word_Editor_EditorController_Caret_" data-uid="ProEdit.Word.Editor.EditorController.Caret*"></a>
+
+  <h3 id="ProEdit_Word_Editor_EditorController_Caret" data-uid="ProEdit.Word.Editor.EditorController.Caret">
+  Caret
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Editor/EditorController.cs/#L23"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public TextPosition Caret { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Documents.TextPosition.html">TextPosition</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Editor_EditorController_DirtyPages_" data-uid="ProEdit.Word.Editor.EditorController.DirtyPages*"></a>
+
+  <h3 id="ProEdit_Word_Editor_EditorController_DirtyPages" data-uid="ProEdit.Word.Editor.EditorController.DirtyPages">
+  DirtyPages
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Editor/EditorController.cs/#L29"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public IReadOnlyList&lt;int&gt; DirtyPages { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">int</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Editor_EditorController_DirtyVersion_" data-uid="ProEdit.Word.Editor.EditorController.DirtyVersion*"></a>
+
+  <h3 id="ProEdit_Word_Editor_EditorController_DirtyVersion" data-uid="ProEdit.Word.Editor.EditorController.DirtyVersion">
+  DirtyVersion
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Editor/EditorController.cs/#L30"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public long DirtyVersion { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int64">long</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Editor_EditorController_Document_" data-uid="ProEdit.Word.Editor.EditorController.Document*"></a>
+
+  <h3 id="ProEdit_Word_Editor_EditorController_Document" data-uid="ProEdit.Word.Editor.EditorController.Document">
+  Document
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Editor/EditorController.cs/#L20"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public Document Document { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Documents.Document.html">Document</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Editor_EditorController_LastChangeKind_" data-uid="ProEdit.Word.Editor.EditorController.LastChangeKind*"></a>
+
+  <h3 id="ProEdit_Word_Editor_EditorController_LastChangeKind" data-uid="ProEdit.Word.Editor.EditorController.LastChangeKind">
+  LastChangeKind
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Editor/EditorController.cs/#L31"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public EditorChangeKind LastChangeKind { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Editing.EditorChangeKind.html">EditorChangeKind</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Editor_EditorController_LastDirtyParagraphIndex_" data-uid="ProEdit.Word.Editor.EditorController.LastDirtyParagraphIndex*"></a>
+
+  <h3 id="ProEdit_Word_Editor_EditorController_LastDirtyParagraphIndex" data-uid="ProEdit.Word.Editor.EditorController.LastDirtyParagraphIndex">
+  LastDirtyParagraphIndex
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Editor/EditorController.cs/#L32"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public int? LastDirtyParagraphIndex { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">int</a>?</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Editor_EditorController_Layout_" data-uid="ProEdit.Word.Editor.EditorController.Layout*"></a>
+
+  <h3 id="ProEdit_Word_Editor_EditorController_Layout" data-uid="ProEdit.Word.Editor.EditorController.Layout">
+  Layout
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Editor/EditorController.cs/#L22"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public DocumentLayout Layout { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Layout.DocumentLayout.html">DocumentLayout</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Editor_EditorController_LayoutSettings_" data-uid="ProEdit.Word.Editor.EditorController.LayoutSettings*"></a>
+
+  <h3 id="ProEdit_Word_Editor_EditorController_LayoutSettings" data-uid="ProEdit.Word.Editor.EditorController.LayoutSettings">
+  LayoutSettings
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Editor/EditorController.cs/#L21"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public LayoutSettings LayoutSettings { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Layout.LayoutSettings.html">LayoutSettings</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Editor_EditorController_SelectedFloatingObjectId_" data-uid="ProEdit.Word.Editor.EditorController.SelectedFloatingObjectId*"></a>
+
+  <h3 id="ProEdit_Word_Editor_EditorController_SelectedFloatingObjectId" data-uid="ProEdit.Word.Editor.EditorController.SelectedFloatingObjectId">
+  SelectedFloatingObjectId
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Editor/EditorController.cs/#L27"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public Guid? SelectedFloatingObjectId { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.guid">Guid</a>?</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Editor_EditorController_SelectedFloatingObjectIds_" data-uid="ProEdit.Word.Editor.EditorController.SelectedFloatingObjectIds*"></a>
+
+  <h3 id="ProEdit_Word_Editor_EditorController_SelectedFloatingObjectIds" data-uid="ProEdit.Word.Editor.EditorController.SelectedFloatingObjectIds">
+  SelectedFloatingObjectIds
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Editor/EditorController.cs/#L28"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public IReadOnlyList&lt;Guid&gt; SelectedFloatingObjectIds { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.guid">Guid</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Editor_EditorController_Selection_" data-uid="ProEdit.Word.Editor.EditorController.Selection*"></a>
+
+  <h3 id="ProEdit_Word_Editor_EditorController_Selection" data-uid="ProEdit.Word.Editor.EditorController.Selection">
+  Selection
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Editor/EditorController.cs/#L24"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public TextRange Selection { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Documents.TextRange.html">TextRange</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Editor_EditorController_SelectionRanges_" data-uid="ProEdit.Word.Editor.EditorController.SelectionRanges*"></a>
+
+  <h3 id="ProEdit_Word_Editor_EditorController_SelectionRanges" data-uid="ProEdit.Word.Editor.EditorController.SelectionRanges">
+  SelectionRanges
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Editor/EditorController.cs/#L25"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public IReadOnlyList&lt;TextRange&gt; SelectionRanges { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;<a class="xref" href="ProEdit.Documents.TextRange.html">TextRange</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Editor_EditorController_TableSelections_" data-uid="ProEdit.Word.Editor.EditorController.TableSelections*"></a>
+
+  <h3 id="ProEdit_Word_Editor_EditorController_TableSelections" data-uid="ProEdit.Word.Editor.EditorController.TableSelections">
+  TableSelections
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Editor/EditorController.cs/#L26"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public IReadOnlyList&lt;TableSelectionRange&gt; TableSelections { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;<a class="xref" href="ProEdit.Editing.TableSelectionRange.html">TableSelectionRange</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <h2 class="section" id="methods">Methods
+</h2>
+
+
+  <a id="ProEdit_Word_Editor_EditorController_Backspace_" data-uid="ProEdit.Word.Editor.EditorController.Backspace*"></a>
+
+  <h3 id="ProEdit_Word_Editor_EditorController_Backspace" data-uid="ProEdit.Word.Editor.EditorController.Backspace">
+  Backspace()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Editor/EditorController.cs/#L433"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void Backspace()</code></pre>
+  </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Editor_EditorController_BeginBatchEdit_" data-uid="ProEdit.Word.Editor.EditorController.BeginBatchEdit*"></a>
+
+  <h3 id="ProEdit_Word_Editor_EditorController_BeginBatchEdit" data-uid="ProEdit.Word.Editor.EditorController.BeginBatchEdit">
+  BeginBatchEdit()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Editor/EditorController.cs/#L63"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Begins a batch edit scope that defers layout refresh until disposed.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public IDisposable BeginBatchEdit()</code></pre>
+  </div>
+
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.idisposable">IDisposable</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Editor_EditorController_DeleteForward_" data-uid="ProEdit.Word.Editor.EditorController.DeleteForward*"></a>
+
+  <h3 id="ProEdit_Word_Editor_EditorController_DeleteForward" data-uid="ProEdit.Word.Editor.EditorController.DeleteForward">
+  DeleteForward()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Editor/EditorController.cs/#L492"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void DeleteForward()</code></pre>
+  </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Editor_EditorController_DeleteRange_" data-uid="ProEdit.Word.Editor.EditorController.DeleteRange*"></a>
+
+  <h3 id="ProEdit_Word_Editor_EditorController_DeleteRange_ProEdit_Documents_TextRange_" data-uid="ProEdit.Word.Editor.EditorController.DeleteRange(ProEdit.Documents.TextRange)">
+  DeleteRange(TextRange)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Editor/EditorController.cs/#L151"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void DeleteRange(TextRange range)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>range</code> <a class="xref" href="ProEdit.Documents.TextRange.html">TextRange</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Editor_EditorController_GetEquationAtCaret_" data-uid="ProEdit.Word.Editor.EditorController.GetEquationAtCaret*"></a>
+
+  <h3 id="ProEdit_Word_Editor_EditorController_GetEquationAtCaret" data-uid="ProEdit.Word.Editor.EditorController.GetEquationAtCaret">
+  GetEquationAtCaret()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Editor/EditorController.cs/#L633"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public EquationInline? GetEquationAtCaret()</code></pre>
+  </div>
+
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Documents.EquationInline.html">EquationInline</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Editor_EditorController_GetEquationAtPosition_" data-uid="ProEdit.Word.Editor.EditorController.GetEquationAtPosition*"></a>
+
+  <h3 id="ProEdit_Word_Editor_EditorController_GetEquationAtPosition_ProEdit_Documents_TextPosition_" data-uid="ProEdit.Word.Editor.EditorController.GetEquationAtPosition(ProEdit.Documents.TextPosition)">
+  GetEquationAtPosition(TextPosition)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Editor/EditorController.cs/#L638"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public EquationInline? GetEquationAtPosition(TextPosition position)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>position</code> <a class="xref" href="ProEdit.Documents.TextPosition.html">TextPosition</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Documents.EquationInline.html">EquationInline</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Editor_EditorController_InsertBlock_" data-uid="ProEdit.Word.Editor.EditorController.InsertBlock*"></a>
+
+  <h3 id="ProEdit_Word_Editor_EditorController_InsertBlock_ProEdit_Documents_Block_" data-uid="ProEdit.Word.Editor.EditorController.InsertBlock(ProEdit.Documents.Block)">
+  InsertBlock(Block)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Editor/EditorController.cs/#L378"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void InsertBlock(Block block)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>block</code> <a class="xref" href="ProEdit.Documents.Block.html">Block</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Editor_EditorController_InsertEquation_" data-uid="ProEdit.Word.Editor.EditorController.InsertEquation*"></a>
+
+  <h3 id="ProEdit_Word_Editor_EditorController_InsertEquation_ProEdit_Documents_MathElement_ProEdit_Documents_TextStyleProperties_System_String_" data-uid="ProEdit.Word.Editor.EditorController.InsertEquation(ProEdit.Documents.MathElement,ProEdit.Documents.TextStyleProperties,System.String)">
+  InsertEquation(MathElement, TextStyleProperties?, string?)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Editor/EditorController.cs/#L211"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void InsertEquation(MathElement root, TextStyleProperties? style = null, string? styleId = null)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>root</code> <a class="xref" href="ProEdit.Documents.MathElement.html">MathElement</a></dt>
+    <dd></dd>
+    <dt><code>style</code> <a class="xref" href="ProEdit.Documents.TextStyleProperties.html">TextStyleProperties</a></dt>
+    <dd></dd>
+    <dt><code>styleId</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Editor_EditorController_InsertInline_" data-uid="ProEdit.Word.Editor.EditorController.InsertInline*"></a>
+
+  <h3 id="ProEdit_Word_Editor_EditorController_InsertInline_ProEdit_Documents_Inline_" data-uid="ProEdit.Word.Editor.EditorController.InsertInline(ProEdit.Documents.Inline)">
+  InsertInline(Inline)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Editor/EditorController.cs/#L331"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void InsertInline(Inline inline)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>inline</code> <a class="xref" href="ProEdit.Documents.Inline.html">Inline</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Editor_EditorController_InsertInlines_" data-uid="ProEdit.Word.Editor.EditorController.InsertInlines*"></a>
+
+  <h3 id="ProEdit_Word_Editor_EditorController_InsertInlines_System_Collections_Generic_IReadOnlyList_ProEdit_Documents_Inline__" data-uid="ProEdit.Word.Editor.EditorController.InsertInlines(System.Collections.Generic.IReadOnlyList{ProEdit.Documents.Inline})">
+  InsertInlines(IReadOnlyList&lt;Inline&gt;)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Editor/EditorController.cs/#L353"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void InsertInlines(IReadOnlyList&lt;Inline&gt; inlines)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>inlines</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;<a class="xref" href="ProEdit.Documents.Inline.html">Inline</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Editor_EditorController_InsertParagraphBreak_" data-uid="ProEdit.Word.Editor.EditorController.InsertParagraphBreak*"></a>
+
+  <h3 id="ProEdit_Word_Editor_EditorController_InsertParagraphBreak" data-uid="ProEdit.Word.Editor.EditorController.InsertParagraphBreak">
+  InsertParagraphBreak()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Editor/EditorController.cs/#L258"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void InsertParagraphBreak()</code></pre>
+  </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Editor_EditorController_InsertText_" data-uid="ProEdit.Word.Editor.EditorController.InsertText*"></a>
+
+  <h3 id="ProEdit_Word_Editor_EditorController_InsertText_System_String_" data-uid="ProEdit.Word.Editor.EditorController.InsertText(System.String)">
+  InsertText(string)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Editor/EditorController.cs/#L88"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void InsertText(string text)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>text</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Editor_EditorController_InsertTextAt_" data-uid="ProEdit.Word.Editor.EditorController.InsertTextAt*"></a>
+
+  <h3 id="ProEdit_Word_Editor_EditorController_InsertTextAt_ProEdit_Documents_TextPosition_System_ReadOnlySpan_System_Char__" data-uid="ProEdit.Word.Editor.EditorController.InsertTextAt(ProEdit.Documents.TextPosition,System.ReadOnlySpan{System.Char})">
+  InsertTextAt(TextPosition, ReadOnlySpan&lt;char&gt;)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Editor/EditorController.cs/#L121"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void InsertTextAt(TextPosition position, ReadOnlySpan&lt;char&gt; text)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>position</code> <a class="xref" href="ProEdit.Documents.TextPosition.html">TextPosition</a></dt>
+    <dd></dd>
+    <dt><code>text</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.readonlyspan-1">ReadOnlySpan</a>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.char">char</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Editor_EditorController_MoveDocumentEnd_" data-uid="ProEdit.Word.Editor.EditorController.MoveDocumentEnd*"></a>
+
+  <h3 id="ProEdit_Word_Editor_EditorController_MoveDocumentEnd_System_Boolean_" data-uid="ProEdit.Word.Editor.EditorController.MoveDocumentEnd(System.Boolean)">
+  MoveDocumentEnd(bool)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Editor/EditorController.cs/#L577"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void MoveDocumentEnd(bool extendSelection)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>extendSelection</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Editor_EditorController_MoveDocumentStart_" data-uid="ProEdit.Word.Editor.EditorController.MoveDocumentStart*"></a>
+
+  <h3 id="ProEdit_Word_Editor_EditorController_MoveDocumentStart_System_Boolean_" data-uid="ProEdit.Word.Editor.EditorController.MoveDocumentStart(System.Boolean)">
+  MoveDocumentStart(bool)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Editor/EditorController.cs/#L572"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void MoveDocumentStart(bool extendSelection)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>extendSelection</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Editor_EditorController_MoveDown_" data-uid="ProEdit.Word.Editor.EditorController.MoveDown*"></a>
+
+  <h3 id="ProEdit_Word_Editor_EditorController_MoveDown_System_Boolean_" data-uid="ProEdit.Word.Editor.EditorController.MoveDown(System.Boolean)">
+  MoveDown(bool)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Editor/EditorController.cs/#L557"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void MoveDown(bool extendSelection)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>extendSelection</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Editor_EditorController_MoveLeft_" data-uid="ProEdit.Word.Editor.EditorController.MoveLeft*"></a>
+
+  <h3 id="ProEdit_Word_Editor_EditorController_MoveLeft_System_Boolean_" data-uid="ProEdit.Word.Editor.EditorController.MoveLeft(System.Boolean)">
+  MoveLeft(bool)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Editor/EditorController.cs/#L542"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void MoveLeft(bool extendSelection)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>extendSelection</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Editor_EditorController_MoveLineEnd_" data-uid="ProEdit.Word.Editor.EditorController.MoveLineEnd*"></a>
+
+  <h3 id="ProEdit_Word_Editor_EditorController_MoveLineEnd_System_Boolean_" data-uid="ProEdit.Word.Editor.EditorController.MoveLineEnd(System.Boolean)">
+  MoveLineEnd(bool)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Editor/EditorController.cs/#L567"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void MoveLineEnd(bool extendSelection)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>extendSelection</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Editor_EditorController_MoveLineStart_" data-uid="ProEdit.Word.Editor.EditorController.MoveLineStart*"></a>
+
+  <h3 id="ProEdit_Word_Editor_EditorController_MoveLineStart_System_Boolean_" data-uid="ProEdit.Word.Editor.EditorController.MoveLineStart(System.Boolean)">
+  MoveLineStart(bool)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Editor/EditorController.cs/#L562"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void MoveLineStart(bool extendSelection)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>extendSelection</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Editor_EditorController_MovePageDown_" data-uid="ProEdit.Word.Editor.EditorController.MovePageDown*"></a>
+
+  <h3 id="ProEdit_Word_Editor_EditorController_MovePageDown_System_Boolean_" data-uid="ProEdit.Word.Editor.EditorController.MovePageDown(System.Boolean)">
+  MovePageDown(bool)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Editor/EditorController.cs/#L587"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void MovePageDown(bool extendSelection)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>extendSelection</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Editor_EditorController_MovePageUp_" data-uid="ProEdit.Word.Editor.EditorController.MovePageUp*"></a>
+
+  <h3 id="ProEdit_Word_Editor_EditorController_MovePageUp_System_Boolean_" data-uid="ProEdit.Word.Editor.EditorController.MovePageUp(System.Boolean)">
+  MovePageUp(bool)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Editor/EditorController.cs/#L582"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void MovePageUp(bool extendSelection)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>extendSelection</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Editor_EditorController_MoveRight_" data-uid="ProEdit.Word.Editor.EditorController.MoveRight*"></a>
+
+  <h3 id="ProEdit_Word_Editor_EditorController_MoveRight_System_Boolean_" data-uid="ProEdit.Word.Editor.EditorController.MoveRight(System.Boolean)">
+  MoveRight(bool)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Editor/EditorController.cs/#L547"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void MoveRight(bool extendSelection)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>extendSelection</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Editor_EditorController_MoveUp_" data-uid="ProEdit.Word.Editor.EditorController.MoveUp*"></a>
+
+  <h3 id="ProEdit_Word_Editor_EditorController_MoveUp_System_Boolean_" data-uid="ProEdit.Word.Editor.EditorController.MoveUp(System.Boolean)">
+  MoveUp(bool)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Editor/EditorController.cs/#L552"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void MoveUp(bool extendSelection)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>extendSelection</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Editor_EditorController_RefreshLayout_" data-uid="ProEdit.Word.Editor.EditorController.RefreshLayout*"></a>
+
+  <h3 id="ProEdit_Word_Editor_EditorController_RefreshLayout" data-uid="ProEdit.Word.Editor.EditorController.RefreshLayout">
+  RefreshLayout()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Editor/EditorController.cs/#L53"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void RefreshLayout()</code></pre>
+  </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Editor_EditorController_RefreshLayout_" data-uid="ProEdit.Word.Editor.EditorController.RefreshLayout*"></a>
+
+  <h3 id="ProEdit_Word_Editor_EditorController_RefreshLayout_System_Nullable_System_Int32__" data-uid="ProEdit.Word.Editor.EditorController.RefreshLayout(System.Nullable{System.Int32})">
+  RefreshLayout(int?)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Editor/EditorController.cs/#L58"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void RefreshLayout(int? dirtyParagraphIndex)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>dirtyParagraphIndex</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">int</a>?</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Editor_EditorController_SelectAll_" data-uid="ProEdit.Word.Editor.EditorController.SelectAll*"></a>
+
+  <h3 id="ProEdit_Word_Editor_EditorController_SelectAll" data-uid="ProEdit.Word.Editor.EditorController.SelectAll">
+  SelectAll()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Editor/EditorController.cs/#L592"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void SelectAll()</code></pre>
+  </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Editor_EditorController_SetCaretFromPoint_" data-uid="ProEdit.Word.Editor.EditorController.SetCaretFromPoint*"></a>
+
+  <h3 id="ProEdit_Word_Editor_EditorController_SetCaretFromPoint_System_Single_System_Single_ProEdit_Editing_SelectionUpdateMode_" data-uid="ProEdit.Word.Editor.EditorController.SetCaretFromPoint(System.Single,System.Single,ProEdit.Editing.SelectionUpdateMode)">
+  SetCaretFromPoint(float, float, SelectionUpdateMode)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Editor/EditorController.cs/#L603"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void SetCaretFromPoint(float x, float y, SelectionUpdateMode mode)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>x</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+    <dt><code>y</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+    <dt><code>mode</code> <a class="xref" href="ProEdit.Editing.SelectionUpdateMode.html">SelectionUpdateMode</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Editor_EditorController_SetCaretFromPoint_" data-uid="ProEdit.Word.Editor.EditorController.SetCaretFromPoint*"></a>
+
+  <h3 id="ProEdit_Word_Editor_EditorController_SetCaretFromPoint_System_Single_System_Single_System_Boolean_" data-uid="ProEdit.Word.Editor.EditorController.SetCaretFromPoint(System.Single,System.Single,System.Boolean)">
+  SetCaretFromPoint(float, float, bool)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Editor/EditorController.cs/#L597"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void SetCaretFromPoint(float x, float y, bool extendSelection)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>x</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+    <dt><code>y</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+    <dt><code>extendSelection</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Editor_EditorController_SetProofingSpanProvider_" data-uid="ProEdit.Word.Editor.EditorController.SetProofingSpanProvider*"></a>
+
+  <h3 id="ProEdit_Word_Editor_EditorController_SetProofingSpanProvider_ProEdit_Layout_IProofingSpanProvider_" data-uid="ProEdit.Word.Editor.EditorController.SetProofingSpanProvider(ProEdit.Layout.IProofingSpanProvider)">
+  SetProofingSpanProvider(IProofingSpanProvider?)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Editor/EditorController.cs/#L69"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void SetProofingSpanProvider(IProofingSpanProvider? provider)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>provider</code> <a class="xref" href="ProEdit.Layout.IProofingSpanProvider.html">IProofingSpanProvider</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Editor_EditorController_SetSelection_" data-uid="ProEdit.Word.Editor.EditorController.SetSelection*"></a>
+
+  <h3 id="ProEdit_Word_Editor_EditorController_SetSelection_ProEdit_Documents_TextRange_" data-uid="ProEdit.Word.Editor.EditorController.SetSelection(ProEdit.Documents.TextRange)">
+  SetSelection(TextRange)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Editor/EditorController.cs/#L608"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void SetSelection(TextRange selection)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>selection</code> <a class="xref" href="ProEdit.Documents.TextRange.html">TextRange</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Editor_EditorController_SetSelection_" data-uid="ProEdit.Word.Editor.EditorController.SetSelection*"></a>
+
+  <h3 id="ProEdit_Word_Editor_EditorController_SetSelection_ProEdit_Documents_TextRange_ProEdit_Editing_SelectionUpdateMode_" data-uid="ProEdit.Word.Editor.EditorController.SetSelection(ProEdit.Documents.TextRange,ProEdit.Editing.SelectionUpdateMode)">
+  SetSelection(TextRange, SelectionUpdateMode)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Editor/EditorController.cs/#L613"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void SetSelection(TextRange selection, SelectionUpdateMode mode)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>selection</code> <a class="xref" href="ProEdit.Documents.TextRange.html">TextRange</a></dt>
+    <dd></dd>
+    <dt><code>mode</code> <a class="xref" href="ProEdit.Editing.SelectionUpdateMode.html">SelectionUpdateMode</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Editor_EditorController_TryActivateContentControl_" data-uid="ProEdit.Word.Editor.EditorController.TryActivateContentControl*"></a>
+
+  <h3 id="ProEdit_Word_Editor_EditorController_TryActivateContentControl_ProEdit_Editing_ContentControlHit__ProEdit_Editing_ContentControlActivationSource_ProEdit_Editing_EditorModifiers_ProEdit_Editing_IContentControlInteractionService_" data-uid="ProEdit.Word.Editor.EditorController.TryActivateContentControl(ProEdit.Editing.ContentControlHit@,ProEdit.Editing.ContentControlActivationSource,ProEdit.Editing.EditorModifiers,ProEdit.Editing.IContentControlInteractionService)">
+  TryActivateContentControl(in ContentControlHit, ContentControlActivationSource, EditorModifiers, IContentControlInteractionService?)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Editor/EditorController.cs/#L653"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool TryActivateContentControl(in ContentControlHit hit, ContentControlActivationSource source, EditorModifiers modifiers, IContentControlInteractionService? interactionService)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>hit</code> <a class="xref" href="ProEdit.Editing.ContentControlHit.html">ContentControlHit</a></dt>
+    <dd></dd>
+    <dt><code>source</code> <a class="xref" href="ProEdit.Editing.ContentControlActivationSource.html">ContentControlActivationSource</a></dt>
+    <dd></dd>
+    <dt><code>modifiers</code> <a class="xref" href="ProEdit.Editing.EditorModifiers.html">EditorModifiers</a></dt>
+    <dd></dd>
+    <dt><code>interactionService</code> <a class="xref" href="ProEdit.Editing.IContentControlInteractionService.html">IContentControlInteractionService</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Editor_EditorController_TryGetCaretPoint_" data-uid="ProEdit.Word.Editor.EditorController.TryGetCaretPoint*"></a>
+
+  <h3 id="ProEdit_Word_Editor_EditorController_TryGetCaretPoint_ProEdit_Documents_TextPosition_ProEdit_Primitives_DocPoint__System_Int32__" data-uid="ProEdit.Word.Editor.EditorController.TryGetCaretPoint(ProEdit.Documents.TextPosition,ProEdit.Primitives.DocPoint@,System.Int32@)">
+  TryGetCaretPoint(TextPosition, out DocPoint, out int)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Editor/EditorController.cs/#L83"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Attempts to resolve a caret point for an arbitrary position without mutating selection state.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool TryGetCaretPoint(TextPosition position, out DocPoint point, out int lineIndex)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>position</code> <a class="xref" href="ProEdit.Documents.TextPosition.html">TextPosition</a></dt>
+    <dd></dd>
+    <dt><code>point</code> <a class="xref" href="ProEdit.Primitives.DocPoint.html">DocPoint</a></dt>
+    <dd></dd>
+    <dt><code>lineIndex</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">int</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Editor_EditorController_TryGetCaretPoint_" data-uid="ProEdit.Word.Editor.EditorController.TryGetCaretPoint*"></a>
+
+  <h3 id="ProEdit_Word_Editor_EditorController_TryGetCaretPoint_ProEdit_Primitives_DocPoint__System_Int32__" data-uid="ProEdit.Word.Editor.EditorController.TryGetCaretPoint(ProEdit.Primitives.DocPoint@,System.Int32@)">
+  TryGetCaretPoint(out DocPoint, out int)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Editor/EditorController.cs/#L75"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool TryGetCaretPoint(out DocPoint point, out int lineIndex)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>point</code> <a class="xref" href="ProEdit.Primitives.DocPoint.html">DocPoint</a></dt>
+    <dd></dd>
+    <dt><code>lineIndex</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">int</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Editor_EditorController_TryGetContentControlAtCaret_" data-uid="ProEdit.Word.Editor.EditorController.TryGetContentControlAtCaret*"></a>
+
+  <h3 id="ProEdit_Word_Editor_EditorController_TryGetContentControlAtCaret_ProEdit_Editing_ContentControlHit__" data-uid="ProEdit.Word.Editor.EditorController.TryGetContentControlAtCaret(ProEdit.Editing.ContentControlHit@)">
+  TryGetContentControlAtCaret(out ContentControlHit)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Editor/EditorController.cs/#L648"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool TryGetContentControlAtCaret(out ContentControlHit hit)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>hit</code> <a class="xref" href="ProEdit.Editing.ContentControlHit.html">ContentControlHit</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Editor_EditorController_TryGetContentControlAtPoint_" data-uid="ProEdit.Word.Editor.EditorController.TryGetContentControlAtPoint*"></a>
+
+  <h3 id="ProEdit_Word_Editor_EditorController_TryGetContentControlAtPoint_System_Single_System_Single_ProEdit_Editing_ContentControlHit__" data-uid="ProEdit.Word.Editor.EditorController.TryGetContentControlAtPoint(System.Single,System.Single,ProEdit.Editing.ContentControlHit@)">
+  TryGetContentControlAtPoint(float, float, out ContentControlHit)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Editor/EditorController.cs/#L643"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool TryGetContentControlAtPoint(float x, float y, out ContentControlHit hit)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>x</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+    <dt><code>y</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+    <dt><code>hit</code> <a class="xref" href="ProEdit.Editing.ContentControlHit.html">ContentControlHit</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Editor_EditorController_TrySelectFirstFloatingObject_" data-uid="ProEdit.Word.Editor.EditorController.TrySelectFirstFloatingObject*"></a>
+
+  <h3 id="ProEdit_Word_Editor_EditorController_TrySelectFirstFloatingObject" data-uid="ProEdit.Word.Editor.EditorController.TrySelectFirstFloatingObject">
+  TrySelectFirstFloatingObject()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Editor/EditorController.cs/#L628"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool TrySelectFirstFloatingObject()</code></pre>
+  </div>
+
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Editor_EditorController_TrySelectParagraphFromPoint_" data-uid="ProEdit.Word.Editor.EditorController.TrySelectParagraphFromPoint*"></a>
+
+  <h3 id="ProEdit_Word_Editor_EditorController_TrySelectParagraphFromPoint_System_Single_System_Single_ProEdit_Editing_SelectionUpdateMode_" data-uid="ProEdit.Word.Editor.EditorController.TrySelectParagraphFromPoint(System.Single,System.Single,ProEdit.Editing.SelectionUpdateMode)">
+  TrySelectParagraphFromPoint(float, float, SelectionUpdateMode)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Editor/EditorController.cs/#L623"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool TrySelectParagraphFromPoint(float x, float y, SelectionUpdateMode mode)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>x</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+    <dt><code>y</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+    <dt><code>mode</code> <a class="xref" href="ProEdit.Editing.SelectionUpdateMode.html">SelectionUpdateMode</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Editor_EditorController_TrySelectWordFromPoint_" data-uid="ProEdit.Word.Editor.EditorController.TrySelectWordFromPoint*"></a>
+
+  <h3 id="ProEdit_Word_Editor_EditorController_TrySelectWordFromPoint_System_Single_System_Single_ProEdit_Editing_SelectionUpdateMode_" data-uid="ProEdit.Word.Editor.EditorController.TrySelectWordFromPoint(System.Single,System.Single,ProEdit.Editing.SelectionUpdateMode)">
+  TrySelectWordFromPoint(float, float, SelectionUpdateMode)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Editor/EditorController.cs/#L618"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool TrySelectWordFromPoint(float x, float y, SelectionUpdateMode mode)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>x</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+    <dt><code>y</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+    <dt><code>mode</code> <a class="xref" href="ProEdit.Editing.SelectionUpdateMode.html">SelectionUpdateMode</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Editor_EditorController_UpdateLayout_" data-uid="ProEdit.Word.Editor.EditorController.UpdateLayout*"></a>
+
+  <h3 id="ProEdit_Word_Editor_EditorController_UpdateLayout_System_Single_System_Single_" data-uid="ProEdit.Word.Editor.EditorController.UpdateLayout(System.Single,System.Single)">
+  UpdateLayout(float, float)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Editor/EditorController.cs/#L48"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void UpdateLayout(float viewportWidth, float viewportHeight)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>viewportWidth</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+    <dt><code>viewportHeight</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <h2 class="section" id="events">Events
+</h2>
+
+
+
+  <h3 id="ProEdit_Word_Editor_EditorController_Changed" data-uid="ProEdit.Word.Editor.EditorController.Changed">
+  Changed
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Editor/EditorController.cs/#L34"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public event EventHandler? Changed</code></pre>
+  </div>
+
+
+
+
+
+
+  <h4 class="section">Event Type</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.eventhandler">EventHandler</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Editor/EditorController.cs/#L11" class="edit-link">Edit this page</a>
+        </div>
+
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          <span>Made with <a href="https://dotnet.github.io/docfx">docfx</a></span>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

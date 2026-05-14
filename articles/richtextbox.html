@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>RichTextBox | ProEdit </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="RichTextBox | ProEdit ">
+      
+      
+      <link rel="icon" href="../favicon.ico">
+      <link rel="stylesheet" href="../public/docfx.min.css">
+      <link rel="stylesheet" href="../public/main.css">
+      <meta name="docfx:navrel" content="../toc.html">
+      <meta name="docfx:tocrel" content="toc.html">
+      
+      
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/wieslawsoltes/ProEdit/blob/main/docfx/articles/richtextbox.md/#L1">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../index.html">
+            <img id="logo" class="svg" src="../images/logo.svg" alt="">
+            
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="richtextbox">RichTextBox</h1>
+
+<p><code>ProEdit.RichText.Avalonia.RichTextBox</code> is an editable rich text control for Avalonia that reuses the existing ProEdit editor, layout, and rendering infrastructure.</p>
+<h2 id="project">Project</h2>
+<ul>
+<li><code>src/ProEdit.RichText.Avalonia/</code> control, range/pointer API, bridge, clipboard parsing, and theme.</li>
+</ul>
+<h2 id="goals">Goals</h2>
+<ul>
+<li>Use the FlowDocument object model for authoring in XAML and code.</li>
+<li>Reuse the Word editor engine for editing behavior, undo/redo, selection, and command routing.</li>
+<li>Keep conversion between <code>FlowDocument</code> and <code>ProEdit.Documents.Document</code> synchronized.</li>
+<li>Support embedded inline and block UI containers through existing placeholder/shape marker infrastructure.</li>
+</ul>
+<h2 id="quick-start">Quick Start</h2>
+<pre><code class="lang-xml">&lt;Window xmlns=&quot;https://github.com/avaloniaui&quot;
+        xmlns:x=&quot;http://schemas.microsoft.com/winfx/2006/xaml&quot;
+        xmlns:fd=&quot;clr-namespace:ProEdit.FlowDocument;assembly=ProEdit.FlowDocument&quot;
+        xmlns:rich=&quot;clr-namespace:ProEdit.RichText.Avalonia;assembly=ProEdit.RichText.Avalonia&quot;&gt;
+  &lt;rich:RichTextBox&gt;
+    &lt;rich:RichTextBox.Document&gt;
+      &lt;fd:FlowDocument PagePadding=&quot;72,72,72,72&quot;&gt;
+        &lt;fd:Paragraph&gt;
+          &lt;fd:Run Text=&quot;Editable rich text content.&quot; /&gt;
+        &lt;/fd:Paragraph&gt;
+      &lt;/fd:FlowDocument&gt;
+    &lt;/rich:RichTextBox.Document&gt;
+  &lt;/rich:RichTextBox&gt;
+&lt;/Window&gt;
+</code></pre>
+<h2 id="core-api">Core API</h2>
+<ul>
+<li><code>Document</code> (<code>FlowDocument</code>) current editable document.</li>
+<li><code>Selection</code> (<code>FlowTextSelection</code>) active selection wrapper.</li>
+<li><code>CaretPosition</code> (<code>FlowTextPointer</code>) current caret position.</li>
+<li><code>AcceptsReturn</code>, <code>AcceptsTab</code> input behavior flags.</li>
+<li><code>IsReadOnly</code>, <code>IsReadOnlyCaretVisible</code> editing and caret visibility control.</li>
+<li><code>IsDocumentEnabled</code> interactive embedded UI enable/disable gate.</li>
+<li><code>IsProofingEnabled</code>, <code>IsSpellingEnabled</code>, <code>IsGrammarEnabled</code>, <code>IsStyleEnabled</code> proofing toggles.</li>
+</ul>
+<p>Key methods:</p>
+<ul>
+<li><code>Copy</code>, <code>Cut</code>, <code>Paste</code>, <code>Undo</code>, <code>Redo</code>, <code>SelectAll</code>.</li>
+<li><code>BeginChange</code>, <code>EndChange</code> for grouped edits.</li>
+<li>WPF-style helpers: <code>GetPositionFromPoint</code>, <code>GetSpellingError</code>, <code>GetSpellingErrorRange</code>, <code>GetNextSpellingErrorPosition</code>, <code>ShouldSerializeDocument</code>.</li>
+</ul>
+<h2 id="input-and-editing-behavior">Input and Editing Behavior</h2>
+<ul>
+<li>Keyboard routing includes line/document navigation, page navigation, and select-all shortcuts.</li>
+<li>Read-only mode blocks mutating operations and preserves navigation/selection.</li>
+<li><code>AcceptsReturn</code> and <code>AcceptsTab</code> are routed through the same editor input pipeline used by <code>DocumentView</code>.</li>
+<li>Clipboard and drag-drop support rich format preference: OOXML, RTF, HTML, then plain text.</li>
+</ul>
+<h2 id="conversion-and-sync">Conversion and Sync</h2>
+<ul>
+<li><code>FlowDocument -&gt; Document</code> uses <code>FlowDocumentConverter</code>.</li>
+<li><code>Document -&gt; FlowDocument</code> uses <code>DocumentToFlowDocumentConverter</code>.</li>
+<li>Incremental mirror updates are used for safe single-paragraph content changes, with fallback to full conversion for complex topologies.</li>
+</ul>
+<h2 id="testing">Testing</h2>
+<ul>
+<li>Headless control tests: <code>tests/ProEdit.RichText.Avalonia.Headless.Tests/</code>.</li>
+<li>Input router behavior tests: <code>tests/ProEdit.Word.Editor.Tests/EditorCommandInputRouterTests.cs</code>.</li>
+</ul>
+<h2 id="sample">Sample</h2>
+<p>Run the FlowDocument sample app:</p>
+<pre><code class="lang-bash">dotnet run --project src/ProEdit.FlowDocument.App/ProEdit.FlowDocument.App.csproj
+</code></pre>
+<p>Use the <code>RichTextBox Smoke</code> tab to validate editing and selection behavior.</p>
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/wieslawsoltes/ProEdit/blob/main/docfx/articles/richtextbox.md/#L1" class="edit-link">Edit this page</a>
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          <span>Made with <a href="https://dotnet.github.io/docfx">docfx</a></span>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

@@ -1,0 +1,1166 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Class RichTextBoxCollaborationBehavior | ProEdit </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Class RichTextBoxCollaborationBehavior | ProEdit ">
+      
+      <meta name="description" content="Provides attached collaboration wiring for  without altering its public WPF-like API.">
+      <link rel="icon" href="../favicon.ico">
+      <link rel="stylesheet" href="../public/docfx.min.css">
+      <link rel="stylesheet" href="../public/main.css">
+      <meta name="docfx:navrel" content="../toc.html">
+      <meta name="docfx:tocrel" content="toc.html">
+      
+      
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/wieslawsoltes/ProEdit/new/main/apiSpec/new?filename=ProEdit_RichText_Avalonia_Collaboration_RichTextBoxCollaborationBehavior.md&amp;value=---%0Auid%3A%20ProEdit.RichText.Avalonia.Collaboration.RichTextBoxCollaborationBehavior%0Asummary%3A%20&#39;*You%20can%20override%20summary%20for%20the%20API%20here%20using%20*MARKDOWN*%20syntax&#39;%0A---%0A%0A*Please%20type%20below%20more%20information%20about%20this%20API%3A*%0A%0A">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="ManagedReference">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../index.html">
+            <img id="logo" class="svg" src="../images/logo.svg" alt="">
+            
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="ProEdit.RichText.Avalonia.Collaboration.RichTextBoxCollaborationBehavior">
+
+
+
+  <h1 id="ProEdit_RichText_Avalonia_Collaboration_RichTextBoxCollaborationBehavior" data-uid="ProEdit.RichText.Avalonia.Collaboration.RichTextBoxCollaborationBehavior" class="text-break">
+Class RichTextBoxCollaborationBehavior  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.RichText.Avalonia.Collaboration/RichTextBoxCollaborationBehavior.cs/#L14"><i class="bi bi-code-slash"></i></a>
+  </h1>
+
+  <div class="facts text-secondary">
+    <dl><dt>Namespace</dt><dd><a class="xref" href="ProEdit.html">ProEdit</a>.<a class="xref" href="ProEdit.RichText.html">RichText</a>.<a class="xref" href="ProEdit.RichText.Avalonia.html">Avalonia</a>.<a class="xref" href="ProEdit.RichText.Avalonia.Collaboration.html">Collaboration</a></dd></dl>
+  <dl><dt>Assembly</dt><dd>ProEdit.RichText.Avalonia.Collaboration.dll</dd></dl>
+  </div>
+
+  <div class="markdown summary"><p>Provides attached collaboration wiring for <a class="xref" href="ProEdit.RichText.Avalonia.RichTextBox.html">RichTextBox</a> without altering its public WPF-like API.</p>
+</div>
+  <div class="markdown conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static class RichTextBoxCollaborationBehavior</code></pre>
+  </div>
+
+
+
+
+  <dl class="typelist inheritance">
+    <dt>Inheritance</dt>
+    <dd>
+      <div><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object">object</a></div>
+      <div><span class="xref">RichTextBoxCollaborationBehavior</span></div>
+    </dd>
+  </dl>
+
+
+
+  <dl class="typelist inheritedMembers">
+    <dt>Inherited Members</dt>
+    <dd>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)">object.Equals(object)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)">object.Equals(object, object)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.gethashcode">object.GetHashCode()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.gettype">object.GetType()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone">object.MemberwiseClone()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.referenceequals">object.ReferenceEquals(object, object)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.tostring">object.ToString()</a>
+    </div>
+  </dd></dl>
+
+
+
+
+
+
+  <h2 class="section" id="fields">Fields
+</h2>
+
+
+
+  <h3 id="ProEdit_RichText_Avalonia_Collaboration_RichTextBoxCollaborationBehavior_AuthorResolverProperty" data-uid="ProEdit.RichText.Avalonia.Collaboration.RichTextBoxCollaborationBehavior.AuthorResolverProperty">
+  AuthorResolverProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.RichText.Avalonia.Collaboration/RichTextBoxCollaborationBehavior.cs/#L49"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Identifies the <code>AuthorResolver</code> attached property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly AttachedProperty&lt;Func&lt;Guid, string?&gt;?&gt; AuthorResolverProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">AttachedProperty</span>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.func-2">Func</a>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.guid">Guid</a>, <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a>&gt;&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_RichText_Avalonia_Collaboration_RichTextBoxCollaborationBehavior_CollabIdentityServiceProperty" data-uid="ProEdit.RichText.Avalonia.Collaboration.RichTextBoxCollaborationBehavior.CollabIdentityServiceProperty">
+  CollabIdentityServiceProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.RichText.Avalonia.Collaboration/RichTextBoxCollaborationBehavior.cs/#L43"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Identifies the <code>CollabIdentityService</code> attached property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly AttachedProperty&lt;ICollabIdentityService?&gt; CollabIdentityServiceProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">AttachedProperty</span>&lt;<a class="xref" href="ProEdit.Collaboration.UI.ICollabIdentityService.html">ICollabIdentityService</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_RichText_Avalonia_Collaboration_RichTextBoxCollaborationBehavior_CollabUiServiceProperty" data-uid="ProEdit.RichText.Avalonia.Collaboration.RichTextBoxCollaborationBehavior.CollabUiServiceProperty">
+  CollabUiServiceProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.RichText.Avalonia.Collaboration/RichTextBoxCollaborationBehavior.cs/#L37"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Identifies the <code>CollabUiService</code> attached property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly AttachedProperty&lt;ICollabUiService?&gt; CollabUiServiceProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">AttachedProperty</span>&lt;<a class="xref" href="ProEdit.Collaboration.UI.ICollabUiService.html">ICollabUiService</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_RichText_Avalonia_Collaboration_RichTextBoxCollaborationBehavior_ConnectionMessageProperty" data-uid="ProEdit.RichText.Avalonia.Collaboration.RichTextBoxCollaborationBehavior.ConnectionMessageProperty">
+  ConnectionMessageProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.RichText.Avalonia.Collaboration/RichTextBoxCollaborationBehavior.cs/#L63"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Identifies the <code>ConnectionMessage</code> attached diagnostics property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly AttachedProperty&lt;string?&gt; ConnectionMessageProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">AttachedProperty</span>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_RichText_Avalonia_Collaboration_RichTextBoxCollaborationBehavior_ConnectionStateProperty" data-uid="ProEdit.RichText.Avalonia.Collaboration.RichTextBoxCollaborationBehavior.ConnectionStateProperty">
+  ConnectionStateProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.RichText.Avalonia.Collaboration/RichTextBoxCollaborationBehavior.cs/#L55"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Identifies the <code>ConnectionState</code> attached diagnostics property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly AttachedProperty&lt;CollabConnectionState&gt; ConnectionStateProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">AttachedProperty</span>&lt;<a class="xref" href="ProEdit.Collaboration.UI.CollabConnectionState.html">CollabConnectionState</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_RichText_Avalonia_Collaboration_RichTextBoxCollaborationBehavior_IsEnabledProperty" data-uid="ProEdit.RichText.Avalonia.Collaboration.RichTextBoxCollaborationBehavior.IsEnabledProperty">
+  IsEnabledProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.RichText.Avalonia.Collaboration/RichTextBoxCollaborationBehavior.cs/#L25"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Identifies the <code>IsEnabled</code> attached property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly AttachedProperty&lt;bool&gt; IsEnabledProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">AttachedProperty</span>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_RichText_Avalonia_Collaboration_RichTextBoxCollaborationBehavior_OpQueueDepthProperty" data-uid="ProEdit.RichText.Avalonia.Collaboration.RichTextBoxCollaborationBehavior.OpQueueDepthProperty">
+  OpQueueDepthProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.RichText.Avalonia.Collaboration/RichTextBoxCollaborationBehavior.cs/#L75"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Identifies the <code>OpQueueDepth</code> attached diagnostics property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly AttachedProperty&lt;int&gt; OpQueueDepthProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">AttachedProperty</span>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">int</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_RichText_Avalonia_Collaboration_RichTextBoxCollaborationBehavior_ParticipantCountProperty" data-uid="ProEdit.RichText.Avalonia.Collaboration.RichTextBoxCollaborationBehavior.ParticipantCountProperty">
+  ParticipantCountProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.RichText.Avalonia.Collaboration/RichTextBoxCollaborationBehavior.cs/#L87"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Identifies the <code>ParticipantCount</code> attached diagnostics property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly AttachedProperty&lt;int&gt; ParticipantCountProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">AttachedProperty</span>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">int</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_RichText_Avalonia_Collaboration_RichTextBoxCollaborationBehavior_PresenceCountProperty" data-uid="ProEdit.RichText.Avalonia.Collaboration.RichTextBoxCollaborationBehavior.PresenceCountProperty">
+  PresenceCountProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.RichText.Avalonia.Collaboration/RichTextBoxCollaborationBehavior.cs/#L93"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Identifies the <code>PresenceCount</code> attached diagnostics property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly AttachedProperty&lt;int&gt; PresenceCountProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">AttachedProperty</span>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">int</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_RichText_Avalonia_Collaboration_RichTextBoxCollaborationBehavior_SessionProperty" data-uid="ProEdit.RichText.Avalonia.Collaboration.RichTextBoxCollaborationBehavior.SessionProperty">
+  SessionProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.RichText.Avalonia.Collaboration/RichTextBoxCollaborationBehavior.cs/#L31"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Identifies the <code>Session</code> attached property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly AttachedProperty&lt;ICollabRealtimeSession?&gt; SessionProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">AttachedProperty</span>&lt;<a class="xref" href="ProEdit.Collaboration.Protocol.ICollabRealtimeSession.html">ICollabRealtimeSession</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_RichText_Avalonia_Collaboration_RichTextBoxCollaborationBehavior_SnapshotAgeProperty" data-uid="ProEdit.RichText.Avalonia.Collaboration.RichTextBoxCollaborationBehavior.SnapshotAgeProperty">
+  SnapshotAgeProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.RichText.Avalonia.Collaboration/RichTextBoxCollaborationBehavior.cs/#L81"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Identifies the <code>SnapshotAge</code> attached diagnostics property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly AttachedProperty&lt;TimeSpan&gt; SnapshotAgeProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">AttachedProperty</span>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.timespan">TimeSpan</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_RichText_Avalonia_Collaboration_RichTextBoxCollaborationBehavior_SyncLagProperty" data-uid="ProEdit.RichText.Avalonia.Collaboration.RichTextBoxCollaborationBehavior.SyncLagProperty">
+  SyncLagProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.RichText.Avalonia.Collaboration/RichTextBoxCollaborationBehavior.cs/#L69"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Identifies the <code>SyncLag</code> attached diagnostics property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly AttachedProperty&lt;TimeSpan&gt; SyncLagProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">AttachedProperty</span>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.timespan">TimeSpan</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+  <h2 class="section" id="methods">Methods
+</h2>
+
+
+  <a id="ProEdit_RichText_Avalonia_Collaboration_RichTextBoxCollaborationBehavior_GetAuthorResolver_" data-uid="ProEdit.RichText.Avalonia.Collaboration.RichTextBoxCollaborationBehavior.GetAuthorResolver*"></a>
+
+  <h3 id="ProEdit_RichText_Avalonia_Collaboration_RichTextBoxCollaborationBehavior_GetAuthorResolver_ProEdit_RichText_Avalonia_RichTextBox_" data-uid="ProEdit.RichText.Avalonia.Collaboration.RichTextBoxCollaborationBehavior.GetAuthorResolver(ProEdit.RichText.Avalonia.RichTextBox)">
+  GetAuthorResolver(RichTextBox)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.RichText.Avalonia.Collaboration/RichTextBoxCollaborationBehavior.cs/#L180"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets the optional author resolver used for remote operation attribution.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static Func&lt;Guid, string?&gt;? GetAuthorResolver(RichTextBox richTextBox)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>richTextBox</code> <a class="xref" href="ProEdit.RichText.Avalonia.RichTextBox.html">RichTextBox</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.func-2">Func</a>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.guid">Guid</a>, <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_RichText_Avalonia_Collaboration_RichTextBoxCollaborationBehavior_GetCollabIdentityService_" data-uid="ProEdit.RichText.Avalonia.Collaboration.RichTextBoxCollaborationBehavior.GetCollabIdentityService*"></a>
+
+  <h3 id="ProEdit_RichText_Avalonia_Collaboration_RichTextBoxCollaborationBehavior_GetCollabIdentityService_ProEdit_RichText_Avalonia_RichTextBox_" data-uid="ProEdit.RichText.Avalonia.Collaboration.RichTextBoxCollaborationBehavior.GetCollabIdentityService(ProEdit.RichText.Avalonia.RichTextBox)">
+  GetCollabIdentityService(RichTextBox)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.RichText.Avalonia.Collaboration/RichTextBoxCollaborationBehavior.cs/#L162"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets the collaboration identity service.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static ICollabIdentityService? GetCollabIdentityService(RichTextBox richTextBox)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>richTextBox</code> <a class="xref" href="ProEdit.RichText.Avalonia.RichTextBox.html">RichTextBox</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Collaboration.UI.ICollabIdentityService.html">ICollabIdentityService</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_RichText_Avalonia_Collaboration_RichTextBoxCollaborationBehavior_GetCollabUiService_" data-uid="ProEdit.RichText.Avalonia.Collaboration.RichTextBoxCollaborationBehavior.GetCollabUiService*"></a>
+
+  <h3 id="ProEdit_RichText_Avalonia_Collaboration_RichTextBoxCollaborationBehavior_GetCollabUiService_ProEdit_RichText_Avalonia_RichTextBox_" data-uid="ProEdit.RichText.Avalonia.Collaboration.RichTextBoxCollaborationBehavior.GetCollabUiService(ProEdit.RichText.Avalonia.RichTextBox)">
+  GetCollabUiService(RichTextBox)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.RichText.Avalonia.Collaboration/RichTextBoxCollaborationBehavior.cs/#L144"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets the collaboration UI service.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static ICollabUiService? GetCollabUiService(RichTextBox richTextBox)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>richTextBox</code> <a class="xref" href="ProEdit.RichText.Avalonia.RichTextBox.html">RichTextBox</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Collaboration.UI.ICollabUiService.html">ICollabUiService</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_RichText_Avalonia_Collaboration_RichTextBoxCollaborationBehavior_GetConnectionMessage_" data-uid="ProEdit.RichText.Avalonia.Collaboration.RichTextBoxCollaborationBehavior.GetConnectionMessage*"></a>
+
+  <h3 id="ProEdit_RichText_Avalonia_Collaboration_RichTextBoxCollaborationBehavior_GetConnectionMessage_ProEdit_RichText_Avalonia_RichTextBox_" data-uid="ProEdit.RichText.Avalonia.Collaboration.RichTextBoxCollaborationBehavior.GetConnectionMessage(ProEdit.RichText.Avalonia.RichTextBox)">
+  GetConnectionMessage(RichTextBox)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.RichText.Avalonia.Collaboration/RichTextBoxCollaborationBehavior.cs/#L207"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets the collaboration connection message diagnostics value.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static string? GetConnectionMessage(RichTextBox richTextBox)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>richTextBox</code> <a class="xref" href="ProEdit.RichText.Avalonia.RichTextBox.html">RichTextBox</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_RichText_Avalonia_Collaboration_RichTextBoxCollaborationBehavior_GetConnectionState_" data-uid="ProEdit.RichText.Avalonia.Collaboration.RichTextBoxCollaborationBehavior.GetConnectionState*"></a>
+
+  <h3 id="ProEdit_RichText_Avalonia_Collaboration_RichTextBoxCollaborationBehavior_GetConnectionState_ProEdit_RichText_Avalonia_RichTextBox_" data-uid="ProEdit.RichText.Avalonia.Collaboration.RichTextBoxCollaborationBehavior.GetConnectionState(ProEdit.RichText.Avalonia.RichTextBox)">
+  GetConnectionState(RichTextBox)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.RichText.Avalonia.Collaboration/RichTextBoxCollaborationBehavior.cs/#L198"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets the collaboration connection state diagnostics value.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static CollabConnectionState GetConnectionState(RichTextBox richTextBox)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>richTextBox</code> <a class="xref" href="ProEdit.RichText.Avalonia.RichTextBox.html">RichTextBox</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Collaboration.UI.CollabConnectionState.html">CollabConnectionState</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_RichText_Avalonia_Collaboration_RichTextBoxCollaborationBehavior_GetIsEnabled_" data-uid="ProEdit.RichText.Avalonia.Collaboration.RichTextBoxCollaborationBehavior.GetIsEnabled*"></a>
+
+  <h3 id="ProEdit_RichText_Avalonia_Collaboration_RichTextBoxCollaborationBehavior_GetIsEnabled_ProEdit_RichText_Avalonia_RichTextBox_" data-uid="ProEdit.RichText.Avalonia.Collaboration.RichTextBoxCollaborationBehavior.GetIsEnabled(ProEdit.RichText.Avalonia.RichTextBox)">
+  GetIsEnabled(RichTextBox)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.RichText.Avalonia.Collaboration/RichTextBoxCollaborationBehavior.cs/#L108"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets whether collaboration behavior is enabled.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static bool GetIsEnabled(RichTextBox richTextBox)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>richTextBox</code> <a class="xref" href="ProEdit.RichText.Avalonia.RichTextBox.html">RichTextBox</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_RichText_Avalonia_Collaboration_RichTextBoxCollaborationBehavior_GetOpQueueDepth_" data-uid="ProEdit.RichText.Avalonia.Collaboration.RichTextBoxCollaborationBehavior.GetOpQueueDepth*"></a>
+
+  <h3 id="ProEdit_RichText_Avalonia_Collaboration_RichTextBoxCollaborationBehavior_GetOpQueueDepth_ProEdit_RichText_Avalonia_RichTextBox_" data-uid="ProEdit.RichText.Avalonia.Collaboration.RichTextBoxCollaborationBehavior.GetOpQueueDepth(ProEdit.RichText.Avalonia.RichTextBox)">
+  GetOpQueueDepth(RichTextBox)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.RichText.Avalonia.Collaboration/RichTextBoxCollaborationBehavior.cs/#L225"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets the operation queue depth diagnostics value.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static int GetOpQueueDepth(RichTextBox richTextBox)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>richTextBox</code> <a class="xref" href="ProEdit.RichText.Avalonia.RichTextBox.html">RichTextBox</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">int</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_RichText_Avalonia_Collaboration_RichTextBoxCollaborationBehavior_GetParticipantCount_" data-uid="ProEdit.RichText.Avalonia.Collaboration.RichTextBoxCollaborationBehavior.GetParticipantCount*"></a>
+
+  <h3 id="ProEdit_RichText_Avalonia_Collaboration_RichTextBoxCollaborationBehavior_GetParticipantCount_ProEdit_RichText_Avalonia_RichTextBox_" data-uid="ProEdit.RichText.Avalonia.Collaboration.RichTextBoxCollaborationBehavior.GetParticipantCount(ProEdit.RichText.Avalonia.RichTextBox)">
+  GetParticipantCount(RichTextBox)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.RichText.Avalonia.Collaboration/RichTextBoxCollaborationBehavior.cs/#L243"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets the participant count diagnostics value.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static int GetParticipantCount(RichTextBox richTextBox)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>richTextBox</code> <a class="xref" href="ProEdit.RichText.Avalonia.RichTextBox.html">RichTextBox</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">int</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_RichText_Avalonia_Collaboration_RichTextBoxCollaborationBehavior_GetPresenceCount_" data-uid="ProEdit.RichText.Avalonia.Collaboration.RichTextBoxCollaborationBehavior.GetPresenceCount*"></a>
+
+  <h3 id="ProEdit_RichText_Avalonia_Collaboration_RichTextBoxCollaborationBehavior_GetPresenceCount_ProEdit_RichText_Avalonia_RichTextBox_" data-uid="ProEdit.RichText.Avalonia.Collaboration.RichTextBoxCollaborationBehavior.GetPresenceCount(ProEdit.RichText.Avalonia.RichTextBox)">
+  GetPresenceCount(RichTextBox)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.RichText.Avalonia.Collaboration/RichTextBoxCollaborationBehavior.cs/#L252"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets the presence count diagnostics value.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static int GetPresenceCount(RichTextBox richTextBox)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>richTextBox</code> <a class="xref" href="ProEdit.RichText.Avalonia.RichTextBox.html">RichTextBox</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">int</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_RichText_Avalonia_Collaboration_RichTextBoxCollaborationBehavior_GetSession_" data-uid="ProEdit.RichText.Avalonia.Collaboration.RichTextBoxCollaborationBehavior.GetSession*"></a>
+
+  <h3 id="ProEdit_RichText_Avalonia_Collaboration_RichTextBoxCollaborationBehavior_GetSession_ProEdit_RichText_Avalonia_RichTextBox_" data-uid="ProEdit.RichText.Avalonia.Collaboration.RichTextBoxCollaborationBehavior.GetSession(ProEdit.RichText.Avalonia.RichTextBox)">
+  GetSession(RichTextBox)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.RichText.Avalonia.Collaboration/RichTextBoxCollaborationBehavior.cs/#L126"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets the collaboration session.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static ICollabRealtimeSession? GetSession(RichTextBox richTextBox)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>richTextBox</code> <a class="xref" href="ProEdit.RichText.Avalonia.RichTextBox.html">RichTextBox</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Collaboration.Protocol.ICollabRealtimeSession.html">ICollabRealtimeSession</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_RichText_Avalonia_Collaboration_RichTextBoxCollaborationBehavior_GetSnapshotAge_" data-uid="ProEdit.RichText.Avalonia.Collaboration.RichTextBoxCollaborationBehavior.GetSnapshotAge*"></a>
+
+  <h3 id="ProEdit_RichText_Avalonia_Collaboration_RichTextBoxCollaborationBehavior_GetSnapshotAge_ProEdit_RichText_Avalonia_RichTextBox_" data-uid="ProEdit.RichText.Avalonia.Collaboration.RichTextBoxCollaborationBehavior.GetSnapshotAge(ProEdit.RichText.Avalonia.RichTextBox)">
+  GetSnapshotAge(RichTextBox)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.RichText.Avalonia.Collaboration/RichTextBoxCollaborationBehavior.cs/#L234"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets the snapshot age diagnostics value.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static TimeSpan GetSnapshotAge(RichTextBox richTextBox)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>richTextBox</code> <a class="xref" href="ProEdit.RichText.Avalonia.RichTextBox.html">RichTextBox</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.timespan">TimeSpan</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_RichText_Avalonia_Collaboration_RichTextBoxCollaborationBehavior_GetSyncLag_" data-uid="ProEdit.RichText.Avalonia.Collaboration.RichTextBoxCollaborationBehavior.GetSyncLag*"></a>
+
+  <h3 id="ProEdit_RichText_Avalonia_Collaboration_RichTextBoxCollaborationBehavior_GetSyncLag_ProEdit_RichText_Avalonia_RichTextBox_" data-uid="ProEdit.RichText.Avalonia.Collaboration.RichTextBoxCollaborationBehavior.GetSyncLag(ProEdit.RichText.Avalonia.RichTextBox)">
+  GetSyncLag(RichTextBox)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.RichText.Avalonia.Collaboration/RichTextBoxCollaborationBehavior.cs/#L216"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets the synchronization lag diagnostics value.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static TimeSpan GetSyncLag(RichTextBox richTextBox)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>richTextBox</code> <a class="xref" href="ProEdit.RichText.Avalonia.RichTextBox.html">RichTextBox</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.timespan">TimeSpan</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_RichText_Avalonia_Collaboration_RichTextBoxCollaborationBehavior_SetAuthorResolver_" data-uid="ProEdit.RichText.Avalonia.Collaboration.RichTextBoxCollaborationBehavior.SetAuthorResolver*"></a>
+
+  <h3 id="ProEdit_RichText_Avalonia_Collaboration_RichTextBoxCollaborationBehavior_SetAuthorResolver_ProEdit_RichText_Avalonia_RichTextBox_System_Func_System_Guid_System_String__" data-uid="ProEdit.RichText.Avalonia.Collaboration.RichTextBoxCollaborationBehavior.SetAuthorResolver(ProEdit.RichText.Avalonia.RichTextBox,System.Func{System.Guid,System.String})">
+  SetAuthorResolver(RichTextBox, Func&lt;Guid, string?&gt;?)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.RichText.Avalonia.Collaboration/RichTextBoxCollaborationBehavior.cs/#L189"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Sets the optional author resolver used for remote operation attribution.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static void SetAuthorResolver(RichTextBox richTextBox, Func&lt;Guid, string?&gt;? value)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>richTextBox</code> <a class="xref" href="ProEdit.RichText.Avalonia.RichTextBox.html">RichTextBox</a></dt>
+    <dd></dd>
+    <dt><code>value</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.func-2">Func</a>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.guid">Guid</a>, <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_RichText_Avalonia_Collaboration_RichTextBoxCollaborationBehavior_SetCollabIdentityService_" data-uid="ProEdit.RichText.Avalonia.Collaboration.RichTextBoxCollaborationBehavior.SetCollabIdentityService*"></a>
+
+  <h3 id="ProEdit_RichText_Avalonia_Collaboration_RichTextBoxCollaborationBehavior_SetCollabIdentityService_ProEdit_RichText_Avalonia_RichTextBox_ProEdit_Collaboration_UI_ICollabIdentityService_" data-uid="ProEdit.RichText.Avalonia.Collaboration.RichTextBoxCollaborationBehavior.SetCollabIdentityService(ProEdit.RichText.Avalonia.RichTextBox,ProEdit.Collaboration.UI.ICollabIdentityService)">
+  SetCollabIdentityService(RichTextBox, ICollabIdentityService?)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.RichText.Avalonia.Collaboration/RichTextBoxCollaborationBehavior.cs/#L171"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Sets the collaboration identity service.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static void SetCollabIdentityService(RichTextBox richTextBox, ICollabIdentityService? value)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>richTextBox</code> <a class="xref" href="ProEdit.RichText.Avalonia.RichTextBox.html">RichTextBox</a></dt>
+    <dd></dd>
+    <dt><code>value</code> <a class="xref" href="ProEdit.Collaboration.UI.ICollabIdentityService.html">ICollabIdentityService</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_RichText_Avalonia_Collaboration_RichTextBoxCollaborationBehavior_SetCollabUiService_" data-uid="ProEdit.RichText.Avalonia.Collaboration.RichTextBoxCollaborationBehavior.SetCollabUiService*"></a>
+
+  <h3 id="ProEdit_RichText_Avalonia_Collaboration_RichTextBoxCollaborationBehavior_SetCollabUiService_ProEdit_RichText_Avalonia_RichTextBox_ProEdit_Collaboration_UI_ICollabUiService_" data-uid="ProEdit.RichText.Avalonia.Collaboration.RichTextBoxCollaborationBehavior.SetCollabUiService(ProEdit.RichText.Avalonia.RichTextBox,ProEdit.Collaboration.UI.ICollabUiService)">
+  SetCollabUiService(RichTextBox, ICollabUiService?)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.RichText.Avalonia.Collaboration/RichTextBoxCollaborationBehavior.cs/#L153"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Sets the collaboration UI service.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static void SetCollabUiService(RichTextBox richTextBox, ICollabUiService? value)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>richTextBox</code> <a class="xref" href="ProEdit.RichText.Avalonia.RichTextBox.html">RichTextBox</a></dt>
+    <dd></dd>
+    <dt><code>value</code> <a class="xref" href="ProEdit.Collaboration.UI.ICollabUiService.html">ICollabUiService</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_RichText_Avalonia_Collaboration_RichTextBoxCollaborationBehavior_SetIsEnabled_" data-uid="ProEdit.RichText.Avalonia.Collaboration.RichTextBoxCollaborationBehavior.SetIsEnabled*"></a>
+
+  <h3 id="ProEdit_RichText_Avalonia_Collaboration_RichTextBoxCollaborationBehavior_SetIsEnabled_ProEdit_RichText_Avalonia_RichTextBox_System_Boolean_" data-uid="ProEdit.RichText.Avalonia.Collaboration.RichTextBoxCollaborationBehavior.SetIsEnabled(ProEdit.RichText.Avalonia.RichTextBox,System.Boolean)">
+  SetIsEnabled(RichTextBox, bool)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.RichText.Avalonia.Collaboration/RichTextBoxCollaborationBehavior.cs/#L117"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Sets whether collaboration behavior is enabled.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static void SetIsEnabled(RichTextBox richTextBox, bool value)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>richTextBox</code> <a class="xref" href="ProEdit.RichText.Avalonia.RichTextBox.html">RichTextBox</a></dt>
+    <dd></dd>
+    <dt><code>value</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_RichText_Avalonia_Collaboration_RichTextBoxCollaborationBehavior_SetSession_" data-uid="ProEdit.RichText.Avalonia.Collaboration.RichTextBoxCollaborationBehavior.SetSession*"></a>
+
+  <h3 id="ProEdit_RichText_Avalonia_Collaboration_RichTextBoxCollaborationBehavior_SetSession_ProEdit_RichText_Avalonia_RichTextBox_ProEdit_Collaboration_Protocol_ICollabRealtimeSession_" data-uid="ProEdit.RichText.Avalonia.Collaboration.RichTextBoxCollaborationBehavior.SetSession(ProEdit.RichText.Avalonia.RichTextBox,ProEdit.Collaboration.Protocol.ICollabRealtimeSession)">
+  SetSession(RichTextBox, ICollabRealtimeSession?)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.RichText.Avalonia.Collaboration/RichTextBoxCollaborationBehavior.cs/#L135"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Sets the collaboration session.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static void SetSession(RichTextBox richTextBox, ICollabRealtimeSession? value)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>richTextBox</code> <a class="xref" href="ProEdit.RichText.Avalonia.RichTextBox.html">RichTextBox</a></dt>
+    <dd></dd>
+    <dt><code>value</code> <a class="xref" href="ProEdit.Collaboration.Protocol.ICollabRealtimeSession.html">ICollabRealtimeSession</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.RichText.Avalonia.Collaboration/RichTextBoxCollaborationBehavior.cs/#L14" class="edit-link">Edit this page</a>
+        </div>
+
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          <span>Made with <a href="https://dotnet.github.io/docfx">docfx</a></span>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

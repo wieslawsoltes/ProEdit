@@ -1,0 +1,2176 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Class FlowDocument | ProEdit </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Class FlowDocument | ProEdit ">
+      
+      <meta name="description" content="Represents a FlowDocument root element.">
+      <link rel="icon" href="../favicon.ico">
+      <link rel="stylesheet" href="../public/docfx.min.css">
+      <link rel="stylesheet" href="../public/main.css">
+      <meta name="docfx:navrel" content="../toc.html">
+      <meta name="docfx:tocrel" content="toc.html">
+      
+      
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/wieslawsoltes/ProEdit/new/main/apiSpec/new?filename=ProEdit_FlowDocument_FlowDocument.md&amp;value=---%0Auid%3A%20ProEdit.FlowDocument.FlowDocument%0Asummary%3A%20&#39;*You%20can%20override%20summary%20for%20the%20API%20here%20using%20*MARKDOWN*%20syntax&#39;%0A---%0A%0A*Please%20type%20below%20more%20information%20about%20this%20API%3A*%0A%0A">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="ManagedReference">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../index.html">
+            <img id="logo" class="svg" src="../images/logo.svg" alt="">
+            
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="ProEdit.FlowDocument.FlowDocument">
+
+
+
+  <h1 id="ProEdit_FlowDocument_FlowDocument" data-uid="ProEdit.FlowDocument.FlowDocument" class="text-break">
+Class FlowDocument  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L9"><i class="bi bi-code-slash"></i></a>
+  </h1>
+
+  <div class="facts text-secondary">
+    <dl><dt>Namespace</dt><dd><a class="xref" href="ProEdit.html">ProEdit</a>.<a class="xref" href="ProEdit.FlowDocument.html">FlowDocument</a></dd></dl>
+  <dl><dt>Assembly</dt><dd>ProEdit.FlowDocument.dll</dd></dl>
+  </div>
+
+  <div class="markdown summary"><p>Represents a FlowDocument root element.</p>
+</div>
+  <div class="markdown conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public sealed class FlowDocument : FlowElement, INotifyPropertyChanged</code></pre>
+  </div>
+
+
+
+
+  <dl class="typelist inheritance">
+    <dt>Inheritance</dt>
+    <dd>
+      <div><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object">object</a></div>
+      <div><span class="xref">AvaloniaObject</span></div>
+      <div><a class="xref" href="ProEdit.FlowDocument.FlowElement.html">FlowElement</a></div>
+      <div><span class="xref">FlowDocument</span></div>
+    </dd>
+  </dl>
+
+  <dl class="typelist implements">
+    <dt>Implements</dt>
+    <dd>
+      <div><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.componentmodel.inotifypropertychanged">INotifyPropertyChanged</a></div>
+    </dd>
+  </dl>
+
+
+  <dl class="typelist inheritedMembers">
+    <dt>Inherited Members</dt>
+    <dd>
+    <div>
+      <a class="xref" href="ProEdit.FlowDocument.FlowElement.html#ProEdit_FlowDocument_FlowElement_ParentProperty">FlowElement.ParentProperty</a>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.CheckAccess()</span>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.VerifyAccess()</span>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.ClearValue(AvaloniaProperty)</span>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.ClearValue&lt;T&gt;(AvaloniaProperty&lt;T&gt;)</span>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.ClearValue&lt;T&gt;(StyledProperty&lt;T&gt;)</span>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.ClearValue&lt;T&gt;(DirectPropertyBase&lt;T&gt;)</span>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object">AvaloniaObject.Equals(object)</a>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.GetHashCode()</span>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.GetValue(AvaloniaProperty)</span>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.GetValue&lt;T&gt;(StyledProperty&lt;T&gt;)</span>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.GetValue&lt;T&gt;(DirectPropertyBase&lt;T&gt;)</span>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.GetBaseValue&lt;T&gt;(StyledProperty&lt;T&gt;)</span>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.IsAnimating(AvaloniaProperty)</span>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.IsSet(AvaloniaProperty)</span>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object">AvaloniaObject.SetValue(AvaloniaProperty, object, BindingPriority)</a>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.SetValue&lt;T&gt;(StyledProperty&lt;T&gt;, T, BindingPriority)</span>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.SetValue&lt;T&gt;(DirectPropertyBase&lt;T&gt;, T)</span>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object">AvaloniaObject.SetCurrentValue(AvaloniaProperty, object)</a>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.SetCurrentValue&lt;T&gt;(StyledProperty&lt;T&gt;, T)</span>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.Bind(AvaloniaProperty, IBinding)</span>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.iobservable-1">AvaloniaObject.Bind(AvaloniaProperty, IObservable&lt;object&gt;, BindingPriority)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.iobservable-1">AvaloniaObject.Bind&lt;T&gt;(StyledProperty&lt;T&gt;, IObservable&lt;object&gt;, BindingPriority)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.iobservable-1">AvaloniaObject.Bind&lt;T&gt;(StyledProperty&lt;T&gt;, IObservable&lt;T&gt;, BindingPriority)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.iobservable-1">AvaloniaObject.Bind&lt;T&gt;(StyledProperty&lt;T&gt;, IObservable&lt;BindingValue&lt;T&gt;&gt;, BindingPriority)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.iobservable-1">AvaloniaObject.Bind&lt;T&gt;(DirectPropertyBase&lt;T&gt;, IObservable&lt;object&gt;)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.iobservable-1">AvaloniaObject.Bind&lt;T&gt;(DirectPropertyBase&lt;T&gt;, IObservable&lt;T&gt;)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.iobservable-1">AvaloniaObject.Bind&lt;T&gt;(DirectPropertyBase&lt;T&gt;, IObservable&lt;BindingValue&lt;T&gt;&gt;)</a>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.CoerceValue(AvaloniaProperty)</span>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.this[AvaloniaProperty]</span>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.this[IndexerDescriptor]</span>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.PropertyChanged</span>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)">object.Equals(object, object)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.gettype">object.GetType()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.referenceequals">object.ReferenceEquals(object, object)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.tostring">object.ToString()</a>
+    </div>
+  </dd></dl>
+
+
+
+
+
+
+  <h2 class="section" id="constructors">Constructors
+</h2>
+
+
+  <a id="ProEdit_FlowDocument_FlowDocument__ctor_" data-uid="ProEdit.FlowDocument.FlowDocument.#ctor*"></a>
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument__ctor" data-uid="ProEdit.FlowDocument.FlowDocument.#ctor">
+  FlowDocument()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L450"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Initializes a new instance of the <a class="xref" href="ProEdit.FlowDocument.FlowDocument.html">FlowDocument</a> class.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public FlowDocument()</code></pre>
+  </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <h2 class="section" id="fields">Fields
+</h2>
+
+
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument_BackgroundProperty" data-uid="ProEdit.FlowDocument.FlowDocument.BackgroundProperty">
+  BackgroundProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L55"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Identifies the <a class="xref" href="ProEdit.FlowDocument.FlowDocument.html#ProEdit_FlowDocument_FlowDocument_Background">Background</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly StyledProperty&lt;string?&gt; BackgroundProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">StyledProperty</span>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument_ColumnGapProperty" data-uid="ProEdit.FlowDocument.FlowDocument.ColumnGapProperty">
+  ColumnGapProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L97"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Identifies the <a class="xref" href="ProEdit.FlowDocument.FlowDocument.html#ProEdit_FlowDocument_FlowDocument_ColumnGap">ColumnGap</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly StyledProperty&lt;double?&gt; ColumnGapProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">StyledProperty</span>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.double">double</a>?&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument_ColumnRuleBrushProperty" data-uid="ProEdit.FlowDocument.FlowDocument.ColumnRuleBrushProperty">
+  ColumnRuleBrushProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L109"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Identifies the <a class="xref" href="ProEdit.FlowDocument.FlowDocument.html#ProEdit_FlowDocument_FlowDocument_ColumnRuleBrush">ColumnRuleBrush</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly StyledProperty&lt;string?&gt; ColumnRuleBrushProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">StyledProperty</span>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument_ColumnRuleWidthProperty" data-uid="ProEdit.FlowDocument.FlowDocument.ColumnRuleWidthProperty">
+  ColumnRuleWidthProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L115"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Identifies the <a class="xref" href="ProEdit.FlowDocument.FlowDocument.html#ProEdit_FlowDocument_FlowDocument_ColumnRuleWidth">ColumnRuleWidth</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly StyledProperty&lt;double?&gt; ColumnRuleWidthProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">StyledProperty</span>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.double">double</a>?&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument_ColumnWidthProperty" data-uid="ProEdit.FlowDocument.FlowDocument.ColumnWidthProperty">
+  ColumnWidthProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L91"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Identifies the <a class="xref" href="ProEdit.FlowDocument.FlowDocument.html#ProEdit_FlowDocument_FlowDocument_ColumnWidth">ColumnWidth</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly StyledProperty&lt;double?&gt; ColumnWidthProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">StyledProperty</span>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.double">double</a>?&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument_FlowDirectionProperty" data-uid="ProEdit.FlowDocument.FlowDocument.FlowDirectionProperty">
+  FlowDirectionProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L121"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Identifies the <a class="xref" href="ProEdit.FlowDocument.FlowDocument.html#ProEdit_FlowDocument_FlowDocument_FlowDirection">FlowDirection</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly StyledProperty&lt;string?&gt; FlowDirectionProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">StyledProperty</span>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument_FontFamilyProperty" data-uid="ProEdit.FlowDocument.FlowDocument.FontFamilyProperty">
+  FontFamilyProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L19"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Identifies the <a class="xref" href="ProEdit.FlowDocument.FlowDocument.html#ProEdit_FlowDocument_FlowDocument_FontFamily">FontFamily</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly StyledProperty&lt;string?&gt; FontFamilyProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">StyledProperty</span>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument_FontSizeProperty" data-uid="ProEdit.FlowDocument.FlowDocument.FontSizeProperty">
+  FontSizeProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L25"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Identifies the <a class="xref" href="ProEdit.FlowDocument.FlowDocument.html#ProEdit_FlowDocument_FlowDocument_FontSize">FontSize</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly StyledProperty&lt;double?&gt; FontSizeProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">StyledProperty</span>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.double">double</a>?&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument_FontStretchProperty" data-uid="ProEdit.FlowDocument.FlowDocument.FontStretchProperty">
+  FontStretchProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L43"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Identifies the <a class="xref" href="ProEdit.FlowDocument.FlowDocument.html#ProEdit_FlowDocument_FlowDocument_FontStretch">FontStretch</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly StyledProperty&lt;string?&gt; FontStretchProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">StyledProperty</span>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument_FontStyleProperty" data-uid="ProEdit.FlowDocument.FlowDocument.FontStyleProperty">
+  FontStyleProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L37"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Identifies the <a class="xref" href="ProEdit.FlowDocument.FlowDocument.html#ProEdit_FlowDocument_FlowDocument_FontStyle">FontStyle</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly StyledProperty&lt;FlowFontStyle?&gt; FontStyleProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">StyledProperty</span>&lt;<a class="xref" href="ProEdit.FlowDocument.FlowFontStyle.html">FlowFontStyle</a>?&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument_FontWeightProperty" data-uid="ProEdit.FlowDocument.FlowDocument.FontWeightProperty">
+  FontWeightProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L31"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Identifies the <a class="xref" href="ProEdit.FlowDocument.FlowDocument.html#ProEdit_FlowDocument_FlowDocument_FontWeight">FontWeight</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly StyledProperty&lt;FlowFontWeight?&gt; FontWeightProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">StyledProperty</span>&lt;<a class="xref" href="ProEdit.FlowDocument.FlowFontWeight.html">FlowFontWeight</a>?&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument_ForegroundProperty" data-uid="ProEdit.FlowDocument.FlowDocument.ForegroundProperty">
+  ForegroundProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L49"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Identifies the <a class="xref" href="ProEdit.FlowDocument.FlowDocument.html#ProEdit_FlowDocument_FlowDocument_Foreground">Foreground</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly StyledProperty&lt;string?&gt; ForegroundProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">StyledProperty</span>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument_IsColumnWidthFlexibleProperty" data-uid="ProEdit.FlowDocument.FlowDocument.IsColumnWidthFlexibleProperty">
+  IsColumnWidthFlexibleProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L127"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Identifies the <a class="xref" href="ProEdit.FlowDocument.FlowDocument.html#ProEdit_FlowDocument_FlowDocument_IsColumnWidthFlexible">IsColumnWidthFlexible</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly StyledProperty&lt;bool?&gt; IsColumnWidthFlexibleProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">StyledProperty</span>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a>?&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument_IsHyphenationEnabledProperty" data-uid="ProEdit.FlowDocument.FlowDocument.IsHyphenationEnabledProperty">
+  IsHyphenationEnabledProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L133"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Identifies the <a class="xref" href="ProEdit.FlowDocument.FlowDocument.html#ProEdit_FlowDocument_FlowDocument_IsHyphenationEnabled">IsHyphenationEnabled</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly StyledProperty&lt;bool?&gt; IsHyphenationEnabledProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">StyledProperty</span>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a>?&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument_IsOptimalParagraphEnabledProperty" data-uid="ProEdit.FlowDocument.FlowDocument.IsOptimalParagraphEnabledProperty">
+  IsOptimalParagraphEnabledProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L139"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Identifies the <a class="xref" href="ProEdit.FlowDocument.FlowDocument.html#ProEdit_FlowDocument_FlowDocument_IsOptimalParagraphEnabled">IsOptimalParagraphEnabled</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly StyledProperty&lt;bool?&gt; IsOptimalParagraphEnabledProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">StyledProperty</span>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a>?&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument_LineHeightProperty" data-uid="ProEdit.FlowDocument.FlowDocument.LineHeightProperty">
+  LineHeightProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L145"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Identifies the <a class="xref" href="ProEdit.FlowDocument.FlowDocument.html#ProEdit_FlowDocument_FlowDocument_LineHeight">LineHeight</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly StyledProperty&lt;double?&gt; LineHeightProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">StyledProperty</span>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.double">double</a>?&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument_LineStackingStrategyProperty" data-uid="ProEdit.FlowDocument.FlowDocument.LineStackingStrategyProperty">
+  LineStackingStrategyProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L151"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Identifies the <a class="xref" href="ProEdit.FlowDocument.FlowDocument.html#ProEdit_FlowDocument_FlowDocument_LineStackingStrategy">LineStackingStrategy</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly StyledProperty&lt;string?&gt; LineStackingStrategyProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">StyledProperty</span>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument_MaxPageHeightProperty" data-uid="ProEdit.FlowDocument.FlowDocument.MaxPageHeightProperty">
+  MaxPageHeightProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L157"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Identifies the <a class="xref" href="ProEdit.FlowDocument.FlowDocument.html#ProEdit_FlowDocument_FlowDocument_MaxPageHeight">MaxPageHeight</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly StyledProperty&lt;double?&gt; MaxPageHeightProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">StyledProperty</span>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.double">double</a>?&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument_MaxPageWidthProperty" data-uid="ProEdit.FlowDocument.FlowDocument.MaxPageWidthProperty">
+  MaxPageWidthProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L163"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Identifies the <a class="xref" href="ProEdit.FlowDocument.FlowDocument.html#ProEdit_FlowDocument_FlowDocument_MaxPageWidth">MaxPageWidth</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly StyledProperty&lt;double?&gt; MaxPageWidthProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">StyledProperty</span>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.double">double</a>?&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument_MinPageHeightProperty" data-uid="ProEdit.FlowDocument.FlowDocument.MinPageHeightProperty">
+  MinPageHeightProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L169"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Identifies the <a class="xref" href="ProEdit.FlowDocument.FlowDocument.html#ProEdit_FlowDocument_FlowDocument_MinPageHeight">MinPageHeight</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly StyledProperty&lt;double?&gt; MinPageHeightProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">StyledProperty</span>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.double">double</a>?&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument_MinPageWidthProperty" data-uid="ProEdit.FlowDocument.FlowDocument.MinPageWidthProperty">
+  MinPageWidthProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L175"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Identifies the <a class="xref" href="ProEdit.FlowDocument.FlowDocument.html#ProEdit_FlowDocument_FlowDocument_MinPageWidth">MinPageWidth</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly StyledProperty&lt;double?&gt; MinPageWidthProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">StyledProperty</span>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.double">double</a>?&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument_PageHeightProperty" data-uid="ProEdit.FlowDocument.FlowDocument.PageHeightProperty">
+  PageHeightProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L79"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Identifies the <a class="xref" href="ProEdit.FlowDocument.FlowDocument.html#ProEdit_FlowDocument_FlowDocument_PageHeight">PageHeight</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly StyledProperty&lt;double?&gt; PageHeightProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">StyledProperty</span>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.double">double</a>?&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument_PagePaddingProperty" data-uid="ProEdit.FlowDocument.FlowDocument.PagePaddingProperty">
+  PagePaddingProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L85"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Identifies the <a class="xref" href="ProEdit.FlowDocument.FlowDocument.html#ProEdit_FlowDocument_FlowDocument_PagePadding">PagePadding</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly StyledProperty&lt;FlowThickness&gt; PagePaddingProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">StyledProperty</span>&lt;<a class="xref" href="ProEdit.FlowDocument.FlowThickness.html">FlowThickness</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument_PageWidthProperty" data-uid="ProEdit.FlowDocument.FlowDocument.PageWidthProperty">
+  PageWidthProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L73"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Identifies the <a class="xref" href="ProEdit.FlowDocument.FlowDocument.html#ProEdit_FlowDocument_FlowDocument_PageWidth">PageWidth</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly StyledProperty&lt;double?&gt; PageWidthProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">StyledProperty</span>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.double">double</a>?&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument_TextAlignmentProperty" data-uid="ProEdit.FlowDocument.FlowDocument.TextAlignmentProperty">
+  TextAlignmentProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L103"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Identifies the <a class="xref" href="ProEdit.FlowDocument.FlowDocument.html#ProEdit_FlowDocument_FlowDocument_TextAlignment">TextAlignment</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly StyledProperty&lt;FlowTextAlignment?&gt; TextAlignmentProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">StyledProperty</span>&lt;<a class="xref" href="ProEdit.FlowDocument.FlowTextAlignment.html">FlowTextAlignment</a>?&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument_TextEffectsProperty" data-uid="ProEdit.FlowDocument.FlowDocument.TextEffectsProperty">
+  TextEffectsProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L61"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Identifies the <a class="xref" href="ProEdit.FlowDocument.FlowDocument.html#ProEdit_FlowDocument_FlowDocument_TextEffects">TextEffects</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly StyledProperty&lt;object?&gt; TextEffectsProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">StyledProperty</span>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object">object</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument_TypographyProperty" data-uid="ProEdit.FlowDocument.FlowDocument.TypographyProperty">
+  TypographyProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L67"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Identifies the <a class="xref" href="ProEdit.FlowDocument.FlowDocument.html#ProEdit_FlowDocument_FlowDocument_Typography">Typography</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly StyledProperty&lt;object?&gt; TypographyProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">StyledProperty</span>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object">object</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+  <h2 class="section" id="properties">Properties
+</h2>
+
+
+  <a id="ProEdit_FlowDocument_FlowDocument_Background_" data-uid="ProEdit.FlowDocument.FlowDocument.Background*"></a>
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument_Background" data-uid="ProEdit.FlowDocument.FlowDocument.Background">
+  Background
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L261"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets background color metadata.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public string? Background { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_FlowDocument_FlowDocument_Blocks_" data-uid="ProEdit.FlowDocument.FlowDocument.Blocks*"></a>
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument_Blocks" data-uid="ProEdit.FlowDocument.FlowDocument.Blocks">
+  Blocks
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L186"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets the collection of top-level blocks.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">[Content]
+public BlockCollection Blocks { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.FlowDocument.BlockCollection.html">BlockCollection</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_FlowDocument_FlowDocument_ColumnGap_" data-uid="ProEdit.FlowDocument.FlowDocument.ColumnGap*"></a>
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument_ColumnGap" data-uid="ProEdit.FlowDocument.FlowDocument.ColumnGap">
+  ColumnGap
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L324"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets the gap between columns.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public double? ColumnGap { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.double">double</a>?</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_FlowDocument_FlowDocument_ColumnRuleBrush_" data-uid="ProEdit.FlowDocument.FlowDocument.ColumnRuleBrush*"></a>
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument_ColumnRuleBrush" data-uid="ProEdit.FlowDocument.FlowDocument.ColumnRuleBrush">
+  ColumnRuleBrush
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L342"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets the column rule brush.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public string? ColumnRuleBrush { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_FlowDocument_FlowDocument_ColumnRuleWidth_" data-uid="ProEdit.FlowDocument.FlowDocument.ColumnRuleWidth*"></a>
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument_ColumnRuleWidth" data-uid="ProEdit.FlowDocument.FlowDocument.ColumnRuleWidth">
+  ColumnRuleWidth
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L351"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets the column rule width.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public double? ColumnRuleWidth { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.double">double</a>?</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_FlowDocument_FlowDocument_ColumnWidth_" data-uid="ProEdit.FlowDocument.FlowDocument.ColumnWidth*"></a>
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument_ColumnWidth" data-uid="ProEdit.FlowDocument.FlowDocument.ColumnWidth">
+  ColumnWidth
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L315"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets the preferred column width.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public double? ColumnWidth { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.double">double</a>?</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_FlowDocument_FlowDocument_ContentEnd_" data-uid="ProEdit.FlowDocument.FlowDocument.ContentEnd*"></a>
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument_ContentEnd" data-uid="ProEdit.FlowDocument.FlowDocument.ContentEnd">
+  ContentEnd
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L197"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets a token representing the document content end.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public object ContentEnd { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object">object</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_FlowDocument_FlowDocument_ContentStart_" data-uid="ProEdit.FlowDocument.FlowDocument.ContentStart*"></a>
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument_ContentStart" data-uid="ProEdit.FlowDocument.FlowDocument.ContentStart">
+  ContentStart
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L192"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets a token representing the document content start.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public object ContentStart { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object">object</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_FlowDocument_FlowDocument_FlowDirection_" data-uid="ProEdit.FlowDocument.FlowDocument.FlowDirection*"></a>
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument_FlowDirection" data-uid="ProEdit.FlowDocument.FlowDocument.FlowDirection">
+  FlowDirection
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L360"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets flow direction.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public string? FlowDirection { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_FlowDocument_FlowDocument_FontFamily_" data-uid="ProEdit.FlowDocument.FlowDocument.FontFamily*"></a>
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument_FontFamily" data-uid="ProEdit.FlowDocument.FlowDocument.FontFamily">
+  FontFamily
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L207"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets the font family name.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public string? FontFamily { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_FlowDocument_FlowDocument_FontSize_" data-uid="ProEdit.FlowDocument.FlowDocument.FontSize*"></a>
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument_FontSize" data-uid="ProEdit.FlowDocument.FlowDocument.FontSize">
+  FontSize
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L216"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets font size in points.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public double? FontSize { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.double">double</a>?</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_FlowDocument_FlowDocument_FontStretch_" data-uid="ProEdit.FlowDocument.FlowDocument.FontStretch*"></a>
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument_FontStretch" data-uid="ProEdit.FlowDocument.FlowDocument.FontStretch">
+  FontStretch
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L243"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets font stretch metadata.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public string? FontStretch { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_FlowDocument_FlowDocument_FontStyle_" data-uid="ProEdit.FlowDocument.FlowDocument.FontStyle*"></a>
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument_FontStyle" data-uid="ProEdit.FlowDocument.FlowDocument.FontStyle">
+  FontStyle
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L234"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets font style metadata.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public FlowFontStyle? FontStyle { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.FlowDocument.FlowFontStyle.html">FlowFontStyle</a>?</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_FlowDocument_FlowDocument_FontWeight_" data-uid="ProEdit.FlowDocument.FlowDocument.FontWeight*"></a>
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument_FontWeight" data-uid="ProEdit.FlowDocument.FlowDocument.FontWeight">
+  FontWeight
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L225"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets font weight metadata.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public FlowFontWeight? FontWeight { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.FlowDocument.FlowFontWeight.html">FlowFontWeight</a>?</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_FlowDocument_FlowDocument_Foreground_" data-uid="ProEdit.FlowDocument.FlowDocument.Foreground*"></a>
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument_Foreground" data-uid="ProEdit.FlowDocument.FlowDocument.Foreground">
+  Foreground
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L252"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets foreground color metadata.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public string? Foreground { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_FlowDocument_FlowDocument_IsColumnWidthFlexible_" data-uid="ProEdit.FlowDocument.FlowDocument.IsColumnWidthFlexible*"></a>
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument_IsColumnWidthFlexible" data-uid="ProEdit.FlowDocument.FlowDocument.IsColumnWidthFlexible">
+  IsColumnWidthFlexible
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L369"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets whether column width is flexible.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool? IsColumnWidthFlexible { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a>?</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_FlowDocument_FlowDocument_IsHyphenationEnabled_" data-uid="ProEdit.FlowDocument.FlowDocument.IsHyphenationEnabled*"></a>
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument_IsHyphenationEnabled" data-uid="ProEdit.FlowDocument.FlowDocument.IsHyphenationEnabled">
+  IsHyphenationEnabled
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L378"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets whether hyphenation is enabled.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool? IsHyphenationEnabled { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a>?</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_FlowDocument_FlowDocument_IsOptimalParagraphEnabled_" data-uid="ProEdit.FlowDocument.FlowDocument.IsOptimalParagraphEnabled*"></a>
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument_IsOptimalParagraphEnabled" data-uid="ProEdit.FlowDocument.FlowDocument.IsOptimalParagraphEnabled">
+  IsOptimalParagraphEnabled
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L387"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets whether optimal paragraph layout is enabled.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool? IsOptimalParagraphEnabled { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a>?</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_FlowDocument_FlowDocument_LineHeight_" data-uid="ProEdit.FlowDocument.FlowDocument.LineHeight*"></a>
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument_LineHeight" data-uid="ProEdit.FlowDocument.FlowDocument.LineHeight">
+  LineHeight
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L396"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets default line height.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public double? LineHeight { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.double">double</a>?</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_FlowDocument_FlowDocument_LineStackingStrategy_" data-uid="ProEdit.FlowDocument.FlowDocument.LineStackingStrategy*"></a>
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument_LineStackingStrategy" data-uid="ProEdit.FlowDocument.FlowDocument.LineStackingStrategy">
+  LineStackingStrategy
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L405"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets line stacking strategy metadata.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public string? LineStackingStrategy { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_FlowDocument_FlowDocument_MaxPageHeight_" data-uid="ProEdit.FlowDocument.FlowDocument.MaxPageHeight*"></a>
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument_MaxPageHeight" data-uid="ProEdit.FlowDocument.FlowDocument.MaxPageHeight">
+  MaxPageHeight
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L414"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets the maximum page height.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public double? MaxPageHeight { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.double">double</a>?</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_FlowDocument_FlowDocument_MaxPageWidth_" data-uid="ProEdit.FlowDocument.FlowDocument.MaxPageWidth*"></a>
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument_MaxPageWidth" data-uid="ProEdit.FlowDocument.FlowDocument.MaxPageWidth">
+  MaxPageWidth
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L423"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets the maximum page width.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public double? MaxPageWidth { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.double">double</a>?</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_FlowDocument_FlowDocument_MinPageHeight_" data-uid="ProEdit.FlowDocument.FlowDocument.MinPageHeight*"></a>
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument_MinPageHeight" data-uid="ProEdit.FlowDocument.FlowDocument.MinPageHeight">
+  MinPageHeight
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L432"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets the minimum page height.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public double? MinPageHeight { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.double">double</a>?</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_FlowDocument_FlowDocument_MinPageWidth_" data-uid="ProEdit.FlowDocument.FlowDocument.MinPageWidth*"></a>
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument_MinPageWidth" data-uid="ProEdit.FlowDocument.FlowDocument.MinPageWidth">
+  MinPageWidth
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L441"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets the minimum page width.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public double? MinPageWidth { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.double">double</a>?</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_FlowDocument_FlowDocument_PageHeight_" data-uid="ProEdit.FlowDocument.FlowDocument.PageHeight*"></a>
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument_PageHeight" data-uid="ProEdit.FlowDocument.FlowDocument.PageHeight">
+  PageHeight
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L297"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets the page height in points.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public double? PageHeight { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.double">double</a>?</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_FlowDocument_FlowDocument_PagePadding_" data-uid="ProEdit.FlowDocument.FlowDocument.PagePadding*"></a>
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument_PagePadding" data-uid="ProEdit.FlowDocument.FlowDocument.PagePadding">
+  PagePadding
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L306"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets the page padding.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public FlowThickness PagePadding { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.FlowDocument.FlowThickness.html">FlowThickness</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_FlowDocument_FlowDocument_PageWidth_" data-uid="ProEdit.FlowDocument.FlowDocument.PageWidth*"></a>
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument_PageWidth" data-uid="ProEdit.FlowDocument.FlowDocument.PageWidth">
+  PageWidth
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L288"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets the page width in points.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public double? PageWidth { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.double">double</a>?</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_FlowDocument_FlowDocument_TextAlignment_" data-uid="ProEdit.FlowDocument.FlowDocument.TextAlignment*"></a>
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument_TextAlignment" data-uid="ProEdit.FlowDocument.FlowDocument.TextAlignment">
+  TextAlignment
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L333"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets the default text alignment for the document.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public FlowTextAlignment? TextAlignment { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.FlowDocument.FlowTextAlignment.html">FlowTextAlignment</a>?</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_FlowDocument_FlowDocument_TextEffects_" data-uid="ProEdit.FlowDocument.FlowDocument.TextEffects*"></a>
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument_TextEffects" data-uid="ProEdit.FlowDocument.FlowDocument.TextEffects">
+  TextEffects
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L270"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets text effects metadata.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public object? TextEffects { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object">object</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_FlowDocument_FlowDocument_Typography_" data-uid="ProEdit.FlowDocument.FlowDocument.Typography*"></a>
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument_Typography" data-uid="ProEdit.FlowDocument.FlowDocument.Typography">
+  Typography
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L279"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets typography metadata.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public object? Typography { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object">object</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <h2 class="section" id="methods">Methods
+</h2>
+
+
+  <a id="ProEdit_FlowDocument_FlowDocument_OnPropertyChanged_" data-uid="ProEdit.FlowDocument.FlowDocument.OnPropertyChanged*"></a>
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument_OnPropertyChanged_Avalonia_AvaloniaPropertyChangedEventArgs_" data-uid="ProEdit.FlowDocument.FlowDocument.OnPropertyChanged(Avalonia.AvaloniaPropertyChangedEventArgs)">
+  OnPropertyChanged(AvaloniaPropertyChangedEventArgs)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L457"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Called when a avalonia property changes on the object.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>change</code> <span class="xref">AvaloniaPropertyChangedEventArgs</span></dt>
+    <dd><p>The property change details.</p>
+</dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <h2 class="section" id="events">Events
+</h2>
+
+
+
+  <h3 id="ProEdit_FlowDocument_FlowDocument_Changed" data-uid="ProEdit.FlowDocument.FlowDocument.Changed">
+  Changed
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L181"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Occurs when the document content changes.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public event EventHandler? Changed</code></pre>
+  </div>
+
+
+
+
+
+
+  <h4 class="section">Event Type</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.eventhandler">EventHandler</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/FlowDocument.cs/#L9" class="edit-link">Edit this page</a>
+        </div>
+
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          <span>Made with <a href="https://dotnet.github.io/docfx">docfx</a></span>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

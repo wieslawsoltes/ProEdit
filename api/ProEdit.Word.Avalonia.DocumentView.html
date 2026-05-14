@@ -1,0 +1,3768 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Class DocumentView | ProEdit </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Class DocumentView | ProEdit ">
+      
+      
+      <link rel="icon" href="../favicon.ico">
+      <link rel="stylesheet" href="../public/docfx.min.css">
+      <link rel="stylesheet" href="../public/main.css">
+      <meta name="docfx:navrel" content="../toc.html">
+      <meta name="docfx:tocrel" content="toc.html">
+      
+      
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/wieslawsoltes/ProEdit/new/main/apiSpec/new?filename=ProEdit_Word_Avalonia_DocumentView.md&amp;value=---%0Auid%3A%20ProEdit.Word.Avalonia.DocumentView%0Asummary%3A%20&#39;*You%20can%20override%20summary%20for%20the%20API%20here%20using%20*MARKDOWN*%20syntax&#39;%0A---%0A%0A*Please%20type%20below%20more%20information%20about%20this%20API%3A*%0A%0A">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="ManagedReference">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../index.html">
+            <img id="logo" class="svg" src="../images/logo.svg" alt="">
+            
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="ProEdit.Word.Avalonia.DocumentView">
+
+
+
+  <h1 id="ProEdit_Word_Avalonia_DocumentView" data-uid="ProEdit.Word.Avalonia.DocumentView" class="text-break">
+Class DocumentView  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L31"><i class="bi bi-code-slash"></i></a>
+  </h1>
+
+  <div class="facts text-secondary">
+    <dl><dt>Namespace</dt><dd><a class="xref" href="ProEdit.html">ProEdit</a>.<a class="xref" href="ProEdit.Word.html">Word</a>.<a class="xref" href="ProEdit.Word.Avalonia.html">Avalonia</a></dd></dl>
+  <dl><dt>Assembly</dt><dd>ProEdit.Word.Avalonia.dll</dd></dl>
+  </div>
+
+  <div class="markdown summary"></div>
+  <div class="markdown conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public sealed class DocumentView : Control, INotifyPropertyChanged, IDataContextProvider, ILogical, IThemeVariantHost, IResourceHost, IResourceNode, IStyleHost, ISetLogicalParent, ISetInheritanceParent, ISupportInitialize, IStyleable, INamed, IInputElement, IDataTemplateHost, ISetterValue, ILogicalScrollable, IScrollable</code></pre>
+  </div>
+
+
+
+
+  <dl class="typelist inheritance">
+    <dt>Inheritance</dt>
+    <dd>
+      <div><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object">object</a></div>
+      <div><span class="xref">AvaloniaObject</span></div>
+      <div><span class="xref">Animatable</span></div>
+      <div><span class="xref">StyledElement</span></div>
+      <div><span class="xref">Visual</span></div>
+      <div><span class="xref">Layoutable</span></div>
+      <div><span class="xref">Interactive</span></div>
+      <div><span class="xref">InputElement</span></div>
+      <div><span class="xref">Control</span></div>
+      <div><span class="xref">DocumentView</span></div>
+    </dd>
+  </dl>
+
+  <dl class="typelist implements">
+    <dt>Implements</dt>
+    <dd>
+      <div><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.componentmodel.inotifypropertychanged">INotifyPropertyChanged</a></div>
+      <div><span class="xref">IDataContextProvider</span></div>
+      <div><span class="xref">ILogical</span></div>
+      <div><span class="xref">IThemeVariantHost</span></div>
+      <div><span class="xref">IResourceHost</span></div>
+      <div><span class="xref">IResourceNode</span></div>
+      <div><span class="xref">IStyleHost</span></div>
+      <div><span class="xref">ISetLogicalParent</span></div>
+      <div><span class="xref">ISetInheritanceParent</span></div>
+      <div><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.componentmodel.isupportinitialize">ISupportInitialize</a></div>
+      <div><span class="xref">IStyleable</span></div>
+      <div><span class="xref">INamed</span></div>
+      <div><span class="xref">IInputElement</span></div>
+      <div><span class="xref">IDataTemplateHost</span></div>
+      <div><span class="xref">ISetterValue</span></div>
+      <div><span class="xref">ILogicalScrollable</span></div>
+      <div><span class="xref">IScrollable</span></div>
+    </dd>
+  </dl>
+
+
+  <dl class="typelist inheritedMembers">
+    <dt>Inherited Members</dt>
+    <dd>
+    <div>
+      <span class="xref">Control.FocusAdornerProperty</span>
+    </div>
+    <div>
+      <span class="xref">Control.TagProperty</span>
+    </div>
+    <div>
+      <span class="xref">Control.ContextMenuProperty</span>
+    </div>
+    <div>
+      <span class="xref">Control.ContextFlyoutProperty</span>
+    </div>
+    <div>
+      <span class="xref">Control.RequestBringIntoViewEvent</span>
+    </div>
+    <div>
+      <span class="xref">Control.ContextRequestedEvent</span>
+    </div>
+    <div>
+      <span class="xref">Control.LoadedEvent</span>
+    </div>
+    <div>
+      <span class="xref">Control.UnloadedEvent</span>
+    </div>
+    <div>
+      <span class="xref">Control.SizeChangedEvent</span>
+    </div>
+    <div>
+      <span class="xref">Control.FocusAdorner</span>
+    </div>
+    <div>
+      <span class="xref">Control.DataTemplates</span>
+    </div>
+    <div>
+      <span class="xref">Control.ContextMenu</span>
+    </div>
+    <div>
+      <span class="xref">Control.ContextFlyout</span>
+    </div>
+    <div>
+      <span class="xref">Control.IsLoaded</span>
+    </div>
+    <div>
+      <span class="xref">Control.Tag</span>
+    </div>
+    <div>
+      <span class="xref">Control.ContextRequested</span>
+    </div>
+    <div>
+      <span class="xref">Control.Loaded</span>
+    </div>
+    <div>
+      <span class="xref">Control.Unloaded</span>
+    </div>
+    <div>
+      <span class="xref">Control.SizeChanged</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.FocusableProperty</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.IsEnabledProperty</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.IsEffectivelyEnabledProperty</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.CursorProperty</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.IsKeyboardFocusWithinProperty</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.IsFocusedProperty</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.IsHitTestVisibleProperty</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.IsPointerOverProperty</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.IsTabStopProperty</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.GotFocusEvent</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.LostFocusEvent</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.KeyDownEvent</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.KeyUpEvent</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.TabIndexProperty</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.TextInputEvent</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.TextInputMethodClientRequestedEvent</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.PointerEnteredEvent</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.PointerExitedEvent</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.PointerMovedEvent</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.PointerPressedEvent</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.PointerReleasedEvent</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.PointerCaptureLostEvent</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.PointerWheelChangedEvent</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.TappedEvent</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.HoldingEvent</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.DoubleTappedEvent</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.Focus(NavigationMethod, KeyModifiers)</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.Focusable</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.IsEnabled</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.Cursor</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.IsKeyboardFocusWithin</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.IsFocused</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.IsHitTestVisible</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.IsPointerOver</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.IsTabStop</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.IsEffectivelyEnabled</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.TabIndex</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.KeyBindings</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.GestureRecognizers</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.GotFocus</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.LostFocus</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.KeyDown</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.KeyUp</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.TextInput</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.TextInputMethodClientRequested</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.PointerEntered</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.PointerExited</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.PointerMoved</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.PointerPressed</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.PointerReleased</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.PointerCaptureLost</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.PointerWheelChanged</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.Tapped</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.Holding</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.DoubleTapped</span>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.delegate">Interactive.AddHandler(RoutedEvent, Delegate, RoutingStrategies, bool)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.eventhandler-1">Interactive.AddHandler&lt;TEventArgs&gt;(RoutedEvent&lt;TEventArgs&gt;, EventHandler&lt;TEventArgs&gt;, RoutingStrategies, bool)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.delegate">Interactive.RemoveHandler(RoutedEvent, Delegate)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.eventhandler-1">Interactive.RemoveHandler&lt;TEventArgs&gt;(RoutedEvent&lt;TEventArgs&gt;, EventHandler&lt;TEventArgs&gt;)</a>
+    </div>
+    <div>
+      <span class="xref">Interactive.RaiseEvent(RoutedEventArgs)</span>
+    </div>
+    <div>
+      <span class="xref">Layoutable.DesiredSizeProperty</span>
+    </div>
+    <div>
+      <span class="xref">Layoutable.WidthProperty</span>
+    </div>
+    <div>
+      <span class="xref">Layoutable.HeightProperty</span>
+    </div>
+    <div>
+      <span class="xref">Layoutable.MinWidthProperty</span>
+    </div>
+    <div>
+      <span class="xref">Layoutable.MaxWidthProperty</span>
+    </div>
+    <div>
+      <span class="xref">Layoutable.MinHeightProperty</span>
+    </div>
+    <div>
+      <span class="xref">Layoutable.MaxHeightProperty</span>
+    </div>
+    <div>
+      <span class="xref">Layoutable.MarginProperty</span>
+    </div>
+    <div>
+      <span class="xref">Layoutable.HorizontalAlignmentProperty</span>
+    </div>
+    <div>
+      <span class="xref">Layoutable.VerticalAlignmentProperty</span>
+    </div>
+    <div>
+      <span class="xref">Layoutable.UseLayoutRoundingProperty</span>
+    </div>
+    <div>
+      <span class="xref">Layoutable.UpdateLayout()</span>
+    </div>
+    <div>
+      <span class="xref">Layoutable.ApplyTemplate()</span>
+    </div>
+    <div>
+      <span class="xref">Layoutable.Measure(Size)</span>
+    </div>
+    <div>
+      <span class="xref">Layoutable.Arrange(Rect)</span>
+    </div>
+    <div>
+      <span class="xref">Layoutable.InvalidateMeasure()</span>
+    </div>
+    <div>
+      <span class="xref">Layoutable.InvalidateArrange()</span>
+    </div>
+    <div>
+      <span class="xref">Layoutable.Width</span>
+    </div>
+    <div>
+      <span class="xref">Layoutable.Height</span>
+    </div>
+    <div>
+      <span class="xref">Layoutable.MinWidth</span>
+    </div>
+    <div>
+      <span class="xref">Layoutable.MaxWidth</span>
+    </div>
+    <div>
+      <span class="xref">Layoutable.MinHeight</span>
+    </div>
+    <div>
+      <span class="xref">Layoutable.MaxHeight</span>
+    </div>
+    <div>
+      <span class="xref">Layoutable.Margin</span>
+    </div>
+    <div>
+      <span class="xref">Layoutable.HorizontalAlignment</span>
+    </div>
+    <div>
+      <span class="xref">Layoutable.VerticalAlignment</span>
+    </div>
+    <div>
+      <span class="xref">Layoutable.DesiredSize</span>
+    </div>
+    <div>
+      <span class="xref">Layoutable.IsMeasureValid</span>
+    </div>
+    <div>
+      <span class="xref">Layoutable.IsArrangeValid</span>
+    </div>
+    <div>
+      <span class="xref">Layoutable.UseLayoutRounding</span>
+    </div>
+    <div>
+      <span class="xref">Layoutable.EffectiveViewportChanged</span>
+    </div>
+    <div>
+      <span class="xref">Layoutable.LayoutUpdated</span>
+    </div>
+    <div>
+      <span class="xref">Visual.BoundsProperty</span>
+    </div>
+    <div>
+      <span class="xref">Visual.ClipToBoundsProperty</span>
+    </div>
+    <div>
+      <span class="xref">Visual.ClipProperty</span>
+    </div>
+    <div>
+      <span class="xref">Visual.IsVisibleProperty</span>
+    </div>
+    <div>
+      <span class="xref">Visual.OpacityProperty</span>
+    </div>
+    <div>
+      <span class="xref">Visual.OpacityMaskProperty</span>
+    </div>
+    <div>
+      <span class="xref">Visual.EffectProperty</span>
+    </div>
+    <div>
+      <span class="xref">Visual.HasMirrorTransformProperty</span>
+    </div>
+    <div>
+      <span class="xref">Visual.RenderTransformProperty</span>
+    </div>
+    <div>
+      <span class="xref">Visual.RenderTransformOriginProperty</span>
+    </div>
+    <div>
+      <span class="xref">Visual.FlowDirectionProperty</span>
+    </div>
+    <div>
+      <span class="xref">Visual.VisualParentProperty</span>
+    </div>
+    <div>
+      <span class="xref">Visual.ZIndexProperty</span>
+    </div>
+    <div>
+      <span class="xref">Visual.GetFlowDirection(Visual)</span>
+    </div>
+    <div>
+      <span class="xref">Visual.SetFlowDirection(Visual, FlowDirection)</span>
+    </div>
+    <div>
+      <span class="xref">Visual.InvalidateVisual()</span>
+    </div>
+    <div>
+      <span class="xref">Visual.Bounds</span>
+    </div>
+    <div>
+      <span class="xref">Visual.ClipToBounds</span>
+    </div>
+    <div>
+      <span class="xref">Visual.Clip</span>
+    </div>
+    <div>
+      <span class="xref">Visual.IsEffectivelyVisible</span>
+    </div>
+    <div>
+      <span class="xref">Visual.IsVisible</span>
+    </div>
+    <div>
+      <span class="xref">Visual.Opacity</span>
+    </div>
+    <div>
+      <span class="xref">Visual.OpacityMask</span>
+    </div>
+    <div>
+      <span class="xref">Visual.Effect</span>
+    </div>
+    <div>
+      <span class="xref">Visual.HasMirrorTransform</span>
+    </div>
+    <div>
+      <span class="xref">Visual.RenderTransform</span>
+    </div>
+    <div>
+      <span class="xref">Visual.RenderTransformOrigin</span>
+    </div>
+    <div>
+      <span class="xref">Visual.FlowDirection</span>
+    </div>
+    <div>
+      <span class="xref">Visual.ZIndex</span>
+    </div>
+    <div>
+      <span class="xref">Visual.AttachedToVisualTree</span>
+    </div>
+    <div>
+      <span class="xref">Visual.DetachedFromVisualTree</span>
+    </div>
+    <div>
+      <span class="xref">StyledElement.DataContextProperty</span>
+    </div>
+    <div>
+      <span class="xref">StyledElement.NameProperty</span>
+    </div>
+    <div>
+      <span class="xref">StyledElement.ParentProperty</span>
+    </div>
+    <div>
+      <span class="xref">StyledElement.TemplatedParentProperty</span>
+    </div>
+    <div>
+      <span class="xref">StyledElement.ThemeProperty</span>
+    </div>
+    <div>
+      <span class="xref">StyledElement.BeginInit()</span>
+    </div>
+    <div>
+      <span class="xref">StyledElement.EndInit()</span>
+    </div>
+    <div>
+      <span class="xref">StyledElement.ApplyStyling()</span>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object">StyledElement.TryGetResource(object, ThemeVariant, out object)</a>
+    </div>
+    <div>
+      <span class="xref">StyledElement.Name</span>
+    </div>
+    <div>
+      <span class="xref">StyledElement.Classes</span>
+    </div>
+    <div>
+      <span class="xref">StyledElement.DataContext</span>
+    </div>
+    <div>
+      <span class="xref">StyledElement.IsInitialized</span>
+    </div>
+    <div>
+      <span class="xref">StyledElement.Styles</span>
+    </div>
+    <div>
+      <span class="xref">StyledElement.StyleKey</span>
+    </div>
+    <div>
+      <span class="xref">StyledElement.Resources</span>
+    </div>
+    <div>
+      <span class="xref">StyledElement.TemplatedParent</span>
+    </div>
+    <div>
+      <span class="xref">StyledElement.Theme</span>
+    </div>
+    <div>
+      <span class="xref">StyledElement.Parent</span>
+    </div>
+    <div>
+      <span class="xref">StyledElement.ActualThemeVariant</span>
+    </div>
+    <div>
+      <span class="xref">StyledElement.AttachedToLogicalTree</span>
+    </div>
+    <div>
+      <span class="xref">StyledElement.DetachedFromLogicalTree</span>
+    </div>
+    <div>
+      <span class="xref">StyledElement.DataContextChanged</span>
+    </div>
+    <div>
+      <span class="xref">StyledElement.Initialized</span>
+    </div>
+    <div>
+      <span class="xref">StyledElement.ResourcesChanged</span>
+    </div>
+    <div>
+      <span class="xref">StyledElement.ActualThemeVariantChanged</span>
+    </div>
+    <div>
+      <span class="xref">Animatable.TransitionsProperty</span>
+    </div>
+    <div>
+      <span class="xref">Animatable.Transitions</span>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.CheckAccess()</span>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.VerifyAccess()</span>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.ClearValue(AvaloniaProperty)</span>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.ClearValue&lt;T&gt;(AvaloniaProperty&lt;T&gt;)</span>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.ClearValue&lt;T&gt;(StyledProperty&lt;T&gt;)</span>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.ClearValue&lt;T&gt;(DirectPropertyBase&lt;T&gt;)</span>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object">AvaloniaObject.Equals(object)</a>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.GetHashCode()</span>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.GetValue(AvaloniaProperty)</span>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.GetValue&lt;T&gt;(StyledProperty&lt;T&gt;)</span>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.GetValue&lt;T&gt;(DirectPropertyBase&lt;T&gt;)</span>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.GetBaseValue&lt;T&gt;(StyledProperty&lt;T&gt;)</span>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.IsAnimating(AvaloniaProperty)</span>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.IsSet(AvaloniaProperty)</span>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object">AvaloniaObject.SetValue(AvaloniaProperty, object, BindingPriority)</a>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.SetValue&lt;T&gt;(StyledProperty&lt;T&gt;, T, BindingPriority)</span>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.SetValue&lt;T&gt;(DirectPropertyBase&lt;T&gt;, T)</span>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object">AvaloniaObject.SetCurrentValue(AvaloniaProperty, object)</a>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.SetCurrentValue&lt;T&gt;(StyledProperty&lt;T&gt;, T)</span>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.Bind(AvaloniaProperty, IBinding)</span>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.iobservable-1">AvaloniaObject.Bind(AvaloniaProperty, IObservable&lt;object&gt;, BindingPriority)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.iobservable-1">AvaloniaObject.Bind&lt;T&gt;(StyledProperty&lt;T&gt;, IObservable&lt;object&gt;, BindingPriority)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.iobservable-1">AvaloniaObject.Bind&lt;T&gt;(StyledProperty&lt;T&gt;, IObservable&lt;T&gt;, BindingPriority)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.iobservable-1">AvaloniaObject.Bind&lt;T&gt;(StyledProperty&lt;T&gt;, IObservable&lt;BindingValue&lt;T&gt;&gt;, BindingPriority)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.iobservable-1">AvaloniaObject.Bind&lt;T&gt;(DirectPropertyBase&lt;T&gt;, IObservable&lt;object&gt;)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.iobservable-1">AvaloniaObject.Bind&lt;T&gt;(DirectPropertyBase&lt;T&gt;, IObservable&lt;T&gt;)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.iobservable-1">AvaloniaObject.Bind&lt;T&gt;(DirectPropertyBase&lt;T&gt;, IObservable&lt;BindingValue&lt;T&gt;&gt;)</a>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.CoerceValue(AvaloniaProperty)</span>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.this[AvaloniaProperty]</span>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.this[IndexerDescriptor]</span>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.PropertyChanged</span>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)">object.Equals(object, object)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.gettype">object.GetType()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.referenceequals">object.ReferenceEquals(object, object)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.tostring">object.ToString()</a>
+    </div>
+  </dd></dl>
+
+
+
+
+
+
+  <h2 class="section" id="constructors">Constructors
+</h2>
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView__ctor_" data-uid="ProEdit.Word.Avalonia.DocumentView.#ctor*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView__ctor" data-uid="ProEdit.Word.Avalonia.DocumentView.#ctor">
+  DocumentView()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L283"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public DocumentView()</code></pre>
+  </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <h2 class="section" id="fields">Fields
+</h2>
+
+
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_SurfaceColorProperty" data-uid="ProEdit.Word.Avalonia.DocumentView.SurfaceColorProperty">
+  SurfaceColorProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L114"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly StyledProperty&lt;Color&gt; SurfaceColorProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">StyledProperty</span>&lt;<span class="xref">Color</span>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+  <h2 class="section" id="properties">Properties
+</h2>
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_AcceptsReturn_" data-uid="ProEdit.Word.Avalonia.DocumentView.AcceptsReturn*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_AcceptsReturn" data-uid="ProEdit.Word.Avalonia.DocumentView.AcceptsReturn">
+  AcceptsReturn
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L346"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool AcceptsReturn { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_AcceptsTab_" data-uid="ProEdit.Word.Avalonia.DocumentView.AcceptsTab*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_AcceptsTab" data-uid="ProEdit.Word.Avalonia.DocumentView.AcceptsTab">
+  AcceptsTab
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L340"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool AcceptsTab { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_CanHorizontallyScroll_" data-uid="ProEdit.Word.Avalonia.DocumentView.CanHorizontallyScroll*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_CanHorizontallyScroll" data-uid="ProEdit.Word.Avalonia.DocumentView.CanHorizontallyScroll">
+  CanHorizontallyScroll
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L8284"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets a value indicating whether the content can be scrolled horizontally.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool CanHorizontallyScroll { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_CanVerticallyScroll_" data-uid="ProEdit.Word.Avalonia.DocumentView.CanVerticallyScroll*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_CanVerticallyScroll" data-uid="ProEdit.Word.Avalonia.DocumentView.CanVerticallyScroll">
+  CanVerticallyScroll
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L8290"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets a value indicating whether the content can be scrolled horizontally.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool CanVerticallyScroll { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_Caret_" data-uid="ProEdit.Word.Avalonia.DocumentView.Caret*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_Caret" data-uid="ProEdit.Word.Avalonia.DocumentView.Caret">
+  Caret
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L307"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public TextPosition Caret { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Documents.TextPosition.html">TextPosition</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_CurrentPageIndex_" data-uid="ProEdit.Word.Avalonia.DocumentView.CurrentPageIndex*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_CurrentPageIndex" data-uid="ProEdit.Word.Avalonia.DocumentView.CurrentPageIndex">
+  CurrentPageIndex
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L312"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public int CurrentPageIndex { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">int</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_Document_" data-uid="ProEdit.Word.Avalonia.DocumentView.Document*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_Document" data-uid="ProEdit.Word.Avalonia.DocumentView.Document">
+  Document
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L302"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public Document Document { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Documents.Document.html">Document</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_EffectiveScrollOffset_" data-uid="ProEdit.Word.Avalonia.DocumentView.EffectiveScrollOffset*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_EffectiveScrollOffset" data-uid="ProEdit.Word.Avalonia.DocumentView.EffectiveScrollOffset">
+  EffectiveScrollOffset
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L311"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public Vector EffectiveScrollOffset { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">Vector</span></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_Extent_" data-uid="ProEdit.Word.Avalonia.DocumentView.Extent*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_Extent" data-uid="ProEdit.Word.Avalonia.DocumentView.Extent">
+  Extent
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L8301"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets the extent of the scrollable content, in logical units</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public Size Extent { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">Size</span></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_HeaderFooterDifferentFirstPage_" data-uid="ProEdit.Word.Avalonia.DocumentView.HeaderFooterDifferentFirstPage*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_HeaderFooterDifferentFirstPage" data-uid="ProEdit.Word.Avalonia.DocumentView.HeaderFooterDifferentFirstPage">
+  HeaderFooterDifferentFirstPage
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L319"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool HeaderFooterDifferentFirstPage { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_HeaderFooterMode_" data-uid="ProEdit.Word.Avalonia.DocumentView.HeaderFooterMode*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_HeaderFooterMode" data-uid="ProEdit.Word.Avalonia.DocumentView.HeaderFooterMode">
+  HeaderFooterMode
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L316"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public HeaderFooterEditMode HeaderFooterMode { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Rendering.HeaderFooterEditMode.html">HeaderFooterEditMode</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_HeaderFooterSectionIndex_" data-uid="ProEdit.Word.Avalonia.DocumentView.HeaderFooterSectionIndex*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_HeaderFooterSectionIndex" data-uid="ProEdit.Word.Avalonia.DocumentView.HeaderFooterSectionIndex">
+  HeaderFooterSectionIndex
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L317"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public int HeaderFooterSectionIndex { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">int</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_HeaderFooterVariant_" data-uid="ProEdit.Word.Avalonia.DocumentView.HeaderFooterVariant*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_HeaderFooterVariant" data-uid="ProEdit.Word.Avalonia.DocumentView.HeaderFooterVariant">
+  HeaderFooterVariant
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L318"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public HeaderFooterVariant HeaderFooterVariant { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Editing.HeaderFooterVariant.html">HeaderFooterVariant</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_IsHeaderFooterEditing_" data-uid="ProEdit.Word.Avalonia.DocumentView.IsHeaderFooterEditing*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_IsHeaderFooterEditing" data-uid="ProEdit.Word.Avalonia.DocumentView.IsHeaderFooterEditing">
+  IsHeaderFooterEditing
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L315"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool IsHeaderFooterEditing { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_IsLogicalScrollEnabled_" data-uid="ProEdit.Word.Avalonia.DocumentView.IsLogicalScrollEnabled*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_IsLogicalScrollEnabled" data-uid="ProEdit.Word.Avalonia.DocumentView.IsLogicalScrollEnabled">
+  IsLogicalScrollEnabled
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L8296"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets a value indicating whether logical scrolling is enabled on the control.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool IsLogicalScrollEnabled { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_IsPictureCropMode_" data-uid="ProEdit.Word.Avalonia.DocumentView.IsPictureCropMode*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_IsPictureCropMode" data-uid="ProEdit.Word.Avalonia.DocumentView.IsPictureCropMode">
+  IsPictureCropMode
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L484"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool IsPictureCropMode { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_IsReadOnly_" data-uid="ProEdit.Word.Avalonia.DocumentView.IsReadOnly*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_IsReadOnly" data-uid="ProEdit.Word.Avalonia.DocumentView.IsReadOnly">
+  IsReadOnly
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L352"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool IsReadOnly { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_IsReadOnlyCaretVisible_" data-uid="ProEdit.Word.Avalonia.DocumentView.IsReadOnlyCaretVisible*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_IsReadOnlyCaretVisible" data-uid="ProEdit.Word.Avalonia.DocumentView.IsReadOnlyCaretVisible">
+  IsReadOnlyCaretVisible
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L376"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool IsReadOnlyCaretVisible { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_Layout_" data-uid="ProEdit.Word.Avalonia.DocumentView.Layout*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_Layout" data-uid="ProEdit.Word.Avalonia.DocumentView.Layout">
+  Layout
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L303"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public DocumentLayout Layout { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Layout.DocumentLayout.html">DocumentLayout</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_LayoutSettingsSnapshot_" data-uid="ProEdit.Word.Avalonia.DocumentView.LayoutSettingsSnapshot*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_LayoutSettingsSnapshot" data-uid="ProEdit.Word.Avalonia.DocumentView.LayoutSettingsSnapshot">
+  LayoutSettingsSnapshot
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L304"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public LayoutSettings LayoutSettingsSnapshot { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Layout.LayoutSettings.html">LayoutSettings</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_Offset_" data-uid="ProEdit.Word.Avalonia.DocumentView.Offset*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_Offset" data-uid="ProEdit.Word.Avalonia.DocumentView.Offset">
+  Offset
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L8304"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets the current scroll offset, in logical units.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public Vector Offset { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">Vector</span></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_PageFlow_" data-uid="ProEdit.Word.Avalonia.DocumentView.PageFlow*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_PageFlow" data-uid="ProEdit.Word.Avalonia.DocumentView.PageFlow">
+  PageFlow
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L421"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public PageFlowDirection PageFlow { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Layout.PageFlowDirection.html">PageFlowDirection</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_PageScrollSize_" data-uid="ProEdit.Word.Avalonia.DocumentView.PageScrollSize*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_PageScrollSize" data-uid="ProEdit.Word.Avalonia.DocumentView.PageScrollSize">
+  PageScrollSize
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L8299"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets the size to page by, in logical units.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public Size PageScrollSize { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">Size</span></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_ReviewMarkupMode_" data-uid="ProEdit.Word.Avalonia.DocumentView.ReviewMarkupMode*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_ReviewMarkupMode" data-uid="ProEdit.Word.Avalonia.DocumentView.ReviewMarkupMode">
+  ReviewMarkupMode
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L506"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public ReviewMarkupMode ReviewMarkupMode { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Editing.ReviewMarkupMode.html">ReviewMarkupMode</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_ScrollOffset_" data-uid="ProEdit.Word.Avalonia.DocumentView.ScrollOffset*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_ScrollOffset" data-uid="ProEdit.Word.Avalonia.DocumentView.ScrollOffset">
+  ScrollOffset
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L310"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public Vector ScrollOffset { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">Vector</span></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_ScrollSize_" data-uid="ProEdit.Word.Avalonia.DocumentView.ScrollSize*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_ScrollSize" data-uid="ProEdit.Word.Avalonia.DocumentView.ScrollSize">
+  ScrollSize
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L8298"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets the size to scroll by, in logical units.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public Size ScrollSize { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">Size</span></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_SelectedEquation_" data-uid="ProEdit.Word.Avalonia.DocumentView.SelectedEquation*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_SelectedEquation" data-uid="ProEdit.Word.Avalonia.DocumentView.SelectedEquation">
+  SelectedEquation
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L314"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public EquationInline? SelectedEquation { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Documents.EquationInline.html">EquationInline</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_Selection_" data-uid="ProEdit.Word.Avalonia.DocumentView.Selection*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_Selection" data-uid="ProEdit.Word.Avalonia.DocumentView.Selection">
+  Selection
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L305"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public TextRange Selection { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Documents.TextRange.html">TextRange</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_SelectionRanges_" data-uid="ProEdit.Word.Avalonia.DocumentView.SelectionRanges*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_SelectionRanges" data-uid="ProEdit.Word.Avalonia.DocumentView.SelectionRanges">
+  SelectionRanges
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L306"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public IReadOnlyList&lt;TextRange&gt; SelectionRanges { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;<a class="xref" href="ProEdit.Documents.TextRange.html">TextRange</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_ShowGridlines_" data-uid="ProEdit.Word.Avalonia.DocumentView.ShowGridlines*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_ShowGridlines" data-uid="ProEdit.Word.Avalonia.DocumentView.ShowGridlines">
+  ShowGridlines
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L391"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool ShowGridlines { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_ShowInvisibles_" data-uid="ProEdit.Word.Avalonia.DocumentView.ShowInvisibles*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_ShowInvisibles" data-uid="ProEdit.Word.Avalonia.DocumentView.ShowInvisibles">
+  ShowInvisibles
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L325"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool ShowInvisibles { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_ShowLayout_" data-uid="ProEdit.Word.Avalonia.DocumentView.ShowLayout*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_ShowLayout" data-uid="ProEdit.Word.Avalonia.DocumentView.ShowLayout">
+  ShowLayout
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L406"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool ShowLayout { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_SurfaceColor_" data-uid="ProEdit.Word.Avalonia.DocumentView.SurfaceColor*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_SurfaceColor" data-uid="ProEdit.Word.Avalonia.DocumentView.SurfaceColor">
+  SurfaceColor
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L296"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public Color SurfaceColor { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">Color</span></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_UseHarfBuzz_" data-uid="ProEdit.Word.Avalonia.DocumentView.UseHarfBuzz*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_UseHarfBuzz" data-uid="ProEdit.Word.Avalonia.DocumentView.UseHarfBuzz">
+  UseHarfBuzz
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L451"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool UseHarfBuzz { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_UsePagination_" data-uid="ProEdit.Word.Avalonia.DocumentView.UsePagination*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_UsePagination" data-uid="ProEdit.Word.Avalonia.DocumentView.UsePagination">
+  UsePagination
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L436"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool UsePagination { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_UsePictureCache_" data-uid="ProEdit.Word.Avalonia.DocumentView.UsePictureCache*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_UsePictureCache" data-uid="ProEdit.Word.Avalonia.DocumentView.UsePictureCache">
+  UsePictureCache
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L469"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool UsePictureCache { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_Viewport_" data-uid="ProEdit.Word.Avalonia.DocumentView.Viewport*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_Viewport" data-uid="ProEdit.Word.Avalonia.DocumentView.Viewport">
+  Viewport
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L8302"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets the size of the viewport, in logical units.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public Size Viewport { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">Size</span></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_ZoomFactor_" data-uid="ProEdit.Word.Avalonia.DocumentView.ZoomFactor*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_ZoomFactor" data-uid="ProEdit.Word.Avalonia.DocumentView.ZoomFactor">
+  ZoomFactor
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L308"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public float ZoomFactor { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_ZoomMode_" data-uid="ProEdit.Word.Avalonia.DocumentView.ZoomMode*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_ZoomMode" data-uid="ProEdit.Word.Avalonia.DocumentView.ZoomMode">
+  ZoomMode
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L309"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public DocumentZoomMode ZoomMode { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Word.Avalonia.DocumentZoomMode.html">DocumentZoomMode</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <h2 class="section" id="methods">Methods
+</h2>
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_BeginHeaderFooterEdit_" data-uid="ProEdit.Word.Avalonia.DocumentView.BeginHeaderFooterEdit*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_BeginHeaderFooterEdit_ProEdit_Rendering_HeaderFooterEditMode_" data-uid="ProEdit.Word.Avalonia.DocumentView.BeginHeaderFooterEdit(ProEdit.Rendering.HeaderFooterEditMode)">
+  BeginHeaderFooterEdit(HeaderFooterEditMode)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L6713"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void BeginHeaderFooterEdit(HeaderFooterEditMode mode)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>mode</code> <a class="xref" href="ProEdit.Rendering.HeaderFooterEditMode.html">HeaderFooterEditMode</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_BringIntoView_" data-uid="ProEdit.Word.Avalonia.DocumentView.BringIntoView*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_BringIntoView_Avalonia_Controls_Control_Avalonia_Rect_" data-uid="ProEdit.Word.Avalonia.DocumentView.BringIntoView(Avalonia.Controls.Control,Avalonia.Rect)">
+  BringIntoView(Control, Rect)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L8323"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Attempts to bring a portion of the target visual into view by scrolling the content.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool BringIntoView(Control target, Rect targetRect)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>target</code> <span class="xref">Control</span></dt>
+    <dd><p>The target visual.</p>
+</dd>
+    <dt><code>targetRect</code> <span class="xref">Rect</span></dt>
+    <dd><p>The portion of the target visual to bring into view.</p>
+</dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd><p>True if the scroll offset was changed; otherwise false.</p>
+</dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_DisableCollaboration_" data-uid="ProEdit.Word.Avalonia.DocumentView.DisableCollaboration*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_DisableCollaboration" data-uid="ProEdit.Word.Avalonia.DocumentView.DisableCollaboration">
+  DisableCollaboration()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L6379"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void DisableCollaboration()</code></pre>
+  </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_EnableCollaboration_" data-uid="ProEdit.Word.Avalonia.DocumentView.EnableCollaboration*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_EnableCollaboration_ProEdit_Collaboration_Protocol_ICollabRealtimeSession_System_Func_System_Guid_System_String__" data-uid="ProEdit.Word.Avalonia.DocumentView.EnableCollaboration(ProEdit.Collaboration.Protocol.ICollabRealtimeSession,System.Func{System.Guid,System.String})">
+  EnableCollaboration(ICollabRealtimeSession, Func&lt;Guid, string?&gt;?)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L6340"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void EnableCollaboration(ICollabRealtimeSession session, Func&lt;Guid, string?&gt;? authorResolver = null)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>session</code> <a class="xref" href="ProEdit.Collaboration.Protocol.ICollabRealtimeSession.html">ICollabRealtimeSession</a></dt>
+    <dd></dd>
+    <dt><code>authorResolver</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.func-2">Func</a>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.guid">Guid</a>, <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_EndHeaderFooterEdit_" data-uid="ProEdit.Word.Avalonia.DocumentView.EndHeaderFooterEdit*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_EndHeaderFooterEdit" data-uid="ProEdit.Word.Avalonia.DocumentView.EndHeaderFooterEdit">
+  EndHeaderFooterEdit()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L6902"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void EndHeaderFooterEdit()</code></pre>
+  </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_EndShapeTextEdit_" data-uid="ProEdit.Word.Avalonia.DocumentView.EndShapeTextEdit*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_EndShapeTextEdit" data-uid="ProEdit.Word.Avalonia.DocumentView.EndShapeTextEdit">
+  EndShapeTextEdit()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L7274"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void EndShapeTextEdit()</code></pre>
+  </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_GetControlInDirection_" data-uid="ProEdit.Word.Avalonia.DocumentView.GetControlInDirection*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_GetControlInDirection_Avalonia_Input_NavigationDirection_Avalonia_Controls_Control_" data-uid="ProEdit.Word.Avalonia.DocumentView.GetControlInDirection(Avalonia.Input.NavigationDirection,Avalonia.Controls.Control)">
+  GetControlInDirection(NavigationDirection, Control?)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L8358"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets the next control in the specified direction.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public Control? GetControlInDirection(NavigationDirection direction, Control? from)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>direction</code> <span class="xref">NavigationDirection</span></dt>
+    <dd><p>The movement direction.</p>
+</dd>
+    <dt><code>from</code> <span class="xref">Control</span></dt>
+    <dd><p>The control from which movement begins.</p>
+</dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><span class="xref">Control</span></dt>
+    <dd><p>The control.</p>
+</dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_GoToParagraph_" data-uid="ProEdit.Word.Avalonia.DocumentView.GoToParagraph*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_GoToParagraph_System_Int32_" data-uid="ProEdit.Word.Avalonia.DocumentView.GoToParagraph(System.Int32)">
+  GoToParagraph(int)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L2929"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void GoToParagraph(int paragraphIndex)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>paragraphIndex</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">int</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_GoToPosition_" data-uid="ProEdit.Word.Avalonia.DocumentView.GoToPosition*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_GoToPosition_ProEdit_Documents_TextPosition_System_Boolean_" data-uid="ProEdit.Word.Avalonia.DocumentView.GoToPosition(ProEdit.Documents.TextPosition,System.Boolean)">
+  GoToPosition(TextPosition, bool)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L2940"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void GoToPosition(TextPosition position, bool ensureVisible = true)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>position</code> <a class="xref" href="ProEdit.Documents.TextPosition.html">TextPosition</a></dt>
+    <dd></dd>
+    <dt><code>ensureVisible</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_HandleHostedTextInput_" data-uid="ProEdit.Word.Avalonia.DocumentView.HandleHostedTextInput*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_HandleHostedTextInput_System_String_" data-uid="ProEdit.Word.Avalonia.DocumentView.HandleHostedTextInput(System.String)">
+  HandleHostedTextInput(string?)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L648"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool HandleHostedTextInput(string? text)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>text</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_IsTextHitAtViewPoint_" data-uid="ProEdit.Word.Avalonia.DocumentView.IsTextHitAtViewPoint*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_IsTextHitAtViewPoint_Avalonia_Point_" data-uid="ProEdit.Word.Avalonia.DocumentView.IsTextHitAtViewPoint(Avalonia.Point)">
+  IsTextHitAtViewPoint(Point)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L2964"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool IsTextHitAtViewPoint(Point point)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>point</code> <span class="xref">Point</span></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_LoadDocument_" data-uid="ProEdit.Word.Avalonia.DocumentView.LoadDocument*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_LoadDocument_ProEdit_Documents_Document_" data-uid="ProEdit.Word.Avalonia.DocumentView.LoadDocument(ProEdit.Documents.Document)">
+  LoadDocument(Document)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L2808"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void LoadDocument(Document document)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>document</code> <a class="xref" href="ProEdit.Documents.Document.html">Document</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_LoadDocumentAsync_" data-uid="ProEdit.Word.Avalonia.DocumentView.LoadDocumentAsync*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_LoadDocumentAsync_ProEdit_Documents_Document_" data-uid="ProEdit.Word.Avalonia.DocumentView.LoadDocumentAsync(ProEdit.Documents.Document)">
+  LoadDocumentAsync(Document)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L2822"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public Task LoadDocumentAsync(Document document)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>document</code> <a class="xref" href="ProEdit.Documents.Document.html">Document</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task">Task</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_NavigateHeaderFooterSection_" data-uid="ProEdit.Word.Avalonia.DocumentView.NavigateHeaderFooterSection*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_NavigateHeaderFooterSection_System_Int32_" data-uid="ProEdit.Word.Avalonia.DocumentView.NavigateHeaderFooterSection(System.Int32)">
+  NavigateHeaderFooterSection(int)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L6832"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void NavigateHeaderFooterSection(int delta)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>delta</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">int</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_OnDetachedFromVisualTree_" data-uid="ProEdit.Word.Avalonia.DocumentView.OnDetachedFromVisualTree*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_OnDetachedFromVisualTree_Avalonia_VisualTreeAttachmentEventArgs_" data-uid="ProEdit.Word.Avalonia.DocumentView.OnDetachedFromVisualTree(Avalonia.VisualTreeAttachmentEventArgs)">
+  OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L6298"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Called when the control is removed from a rooted visual tree.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>e</code> <span class="xref">VisualTreeAttachmentEventArgs</span></dt>
+    <dd><p>The event args.</p>
+</dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_OnKeyDown_" data-uid="ProEdit.Word.Avalonia.DocumentView.OnKeyDown*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_OnKeyDown_Avalonia_Input_KeyEventArgs_" data-uid="ProEdit.Word.Avalonia.DocumentView.OnKeyDown(Avalonia.Input.KeyEventArgs)">
+  OnKeyDown(KeyEventArgs)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L690"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Invoked when an unhandled <span class="xref">Avalonia.Input.InputElement.KeyDownEvent</span> reaches an element in its
+route that is derived from this class. Implement this method to add class handling
+for this event.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">protected override void OnKeyDown(KeyEventArgs e)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>e</code> <span class="xref">KeyEventArgs</span></dt>
+    <dd><p>Data about the event.</p>
+</dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_OnPointerMoved_" data-uid="ProEdit.Word.Avalonia.DocumentView.OnPointerMoved*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_OnPointerMoved_Avalonia_Input_PointerEventArgs_" data-uid="ProEdit.Word.Avalonia.DocumentView.OnPointerMoved(Avalonia.Input.PointerEventArgs)">
+  OnPointerMoved(PointerEventArgs)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L861"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Invoked when an unhandled <span class="xref">Avalonia.Input.InputElement.PointerMovedEvent</span> reaches an element in its
+route that is derived from this class. Implement this method to add class handling
+for this event.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">protected override void OnPointerMoved(PointerEventArgs e)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>e</code> <span class="xref">PointerEventArgs</span></dt>
+    <dd><p>Data about the event.</p>
+</dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_OnPointerPressed_" data-uid="ProEdit.Word.Avalonia.DocumentView.OnPointerPressed*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_OnPointerPressed_Avalonia_Input_PointerPressedEventArgs_" data-uid="ProEdit.Word.Avalonia.DocumentView.OnPointerPressed(Avalonia.Input.PointerPressedEventArgs)">
+  OnPointerPressed(PointerPressedEventArgs)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L792"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Invoked when an unhandled <span class="xref">Avalonia.Input.InputElement.PointerPressedEvent</span> reaches an element in its
+route that is derived from this class. Implement this method to add class handling
+for this event.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">protected override void OnPointerPressed(PointerPressedEventArgs e)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>e</code> <span class="xref">PointerPressedEventArgs</span></dt>
+    <dd><p>Data about the event.</p>
+</dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_OnPointerReleased_" data-uid="ProEdit.Word.Avalonia.DocumentView.OnPointerReleased*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_OnPointerReleased_Avalonia_Input_PointerReleasedEventArgs_" data-uid="ProEdit.Word.Avalonia.DocumentView.OnPointerReleased(Avalonia.Input.PointerReleasedEventArgs)">
+  OnPointerReleased(PointerReleasedEventArgs)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L938"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Invoked when an unhandled <span class="xref">Avalonia.Input.InputElement.PointerReleasedEvent</span> reaches an element in its
+route that is derived from this class. Implement this method to add class handling
+for this event.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">protected override void OnPointerReleased(PointerReleasedEventArgs e)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>e</code> <span class="xref">PointerReleasedEventArgs</span></dt>
+    <dd><p>Data about the event.</p>
+</dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_OnPointerWheelChanged_" data-uid="ProEdit.Word.Avalonia.DocumentView.OnPointerWheelChanged*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_OnPointerWheelChanged_Avalonia_Input_PointerWheelEventArgs_" data-uid="ProEdit.Word.Avalonia.DocumentView.OnPointerWheelChanged(Avalonia.Input.PointerWheelEventArgs)">
+  OnPointerWheelChanged(PointerWheelEventArgs)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L769"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Invoked when an unhandled <span class="xref">Avalonia.Input.InputElement.PointerWheelChangedEvent</span> reaches an element in its
+route that is derived from this class. Implement this method to add class handling
+for this event.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">protected override void OnPointerWheelChanged(PointerWheelEventArgs e)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>e</code> <span class="xref">PointerWheelEventArgs</span></dt>
+    <dd><p>Data about the event.</p>
+</dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_OnPropertyChanged_" data-uid="ProEdit.Word.Avalonia.DocumentView.OnPropertyChanged*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_OnPropertyChanged_Avalonia_AvaloniaPropertyChangedEventArgs_" data-uid="ProEdit.Word.Avalonia.DocumentView.OnPropertyChanged(Avalonia.AvaloniaPropertyChangedEventArgs)">
+  OnPropertyChanged(AvaloniaPropertyChangedEventArgs)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L521"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Called when a avalonia property changes on the object.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>change</code> <span class="xref">AvaloniaPropertyChangedEventArgs</span></dt>
+    <dd><p>The property change details.</p>
+</dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_OnSizeChanged_" data-uid="ProEdit.Word.Avalonia.DocumentView.OnSizeChanged*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_OnSizeChanged_Avalonia_Controls_SizeChangedEventArgs_" data-uid="ProEdit.Word.Avalonia.DocumentView.OnSizeChanged(Avalonia.Controls.SizeChangedEventArgs)">
+  OnSizeChanged(SizeChangedEventArgs)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L560"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Raises the <span class="xref">Avalonia.Controls.Control.SizeChanged</span> event.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">protected override void OnSizeChanged(SizeChangedEventArgs e)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>e</code> <span class="xref">SizeChangedEventArgs</span></dt>
+    <dd><p>The event args.</p>
+</dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_OnTextInput_" data-uid="ProEdit.Word.Avalonia.DocumentView.OnTextInput*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_OnTextInput_Avalonia_Input_TextInputEventArgs_" data-uid="ProEdit.Word.Avalonia.DocumentView.OnTextInput(Avalonia.Input.TextInputEventArgs)">
+  OnTextInput(TextInputEventArgs)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L634"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Invoked when an unhandled <span class="xref">Avalonia.Input.InputElement.TextInputEvent</span> reaches an element in its
+route that is derived from this class. Implement this method to add class handling
+for this event.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">protected override void OnTextInput(TextInputEventArgs e)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>e</code> <span class="xref">TextInputEventArgs</span></dt>
+    <dd><p>Data about the event.</p>
+</dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_RaiseScrollInvalidated_" data-uid="ProEdit.Word.Avalonia.DocumentView.RaiseScrollInvalidated*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_RaiseScrollInvalidated_System_EventArgs_" data-uid="ProEdit.Word.Avalonia.DocumentView.RaiseScrollInvalidated(System.EventArgs)">
+  RaiseScrollInvalidated(EventArgs)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L8360"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Raises the <span class="xref">Avalonia.Controls.Primitives.ILogicalScrollable.ScrollInvalidated</span> event.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void RaiseScrollInvalidated(EventArgs e)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>e</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.eventargs">EventArgs</a></dt>
+    <dd><p>The event args.</p>
+</dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_RefreshLayout_" data-uid="ProEdit.Word.Avalonia.DocumentView.RefreshLayout*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_RefreshLayout" data-uid="ProEdit.Word.Avalonia.DocumentView.RefreshLayout">
+  RefreshLayout()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L2862"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void RefreshLayout()</code></pre>
+  </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_RegisterService_" data-uid="ProEdit.Word.Avalonia.DocumentView.RegisterService*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_RegisterService__1___0_" data-uid="ProEdit.Word.Avalonia.DocumentView.RegisterService``1(``0)">
+  RegisterService&lt;T&gt;(T)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L6426"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void RegisterService&lt;T&gt;(T service) where T : class</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>service</code> <span class="xref">T</span></dt>
+    <dd></dd>
+  </dl>
+
+
+  <h4 class="section">Type Parameters</h4>
+  <dl class="parameters">
+    <dt><code>T</code></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_Render_" data-uid="ProEdit.Word.Avalonia.DocumentView.Render*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_Render_Avalonia_Media_DrawingContext_" data-uid="ProEdit.Word.Avalonia.DocumentView.Render(Avalonia.Media.DrawingContext)">
+  Render(DrawingContext)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L2780"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Renders the visual to a <span class="xref">Avalonia.Media.DrawingContext</span>.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public override void Render(DrawingContext context)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>context</code> <span class="xref">DrawingContext</span></dt>
+    <dd><p>The drawing context.</p>
+</dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_ReplaySelectedInkAsync_" data-uid="ProEdit.Word.Avalonia.DocumentView.ReplaySelectedInkAsync*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_ReplaySelectedInkAsync" data-uid="ProEdit.Word.Avalonia.DocumentView.ReplaySelectedInkAsync">
+  ReplaySelectedInkAsync()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L3004"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public ValueTask ReplaySelectedInkAsync()</code></pre>
+  </div>
+
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.valuetask">ValueTask</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_ScrollToPage_" data-uid="ProEdit.Word.Avalonia.DocumentView.ScrollToPage*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_ScrollToPage_System_Int32_" data-uid="ProEdit.Word.Avalonia.DocumentView.ScrollToPage(System.Int32)">
+  ScrollToPage(int)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L8689"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void ScrollToPage(int pageIndex)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>pageIndex</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">int</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_SelectRange_" data-uid="ProEdit.Word.Avalonia.DocumentView.SelectRange*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_SelectRange_ProEdit_Documents_TextRange_System_Boolean_" data-uid="ProEdit.Word.Avalonia.DocumentView.SelectRange(ProEdit.Documents.TextRange,System.Boolean)">
+  SelectRange(TextRange, bool)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L2949"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void SelectRange(TextRange range, bool ensureVisible = true)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>range</code> <a class="xref" href="ProEdit.Documents.TextRange.html">TextRange</a></dt>
+    <dd></dd>
+    <dt><code>ensureVisible</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_SetCaretFromViewPoint_" data-uid="ProEdit.Word.Avalonia.DocumentView.SetCaretFromViewPoint*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_SetCaretFromViewPoint_Avalonia_Point_System_Boolean_" data-uid="ProEdit.Word.Avalonia.DocumentView.SetCaretFromViewPoint(Avalonia.Point,System.Boolean)">
+  SetCaretFromViewPoint(Point, bool)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L2958"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void SetCaretFromViewPoint(Point point, bool extendSelection = false)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>point</code> <span class="xref">Point</span></dt>
+    <dd></dd>
+    <dt><code>extendSelection</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_SetHeaderFooterDifferentFirstPage_" data-uid="ProEdit.Word.Avalonia.DocumentView.SetHeaderFooterDifferentFirstPage*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_SetHeaderFooterDifferentFirstPage_System_Boolean_" data-uid="ProEdit.Word.Avalonia.DocumentView.SetHeaderFooterDifferentFirstPage(System.Boolean)">
+  SetHeaderFooterDifferentFirstPage(bool)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L6730"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void SetHeaderFooterDifferentFirstPage(bool value)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>value</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_SetHeaderFooterDifferentOddEven_" data-uid="ProEdit.Word.Avalonia.DocumentView.SetHeaderFooterDifferentOddEven*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_SetHeaderFooterDifferentOddEven_System_Boolean_" data-uid="ProEdit.Word.Avalonia.DocumentView.SetHeaderFooterDifferentOddEven(System.Boolean)">
+  SetHeaderFooterDifferentOddEven(bool)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L6760"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void SetHeaderFooterDifferentOddEven(bool value)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>value</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_SetHeaderFooterVariant_" data-uid="ProEdit.Word.Avalonia.DocumentView.SetHeaderFooterVariant*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_SetHeaderFooterVariant_ProEdit_Editing_HeaderFooterVariant_" data-uid="ProEdit.Word.Avalonia.DocumentView.SetHeaderFooterVariant(ProEdit.Editing.HeaderFooterVariant)">
+  SetHeaderFooterVariant(HeaderFooterVariant)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L6790"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void SetHeaderFooterVariant(HeaderFooterVariant variant)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>variant</code> <a class="xref" href="ProEdit.Editing.HeaderFooterVariant.html">HeaderFooterVariant</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_SetLoading_" data-uid="ProEdit.Word.Avalonia.DocumentView.SetLoading*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_SetLoading_System_Boolean_" data-uid="ProEdit.Word.Avalonia.DocumentView.SetLoading(System.Boolean)">
+  SetLoading(bool)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L2992"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void SetLoading(bool isLoading)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>isLoading</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_SetPictureCropMode_" data-uid="ProEdit.Word.Avalonia.DocumentView.SetPictureCropMode*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_SetPictureCropMode_System_Boolean_" data-uid="ProEdit.Word.Avalonia.DocumentView.SetPictureCropMode(System.Boolean)">
+  SetPictureCropMode(bool)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L486"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void SetPictureCropMode(bool enabled)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>enabled</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_TryCreatePageThumbnail_" data-uid="ProEdit.Word.Avalonia.DocumentView.TryCreatePageThumbnail*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_TryCreatePageThumbnail_System_Int32_System_Single_System_Single_Avalonia_Media_Imaging_Bitmap__" data-uid="ProEdit.Word.Avalonia.DocumentView.TryCreatePageThumbnail(System.Int32,System.Single,System.Single,Avalonia.Media.Imaging.Bitmap@)">
+  TryCreatePageThumbnail(int, float, float, out Bitmap?)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L2867"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool TryCreatePageThumbnail(int pageIndex, float maxWidth, float maxHeight, out Bitmap? bitmap)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>pageIndex</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">int</a></dt>
+    <dd></dd>
+    <dt><code>maxWidth</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+    <dt><code>maxHeight</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+    <dt><code>bitmap</code> <span class="xref">Bitmap</span></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_TryGetService_" data-uid="ProEdit.Word.Avalonia.DocumentView.TryGetService*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_TryGetService_System_Type_System_Object__" data-uid="ProEdit.Word.Avalonia.DocumentView.TryGetService(System.Type,System.Object@)">
+  TryGetService(Type, out object?)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L6407"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool TryGetService(Type serviceType, out object? service)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>serviceType</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.type">Type</a></dt>
+    <dd></dd>
+    <dt><code>service</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object">object</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_TryGetService_" data-uid="ProEdit.Word.Avalonia.DocumentView.TryGetService*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_TryGetService__1___0__" data-uid="ProEdit.Word.Avalonia.DocumentView.TryGetService``1(``0@)">
+  TryGetService&lt;T&gt;(out T)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L6388"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool TryGetService&lt;T&gt;(out T service) where T : class</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>service</code> <span class="xref">T</span></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Type Parameters</h4>
+  <dl class="parameters">
+    <dt><code>T</code></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_UnregisterService_" data-uid="ProEdit.Word.Avalonia.DocumentView.UnregisterService*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_UnregisterService__1" data-uid="ProEdit.Word.Avalonia.DocumentView.UnregisterService``1">
+  UnregisterService&lt;T&gt;()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L6435"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool UnregisterService&lt;T&gt;() where T : class</code></pre>
+  </div>
+
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Type Parameters</h4>
+  <dl class="parameters">
+    <dt><code>T</code></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_UpdateFieldsForPrint_" data-uid="ProEdit.Word.Avalonia.DocumentView.UpdateFieldsForPrint*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_UpdateFieldsForPrint" data-uid="ProEdit.Word.Avalonia.DocumentView.UpdateFieldsForPrint">
+  UpdateFieldsForPrint()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L2857"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void UpdateFieldsForPrint()</code></pre>
+  </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_ZoomIn_" data-uid="ProEdit.Word.Avalonia.DocumentView.ZoomIn*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_ZoomIn" data-uid="ProEdit.Word.Avalonia.DocumentView.ZoomIn">
+  ZoomIn()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L8529"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void ZoomIn()</code></pre>
+  </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_ZoomOut_" data-uid="ProEdit.Word.Avalonia.DocumentView.ZoomOut*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_ZoomOut" data-uid="ProEdit.Word.Avalonia.DocumentView.ZoomOut">
+  ZoomOut()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L8534"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void ZoomOut()</code></pre>
+  </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_ZoomToDefault_" data-uid="ProEdit.Word.Avalonia.DocumentView.ZoomToDefault*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_ZoomToDefault" data-uid="ProEdit.Word.Avalonia.DocumentView.ZoomToDefault">
+  ZoomToDefault()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L8539"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void ZoomToDefault()</code></pre>
+  </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_ZoomToMultiplePages_" data-uid="ProEdit.Word.Avalonia.DocumentView.ZoomToMultiplePages*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_ZoomToMultiplePages_System_Int32_" data-uid="ProEdit.Word.Avalonia.DocumentView.ZoomToMultiplePages(System.Int32)">
+  ZoomToMultiplePages(int)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L8559"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void ZoomToMultiplePages(int pagesPerRow = 2)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>pagesPerRow</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">int</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_ZoomToPageWidth_" data-uid="ProEdit.Word.Avalonia.DocumentView.ZoomToPageWidth*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_ZoomToPageWidth" data-uid="ProEdit.Word.Avalonia.DocumentView.ZoomToPageWidth">
+  ZoomToPageWidth()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L8549"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void ZoomToPageWidth()</code></pre>
+  </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_ZoomToPercent_" data-uid="ProEdit.Word.Avalonia.DocumentView.ZoomToPercent*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_ZoomToPercent_System_Single_" data-uid="ProEdit.Word.Avalonia.DocumentView.ZoomToPercent(System.Single)">
+  ZoomToPercent(float)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L8544"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void ZoomToPercent(float percent)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>percent</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Word_Avalonia_DocumentView_ZoomToWholePage_" data-uid="ProEdit.Word.Avalonia.DocumentView.ZoomToWholePage*"></a>
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_ZoomToWholePage" data-uid="ProEdit.Word.Avalonia.DocumentView.ZoomToWholePage">
+  ZoomToWholePage()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L8554"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void ZoomToWholePage()</code></pre>
+  </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <h2 class="section" id="events">Events
+</h2>
+
+
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_EditorStateChanged" data-uid="ProEdit.Word.Avalonia.DocumentView.EditorStateChanged">
+  EditorStateChanged
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L322"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public event EventHandler? EditorStateChanged</code></pre>
+  </div>
+
+
+
+
+
+
+  <h4 class="section">Event Type</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.eventhandler">EventHandler</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_ScrollInvalidated" data-uid="ProEdit.Word.Avalonia.DocumentView.ScrollInvalidated">
+  ScrollInvalidated
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L8321"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Raised when the scroll is invalidated.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public event EventHandler? ScrollInvalidated</code></pre>
+  </div>
+
+
+
+
+
+
+  <h4 class="section">Event Type</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.eventhandler">EventHandler</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+  <h4 class="section" id="ProEdit_Word_Avalonia_DocumentView_ScrollInvalidated_remarks">Remarks</h4>
+  <div class="markdown level1 remarks"><p>This event notifies an attached <span class="xref">Avalonia.Controls.ScrollViewer</span> of a change in
+one of the scroll properties.</p>
+</div>
+
+
+
+
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_SelectedEquationChanged" data-uid="ProEdit.Word.Avalonia.DocumentView.SelectedEquationChanged">
+  SelectedEquationChanged
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L321"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public event EventHandler&lt;EquationInline?&gt;? SelectedEquationChanged</code></pre>
+  </div>
+
+
+
+
+
+
+  <h4 class="section">Event Type</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.eventhandler-1">EventHandler</a>&lt;<a class="xref" href="ProEdit.Documents.EquationInline.html">EquationInline</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_Word_Avalonia_DocumentView_ZoomChanged" data-uid="ProEdit.Word.Avalonia.DocumentView.ZoomChanged">
+  ZoomChanged
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L323"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public event EventHandler? ZoomChanged</code></pre>
+  </div>
+
+
+
+
+
+
+  <h4 class="section">Event Type</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.eventhandler">EventHandler</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Word.Avalonia/Editor/DocumentView.cs/#L31" class="edit-link">Edit this page</a>
+        </div>
+
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          <span>Made with <a href="https://dotnet.github.io/docfx">docfx</a></span>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

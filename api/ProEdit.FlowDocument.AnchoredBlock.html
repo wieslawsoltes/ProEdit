@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Class AnchoredBlock | ProEdit </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Class AnchoredBlock | ProEdit ">
+      
+      <meta name="description" content="Base type for anchored blocks such as figures and floaters.">
+      <link rel="icon" href="../favicon.ico">
+      <link rel="stylesheet" href="../public/docfx.min.css">
+      <link rel="stylesheet" href="../public/main.css">
+      <meta name="docfx:navrel" content="../toc.html">
+      <meta name="docfx:tocrel" content="toc.html">
+      
+      
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/wieslawsoltes/ProEdit/new/main/apiSpec/new?filename=ProEdit_FlowDocument_AnchoredBlock.md&amp;value=---%0Auid%3A%20ProEdit.FlowDocument.AnchoredBlock%0Asummary%3A%20&#39;*You%20can%20override%20summary%20for%20the%20API%20here%20using%20*MARKDOWN*%20syntax&#39;%0A---%0A%0A*Please%20type%20below%20more%20information%20about%20this%20API%3A*%0A%0A">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="ManagedReference">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../index.html">
+            <img id="logo" class="svg" src="../images/logo.svg" alt="">
+            
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="ProEdit.FlowDocument.AnchoredBlock">
+
+
+
+  <h1 id="ProEdit_FlowDocument_AnchoredBlock" data-uid="ProEdit.FlowDocument.AnchoredBlock" class="text-break">
+Class AnchoredBlock  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/AnchoredBlock.cs/#L9"><i class="bi bi-code-slash"></i></a>
+  </h1>
+
+  <div class="facts text-secondary">
+    <dl><dt>Namespace</dt><dd><a class="xref" href="ProEdit.html">ProEdit</a>.<a class="xref" href="ProEdit.FlowDocument.html">FlowDocument</a></dd></dl>
+  <dl><dt>Assembly</dt><dd>ProEdit.FlowDocument.dll</dd></dl>
+  </div>
+
+  <div class="markdown summary"><p>Base type for anchored blocks such as figures and floaters.</p>
+</div>
+  <div class="markdown conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public abstract class AnchoredBlock : Inline, INotifyPropertyChanged</code></pre>
+  </div>
+
+
+
+
+  <dl class="typelist inheritance">
+    <dt>Inheritance</dt>
+    <dd>
+      <div><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object">object</a></div>
+      <div><span class="xref">AvaloniaObject</span></div>
+      <div><a class="xref" href="ProEdit.FlowDocument.FlowElement.html">FlowElement</a></div>
+      <div><a class="xref" href="ProEdit.FlowDocument.TextElement.html">TextElement</a></div>
+      <div><a class="xref" href="ProEdit.FlowDocument.Inline.html">Inline</a></div>
+      <div><span class="xref">AnchoredBlock</span></div>
+    </dd>
+  </dl>
+
+  <dl class="typelist implements">
+    <dt>Implements</dt>
+    <dd>
+      <div><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.componentmodel.inotifypropertychanged">INotifyPropertyChanged</a></div>
+    </dd>
+  </dl>
+
+  <dl class="typelist derived">
+    <dt>Derived</dt>
+    <dd>
+      <div><a class="xref" href="ProEdit.FlowDocument.Figure.html">Figure</a></div>
+      <div><a class="xref" href="ProEdit.FlowDocument.Floater.html">Floater</a></div>
+    </dd>
+  </dl>
+
+  <dl class="typelist inheritedMembers">
+    <dt>Inherited Members</dt>
+    <dd>
+    <div>
+      <a class="xref" href="ProEdit.FlowDocument.Inline.html#ProEdit_FlowDocument_Inline_BaselineAlignmentProperty">Inline.BaselineAlignmentProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.FlowDocument.Inline.html#ProEdit_FlowDocument_Inline_TextDecorationsProperty">Inline.TextDecorationsProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.FlowDocument.Inline.html#ProEdit_FlowDocument_Inline_FlowDirectionProperty">Inline.FlowDirectionProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.FlowDocument.Inline.html#ProEdit_FlowDocument_Inline_BaselineAlignment">Inline.BaselineAlignment</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.FlowDocument.Inline.html#ProEdit_FlowDocument_Inline_TextDecorations">Inline.TextDecorations</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.FlowDocument.Inline.html#ProEdit_FlowDocument_Inline_FlowDirection">Inline.FlowDirection</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.FlowDocument.Inline.html#ProEdit_FlowDocument_Inline_SiblingInlines">Inline.SiblingInlines</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.FlowDocument.Inline.html#ProEdit_FlowDocument_Inline_NextInline">Inline.NextInline</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.FlowDocument.Inline.html#ProEdit_FlowDocument_Inline_PreviousInline">Inline.PreviousInline</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.FlowDocument.Inline.html#ProEdit_FlowDocument_Inline_OnPropertyChanged_Avalonia_AvaloniaPropertyChangedEventArgs_">Inline.OnPropertyChanged(AvaloniaPropertyChangedEventArgs)</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.FlowDocument.TextElement.html#ProEdit_FlowDocument_TextElement_FontFamilyProperty">TextElement.FontFamilyProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.FlowDocument.TextElement.html#ProEdit_FlowDocument_TextElement_FontSizeProperty">TextElement.FontSizeProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.FlowDocument.TextElement.html#ProEdit_FlowDocument_TextElement_FontWeightProperty">TextElement.FontWeightProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.FlowDocument.TextElement.html#ProEdit_FlowDocument_TextElement_FontStyleProperty">TextElement.FontStyleProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.FlowDocument.TextElement.html#ProEdit_FlowDocument_TextElement_FontStretchProperty">TextElement.FontStretchProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.FlowDocument.TextElement.html#ProEdit_FlowDocument_TextElement_ForegroundProperty">TextElement.ForegroundProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.FlowDocument.TextElement.html#ProEdit_FlowDocument_TextElement_BackgroundProperty">TextElement.BackgroundProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.FlowDocument.TextElement.html#ProEdit_FlowDocument_TextElement_TextEffectsProperty">TextElement.TextEffectsProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.FlowDocument.TextElement.html#ProEdit_FlowDocument_TextElement_TypographyProperty">TextElement.TypographyProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.FlowDocument.TextElement.html#ProEdit_FlowDocument_TextElement_ElementStart">TextElement.ElementStart</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.FlowDocument.TextElement.html#ProEdit_FlowDocument_TextElement_ElementEnd">TextElement.ElementEnd</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.FlowDocument.TextElement.html#ProEdit_FlowDocument_TextElement_ContentStart">TextElement.ContentStart</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.FlowDocument.TextElement.html#ProEdit_FlowDocument_TextElement_ContentEnd">TextElement.ContentEnd</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.FlowDocument.TextElement.html#ProEdit_FlowDocument_TextElement_FontFamily">TextElement.FontFamily</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.FlowDocument.TextElement.html#ProEdit_FlowDocument_TextElement_FontSize">TextElement.FontSize</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.FlowDocument.TextElement.html#ProEdit_FlowDocument_TextElement_FontWeight">TextElement.FontWeight</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.FlowDocument.TextElement.html#ProEdit_FlowDocument_TextElement_FontStyle">TextElement.FontStyle</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.FlowDocument.TextElement.html#ProEdit_FlowDocument_TextElement_FontStretch">TextElement.FontStretch</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.FlowDocument.TextElement.html#ProEdit_FlowDocument_TextElement_Foreground">TextElement.Foreground</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.FlowDocument.TextElement.html#ProEdit_FlowDocument_TextElement_Background">TextElement.Background</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.FlowDocument.TextElement.html#ProEdit_FlowDocument_TextElement_TextEffects">TextElement.TextEffects</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.FlowDocument.TextElement.html#ProEdit_FlowDocument_TextElement_Typography">TextElement.Typography</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.FlowDocument.TextElement.html#ProEdit_FlowDocument_TextElement_SyncStyleValue__1_Avalonia_StyledProperty___0__System_Action___0__">TextElement.SyncStyleValue&lt;T&gt;(StyledProperty&lt;T&gt;, Action&lt;T&gt;)</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.FlowDocument.FlowElement.html#ProEdit_FlowDocument_FlowElement_ParentProperty">FlowElement.ParentProperty</a>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.CheckAccess()</span>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.VerifyAccess()</span>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.ClearValue(AvaloniaProperty)</span>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.ClearValue&lt;T&gt;(AvaloniaProperty&lt;T&gt;)</span>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.ClearValue&lt;T&gt;(StyledProperty&lt;T&gt;)</span>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.ClearValue&lt;T&gt;(DirectPropertyBase&lt;T&gt;)</span>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object">AvaloniaObject.Equals(object)</a>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.GetHashCode()</span>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.GetValue(AvaloniaProperty)</span>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.GetValue&lt;T&gt;(StyledProperty&lt;T&gt;)</span>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.GetValue&lt;T&gt;(DirectPropertyBase&lt;T&gt;)</span>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.GetBaseValue&lt;T&gt;(StyledProperty&lt;T&gt;)</span>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.IsAnimating(AvaloniaProperty)</span>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.IsSet(AvaloniaProperty)</span>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object">AvaloniaObject.SetValue(AvaloniaProperty, object, BindingPriority)</a>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.SetValue&lt;T&gt;(StyledProperty&lt;T&gt;, T, BindingPriority)</span>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.SetValue&lt;T&gt;(DirectPropertyBase&lt;T&gt;, T)</span>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object">AvaloniaObject.SetCurrentValue(AvaloniaProperty, object)</a>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.SetCurrentValue&lt;T&gt;(StyledProperty&lt;T&gt;, T)</span>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.Bind(AvaloniaProperty, IBinding)</span>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.iobservable-1">AvaloniaObject.Bind(AvaloniaProperty, IObservable&lt;object&gt;, BindingPriority)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.iobservable-1">AvaloniaObject.Bind&lt;T&gt;(StyledProperty&lt;T&gt;, IObservable&lt;object&gt;, BindingPriority)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.iobservable-1">AvaloniaObject.Bind&lt;T&gt;(StyledProperty&lt;T&gt;, IObservable&lt;T&gt;, BindingPriority)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.iobservable-1">AvaloniaObject.Bind&lt;T&gt;(StyledProperty&lt;T&gt;, IObservable&lt;BindingValue&lt;T&gt;&gt;, BindingPriority)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.iobservable-1">AvaloniaObject.Bind&lt;T&gt;(DirectPropertyBase&lt;T&gt;, IObservable&lt;object&gt;)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.iobservable-1">AvaloniaObject.Bind&lt;T&gt;(DirectPropertyBase&lt;T&gt;, IObservable&lt;T&gt;)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.iobservable-1">AvaloniaObject.Bind&lt;T&gt;(DirectPropertyBase&lt;T&gt;, IObservable&lt;BindingValue&lt;T&gt;&gt;)</a>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.CoerceValue(AvaloniaProperty)</span>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.exception">AvaloniaObject.UpdateDataValidation(AvaloniaProperty, BindingValueType, Exception)</a>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.OnPropertyChangedCore(AvaloniaPropertyChangedEventArgs)</span>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.RaisePropertyChanged&lt;T&gt;(DirectPropertyBase&lt;T&gt;, T, T)</span>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.SetAndRaise&lt;T&gt;(DirectPropertyBase&lt;T&gt;, ref T, T)</span>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.InheritanceParent</span>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.this[AvaloniaProperty]</span>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.this[IndexerDescriptor]</span>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.PropertyChanged</span>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)">object.Equals(object, object)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.gettype">object.GetType()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone">object.MemberwiseClone()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.referenceequals">object.ReferenceEquals(object, object)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.tostring">object.ToString()</a>
+    </div>
+  </dd></dl>
+
+
+
+
+
+
+  <h2 class="section" id="constructors">Constructors
+</h2>
+
+
+  <a id="ProEdit_FlowDocument_AnchoredBlock__ctor_" data-uid="ProEdit.FlowDocument.AnchoredBlock.#ctor*"></a>
+
+  <h3 id="ProEdit_FlowDocument_AnchoredBlock__ctor" data-uid="ProEdit.FlowDocument.AnchoredBlock.#ctor">
+  AnchoredBlock()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/AnchoredBlock.cs/#L125"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Initializes a new instance of the <a class="xref" href="ProEdit.FlowDocument.AnchoredBlock.html">AnchoredBlock</a> class.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">protected AnchoredBlock()</code></pre>
+  </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <h2 class="section" id="fields">Fields
+</h2>
+
+
+
+  <h3 id="ProEdit_FlowDocument_AnchoredBlock_BorderBrushProperty" data-uid="ProEdit.FlowDocument.AnchoredBlock.BorderBrushProperty">
+  BorderBrushProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/AnchoredBlock.cs/#L32"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Identifies the <a class="xref" href="ProEdit.FlowDocument.AnchoredBlock.html#ProEdit_FlowDocument_AnchoredBlock_BorderBrush">BorderBrush</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly StyledProperty&lt;string?&gt; BorderBrushProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">StyledProperty</span>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_FlowDocument_AnchoredBlock_BorderThicknessProperty" data-uid="ProEdit.FlowDocument.AnchoredBlock.BorderThicknessProperty">
+  BorderThicknessProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/AnchoredBlock.cs/#L26"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Identifies the <a class="xref" href="ProEdit.FlowDocument.AnchoredBlock.html#ProEdit_FlowDocument_AnchoredBlock_BorderThickness">BorderThickness</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly StyledProperty&lt;FlowThickness&gt; BorderThicknessProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">StyledProperty</span>&lt;<a class="xref" href="ProEdit.FlowDocument.FlowThickness.html">FlowThickness</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_FlowDocument_AnchoredBlock_LineHeightProperty" data-uid="ProEdit.FlowDocument.AnchoredBlock.LineHeightProperty">
+  LineHeightProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/AnchoredBlock.cs/#L44"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Identifies the <a class="xref" href="ProEdit.FlowDocument.AnchoredBlock.html#ProEdit_FlowDocument_AnchoredBlock_LineHeight">LineHeight</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly StyledProperty&lt;double?&gt; LineHeightProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">StyledProperty</span>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.double">double</a>?&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_FlowDocument_AnchoredBlock_LineStackingStrategyProperty" data-uid="ProEdit.FlowDocument.AnchoredBlock.LineStackingStrategyProperty">
+  LineStackingStrategyProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/AnchoredBlock.cs/#L50"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Identifies the <a class="xref" href="ProEdit.FlowDocument.AnchoredBlock.html#ProEdit_FlowDocument_AnchoredBlock_LineStackingStrategy">LineStackingStrategy</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly StyledProperty&lt;string?&gt; LineStackingStrategyProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">StyledProperty</span>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_FlowDocument_AnchoredBlock_MarginProperty" data-uid="ProEdit.FlowDocument.AnchoredBlock.MarginProperty">
+  MarginProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/AnchoredBlock.cs/#L14"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Identifies the <a class="xref" href="ProEdit.FlowDocument.AnchoredBlock.html#ProEdit_FlowDocument_AnchoredBlock_Margin">Margin</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly StyledProperty&lt;FlowThickness&gt; MarginProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">StyledProperty</span>&lt;<a class="xref" href="ProEdit.FlowDocument.FlowThickness.html">FlowThickness</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_FlowDocument_AnchoredBlock_PaddingProperty" data-uid="ProEdit.FlowDocument.AnchoredBlock.PaddingProperty">
+  PaddingProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/AnchoredBlock.cs/#L20"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Identifies the <a class="xref" href="ProEdit.FlowDocument.AnchoredBlock.html#ProEdit_FlowDocument_AnchoredBlock_Padding">Padding</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly StyledProperty&lt;FlowThickness&gt; PaddingProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">StyledProperty</span>&lt;<a class="xref" href="ProEdit.FlowDocument.FlowThickness.html">FlowThickness</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_FlowDocument_AnchoredBlock_TextAlignmentProperty" data-uid="ProEdit.FlowDocument.AnchoredBlock.TextAlignmentProperty">
+  TextAlignmentProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/AnchoredBlock.cs/#L38"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Identifies the <a class="xref" href="ProEdit.FlowDocument.AnchoredBlock.html#ProEdit_FlowDocument_AnchoredBlock_TextAlignment">TextAlignment</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly StyledProperty&lt;FlowTextAlignment?&gt; TextAlignmentProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">StyledProperty</span>&lt;<a class="xref" href="ProEdit.FlowDocument.FlowTextAlignment.html">FlowTextAlignment</a>?&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+  <h2 class="section" id="properties">Properties
+</h2>
+
+
+  <a id="ProEdit_FlowDocument_AnchoredBlock_Blocks_" data-uid="ProEdit.FlowDocument.AnchoredBlock.Blocks*"></a>
+
+  <h3 id="ProEdit_FlowDocument_AnchoredBlock_Blocks" data-uid="ProEdit.FlowDocument.AnchoredBlock.Blocks">
+  Blocks
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/AnchoredBlock.cs/#L56"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets the block collection contained within the anchored block.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">[Content]
+public BlockCollection Blocks { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.FlowDocument.BlockCollection.html">BlockCollection</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_FlowDocument_AnchoredBlock_BorderBrush_" data-uid="ProEdit.FlowDocument.AnchoredBlock.BorderBrush*"></a>
+
+  <h3 id="ProEdit_FlowDocument_AnchoredBlock_BorderBrush" data-uid="ProEdit.FlowDocument.AnchoredBlock.BorderBrush">
+  BorderBrush
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/AnchoredBlock.cs/#L89"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets anchored block border brush.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public string? BorderBrush { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_FlowDocument_AnchoredBlock_BorderThickness_" data-uid="ProEdit.FlowDocument.AnchoredBlock.BorderThickness*"></a>
+
+  <h3 id="ProEdit_FlowDocument_AnchoredBlock_BorderThickness" data-uid="ProEdit.FlowDocument.AnchoredBlock.BorderThickness">
+  BorderThickness
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/AnchoredBlock.cs/#L80"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets anchored block border thickness.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public FlowThickness BorderThickness { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.FlowDocument.FlowThickness.html">FlowThickness</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_FlowDocument_AnchoredBlock_LineHeight_" data-uid="ProEdit.FlowDocument.AnchoredBlock.LineHeight*"></a>
+
+  <h3 id="ProEdit_FlowDocument_AnchoredBlock_LineHeight" data-uid="ProEdit.FlowDocument.AnchoredBlock.LineHeight">
+  LineHeight
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/AnchoredBlock.cs/#L107"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets line height metadata.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public double? LineHeight { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.double">double</a>?</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_FlowDocument_AnchoredBlock_LineStackingStrategy_" data-uid="ProEdit.FlowDocument.AnchoredBlock.LineStackingStrategy*"></a>
+
+  <h3 id="ProEdit_FlowDocument_AnchoredBlock_LineStackingStrategy" data-uid="ProEdit.FlowDocument.AnchoredBlock.LineStackingStrategy">
+  LineStackingStrategy
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/AnchoredBlock.cs/#L116"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets line stacking strategy metadata.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public string? LineStackingStrategy { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_FlowDocument_AnchoredBlock_Margin_" data-uid="ProEdit.FlowDocument.AnchoredBlock.Margin*"></a>
+
+  <h3 id="ProEdit_FlowDocument_AnchoredBlock_Margin" data-uid="ProEdit.FlowDocument.AnchoredBlock.Margin">
+  Margin
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/AnchoredBlock.cs/#L62"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets the anchored block margin.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public FlowThickness Margin { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.FlowDocument.FlowThickness.html">FlowThickness</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_FlowDocument_AnchoredBlock_Padding_" data-uid="ProEdit.FlowDocument.AnchoredBlock.Padding*"></a>
+
+  <h3 id="ProEdit_FlowDocument_AnchoredBlock_Padding" data-uid="ProEdit.FlowDocument.AnchoredBlock.Padding">
+  Padding
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/AnchoredBlock.cs/#L71"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets anchored block padding.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public FlowThickness Padding { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.FlowDocument.FlowThickness.html">FlowThickness</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_FlowDocument_AnchoredBlock_TextAlignment_" data-uid="ProEdit.FlowDocument.AnchoredBlock.TextAlignment*"></a>
+
+  <h3 id="ProEdit_FlowDocument_AnchoredBlock_TextAlignment" data-uid="ProEdit.FlowDocument.AnchoredBlock.TextAlignment">
+  TextAlignment
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/AnchoredBlock.cs/#L98"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets text alignment metadata.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public FlowTextAlignment? TextAlignment { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.FlowDocument.FlowTextAlignment.html">FlowTextAlignment</a>?</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.FlowDocument/AnchoredBlock.cs/#L9" class="edit-link">Edit this page</a>
+        </div>
+
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          <span>Made with <a href="https://dotnet.github.io/docfx">docfx</a></span>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

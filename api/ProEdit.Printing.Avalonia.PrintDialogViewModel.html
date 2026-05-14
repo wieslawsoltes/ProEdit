@@ -1,0 +1,2119 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Class PrintDialogViewModel | ProEdit </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Class PrintDialogViewModel | ProEdit ">
+      
+      
+      <link rel="icon" href="../favicon.ico">
+      <link rel="stylesheet" href="../public/docfx.min.css">
+      <link rel="stylesheet" href="../public/main.css">
+      <meta name="docfx:navrel" content="../toc.html">
+      <meta name="docfx:tocrel" content="toc.html">
+      
+      
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/wieslawsoltes/ProEdit/new/main/apiSpec/new?filename=ProEdit_Printing_Avalonia_PrintDialogViewModel.md&amp;value=---%0Auid%3A%20ProEdit.Printing.Avalonia.PrintDialogViewModel%0Asummary%3A%20&#39;*You%20can%20override%20summary%20for%20the%20API%20here%20using%20*MARKDOWN*%20syntax&#39;%0A---%0A%0A*Please%20type%20below%20more%20information%20about%20this%20API%3A*%0A%0A">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="ManagedReference">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../index.html">
+            <img id="logo" class="svg" src="../images/logo.svg" alt="">
+            
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel">
+
+
+
+  <h1 id="ProEdit_Printing_Avalonia_PrintDialogViewModel" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel" class="text-break">
+Class PrintDialogViewModel  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Generated/ReactiveUI.SourceGenerators/ReactiveUI.SourceGenerators.ReactiveGenerator/ProEdit.Printing.Avalonia.PrintDialogViewModel.PartialProperties.g.cs/#L9"><i class="bi bi-code-slash"></i></a>
+  </h1>
+
+  <div class="facts text-secondary">
+    <dl><dt>Namespace</dt><dd><a class="xref" href="ProEdit.html">ProEdit</a>.<a class="xref" href="ProEdit.Printing.html">Printing</a>.<a class="xref" href="ProEdit.Printing.Avalonia.html">Avalonia</a></dd></dl>
+  <dl><dt>Assembly</dt><dd>ProEdit.Printing.Avalonia.dll</dd></dl>
+  </div>
+
+  <div class="markdown summary"></div>
+  <div class="markdown conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public sealed class PrintDialogViewModel : ReactiveObject, IReactiveNotifyPropertyChanged&lt;IReactiveObject&gt;, IHandleObservableErrors, IReactiveObject, INotifyPropertyChanged, INotifyPropertyChanging, IEnableLogger</code></pre>
+  </div>
+
+
+
+
+  <dl class="typelist inheritance">
+    <dt>Inheritance</dt>
+    <dd>
+      <div><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object">object</a></div>
+      <div><span class="xref">ReactiveObject</span></div>
+      <div><span class="xref">PrintDialogViewModel</span></div>
+    </dd>
+  </dl>
+
+  <dl class="typelist implements">
+    <dt>Implements</dt>
+    <dd>
+      <div><span class="xref">IReactiveNotifyPropertyChanged</span>&lt;<span class="xref">IReactiveObject</span>&gt;</div>
+      <div><span class="xref">IHandleObservableErrors</span></div>
+      <div><span class="xref">IReactiveObject</span></div>
+      <div><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.componentmodel.inotifypropertychanged">INotifyPropertyChanged</a></div>
+      <div><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.componentmodel.inotifypropertychanging">INotifyPropertyChanging</a></div>
+      <div><span class="xref">IEnableLogger</span></div>
+    </dd>
+  </dl>
+
+
+  <dl class="typelist inheritedMembers">
+    <dt>Inherited Members</dt>
+    <dd>
+    <div>
+      <span class="xref">ReactiveObject.SuppressChangeNotifications()</span>
+    </div>
+    <div>
+      <span class="xref">ReactiveObject.AreChangeNotificationsEnabled()</span>
+    </div>
+    <div>
+      <span class="xref">ReactiveObject.DelayChangeNotifications()</span>
+    </div>
+    <div>
+      <span class="xref">ReactiveObject.Changing</span>
+    </div>
+    <div>
+      <span class="xref">ReactiveObject.Changed</span>
+    </div>
+    <div>
+      <span class="xref">ReactiveObject.ThrownExceptions</span>
+    </div>
+    <div>
+      <span class="xref">ReactiveObject.PropertyChanging</span>
+    </div>
+    <div>
+      <span class="xref">ReactiveObject.PropertyChanged</span>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)">object.Equals(object)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)">object.Equals(object, object)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.gethashcode">object.GetHashCode()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.gettype">object.GetType()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.referenceequals">object.ReferenceEquals(object, object)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.tostring">object.ToString()</a>
+    </div>
+  </dd></dl>
+
+
+
+
+
+
+  <h2 class="section" id="constructors">Constructors
+</h2>
+
+
+  <a id="ProEdit_Printing_Avalonia_PrintDialogViewModel__ctor_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.#ctor*"></a>
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel__ctor_ProEdit_Printing_IPrintService_ProEdit_Printing_IPrintDocumentInfo_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.#ctor(ProEdit.Printing.IPrintService,ProEdit.Printing.IPrintDocumentInfo)">
+  PrintDialogViewModel(IPrintService, IPrintDocumentInfo)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L33"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public PrintDialogViewModel(IPrintService printService, IPrintDocumentInfo documentInfo)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>printService</code> <a class="xref" href="ProEdit.Printing.IPrintService.html">IPrintService</a></dt>
+    <dd></dd>
+    <dt><code>documentInfo</code> <a class="xref" href="ProEdit.Printing.IPrintDocumentInfo.html">IPrintDocumentInfo</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <h2 class="section" id="properties">Properties
+</h2>
+
+
+  <a id="ProEdit_Printing_Avalonia_PrintDialogViewModel_AllPagesLabel_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.AllPagesLabel*"></a>
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel_AllPagesLabel" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.AllPagesLabel">
+  AllPagesLabel
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L259"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">[ExcludeFromCodeCoverage]
+public string AllPagesLabel { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Printing_Avalonia_PrintDialogViewModel_BrowseOutputCommand_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.BrowseOutputCommand*"></a>
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel_BrowseOutputCommand" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.BrowseOutputCommand">
+  BrowseOutputCommand
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L265"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public ReactiveCommand&lt;Unit, Unit&gt; BrowseOutputCommand { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">ReactiveCommand</span>&lt;<span class="xref">Unit</span>, <span class="xref">Unit</span>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Printing_Avalonia_PrintDialogViewModel_BrowseOutputPath_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.BrowseOutputPath*"></a>
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel_BrowseOutputPath" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.BrowseOutputPath">
+  BrowseOutputPath
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L222"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public Interaction&lt;Unit, string?&gt; BrowseOutputPath { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">Interaction</span>&lt;<span class="xref">Unit</span>, <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Printing_Avalonia_PrintDialogViewModel_CanNavigateNext_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.CanNavigateNext*"></a>
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel_CanNavigateNext" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.CanNavigateNext">
+  CanNavigateNext
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L248"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">[ExcludeFromCodeCoverage]
+public bool CanNavigateNext { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Printing_Avalonia_PrintDialogViewModel_CanNavigatePrevious_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.CanNavigatePrevious*"></a>
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel_CanNavigatePrevious" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.CanNavigatePrevious">
+  CanNavigatePrevious
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L247"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">[ExcludeFromCodeCoverage]
+public bool CanNavigatePrevious { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Printing_Avalonia_PrintDialogViewModel_CancelCommand_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.CancelCommand*"></a>
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel_CancelCommand" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.CancelCommand">
+  CancelCommand
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L264"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public ReactiveCommand&lt;Unit, Unit&gt; CancelCommand { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">ReactiveCommand</span>&lt;<span class="xref">Unit</span>, <span class="xref">Unit</span>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Printing_Avalonia_PrintDialogViewModel_Collate_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.Collate*"></a>
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel_Collate" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.Collate">
+  Collate
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L229"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">[ExcludeFromCodeCoverage]
+public bool Collate { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Printing_Avalonia_PrintDialogViewModel_ColorMode_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.ColorMode*"></a>
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel_ColorMode" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.ColorMode">
+  ColorMode
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L234"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">[ExcludeFromCodeCoverage]
+public PrintColorMode ColorMode { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Printing.PrintColorMode.html">PrintColorMode</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Printing_Avalonia_PrintDialogViewModel_ColorOptions_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.ColorOptions*"></a>
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel_ColorOptions" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.ColorOptions">
+  ColorOptions
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L214"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public IReadOnlyList&lt;PrintColorMode&gt; ColorOptions { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;<a class="xref" href="ProEdit.Printing.PrintColorMode.html">PrintColorMode</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Printing_Avalonia_PrintDialogViewModel_Copies_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.Copies*"></a>
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel_Copies" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.Copies">
+  Copies
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L228"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">[ExcludeFromCodeCoverage]
+public int Copies { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">int</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Printing_Avalonia_PrintDialogViewModel_CustomScale_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.CustomScale*"></a>
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel_CustomScale" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.CustomScale">
+  CustomScale
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L237"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">[ExcludeFromCodeCoverage]
+public float CustomScale { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Printing_Avalonia_PrintDialogViewModel_Duplex_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.Duplex*"></a>
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel_Duplex" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.Duplex">
+  Duplex
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L233"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">[ExcludeFromCodeCoverage]
+public PrintDuplexMode Duplex { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Printing.PrintDuplexMode.html">PrintDuplexMode</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Printing_Avalonia_PrintDialogViewModel_DuplexOptions_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.DuplexOptions*"></a>
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel_DuplexOptions" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.DuplexOptions">
+  DuplexOptions
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L213"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public IReadOnlyList&lt;PrintDuplexMode&gt; DuplexOptions { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;<a class="xref" href="ProEdit.Printing.PrintDuplexMode.html">PrintDuplexMode</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Printing_Avalonia_PrintDialogViewModel_HasRangeError_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.HasRangeError*"></a>
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel_HasRangeError" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.HasRangeError">
+  HasRangeError
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L242"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">[ExcludeFromCodeCoverage]
+public bool HasRangeError { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Printing_Avalonia_PrintDialogViewModel_IsBusy_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.IsBusy*"></a>
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel_IsBusy" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.IsBusy">
+  IsBusy
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L240"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">[ExcludeFromCodeCoverage]
+public bool IsBusy { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Printing_Avalonia_PrintDialogViewModel_IsCustomRangeVisible_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.IsCustomRangeVisible*"></a>
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel_IsCustomRangeVisible" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.IsCustomRangeVisible">
+  IsCustomRangeVisible
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L244"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">[ExcludeFromCodeCoverage]
+public bool IsCustomRangeVisible { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Printing_Avalonia_PrintDialogViewModel_IsCustomScaleVisible_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.IsCustomScaleVisible*"></a>
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel_IsCustomScaleVisible" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.IsCustomScaleVisible">
+  IsCustomScaleVisible
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L245"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">[ExcludeFromCodeCoverage]
+public bool IsCustomScaleVisible { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Printing_Avalonia_PrintDialogViewModel_IsPdfOutput_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.IsPdfOutput*"></a>
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel_IsPdfOutput" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.IsPdfOutput">
+  IsPdfOutput
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L246"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">[ExcludeFromCodeCoverage]
+public bool IsPdfOutput { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Printing_Avalonia_PrintDialogViewModel_IsSelectionRangeAvailable_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.IsSelectionRangeAvailable*"></a>
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel_IsSelectionRangeAvailable" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.IsSelectionRangeAvailable">
+  IsSelectionRangeAvailable
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L258"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">[ExcludeFromCodeCoverage]
+public bool IsSelectionRangeAvailable { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Printing_Avalonia_PrintDialogViewModel_NextPageCommand_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.NextPageCommand*"></a>
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel_NextPageCommand" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.NextPageCommand">
+  NextPageCommand
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L267"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public ReactiveCommand&lt;Unit, Unit&gt; NextPageCommand { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">ReactiveCommand</span>&lt;<span class="xref">Unit</span>, <span class="xref">Unit</span>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Printing_Avalonia_PrintDialogViewModel_Orientation_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.Orientation*"></a>
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel_Orientation" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.Orientation">
+  Orientation
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L235"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">[ExcludeFromCodeCoverage]
+public PrintOrientationMode Orientation { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Printing.PrintOrientationMode.html">PrintOrientationMode</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Printing_Avalonia_PrintDialogViewModel_OrientationOptions_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.OrientationOptions*"></a>
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel_OrientationOptions" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.OrientationOptions">
+  OrientationOptions
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L215"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public IReadOnlyList&lt;PrintOrientationMode&gt; OrientationOptions { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;<a class="xref" href="ProEdit.Printing.PrintOrientationMode.html">PrintOrientationMode</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Printing_Avalonia_PrintDialogViewModel_OutputKind_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.OutputKind*"></a>
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel_OutputKind" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.OutputKind">
+  OutputKind
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L238"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">[ExcludeFromCodeCoverage]
+public PrintOutputKind OutputKind { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Printing.PrintOutputKind.html">PrintOutputKind</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Printing_Avalonia_PrintDialogViewModel_OutputOptions_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.OutputOptions*"></a>
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel_OutputOptions" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.OutputOptions">
+  OutputOptions
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L217"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public IReadOnlyList&lt;PrintOutputKind&gt; OutputOptions { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;<a class="xref" href="ProEdit.Printing.PrintOutputKind.html">PrintOutputKind</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Printing_Avalonia_PrintDialogViewModel_OutputPath_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.OutputPath*"></a>
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel_OutputPath" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.OutputPath">
+  OutputPath
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L239"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">[ExcludeFromCodeCoverage]
+public string OutputPath { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Printing_Avalonia_PrintDialogViewModel_PageDisplayText_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.PageDisplayText*"></a>
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel_PageDisplayText" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.PageDisplayText">
+  PageDisplayText
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L251"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">[ExcludeFromCodeCoverage]
+public string PageDisplayText { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Printing_Avalonia_PrintDialogViewModel_PageNumberText_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.PageNumberText*"></a>
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel_PageNumberText" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.PageNumberText">
+  PageNumberText
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L253"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">[ExcludeFromCodeCoverage]
+public string PageNumberText { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Printing_Avalonia_PrintDialogViewModel_PaperSizeOptions_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.PaperSizeOptions*"></a>
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel_PaperSizeOptions" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.PaperSizeOptions">
+  PaperSizeOptions
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L220"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public IReadOnlyList&lt;PrintPaperSizeOption&gt; PaperSizeOptions { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;<a class="xref" href="ProEdit.Printing.Avalonia.PrintPaperSizeOption.html">PrintPaperSizeOption</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Printing_Avalonia_PrintDialogViewModel_PresetOptions_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.PresetOptions*"></a>
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel_PresetOptions" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.PresetOptions">
+  PresetOptions
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L218"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public IReadOnlyList&lt;PrintPresetOption&gt; PresetOptions { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;<a class="xref" href="ProEdit.Printing.Avalonia.PrintPresetOption.html">PrintPresetOption</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Printing_Avalonia_PrintDialogViewModel_PreviewHeight_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.PreviewHeight*"></a>
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel_PreviewHeight" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.PreviewHeight">
+  PreviewHeight
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L255"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">[ExcludeFromCodeCoverage]
+public double PreviewHeight { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.double">double</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Printing_Avalonia_PrintDialogViewModel_PreviewPages_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.PreviewPages*"></a>
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel_PreviewPages" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.PreviewPages">
+  PreviewPages
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L211"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public ReadOnlyObservableCollection&lt;PrintPreviewItem&gt; PreviewPages { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.objectmodel.readonlyobservablecollection-1">ReadOnlyObservableCollection</a>&lt;<a class="xref" href="ProEdit.Printing.Avalonia.PrintPreviewItem.html">PrintPreviewItem</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Printing_Avalonia_PrintDialogViewModel_PreviewSelectionMode_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.PreviewSelectionMode*"></a>
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel_PreviewSelectionMode" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.PreviewSelectionMode">
+  PreviewSelectionMode
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L261"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">[ExcludeFromCodeCoverage]
+public PreviewSelectionMode PreviewSelectionMode { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Printing.Avalonia.PreviewSelectionMode.html">PreviewSelectionMode</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Printing_Avalonia_PrintDialogViewModel_PreviewThumbnailHeight_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.PreviewThumbnailHeight*"></a>
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel_PreviewThumbnailHeight" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.PreviewThumbnailHeight">
+  PreviewThumbnailHeight
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L257"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">[ExcludeFromCodeCoverage]
+public double PreviewThumbnailHeight { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.double">double</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Printing_Avalonia_PrintDialogViewModel_PreviewThumbnailWidth_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.PreviewThumbnailWidth*"></a>
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel_PreviewThumbnailWidth" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.PreviewThumbnailWidth">
+  PreviewThumbnailWidth
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L256"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">[ExcludeFromCodeCoverage]
+public double PreviewThumbnailWidth { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.double">double</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Printing_Avalonia_PrintDialogViewModel_PreviewWidth_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.PreviewWidth*"></a>
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel_PreviewWidth" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.PreviewWidth">
+  PreviewWidth
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L254"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">[ExcludeFromCodeCoverage]
+public double PreviewWidth { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.double">double</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Printing_Avalonia_PrintDialogViewModel_PreviewZoom_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.PreviewZoom*"></a>
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel_PreviewZoom" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.PreviewZoom">
+  PreviewZoom
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L252"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">[ExcludeFromCodeCoverage]
+public float PreviewZoom { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Printing_Avalonia_PrintDialogViewModel_PreviousPageCommand_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.PreviousPageCommand*"></a>
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel_PreviousPageCommand" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.PreviousPageCommand">
+  PreviousPageCommand
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L268"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public ReactiveCommand&lt;Unit, Unit&gt; PreviousPageCommand { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">ReactiveCommand</span>&lt;<span class="xref">Unit</span>, <span class="xref">Unit</span>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Printing_Avalonia_PrintDialogViewModel_PrimaryActionText_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.PrimaryActionText*"></a>
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel_PrimaryActionText" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.PrimaryActionText">
+  PrimaryActionText
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L260"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">[ExcludeFromCodeCoverage]
+public string PrimaryActionText { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Printing_Avalonia_PrintDialogViewModel_PrintCommand_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.PrintCommand*"></a>
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel_PrintCommand" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.PrintCommand">
+  PrintCommand
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L263"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public ReactiveCommand&lt;Unit, Unit&gt; PrintCommand { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">ReactiveCommand</span>&lt;<span class="xref">Unit</span>, <span class="xref">Unit</span>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Printing_Avalonia_PrintDialogViewModel_Printers_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.Printers*"></a>
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel_Printers" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.Printers">
+  Printers
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L210"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public ReadOnlyObservableCollection&lt;PrinterInfo&gt; Printers { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.objectmodel.readonlyobservablecollection-1">ReadOnlyObservableCollection</a>&lt;<a class="xref" href="ProEdit.Printing.PrinterInfo.html">PrinterInfo</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Printing_Avalonia_PrintDialogViewModel_RangeEndText_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.RangeEndText*"></a>
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel_RangeEndText" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.RangeEndText">
+  RangeEndText
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L232"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">[ExcludeFromCodeCoverage]
+public string RangeEndText { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Printing_Avalonia_PrintDialogViewModel_RangeErrorMessage_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.RangeErrorMessage*"></a>
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel_RangeErrorMessage" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.RangeErrorMessage">
+  RangeErrorMessage
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L243"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">[ExcludeFromCodeCoverage]
+public string? RangeErrorMessage { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Printing_Avalonia_PrintDialogViewModel_RangeKind_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.RangeKind*"></a>
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel_RangeKind" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.RangeKind">
+  RangeKind
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L230"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">[ExcludeFromCodeCoverage]
+public PrintRangeKind RangeKind { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Printing.PrintRangeKind.html">PrintRangeKind</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Printing_Avalonia_PrintDialogViewModel_RangeOptions_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.RangeOptions*"></a>
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel_RangeOptions" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.RangeOptions">
+  RangeOptions
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L212"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public IReadOnlyList&lt;PrintRangeKind&gt; RangeOptions { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;<a class="xref" href="ProEdit.Printing.PrintRangeKind.html">PrintRangeKind</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Printing_Avalonia_PrintDialogViewModel_RangeStartText_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.RangeStartText*"></a>
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel_RangeStartText" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.RangeStartText">
+  RangeStartText
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L231"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">[ExcludeFromCodeCoverage]
+public string RangeStartText { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Printing_Avalonia_PrintDialogViewModel_RefreshPreviewCommand_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.RefreshPreviewCommand*"></a>
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel_RefreshPreviewCommand" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.RefreshPreviewCommand">
+  RefreshPreviewCommand
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L266"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public ReactiveCommand&lt;Unit, Unit&gt; RefreshPreviewCommand { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">ReactiveCommand</span>&lt;<span class="xref">Unit</span>, <span class="xref">Unit</span>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Printing_Avalonia_PrintDialogViewModel_Scaling_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.Scaling*"></a>
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel_Scaling" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.Scaling">
+  Scaling
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L236"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">[ExcludeFromCodeCoverage]
+public PrintScalingMode Scaling { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Printing.PrintScalingMode.html">PrintScalingMode</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Printing_Avalonia_PrintDialogViewModel_ScalingOptions_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.ScalingOptions*"></a>
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel_ScalingOptions" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.ScalingOptions">
+  ScalingOptions
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L216"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public IReadOnlyList&lt;PrintScalingMode&gt; ScalingOptions { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;<a class="xref" href="ProEdit.Printing.PrintScalingMode.html">PrintScalingMode</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Printing_Avalonia_PrintDialogViewModel_SelectedPaperSize_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.SelectedPaperSize*"></a>
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel_SelectedPaperSize" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.SelectedPaperSize">
+  SelectedPaperSize
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L227"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">[ExcludeFromCodeCoverage]
+public PrintPaperSizeOption? SelectedPaperSize { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Printing.Avalonia.PrintPaperSizeOption.html">PrintPaperSizeOption</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Printing_Avalonia_PrintDialogViewModel_SelectedPreset_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.SelectedPreset*"></a>
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel_SelectedPreset" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.SelectedPreset">
+  SelectedPreset
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L225"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">[ExcludeFromCodeCoverage]
+public PrintPresetOption? SelectedPreset { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Printing.Avalonia.PrintPresetOption.html">PrintPresetOption</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Printing_Avalonia_PrintDialogViewModel_SelectedPreviewItems_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.SelectedPreviewItems*"></a>
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel_SelectedPreviewItems" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.SelectedPreviewItems">
+  SelectedPreviewItems
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L272"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public ObservableCollection&lt;PrintPreviewItem&gt; SelectedPreviewItems { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.objectmodel.observablecollection-1">ObservableCollection</a>&lt;<a class="xref" href="ProEdit.Printing.Avalonia.PrintPreviewItem.html">PrintPreviewItem</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Printing_Avalonia_PrintDialogViewModel_SelectedPreviewPage_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.SelectedPreviewPage*"></a>
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel_SelectedPreviewPage" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.SelectedPreviewPage">
+  SelectedPreviewPage
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L250"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">[ExcludeFromCodeCoverage]
+public PrintPreviewItem? SelectedPreviewPage { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Printing.Avalonia.PrintPreviewItem.html">PrintPreviewItem</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Printing_Avalonia_PrintDialogViewModel_SelectedPrinter_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.SelectedPrinter*"></a>
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel_SelectedPrinter" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.SelectedPrinter">
+  SelectedPrinter
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L224"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">[ExcludeFromCodeCoverage]
+public PrinterInfo? SelectedPrinter { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Printing.PrinterInfo.html">PrinterInfo</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Printing_Avalonia_PrintDialogViewModel_SelectedZoomOption_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.SelectedZoomOption*"></a>
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel_SelectedZoomOption" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.SelectedZoomOption">
+  SelectedZoomOption
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L226"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">[ExcludeFromCodeCoverage]
+public PrintZoomOption? SelectedZoomOption { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Printing.Avalonia.PrintZoomOption.html">PrintZoomOption</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Printing_Avalonia_PrintDialogViewModel_StatusMessage_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.StatusMessage*"></a>
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel_StatusMessage" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.StatusMessage">
+  StatusMessage
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L241"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">[ExcludeFromCodeCoverage]
+public string? StatusMessage { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Printing_Avalonia_PrintDialogViewModel_TotalPages_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.TotalPages*"></a>
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel_TotalPages" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.TotalPages">
+  TotalPages
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L249"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">[ExcludeFromCodeCoverage]
+public int TotalPages { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">int</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Printing_Avalonia_PrintDialogViewModel_ZoomOptions_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.ZoomOptions*"></a>
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel_ZoomOptions" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.ZoomOptions">
+  ZoomOptions
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L219"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public IReadOnlyList&lt;PrintZoomOption&gt; ZoomOptions { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;<a class="xref" href="ProEdit.Printing.Avalonia.PrintZoomOption.html">PrintZoomOption</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <h2 class="section" id="methods">Methods
+</h2>
+
+
+  <a id="ProEdit_Printing_Avalonia_PrintDialogViewModel_InitializeAsync_" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.InitializeAsync*"></a>
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel_InitializeAsync" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.InitializeAsync">
+  InitializeAsync()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L274"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public Task InitializeAsync()</code></pre>
+  </div>
+
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task">Task</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <h2 class="section" id="events">Events
+</h2>
+
+
+
+  <h3 id="ProEdit_Printing_Avalonia_PrintDialogViewModel_RequestClose" data-uid="ProEdit.Printing.Avalonia.PrintDialogViewModel.RequestClose">
+  RequestClose
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Dialogs/PrintDialogViewModel.cs/#L270"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public event Action&lt;bool&gt;? RequestClose</code></pre>
+  </div>
+
+
+
+
+
+
+  <h4 class="section">Event Type</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.action-1">Action</a>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Printing.Avalonia/Generated/ReactiveUI.SourceGenerators/ReactiveUI.SourceGenerators.ReactiveGenerator/ProEdit.Printing.Avalonia.PrintDialogViewModel.PartialProperties.g.cs/#L9" class="edit-link">Edit this page</a>
+        </div>
+
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          <span>Made with <a href="https://dotnet.github.io/docfx">docfx</a></span>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

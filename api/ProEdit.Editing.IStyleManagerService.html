@@ -1,0 +1,1308 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Interface IStyleManagerService | ProEdit </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Interface IStyleManagerService | ProEdit ">
+      
+      
+      <link rel="icon" href="../favicon.ico">
+      <link rel="stylesheet" href="../public/docfx.min.css">
+      <link rel="stylesheet" href="../public/main.css">
+      <meta name="docfx:navrel" content="../toc.html">
+      <meta name="docfx:tocrel" content="toc.html">
+      
+      
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/wieslawsoltes/ProEdit/new/main/apiSpec/new?filename=ProEdit_Editing_IStyleManagerService.md&amp;value=---%0Auid%3A%20ProEdit.Editing.IStyleManagerService%0Asummary%3A%20&#39;*You%20can%20override%20summary%20for%20the%20API%20here%20using%20*MARKDOWN*%20syntax&#39;%0A---%0A%0A*Please%20type%20below%20more%20information%20about%20this%20API%3A*%0A%0A">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="ManagedReference">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../index.html">
+            <img id="logo" class="svg" src="../images/logo.svg" alt="">
+            
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="ProEdit.Editing.IStyleManagerService">
+
+
+
+  <h1 id="ProEdit_Editing_IStyleManagerService" data-uid="ProEdit.Editing.IStyleManagerService" class="text-break">
+Interface IStyleManagerService  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorStyleManagement.cs/#L48"><i class="bi bi-code-slash"></i></a>
+  </h1>
+
+  <div class="facts text-secondary">
+    <dl><dt>Namespace</dt><dd><a class="xref" href="ProEdit.html">ProEdit</a>.<a class="xref" href="ProEdit.Editing.html">Editing</a></dd></dl>
+  <dl><dt>Assembly</dt><dd>ProEdit.Editing.dll</dd></dl>
+  </div>
+
+  <div class="markdown summary"></div>
+  <div class="markdown conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public interface IStyleManagerService : IStyleService</code></pre>
+  </div>
+
+
+
+
+
+
+
+  <dl class="typelist inheritedMembers">
+    <dt>Inherited Members</dt>
+    <dd>
+    <div>
+      <a class="xref" href="ProEdit.Editing.IStyleService.html#ProEdit_Editing_IStyleService_GetParagraphStyles">IStyleService.GetParagraphStyles()</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Editing.IStyleService.html#ProEdit_Editing_IStyleService_GetCurrentParagraphStyleId">IStyleService.GetCurrentParagraphStyleId()</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Editing.IStyleService.html#ProEdit_Editing_IStyleService_GetParagraphStyle_System_String_">IStyleService.GetParagraphStyle(string)</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Editing.IStyleService.html#ProEdit_Editing_IStyleService_GetParagraphStylePreview_System_String_">IStyleService.GetParagraphStylePreview(string)</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Editing.IStyleService.html#ProEdit_Editing_IStyleService_GetParagraphStylesInUse">IStyleService.GetParagraphStylesInUse()</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Editing.IStyleService.html#ProEdit_Editing_IStyleService_GetDirectFormattingInfo">IStyleService.GetDirectFormattingInfo()</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Editing.IStyleService.html#ProEdit_Editing_IStyleService_ApplyParagraphStyle_System_String_">IStyleService.ApplyParagraphStyle(string)</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Editing.IStyleService.html#ProEdit_Editing_IStyleService_RenameParagraphStyle_System_String_System_String_">IStyleService.RenameParagraphStyle(string, string)</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Editing.IStyleService.html#ProEdit_Editing_IStyleService_SetParagraphStyleBasedOn_System_String_System_String_">IStyleService.SetParagraphStyleBasedOn(string, string)</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Editing.IStyleService.html#ProEdit_Editing_IStyleService_SetParagraphStyleNext_System_String_System_String_">IStyleService.SetParagraphStyleNext(string, string)</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Editing.IStyleService.html#ProEdit_Editing_IStyleService_SetDefaultParagraphStyle_System_String_">IStyleService.SetDefaultParagraphStyle(string)</a>
+    </div>
+  </dd></dl>
+
+
+
+
+
+
+  <h2 class="section" id="methods">Methods
+</h2>
+
+
+  <a id="ProEdit_Editing_IStyleManagerService_ApplyStyle_" data-uid="ProEdit.Editing.IStyleManagerService.ApplyStyle*"></a>
+
+  <h3 id="ProEdit_Editing_IStyleManagerService_ApplyStyle_ProEdit_Editing_EditorStyleType_System_String_" data-uid="ProEdit.Editing.IStyleManagerService.ApplyStyle(ProEdit.Editing.EditorStyleType,System.String)">
+  ApplyStyle(EditorStyleType, string)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorStyleManagement.cs/#L58"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">bool ApplyStyle(EditorStyleType type, string styleId)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>type</code> <a class="xref" href="ProEdit.Editing.EditorStyleType.html">EditorStyleType</a></dt>
+    <dd></dd>
+    <dt><code>styleId</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_IStyleManagerService_ClearDirectFormatting_" data-uid="ProEdit.Editing.IStyleManagerService.ClearDirectFormatting*"></a>
+
+  <h3 id="ProEdit_Editing_IStyleManagerService_ClearDirectFormatting" data-uid="ProEdit.Editing.IStyleManagerService.ClearDirectFormatting">
+  ClearDirectFormatting()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorStyleManagement.cs/#L79"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">bool ClearDirectFormatting()</code></pre>
+  </div>
+
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_IStyleManagerService_CreateStyle_" data-uid="ProEdit.Editing.IStyleManagerService.CreateStyle*"></a>
+
+  <h3 id="ProEdit_Editing_IStyleManagerService_CreateStyle_ProEdit_Editing_EditorStyleCreateOptions_" data-uid="ProEdit.Editing.IStyleManagerService.CreateStyle(ProEdit.Editing.EditorStyleCreateOptions)">
+  CreateStyle(EditorStyleCreateOptions)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorStyleManagement.cs/#L77"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">bool CreateStyle(EditorStyleCreateOptions options)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>options</code> <a class="xref" href="ProEdit.Editing.EditorStyleCreateOptions.html">EditorStyleCreateOptions</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_IStyleManagerService_GetCharacterStyleDefinition_" data-uid="ProEdit.Editing.IStyleManagerService.GetCharacterStyleDefinition*"></a>
+
+  <h3 id="ProEdit_Editing_IStyleManagerService_GetCharacterStyleDefinition_System_String_" data-uid="ProEdit.Editing.IStyleManagerService.GetCharacterStyleDefinition(System.String)">
+  GetCharacterStyleDefinition(string)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorStyleManagement.cs/#L55"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">CharacterStyleDefinition? GetCharacterStyleDefinition(string styleId)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>styleId</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Documents.CharacterStyleDefinition.html">CharacterStyleDefinition</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_IStyleManagerService_GetCurrentCharacterStyleId_" data-uid="ProEdit.Editing.IStyleManagerService.GetCurrentCharacterStyleId*"></a>
+
+  <h3 id="ProEdit_Editing_IStyleManagerService_GetCurrentCharacterStyleId" data-uid="ProEdit.Editing.IStyleManagerService.GetCurrentCharacterStyleId">
+  GetCurrentCharacterStyleId()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorStyleManagement.cs/#L52"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">EditorValue&lt;string&gt; GetCurrentCharacterStyleId()</code></pre>
+  </div>
+
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Editing.EditorValue-1.html">EditorValue</a>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_IStyleManagerService_GetCurrentTableStyleId_" data-uid="ProEdit.Editing.IStyleManagerService.GetCurrentTableStyleId*"></a>
+
+  <h3 id="ProEdit_Editing_IStyleManagerService_GetCurrentTableStyleId" data-uid="ProEdit.Editing.IStyleManagerService.GetCurrentTableStyleId">
+  GetCurrentTableStyleId()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorStyleManagement.cs/#L53"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">EditorValue&lt;string&gt; GetCurrentTableStyleId()</code></pre>
+  </div>
+
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Editing.EditorValue-1.html">EditorValue</a>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_IStyleManagerService_GetParagraphStyleDefinition_" data-uid="ProEdit.Editing.IStyleManagerService.GetParagraphStyleDefinition*"></a>
+
+  <h3 id="ProEdit_Editing_IStyleManagerService_GetParagraphStyleDefinition_System_String_" data-uid="ProEdit.Editing.IStyleManagerService.GetParagraphStyleDefinition(System.String)">
+  GetParagraphStyleDefinition(string)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorStyleManagement.cs/#L54"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">ParagraphStyleDefinition? GetParagraphStyleDefinition(string styleId)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>styleId</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Documents.ParagraphStyleDefinition.html">ParagraphStyleDefinition</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_IStyleManagerService_GetStyleInspectorSnapshot_" data-uid="ProEdit.Editing.IStyleManagerService.GetStyleInspectorSnapshot*"></a>
+
+  <h3 id="ProEdit_Editing_IStyleManagerService_GetStyleInspectorSnapshot" data-uid="ProEdit.Editing.IStyleManagerService.GetStyleInspectorSnapshot">
+  GetStyleInspectorSnapshot()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorStyleManagement.cs/#L78"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">EditorStyleInspectorSnapshot GetStyleInspectorSnapshot()</code></pre>
+  </div>
+
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Editing.EditorStyleInspectorSnapshot.html">EditorStyleInspectorSnapshot</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_IStyleManagerService_GetStylePreview_" data-uid="ProEdit.Editing.IStyleManagerService.GetStylePreview*"></a>
+
+  <h3 id="ProEdit_Editing_IStyleManagerService_GetStylePreview_ProEdit_Editing_EditorStyleType_System_String_" data-uid="ProEdit.Editing.IStyleManagerService.GetStylePreview(ProEdit.Editing.EditorStyleType,System.String)">
+  GetStylePreview(EditorStyleType, string)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorStyleManagement.cs/#L57"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">TextStyle? GetStylePreview(EditorStyleType type, string styleId)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>type</code> <a class="xref" href="ProEdit.Editing.EditorStyleType.html">EditorStyleType</a></dt>
+    <dd></dd>
+    <dt><code>styleId</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Documents.TextStyle.html">TextStyle</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_IStyleManagerService_GetStyles_" data-uid="ProEdit.Editing.IStyleManagerService.GetStyles*"></a>
+
+  <h3 id="ProEdit_Editing_IStyleManagerService_GetStyles_System_Nullable_ProEdit_Editing_EditorStyleType__" data-uid="ProEdit.Editing.IStyleManagerService.GetStyles(System.Nullable{ProEdit.Editing.EditorStyleType})">
+  GetStyles(EditorStyleType?)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorStyleManagement.cs/#L51"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">IReadOnlyList&lt;EditorStyleInfo&gt; GetStyles(EditorStyleType? type = null)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>type</code> <a class="xref" href="ProEdit.Editing.EditorStyleType.html">EditorStyleType</a>?</dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;<a class="xref" href="ProEdit.Editing.EditorStyleInfo.html">EditorStyleInfo</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_IStyleManagerService_GetTableStyleDefinition_" data-uid="ProEdit.Editing.IStyleManagerService.GetTableStyleDefinition*"></a>
+
+  <h3 id="ProEdit_Editing_IStyleManagerService_GetTableStyleDefinition_System_String_" data-uid="ProEdit.Editing.IStyleManagerService.GetTableStyleDefinition(System.String)">
+  GetTableStyleDefinition(string)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorStyleManagement.cs/#L56"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">TableStyleDefinition? GetTableStyleDefinition(string styleId)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>styleId</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Documents.TableStyleDefinition.html">TableStyleDefinition</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_IStyleManagerService_RenameStyle_" data-uid="ProEdit.Editing.IStyleManagerService.RenameStyle*"></a>
+
+  <h3 id="ProEdit_Editing_IStyleManagerService_RenameStyle_ProEdit_Editing_EditorStyleType_System_String_System_String_" data-uid="ProEdit.Editing.IStyleManagerService.RenameStyle(ProEdit.Editing.EditorStyleType,System.String,System.String)">
+  RenameStyle(EditorStyleType, string, string)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorStyleManagement.cs/#L59"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">bool RenameStyle(EditorStyleType type, string styleId, string name)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>type</code> <a class="xref" href="ProEdit.Editing.EditorStyleType.html">EditorStyleType</a></dt>
+    <dd></dd>
+    <dt><code>styleId</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+    <dt><code>name</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_IStyleManagerService_SetDefaultStyle_" data-uid="ProEdit.Editing.IStyleManagerService.SetDefaultStyle*"></a>
+
+  <h3 id="ProEdit_Editing_IStyleManagerService_SetDefaultStyle_ProEdit_Editing_EditorStyleType_System_String_" data-uid="ProEdit.Editing.IStyleManagerService.SetDefaultStyle(ProEdit.Editing.EditorStyleType,System.String)">
+  SetDefaultStyle(EditorStyleType, string)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorStyleManagement.cs/#L62"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">bool SetDefaultStyle(EditorStyleType type, string styleId)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>type</code> <a class="xref" href="ProEdit.Editing.EditorStyleType.html">EditorStyleType</a></dt>
+    <dd></dd>
+    <dt><code>styleId</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_IStyleManagerService_SetStyleAutoRedefine_" data-uid="ProEdit.Editing.IStyleManagerService.SetStyleAutoRedefine*"></a>
+
+  <h3 id="ProEdit_Editing_IStyleManagerService_SetStyleAutoRedefine_ProEdit_Editing_EditorStyleType_System_String_System_Nullable_System_Boolean__" data-uid="ProEdit.Editing.IStyleManagerService.SetStyleAutoRedefine(ProEdit.Editing.EditorStyleType,System.String,System.Nullable{System.Boolean})">
+  SetStyleAutoRedefine(EditorStyleType, string, bool?)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorStyleManagement.cs/#L67"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">bool SetStyleAutoRedefine(EditorStyleType type, string styleId, bool? autoRedefine)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>type</code> <a class="xref" href="ProEdit.Editing.EditorStyleType.html">EditorStyleType</a></dt>
+    <dd></dd>
+    <dt><code>styleId</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+    <dt><code>autoRedefine</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a>?</dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_IStyleManagerService_SetStyleBasedOn_" data-uid="ProEdit.Editing.IStyleManagerService.SetStyleBasedOn*"></a>
+
+  <h3 id="ProEdit_Editing_IStyleManagerService_SetStyleBasedOn_ProEdit_Editing_EditorStyleType_System_String_System_String_" data-uid="ProEdit.Editing.IStyleManagerService.SetStyleBasedOn(ProEdit.Editing.EditorStyleType,System.String,System.String)">
+  SetStyleBasedOn(EditorStyleType, string, string?)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorStyleManagement.cs/#L60"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">bool SetStyleBasedOn(EditorStyleType type, string styleId, string? basedOnId)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>type</code> <a class="xref" href="ProEdit.Editing.EditorStyleType.html">EditorStyleType</a></dt>
+    <dd></dd>
+    <dt><code>styleId</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+    <dt><code>basedOnId</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_IStyleManagerService_SetStyleCustomStyle_" data-uid="ProEdit.Editing.IStyleManagerService.SetStyleCustomStyle*"></a>
+
+  <h3 id="ProEdit_Editing_IStyleManagerService_SetStyleCustomStyle_ProEdit_Editing_EditorStyleType_System_String_System_Nullable_System_Boolean__" data-uid="ProEdit.Editing.IStyleManagerService.SetStyleCustomStyle(ProEdit.Editing.EditorStyleType,System.String,System.Nullable{System.Boolean})">
+  SetStyleCustomStyle(EditorStyleType, string, bool?)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorStyleManagement.cs/#L71"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">bool SetStyleCustomStyle(EditorStyleType type, string styleId, bool? customStyle)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>type</code> <a class="xref" href="ProEdit.Editing.EditorStyleType.html">EditorStyleType</a></dt>
+    <dd></dd>
+    <dt><code>styleId</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+    <dt><code>customStyle</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a>?</dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_IStyleManagerService_SetStyleHidden_" data-uid="ProEdit.Editing.IStyleManagerService.SetStyleHidden*"></a>
+
+  <h3 id="ProEdit_Editing_IStyleManagerService_SetStyleHidden_ProEdit_Editing_EditorStyleType_System_String_System_Nullable_System_Boolean__" data-uid="ProEdit.Editing.IStyleManagerService.SetStyleHidden(ProEdit.Editing.EditorStyleType,System.String,System.Nullable{System.Boolean})">
+  SetStyleHidden(EditorStyleType, string, bool?)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorStyleManagement.cs/#L64"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">bool SetStyleHidden(EditorStyleType type, string styleId, bool? hidden)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>type</code> <a class="xref" href="ProEdit.Editing.EditorStyleType.html">EditorStyleType</a></dt>
+    <dd></dd>
+    <dt><code>styleId</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+    <dt><code>hidden</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a>?</dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_IStyleManagerService_SetStyleLinkedStyle_" data-uid="ProEdit.Editing.IStyleManagerService.SetStyleLinkedStyle*"></a>
+
+  <h3 id="ProEdit_Editing_IStyleManagerService_SetStyleLinkedStyle_ProEdit_Editing_EditorStyleType_System_String_System_String_" data-uid="ProEdit.Editing.IStyleManagerService.SetStyleLinkedStyle(ProEdit.Editing.EditorStyleType,System.String,System.String)">
+  SetStyleLinkedStyle(EditorStyleType, string, string?)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorStyleManagement.cs/#L69"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">bool SetStyleLinkedStyle(EditorStyleType type, string styleId, string? linkedStyleId)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>type</code> <a class="xref" href="ProEdit.Editing.EditorStyleType.html">EditorStyleType</a></dt>
+    <dd></dd>
+    <dt><code>styleId</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+    <dt><code>linkedStyleId</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_IStyleManagerService_SetStyleLocked_" data-uid="ProEdit.Editing.IStyleManagerService.SetStyleLocked*"></a>
+
+  <h3 id="ProEdit_Editing_IStyleManagerService_SetStyleLocked_ProEdit_Editing_EditorStyleType_System_String_System_Nullable_System_Boolean__" data-uid="ProEdit.Editing.IStyleManagerService.SetStyleLocked(ProEdit.Editing.EditorStyleType,System.String,System.Nullable{System.Boolean})">
+  SetStyleLocked(EditorStyleType, string, bool?)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorStyleManagement.cs/#L68"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">bool SetStyleLocked(EditorStyleType type, string styleId, bool? locked)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>type</code> <a class="xref" href="ProEdit.Editing.EditorStyleType.html">EditorStyleType</a></dt>
+    <dd></dd>
+    <dt><code>styleId</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+    <dt><code>locked</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a>?</dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_IStyleManagerService_SetStyleNext_" data-uid="ProEdit.Editing.IStyleManagerService.SetStyleNext*"></a>
+
+  <h3 id="ProEdit_Editing_IStyleManagerService_SetStyleNext_ProEdit_Editing_EditorStyleType_System_String_System_String_" data-uid="ProEdit.Editing.IStyleManagerService.SetStyleNext(ProEdit.Editing.EditorStyleType,System.String,System.String)">
+  SetStyleNext(EditorStyleType, string, string?)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorStyleManagement.cs/#L61"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">bool SetStyleNext(EditorStyleType type, string styleId, string? nextStyleId)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>type</code> <a class="xref" href="ProEdit.Editing.EditorStyleType.html">EditorStyleType</a></dt>
+    <dd></dd>
+    <dt><code>styleId</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+    <dt><code>nextStyleId</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_IStyleManagerService_SetStylePrimaryStyle_" data-uid="ProEdit.Editing.IStyleManagerService.SetStylePrimaryStyle*"></a>
+
+  <h3 id="ProEdit_Editing_IStyleManagerService_SetStylePrimaryStyle_ProEdit_Editing_EditorStyleType_System_String_System_Nullable_System_Boolean__" data-uid="ProEdit.Editing.IStyleManagerService.SetStylePrimaryStyle(ProEdit.Editing.EditorStyleType,System.String,System.Nullable{System.Boolean})">
+  SetStylePrimaryStyle(EditorStyleType, string, bool?)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorStyleManagement.cs/#L70"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">bool SetStylePrimaryStyle(EditorStyleType type, string styleId, bool? primaryStyle)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>type</code> <a class="xref" href="ProEdit.Editing.EditorStyleType.html">EditorStyleType</a></dt>
+    <dd></dd>
+    <dt><code>styleId</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+    <dt><code>primaryStyle</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a>?</dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_IStyleManagerService_SetStylePriority_" data-uid="ProEdit.Editing.IStyleManagerService.SetStylePriority*"></a>
+
+  <h3 id="ProEdit_Editing_IStyleManagerService_SetStylePriority_ProEdit_Editing_EditorStyleType_System_String_System_Nullable_System_Int32__" data-uid="ProEdit.Editing.IStyleManagerService.SetStylePriority(ProEdit.Editing.EditorStyleType,System.String,System.Nullable{System.Int32})">
+  SetStylePriority(EditorStyleType, string, int?)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorStyleManagement.cs/#L72"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">bool SetStylePriority(EditorStyleType type, string styleId, int? priority)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>type</code> <a class="xref" href="ProEdit.Editing.EditorStyleType.html">EditorStyleType</a></dt>
+    <dd></dd>
+    <dt><code>styleId</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+    <dt><code>priority</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">int</a>?</dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_IStyleManagerService_SetStyleQuickStyle_" data-uid="ProEdit.Editing.IStyleManagerService.SetStyleQuickStyle*"></a>
+
+  <h3 id="ProEdit_Editing_IStyleManagerService_SetStyleQuickStyle_ProEdit_Editing_EditorStyleType_System_String_System_Nullable_System_Boolean__" data-uid="ProEdit.Editing.IStyleManagerService.SetStyleQuickStyle(ProEdit.Editing.EditorStyleType,System.String,System.Nullable{System.Boolean})">
+  SetStyleQuickStyle(EditorStyleType, string, bool?)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorStyleManagement.cs/#L63"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">bool SetStyleQuickStyle(EditorStyleType type, string styleId, bool? quickStyle)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>type</code> <a class="xref" href="ProEdit.Editing.EditorStyleType.html">EditorStyleType</a></dt>
+    <dd></dd>
+    <dt><code>styleId</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+    <dt><code>quickStyle</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a>?</dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_IStyleManagerService_SetStyleSemiHidden_" data-uid="ProEdit.Editing.IStyleManagerService.SetStyleSemiHidden*"></a>
+
+  <h3 id="ProEdit_Editing_IStyleManagerService_SetStyleSemiHidden_ProEdit_Editing_EditorStyleType_System_String_System_Nullable_System_Boolean__" data-uid="ProEdit.Editing.IStyleManagerService.SetStyleSemiHidden(ProEdit.Editing.EditorStyleType,System.String,System.Nullable{System.Boolean})">
+  SetStyleSemiHidden(EditorStyleType, string, bool?)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorStyleManagement.cs/#L65"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">bool SetStyleSemiHidden(EditorStyleType type, string styleId, bool? semiHidden)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>type</code> <a class="xref" href="ProEdit.Editing.EditorStyleType.html">EditorStyleType</a></dt>
+    <dd></dd>
+    <dt><code>styleId</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+    <dt><code>semiHidden</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a>?</dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_IStyleManagerService_SetStyleUnhideWhenUsed_" data-uid="ProEdit.Editing.IStyleManagerService.SetStyleUnhideWhenUsed*"></a>
+
+  <h3 id="ProEdit_Editing_IStyleManagerService_SetStyleUnhideWhenUsed_ProEdit_Editing_EditorStyleType_System_String_System_Nullable_System_Boolean__" data-uid="ProEdit.Editing.IStyleManagerService.SetStyleUnhideWhenUsed(ProEdit.Editing.EditorStyleType,System.String,System.Nullable{System.Boolean})">
+  SetStyleUnhideWhenUsed(EditorStyleType, string, bool?)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorStyleManagement.cs/#L66"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">bool SetStyleUnhideWhenUsed(EditorStyleType type, string styleId, bool? unhideWhenUsed)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>type</code> <a class="xref" href="ProEdit.Editing.EditorStyleType.html">EditorStyleType</a></dt>
+    <dd></dd>
+    <dt><code>styleId</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+    <dt><code>unhideWhenUsed</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a>?</dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_IStyleManagerService_UpdateCharacterStyleProperties_" data-uid="ProEdit.Editing.IStyleManagerService.UpdateCharacterStyleProperties*"></a>
+
+  <h3 id="ProEdit_Editing_IStyleManagerService_UpdateCharacterStyleProperties_System_String_ProEdit_Documents_TextStyleProperties_" data-uid="ProEdit.Editing.IStyleManagerService.UpdateCharacterStyleProperties(System.String,ProEdit.Documents.TextStyleProperties)">
+  UpdateCharacterStyleProperties(string, TextStyleProperties?)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorStyleManagement.cs/#L74"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">bool UpdateCharacterStyleProperties(string styleId, TextStyleProperties? runProperties)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>styleId</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+    <dt><code>runProperties</code> <a class="xref" href="ProEdit.Documents.TextStyleProperties.html">TextStyleProperties</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_IStyleManagerService_UpdateParagraphStyleProperties_" data-uid="ProEdit.Editing.IStyleManagerService.UpdateParagraphStyleProperties*"></a>
+
+  <h3 id="ProEdit_Editing_IStyleManagerService_UpdateParagraphStyleProperties_System_String_ProEdit_Documents_TextStyleProperties_ProEdit_Documents_ParagraphStyleProperties_" data-uid="ProEdit.Editing.IStyleManagerService.UpdateParagraphStyleProperties(System.String,ProEdit.Documents.TextStyleProperties,ProEdit.Documents.ParagraphStyleProperties)">
+  UpdateParagraphStyleProperties(string, TextStyleProperties?, ParagraphStyleProperties?)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorStyleManagement.cs/#L73"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">bool UpdateParagraphStyleProperties(string styleId, TextStyleProperties? runProperties, ParagraphStyleProperties? paragraphProperties)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>styleId</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+    <dt><code>runProperties</code> <a class="xref" href="ProEdit.Documents.TextStyleProperties.html">TextStyleProperties</a></dt>
+    <dd></dd>
+    <dt><code>paragraphProperties</code> <a class="xref" href="ProEdit.Documents.ParagraphStyleProperties.html">ParagraphStyleProperties</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_IStyleManagerService_UpdateTableStyleConditions_" data-uid="ProEdit.Editing.IStyleManagerService.UpdateTableStyleConditions*"></a>
+
+  <h3 id="ProEdit_Editing_IStyleManagerService_UpdateTableStyleConditions_System_String_System_Collections_Generic_IReadOnlyDictionary_ProEdit_Documents_TableStyleCondition_ProEdit_Documents_TableStyleConditionProperties__" data-uid="ProEdit.Editing.IStyleManagerService.UpdateTableStyleConditions(System.String,System.Collections.Generic.IReadOnlyDictionary{ProEdit.Documents.TableStyleCondition,ProEdit.Documents.TableStyleConditionProperties})">
+  UpdateTableStyleConditions(string, IReadOnlyDictionary&lt;TableStyleCondition, TableStyleConditionProperties&gt;?)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorStyleManagement.cs/#L76"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">bool UpdateTableStyleConditions(string styleId, IReadOnlyDictionary&lt;TableStyleCondition, TableStyleConditionProperties&gt;? conditions)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>styleId</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+    <dt><code>conditions</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2">IReadOnlyDictionary</a>&lt;<a class="xref" href="ProEdit.Documents.TableStyleCondition.html">TableStyleCondition</a>, <a class="xref" href="ProEdit.Documents.TableStyleConditionProperties.html">TableStyleConditionProperties</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_IStyleManagerService_UpdateTableStyleProperties_" data-uid="ProEdit.Editing.IStyleManagerService.UpdateTableStyleProperties*"></a>
+
+  <h3 id="ProEdit_Editing_IStyleManagerService_UpdateTableStyleProperties_System_String_ProEdit_Documents_TableProperties_ProEdit_Documents_TableCellProperties_" data-uid="ProEdit.Editing.IStyleManagerService.UpdateTableStyleProperties(System.String,ProEdit.Documents.TableProperties,ProEdit.Documents.TableCellProperties)">
+  UpdateTableStyleProperties(string, TableProperties?, TableCellProperties?)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorStyleManagement.cs/#L75"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">bool UpdateTableStyleProperties(string styleId, TableProperties? tableProperties, TableCellProperties? cellProperties)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>styleId</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+    <dt><code>tableProperties</code> <a class="xref" href="ProEdit.Documents.TableProperties.html">TableProperties</a></dt>
+    <dd></dd>
+    <dt><code>cellProperties</code> <a class="xref" href="ProEdit.Documents.TableCellProperties.html">TableCellProperties</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <h2 class="section" id="events">Events
+</h2>
+
+
+
+  <h3 id="ProEdit_Editing_IStyleManagerService_StylesChanged" data-uid="ProEdit.Editing.IStyleManagerService.StylesChanged">
+  StylesChanged
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorStyleManagement.cs/#L50"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">event EventHandler? StylesChanged</code></pre>
+  </div>
+
+
+
+
+
+
+  <h4 class="section">Event Type</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.eventhandler">EventHandler</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/EditorStyleManagement.cs/#L48" class="edit-link">Edit this page</a>
+        </div>
+
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          <span>Made with <a href="https://dotnet.github.io/docfx">docfx</a></span>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

@@ -1,0 +1,1076 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Interface IEditorMutableSession | ProEdit </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Interface IEditorMutableSession | ProEdit ">
+      
+      
+      <link rel="icon" href="../favicon.ico">
+      <link rel="stylesheet" href="../public/docfx.min.css">
+      <link rel="stylesheet" href="../public/main.css">
+      <meta name="docfx:navrel" content="../toc.html">
+      <meta name="docfx:tocrel" content="toc.html">
+      
+      
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/wieslawsoltes/ProEdit/new/main/apiSpec/new?filename=ProEdit_Editing_IEditorMutableSession.md&amp;value=---%0Auid%3A%20ProEdit.Editing.IEditorMutableSession%0Asummary%3A%20&#39;*You%20can%20override%20summary%20for%20the%20API%20here%20using%20*MARKDOWN*%20syntax&#39;%0A---%0A%0A*Please%20type%20below%20more%20information%20about%20this%20API%3A*%0A%0A">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="ManagedReference">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../index.html">
+            <img id="logo" class="svg" src="../images/logo.svg" alt="">
+            
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="ProEdit.Editing.IEditorMutableSession">
+
+
+
+  <h1 id="ProEdit_Editing_IEditorMutableSession" data-uid="ProEdit.Editing.IEditorMutableSession" class="text-break">
+Interface IEditorMutableSession  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/IEditorSession.cs/#L26"><i class="bi bi-code-slash"></i></a>
+  </h1>
+
+  <div class="facts text-secondary">
+    <dl><dt>Namespace</dt><dd><a class="xref" href="ProEdit.html">ProEdit</a>.<a class="xref" href="ProEdit.Editing.html">Editing</a></dd></dl>
+  <dl><dt>Assembly</dt><dd>ProEdit.Editing.dll</dd></dl>
+  </div>
+
+  <div class="markdown summary"></div>
+  <div class="markdown conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public interface IEditorMutableSession : IEditorSession</code></pre>
+  </div>
+
+
+
+
+
+
+
+  <dl class="typelist inheritedMembers">
+    <dt>Inherited Members</dt>
+    <dd>
+    <div>
+      <a class="xref" href="ProEdit.Editing.IEditorSession.html#ProEdit_Editing_IEditorSession_Document">IEditorSession.Document</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Editing.IEditorSession.html#ProEdit_Editing_IEditorSession_LayoutSettings">IEditorSession.LayoutSettings</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Editing.IEditorSession.html#ProEdit_Editing_IEditorSession_Layout">IEditorSession.Layout</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Editing.IEditorSession.html#ProEdit_Editing_IEditorSession_Caret">IEditorSession.Caret</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Editing.IEditorSession.html#ProEdit_Editing_IEditorSession_Selection">IEditorSession.Selection</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Editing.IEditorSession.html#ProEdit_Editing_IEditorSession_SelectionRanges">IEditorSession.SelectionRanges</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Editing.IEditorSession.html#ProEdit_Editing_IEditorSession_TableSelections">IEditorSession.TableSelections</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Editing.IEditorSession.html#ProEdit_Editing_IEditorSession_SelectedFloatingObjectId">IEditorSession.SelectedFloatingObjectId</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Editing.IEditorSession.html#ProEdit_Editing_IEditorSession_SelectedFloatingObjectIds">IEditorSession.SelectedFloatingObjectIds</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Editing.IEditorSession.html#ProEdit_Editing_IEditorSession_DirtyPages">IEditorSession.DirtyPages</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Editing.IEditorSession.html#ProEdit_Editing_IEditorSession_DirtyVersion">IEditorSession.DirtyVersion</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Editing.IEditorSession.html#ProEdit_Editing_IEditorSession_Changed">IEditorSession.Changed</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Editing.IEditorSession.html#ProEdit_Editing_IEditorSession_TryGetCaretPoint_ProEdit_Primitives_DocPoint__System_Int32__">IEditorSession.TryGetCaretPoint(out DocPoint, out int)</a>
+    </div>
+  </dd></dl>
+
+  <dl class="typelist extensionMethods">
+    <dt>Extension Methods</dt>
+    <dd>
+  <div>
+      <a class="xref" href="ProEdit.Editing.EditorSessionParagraphExtensions.html#ProEdit_Editing_EditorSessionParagraphExtensions_GetParagraphCountFast_ProEdit_Editing_IEditorSession_">EditorSessionParagraphExtensions.GetParagraphCountFast(IEditorSession)</a>
+  </div>
+  <div>
+      <a class="xref" href="ProEdit.Editing.EditorSessionParagraphExtensions.html#ProEdit_Editing_EditorSessionParagraphExtensions_GetParagraphFast_ProEdit_Editing_IEditorSession_System_Int32_">EditorSessionParagraphExtensions.GetParagraphFast(IEditorSession, int)</a>
+  </div>
+  <div>
+      <a class="xref" href="ProEdit.Editing.EditorSessionParagraphExtensions.html#ProEdit_Editing_EditorSessionParagraphExtensions_TryGetParagraphLineRangeFast_ProEdit_Editing_IEditorSession_System_Int32_ProEdit_Layout_LineRange__">EditorSessionParagraphExtensions.TryGetParagraphLineRangeFast(IEditorSession, int, out LineRange)</a>
+  </div>
+  </dd></dl>
+
+
+
+
+
+  <h2 class="section" id="methods">Methods
+</h2>
+
+
+  <a id="ProEdit_Editing_IEditorMutableSession_Backspace_" data-uid="ProEdit.Editing.IEditorMutableSession.Backspace*"></a>
+
+  <h3 id="ProEdit_Editing_IEditorMutableSession_Backspace" data-uid="ProEdit.Editing.IEditorMutableSession.Backspace">
+  Backspace()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/IEditorSession.cs/#L38"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">void Backspace()</code></pre>
+  </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_IEditorMutableSession_DeleteForward_" data-uid="ProEdit.Editing.IEditorMutableSession.DeleteForward*"></a>
+
+  <h3 id="ProEdit_Editing_IEditorMutableSession_DeleteForward" data-uid="ProEdit.Editing.IEditorMutableSession.DeleteForward">
+  DeleteForward()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/IEditorSession.cs/#L39"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">void DeleteForward()</code></pre>
+  </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_IEditorMutableSession_InsertBlock_" data-uid="ProEdit.Editing.IEditorMutableSession.InsertBlock*"></a>
+
+  <h3 id="ProEdit_Editing_IEditorMutableSession_InsertBlock_ProEdit_Documents_Block_" data-uid="ProEdit.Editing.IEditorMutableSession.InsertBlock(ProEdit.Documents.Block)">
+  InsertBlock(Block)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/IEditorSession.cs/#L36"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">void InsertBlock(Block block)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>block</code> <a class="xref" href="ProEdit.Documents.Block.html">Block</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_IEditorMutableSession_InsertEquation_" data-uid="ProEdit.Editing.IEditorMutableSession.InsertEquation*"></a>
+
+  <h3 id="ProEdit_Editing_IEditorMutableSession_InsertEquation_ProEdit_Documents_MathElement_ProEdit_Documents_TextStyleProperties_System_String_" data-uid="ProEdit.Editing.IEditorMutableSession.InsertEquation(ProEdit.Documents.MathElement,ProEdit.Documents.TextStyleProperties,System.String)">
+  InsertEquation(MathElement, TextStyleProperties?, string?)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/IEditorSession.cs/#L32"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">void InsertEquation(MathElement root, TextStyleProperties? style = null, string? styleId = null)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>root</code> <a class="xref" href="ProEdit.Documents.MathElement.html">MathElement</a></dt>
+    <dd></dd>
+    <dt><code>style</code> <a class="xref" href="ProEdit.Documents.TextStyleProperties.html">TextStyleProperties</a></dt>
+    <dd></dd>
+    <dt><code>styleId</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_IEditorMutableSession_InsertInline_" data-uid="ProEdit.Editing.IEditorMutableSession.InsertInline*"></a>
+
+  <h3 id="ProEdit_Editing_IEditorMutableSession_InsertInline_ProEdit_Documents_Inline_" data-uid="ProEdit.Editing.IEditorMutableSession.InsertInline(ProEdit.Documents.Inline)">
+  InsertInline(Inline)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/IEditorSession.cs/#L34"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">void InsertInline(Inline inline)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>inline</code> <a class="xref" href="ProEdit.Documents.Inline.html">Inline</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_IEditorMutableSession_InsertInlines_" data-uid="ProEdit.Editing.IEditorMutableSession.InsertInlines*"></a>
+
+  <h3 id="ProEdit_Editing_IEditorMutableSession_InsertInlines_System_Collections_Generic_IReadOnlyList_ProEdit_Documents_Inline__" data-uid="ProEdit.Editing.IEditorMutableSession.InsertInlines(System.Collections.Generic.IReadOnlyList{ProEdit.Documents.Inline})">
+  InsertInlines(IReadOnlyList&lt;Inline&gt;)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/IEditorSession.cs/#L35"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">void InsertInlines(IReadOnlyList&lt;Inline&gt; inlines)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>inlines</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;<a class="xref" href="ProEdit.Documents.Inline.html">Inline</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_IEditorMutableSession_InsertParagraphBreak_" data-uid="ProEdit.Editing.IEditorMutableSession.InsertParagraphBreak*"></a>
+
+  <h3 id="ProEdit_Editing_IEditorMutableSession_InsertParagraphBreak" data-uid="ProEdit.Editing.IEditorMutableSession.InsertParagraphBreak">
+  InsertParagraphBreak()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/IEditorSession.cs/#L33"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">void InsertParagraphBreak()</code></pre>
+  </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_IEditorMutableSession_InsertText_" data-uid="ProEdit.Editing.IEditorMutableSession.InsertText*"></a>
+
+  <h3 id="ProEdit_Editing_IEditorMutableSession_InsertText_System_ReadOnlySpan_System_Char__" data-uid="ProEdit.Editing.IEditorMutableSession.InsertText(System.ReadOnlySpan{System.Char})">
+  InsertText(ReadOnlySpan&lt;char&gt;)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/IEditorSession.cs/#L31"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">void InsertText(ReadOnlySpan&lt;char&gt; text)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>text</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.readonlyspan-1">ReadOnlySpan</a>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.char">char</a>&gt;</dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_IEditorMutableSession_MoveDocumentEnd_" data-uid="ProEdit.Editing.IEditorMutableSession.MoveDocumentEnd*"></a>
+
+  <h3 id="ProEdit_Editing_IEditorMutableSession_MoveDocumentEnd_System_Boolean_" data-uid="ProEdit.Editing.IEditorMutableSession.MoveDocumentEnd(System.Boolean)">
+  MoveDocumentEnd(bool)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/IEditorSession.cs/#L48"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">void MoveDocumentEnd(bool extendSelection)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>extendSelection</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_IEditorMutableSession_MoveDocumentStart_" data-uid="ProEdit.Editing.IEditorMutableSession.MoveDocumentStart*"></a>
+
+  <h3 id="ProEdit_Editing_IEditorMutableSession_MoveDocumentStart_System_Boolean_" data-uid="ProEdit.Editing.IEditorMutableSession.MoveDocumentStart(System.Boolean)">
+  MoveDocumentStart(bool)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/IEditorSession.cs/#L47"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">void MoveDocumentStart(bool extendSelection)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>extendSelection</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_IEditorMutableSession_MoveDown_" data-uid="ProEdit.Editing.IEditorMutableSession.MoveDown*"></a>
+
+  <h3 id="ProEdit_Editing_IEditorMutableSession_MoveDown_System_Boolean_" data-uid="ProEdit.Editing.IEditorMutableSession.MoveDown(System.Boolean)">
+  MoveDown(bool)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/IEditorSession.cs/#L44"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">void MoveDown(bool extendSelection)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>extendSelection</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_IEditorMutableSession_MoveLeft_" data-uid="ProEdit.Editing.IEditorMutableSession.MoveLeft*"></a>
+
+  <h3 id="ProEdit_Editing_IEditorMutableSession_MoveLeft_System_Boolean_" data-uid="ProEdit.Editing.IEditorMutableSession.MoveLeft(System.Boolean)">
+  MoveLeft(bool)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/IEditorSession.cs/#L41"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">void MoveLeft(bool extendSelection)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>extendSelection</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_IEditorMutableSession_MoveLineEnd_" data-uid="ProEdit.Editing.IEditorMutableSession.MoveLineEnd*"></a>
+
+  <h3 id="ProEdit_Editing_IEditorMutableSession_MoveLineEnd_System_Boolean_" data-uid="ProEdit.Editing.IEditorMutableSession.MoveLineEnd(System.Boolean)">
+  MoveLineEnd(bool)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/IEditorSession.cs/#L46"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">void MoveLineEnd(bool extendSelection)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>extendSelection</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_IEditorMutableSession_MoveLineStart_" data-uid="ProEdit.Editing.IEditorMutableSession.MoveLineStart*"></a>
+
+  <h3 id="ProEdit_Editing_IEditorMutableSession_MoveLineStart_System_Boolean_" data-uid="ProEdit.Editing.IEditorMutableSession.MoveLineStart(System.Boolean)">
+  MoveLineStart(bool)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/IEditorSession.cs/#L45"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">void MoveLineStart(bool extendSelection)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>extendSelection</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_IEditorMutableSession_MovePageDown_" data-uid="ProEdit.Editing.IEditorMutableSession.MovePageDown*"></a>
+
+  <h3 id="ProEdit_Editing_IEditorMutableSession_MovePageDown_System_Boolean_" data-uid="ProEdit.Editing.IEditorMutableSession.MovePageDown(System.Boolean)">
+  MovePageDown(bool)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/IEditorSession.cs/#L50"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">void MovePageDown(bool extendSelection)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>extendSelection</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_IEditorMutableSession_MovePageUp_" data-uid="ProEdit.Editing.IEditorMutableSession.MovePageUp*"></a>
+
+  <h3 id="ProEdit_Editing_IEditorMutableSession_MovePageUp_System_Boolean_" data-uid="ProEdit.Editing.IEditorMutableSession.MovePageUp(System.Boolean)">
+  MovePageUp(bool)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/IEditorSession.cs/#L49"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">void MovePageUp(bool extendSelection)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>extendSelection</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_IEditorMutableSession_MoveRight_" data-uid="ProEdit.Editing.IEditorMutableSession.MoveRight*"></a>
+
+  <h3 id="ProEdit_Editing_IEditorMutableSession_MoveRight_System_Boolean_" data-uid="ProEdit.Editing.IEditorMutableSession.MoveRight(System.Boolean)">
+  MoveRight(bool)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/IEditorSession.cs/#L42"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">void MoveRight(bool extendSelection)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>extendSelection</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_IEditorMutableSession_MoveUp_" data-uid="ProEdit.Editing.IEditorMutableSession.MoveUp*"></a>
+
+  <h3 id="ProEdit_Editing_IEditorMutableSession_MoveUp_System_Boolean_" data-uid="ProEdit.Editing.IEditorMutableSession.MoveUp(System.Boolean)">
+  MoveUp(bool)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/IEditorSession.cs/#L43"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">void MoveUp(bool extendSelection)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>extendSelection</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_IEditorMutableSession_RefreshLayout_" data-uid="ProEdit.Editing.IEditorMutableSession.RefreshLayout*"></a>
+
+  <h3 id="ProEdit_Editing_IEditorMutableSession_RefreshLayout" data-uid="ProEdit.Editing.IEditorMutableSession.RefreshLayout">
+  RefreshLayout()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/IEditorSession.cs/#L29"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">void RefreshLayout()</code></pre>
+  </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_IEditorMutableSession_SelectAll_" data-uid="ProEdit.Editing.IEditorMutableSession.SelectAll*"></a>
+
+  <h3 id="ProEdit_Editing_IEditorMutableSession_SelectAll" data-uid="ProEdit.Editing.IEditorMutableSession.SelectAll">
+  SelectAll()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/IEditorSession.cs/#L51"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">void SelectAll()</code></pre>
+  </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_IEditorMutableSession_SetCaretFromPoint_" data-uid="ProEdit.Editing.IEditorMutableSession.SetCaretFromPoint*"></a>
+
+  <h3 id="ProEdit_Editing_IEditorMutableSession_SetCaretFromPoint_System_Single_System_Single_ProEdit_Editing_SelectionUpdateMode_" data-uid="ProEdit.Editing.IEditorMutableSession.SetCaretFromPoint(System.Single,System.Single,ProEdit.Editing.SelectionUpdateMode)">
+  SetCaretFromPoint(float, float, SelectionUpdateMode)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/IEditorSession.cs/#L54"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">void SetCaretFromPoint(float x, float y, SelectionUpdateMode mode)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>x</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+    <dt><code>y</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+    <dt><code>mode</code> <a class="xref" href="ProEdit.Editing.SelectionUpdateMode.html">SelectionUpdateMode</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_IEditorMutableSession_SetCaretFromPoint_" data-uid="ProEdit.Editing.IEditorMutableSession.SetCaretFromPoint*"></a>
+
+  <h3 id="ProEdit_Editing_IEditorMutableSession_SetCaretFromPoint_System_Single_System_Single_System_Boolean_" data-uid="ProEdit.Editing.IEditorMutableSession.SetCaretFromPoint(System.Single,System.Single,System.Boolean)">
+  SetCaretFromPoint(float, float, bool)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/IEditorSession.cs/#L53"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">void SetCaretFromPoint(float x, float y, bool extendSelection)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>x</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+    <dt><code>y</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+    <dt><code>extendSelection</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_IEditorMutableSession_SetSelection_" data-uid="ProEdit.Editing.IEditorMutableSession.SetSelection*"></a>
+
+  <h3 id="ProEdit_Editing_IEditorMutableSession_SetSelection_ProEdit_Documents_TextRange_" data-uid="ProEdit.Editing.IEditorMutableSession.SetSelection(ProEdit.Documents.TextRange)">
+  SetSelection(TextRange)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/IEditorSession.cs/#L55"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">void SetSelection(TextRange selection)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>selection</code> <a class="xref" href="ProEdit.Documents.TextRange.html">TextRange</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_IEditorMutableSession_SetSelection_" data-uid="ProEdit.Editing.IEditorMutableSession.SetSelection*"></a>
+
+  <h3 id="ProEdit_Editing_IEditorMutableSession_SetSelection_ProEdit_Documents_TextRange_ProEdit_Editing_SelectionUpdateMode_" data-uid="ProEdit.Editing.IEditorMutableSession.SetSelection(ProEdit.Documents.TextRange,ProEdit.Editing.SelectionUpdateMode)">
+  SetSelection(TextRange, SelectionUpdateMode)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/IEditorSession.cs/#L56"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">void SetSelection(TextRange selection, SelectionUpdateMode mode)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>selection</code> <a class="xref" href="ProEdit.Documents.TextRange.html">TextRange</a></dt>
+    <dd></dd>
+    <dt><code>mode</code> <a class="xref" href="ProEdit.Editing.SelectionUpdateMode.html">SelectionUpdateMode</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_IEditorMutableSession_TrySelectFirstFloatingObject_" data-uid="ProEdit.Editing.IEditorMutableSession.TrySelectFirstFloatingObject*"></a>
+
+  <h3 id="ProEdit_Editing_IEditorMutableSession_TrySelectFirstFloatingObject" data-uid="ProEdit.Editing.IEditorMutableSession.TrySelectFirstFloatingObject">
+  TrySelectFirstFloatingObject()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/IEditorSession.cs/#L59"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">bool TrySelectFirstFloatingObject()</code></pre>
+  </div>
+
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_IEditorMutableSession_TrySelectParagraphFromPoint_" data-uid="ProEdit.Editing.IEditorMutableSession.TrySelectParagraphFromPoint*"></a>
+
+  <h3 id="ProEdit_Editing_IEditorMutableSession_TrySelectParagraphFromPoint_System_Single_System_Single_ProEdit_Editing_SelectionUpdateMode_" data-uid="ProEdit.Editing.IEditorMutableSession.TrySelectParagraphFromPoint(System.Single,System.Single,ProEdit.Editing.SelectionUpdateMode)">
+  TrySelectParagraphFromPoint(float, float, SelectionUpdateMode)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/IEditorSession.cs/#L58"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">bool TrySelectParagraphFromPoint(float x, float y, SelectionUpdateMode mode)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>x</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+    <dt><code>y</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+    <dt><code>mode</code> <a class="xref" href="ProEdit.Editing.SelectionUpdateMode.html">SelectionUpdateMode</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_IEditorMutableSession_TrySelectWordFromPoint_" data-uid="ProEdit.Editing.IEditorMutableSession.TrySelectWordFromPoint*"></a>
+
+  <h3 id="ProEdit_Editing_IEditorMutableSession_TrySelectWordFromPoint_System_Single_System_Single_ProEdit_Editing_SelectionUpdateMode_" data-uid="ProEdit.Editing.IEditorMutableSession.TrySelectWordFromPoint(System.Single,System.Single,ProEdit.Editing.SelectionUpdateMode)">
+  TrySelectWordFromPoint(float, float, SelectionUpdateMode)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/IEditorSession.cs/#L57"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">bool TrySelectWordFromPoint(float x, float y, SelectionUpdateMode mode)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>x</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+    <dt><code>y</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+    <dt><code>mode</code> <a class="xref" href="ProEdit.Editing.SelectionUpdateMode.html">SelectionUpdateMode</a></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Editing_IEditorMutableSession_UpdateLayout_" data-uid="ProEdit.Editing.IEditorMutableSession.UpdateLayout*"></a>
+
+  <h3 id="ProEdit_Editing_IEditorMutableSession_UpdateLayout_System_Single_System_Single_" data-uid="ProEdit.Editing.IEditorMutableSession.UpdateLayout(System.Single,System.Single)">
+  UpdateLayout(float, float)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/IEditorSession.cs/#L28"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">void UpdateLayout(float viewportWidth, float viewportHeight)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>viewportWidth</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+    <dt><code>viewportHeight</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Editing/IEditorSession.cs/#L26" class="edit-link">Edit this page</a>
+        </div>
+
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          <span>Made with <a href="https://dotnet.github.io/docfx">docfx</a></span>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>
