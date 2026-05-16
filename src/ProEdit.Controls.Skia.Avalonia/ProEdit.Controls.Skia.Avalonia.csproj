@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <IsPackable>true</IsPackable>
+    <PackageId>ProEdit.Controls.Skia.Avalonia</PackageId>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageDescription>Avalonia document viewer and editor controls for ProEdit.</PackageDescription>
+    <PackageTags>proedit;controls;document;viewer;editor;avalonia;skia</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Skia" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ProEdit.Controls.Skia\ProEdit.Controls.Skia.csproj" />
+  </ItemGroup>
+
+</Project>

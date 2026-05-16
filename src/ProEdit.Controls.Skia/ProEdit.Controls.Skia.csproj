@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>true</IsPackable>
+    <PackageId>ProEdit.Controls.Skia</PackageId>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageDescription>Shared Skia-backed document viewer and editor host for ProEdit controls.</PackageDescription>
+    <PackageTags>proedit;controls;skia;document;viewer;editor</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ProEdit.Documents\ProEdit.Documents.csproj" />
+    <ProjectReference Include="..\ProEdit.Editing\ProEdit.Editing.csproj" />
+    <ProjectReference Include="..\ProEdit.Layout\ProEdit.Layout.csproj" />
+    <ProjectReference Include="..\ProEdit.Primitives\ProEdit.Primitives.csproj" />
+    <ProjectReference Include="..\ProEdit.Rendering\ProEdit.Rendering.csproj" />
+    <ProjectReference Include="..\ProEdit.Rendering.Skia\ProEdit.Rendering.Skia.csproj" />
+    <ProjectReference Include="..\ProEdit.Word.Editor\ProEdit.Word.Editor.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="SkiaSharp" />
+  </ItemGroup>
+
+</Project>
