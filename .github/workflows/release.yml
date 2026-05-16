@@ -67,7 +67,7 @@ jobs:
         run: dotnet restore
 
       - name: Build
-        run: dotnet build -c Release --no-restore
+        run: dotnet build -c Release --no-restore -p:EnableMauiAppleTargets=false
 
   test:
     name: Test Release
@@ -91,10 +91,10 @@ jobs:
         run: dotnet restore
 
       - name: Build
-        run: dotnet build -c Release --no-restore
+        run: dotnet build -c Release --no-restore -p:EnableMauiAppleTargets=false
 
       - name: Test
-        run: dotnet test -c Release --no-build --logger trx --results-directory artifacts/test --filter FullyQualifiedName!~LeakTests
+        run: dotnet test -c Release --no-build -p:EnableMauiAppleTargets=false --logger trx --results-directory artifacts/test --filter FullyQualifiedName!~LeakTests
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
@@ -136,10 +136,10 @@ jobs:
         run: dotnet restore
 
       - name: Build
-        run: dotnet build -c Release --no-restore
+        run: dotnet build -c Release --no-restore -p:EnableMauiAppleTargets=false
 
       - name: Pack
-        run: dotnet pack -c Release --no-build -o artifacts/packages
+        run: dotnet pack -c Release --no-build -o artifacts/packages -p:EnableMauiAppleTargets=false
 
       - name: Upload NuGet packages
         uses: actions/upload-artifact@v4
