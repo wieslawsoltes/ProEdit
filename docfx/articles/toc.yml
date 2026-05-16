@@ -8,6 +8,8 @@
   href: flow-document.md
 - name: RichTextBox
   href: richtextbox.md
+- name: Shared Skia Controls
+  href: shared-controls.md
 - name: Projects
   href: projects.md
 - name: Build and Test

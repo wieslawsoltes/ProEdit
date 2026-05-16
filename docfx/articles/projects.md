@@ -40,6 +40,16 @@
 - `src/ProEdit.Word.Editor/` word-processing editor core
 - `src/ProEdit.Word.Avalonia/` Avalonia-based editor UI
 - `src/ProEdit.Word.App/` desktop app host
+- `src/ProEdit.Controls.Skia/` shared Skia document control host and framework-neutral control state
+- `src/ProEdit.Controls.Skia.Avalonia/` Avalonia viewer and editor controls
+- `src/ProEdit.Controls.Skia.Uno/` Uno Platform viewer and editor controls
+- `src/ProEdit.Controls.Skia.Maui/` .NET MAUI viewer and editor controls
+
+## Samples
+- `samples/ProEdit.Controls.Skia.Sample.Shared/` shared sample document and ViewModel
+- `samples/ProEdit.Controls.Skia.Avalonia.Sample/` Avalonia sample app for the shared Skia controls
+- `samples/ProEdit.Controls.Skia.Uno.Sample/` Uno Platform sample app for the shared Skia controls
+- `samples/ProEdit.Controls.Skia.Maui.Sample/` .NET MAUI sample app for the shared Skia controls
 
 ## Automation and Macros
 - `src/ProEdit.Vba/` VBA core types

@@ -28,6 +28,7 @@ The codebase is designed as a set of composable libraries rather than a single m
 | --- | --- |
 | `src/` | Production libraries, Avalonia controls, desktop apps, reporting components, collaboration services, and format providers. |
 | `tests/` | xUnit unit tests plus Avalonia headless UI tests for editor, reporting, FlowDocument, RichTextBox, collaboration, and compatibility layers. |
+| `samples/` | Small runnable hosts that showcase reusable controls across Avalonia, Uno Platform, and .NET MAUI. |
 | `benchmarks/` | BenchmarkDotNet performance benchmarks for layout and document synchronization paths. |
 | `docfx/` | DocFX documentation source for architecture, project map, getting started, FlowDocument, RichTextBox, and contribution guidance. |
 | `.github/workflows/` | Cross-platform CI, documentation deployment, release packaging, and NuGet publish automation. |
@@ -40,6 +41,7 @@ The codebase is designed as a set of composable libraries rather than a single m
 | Layout and rendering | `ProEdit.Layout`, `ProEdit.Rendering`, `ProEdit.Rendering.Skia` | Pagination, layout records, rendering abstractions, and Skia rendering backend. |
 | FlowDocument and rich text | `ProEdit.FlowDocument`, `ProEdit.FlowDocument.Documents`, `ProEdit.FlowDocument.Avalonia`, `ProEdit.RichText.Avalonia` | WPF-style FlowDocument model, conversion to the core document model, read-only viewing, and editable Avalonia rich text control. |
 | Word editor | `ProEdit.Editing`, `ProEdit.Word.Editor`, `ProEdit.Word.Avalonia`, `ProEdit.Word.App` | Editing services, command maps, proofing, ribbon-backed editor UI, and desktop host application. |
+| Shared controls | `ProEdit.Controls.Skia`, `ProEdit.Controls.Skia.Avalonia`, `ProEdit.Controls.Skia.Uno`, `ProEdit.Controls.Skia.Maui` | Packable read-only viewer and editor controls for Avalonia, Uno Platform, and .NET MAUI, backed by the shared layout/rendering/editor host. |
 | Formats | `ProEdit.OpenXml`, `ProEdit.Html`, `ProEdit.Markdown`, `ProEdit.Pdf.*`, `ProEdit.PostScript`, `ProEdit.Xps`, `ProEdit.FlowDocument.IO` | Document import/export, multi-format conversion, and backend-specific PDF/PS/XPS integrations. |
 | Printing | `ProEdit.Printing`, `ProEdit.Printing.Documents`, `ProEdit.Printing.Skia`, `ProEdit.Printing.System`, `ProEdit.Printing.Avalonia` | Print contracts, document print conversion, Skia/system printing, and Avalonia print UI. |
 | Reporting | `ProEdit.Reporting.*` | Report model, data, expressions, RDL, serialization, materialization, exports, services, Avalonia designer/viewer, and desktop reporting app. |
@@ -67,6 +69,10 @@ The table lists packable library projects in this repository. Desktop/sample hos
 | FlowDocument | [ProEdit.FlowDocument.IO](https://www.nuget.org/packages/ProEdit.FlowDocument.IO) | [![NuGet](https://img.shields.io/nuget/v/ProEdit.FlowDocument.IO.svg?logo=nuget&label=NuGet)](https://www.nuget.org/packages/ProEdit.FlowDocument.IO) | Multi-format FlowDocument/document conversion services. |
 | Rich Text | [ProEdit.RichText.Avalonia](https://www.nuget.org/packages/ProEdit.RichText.Avalonia) | [![NuGet](https://img.shields.io/nuget/v/ProEdit.RichText.Avalonia.svg?logo=nuget&label=NuGet)](https://www.nuget.org/packages/ProEdit.RichText.Avalonia) | Editable Avalonia rich text control. |
 | Rich Text | [ProEdit.RichText.Avalonia.Collaboration](https://www.nuget.org/packages/ProEdit.RichText.Avalonia.Collaboration) | [![NuGet](https://img.shields.io/nuget/v/ProEdit.RichText.Avalonia.Collaboration.svg?logo=nuget&label=NuGet)](https://www.nuget.org/packages/ProEdit.RichText.Avalonia.Collaboration) | Collaboration integration for the Avalonia rich text control. |
+| Shared Controls | [ProEdit.Controls.Skia](https://www.nuget.org/packages/ProEdit.Controls.Skia) | [![NuGet](https://img.shields.io/nuget/v/ProEdit.Controls.Skia.svg?logo=nuget&label=NuGet)](https://www.nuget.org/packages/ProEdit.Controls.Skia) | Shared Skia document host and framework-neutral control contracts. |
+| Shared Controls | [ProEdit.Controls.Skia.Avalonia](https://www.nuget.org/packages/ProEdit.Controls.Skia.Avalonia) | [![NuGet](https://img.shields.io/nuget/v/ProEdit.Controls.Skia.Avalonia.svg?logo=nuget&label=NuGet)](https://www.nuget.org/packages/ProEdit.Controls.Skia.Avalonia) | Avalonia read-only viewer and editable document controls. |
+| Shared Controls | [ProEdit.Controls.Skia.Uno](https://www.nuget.org/packages/ProEdit.Controls.Skia.Uno) | [![NuGet](https://img.shields.io/nuget/v/ProEdit.Controls.Skia.Uno.svg?logo=nuget&label=NuGet)](https://www.nuget.org/packages/ProEdit.Controls.Skia.Uno) | Uno Platform read-only viewer and editable document controls. |
+| Shared Controls | [ProEdit.Controls.Skia.Maui](https://www.nuget.org/packages/ProEdit.Controls.Skia.Maui) | [![NuGet](https://img.shields.io/nuget/v/ProEdit.Controls.Skia.Maui.svg?logo=nuget&label=NuGet)](https://www.nuget.org/packages/ProEdit.Controls.Skia.Maui) | .NET MAUI read-only viewer and editable document controls. |
 | Editing | [ProEdit.Editing](https://www.nuget.org/packages/ProEdit.Editing) | [![NuGet](https://img.shields.io/nuget/v/ProEdit.Editing.svg?logo=nuget&label=NuGet)](https://www.nuget.org/packages/ProEdit.Editing) | Editing, selection, clipboard, proofing, and command services. |
 | Word | [ProEdit.Word.Editor](https://www.nuget.org/packages/ProEdit.Word.Editor) | [![NuGet](https://img.shields.io/nuget/v/ProEdit.Word.Editor.svg?logo=nuget&label=NuGet)](https://www.nuget.org/packages/ProEdit.Word.Editor) | Word-processing editor engine. |
 | Word | [ProEdit.Word.Avalonia](https://www.nuget.org/packages/ProEdit.Word.Avalonia) | [![NuGet](https://img.shields.io/nuget/v/ProEdit.Word.Avalonia.svg?logo=nuget&label=NuGet)](https://www.nuget.org/packages/ProEdit.Word.Avalonia) | Avalonia editor UI and resources. |
@@ -131,6 +137,14 @@ dotnet add package ProEdit.Reporting.Service
 dotnet add package ProEdit.Reporting.Export
 ```
 
+Smaller embedded document hosts can use the shared Skia controls:
+
+```bash
+dotnet add package ProEdit.Controls.Skia.Avalonia
+dotnet add package ProEdit.Controls.Skia.Uno
+dotnet add package ProEdit.Controls.Skia.Maui
+```
+
 ## Build From Source
 
 Prerequisites:
@@ -156,6 +170,14 @@ Run the primary desktop applications:
 dotnet run --project src/ProEdit.Word.App/ProEdit.Word.App.csproj
 dotnet run --project src/ProEdit.Reporting.App/ProEdit.Reporting.App.csproj
 dotnet run --project src/ProEdit.FlowDocument.App/ProEdit.FlowDocument.App.csproj
+```
+
+Run the shared control samples:
+
+```bash
+dotnet run --project samples/ProEdit.Controls.Skia.Avalonia.Sample/ProEdit.Controls.Skia.Avalonia.Sample.csproj
+dotnet run --project samples/ProEdit.Controls.Skia.Uno.Sample/ProEdit.Controls.Skia.Uno.Sample.csproj
+dotnet build -f net10.0-maccatalyst samples/ProEdit.Controls.Skia.Maui.Sample/ProEdit.Controls.Skia.Maui.Sample.csproj
 ```
 
 Run benchmarks:
@@ -195,6 +217,7 @@ dotnet tool restore
 - [Project Map](docfx/articles/projects.md)
 - [FlowDocument](docfx/articles/flow-document.md)
 - [RichTextBox](docfx/articles/richtextbox.md)
+- [Shared Skia Controls](docfx/articles/shared-controls.md)
 - [Build and Test](docfx/articles/build-and-test.md)
 - [Contributing](docfx/articles/contributing.md)
 
