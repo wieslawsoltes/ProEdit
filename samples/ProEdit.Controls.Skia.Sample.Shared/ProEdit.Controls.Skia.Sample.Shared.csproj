@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ReactiveUI" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\ProEdit.Controls.Skia\ProEdit.Controls.Skia.csproj" />
+    <ProjectReference Include="..\..\src\ProEdit.Documents\ProEdit.Documents.csproj" />
+    <ProjectReference Include="..\..\src\ProEdit.Layout\ProEdit.Layout.csproj" />
+  </ItemGroup>
+
+</Project>

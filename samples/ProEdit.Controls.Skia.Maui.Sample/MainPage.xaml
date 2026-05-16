@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:controls="clr-namespace:ProEdit.Controls.Skia.Maui;assembly=ProEdit.Controls.Skia.Maui"
+             xmlns:shared="clr-namespace:ProEdit.Controls.Skia.Sample.Shared;assembly=ProEdit.Controls.Skia.Sample.Shared"
+             x:Class="ProEdit.Controls.Skia.Maui.Sample.MainPage"
+             Title="ProEdit Controls Skia">
+  <ContentPage.BindingContext>
+    <shared:DocumentControlSampleViewModel />
+  </ContentPage.BindingContext>
+
+  <ScrollView>
+    <VerticalStackLayout Spacing="12" Padding="14" BackgroundColor="#F4F6F8">
+      <Border BackgroundColor="#18202C" Padding="16">
+        <VerticalStackLayout Spacing="4">
+          <Label Text="ProEdit shared Skia document controls"
+                 TextColor="#F8FAFC"
+                 FontSize="21"
+                 FontAttributes="Bold" />
+          <Label Text="MAUI viewer and editor controls backed by the reusable Word editor host"
+                 TextColor="#CBD5E1"
+                 FontSize="12" />
+          <Label Text="{Binding Status}"
+                 TextColor="#E2E8F0"
+                 FontSize="12" />
+        </VerticalStackLayout>
+      </Border>
+
+      <FlexLayout Wrap="Wrap" Direction="Row" AlignItems="Center" JustifyContent="Start">
+        <Button Text="Reset" Command="{Binding ResetDocumentsCommand}" Margin="0,0,8,8" />
+        <Button Text="100%" Command="{Binding ZoomDefaultCommand}" Margin="0,0,8,8" />
+        <Button Text="Page Width" Command="{Binding ZoomPageWidthCommand}" Margin="0,0,8,8" />
+        <Button Text="Whole Page" Command="{Binding ZoomWholePageCommand}" Margin="0,0,8,8" />
+        <Button Text="Multiple Pages" Command="{Binding ZoomMultiplePagesCommand}" Margin="0,0,8,8" />
+        <Button Text="Zoom In" Command="{Binding ZoomInCommand}" Margin="0,0,8,8" />
+        <Button Text="Zoom Out" Command="{Binding ZoomOutCommand}" Margin="0,0,8,8" />
+        <Button Text="Print Layout" Command="{Binding PrintLayoutCommand}" Margin="0,0,8,8" />
+        <Button Text="Read Mode" Command="{Binding ReadModeCommand}" Margin="0,0,8,8" />
+        <Button Text="Web Layout" Command="{Binding WebLayoutCommand}" Margin="0,0,8,8" />
+      </FlexLayout>
+
+      <Grid ColumnDefinitions="Auto,Auto,Auto,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="14" RowSpacing="6">
+        <HorizontalStackLayout Spacing="6">
+          <CheckBox IsChecked="{Binding ShowInvisibles, Mode=TwoWay}" />
+          <Label Text="Invisibles" VerticalOptions="Center" />
+        </HorizontalStackLayout>
+        <HorizontalStackLayout Grid.Column="1" Spacing="6">
+          <CheckBox IsChecked="{Binding ShowLayout, Mode=TwoWay}" />
+          <Label Text="Layout" VerticalOptions="Center" />
+        </HorizontalStackLayout>
+        <HorizontalStackLayout Grid.Column="2" Spacing="6">
+          <CheckBox IsChecked="{Binding ShowGridlines, Mode=TwoWay}" />
+          <Label Text="Gridlines" VerticalOptions="Center" />
+        </HorizontalStackLayout>
+        <HorizontalStackLayout Grid.Column="3" Spacing="6">
+          <CheckBox IsChecked="{Binding UsePagination, Mode=TwoWay}" />
+          <Label Text="Pagination" VerticalOptions="Center" />
+        </HorizontalStackLayout>
+        <HorizontalStackLayout Grid.Row="1" Spacing="6">
+          <CheckBox IsChecked="{Binding IsPanEnabled, Mode=TwoWay}" />
+          <Label Text="Pan" VerticalOptions="Center" />
+        </HorizontalStackLayout>
+        <HorizontalStackLayout Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Spacing="6">
+          <CheckBox IsChecked="{Binding IsEditorReadOnly, Mode=TwoWay}" />
+          <Label Text="Editor read-only" VerticalOptions="Center" />
+        </HorizontalStackLayout>
+      </Grid>
+
+      <Label Text="ProEditDocumentViewer" FontAttributes="Bold" TextColor="#1F2937" />
+      <Border Stroke="#C9D1DD" StrokeThickness="1" BackgroundColor="#E8EDF4">
+        <controls:ProEditDocumentViewer Document="{Binding ViewerDocument}"
+                                        HeightRequest="420"
+                                        Zoom="{Binding ViewerZoom, Mode=TwoWay}"
+                                        ZoomMode="{Binding ViewerZoomMode, Mode=TwoWay}"
+                                        MultiplePagesPerRow="{Binding MultiplePagesPerRow, Mode=TwoWay}"
+                                        ShowInvisibles="{Binding ShowInvisibles, Mode=TwoWay}"
+                                        ShowLayout="{Binding ShowLayout, Mode=TwoWay}"
+                                        ShowGridlines="{Binding ShowGridlines, Mode=TwoWay}"
+                                        UsePagination="{Binding UsePagination, Mode=TwoWay}"
+                                        PageFlow="{Binding PageFlow, Mode=TwoWay}"
+                                        ViewMode="{Binding ViewMode, Mode=TwoWay}"
+                                        IsPanEnabled="{Binding IsPanEnabled, Mode=TwoWay}" />
+      </Border>
+
+      <Label Text="ProEditDocumentEditor" FontAttributes="Bold" TextColor="#1F2937" />
+      <Border Stroke="#C9D1DD" StrokeThickness="1" BackgroundColor="#E8EDF4">
+        <controls:ProEditDocumentEditor Document="{Binding EditorDocument}"
+                                        HeightRequest="460"
+                                        Zoom="{Binding EditorZoom, Mode=TwoWay}"
+                                        ZoomMode="{Binding EditorZoomMode, Mode=TwoWay}"
+                                        MultiplePagesPerRow="{Binding MultiplePagesPerRow, Mode=TwoWay}"
+                                        IsReadOnly="{Binding IsEditorReadOnly, Mode=TwoWay}"
+                                        ShowReadOnlyCaret="True"
+                                        AcceptsReturn="True"
+                                        AcceptsTab="True"
+                                        ShowInvisibles="{Binding ShowInvisibles, Mode=TwoWay}"
+                                        ShowLayout="{Binding ShowLayout, Mode=TwoWay}"
+                                        ShowGridlines="{Binding ShowGridlines, Mode=TwoWay}"
+                                        UsePagination="{Binding UsePagination, Mode=TwoWay}"
+                                        PageFlow="{Binding PageFlow, Mode=TwoWay}"
+                                        ViewMode="{Binding ViewMode, Mode=TwoWay}"
+                                        IsPanEnabled="{Binding IsPanEnabled, Mode=TwoWay}" />
+      </Border>
+    </VerticalStackLayout>
+  </ScrollView>
+</ContentPage>
