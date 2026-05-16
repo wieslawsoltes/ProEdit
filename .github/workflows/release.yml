@@ -40,6 +40,9 @@ jobs:
         with:
           global-json-file: global.json
 
+      - name: Install workloads
+        run: dotnet workload install wasm-tools wasm-experimental maui-android
+
       - name: Determine version
         id: version
         run: |
@@ -80,6 +83,9 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
+
+      - name: Install workloads
+        run: dotnet workload install wasm-tools wasm-experimental maui-android
 
       - name: Restore
         run: dotnet restore
@@ -122,6 +128,9 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
+
+      - name: Install workloads
+        run: dotnet workload install wasm-tools wasm-experimental maui-android
 
       - name: Restore
         run: dotnet restore

@@ -150,10 +150,12 @@ dotnet add package ProEdit.Controls.Skia.Maui
 Prerequisites:
 
 - .NET SDK `10.0.100` or newer compatible SDK, as defined in `global.json`.
-- Optional Uno workloads for WinUI/Uno compatibility projects on clean machines:
+- Optional Uno and MAUI workloads for WinUI/Uno compatibility projects and the MAUI shared-control sample on clean machines:
 
 ```bash
-dotnet workload install wasm-tools wasm-experimental
+dotnet workload install wasm-tools wasm-experimental maui-android
+# On macOS, use the full MAUI workload when building iOS or Mac Catalyst heads.
+dotnet workload install wasm-tools wasm-experimental maui
 ```
 
 Build and test the full solution:

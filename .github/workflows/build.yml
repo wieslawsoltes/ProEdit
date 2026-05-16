@@ -32,8 +32,12 @@ jobs:
       uses: actions/setup-dotnet@v4
       with:
         global-json-file: global.json
-    - name: Install workloads
-      run: dotnet workload install wasm-tools wasm-experimental
+    - name: Install non-macOS workloads
+      if: runner.os != 'macOS'
+      run: dotnet workload install wasm-tools wasm-experimental maui-android
+    - name: Install macOS workloads
+      if: runner.os == 'macOS'
+      run: dotnet workload install wasm-tools wasm-experimental maui
     - name: Build
       run: dotnet build -c Release
 
@@ -52,8 +56,12 @@ jobs:
       uses: actions/setup-dotnet@v4
       with:
         global-json-file: global.json
-    - name: Install workloads
-      run: dotnet workload install wasm-tools wasm-experimental
+    - name: Install non-macOS workloads
+      if: runner.os != 'macOS'
+      run: dotnet workload install wasm-tools wasm-experimental maui-android
+    - name: Install macOS workloads
+      if: runner.os == 'macOS'
+      run: dotnet workload install wasm-tools wasm-experimental maui
     - name: Test
       run: dotnet test -c Release
 
@@ -69,7 +77,7 @@ jobs:
       with:
         global-json-file: global.json
     - name: Install workloads
-      run: dotnet workload install wasm-tools wasm-experimental
+      run: dotnet workload install wasm-tools wasm-experimental maui-android
     - name: Pack
       run: dotnet pack -c Release -o artifacts/nuget
     - name: Upload NuGet artifacts

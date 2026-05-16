@@ -4,6 +4,7 @@
              xmlns:controls="clr-namespace:ProEdit.Controls.Skia.Maui;assembly=ProEdit.Controls.Skia.Maui"
              xmlns:shared="clr-namespace:ProEdit.Controls.Skia.Sample.Shared;assembly=ProEdit.Controls.Skia.Sample.Shared"
              x:Class="ProEdit.Controls.Skia.Maui.Sample.MainPage"
+             x:DataType="shared:DocumentControlSampleViewModel"
              Title="ProEdit Controls Skia">
   <ContentPage.BindingContext>
     <shared:DocumentControlSampleViewModel />
