@@ -1,0 +1,2300 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Class ProEditDocumentControlBase | ProEdit </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Class ProEditDocumentControlBase | ProEdit ">
+      
+      <meta name="description" content="Base class for .NET MAUI ProEdit document controls.">
+      <link rel="icon" href="../favicon.ico">
+      <link rel="stylesheet" href="../public/docfx.min.css">
+      <link rel="stylesheet" href="../public/main.css">
+      <meta name="docfx:navrel" content="../toc.html">
+      <meta name="docfx:tocrel" content="toc.html">
+      
+      
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/wieslawsoltes/ProEdit/new/main/apiSpec/new?filename=ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase.md&amp;value=---%0Auid%3A%20ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase%0Asummary%3A%20&#39;*You%20can%20override%20summary%20for%20the%20API%20here%20using%20*MARKDOWN*%20syntax&#39;%0A---%0A%0A*Please%20type%20below%20more%20information%20about%20this%20API%3A*%0A%0A">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="ManagedReference">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../index.html">
+            <img id="logo" class="svg" src="../images/logo.svg" alt="">
+            
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase">
+
+
+
+  <h1 id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase" class="text-break">
+Class ProEditDocumentControlBase  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Maui/ProEditDocumentControlBase.cs/#L14"><i class="bi bi-code-slash"></i></a>
+  </h1>
+
+  <div class="facts text-secondary">
+    <dl><dt>Namespace</dt><dd><a class="xref" href="ProEdit.html">ProEdit</a>.<a class="xref" href="ProEdit.Controls.html">Controls</a>.<a class="xref" href="ProEdit.Controls.Skia.html">Skia</a>.<a class="xref" href="ProEdit.Controls.Skia.Maui.html">Maui</a></dd></dl>
+  <dl><dt>Assembly</dt><dd>ProEdit.Controls.Skia.Maui.dll</dd></dl>
+  </div>
+
+  <div class="markdown summary"><p>Base class for .NET MAUI ProEdit document controls.</p>
+</div>
+  <div class="markdown conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public abstract class ProEditDocumentControlBase : SKCanvasView, INotifyPropertyChanged, IVisualTreeElement, IEffectControlProvider, IToolTipElement, IContextFlyoutElement, IAnimatable, IViewController, IVisualElementController, IElementController, IGestureController, IGestureRecognizers, IPropertyMapperView, IHotReloadableView, IReplaceableView, ISKCanvasView, IView, IElement, ITransform</code></pre>
+  </div>
+
+
+
+
+  <dl class="typelist inheritance">
+    <dt>Inheritance</dt>
+    <dd>
+      <div><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object">object</a></div>
+      <div><a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.bindableobject">BindableObject</a></div>
+      <div><a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.element">Element</a></div>
+      <div><a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.styleableelement">StyleableElement</a></div>
+      <div><a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.navigableelement">NavigableElement</a></div>
+      <div><a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement">VisualElement</a></div>
+      <div><a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.view">View</a></div>
+      <div><a class="xref" href="https://learn.microsoft.com/dotnet/api/skiasharp.views.maui.controls.skcanvasview">SKCanvasView</a></div>
+      <div><span class="xref">ProEditDocumentControlBase</span></div>
+    </dd>
+  </dl>
+
+  <dl class="typelist implements">
+    <dt>Implements</dt>
+    <dd>
+      <div><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.componentmodel.inotifypropertychanged">INotifyPropertyChanged</a></div>
+      <div><a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.ivisualtreeelement">IVisualTreeElement</a></div>
+      <div><a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.ieffectcontrolprovider">IEffectControlProvider</a></div>
+      <div><a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.itooltipelement">IToolTipElement</a></div>
+      <div><a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.icontextflyoutelement">IContextFlyoutElement</a></div>
+      <div><a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.ianimatable">IAnimatable</a></div>
+      <div><a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.iviewcontroller">IViewController</a></div>
+      <div><a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.ivisualelementcontroller">IVisualElementController</a></div>
+      <div><a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.ielementcontroller">IElementController</a></div>
+      <div><a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.internals.igesturecontroller">IGestureController</a></div>
+      <div><a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.igesturerecognizers">IGestureRecognizers</a></div>
+      <div><a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.ipropertymapperview">IPropertyMapperView</a></div>
+      <div><a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.hotreload.ihotreloadableview">IHotReloadableView</a></div>
+      <div><a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.ireplaceableview">IReplaceableView</a></div>
+      <div><a class="xref" href="https://learn.microsoft.com/dotnet/api/skiasharp.views.maui.iskcanvasview">ISKCanvasView</a></div>
+      <div><a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.iview">IView</a></div>
+      <div><a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.ielement">IElement</a></div>
+      <div><a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.itransform">ITransform</a></div>
+    </dd>
+  </dl>
+
+  <dl class="typelist derived">
+    <dt>Derived</dt>
+    <dd>
+      <div><a class="xref" href="ProEdit.Controls.Skia.Maui.ProEditDocumentEditor.html">ProEditDocumentEditor</a></div>
+      <div><a class="xref" href="ProEdit.Controls.Skia.Maui.ProEditDocumentViewer.html">ProEditDocumentViewer</a></div>
+    </dd>
+  </dl>
+
+  <dl class="typelist inheritedMembers">
+    <dt>Inherited Members</dt>
+    <dd>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/skiasharp.views.maui.controls.skcanvasview.ignorepixelscalingproperty">SKCanvasView.IgnorePixelScalingProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/skiasharp.views.maui.controls.skcanvasview.enabletoucheventsproperty">SKCanvasView.EnableTouchEventsProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/skiasharp.views.maui.controls.skcanvasview.invalidatesurface">SKCanvasView.InvalidateSurface()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/skiasharp.views.maui.controls.skcanvasview.onpaintsurface">SKCanvasView.OnPaintSurface(SKPaintSurfaceEventArgs)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/skiasharp.views.maui.controls.skcanvasview.ontouch">SKCanvasView.OnTouch(SKTouchEventArgs)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/skiasharp.views.maui.controls.skcanvasview.canvassize">SKCanvasView.CanvasSize</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/skiasharp.views.maui.controls.skcanvasview.ignorepixelscaling">SKCanvasView.IgnorePixelScaling</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/skiasharp.views.maui.controls.skcanvasview.enabletouchevents">SKCanvasView.EnableTouchEvents</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/skiasharp.views.maui.controls.skcanvasview.paintsurface">SKCanvasView.PaintSurface</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/skiasharp.views.maui.controls.skcanvasview.touch">SKCanvasView.Touch</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.view.verticaloptionsproperty">View.VerticalOptionsProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.view.horizontaloptionsproperty">View.HorizontalOptionsProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.view.marginproperty">View.MarginProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.view.propertymapper">View.propertyMapper</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.view.changevisualstate">View.ChangeVisualState()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.view.getchildelements">View.GetChildElements(Point)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.view.onbindingcontextchanged">View.OnBindingContextChanged()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.view.getrendereroverrides">View.GetRendererOverrides&lt;T&gt;()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.view.gesturecontroller">View.GestureController</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.view.gesturerecognizers">View.GestureRecognizers</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.view.horizontaloptions">View.HorizontalOptions</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.view.margin">View.Margin</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.view.verticaloptions">View.VerticalOptions</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.navigationproperty">VisualElement.NavigationProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.styleproperty">VisualElement.StyleProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.inputtransparentproperty">VisualElement.InputTransparentProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.isenabledproperty">VisualElement.IsEnabledProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.xproperty">VisualElement.XProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.yproperty">VisualElement.YProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.anchorxproperty">VisualElement.AnchorXProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.anchoryproperty">VisualElement.AnchorYProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.translationxproperty">VisualElement.TranslationXProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.translationyproperty">VisualElement.TranslationYProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.widthproperty">VisualElement.WidthProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.heightproperty">VisualElement.HeightProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.rotationproperty">VisualElement.RotationProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.rotationxproperty">VisualElement.RotationXProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.rotationyproperty">VisualElement.RotationYProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.scaleproperty">VisualElement.ScaleProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.scalexproperty">VisualElement.ScaleXProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.scaleyproperty">VisualElement.ScaleYProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.clipproperty">VisualElement.ClipProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.visualproperty">VisualElement.VisualProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.isvisibleproperty">VisualElement.IsVisibleProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.opacityproperty">VisualElement.OpacityProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.backgroundcolorproperty">VisualElement.BackgroundColorProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.backgroundproperty">VisualElement.BackgroundProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.behaviorsproperty">VisualElement.BehaviorsProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.triggersproperty">VisualElement.TriggersProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.widthrequestproperty">VisualElement.WidthRequestProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.heightrequestproperty">VisualElement.HeightRequestProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.minimumwidthrequestproperty">VisualElement.MinimumWidthRequestProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.minimumheightrequestproperty">VisualElement.MinimumHeightRequestProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.maximumwidthrequestproperty">VisualElement.MaximumWidthRequestProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.maximumheightrequestproperty">VisualElement.MaximumHeightRequestProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.isfocusedproperty">VisualElement.IsFocusedProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.flowdirectionproperty">VisualElement.FlowDirectionProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.windowproperty">VisualElement.WindowProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.shadowproperty">VisualElement.ShadowProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.zindexproperty">VisualElement.ZIndexProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.batchbegin">VisualElement.BatchBegin()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.batchcommit">VisualElement.BatchCommit()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.focus">VisualElement.Focus()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.measure#microsoft-maui-controls-visualelement-measure(system-double-system-double)">VisualElement.Measure(double, double)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.measure#microsoft-maui-controls-visualelement-measure(system-double-system-double-microsoft-maui-controls-measureflags)">VisualElement.Measure(double, double, MeasureFlags)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.unfocus">VisualElement.Unfocus()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.invalidatemeasure">VisualElement.InvalidateMeasure()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.onchildadded">VisualElement.OnChildAdded(Element)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.onchildremoved">VisualElement.OnChildRemoved(Element, int)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.onchildrenreordered">VisualElement.OnChildrenReordered()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.onmeasure">VisualElement.OnMeasure(double, double)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.onsizeallocated">VisualElement.OnSizeAllocated(double, double)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.sizeallocated">VisualElement.SizeAllocated(double, double)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.computeconstraintforview">VisualElement.ComputeConstraintForView(View)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.refreshisenabledproperty">VisualElement.RefreshIsEnabledProperty()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.arrange">VisualElement.Arrange(Rect)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.arrangeoverride">VisualElement.ArrangeOverride(Rect)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.layout">VisualElement.Layout(Rect)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.invalidatemeasureoverride">VisualElement.InvalidateMeasureOverride()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.mapbackgroundcolor">VisualElement.MapBackgroundColor(IViewHandler, IView)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.mapbackgroundimagesource">VisualElement.MapBackgroundImageSource(IViewHandler, IView)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.visual">VisualElement.Visual</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.flowdirection">VisualElement.FlowDirection</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.window">VisualElement.Window</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.anchorx">VisualElement.AnchorX</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.anchory">VisualElement.AnchorY</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.backgroundcolor">VisualElement.BackgroundColor</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.background">VisualElement.Background</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.behaviors">VisualElement.Behaviors</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.bounds">VisualElement.Bounds</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.height">VisualElement.Height</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.heightrequest">VisualElement.HeightRequest</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.inputtransparent">VisualElement.InputTransparent</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.isenabled">VisualElement.IsEnabled</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.isenabledcore">VisualElement.IsEnabledCore</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.isfocused">VisualElement.IsFocused</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.isvisible">VisualElement.IsVisible</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.minimumheightrequest">VisualElement.MinimumHeightRequest</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.minimumwidthrequest">VisualElement.MinimumWidthRequest</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.maximumheightrequest">VisualElement.MaximumHeightRequest</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.maximumwidthrequest">VisualElement.MaximumWidthRequest</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.opacity">VisualElement.Opacity</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.rotation">VisualElement.Rotation</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.rotationx">VisualElement.RotationX</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.rotationy">VisualElement.RotationY</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.scale">VisualElement.Scale</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.scalex">VisualElement.ScaleX</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.scaley">VisualElement.ScaleY</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.translationx">VisualElement.TranslationX</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.translationy">VisualElement.TranslationY</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.triggers">VisualElement.Triggers</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.width">VisualElement.Width</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.widthrequest">VisualElement.WidthRequest</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.x">VisualElement.X</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.y">VisualElement.Y</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.clip">VisualElement.Clip</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.resources">VisualElement.Resources</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.frame">VisualElement.Frame</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.handler">VisualElement.Handler</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.shadow">VisualElement.Shadow</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.zindex">VisualElement.ZIndex</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.desiredsize">VisualElement.DesiredSize</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.isloaded">VisualElement.IsLoaded</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.childrenreordered">VisualElement.ChildrenReordered</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.focused">VisualElement.Focused</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.measureinvalidated">VisualElement.MeasureInvalidated</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.sizechanged">VisualElement.SizeChanged</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.unfocused">VisualElement.Unfocused</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.loaded">VisualElement.Loaded</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.visualelement.unloaded">VisualElement.Unloaded</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.navigableelement.onparentset">NavigableElement.OnParentSet()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.navigableelement.navigation">NavigableElement.Navigation</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.styleableelement.style">StyleableElement.Style</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.styleableelement.styleclass">StyleableElement.StyleClass</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.styleableelement.class">StyleableElement.class</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.element.automationidproperty">Element.AutomationIdProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.element.classidproperty">Element.ClassIdProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.element.mapautomationpropertiesisinaccessibletree">Element.MapAutomationPropertiesIsInAccessibleTree(IElementHandler, Element)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.element.mapautomationpropertiesexcludedwithchildren">Element.MapAutomationPropertiesExcludedWithChildren(IElementHandler, Element)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.element.insertlogicalchild">Element.InsertLogicalChild(int, Element)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.element.addlogicalchild">Element.AddLogicalChild(Element)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.element.removelogicalchild">Element.RemoveLogicalChild(Element)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.element.clearlogicalchildren">Element.ClearLogicalChildren()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.element.findbyname">Element.FindByName(string)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.element.removedynamicresource">Element.RemoveDynamicResource(BindableProperty)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.element.setdynamicresource">Element.SetDynamicResource(BindableProperty, string)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.element.onpropertychanged">Element.OnPropertyChanged(string)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.element.onparentchanging">Element.OnParentChanging(ParentChangingEventArgs)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.element.onparentchanged">Element.OnParentChanged()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.element.onhandlerchanging">Element.OnHandlerChanging(HandlerChangingEventArgs)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.element.onhandlerchanged">Element.OnHandlerChanged()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.element.automationid">Element.AutomationId</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.element.classid">Element.ClassId</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.element.effects">Element.Effects</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.element.id">Element.Id</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.element.styleid">Element.StyleId</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.element.parent">Element.Parent</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.element.childadded">Element.ChildAdded</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.element.childremoved">Element.ChildRemoved</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.element.descendantadded">Element.DescendantAdded</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.element.descendantremoved">Element.DescendantRemoved</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.element.parentchanging">Element.ParentChanging</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.element.parentchanged">Element.ParentChanged</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.element.handlerchanging">Element.HandlerChanging</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.element.handlerchanged">Element.HandlerChanged</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.bindableobject.bindingcontextproperty">BindableObject.BindingContextProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.bindableobject.clearvalue#microsoft-maui-controls-bindableobject-clearvalue(microsoft-maui-controls-bindableproperty)">BindableObject.ClearValue(BindableProperty)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.bindableobject.clearvalue#microsoft-maui-controls-bindableobject-clearvalue(microsoft-maui-controls-bindablepropertykey)">BindableObject.ClearValue(BindablePropertyKey)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.bindableobject.getvalue">BindableObject.GetValue(BindableProperty)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.bindableobject.isset">BindableObject.IsSet(BindableProperty)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.bindableobject.removebinding">BindableObject.RemoveBinding(BindableProperty)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.bindableobject.setbinding">BindableObject.SetBinding(BindableProperty, BindingBase)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.bindableobject.applybindings">BindableObject.ApplyBindings()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.bindableobject.onpropertychanging">BindableObject.OnPropertyChanging(string)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.bindableobject.unapplybindings">BindableObject.UnapplyBindings()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.bindableobject.setvalue#microsoft-maui-controls-bindableobject-setvalue(microsoft-maui-controls-bindableproperty-system-object)">BindableObject.SetValue(BindableProperty, object)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.bindableobject.setvalue#microsoft-maui-controls-bindableobject-setvalue(microsoft-maui-controls-bindablepropertykey-system-object)">BindableObject.SetValue(BindablePropertyKey, object)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.bindableobject.coercevalue#microsoft-maui-controls-bindableobject-coercevalue(microsoft-maui-controls-bindableproperty)">BindableObject.CoerceValue(BindableProperty)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.bindableobject.coercevalue#microsoft-maui-controls-bindableobject-coercevalue(microsoft-maui-controls-bindablepropertykey)">BindableObject.CoerceValue(BindablePropertyKey)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.bindableobject.dispatcher">BindableObject.Dispatcher</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.bindableobject.bindingcontext">BindableObject.BindingContext</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.bindableobject.propertychanged">BindableObject.PropertyChanged</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.bindableobject.propertychanging">BindableObject.PropertyChanging</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.bindableobject.bindingcontextchanged">BindableObject.BindingContextChanged</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)">object.Equals(object)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)">object.Equals(object, object)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.gethashcode">object.GetHashCode()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.gettype">object.GetType()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone">object.MemberwiseClone()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.referenceequals">object.ReferenceEquals(object, object)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.tostring">object.ToString()</a>
+    </div>
+  </dd></dl>
+
+
+
+
+
+
+  <h2 class="section" id="constructors">Constructors
+</h2>
+
+
+  <a id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase__ctor_" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.#ctor*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase__ctor" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.#ctor">
+  ProEditDocumentControlBase()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Maui/ProEditDocumentControlBase.cs/#L255"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Initializes a new instance of the <a class="xref" href="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.html">ProEditDocumentControlBase</a> class.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">protected ProEditDocumentControlBase()</code></pre>
+  </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase__ctor_" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.#ctor*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase__ctor_ProEdit_Controls_Skia_ProEditDocumentHost_" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.#ctor(ProEdit.Controls.Skia.ProEditDocumentHost)">
+  ProEditDocumentControlBase(ProEditDocumentHost)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Maui/ProEditDocumentControlBase.cs/#L264"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Initializes a new instance of the <a class="xref" href="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.html">ProEditDocumentControlBase</a> class.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">protected ProEditDocumentControlBase(ProEditDocumentHost documentHost)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>documentHost</code> <a class="xref" href="ProEdit.Controls.Skia.ProEditDocumentHost.html">ProEditDocumentHost</a></dt>
+    <dd><p>The shared document host to render and edit through.</p>
+</dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <h2 class="section" id="fields">Fields
+</h2>
+
+
+
+  <h3 id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_AcceptsReturnProperty" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.AcceptsReturnProperty">
+  AcceptsReturnProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Maui/ProEditDocumentControlBase.cs/#L109"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Defines the <a class="xref" href="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_AcceptsReturn">AcceptsReturn</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly BindableProperty AcceptsReturnProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.bindableproperty">BindableProperty</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_AcceptsTabProperty" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.AcceptsTabProperty">
+  AcceptsTabProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Maui/ProEditDocumentControlBase.cs/#L120"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Defines the <a class="xref" href="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_AcceptsTab">AcceptsTab</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly BindableProperty AcceptsTabProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.bindableproperty">BindableProperty</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_DocumentProperty" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.DocumentProperty">
+  DocumentProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Maui/ProEditDocumentControlBase.cs/#L21"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Defines the <a class="xref" href="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_Document">Document</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly BindableProperty DocumentProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.bindableproperty">BindableProperty</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_IsPanEnabledProperty" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.IsPanEnabledProperty">
+  IsPanEnabledProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Maui/ProEditDocumentControlBase.cs/#L241"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Defines the <a class="xref" href="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_IsPanEnabled">IsPanEnabled</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly BindableProperty IsPanEnabledProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.bindableproperty">BindableProperty</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_IsReadOnlyProperty" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.IsReadOnlyProperty">
+  IsReadOnlyProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Maui/ProEditDocumentControlBase.cs/#L87"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Defines the <a class="xref" href="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_IsReadOnly">IsReadOnly</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly BindableProperty IsReadOnlyProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.bindableproperty">BindableProperty</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_MultiplePagesPerRowProperty" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.MultiplePagesPerRowProperty">
+  MultiplePagesPerRowProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Maui/ProEditDocumentControlBase.cs/#L54"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Defines the <a class="xref" href="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_MultiplePagesPerRow">MultiplePagesPerRow</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly BindableProperty MultiplePagesPerRowProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.bindableproperty">BindableProperty</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_PageFlowProperty" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.PageFlowProperty">
+  PageFlowProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Maui/ProEditDocumentControlBase.cs/#L197"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Defines the <a class="xref" href="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_PageFlow">PageFlow</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly BindableProperty PageFlowProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.bindableproperty">BindableProperty</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_ScrollXProperty" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.ScrollXProperty">
+  ScrollXProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Maui/ProEditDocumentControlBase.cs/#L65"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Defines the <a class="xref" href="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_ScrollX">ScrollX</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly BindableProperty ScrollXProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.bindableproperty">BindableProperty</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_ScrollYProperty" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.ScrollYProperty">
+  ScrollYProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Maui/ProEditDocumentControlBase.cs/#L76"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Defines the <a class="xref" href="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_ScrollY">ScrollY</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly BindableProperty ScrollYProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.bindableproperty">BindableProperty</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_ShowGridlinesProperty" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.ShowGridlinesProperty">
+  ShowGridlinesProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Maui/ProEditDocumentControlBase.cs/#L175"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Defines the <a class="xref" href="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_ShowGridlines">ShowGridlines</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly BindableProperty ShowGridlinesProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.bindableproperty">BindableProperty</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_ShowInvisiblesProperty" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.ShowInvisiblesProperty">
+  ShowInvisiblesProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Maui/ProEditDocumentControlBase.cs/#L153"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Defines the <a class="xref" href="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_ShowInvisibles">ShowInvisibles</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly BindableProperty ShowInvisiblesProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.bindableproperty">BindableProperty</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_ShowLayoutProperty" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.ShowLayoutProperty">
+  ShowLayoutProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Maui/ProEditDocumentControlBase.cs/#L164"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Defines the <a class="xref" href="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_ShowLayout">ShowLayout</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly BindableProperty ShowLayoutProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.bindableproperty">BindableProperty</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_ShowNavigationPaneProperty" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.ShowNavigationPaneProperty">
+  ShowNavigationPaneProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Maui/ProEditDocumentControlBase.cs/#L219"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Defines the <a class="xref" href="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_ShowNavigationPane">ShowNavigationPane</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly BindableProperty ShowNavigationPaneProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.bindableproperty">BindableProperty</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_ShowReadOnlyCaretProperty" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.ShowReadOnlyCaretProperty">
+  ShowReadOnlyCaretProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Maui/ProEditDocumentControlBase.cs/#L98"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Defines the <a class="xref" href="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_ShowReadOnlyCaret">ShowReadOnlyCaret</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly BindableProperty ShowReadOnlyCaretProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.bindableproperty">BindableProperty</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_ShowRulerProperty" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.ShowRulerProperty">
+  ShowRulerProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Maui/ProEditDocumentControlBase.cs/#L208"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Defines the <a class="xref" href="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_ShowRuler">ShowRuler</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly BindableProperty ShowRulerProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.bindableproperty">BindableProperty</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_UseHarfBuzzProperty" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.UseHarfBuzzProperty">
+  UseHarfBuzzProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Maui/ProEditDocumentControlBase.cs/#L131"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Defines the <a class="xref" href="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_UseHarfBuzz">UseHarfBuzz</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly BindableProperty UseHarfBuzzProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.bindableproperty">BindableProperty</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_UsePaginationProperty" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.UsePaginationProperty">
+  UsePaginationProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Maui/ProEditDocumentControlBase.cs/#L186"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Defines the <a class="xref" href="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_UsePagination">UsePagination</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly BindableProperty UsePaginationProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.bindableproperty">BindableProperty</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_UsePictureCacheProperty" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.UsePictureCacheProperty">
+  UsePictureCacheProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Maui/ProEditDocumentControlBase.cs/#L142"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Defines the <a class="xref" href="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_UsePictureCache">UsePictureCache</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly BindableProperty UsePictureCacheProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.bindableproperty">BindableProperty</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_ViewModeProperty" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.ViewModeProperty">
+  ViewModeProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Maui/ProEditDocumentControlBase.cs/#L230"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Defines the <a class="xref" href="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_ViewMode">ViewMode</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly BindableProperty ViewModeProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.bindableproperty">BindableProperty</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_ZoomModeProperty" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.ZoomModeProperty">
+  ZoomModeProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Maui/ProEditDocumentControlBase.cs/#L43"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Defines the <a class="xref" href="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_ZoomMode">ZoomMode</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly BindableProperty ZoomModeProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.bindableproperty">BindableProperty</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_ZoomProperty" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.ZoomProperty">
+  ZoomProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Maui/ProEditDocumentControlBase.cs/#L32"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Defines the <a class="xref" href="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_Zoom">Zoom</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly BindableProperty ZoomProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.controls.bindableproperty">BindableProperty</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+  <h2 class="section" id="properties">Properties
+</h2>
+
+
+  <a id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_AcceptsReturn_" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.AcceptsReturn*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_AcceptsReturn" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.AcceptsReturn">
+  AcceptsReturn
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Maui/ProEditDocumentControlBase.cs/#L358"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets a value indicating whether Enter inserts a paragraph break.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool AcceptsReturn { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_AcceptsTab_" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.AcceptsTab*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_AcceptsTab" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.AcceptsTab">
+  AcceptsTab
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Maui/ProEditDocumentControlBase.cs/#L367"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets a value indicating whether Tab inserts a tab character.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool AcceptsTab { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_Document_" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.Document*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_Document" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.Document">
+  Document
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Maui/ProEditDocumentControlBase.cs/#L286"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets the document to display.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public Document? Document { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Documents.Document.html">Document</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_DocumentHost_" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.DocumentHost*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_DocumentHost" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.DocumentHost">
+  DocumentHost
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Maui/ProEditDocumentControlBase.cs/#L281"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets the shared document host.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public ProEditDocumentHost DocumentHost { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Controls.Skia.ProEditDocumentHost.html">ProEditDocumentHost</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_IsPanEnabled_" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.IsPanEnabled*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_IsPanEnabled" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.IsPanEnabled">
+  IsPanEnabled
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Maui/ProEditDocumentControlBase.cs/#L466"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets a value indicating whether middle-button panning is enabled.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool IsPanEnabled { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_IsReadOnly_" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.IsReadOnly*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_IsReadOnly" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.IsReadOnly">
+  IsReadOnly
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Maui/ProEditDocumentControlBase.cs/#L340"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets a value indicating whether text mutations are blocked.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool IsReadOnly { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_MultiplePagesPerRow_" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.MultiplePagesPerRow*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_MultiplePagesPerRow" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.MultiplePagesPerRow">
+  MultiplePagesPerRow
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Maui/ProEditDocumentControlBase.cs/#L313"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets the page count used by multiple-pages zoom.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public int MultiplePagesPerRow { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">int</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_PageFlow_" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.PageFlow*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_PageFlow" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.PageFlow">
+  PageFlow
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Maui/ProEditDocumentControlBase.cs/#L430"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets the page flow direction.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public PageFlowDirection PageFlow { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Layout.PageFlowDirection.html">PageFlowDirection</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_ScrollX_" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.ScrollX*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_ScrollX" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.ScrollX">
+  ScrollX
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Maui/ProEditDocumentControlBase.cs/#L322"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets the horizontal scroll offset in document-space units.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public double ScrollX { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.double">double</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_ScrollY_" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.ScrollY*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_ScrollY" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.ScrollY">
+  ScrollY
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Maui/ProEditDocumentControlBase.cs/#L331"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets the vertical scroll offset in document-space units.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public double ScrollY { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.double">double</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_ShowGridlines_" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.ShowGridlines*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_ShowGridlines" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.ShowGridlines">
+  ShowGridlines
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Maui/ProEditDocumentControlBase.cs/#L412"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets a value indicating whether page gridlines are rendered.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool ShowGridlines { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_ShowInvisibles_" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.ShowInvisibles*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_ShowInvisibles" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.ShowInvisibles">
+  ShowInvisibles
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Maui/ProEditDocumentControlBase.cs/#L394"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets a value indicating whether invisible characters are rendered.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool ShowInvisibles { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_ShowLayout_" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.ShowLayout*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_ShowLayout" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.ShowLayout">
+  ShowLayout
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Maui/ProEditDocumentControlBase.cs/#L403"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets a value indicating whether layout guides are rendered.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool ShowLayout { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_ShowNavigationPane_" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.ShowNavigationPane*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_ShowNavigationPane" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.ShowNavigationPane">
+  ShowNavigationPane
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Maui/ProEditDocumentControlBase.cs/#L448"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets a value indicating whether hosting UI should show a navigation pane.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool ShowNavigationPane { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_ShowReadOnlyCaret_" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.ShowReadOnlyCaret*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_ShowReadOnlyCaret" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.ShowReadOnlyCaret">
+  ShowReadOnlyCaret
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Maui/ProEditDocumentControlBase.cs/#L349"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets a value indicating whether the caret is rendered in read-only mode.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool ShowReadOnlyCaret { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_ShowRuler_" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.ShowRuler*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_ShowRuler" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.ShowRuler">
+  ShowRuler
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Maui/ProEditDocumentControlBase.cs/#L439"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets a value indicating whether hosting UI should show a ruler.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool ShowRuler { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_UseHarfBuzz_" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.UseHarfBuzz*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_UseHarfBuzz" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.UseHarfBuzz">
+  UseHarfBuzz
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Maui/ProEditDocumentControlBase.cs/#L376"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets a value indicating whether HarfBuzz shaping is used.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool UseHarfBuzz { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_UsePagination_" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.UsePagination*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_UsePagination" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.UsePagination">
+  UsePagination
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Maui/ProEditDocumentControlBase.cs/#L421"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets a value indicating whether the document uses paginated layout.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool UsePagination { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_UsePictureCache_" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.UsePictureCache*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_UsePictureCache" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.UsePictureCache">
+  UsePictureCache
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Maui/ProEditDocumentControlBase.cs/#L385"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets a value indicating whether rendered pages are cached as Skia pictures.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool UsePictureCache { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_ViewMode_" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.ViewMode*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_ViewMode" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.ViewMode">
+  ViewMode
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Maui/ProEditDocumentControlBase.cs/#L457"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets the logical editor view mode.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public EditorViewMode ViewMode { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Editing.EditorViewMode.html">EditorViewMode</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_Zoom_" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.Zoom*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_Zoom" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.Zoom">
+  Zoom
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Maui/ProEditDocumentControlBase.cs/#L295"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets the zoom factor.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public double Zoom { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.double">double</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_ZoomMode_" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.ZoomMode*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_ZoomMode" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.ZoomMode">
+  ZoomMode
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Maui/ProEditDocumentControlBase.cs/#L304"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets the automatic zoom mode.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public ProEditDocumentZoomMode ZoomMode { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Controls.Skia.ProEditDocumentZoomMode.html">ProEditDocumentZoomMode</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <h2 class="section" id="methods">Methods
+</h2>
+
+
+  <a id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_HandleTextInput_" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.HandleTextInput*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_HandleTextInput_System_String_" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.HandleTextInput(System.String)">
+  HandleTextInput(string)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Maui/ProEditDocumentControlBase.cs/#L486"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Routes text input into the editor host.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool HandleTextInput(string text)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>text</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd><p>The text to input.</p>
+</dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd><p>True when the input was handled.</p>
+</dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_MeasureOverride_" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.MeasureOverride*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_MeasureOverride_System_Double_System_Double_" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.MeasureOverride(System.Double,System.Double)">
+  MeasureOverride(double, double)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Maui/ProEditDocumentControlBase.cs/#L498"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Allows subclasses to implement custom Measure logic during a controls measure pass.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">protected override Size MeasureOverride(double widthConstraint, double heightConstraint)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>widthConstraint</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.double">double</a></dt>
+    <dd><p>The width constraint to request.</p>
+</dd>
+    <dt><code>heightConstraint</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.double">double</a></dt>
+    <dd><p>The height constraint to request.</p>
+</dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/microsoft.maui.graphics.size">Size</a></dt>
+    <dd><p>The requested size that an element wants in order to be displayed on the device.</p>
+</dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_Refresh_" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.Refresh*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_Maui_ProEditDocumentControlBase_Refresh" data-uid="ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.Refresh">
+  Refresh()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Maui/ProEditDocumentControlBase.cs/#L475"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Forces the current document to be rendered again.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void Refresh()</code></pre>
+  </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Maui/ProEditDocumentControlBase.cs/#L14" class="edit-link">Edit this page</a>
+        </div>
+
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          <span>Made with <a href="https://dotnet.github.io/docfx">docfx</a></span>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

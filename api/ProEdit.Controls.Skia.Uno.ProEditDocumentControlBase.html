@@ -1,0 +1,2764 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Class ProEditDocumentControlBase | ProEdit </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Class ProEditDocumentControlBase | ProEdit ">
+      
+      <meta name="description" content="Base class for Uno Platform ProEdit document controls.">
+      <link rel="icon" href="../favicon.ico">
+      <link rel="stylesheet" href="../public/docfx.min.css">
+      <link rel="stylesheet" href="../public/main.css">
+      <meta name="docfx:navrel" content="../toc.html">
+      <meta name="docfx:tocrel" content="toc.html">
+      
+      
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/wieslawsoltes/ProEdit/new/main/apiSpec/new?filename=ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase.md&amp;value=---%0Auid%3A%20ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase%0Asummary%3A%20&#39;*You%20can%20override%20summary%20for%20the%20API%20here%20using%20*MARKDOWN*%20syntax&#39;%0A---%0A%0A*Please%20type%20below%20more%20information%20about%20this%20API%3A*%0A%0A">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="ManagedReference">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../index.html">
+            <img id="logo" class="svg" src="../images/logo.svg" alt="">
+            
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase">
+
+
+
+  <h1 id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase" class="text-break">
+Class ProEditDocumentControlBase  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Uno/ProEditDocumentControlBase.cs/#L19"><i class="bi bi-code-slash"></i></a>
+  </h1>
+
+  <div class="facts text-secondary">
+    <dl><dt>Namespace</dt><dd><a class="xref" href="ProEdit.html">ProEdit</a>.<a class="xref" href="ProEdit.Controls.html">Controls</a>.<a class="xref" href="ProEdit.Controls.Skia.html">Skia</a>.<a class="xref" href="ProEdit.Controls.Skia.Uno.html">Uno</a></dd></dl>
+  <dl><dt>Assembly</dt><dd>ProEdit.Controls.Skia.Uno.dll</dd></dl>
+  </div>
+
+  <div class="markdown summary"><p>Base class for Uno Platform ProEdit document controls.</p>
+</div>
+  <div class="markdown conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public abstract class ProEditDocumentControlBase : SKCanvasElement, IAnimationObject, IVisualElement, IVisualElement2, IDependencyObjectStoreProvider, IWeakReferenceProvider, IEnumerable, IDataContextProvider, DependencyObject, ILayoutConstraints</code></pre>
+  </div>
+
+
+
+
+  <dl class="typelist inheritance">
+    <dt>Inheritance</dt>
+    <dd>
+      <div><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object">object</a></div>
+      <div><span class="xref">UIElement</span></div>
+      <div><span class="xref">FrameworkElement</span></div>
+      <div><a class="xref" href="https://github.com/unoplatform/uno/blob/main/src/AddIns/Uno.WinUI.Graphics2DSK/SKCanvasElement.cs">SKCanvasElement</a></div>
+      <div><span class="xref">ProEditDocumentControlBase</span></div>
+    </dd>
+  </dl>
+
+  <dl class="typelist implements">
+    <dt>Implements</dt>
+    <dd>
+      <div><span class="xref">IAnimationObject</span></div>
+      <div><span class="xref">IVisualElement</span></div>
+      <div><span class="xref">IVisualElement2</span></div>
+      <div><span class="xref">IDependencyObjectStoreProvider</span></div>
+      <div><span class="xref">IWeakReferenceProvider</span></div>
+      <div><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.ienumerable">IEnumerable</a></div>
+      <div><span class="xref">IDataContextProvider</span></div>
+      <div><span class="xref">DependencyObject</span></div>
+      <div><span class="xref">ILayoutConstraints</span></div>
+    </dd>
+  </dl>
+
+  <dl class="typelist derived">
+    <dt>Derived</dt>
+    <dd>
+      <div><a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentEditor.html">ProEditDocumentEditor</a></div>
+      <div><a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentViewer.html">ProEditDocumentViewer</a></div>
+    </dd>
+  </dl>
+
+  <dl class="typelist inheritedMembers">
+    <dt>Inherited Members</dt>
+    <dd>
+    <div>
+      <a class="xref" href="https://github.com/unoplatform/uno/blob/main/src/AddIns/Uno.WinUI.Graphics2DSK/SKCanvasElement.cs">SKCanvasElement.IsSupportedOnCurrentPlatform()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://github.com/unoplatform/uno/blob/main/src/AddIns/Uno.WinUI.Graphics2DSK/SKCanvasElement.cs">SKCanvasElement.Invalidate()</a>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.DeferTree(DependencyObject)</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.ToString()</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.MeasureElement(UIElement, Size)</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.ArrangeElement(UIElement, Rect)</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.GetElementDesiredSize(UIElement)</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.OnApplyTemplate()</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.IsWidthConstrainedInner(UIElement)</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.IsHeightConstrainedInner(UIElement)</span>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">FrameworkElement.GoToElementStateCore(string, bool)</a>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.OnCreateAutomationPeer()</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.GetAccessibilityInnerText()</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.GetAutomationPeer()</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.InvalidateViewport()</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.FindFirstParent&lt;T&gt;()</span>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">FrameworkElement.FindFirstParent&lt;T&gt;(bool)</a>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.Dispose()</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.AdjustArrange(Size)</span>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">FrameworkElement.FindName(string)</a>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.OnBackgroundChanged(DependencyPropertyChangedEventArgs)</span>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">FrameworkElement.ApplyBindingPhase(int)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object">FrameworkElement.GetStringFromObject(object)</a>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.GetEnumerator()</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.Language</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.Triggers</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.ActualHeightProperty</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.ActualThemeProperty</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.ActualWidthProperty</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.LanguageProperty</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.NameProperty</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.ActualWidth</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.ActualHeight</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.HorizontalAlignmentProperty</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.HorizontalAlignment</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.VerticalAlignmentProperty</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.VerticalAlignment</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.WidthProperty</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.Width</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.HeightProperty</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.Height</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.MinWidthProperty</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.MinWidth</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.MinHeightProperty</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.MinHeight</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.MaxWidthProperty</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.MaxWidth</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.MaxHeightProperty</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.MaxHeight</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.MarginProperty</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.Margin</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.IsLoaded</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.UseConstraintOptimizations</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.AreDimensionsConstrained</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.IsSimpleLayout</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.Tag</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.TagProperty</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.FlowDirection</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.FlowDirectionProperty</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.Resources</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.Parent</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.BaseUri</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.Style</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.StyleProperty</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.RequestedTheme</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.RequestedThemeProperty</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.ActualTheme</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.FocusVisualSecondaryThicknessProperty</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.FocusVisualSecondaryThickness</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.FocusVisualSecondaryBrushProperty</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.FocusVisualSecondaryBrush</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.FocusVisualPrimaryThicknessProperty</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.FocusVisualPrimaryThickness</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.FocusVisualPrimaryBrush</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.FocusVisualPrimaryBrushProperty</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.FocusVisualMargin</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.FocusVisualMarginProperty</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.AllowFocusWhenDisabled</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.AllowFocusWhenDisabledProperty</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.AllowFocusOnInteraction</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.AllowFocusOnInteractionProperty</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.TransitionsProperty</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.Transitions</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.Background</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.BackgroundProperty</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.RenderPhase</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.Name</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.SizeChanged</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.ActualThemeChanged</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.LayoutUpdated</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.EffectiveViewportChanged</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.Loading</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.Loaded</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.Unloaded</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.Measure(Size)</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.Arrange(Rect)</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.InvalidateMeasure()</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.InvalidateArrange()</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.StartAnimation(ICompositionAnimationBase)</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.StopAnimation(ICompositionAnimationBase)</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.OnDisconnectVisualChildren()</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.FindSubElementsForTouchTargeting(Point, Rect)</span>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">UIElement.PopulatePropertyInfoOverride(string, AnimationPropertyInfo)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">UIElement.PopulatePropertyInfo(string, AnimationPropertyInfo)</a>
+    </div>
+    <div>
+      <span class="xref">UIElement.GetVisualInternal()</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.TryStartDirectManipulation(Pointer)</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.OnBringIntoViewRequested(BringIntoViewRequestedEventArgs)</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.StartBringIntoView()</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.StartBringIntoView(BringIntoViewOptions)</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.RegisterAsScrollPort(UIElement)</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.Focus(FocusState)</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.TransformToVisual(UIElement)</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.OnVisibilityChanged(Visibility, Visibility)</span>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">UIElement.OnIsHitTestVisibleChanged(bool, bool)</a>
+    </div>
+    <div>
+      <span class="xref">UIElement.UpdateLayout()</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.IsVisible()</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.OnKeyboardAcceleratorInvoked(KeyboardAcceleratorInvokedEventArgs)</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.GetChildrenInTabFocusOrder()</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.OnProcessKeyboardAccelerators(ProcessKeyboardAcceleratorEventArgs)</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.TryInvokeKeyboardAccelerator(ProcessKeyboardAcceleratorEventArgs)</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.CancelDirectManipulations()</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.StartDragAsync(PointerPoint)</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.CapturePointer(Pointer)</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ReleasePointerCapture(Pointer)</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ReleasePointerCaptures()</span>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object">UIElement.AddHandler(RoutedEvent, object, bool)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object">UIElement.RemoveHandler(RoutedEvent, object)</a>
+    </div>
+    <div>
+      <span class="xref">UIElement.GetValue(DependencyProperty)</span>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object">UIElement.SetValue(DependencyProperty, object)</a>
+    </div>
+    <div>
+      <span class="xref">UIElement.ClearValue(DependencyProperty)</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ReadLocalValue(DependencyProperty)</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.GetAnimationBaseValue(DependencyProperty)</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.RegisterPropertyChangedCallback(DependencyProperty, DependencyPropertyChangedCallback)</span>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int64">UIElement.UnregisterPropertyChangedCallback(DependencyProperty, long)</a>
+    </div>
+    <div>
+      <span class="xref">UIElement.OnDataContextChanged(DependencyPropertyChangedEventArgs)</span>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object">UIElement.SetBinding(object, string, BindingBase)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">UIElement.SetBinding(string, BindingBase)</a>
+    </div>
+    <div>
+      <span class="xref">UIElement.SetBinding(DependencyProperty, BindingBase)</span>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object">UIElement.SetBindingValue(object, string)</a>
+    </div>
+    <div>
+      <span class="xref">UIElement.GetBindingExpression(DependencyProperty)</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ResumeBindings()</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.SuspendBindings()</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.RotationTransition</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.KeyTipTarget</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.KeyTipPlacementMode</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.KeyTipHorizontalOffset</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.IsTapEnabled</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.IsRightTapEnabled</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.IsHoldingEnabled</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.IsDoubleTapEnabled</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.AccessKey</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.HighContrastAdjustment</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ExitDisplayModeOnAccessKeyInvoked</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.OpacityTransition</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.CompositeMode</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.CanBeScrollAnchor</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.CacheMode</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.AccessKeyScopeOwner</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.IsAccessKeyScope</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.KeyTipVerticalOffset</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.CenterPoint</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.UseLayoutRounding</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.TranslationTransition</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.TransformMatrix</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.Rotation</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.RasterizationScale</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.Projection</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ScaleTransition</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.Scale</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.RotationAxis</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.Transform3D</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.Lights</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.AccessKeyProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.AccessKeyScopeOwnerProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.CacheModeProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.CanBeScrollAnchorProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.CharacterReceivedEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.CompositeModeProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ContextRequestedEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ExitDisplayModeOnAccessKeyInvokedProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.HighContrastAdjustmentProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.IsAccessKeyScopeProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.IsDoubleTapEnabledProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.IsHoldingEnabledProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.IsRightTapEnabledProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.IsTapEnabledProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.KeyTipHorizontalOffsetProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.KeyTipPlacementModeProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.KeyTipTargetProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.KeyTipVerticalOffsetProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.LightsProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.PreviewKeyDownEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.PreviewKeyUpEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ProjectionProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.Transform3DProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.UseLayoutRoundingProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.DesiredSize</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ActualSize</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ActualOffset</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.Translation</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.Shadow</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ShadowProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.Clip</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ClipProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.RenderTransform</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.RenderTransformProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.RenderTransformOrigin</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.RenderTransformOriginProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.RenderSize</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.XYFocusKeyboardNavigation</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.XYFocusKeyboardNavigationProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.XYFocusDownNavigationStrategy</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.XYFocusDownNavigationStrategyProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.XYFocusLeftNavigationStrategy</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.XYFocusLeftNavigationStrategyProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.XYFocusRightNavigationStrategy</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.XYFocusRightNavigationStrategyProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.XYFocusUpNavigationStrategy</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.XYFocusUpNavigationStrategyProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.TabFocusNavigation</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.TabFocusNavigationProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ProtectedCursor</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.FocusState</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.FocusStateProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.IsTabStop</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.IsTabStopProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.TabIndex</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.TabIndexProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.XYFocusUp</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.XYFocusUpProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.XYFocusDown</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.XYFocusDownProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.XYFocusLeft</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.XYFocusLeftProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.XYFocusRight</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.XYFocusRightProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.UseSystemFocusVisuals</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.UseSystemFocusVisualsProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ManipulationModeProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ManipulationMode</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.CanDragProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.CanDrag</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.AllowDropProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.AllowDrop</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.PointerCapturesProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.PointerCaptures</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.IsHitTestVisibleProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.IsHitTestVisible</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.OpacityProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.Opacity</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.VisibilityProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.Visibility</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ContextFlyoutProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ContextFlyout</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.KeyboardAccelerators</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.KeyboardAcceleratorPlacementMode</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.KeyboardAcceleratorPlacementModeProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.KeyboardAcceleratorPlacementTarget</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.KeyboardAcceleratorPlacementTargetProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.Handle</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.PointerPressedEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.PointerReleasedEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.PointerEnteredEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.PointerExitedEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.PointerMovedEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.PointerCanceledEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.PointerCaptureLostEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.PointerWheelChangedEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ManipulationStartingEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ManipulationStartedEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ManipulationDeltaEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ManipulationInertiaStartingEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ManipulationCompletedEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.TappedEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.DoubleTappedEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.RightTappedEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.HoldingEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.DragEnterEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.DragOverEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.DragLeaveEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.DropEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.KeyDownEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.KeyUpEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.GettingFocusEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.LosingFocusEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.NoFocusCandidateFoundEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.BringIntoViewRequestedEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.EventsBubblingInManagedCodeProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.EventsBubblingInManagedCode</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.XamlRoot</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.Dispatcher</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.DispatcherQueue</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.IsStoreInitialized</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.DataContext</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.DataContextProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.AccessKeyDisplayDismissed</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.AccessKeyDisplayRequested</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.CharacterReceived</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ContextCanceled</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ContextRequested</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.PreviewKeyDown</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.PreviewKeyUp</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.AccessKeyInvoked</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ProcessKeyboardAccelerators</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.LostFocus</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.GotFocus</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.LosingFocus</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.GettingFocus</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.NoFocusCandidateFound</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.BringIntoViewRequested</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.PointerCanceled</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.PointerCaptureLost</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.PointerEntered</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.PointerExited</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.PointerMoved</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.PointerPressed</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.PointerReleased</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.PointerWheelChanged</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ManipulationStarting</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ManipulationStarted</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ManipulationDelta</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ManipulationInertiaStarting</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ManipulationCompleted</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.Tapped</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.DoubleTapped</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.RightTapped</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.Holding</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.DragStarting</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.DragEnter</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.DragLeave</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.DragOver</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.Drop</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.DropCompleted</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.KeyDown</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.KeyUp</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.DataContextChanged</span>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)">object.Equals(object)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)">object.Equals(object, object)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.gethashcode">object.GetHashCode()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.gettype">object.GetType()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.memberwiseclone">object.MemberwiseClone()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.referenceequals">object.ReferenceEquals(object, object)</a>
+    </div>
+  </dd></dl>
+
+
+
+
+
+
+  <h2 class="section" id="constructors">Constructors
+</h2>
+
+
+  <a id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase__ctor_" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.#ctor*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase__ctor" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.#ctor">
+  ProEditDocumentControlBase()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Uno/ProEditDocumentControlBase.cs/#L244"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Initializes a new instance of the <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html">ProEditDocumentControlBase</a> class.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">protected ProEditDocumentControlBase()</code></pre>
+  </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase__ctor_" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.#ctor*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase__ctor_ProEdit_Controls_Skia_ProEditDocumentHost_" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.#ctor(ProEdit.Controls.Skia.ProEditDocumentHost)">
+  ProEditDocumentControlBase(ProEditDocumentHost)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Uno/ProEditDocumentControlBase.cs/#L253"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Initializes a new instance of the <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html">ProEditDocumentControlBase</a> class.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">protected ProEditDocumentControlBase(ProEditDocumentHost documentHost)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>documentHost</code> <a class="xref" href="ProEdit.Controls.Skia.ProEditDocumentHost.html">ProEditDocumentHost</a></dt>
+    <dd><p>The shared document host to render and edit through.</p>
+</dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <h2 class="section" id="fields">Fields
+</h2>
+
+
+
+  <h3 id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_AcceptsReturnProperty" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.AcceptsReturnProperty">
+  AcceptsReturnProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Uno/ProEditDocumentControlBase.cs/#L108"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Defines the <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_AcceptsReturn">AcceptsReturn</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly DependencyProperty AcceptsReturnProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">DependencyProperty</span></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_AcceptsTabProperty" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.AcceptsTabProperty">
+  AcceptsTabProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Uno/ProEditDocumentControlBase.cs/#L118"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Defines the <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_AcceptsTab">AcceptsTab</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly DependencyProperty AcceptsTabProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">DependencyProperty</span></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_DocumentProperty" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.DocumentProperty">
+  DocumentProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Uno/ProEditDocumentControlBase.cs/#L28"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Defines the <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_Document">Document</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly DependencyProperty DocumentProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">DependencyProperty</span></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_IsPanEnabledProperty" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.IsPanEnabledProperty">
+  IsPanEnabledProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Uno/ProEditDocumentControlBase.cs/#L228"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Defines the <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_IsPanEnabled">IsPanEnabled</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly DependencyProperty IsPanEnabledProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">DependencyProperty</span></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_IsReadOnlyProperty" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.IsReadOnlyProperty">
+  IsReadOnlyProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Uno/ProEditDocumentControlBase.cs/#L88"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Defines the <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_IsReadOnly">IsReadOnly</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly DependencyProperty IsReadOnlyProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">DependencyProperty</span></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_MultiplePagesPerRowProperty" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.MultiplePagesPerRowProperty">
+  MultiplePagesPerRowProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Uno/ProEditDocumentControlBase.cs/#L58"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Defines the <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_MultiplePagesPerRow">MultiplePagesPerRow</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly DependencyProperty MultiplePagesPerRowProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">DependencyProperty</span></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_PageFlowProperty" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.PageFlowProperty">
+  PageFlowProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Uno/ProEditDocumentControlBase.cs/#L188"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Defines the <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_PageFlow">PageFlow</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly DependencyProperty PageFlowProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">DependencyProperty</span></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ScrollXProperty" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.ScrollXProperty">
+  ScrollXProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Uno/ProEditDocumentControlBase.cs/#L68"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Defines the <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ScrollX">ScrollX</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly DependencyProperty ScrollXProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">DependencyProperty</span></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ScrollYProperty" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.ScrollYProperty">
+  ScrollYProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Uno/ProEditDocumentControlBase.cs/#L78"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Defines the <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ScrollY">ScrollY</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly DependencyProperty ScrollYProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">DependencyProperty</span></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ShowGridlinesProperty" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.ShowGridlinesProperty">
+  ShowGridlinesProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Uno/ProEditDocumentControlBase.cs/#L168"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Defines the <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ShowGridlines">ShowGridlines</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly DependencyProperty ShowGridlinesProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">DependencyProperty</span></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ShowInvisiblesProperty" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.ShowInvisiblesProperty">
+  ShowInvisiblesProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Uno/ProEditDocumentControlBase.cs/#L148"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Defines the <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ShowInvisibles">ShowInvisibles</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly DependencyProperty ShowInvisiblesProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">DependencyProperty</span></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ShowLayoutProperty" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.ShowLayoutProperty">
+  ShowLayoutProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Uno/ProEditDocumentControlBase.cs/#L158"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Defines the <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ShowLayout">ShowLayout</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly DependencyProperty ShowLayoutProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">DependencyProperty</span></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ShowNavigationPaneProperty" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.ShowNavigationPaneProperty">
+  ShowNavigationPaneProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Uno/ProEditDocumentControlBase.cs/#L208"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Defines the <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ShowNavigationPane">ShowNavigationPane</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly DependencyProperty ShowNavigationPaneProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">DependencyProperty</span></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ShowReadOnlyCaretProperty" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.ShowReadOnlyCaretProperty">
+  ShowReadOnlyCaretProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Uno/ProEditDocumentControlBase.cs/#L98"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Defines the <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ShowReadOnlyCaret">ShowReadOnlyCaret</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly DependencyProperty ShowReadOnlyCaretProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">DependencyProperty</span></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ShowRulerProperty" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.ShowRulerProperty">
+  ShowRulerProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Uno/ProEditDocumentControlBase.cs/#L198"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Defines the <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ShowRuler">ShowRuler</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly DependencyProperty ShowRulerProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">DependencyProperty</span></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_UseHarfBuzzProperty" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.UseHarfBuzzProperty">
+  UseHarfBuzzProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Uno/ProEditDocumentControlBase.cs/#L128"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Defines the <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_UseHarfBuzz">UseHarfBuzz</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly DependencyProperty UseHarfBuzzProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">DependencyProperty</span></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_UsePaginationProperty" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.UsePaginationProperty">
+  UsePaginationProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Uno/ProEditDocumentControlBase.cs/#L178"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Defines the <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_UsePagination">UsePagination</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly DependencyProperty UsePaginationProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">DependencyProperty</span></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_UsePictureCacheProperty" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.UsePictureCacheProperty">
+  UsePictureCacheProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Uno/ProEditDocumentControlBase.cs/#L138"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Defines the <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_UsePictureCache">UsePictureCache</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly DependencyProperty UsePictureCacheProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">DependencyProperty</span></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ViewModeProperty" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.ViewModeProperty">
+  ViewModeProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Uno/ProEditDocumentControlBase.cs/#L218"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Defines the <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ViewMode">ViewMode</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly DependencyProperty ViewModeProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">DependencyProperty</span></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ZoomModeProperty" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.ZoomModeProperty">
+  ZoomModeProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Uno/ProEditDocumentControlBase.cs/#L48"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Defines the <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ZoomMode">ZoomMode</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly DependencyProperty ZoomModeProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">DependencyProperty</span></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ZoomProperty" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.ZoomProperty">
+  ZoomProperty
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Uno/ProEditDocumentControlBase.cs/#L38"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Defines the <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_Zoom">Zoom</a> property.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public static readonly DependencyProperty ZoomProperty</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><span class="xref">DependencyProperty</span></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+  <h2 class="section" id="properties">Properties
+</h2>
+
+
+  <a id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_AcceptsReturn_" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.AcceptsReturn*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_AcceptsReturn" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.AcceptsReturn">
+  AcceptsReturn
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Uno/ProEditDocumentControlBase.cs/#L350"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets a value indicating whether Enter inserts a paragraph break.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool AcceptsReturn { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_AcceptsTab_" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.AcceptsTab*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_AcceptsTab" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.AcceptsTab">
+  AcceptsTab
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Uno/ProEditDocumentControlBase.cs/#L359"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets a value indicating whether Tab inserts a tab character.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool AcceptsTab { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_Document_" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.Document*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_Document" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.Document">
+  Document
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Uno/ProEditDocumentControlBase.cs/#L278"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets the document to display.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public Document? Document { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Documents.Document.html">Document</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_DocumentHost_" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.DocumentHost*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_DocumentHost" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.DocumentHost">
+  DocumentHost
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Uno/ProEditDocumentControlBase.cs/#L273"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets the shared document host.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public ProEditDocumentHost DocumentHost { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Controls.Skia.ProEditDocumentHost.html">ProEditDocumentHost</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_IsPanEnabled_" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.IsPanEnabled*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_IsPanEnabled" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.IsPanEnabled">
+  IsPanEnabled
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Uno/ProEditDocumentControlBase.cs/#L458"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets a value indicating whether middle-button panning is enabled.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool IsPanEnabled { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_IsReadOnly_" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.IsReadOnly*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_IsReadOnly" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.IsReadOnly">
+  IsReadOnly
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Uno/ProEditDocumentControlBase.cs/#L332"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets a value indicating whether text mutations are blocked.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool IsReadOnly { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_MultiplePagesPerRow_" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.MultiplePagesPerRow*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_MultiplePagesPerRow" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.MultiplePagesPerRow">
+  MultiplePagesPerRow
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Uno/ProEditDocumentControlBase.cs/#L305"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets the page count used by multiple-pages zoom.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public int MultiplePagesPerRow { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">int</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_PageFlow_" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.PageFlow*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_PageFlow" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.PageFlow">
+  PageFlow
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Uno/ProEditDocumentControlBase.cs/#L422"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets the page flow direction.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public PageFlowDirection PageFlow { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Layout.PageFlowDirection.html">PageFlowDirection</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ScrollX_" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.ScrollX*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ScrollX" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.ScrollX">
+  ScrollX
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Uno/ProEditDocumentControlBase.cs/#L314"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets the horizontal scroll offset in document-space units.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public double ScrollX { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.double">double</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ScrollY_" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.ScrollY*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ScrollY" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.ScrollY">
+  ScrollY
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Uno/ProEditDocumentControlBase.cs/#L323"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets the vertical scroll offset in document-space units.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public double ScrollY { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.double">double</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ShowGridlines_" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.ShowGridlines*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ShowGridlines" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.ShowGridlines">
+  ShowGridlines
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Uno/ProEditDocumentControlBase.cs/#L404"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets a value indicating whether page gridlines are rendered.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool ShowGridlines { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ShowInvisibles_" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.ShowInvisibles*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ShowInvisibles" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.ShowInvisibles">
+  ShowInvisibles
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Uno/ProEditDocumentControlBase.cs/#L386"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets a value indicating whether invisible characters are rendered.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool ShowInvisibles { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ShowLayout_" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.ShowLayout*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ShowLayout" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.ShowLayout">
+  ShowLayout
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Uno/ProEditDocumentControlBase.cs/#L395"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets a value indicating whether layout guides are rendered.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool ShowLayout { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ShowNavigationPane_" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.ShowNavigationPane*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ShowNavigationPane" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.ShowNavigationPane">
+  ShowNavigationPane
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Uno/ProEditDocumentControlBase.cs/#L440"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets a value indicating whether hosting UI should show a navigation pane.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool ShowNavigationPane { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ShowReadOnlyCaret_" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.ShowReadOnlyCaret*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ShowReadOnlyCaret" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.ShowReadOnlyCaret">
+  ShowReadOnlyCaret
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Uno/ProEditDocumentControlBase.cs/#L341"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets a value indicating whether the caret is rendered in read-only mode.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool ShowReadOnlyCaret { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ShowRuler_" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.ShowRuler*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ShowRuler" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.ShowRuler">
+  ShowRuler
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Uno/ProEditDocumentControlBase.cs/#L431"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets a value indicating whether hosting UI should show a ruler.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool ShowRuler { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_UseHarfBuzz_" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.UseHarfBuzz*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_UseHarfBuzz" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.UseHarfBuzz">
+  UseHarfBuzz
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Uno/ProEditDocumentControlBase.cs/#L368"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets a value indicating whether HarfBuzz shaping is used.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool UseHarfBuzz { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_UsePagination_" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.UsePagination*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_UsePagination" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.UsePagination">
+  UsePagination
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Uno/ProEditDocumentControlBase.cs/#L413"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets a value indicating whether the document uses paginated layout.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool UsePagination { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_UsePictureCache_" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.UsePictureCache*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_UsePictureCache" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.UsePictureCache">
+  UsePictureCache
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Uno/ProEditDocumentControlBase.cs/#L377"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets a value indicating whether rendered pages are cached as Skia pictures.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool UsePictureCache { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ViewMode_" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.ViewMode*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ViewMode" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.ViewMode">
+  ViewMode
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Uno/ProEditDocumentControlBase.cs/#L449"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets the logical editor view mode.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public EditorViewMode ViewMode { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Editing.EditorViewMode.html">EditorViewMode</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_Zoom_" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.Zoom*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_Zoom" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.Zoom">
+  Zoom
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Uno/ProEditDocumentControlBase.cs/#L287"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets the zoom factor.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public double Zoom { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.double">double</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ZoomMode_" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.ZoomMode*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ZoomMode" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.ZoomMode">
+  ZoomMode
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Uno/ProEditDocumentControlBase.cs/#L296"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets the automatic zoom mode.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public ProEditDocumentZoomMode ZoomMode { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Controls.Skia.ProEditDocumentZoomMode.html">ProEditDocumentZoomMode</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <h2 class="section" id="methods">Methods
+</h2>
+
+
+  <a id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ArrangeOverride_" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.ArrangeOverride*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ArrangeOverride_Windows_Foundation_Size_" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.ArrangeOverride(Windows.Foundation.Size)">
+  ArrangeOverride(Size)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Uno/ProEditDocumentControlBase.cs/#L488"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">protected override Size ArrangeOverride(Size finalSize)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>finalSize</code> <span class="xref">Size</span></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><span class="xref">Size</span></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_MeasureOverride_" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.MeasureOverride*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_MeasureOverride_Windows_Foundation_Size_" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.MeasureOverride(Windows.Foundation.Size)">
+  MeasureOverride(Size)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Uno/ProEditDocumentControlBase.cs/#L476"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">protected override Size MeasureOverride(Size availableSize)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>availableSize</code> <span class="xref">Size</span></dt>
+    <dd></dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><span class="xref">Size</span></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_Refresh_" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.Refresh*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_Refresh" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.Refresh">
+  Refresh()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Uno/ProEditDocumentControlBase.cs/#L467"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Forces the current document to be rendered again.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void Refresh()</code></pre>
+  </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_RenderOverride_" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.RenderOverride*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_RenderOverride_SkiaSharp_SKCanvas_Windows_Foundation_Size_" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.RenderOverride(SkiaSharp.SKCanvas,Windows.Foundation.Size)">
+  RenderOverride(SKCanvas, Size)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Uno/ProEditDocumentControlBase.cs/#L495"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"></div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">protected override void RenderOverride(SKCanvas canvas, Size area)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>canvas</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/skiasharp.skcanvas">SKCanvas</a></dt>
+    <dd></dd>
+    <dt><code>area</code> <span class="xref">Size</span></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Uno/ProEditDocumentControlBase.cs/#L19" class="edit-link">Edit this page</a>
+        </div>
+
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          <span>Made with <a href="https://dotnet.github.io/docfx">docfx</a></span>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

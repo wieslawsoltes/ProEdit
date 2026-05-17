@@ -1866,6 +1866,244 @@
     },
     {
       "type": "ManagedReference",
+      "source_relative_path": "api/ProEdit.Controls.Skia.Avalonia.ProEditDocumentControlBase.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/ProEdit.Controls.Skia.Avalonia.ProEditDocumentControlBase.html"
+        }
+      },
+      "version": "",
+      "Uid": null,
+      "IsMRef": true,
+      "Title": "ProEdit.Controls.Skia.Avalonia.ProEditDocumentControlBase",
+      "Summary": "<p sourcefile=\"api/ProEdit.Controls.Skia.Avalonia.ProEditDocumentControlBase.yml\" sourcestartlinenumber=\"1\">Base class for Avalonia ProEdit document controls.</p>\n"
+    },
+    {
+      "type": "ManagedReference",
+      "source_relative_path": "api/ProEdit.Controls.Skia.Avalonia.ProEditDocumentEditor.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/ProEdit.Controls.Skia.Avalonia.ProEditDocumentEditor.html"
+        }
+      },
+      "version": "",
+      "Uid": null,
+      "IsMRef": true,
+      "Title": "ProEdit.Controls.Skia.Avalonia.ProEditDocumentEditor",
+      "Summary": "<p sourcefile=\"api/ProEdit.Controls.Skia.Avalonia.ProEditDocumentEditor.yml\" sourcestartlinenumber=\"1\">Avalonia control for editing ProEdit documents.</p>\n"
+    },
+    {
+      "type": "ManagedReference",
+      "source_relative_path": "api/ProEdit.Controls.Skia.Avalonia.ProEditDocumentViewer.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/ProEdit.Controls.Skia.Avalonia.ProEditDocumentViewer.html"
+        }
+      },
+      "version": "",
+      "Uid": null,
+      "IsMRef": true,
+      "Title": "ProEdit.Controls.Skia.Avalonia.ProEditDocumentViewer",
+      "Summary": "<p sourcefile=\"api/ProEdit.Controls.Skia.Avalonia.ProEditDocumentViewer.yml\" sourcestartlinenumber=\"1\">Read-only Avalonia control for viewing ProEdit documents.</p>\n"
+    },
+    {
+      "type": "ManagedReference",
+      "source_relative_path": "api/ProEdit.Controls.Skia.Avalonia.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/ProEdit.Controls.Skia.Avalonia.html"
+        }
+      },
+      "version": "",
+      "Uid": null,
+      "IsMRef": true,
+      "Title": "ProEdit.Controls.Skia.Avalonia",
+      "Summary": null
+    },
+    {
+      "type": "ManagedReference",
+      "source_relative_path": "api/ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.html"
+        }
+      },
+      "version": "",
+      "Uid": null,
+      "IsMRef": true,
+      "Title": "ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase",
+      "Summary": "<p sourcefile=\"api/ProEdit.Controls.Skia.Maui.ProEditDocumentControlBase.yml\" sourcestartlinenumber=\"1\">Base class for .NET MAUI ProEdit document controls.</p>\n"
+    },
+    {
+      "type": "ManagedReference",
+      "source_relative_path": "api/ProEdit.Controls.Skia.Maui.ProEditDocumentEditor.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/ProEdit.Controls.Skia.Maui.ProEditDocumentEditor.html"
+        }
+      },
+      "version": "",
+      "Uid": null,
+      "IsMRef": true,
+      "Title": "ProEdit.Controls.Skia.Maui.ProEditDocumentEditor",
+      "Summary": "<p sourcefile=\"api/ProEdit.Controls.Skia.Maui.ProEditDocumentEditor.yml\" sourcestartlinenumber=\"1\">.NET MAUI control for editing ProEdit documents.</p>\n"
+    },
+    {
+      "type": "ManagedReference",
+      "source_relative_path": "api/ProEdit.Controls.Skia.Maui.ProEditDocumentViewer.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/ProEdit.Controls.Skia.Maui.ProEditDocumentViewer.html"
+        }
+      },
+      "version": "",
+      "Uid": null,
+      "IsMRef": true,
+      "Title": "ProEdit.Controls.Skia.Maui.ProEditDocumentViewer",
+      "Summary": "<p sourcefile=\"api/ProEdit.Controls.Skia.Maui.ProEditDocumentViewer.yml\" sourcestartlinenumber=\"1\">Read-only .NET MAUI control for viewing ProEdit documents.</p>\n"
+    },
+    {
+      "type": "ManagedReference",
+      "source_relative_path": "api/ProEdit.Controls.Skia.Maui.Resource.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/ProEdit.Controls.Skia.Maui.Resource.html"
+        }
+      },
+      "version": "",
+      "Uid": null,
+      "IsMRef": true,
+      "Title": "ProEdit.Controls.Skia.Maui.Resource",
+      "Summary": "<p sourcefile=\"api/ProEdit.Controls.Skia.Maui.Resource.yml\" sourcestartlinenumber=\"1\">Android Resource Designer class.\nExposes the Android Resource designer assembly into the project Namespace.</p>\n"
+    },
+    {
+      "type": "ManagedReference",
+      "source_relative_path": "api/ProEdit.Controls.Skia.Maui.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/ProEdit.Controls.Skia.Maui.html"
+        }
+      },
+      "version": "",
+      "Uid": null,
+      "IsMRef": true,
+      "Title": "ProEdit.Controls.Skia.Maui",
+      "Summary": null
+    },
+    {
+      "type": "ManagedReference",
+      "source_relative_path": "api/ProEdit.Controls.Skia.ProEditDocumentExtent.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/ProEdit.Controls.Skia.ProEditDocumentExtent.html"
+        }
+      },
+      "version": "",
+      "Uid": null,
+      "IsMRef": true,
+      "Title": "ProEdit.Controls.Skia.ProEditDocumentExtent",
+      "Summary": "<p sourcefile=\"api/ProEdit.Controls.Skia.ProEditDocumentExtent.yml\" sourcestartlinenumber=\"1\">Describes the document extent in document-space units.</p>\n"
+    },
+    {
+      "type": "ManagedReference",
+      "source_relative_path": "api/ProEdit.Controls.Skia.ProEditDocumentHost.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/ProEdit.Controls.Skia.ProEditDocumentHost.html"
+        }
+      },
+      "version": "",
+      "Uid": null,
+      "IsMRef": true,
+      "Title": "ProEdit.Controls.Skia.ProEditDocumentHost",
+      "Summary": "<p sourcefile=\"api/ProEdit.Controls.Skia.ProEditDocumentHost.yml\" sourcestartlinenumber=\"1\">Shared Skia-backed rendering and editing host used by platform-specific ProEdit controls.</p>\n"
+    },
+    {
+      "type": "ManagedReference",
+      "source_relative_path": "api/ProEdit.Controls.Skia.ProEditDocumentZoomMode.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/ProEdit.Controls.Skia.ProEditDocumentZoomMode.html"
+        }
+      },
+      "version": "",
+      "Uid": null,
+      "IsMRef": true,
+      "Title": "ProEdit.Controls.Skia.ProEditDocumentZoomMode",
+      "Summary": "<p sourcefile=\"api/ProEdit.Controls.Skia.ProEditDocumentZoomMode.yml\" sourcestartlinenumber=\"1\">Defines the zoom behavior used by a ProEdit document host.</p>\n"
+    },
+    {
+      "type": "ManagedReference",
+      "source_relative_path": "api/ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html"
+        }
+      },
+      "version": "",
+      "Uid": null,
+      "IsMRef": true,
+      "Title": "ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase",
+      "Summary": "<p sourcefile=\"api/ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.yml\" sourcestartlinenumber=\"1\">Base class for Uno Platform ProEdit document controls.</p>\n"
+    },
+    {
+      "type": "ManagedReference",
+      "source_relative_path": "api/ProEdit.Controls.Skia.Uno.ProEditDocumentEditor.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/ProEdit.Controls.Skia.Uno.ProEditDocumentEditor.html"
+        }
+      },
+      "version": "",
+      "Uid": null,
+      "IsMRef": true,
+      "Title": "ProEdit.Controls.Skia.Uno.ProEditDocumentEditor",
+      "Summary": "<p sourcefile=\"api/ProEdit.Controls.Skia.Uno.ProEditDocumentEditor.yml\" sourcestartlinenumber=\"1\">Uno Platform control for editing ProEdit documents.</p>\n"
+    },
+    {
+      "type": "ManagedReference",
+      "source_relative_path": "api/ProEdit.Controls.Skia.Uno.ProEditDocumentViewer.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/ProEdit.Controls.Skia.Uno.ProEditDocumentViewer.html"
+        }
+      },
+      "version": "",
+      "Uid": null,
+      "IsMRef": true,
+      "Title": "ProEdit.Controls.Skia.Uno.ProEditDocumentViewer",
+      "Summary": "<p sourcefile=\"api/ProEdit.Controls.Skia.Uno.ProEditDocumentViewer.yml\" sourcestartlinenumber=\"1\">Read-only Uno Platform control for viewing ProEdit documents.</p>\n"
+    },
+    {
+      "type": "ManagedReference",
+      "source_relative_path": "api/ProEdit.Controls.Skia.Uno.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/ProEdit.Controls.Skia.Uno.html"
+        }
+      },
+      "version": "",
+      "Uid": null,
+      "IsMRef": true,
+      "Title": "ProEdit.Controls.Skia.Uno",
+      "Summary": null
+    },
+    {
+      "type": "ManagedReference",
+      "source_relative_path": "api/ProEdit.Controls.Skia.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/ProEdit.Controls.Skia.html"
+        }
+      },
+      "version": "",
+      "Uid": null,
+      "IsMRef": true,
+      "Title": "ProEdit.Controls.Skia",
+      "Summary": null
+    },
+    {
+      "type": "ManagedReference",
       "source_relative_path": "api/ProEdit.Documents.AltChunkBlock.yml",
       "output": {
         ".html": {
@@ -18846,11 +19084,11 @@
       "type": "Toc",
       "source_relative_path": "api/toc.yml",
       "output": {
-        ".html": {
-          "relative_path": "api/toc.html"
-        },
         ".json": {
           "relative_path": "api/toc.json"
+        },
+        ".html": {
+          "relative_path": "api/toc.html"
         }
       },
       "version": ""
@@ -18936,14 +19174,24 @@
       "version": ""
     },
     {
+      "type": "Conceptual",
+      "source_relative_path": "articles/shared-controls.md",
+      "output": {
+        ".html": {
+          "relative_path": "articles/shared-controls.html"
+        }
+      },
+      "version": ""
+    },
+    {
       "type": "Toc",
       "source_relative_path": "articles/toc.yml",
       "output": {
-        ".html": {
-          "relative_path": "articles/toc.html"
-        },
         ".json": {
           "relative_path": "articles/toc.json"
+        },
+        ".html": {
+          "relative_path": "articles/toc.html"
         }
       },
       "version": ""
@@ -18972,11 +19220,11 @@
       "type": "Toc",
       "source_relative_path": "toc.yml",
       "output": {
-        ".html": {
-          "relative_path": "toc.html"
-        },
         ".json": {
           "relative_path": "toc.json"
+        },
+        ".html": {
+          "relative_path": "toc.html"
         }
       },
       "version": ""

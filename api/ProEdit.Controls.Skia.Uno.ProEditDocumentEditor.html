@@ -1,0 +1,1374 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Class ProEditDocumentEditor | ProEdit </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Class ProEditDocumentEditor | ProEdit ">
+      
+      <meta name="description" content="Uno Platform control for editing ProEdit documents.">
+      <link rel="icon" href="../favicon.ico">
+      <link rel="stylesheet" href="../public/docfx.min.css">
+      <link rel="stylesheet" href="../public/main.css">
+      <meta name="docfx:navrel" content="../toc.html">
+      <meta name="docfx:tocrel" content="toc.html">
+      
+      
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/wieslawsoltes/ProEdit/new/main/apiSpec/new?filename=ProEdit_Controls_Skia_Uno_ProEditDocumentEditor.md&amp;value=---%0Auid%3A%20ProEdit.Controls.Skia.Uno.ProEditDocumentEditor%0Asummary%3A%20&#39;*You%20can%20override%20summary%20for%20the%20API%20here%20using%20*MARKDOWN*%20syntax&#39;%0A---%0A%0A*Please%20type%20below%20more%20information%20about%20this%20API%3A*%0A%0A">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="ManagedReference">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../index.html">
+            <img id="logo" class="svg" src="../images/logo.svg" alt="">
+            
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentEditor">
+
+
+
+  <h1 id="ProEdit_Controls_Skia_Uno_ProEditDocumentEditor" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentEditor" class="text-break">
+Class ProEditDocumentEditor  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Uno/ProEditDocumentEditor.cs/#L6"><i class="bi bi-code-slash"></i></a>
+  </h1>
+
+  <div class="facts text-secondary">
+    <dl><dt>Namespace</dt><dd><a class="xref" href="ProEdit.html">ProEdit</a>.<a class="xref" href="ProEdit.Controls.html">Controls</a>.<a class="xref" href="ProEdit.Controls.Skia.html">Skia</a>.<a class="xref" href="ProEdit.Controls.Skia.Uno.html">Uno</a></dd></dl>
+  <dl><dt>Assembly</dt><dd>ProEdit.Controls.Skia.Uno.dll</dd></dl>
+  </div>
+
+  <div class="markdown summary"><p>Uno Platform control for editing ProEdit documents.</p>
+</div>
+  <div class="markdown conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public sealed class ProEditDocumentEditor : ProEditDocumentControlBase, IAnimationObject, IVisualElement, IVisualElement2, IDependencyObjectStoreProvider, IWeakReferenceProvider, IEnumerable, IDataContextProvider, DependencyObject, ILayoutConstraints</code></pre>
+  </div>
+
+
+
+
+  <dl class="typelist inheritance">
+    <dt>Inheritance</dt>
+    <dd>
+      <div><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object">object</a></div>
+      <div><span class="xref">UIElement</span></div>
+      <div><span class="xref">FrameworkElement</span></div>
+      <div><a class="xref" href="https://github.com/unoplatform/uno/blob/main/src/AddIns/Uno.WinUI.Graphics2DSK/SKCanvasElement.cs">SKCanvasElement</a></div>
+      <div><a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html">ProEditDocumentControlBase</a></div>
+      <div><span class="xref">ProEditDocumentEditor</span></div>
+    </dd>
+  </dl>
+
+  <dl class="typelist implements">
+    <dt>Implements</dt>
+    <dd>
+      <div><span class="xref">IAnimationObject</span></div>
+      <div><span class="xref">IVisualElement</span></div>
+      <div><span class="xref">IVisualElement2</span></div>
+      <div><span class="xref">IDependencyObjectStoreProvider</span></div>
+      <div><span class="xref">IWeakReferenceProvider</span></div>
+      <div><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.ienumerable">IEnumerable</a></div>
+      <div><span class="xref">IDataContextProvider</span></div>
+      <div><span class="xref">DependencyObject</span></div>
+      <div><span class="xref">ILayoutConstraints</span></div>
+    </dd>
+  </dl>
+
+
+  <dl class="typelist inheritedMembers">
+    <dt>Inherited Members</dt>
+    <dd>
+    <div>
+      <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_DocumentProperty">ProEditDocumentControlBase.DocumentProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ZoomProperty">ProEditDocumentControlBase.ZoomProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ZoomModeProperty">ProEditDocumentControlBase.ZoomModeProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_MultiplePagesPerRowProperty">ProEditDocumentControlBase.MultiplePagesPerRowProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ScrollXProperty">ProEditDocumentControlBase.ScrollXProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ScrollYProperty">ProEditDocumentControlBase.ScrollYProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_IsReadOnlyProperty">ProEditDocumentControlBase.IsReadOnlyProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ShowReadOnlyCaretProperty">ProEditDocumentControlBase.ShowReadOnlyCaretProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_AcceptsReturnProperty">ProEditDocumentControlBase.AcceptsReturnProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_AcceptsTabProperty">ProEditDocumentControlBase.AcceptsTabProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_UseHarfBuzzProperty">ProEditDocumentControlBase.UseHarfBuzzProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_UsePictureCacheProperty">ProEditDocumentControlBase.UsePictureCacheProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ShowInvisiblesProperty">ProEditDocumentControlBase.ShowInvisiblesProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ShowLayoutProperty">ProEditDocumentControlBase.ShowLayoutProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ShowGridlinesProperty">ProEditDocumentControlBase.ShowGridlinesProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_UsePaginationProperty">ProEditDocumentControlBase.UsePaginationProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_PageFlowProperty">ProEditDocumentControlBase.PageFlowProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ShowRulerProperty">ProEditDocumentControlBase.ShowRulerProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ShowNavigationPaneProperty">ProEditDocumentControlBase.ShowNavigationPaneProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ViewModeProperty">ProEditDocumentControlBase.ViewModeProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_IsPanEnabledProperty">ProEditDocumentControlBase.IsPanEnabledProperty</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_DocumentHost">ProEditDocumentControlBase.DocumentHost</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_Document">ProEditDocumentControlBase.Document</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_Zoom">ProEditDocumentControlBase.Zoom</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ZoomMode">ProEditDocumentControlBase.ZoomMode</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_MultiplePagesPerRow">ProEditDocumentControlBase.MultiplePagesPerRow</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ScrollX">ProEditDocumentControlBase.ScrollX</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ScrollY">ProEditDocumentControlBase.ScrollY</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_IsReadOnly">ProEditDocumentControlBase.IsReadOnly</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ShowReadOnlyCaret">ProEditDocumentControlBase.ShowReadOnlyCaret</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_AcceptsReturn">ProEditDocumentControlBase.AcceptsReturn</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_AcceptsTab">ProEditDocumentControlBase.AcceptsTab</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_UseHarfBuzz">ProEditDocumentControlBase.UseHarfBuzz</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_UsePictureCache">ProEditDocumentControlBase.UsePictureCache</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ShowInvisibles">ProEditDocumentControlBase.ShowInvisibles</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ShowLayout">ProEditDocumentControlBase.ShowLayout</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ShowGridlines">ProEditDocumentControlBase.ShowGridlines</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_UsePagination">ProEditDocumentControlBase.UsePagination</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_PageFlow">ProEditDocumentControlBase.PageFlow</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ShowRuler">ProEditDocumentControlBase.ShowRuler</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ShowNavigationPane">ProEditDocumentControlBase.ShowNavigationPane</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_ViewMode">ProEditDocumentControlBase.ViewMode</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_IsPanEnabled">ProEditDocumentControlBase.IsPanEnabled</a>
+    </div>
+    <div>
+      <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentControlBase.html#ProEdit_Controls_Skia_Uno_ProEditDocumentControlBase_Refresh">ProEditDocumentControlBase.Refresh()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://github.com/unoplatform/uno/blob/main/src/AddIns/Uno.WinUI.Graphics2DSK/SKCanvasElement.cs">SKCanvasElement.IsSupportedOnCurrentPlatform()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://github.com/unoplatform/uno/blob/main/src/AddIns/Uno.WinUI.Graphics2DSK/SKCanvasElement.cs">SKCanvasElement.Invalidate()</a>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.DeferTree(DependencyObject)</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.ToString()</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.GetAccessibilityInnerText()</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.GetAutomationPeer()</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.FindFirstParent&lt;T&gt;()</span>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">FrameworkElement.FindFirstParent&lt;T&gt;(bool)</a>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.Dispose()</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.AdjustArrange(Size)</span>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">FrameworkElement.FindName(string)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">FrameworkElement.ApplyBindingPhase(int)</a>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.GetEnumerator()</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.Language</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.Triggers</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.ActualHeightProperty</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.ActualThemeProperty</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.ActualWidthProperty</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.LanguageProperty</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.NameProperty</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.ActualWidth</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.ActualHeight</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.HorizontalAlignmentProperty</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.HorizontalAlignment</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.VerticalAlignmentProperty</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.VerticalAlignment</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.WidthProperty</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.Width</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.HeightProperty</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.Height</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.MinWidthProperty</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.MinWidth</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.MinHeightProperty</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.MinHeight</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.MaxWidthProperty</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.MaxWidth</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.MaxHeightProperty</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.MaxHeight</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.MarginProperty</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.Margin</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.IsLoaded</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.UseConstraintOptimizations</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.AreDimensionsConstrained</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.Tag</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.TagProperty</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.FlowDirection</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.FlowDirectionProperty</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.Resources</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.Parent</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.BaseUri</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.Style</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.StyleProperty</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.RequestedTheme</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.RequestedThemeProperty</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.ActualTheme</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.FocusVisualSecondaryThicknessProperty</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.FocusVisualSecondaryThickness</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.FocusVisualSecondaryBrushProperty</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.FocusVisualSecondaryBrush</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.FocusVisualPrimaryThicknessProperty</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.FocusVisualPrimaryThickness</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.FocusVisualPrimaryBrush</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.FocusVisualPrimaryBrushProperty</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.FocusVisualMargin</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.FocusVisualMarginProperty</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.AllowFocusWhenDisabled</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.AllowFocusWhenDisabledProperty</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.AllowFocusOnInteraction</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.AllowFocusOnInteractionProperty</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.TransitionsProperty</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.Transitions</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.Background</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.BackgroundProperty</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.RenderPhase</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.Name</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.SizeChanged</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.ActualThemeChanged</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.LayoutUpdated</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.EffectiveViewportChanged</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.Loading</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.Loaded</span>
+    </div>
+    <div>
+      <span class="xref">FrameworkElement.Unloaded</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.Measure(Size)</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.Arrange(Rect)</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.InvalidateMeasure()</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.InvalidateArrange()</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.StartAnimation(ICompositionAnimationBase)</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.StopAnimation(ICompositionAnimationBase)</span>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">UIElement.PopulatePropertyInfo(string, AnimationPropertyInfo)</a>
+    </div>
+    <div>
+      <span class="xref">UIElement.GetVisualInternal()</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.TryStartDirectManipulation(Pointer)</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.StartBringIntoView()</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.StartBringIntoView(BringIntoViewOptions)</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.RegisterAsScrollPort(UIElement)</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.Focus(FocusState)</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.TransformToVisual(UIElement)</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.UpdateLayout()</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.TryInvokeKeyboardAccelerator(ProcessKeyboardAcceleratorEventArgs)</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.CancelDirectManipulations()</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.StartDragAsync(PointerPoint)</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.CapturePointer(Pointer)</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ReleasePointerCapture(Pointer)</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ReleasePointerCaptures()</span>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object">UIElement.AddHandler(RoutedEvent, object, bool)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object">UIElement.RemoveHandler(RoutedEvent, object)</a>
+    </div>
+    <div>
+      <span class="xref">UIElement.GetValue(DependencyProperty)</span>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object">UIElement.SetValue(DependencyProperty, object)</a>
+    </div>
+    <div>
+      <span class="xref">UIElement.ClearValue(DependencyProperty)</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ReadLocalValue(DependencyProperty)</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.GetAnimationBaseValue(DependencyProperty)</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.RegisterPropertyChangedCallback(DependencyProperty, DependencyPropertyChangedCallback)</span>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int64">UIElement.UnregisterPropertyChangedCallback(DependencyProperty, long)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object">UIElement.SetBinding(object, string, BindingBase)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">UIElement.SetBinding(string, BindingBase)</a>
+    </div>
+    <div>
+      <span class="xref">UIElement.SetBinding(DependencyProperty, BindingBase)</span>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object">UIElement.SetBindingValue(object, string)</a>
+    </div>
+    <div>
+      <span class="xref">UIElement.GetBindingExpression(DependencyProperty)</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ResumeBindings()</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.SuspendBindings()</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.RotationTransition</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.KeyTipTarget</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.KeyTipPlacementMode</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.KeyTipHorizontalOffset</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.IsTapEnabled</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.IsRightTapEnabled</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.IsHoldingEnabled</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.IsDoubleTapEnabled</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.AccessKey</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.HighContrastAdjustment</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ExitDisplayModeOnAccessKeyInvoked</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.OpacityTransition</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.CompositeMode</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.CanBeScrollAnchor</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.CacheMode</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.AccessKeyScopeOwner</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.IsAccessKeyScope</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.KeyTipVerticalOffset</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.CenterPoint</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.UseLayoutRounding</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.TranslationTransition</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.TransformMatrix</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.Rotation</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.RasterizationScale</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.Projection</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ScaleTransition</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.Scale</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.RotationAxis</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.Transform3D</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.Lights</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.AccessKeyProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.AccessKeyScopeOwnerProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.CacheModeProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.CanBeScrollAnchorProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.CharacterReceivedEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.CompositeModeProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ContextRequestedEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ExitDisplayModeOnAccessKeyInvokedProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.HighContrastAdjustmentProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.IsAccessKeyScopeProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.IsDoubleTapEnabledProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.IsHoldingEnabledProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.IsRightTapEnabledProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.IsTapEnabledProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.KeyTipHorizontalOffsetProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.KeyTipPlacementModeProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.KeyTipTargetProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.KeyTipVerticalOffsetProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.LightsProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.PreviewKeyDownEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.PreviewKeyUpEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ProjectionProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.Transform3DProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.UseLayoutRoundingProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.DesiredSize</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ActualSize</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ActualOffset</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.Translation</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.Shadow</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ShadowProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.Clip</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ClipProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.RenderTransform</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.RenderTransformProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.RenderTransformOrigin</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.RenderTransformOriginProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.RenderSize</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.XYFocusKeyboardNavigation</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.XYFocusKeyboardNavigationProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.XYFocusDownNavigationStrategy</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.XYFocusDownNavigationStrategyProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.XYFocusLeftNavigationStrategy</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.XYFocusLeftNavigationStrategyProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.XYFocusRightNavigationStrategy</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.XYFocusRightNavigationStrategyProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.XYFocusUpNavigationStrategy</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.XYFocusUpNavigationStrategyProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.TabFocusNavigation</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.TabFocusNavigationProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.FocusState</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.FocusStateProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.IsTabStop</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.IsTabStopProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.TabIndex</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.TabIndexProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.XYFocusUp</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.XYFocusUpProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.XYFocusDown</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.XYFocusDownProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.XYFocusLeft</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.XYFocusLeftProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.XYFocusRight</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.XYFocusRightProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.UseSystemFocusVisuals</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.UseSystemFocusVisualsProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ManipulationModeProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ManipulationMode</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.CanDragProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.CanDrag</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.AllowDropProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.AllowDrop</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.PointerCapturesProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.PointerCaptures</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.IsHitTestVisibleProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.IsHitTestVisible</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.OpacityProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.Opacity</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.VisibilityProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.Visibility</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ContextFlyoutProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ContextFlyout</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.KeyboardAccelerators</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.KeyboardAcceleratorPlacementMode</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.KeyboardAcceleratorPlacementModeProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.KeyboardAcceleratorPlacementTarget</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.KeyboardAcceleratorPlacementTargetProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.Handle</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.PointerPressedEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.PointerReleasedEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.PointerEnteredEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.PointerExitedEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.PointerMovedEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.PointerCanceledEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.PointerCaptureLostEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.PointerWheelChangedEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ManipulationStartingEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ManipulationStartedEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ManipulationDeltaEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ManipulationInertiaStartingEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ManipulationCompletedEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.TappedEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.DoubleTappedEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.RightTappedEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.HoldingEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.DragEnterEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.DragOverEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.DragLeaveEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.DropEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.KeyDownEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.KeyUpEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.GettingFocusEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.LosingFocusEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.NoFocusCandidateFoundEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.BringIntoViewRequestedEvent</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.EventsBubblingInManagedCodeProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.EventsBubblingInManagedCode</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.XamlRoot</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.Dispatcher</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.DispatcherQueue</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.IsStoreInitialized</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.DataContext</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.DataContextProperty</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.AccessKeyDisplayDismissed</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.AccessKeyDisplayRequested</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.CharacterReceived</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ContextCanceled</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ContextRequested</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.PreviewKeyDown</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.PreviewKeyUp</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.AccessKeyInvoked</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ProcessKeyboardAccelerators</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.LostFocus</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.GotFocus</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.LosingFocus</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.GettingFocus</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.NoFocusCandidateFound</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.BringIntoViewRequested</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.PointerCanceled</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.PointerCaptureLost</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.PointerEntered</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.PointerExited</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.PointerMoved</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.PointerPressed</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.PointerReleased</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.PointerWheelChanged</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ManipulationStarting</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ManipulationStarted</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ManipulationDelta</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ManipulationInertiaStarting</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.ManipulationCompleted</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.Tapped</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.DoubleTapped</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.RightTapped</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.Holding</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.DragStarting</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.DragEnter</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.DragLeave</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.DragOver</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.Drop</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.DropCompleted</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.KeyDown</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.KeyUp</span>
+    </div>
+    <div>
+      <span class="xref">UIElement.DataContextChanged</span>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)">object.Equals(object)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)">object.Equals(object, object)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.gethashcode">object.GetHashCode()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.gettype">object.GetType()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.referenceequals">object.ReferenceEquals(object, object)</a>
+    </div>
+  </dd></dl>
+
+
+
+
+
+
+  <h2 class="section" id="constructors">Constructors
+</h2>
+
+
+  <a id="ProEdit_Controls_Skia_Uno_ProEditDocumentEditor__ctor_" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentEditor.#ctor*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_Uno_ProEditDocumentEditor__ctor" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentEditor.#ctor">
+  ProEditDocumentEditor()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Uno/ProEditDocumentEditor.cs/#L11"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Initializes a new instance of the <a class="xref" href="ProEdit.Controls.Skia.Uno.ProEditDocumentEditor.html">ProEditDocumentEditor</a> class.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public ProEditDocumentEditor()</code></pre>
+  </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <h2 class="section" id="methods">Methods
+</h2>
+
+
+  <a id="ProEdit_Controls_Skia_Uno_ProEditDocumentEditor_Backspace_" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentEditor.Backspace*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_Uno_ProEditDocumentEditor_Backspace" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentEditor.Backspace">
+  Backspace()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Uno/ProEditDocumentEditor.cs/#L28"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Deletes the character or selection before the caret.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void Backspace()</code></pre>
+  </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_Uno_ProEditDocumentEditor_DeleteForward_" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentEditor.DeleteForward*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_Uno_ProEditDocumentEditor_DeleteForward" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentEditor.DeleteForward">
+  DeleteForward()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Uno/ProEditDocumentEditor.cs/#L36"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Deletes the character or selection after the caret.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void DeleteForward()</code></pre>
+  </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_Uno_ProEditDocumentEditor_InsertText_" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentEditor.InsertText*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_Uno_ProEditDocumentEditor_InsertText_System_String_" data-uid="ProEdit.Controls.Skia.Uno.ProEditDocumentEditor.InsertText(System.String)">
+  InsertText(string)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Uno/ProEditDocumentEditor.cs/#L20"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Inserts text at the current selection.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void InsertText(string text)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>text</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd><p>The text to insert.</p>
+</dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia.Uno/ProEditDocumentEditor.cs/#L6" class="edit-link">Edit this page</a>
+        </div>
+
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          <span>Made with <a href="https://dotnet.github.io/docfx">docfx</a></span>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

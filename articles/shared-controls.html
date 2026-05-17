@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Shared Skia Controls | ProEdit </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Shared Skia Controls | ProEdit ">
+      
+      
+      <link rel="icon" href="../favicon.ico">
+      <link rel="stylesheet" href="../public/docfx.min.css">
+      <link rel="stylesheet" href="../public/main.css">
+      <meta name="docfx:navrel" content="../toc.html">
+      <meta name="docfx:tocrel" content="toc.html">
+      
+      
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/wieslawsoltes/ProEdit/blob/main/docfx/articles/shared-controls.md/#L1">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../index.html">
+            <img id="logo" class="svg" src="../images/logo.svg" alt="">
+            
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="shared-skia-controls">Shared Skia Controls</h1>
+
+<p>The <code>ProEdit.Controls.Skia</code> packages provide smaller embeddable document controls
+for applications that need viewing or editing without hosting the full ProEdit
+Word application shell. They reuse the same document model, layout engine,
+Skia rendering backend, and Word editor services instead of reimplementing
+pagination, selection, pan, zoom, keyboard input, or edit command behavior.</p>
+<h2 id="packages">Packages</h2>
+<table>
+<thead>
+<tr>
+<th>Host framework</th>
+<th>Package</th>
+<th>Controls</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Shared core</td>
+<td><code>ProEdit.Controls.Skia</code></td>
+<td><code>ProEditDocumentHost</code>, options, command/state contracts</td>
+</tr>
+<tr>
+<td>Avalonia</td>
+<td><code>ProEdit.Controls.Skia.Avalonia</code></td>
+<td><code>ProEditDocumentViewer</code>, <code>ProEditDocumentEditor</code></td>
+</tr>
+<tr>
+<td>Uno Platform</td>
+<td><code>ProEdit.Controls.Skia.Uno</code></td>
+<td><code>ProEditDocumentViewer</code>, <code>ProEditDocumentEditor</code></td>
+</tr>
+<tr>
+<td>.NET MAUI</td>
+<td><code>ProEdit.Controls.Skia.Maui</code></td>
+<td><code>ProEditDocumentViewer</code>, <code>ProEditDocumentEditor</code></td>
+</tr>
+</tbody>
+</table>
+<p>Use the viewer control for read-only surfaces and the editor control when the
+host should accept text input. Both controls expose the same high-level feature
+set through framework-native properties:</p>
+<ul>
+<li><code>Document</code></li>
+<li><code>Zoom</code>, <code>ZoomMode</code>, <code>MultiplePagesPerRow</code></li>
+<li><code>ViewMode</code>, <code>PageFlow</code>, <code>UsePagination</code></li>
+<li><code>ShowInvisibles</code>, <code>ShowLayout</code>, <code>ShowGridlines</code></li>
+<li><code>IsPanEnabled</code></li>
+<li>editor-only <code>IsReadOnly</code>, <code>ShowReadOnlyCaret</code>, <code>AcceptsReturn</code>, <code>AcceptsTab</code></li>
+</ul>
+<h2 id="avalonia">Avalonia</h2>
+<p>Install the Avalonia package in an Avalonia app:</p>
+<pre><code class="lang-bash">dotnet add package ProEdit.Controls.Skia.Avalonia
+</code></pre>
+<p>Add the namespace and bind the control to a ViewModel property containing a
+<code>ProEdit.Documents.Document</code>:</p>
+<pre><code class="lang-xml">&lt;controls:ProEditDocumentViewer
+    xmlns:controls=&quot;clr-namespace:ProEdit.Controls.Skia.Avalonia;assembly=ProEdit.Controls.Skia.Avalonia&quot;
+    Document=&quot;{Binding Document}&quot;
+    Zoom=&quot;{Binding Zoom, Mode=TwoWay}&quot;
+    ZoomMode=&quot;{Binding ZoomMode, Mode=TwoWay}&quot;
+    ShowLayout=&quot;{Binding ShowLayout}&quot;
+    ShowGridlines=&quot;{Binding ShowGridlines}&quot;
+    IsPanEnabled=&quot;{Binding IsPanEnabled}&quot; /&gt;
+</code></pre>
+<p>Use <code>ProEditDocumentEditor</code> for editing:</p>
+<pre><code class="lang-xml">&lt;controls:ProEditDocumentEditor
+    xmlns:controls=&quot;clr-namespace:ProEdit.Controls.Skia.Avalonia;assembly=ProEdit.Controls.Skia.Avalonia&quot;
+    Document=&quot;{Binding Document}&quot;
+    IsReadOnly=&quot;{Binding IsReadOnly}&quot;
+    AcceptsReturn=&quot;True&quot;
+    AcceptsTab=&quot;True&quot;
+    Zoom=&quot;{Binding Zoom, Mode=TwoWay}&quot;
+    ZoomMode=&quot;{Binding ZoomMode, Mode=TwoWay}&quot; /&gt;
+</code></pre>
+<p>Run the sample:</p>
+<pre><code class="lang-bash">dotnet run --project samples/ProEdit.Controls.Skia.Avalonia.Sample/ProEdit.Controls.Skia.Avalonia.Sample.csproj
+</code></pre>
+<h2 id="uno-platform">Uno Platform</h2>
+<p>Install the Uno package in an Uno Platform app:</p>
+<pre><code class="lang-bash">dotnet add package ProEdit.Controls.Skia.Uno
+</code></pre>
+<p>Use the WinUI namespace syntax:</p>
+<pre><code class="lang-xml">&lt;controls:ProEditDocumentViewer
+    xmlns:controls=&quot;using:ProEdit.Controls.Skia.Uno&quot;
+    Document=&quot;{Binding Document}&quot;
+    Zoom=&quot;{Binding Zoom, Mode=TwoWay}&quot;
+    ZoomMode=&quot;{Binding ZoomMode, Mode=TwoWay}&quot;
+    UsePagination=&quot;{Binding UsePagination}&quot;
+    PageFlow=&quot;{Binding PageFlow}&quot;
+    IsPanEnabled=&quot;{Binding IsPanEnabled}&quot; /&gt;
+</code></pre>
+<p>Use <code>ProEditDocumentEditor</code> for editing:</p>
+<pre><code class="lang-xml">&lt;controls:ProEditDocumentEditor
+    xmlns:controls=&quot;using:ProEdit.Controls.Skia.Uno&quot;
+    Document=&quot;{Binding Document}&quot;
+    IsReadOnly=&quot;{Binding IsReadOnly}&quot;
+    AcceptsReturn=&quot;True&quot;
+    AcceptsTab=&quot;True&quot;
+    Zoom=&quot;{Binding Zoom, Mode=TwoWay}&quot;
+    ZoomMode=&quot;{Binding ZoomMode, Mode=TwoWay}&quot; /&gt;
+</code></pre>
+<p>Run the Skia desktop sample:</p>
+<pre><code class="lang-bash">dotnet run --project samples/ProEdit.Controls.Skia.Uno.Sample/ProEdit.Controls.Skia.Uno.Sample.csproj
+</code></pre>
+<h2 id="net-maui">.NET MAUI</h2>
+<p>Install the MAUI package in a MAUI app:</p>
+<pre><code class="lang-bash">dotnet add package ProEdit.Controls.Skia.Maui
+</code></pre>
+<p>Use the MAUI CLR namespace syntax:</p>
+<pre><code class="lang-xml">&lt;controls:ProEditDocumentViewer
+    xmlns:controls=&quot;clr-namespace:ProEdit.Controls.Skia.Maui;assembly=ProEdit.Controls.Skia.Maui&quot;
+    Document=&quot;{Binding Document}&quot;
+    HeightRequest=&quot;480&quot;
+    Zoom=&quot;{Binding Zoom, Mode=TwoWay}&quot;
+    ZoomMode=&quot;{Binding ZoomMode, Mode=TwoWay}&quot;
+    ShowLayout=&quot;{Binding ShowLayout}&quot;
+    IsPanEnabled=&quot;{Binding IsPanEnabled}&quot; /&gt;
+</code></pre>
+<p>Use <code>ProEditDocumentEditor</code> for editing:</p>
+<pre><code class="lang-xml">&lt;controls:ProEditDocumentEditor
+    xmlns:controls=&quot;clr-namespace:ProEdit.Controls.Skia.Maui;assembly=ProEdit.Controls.Skia.Maui&quot;
+    Document=&quot;{Binding Document}&quot;
+    HeightRequest=&quot;520&quot;
+    IsReadOnly=&quot;{Binding IsReadOnly}&quot;
+    AcceptsReturn=&quot;True&quot;
+    AcceptsTab=&quot;True&quot;
+    Zoom=&quot;{Binding Zoom, Mode=TwoWay}&quot;
+    ZoomMode=&quot;{Binding ZoomMode, Mode=TwoWay}&quot; /&gt;
+</code></pre>
+<p>Build the MAUI sample for Mac Catalyst:</p>
+<pre><code class="lang-bash">dotnet build -f net10.0-maccatalyst samples/ProEdit.Controls.Skia.Maui.Sample/ProEdit.Controls.Skia.Maui.Sample.csproj
+</code></pre>
+<h2 id="sample-viewmodel">Sample ViewModel</h2>
+<p>The sample apps all use <code>samples/ProEdit.Controls.Skia.Sample.Shared</code>. The
+shared ViewModel demonstrates the intended host contract:</p>
+<ul>
+<li>Keep the document and control state in a framework-neutral ViewModel.</li>
+<li>Bind framework controls to <code>Document</code>, zoom, view mode, pagination, and flags.</li>
+<li>Route toolbar actions through <code>ReactiveCommand</code>.</li>
+<li>Keep app-specific commands outside the controls; the shared host handles
+rendering, input, selection, and editing behavior internally.</li>
+</ul>
+<p>This keeps host applications thin while allowing Avalonia, Uno, and MAUI to
+expose idiomatic XAML APIs.</p>
+<p>Previous: <a href="richtextbox.html">RichTextBox</a></p>
+<p>Next: <a href="projects.html">Projects</a></p>
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/wieslawsoltes/ProEdit/blob/main/docfx/articles/shared-controls.md/#L1" class="edit-link">Edit this page</a>
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          <span>Made with <a href="https://dotnet.github.io/docfx">docfx</a></span>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

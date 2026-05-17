@@ -1,0 +1,2929 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Class ProEditDocumentHost | ProEdit </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Class ProEditDocumentHost | ProEdit ">
+      
+      <meta name="description" content="Shared Skia-backed rendering and editing host used by platform-specific ProEdit controls.">
+      <link rel="icon" href="../favicon.ico">
+      <link rel="stylesheet" href="../public/docfx.min.css">
+      <link rel="stylesheet" href="../public/main.css">
+      <meta name="docfx:navrel" content="../toc.html">
+      <meta name="docfx:tocrel" content="toc.html">
+      
+      
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/wieslawsoltes/ProEdit/new/main/apiSpec/new?filename=ProEdit_Controls_Skia_ProEditDocumentHost.md&amp;value=---%0Auid%3A%20ProEdit.Controls.Skia.ProEditDocumentHost%0Asummary%3A%20&#39;*You%20can%20override%20summary%20for%20the%20API%20here%20using%20*MARKDOWN*%20syntax&#39;%0A---%0A%0A*Please%20type%20below%20more%20information%20about%20this%20API%3A*%0A%0A">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="ManagedReference">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../index.html">
+            <img id="logo" class="svg" src="../images/logo.svg" alt="">
+            
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="ProEdit.Controls.Skia.ProEditDocumentHost">
+
+
+
+  <h1 id="ProEdit_Controls_Skia_ProEditDocumentHost" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost" class="text-break">
+Class ProEditDocumentHost  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L16"><i class="bi bi-code-slash"></i></a>
+  </h1>
+
+  <div class="facts text-secondary">
+    <dl><dt>Namespace</dt><dd><a class="xref" href="ProEdit.html">ProEdit</a>.<a class="xref" href="ProEdit.Controls.html">Controls</a>.<a class="xref" href="ProEdit.Controls.Skia.html">Skia</a></dd></dl>
+  <dl><dt>Assembly</dt><dd>ProEdit.Controls.Skia.dll</dd></dl>
+  </div>
+
+  <div class="markdown summary"><p>Shared Skia-backed rendering and editing host used by platform-specific ProEdit controls.</p>
+</div>
+  <div class="markdown conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public sealed class ProEditDocumentHost : IEditorViewOptionsService, IEditorZoomService, IDisposable</code></pre>
+  </div>
+
+
+
+
+  <dl class="typelist inheritance">
+    <dt>Inheritance</dt>
+    <dd>
+      <div><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object">object</a></div>
+      <div><span class="xref">ProEditDocumentHost</span></div>
+    </dd>
+  </dl>
+
+  <dl class="typelist implements">
+    <dt>Implements</dt>
+    <dd>
+      <div><a class="xref" href="ProEdit.Editing.IEditorViewOptionsService.html">IEditorViewOptionsService</a></div>
+      <div><a class="xref" href="ProEdit.Editing.IEditorZoomService.html">IEditorZoomService</a></div>
+      <div><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.idisposable">IDisposable</a></div>
+    </dd>
+  </dl>
+
+
+  <dl class="typelist inheritedMembers">
+    <dt>Inherited Members</dt>
+    <dd>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object)">object.Equals(object)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.equals#system-object-equals(system-object-system-object)">object.Equals(object, object)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.gethashcode">object.GetHashCode()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.gettype">object.GetType()</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.referenceequals">object.ReferenceEquals(object, object)</a>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.object.tostring">object.ToString()</a>
+    </div>
+  </dd></dl>
+
+
+
+
+
+
+  <h2 class="section" id="constructors">Constructors
+</h2>
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost__ctor_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.#ctor*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost__ctor" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.#ctor">
+  ProEditDocumentHost()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L85"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Initializes a new instance of the <a class="xref" href="ProEdit.Controls.Skia.ProEditDocumentHost.html">ProEditDocumentHost</a> class with the default editor session factory and editing module.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public ProEditDocumentHost()</code></pre>
+  </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost__ctor_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.#ctor*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost__ctor_ProEdit_Editing_IEditorSessionFactory_System_Collections_Generic_IEnumerable_ProEdit_Editing_IEditorModule__" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.#ctor(ProEdit.Editing.IEditorSessionFactory,System.Collections.Generic.IEnumerable{ProEdit.Editing.IEditorModule})">
+  ProEditDocumentHost(IEditorSessionFactory, IEnumerable&lt;IEditorModule&gt;?)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L95"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Initializes a new instance of the <a class="xref" href="ProEdit.Controls.Skia.ProEditDocumentHost.html">ProEditDocumentHost</a> class.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public ProEditDocumentHost(IEditorSessionFactory sessionFactory, IEnumerable&lt;IEditorModule&gt;? modules = null)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>sessionFactory</code> <a class="xref" href="ProEdit.Editing.IEditorSessionFactory.html">IEditorSessionFactory</a></dt>
+    <dd><p>The editor session factory.</p>
+</dd>
+    <dt><code>modules</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1">IEnumerable</a>&lt;<a class="xref" href="ProEdit.Editing.IEditorModule.html">IEditorModule</a>&gt;</dt>
+    <dd><p>Optional editor modules. The basic editing module is registered when this value is null.</p>
+</dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <h2 class="section" id="fields">Fields
+</h2>
+
+
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_MaximumZoom" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.MaximumZoom">
+  MaximumZoom
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L26"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>The maximum supported zoom factor.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public const float MaximumZoom = 5</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_MinimumZoom" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.MinimumZoom">
+  MinimumZoom
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L21"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>The minimum supported zoom factor.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public const float MinimumZoom = 0.1</code></pre>
+  </div>
+
+
+
+
+  <h4 class="section">Field Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+  <h2 class="section" id="properties">Properties
+</h2>
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_AcceptsReturn_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.AcceptsReturn*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_AcceptsReturn" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.AcceptsReturn">
+  AcceptsReturn
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L289"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets a value indicating whether Enter inserts a paragraph break.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool AcceptsReturn { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_AcceptsTab_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.AcceptsTab*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_AcceptsTab" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.AcceptsTab">
+  AcceptsTab
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L298"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets a value indicating whether Tab inserts a tab character.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool AcceptsTab { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_CommandRouter_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.CommandRouter*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_CommandRouter" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.CommandRouter">
+  CommandRouter
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L124"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets the command router registered for the current document session.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public IEditorCommandRouter CommandRouter { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Editing.IEditorCommandRouter.html">IEditorCommandRouter</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_Commands_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.Commands*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_Commands" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.Commands">
+  Commands
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L119"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets the command dispatcher used by the current document session.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public EditorCommandDispatcher Commands { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Editing.EditorCommandDispatcher.html">EditorCommandDispatcher</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_Document_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.Document*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_Document" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.Document">
+  Document
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L129"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets the current document.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public Document Document { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Documents.Document.html">Document</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_EditorSession_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.EditorSession*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_EditorSession" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.EditorSession">
+  EditorSession
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L134"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets the current editor session.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public IEditorMutableSession EditorSession { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Editing.IEditorMutableSession.html">IEditorMutableSession</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_Extent_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.Extent*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_Extent" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.Extent">
+  Extent
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L164"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets the document extent in document-space units.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public ProEditDocumentExtent Extent { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Controls.Skia.ProEditDocumentExtent.html">ProEditDocumentExtent</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_IsPanEnabled_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.IsPanEnabled*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_IsPanEnabled" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.IsPanEnabled">
+  IsPanEnabled
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L514"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets a value indicating whether pointer panning is enabled.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool IsPanEnabled { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_IsPanning_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.IsPanning*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_IsPanning" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.IsPanning">
+  IsPanning
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L535"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets a value indicating whether a pan gesture is active.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool IsPanning { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_IsReadOnly_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.IsReadOnly*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_IsReadOnly" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.IsReadOnly">
+  IsReadOnly
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L253"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets a value indicating whether text mutations are blocked.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool IsReadOnly { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_Layout_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.Layout*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_Layout" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.Layout">
+  Layout
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L139"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets the current document layout.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public DocumentLayout Layout { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Layout.DocumentLayout.html">DocumentLayout</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_LayoutSettings_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.LayoutSettings*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_LayoutSettings" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.LayoutSettings">
+  LayoutSettings
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L144"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets the mutable layout settings owned by the current editor session.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public LayoutSettings LayoutSettings { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Layout.LayoutSettings.html">LayoutSettings</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_MultiplePagesPerRow_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.MultiplePagesPerRow*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_MultiplePagesPerRow" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.MultiplePagesPerRow">
+  MultiplePagesPerRow
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L193"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets the page count used by <a class="xref" href="ProEdit.Controls.Skia.ProEditDocumentZoomMode.html#ProEdit_Controls_Skia_ProEditDocumentZoomMode_MultiplePages">MultiplePages</a>.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public int MultiplePagesPerRow { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">int</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_PageFlow_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.PageFlow*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_PageFlow" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.PageFlow">
+  PageFlow
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L403"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets the page flow used by the layout.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public PageFlowDirection PageFlow { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Layout.PageFlowDirection.html">PageFlowDirection</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_PageMovement_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.PageMovement*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_PageMovement" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.PageMovement">
+  PageMovement
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L485"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets the page movement mode used by editor view commands.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public PageFlowDirection PageMovement { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Layout.PageFlowDirection.html">PageFlowDirection</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_RenderOptions_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.RenderOptions*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_RenderOptions" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.RenderOptions">
+  RenderOptions
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L149"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets the render options used for each render pass.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public RenderOptions RenderOptions { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Rendering.RenderOptions.html">RenderOptions</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_Renderer_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.Renderer*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_Renderer" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.Renderer">
+  Renderer
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L159"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets the Skia document renderer.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public SkiaDocumentRenderer Renderer { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Rendering.Skia.SkiaDocumentRenderer.html">SkiaDocumentRenderer</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_ScreenExtentHeight_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.ScreenExtentHeight*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_ScreenExtentHeight" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.ScreenExtentHeight">
+  ScreenExtentHeight
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L248"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets the document extent height in screen units.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public float ScreenExtentHeight { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_ScreenExtentWidth_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.ScreenExtentWidth*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_ScreenExtentWidth" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.ScreenExtentWidth">
+  ScreenExtentWidth
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L243"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets the document extent width in screen units.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public float ScreenExtentWidth { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_ScreenScrollX_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.ScreenScrollX*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_ScreenScrollX" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.ScreenScrollX">
+  ScreenScrollX
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L233"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets the horizontal scroll offset in screen units.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public float ScreenScrollX { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_ScreenScrollY_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.ScreenScrollY*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_ScreenScrollY" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.ScreenScrollY">
+  ScreenScrollY
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L238"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets the vertical scroll offset in screen units.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public float ScreenScrollY { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_ScrollX_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.ScrollX*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_ScrollX" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.ScrollX">
+  ScrollX
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L215"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets the horizontal scroll offset in document-space units.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public float ScrollX { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_ScrollY_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.ScrollY*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_ScrollY" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.ScrollY">
+  ScrollY
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L224"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets the vertical scroll offset in document-space units.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public float ScrollY { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_Services_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.Services*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_Services" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.Services">
+  Services
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L114"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets the editor services registered for the current document session.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public EditorServices Services { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Editing.EditorServices.html">EditorServices</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_ShowGridlines_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.ShowGridlines*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_ShowGridlines" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.ShowGridlines">
+  ShowGridlines
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L384"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets a value indicating whether page gridlines are rendered.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool ShowGridlines { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_ShowInvisibles_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.ShowInvisibles*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_ShowInvisibles" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.ShowInvisibles">
+  ShowInvisibles
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L346"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets a value indicating whether invisible characters are rendered.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool ShowInvisibles { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_ShowLayout_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.ShowLayout*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_ShowLayout" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.ShowLayout">
+  ShowLayout
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L365"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets a value indicating whether layout guides are rendered.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool ShowLayout { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_ShowNavigationPane_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.ShowNavigationPane*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_ShowNavigationPane" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.ShowNavigationPane">
+  ShowNavigationPane
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L467"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets a value indicating whether the hosting UI should display a navigation pane.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool ShowNavigationPane { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_ShowReadOnlyCaret_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.ShowReadOnlyCaret*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_ShowReadOnlyCaret" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.ShowReadOnlyCaret">
+  ShowReadOnlyCaret
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L271"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets a value indicating whether the caret is rendered in read-only mode.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool ShowReadOnlyCaret { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_ShowRuler_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.ShowRuler*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_ShowRuler" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.ShowRuler">
+  ShowRuler
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L449"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets a value indicating whether the hosting UI should display rulers.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool ShowRuler { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_TextMeasurer_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.TextMeasurer*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_TextMeasurer" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.TextMeasurer">
+  TextMeasurer
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L154"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets the Skia text measurer used by layout.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public SkiaTextMeasurer TextMeasurer { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Rendering.Skia.SkiaTextMeasurer.html">SkiaTextMeasurer</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_UseHarfBuzz_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.UseHarfBuzz*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_UseHarfBuzz" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.UseHarfBuzz">
+  UseHarfBuzz
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L307"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets a value indicating whether HarfBuzz shaping is used.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool UseHarfBuzz { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_UsePagination_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.UsePagination*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_UsePagination" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.UsePagination">
+  UsePagination
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L426"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets a value indicating whether page pagination is enabled.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool UsePagination { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_UsePictureCache_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.UsePictureCache*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_UsePictureCache" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.UsePictureCache">
+  UsePictureCache
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L328"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets a value indicating whether rendered pages are cached as Skia pictures.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool UsePictureCache { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_ViewMode_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.ViewMode*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_ViewMode" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.ViewMode">
+  ViewMode
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L494"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets the logical editor view mode.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public EditorViewMode ViewMode { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Editing.EditorViewMode.html">EditorViewMode</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_ViewportHeight_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.ViewportHeight*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_ViewportHeight" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.ViewportHeight">
+  ViewportHeight
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L174"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets the viewport height in screen units.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public float ViewportHeight { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_ViewportWidth_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.ViewportWidth*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_ViewportWidth" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.ViewportWidth">
+  ViewportWidth
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L169"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets the viewport width in screen units.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public float ViewportWidth { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_Zoom_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.Zoom*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_Zoom" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.Zoom">
+  Zoom
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L179"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets or sets the zoom factor.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public float Zoom { get; set; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_ZoomMode_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.ZoomMode*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_ZoomMode" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.ZoomMode">
+  ZoomMode
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L188"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Gets the active zoom mode.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public ProEditDocumentZoomMode ZoomMode { get; }</code></pre>
+  </div>
+
+
+
+
+
+  <h4 class="section">Property Value</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Controls.Skia.ProEditDocumentZoomMode.html">ProEditDocumentZoomMode</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <h2 class="section" id="methods">Methods
+</h2>
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_Backspace_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.Backspace*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_Backspace" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.Backspace">
+  Backspace()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L882"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Deletes the character or selection before the caret.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void Backspace()</code></pre>
+  </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_BeginPan_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.BeginPan*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_BeginPan_System_Single_System_Single_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.BeginPan(System.Single,System.Single)">
+  BeginPan(float, float)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L752"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Starts a pan gesture from a screen-space point.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool BeginPan(float screenX, float screenY)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>screenX</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd><p>The x-coordinate.</p>
+</dd>
+    <dt><code>screenY</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd><p>The y-coordinate.</p>
+</dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd><p>True when panning started.</p>
+</dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_DeleteForward_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.DeleteForward*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_DeleteForward" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.DeleteForward">
+  DeleteForward()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L890"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Deletes the character or selection after the caret.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void DeleteForward()</code></pre>
+  </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_Dispose_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.Dispose*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_Dispose" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.Dispose">
+  Dispose()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L1036"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Releases resources used by the host.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void Dispose()</code></pre>
+  </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_DocumentToScreen_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.DocumentToScreen*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_DocumentToScreen_System_Single_System_Single_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.DocumentToScreen(System.Single,System.Single)">
+  DocumentToScreen(float, float)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L813"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Converts a document-space point to screen-space coordinates.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public DocPoint DocumentToScreen(float x, float y)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>x</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd><p>The document-space x-coordinate.</p>
+</dd>
+    <dt><code>y</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd><p>The document-space y-coordinate.</p>
+</dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Primitives.DocPoint.html">DocPoint</a></dt>
+    <dd><p>The screen-space point.</p>
+</dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_EndPan_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.EndPan*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_EndPan" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.EndPan">
+  EndPan()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L790"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Ends an active pan gesture.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void EndPan()</code></pre>
+  </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_HandleKey_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.HandleKey*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_HandleKey_ProEdit_Editing_EditorKey_ProEdit_Editing_EditorKeyEventKind_ProEdit_Editing_EditorModifiers_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.HandleKey(ProEdit.Editing.EditorKey,ProEdit.Editing.EditorKeyEventKind,ProEdit.Editing.EditorModifiers)">
+  HandleKey(EditorKey, EditorKeyEventKind, EditorModifiers)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L855"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Handles a key input event.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool HandleKey(EditorKey key, EditorKeyEventKind kind, EditorModifiers modifiers)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>key</code> <a class="xref" href="ProEdit.Editing.EditorKey.html">EditorKey</a></dt>
+    <dd><p>The key.</p>
+</dd>
+    <dt><code>kind</code> <a class="xref" href="ProEdit.Editing.EditorKeyEventKind.html">EditorKeyEventKind</a></dt>
+    <dd><p>The event kind.</p>
+</dd>
+    <dt><code>modifiers</code> <a class="xref" href="ProEdit.Editing.EditorModifiers.html">EditorModifiers</a></dt>
+    <dd><p>The active modifiers.</p>
+</dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd><p>True when the input was handled.</p>
+</dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_HandlePointer_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.HandlePointer*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_HandlePointer_ProEdit_Editing_EditorPointerEvent__" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.HandlePointer(ProEdit.Editing.EditorPointerEvent@)">
+  HandlePointer(in EditorPointerEvent)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L865"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Handles a pointer event whose coordinates are already in document space.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool HandlePointer(in EditorPointerEvent pointerEvent)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>pointerEvent</code> <a class="xref" href="ProEdit.Editing.EditorPointerEvent.html">EditorPointerEvent</a></dt>
+    <dd><p>The pointer event.</p>
+</dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd><p>True when the input was handled.</p>
+</dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_HandleTextInput_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.HandleTextInput*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_HandleTextInput_System_ReadOnlySpan_System_Char__ProEdit_Editing_EditorModifiers_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.HandleTextInput(System.ReadOnlySpan{System.Char},ProEdit.Editing.EditorModifiers)">
+  HandleTextInput(ReadOnlySpan&lt;char&gt;, EditorModifiers)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L843"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Handles text input.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool HandleTextInput(ReadOnlySpan&lt;char&gt; text, EditorModifiers modifiers)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>text</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.readonlyspan-1">ReadOnlySpan</a>&lt;<a class="xref" href="https://learn.microsoft.com/dotnet/api/system.char">char</a>&gt;</dt>
+    <dd><p>The text input.</p>
+</dd>
+    <dt><code>modifiers</code> <a class="xref" href="ProEdit.Editing.EditorModifiers.html">EditorModifiers</a></dt>
+    <dd><p>The active modifiers.</p>
+</dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd><p>True when the input was handled.</p>
+</dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_HandleWheel_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.HandleWheel*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_HandleWheel_System_Single_System_Single_System_Single_System_Single_ProEdit_Editing_EditorModifiers_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.HandleWheel(System.Single,System.Single,System.Single,System.Single,ProEdit.Editing.EditorModifiers)">
+  HandleWheel(float, float, float, float, EditorModifiers)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L717"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Handles a pointer wheel delta using the same zoom and scroll policy as the editor surface.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool HandleWheel(float deltaX, float deltaY, float screenX, float screenY, EditorModifiers modifiers)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>deltaX</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd><p>The horizontal wheel delta.</p>
+</dd>
+    <dt><code>deltaY</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd><p>The vertical wheel delta.</p>
+</dd>
+    <dt><code>screenX</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd><p>The wheel location x-coordinate in screen units.</p>
+</dd>
+    <dt><code>screenY</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd><p>The wheel location y-coordinate in screen units.</p>
+</dd>
+    <dt><code>modifiers</code> <a class="xref" href="ProEdit.Editing.EditorModifiers.html">EditorModifiers</a></dt>
+    <dd><p>The active modifiers.</p>
+</dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd><p>True when the wheel input was handled.</p>
+</dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_InsertText_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.InsertText*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_InsertText_System_String_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.InsertText(System.String)">
+  InsertText(string)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L874"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Inserts text at the current selection.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void InsertText(string text)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>text</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.string">string</a></dt>
+    <dd><p>The text to insert.</p>
+</dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_LoadDocument_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.LoadDocument*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_LoadDocument_ProEdit_Documents_Document_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.LoadDocument(ProEdit.Documents.Document)">
+  LoadDocument(Document?)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L541"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Loads a document into the host.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void LoadDocument(Document? document)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>document</code> <a class="xref" href="ProEdit.Documents.Document.html">Document</a></dt>
+    <dd><p>The document to load. A new empty document is used when null.</p>
+</dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_OpenZoomDialogAsync_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.OpenZoomDialogAsync*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_OpenZoomDialogAsync" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.OpenZoomDialogAsync">
+  OpenZoomDialogAsync()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L990"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Opens a zoom dialog when a hosting UI provides one.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public ValueTask OpenZoomDialogAsync()</code></pre>
+  </div>
+
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.valuetask">ValueTask</a></dt>
+    <dd><p>A completed value task for the default host implementation.</p>
+</dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_RegisterService_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.RegisterService*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_RegisterService__1___0_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.RegisterService``1(``0)">
+  RegisterService&lt;T&gt;(T)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L1011"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Registers or replaces an editor service.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void RegisterService&lt;T&gt;(T service) where T : class</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>service</code> <span class="xref">T</span></dt>
+    <dd><p>The service instance.</p>
+</dd>
+  </dl>
+
+
+  <h4 class="section">Type Parameters</h4>
+  <dl class="parameters">
+    <dt><code>T</code></dt>
+    <dd><p>The service type.</p>
+</dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_Render_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.Render*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_Render_SkiaSharp_SKCanvas_System_Int32_System_Int32_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.Render(SkiaSharp.SKCanvas,System.Int32,System.Int32)">
+  Render(SKCanvas, int, int)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L824"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Renders the document into a Skia canvas.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void Render(SKCanvas canvas, int width, int height)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>canvas</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/skiasharp.skcanvas">SKCanvas</a></dt>
+    <dd><p>The target canvas.</p>
+</dd>
+    <dt><code>width</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">int</a></dt>
+    <dd><p>The target width in screen units.</p>
+</dd>
+    <dt><code>height</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">int</a></dt>
+    <dd><p>The target height in screen units.</p>
+</dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_ScreenToDocument_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.ScreenToDocument*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_ScreenToDocument_System_Single_System_Single_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.ScreenToDocument(System.Single,System.Single)">
+  ScreenToDocument(float, float)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L801"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Converts a screen-space point to document-space coordinates.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public DocPoint ScreenToDocument(float x, float y)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>x</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd><p>The screen-space x-coordinate.</p>
+</dd>
+    <dt><code>y</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd><p>The screen-space y-coordinate.</p>
+</dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="ProEdit.Primitives.DocPoint.html">DocPoint</a></dt>
+    <dd><p>The document-space point.</p>
+</dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_ScrollBy_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.ScrollBy*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_ScrollBy_System_Single_System_Single_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.ScrollBy(System.Single,System.Single)">
+  ScrollBy(float, float)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L692"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Scrolls by a delta in document-space units.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void ScrollBy(float deltaX, float deltaY)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>deltaX</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd><p>The horizontal delta.</p>
+</dd>
+    <dt><code>deltaY</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd><p>The vertical delta.</p>
+</dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_ScrollScreenBy_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.ScrollScreenBy*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_ScrollScreenBy_System_Single_System_Single_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.ScrollScreenBy(System.Single,System.Single)">
+  ScrollScreenBy(float, float)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L702"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Scrolls by a delta in screen units.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void ScrollScreenBy(float deltaX, float deltaY)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>deltaX</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd><p>The horizontal screen-space delta.</p>
+</dd>
+    <dt><code>deltaY</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd><p>The vertical screen-space delta.</p>
+</dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_ScrollToPage_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.ScrollToPage*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_ScrollToPage_System_Int32_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.ScrollToPage(System.Int32)">
+  ScrollToPage(int)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L966"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Scrolls to a page.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void ScrollToPage(int pageIndex)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>pageIndex</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">int</a></dt>
+    <dd><p>The zero-based page index.</p>
+</dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_SelectAll_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.SelectAll*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_SelectAll" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.SelectAll">
+  SelectAll()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L898"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Selects the whole document.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void SelectAll()</code></pre>
+  </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_SetScreenScroll_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.SetScreenScroll*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_SetScreenScroll_System_Single_System_Single_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.SetScreenScroll(System.Single,System.Single)">
+  SetScreenScroll(float, float)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L681"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Sets the scroll offset in screen units.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void SetScreenScroll(float x, float y)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>x</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd><p>The horizontal screen-space offset.</p>
+</dd>
+    <dt><code>y</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd><p>The vertical screen-space offset.</p>
+</dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_SetScroll_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.SetScroll*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_SetScroll_System_Single_System_Single_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.SetScroll(System.Single,System.Single)">
+  SetScroll(float, float)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L660"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Sets the scroll offset in document-space units.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void SetScroll(float x, float y)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>x</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd><p>The horizontal scroll offset.</p>
+</dd>
+    <dt><code>y</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd><p>The vertical scroll offset.</p>
+</dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_SetViewport_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.SetViewport*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_SetViewport_System_Single_System_Single_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.SetViewport(System.Single,System.Single)">
+  SetViewport(float, float)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L568"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Updates the viewport size in screen units.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void SetViewport(float width, float height)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>width</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd><p>The viewport width.</p>
+</dd>
+    <dt><code>height</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd><p>The viewport height.</p>
+</dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_SetZoom_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.SetZoom*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_SetZoom_System_Single_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.SetZoom(System.Single)">
+  SetZoom(float)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L597"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Sets the zoom factor.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void SetZoom(float zoom)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>zoom</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd><p>The requested zoom factor.</p>
+</dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_SetZoom_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.SetZoom*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_SetZoom_System_Single_ProEdit_Controls_Skia_ProEditDocumentZoomMode_System_Boolean_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.SetZoom(System.Single,ProEdit.Controls.Skia.ProEditDocumentZoomMode,System.Boolean)">
+  SetZoom(float, ProEditDocumentZoomMode, bool)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L608"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Sets the zoom factor and mode.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void SetZoom(float zoom, ProEditDocumentZoomMode mode, bool preserveCenter = true)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>zoom</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd><p>The requested zoom factor.</p>
+</dd>
+    <dt><code>mode</code> <a class="xref" href="ProEdit.Controls.Skia.ProEditDocumentZoomMode.html">ProEditDocumentZoomMode</a></dt>
+    <dd><p>The zoom mode.</p>
+</dd>
+    <dt><code>preserveCenter</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd><p>True to keep the viewport center anchored.</p>
+</dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_TryGetService_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.TryGetService*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_TryGetService__1___0__" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.TryGetService``1(``0@)">
+  TryGetService&lt;T&gt;(out T)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L1001"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Resolves a registered editor service.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool TryGetService&lt;T&gt;(out T service) where T : class</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>service</code> <span class="xref">T</span></dt>
+    <dd><p>The resolved service.</p>
+</dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd><p>True when the service exists.</p>
+</dd>
+  </dl>
+
+  <h4 class="section">Type Parameters</h4>
+  <dl class="parameters">
+    <dt><code>T</code></dt>
+    <dd><p>The service type.</p>
+</dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_UnregisterService_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.UnregisterService*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_UnregisterService__1" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.UnregisterService``1">
+  UnregisterService&lt;T&gt;()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L1022"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Unregisters an editor service.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool UnregisterService&lt;T&gt;() where T : class</code></pre>
+  </div>
+
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd><p>True when a service was removed.</p>
+</dd>
+  </dl>
+
+  <h4 class="section">Type Parameters</h4>
+  <dl class="parameters">
+    <dt><code>T</code></dt>
+    <dd><p>The service type.</p>
+</dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_UpdatePan_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.UpdatePan*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_UpdatePan_System_Single_System_Single_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.UpdatePan(System.Single,System.Single)">
+  UpdatePan(float, float)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L773"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Updates an active pan gesture from a screen-space point.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public bool UpdatePan(float screenX, float screenY)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>screenX</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd><p>The x-coordinate.</p>
+</dd>
+    <dt><code>screenY</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd><p>The y-coordinate.</p>
+</dd>
+  </dl>
+
+  <h4 class="section">Returns</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">bool</a></dt>
+    <dd><p>True when panning was active.</p>
+</dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_ZoomBy_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.ZoomBy*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_ZoomBy_System_Single_System_Single_System_Single_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.ZoomBy(System.Single,System.Single,System.Single)">
+  ZoomBy(float, float, float)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L642"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Zooms around a screen-space anchor point.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void ZoomBy(float factor, float anchorX, float anchorY)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>factor</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd><p>The multiplicative zoom factor.</p>
+</dd>
+    <dt><code>anchorX</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd><p>The anchor x-coordinate in screen units.</p>
+</dd>
+    <dt><code>anchorY</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd><p>The anchor y-coordinate in screen units.</p>
+</dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_ZoomIn_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.ZoomIn*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_ZoomIn" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.ZoomIn">
+  ZoomIn()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L906"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Zooms in by one editor zoom step.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void ZoomIn()</code></pre>
+  </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_ZoomOut_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.ZoomOut*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_ZoomOut" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.ZoomOut">
+  ZoomOut()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L914"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Zooms out by one editor zoom step.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void ZoomOut()</code></pre>
+  </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_ZoomToDefault_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.ZoomToDefault*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_ZoomToDefault" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.ZoomToDefault">
+  ZoomToDefault()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L922"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Restores 100% zoom.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void ZoomToDefault()</code></pre>
+  </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_ZoomToMultiplePages_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.ZoomToMultiplePages*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_ZoomToMultiplePages_System_Int32_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.ZoomToMultiplePages(System.Int32)">
+  ZoomToMultiplePages(int)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L956"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Fits multiple pages per row to the viewport.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void ZoomToMultiplePages(int pagesPerRow = 2)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>pagesPerRow</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.int32">int</a></dt>
+    <dd><p>The page count per row.</p>
+</dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_ZoomToPageWidth_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.ZoomToPageWidth*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_ZoomToPageWidth" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.ZoomToPageWidth">
+  ZoomToPageWidth()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L939"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Fits page width to the viewport.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void ZoomToPageWidth()</code></pre>
+  </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_ZoomToPercent_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.ZoomToPercent*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_ZoomToPercent_System_Single_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.ZoomToPercent(System.Single)">
+  ZoomToPercent(float)
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L931"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Sets zoom from a percent value.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void ZoomToPercent(float percent)</code></pre>
+  </div>
+
+  <h4 class="section">Parameters</h4>
+  <dl class="parameters">
+    <dt><code>percent</code> <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.single">float</a></dt>
+    <dd><p>The requested percent.</p>
+</dd>
+  </dl>
+
+
+
+
+
+
+
+
+
+
+
+
+  <a id="ProEdit_Controls_Skia_ProEditDocumentHost_ZoomToWholePage_" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.ZoomToWholePage*"></a>
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_ZoomToWholePage" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.ZoomToWholePage">
+  ZoomToWholePage()
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L947"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Fits one whole page to the viewport.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public void ZoomToWholePage()</code></pre>
+  </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <h2 class="section" id="events">Events
+</h2>
+
+
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_Changed" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.Changed">
+  Changed
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L70"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Raised when document content, selection, layout, or rendering state changes.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public event EventHandler? Changed</code></pre>
+  </div>
+
+
+
+
+
+
+  <h4 class="section">Event Type</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.eventhandler">EventHandler</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_ViewOptionsChanged" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.ViewOptionsChanged">
+  ViewOptionsChanged
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L80"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Raised when view options such as rulers, navigation panes, or view mode change.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public event EventHandler? ViewOptionsChanged</code></pre>
+  </div>
+
+
+
+
+
+
+  <h4 class="section">Event Type</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.eventhandler">EventHandler</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+  <h3 id="ProEdit_Controls_Skia_ProEditDocumentHost_ViewportChanged" data-uid="ProEdit.Controls.Skia.ProEditDocumentHost.ViewportChanged">
+  ViewportChanged
+  <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L75"><i class="bi bi-code-slash"></i></a>
+  </h3>
+
+  <div class="markdown level1 summary"><p>Raised when viewport, zoom, scroll, or extent state changes.</p>
+</div>
+  <div class="markdown level1 conceptual"></div>
+
+  <div class="codewrapper">
+    <pre><code class="lang-csharp hljs">public event EventHandler? ViewportChanged</code></pre>
+  </div>
+
+
+
+
+
+
+  <h4 class="section">Event Type</h4>
+  <dl class="parameters">
+    <dt><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.eventhandler">EventHandler</a></dt>
+    <dd></dd>
+  </dl>
+
+
+
+
+
+
+
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.Controls.Skia/ProEditDocumentHost.cs/#L16" class="edit-link">Edit this page</a>
+        </div>
+
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          <span>Made with <a href="https://dotnet.github.io/docfx">docfx</a></span>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>
