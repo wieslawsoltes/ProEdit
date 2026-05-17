@@ -1,0 +1,123 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:controls="clr-namespace:ProEdit.Controls.Skia.Avalonia;assembly=ProEdit.Controls.Skia.Avalonia"
+        xmlns:shared="clr-namespace:ProEdit.Controls.Skia.Sample.Shared;assembly=ProEdit.Controls.Skia.Sample.Shared"
+        mc:Ignorable="d"
+        d:DesignWidth="1280"
+        d:DesignHeight="820"
+        x:Class="ProEdit.Controls.Skia.Avalonia.Sample.MainWindow"
+        x:DataType="shared:DocumentControlSampleViewModel"
+        Width="1280"
+        Height="820"
+        MinWidth="960"
+        MinHeight="680"
+        WindowStartupLocation="CenterScreen"
+        Title="ProEdit.Controls.Skia.Avalonia Sample"
+        Background="#F4F6F8">
+  <Window.DataContext>
+    <shared:DocumentControlSampleViewModel />
+  </Window.DataContext>
+
+  <Grid RowDefinitions="Auto,Auto,*" RowSpacing="0">
+    <Border Background="#18202C" Padding="18,14">
+      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+        <StackPanel Spacing="2">
+          <TextBlock Text="ProEdit shared Skia document controls"
+                     Foreground="#F8FAFC"
+                     FontSize="21"
+                     FontWeight="SemiBold" />
+          <TextBlock Text="Avalonia viewer and editor controls backed by the reusable Word editor host"
+                     Foreground="#CBD5E1"
+                     FontSize="12" />
+        </StackPanel>
+        <TextBlock Grid.Column="1"
+                   Text="{Binding Status}"
+                   Foreground="#E2E8F0"
+                   VerticalAlignment="Center"
+                   TextWrapping="Wrap"
+                   MaxWidth="520" />
+      </Grid>
+    </Border>
+
+    <Border Grid.Row="1"
+            Background="#FFFFFF"
+            BorderBrush="#D5DAE2"
+            BorderThickness="0,0,0,1"
+            Padding="12">
+      <WrapPanel ItemSpacing="8" LineSpacing="8">
+        <Button Content="Reset" Command="{Binding ResetDocumentsCommand}" />
+        <Button Content="100%" Command="{Binding ZoomDefaultCommand}" />
+        <Button Content="Page Width" Command="{Binding ZoomPageWidthCommand}" />
+        <Button Content="Whole Page" Command="{Binding ZoomWholePageCommand}" />
+        <Button Content="Multiple Pages" Command="{Binding ZoomMultiplePagesCommand}" />
+        <Button Content="Zoom In" Command="{Binding ZoomInCommand}" />
+        <Button Content="Zoom Out" Command="{Binding ZoomOutCommand}" />
+        <Button Content="Print Layout" Command="{Binding PrintLayoutCommand}" />
+        <Button Content="Read Mode" Command="{Binding ReadModeCommand}" />
+        <Button Content="Web Layout" Command="{Binding WebLayoutCommand}" />
+        <CheckBox Content="Invisibles" IsChecked="{Binding ShowInvisibles, Mode=TwoWay}" VerticalAlignment="Center" />
+        <CheckBox Content="Layout" IsChecked="{Binding ShowLayout, Mode=TwoWay}" VerticalAlignment="Center" />
+        <CheckBox Content="Gridlines" IsChecked="{Binding ShowGridlines, Mode=TwoWay}" VerticalAlignment="Center" />
+        <CheckBox Content="Pagination" IsChecked="{Binding UsePagination, Mode=TwoWay}" VerticalAlignment="Center" />
+        <CheckBox Content="Pan" IsChecked="{Binding IsPanEnabled, Mode=TwoWay}" VerticalAlignment="Center" />
+        <CheckBox Content="Editor read-only" IsChecked="{Binding IsEditorReadOnly, Mode=TwoWay}" VerticalAlignment="Center" />
+      </WrapPanel>
+    </Border>
+
+    <Grid Grid.Row="2" ColumnDefinitions="*,*" ColumnSpacing="12" Margin="12">
+      <Grid RowDefinitions="Auto,*" RowSpacing="8">
+        <TextBlock Text="ProEditDocumentViewer"
+                   FontWeight="SemiBold"
+                   Foreground="#1F2937" />
+        <Border Grid.Row="1"
+                BorderBrush="#C9D1DD"
+                BorderThickness="1"
+                Background="#E8EDF4">
+          <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+            <controls:ProEditDocumentViewer Document="{Binding ViewerDocument}"
+                                            Zoom="{Binding ViewerZoom, Mode=TwoWay}"
+                                            ZoomMode="{Binding ViewerZoomMode, Mode=TwoWay}"
+                                            MultiplePagesPerRow="{Binding MultiplePagesPerRow, Mode=TwoWay}"
+                                            ShowInvisibles="{Binding ShowInvisibles, Mode=TwoWay}"
+                                            ShowLayout="{Binding ShowLayout, Mode=TwoWay}"
+                                            ShowGridlines="{Binding ShowGridlines, Mode=TwoWay}"
+                                            UsePagination="{Binding UsePagination, Mode=TwoWay}"
+                                            PageFlow="{Binding PageFlow, Mode=TwoWay}"
+                                            ViewMode="{Binding ViewMode, Mode=TwoWay}"
+                                            IsPanEnabled="{Binding IsPanEnabled, Mode=TwoWay}" />
+          </ScrollViewer>
+        </Border>
+      </Grid>
+
+      <Grid Grid.Column="1" RowDefinitions="Auto,*" RowSpacing="8">
+        <TextBlock Text="ProEditDocumentEditor"
+                   FontWeight="SemiBold"
+                   Foreground="#1F2937" />
+        <Border Grid.Row="1"
+                BorderBrush="#C9D1DD"
+                BorderThickness="1"
+                Background="#E8EDF4">
+          <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+            <controls:ProEditDocumentEditor Document="{Binding EditorDocument}"
+                                            Zoom="{Binding EditorZoom, Mode=TwoWay}"
+                                            ZoomMode="{Binding EditorZoomMode, Mode=TwoWay}"
+                                            MultiplePagesPerRow="{Binding MultiplePagesPerRow, Mode=TwoWay}"
+                                            IsReadOnly="{Binding IsEditorReadOnly, Mode=TwoWay}"
+                                            ShowReadOnlyCaret="True"
+                                            AcceptsReturn="True"
+                                            AcceptsTab="True"
+                                            ShowInvisibles="{Binding ShowInvisibles, Mode=TwoWay}"
+                                            ShowLayout="{Binding ShowLayout, Mode=TwoWay}"
+                                            ShowGridlines="{Binding ShowGridlines, Mode=TwoWay}"
+                                            UsePagination="{Binding UsePagination, Mode=TwoWay}"
+                                            PageFlow="{Binding PageFlow, Mode=TwoWay}"
+                                            ViewMode="{Binding ViewMode, Mode=TwoWay}"
+                                            IsPanEnabled="{Binding IsPanEnabled, Mode=TwoWay}" />
+          </ScrollViewer>
+        </Border>
+      </Grid>
+    </Grid>
+  </Grid>
+</Window>

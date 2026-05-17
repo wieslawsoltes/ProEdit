@@ -33,9 +33,9 @@ jobs:
       with:
         global-json-file: global.json
     - name: Install workloads
-      run: dotnet workload install wasm-tools wasm-experimental
+      run: dotnet workload install wasm-tools wasm-experimental maui-android
     - name: Build
-      run: dotnet build -c Release
+      run: dotnet build -c Release -p:EnableMauiAppleTargets=false
 
   test:
     needs: build
@@ -53,9 +53,9 @@ jobs:
       with:
         global-json-file: global.json
     - name: Install workloads
-      run: dotnet workload install wasm-tools wasm-experimental
+      run: dotnet workload install wasm-tools wasm-experimental maui-android
     - name: Test
-      run: dotnet test -c Release
+      run: dotnet test -c Release -p:EnableMauiAppleTargets=false
 
   pack:
     needs: test
@@ -69,9 +69,9 @@ jobs:
       with:
         global-json-file: global.json
     - name: Install workloads
-      run: dotnet workload install wasm-tools wasm-experimental
+      run: dotnet workload install wasm-tools wasm-experimental maui-android
     - name: Pack
-      run: dotnet pack -c Release -o artifacts/nuget
+      run: dotnet pack -c Release -o artifacts/nuget -p:EnableMauiAppleTargets=false
     - name: Upload NuGet artifacts
       uses: actions/upload-artifact@v4
       with:

@@ -1,0 +1,48 @@
+<Project Sdk="Microsoft.NET.Sdk" TreatAsLocalProperty="_IsUnoUISolution">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <IsUnoHead>true</IsUnoHead>
+    <UnoRuntimeIdentifier>Skia</UnoRuntimeIdentifier>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <_IsUnoUISolution></_IsUnoUISolution>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageDescription>Uno Platform sample app for ProEdit shared Skia document controls.</PackageDescription>
+    <PackageTags>proedit;sample;document;controls;uno;winui;skia</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Uno.WinUI" />
+    <PackageReference Include="Uno.WinUI.Graphics2DSK" />
+    <PackageReference Include="SkiaSharp.Views.Uno.WinUI" />
+  </ItemGroup>
+
+  <ItemGroup Condition="$([MSBuild]::IsOSPlatform('OSX'))">
+    <PackageReference Include="Uno.WinUI.Runtime.Skia.MacOS" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\ProEdit.Controls.Skia.Uno\ProEdit.Controls.Skia.Uno.csproj" />
+    <ProjectReference Include="..\ProEdit.Controls.Skia.Sample.Shared\ProEdit.Controls.Skia.Sample.Shared.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Page Include="**\*.xaml" Exclude="bin\**\*.xaml;obj\**\*.xaml" />
+    <ApplicationDefinition Include="App\App.xaml" Condition="Exists('App\\App.xaml')" />
+    <Compile Update="**\*.xaml.cs">
+      <DependentUpon>%(Filename)</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <UpToDateCheckInput Include="**\*.xaml" Exclude="bin\**\*.xaml;obj\**\*.xaml" />
+  </ItemGroup>
+
+</Project>

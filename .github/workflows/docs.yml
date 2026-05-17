@@ -25,6 +25,9 @@ jobs:
             8.0.x
             6.0.x
 
+      - name: Install workloads
+        run: dotnet workload install wasm-tools wasm-experimental maui-android
+
       - name: Restore local tools
         run: dotnet tool restore
 

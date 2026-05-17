@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk" TreatAsLocalProperty="_IsUnoUISolution">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>true</IsPackable>
+    <PackageId>ProEdit.Controls.Skia.Uno</PackageId>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <_IsUnoUISolution></_IsUnoUISolution>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageDescription>Uno Platform document viewer and editor controls for ProEdit.</PackageDescription>
+    <PackageTags>proedit;controls;document;viewer;editor;uno;winui;skia</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Uno.WinUI" />
+    <PackageReference Include="Uno.WinUI.Graphics2DSK" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ProEdit.Controls.Skia\ProEdit.Controls.Skia.csproj" />
+  </ItemGroup>
+
+</Project>

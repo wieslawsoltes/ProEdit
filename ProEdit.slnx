@@ -6,6 +6,10 @@
     <Project Path="src/ProEdit.Collaboration.Server/ProEdit.Collaboration.Server.csproj" />
     <Project Path="src/ProEdit.Collaboration.UI/ProEdit.Collaboration.UI.csproj" />
     <Project Path="src/ProEdit.Collaboration/ProEdit.Collaboration.csproj" />
+    <Project Path="src/ProEdit.Controls.Skia/ProEdit.Controls.Skia.csproj" />
+    <Project Path="src/ProEdit.Controls.Skia.Avalonia/ProEdit.Controls.Skia.Avalonia.csproj" />
+    <Project Path="src/ProEdit.Controls.Skia.Uno/ProEdit.Controls.Skia.Uno.csproj" />
+    <Project Path="src/ProEdit.Controls.Skia.Maui/ProEdit.Controls.Skia.Maui.csproj" />
     <Project Path="src/ProEdit.Editing/ProEdit.Editing.csproj" />
     <Project Path="src/ProEdit.Documents/ProEdit.Documents.csproj" />
     <Project Path="src/ProEdit.Documents.Data/ProEdit.Documents.Data.csproj" />
@@ -66,6 +70,7 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/ProEdit.Collaboration.Tests/ProEdit.Collaboration.Tests.csproj" />
+    <Project Path="tests/ProEdit.Controls.Skia.Tests/ProEdit.Controls.Skia.Tests.csproj" />
     <Project Path="tests/ProEdit.Documents.Data.Tests/ProEdit.Documents.Data.Tests.csproj" />
     <Project Path="tests/ProEdit.FlowDocument.Tests/ProEdit.FlowDocument.Tests.csproj" />
     <Project Path="tests/ProEdit.FlowDocument.IO.Tests/ProEdit.FlowDocument.IO.Tests.csproj" />
@@ -93,6 +98,12 @@
     <Project Path="tests/ProEdit.Vba.Runtime.Tests/ProEdit.Vba.Runtime.Tests.csproj" />
     <Project Path="tests/ProEdit.Word.Avalonia.Headless.Tests/ProEdit.Word.Avalonia.Headless.Tests.csproj" />
     <Project Path="tests/ProEdit.Word.Editor.Tests/ProEdit.Word.Editor.Tests.csproj" />
+  </Folder>
+  <Folder Name="/samples/">
+    <Project Path="samples/ProEdit.Controls.Skia.Sample.Shared/ProEdit.Controls.Skia.Sample.Shared.csproj" />
+    <Project Path="samples/ProEdit.Controls.Skia.Avalonia.Sample/ProEdit.Controls.Skia.Avalonia.Sample.csproj" />
+    <Project Path="samples/ProEdit.Controls.Skia.Uno.Sample/ProEdit.Controls.Skia.Uno.Sample.csproj" />
+    <Project Path="samples/ProEdit.Controls.Skia.Maui.Sample/ProEdit.Controls.Skia.Maui.Sample.csproj" />
   </Folder>
   <Folder Name="/benchmarks/">
     <Project Path="benchmarks/ProEdit.Layout.Benchmarks/ProEdit.Layout.Benchmarks.csproj" />
