@@ -197,7 +197,7 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          name: ProDataGrid v${{ needs.build.outputs.version }}
+          name: ProEdit v${{ needs.build.outputs.version }}
           tag_name: ${{ github.ref_name }}
           draft: false
           prerelease: ${{ needs.build.outputs.is-prerelease == 'true' }}
