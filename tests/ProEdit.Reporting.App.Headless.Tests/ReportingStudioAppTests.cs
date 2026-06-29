@@ -32,7 +32,7 @@ public sealed class HeadlessTestApp : Application
 {
     public override void Initialize()
     {
-        RxApp.MainThreadScheduler = AvaloniaScheduler.Instance;
+        RxSchedulers.MainThreadScheduler = AvaloniaScheduler.Instance;
     }
 }
 
@@ -42,6 +42,7 @@ public static class HeadlessTestAppBuilder
     {
         return AppBuilder.Configure<HeadlessTestApp>()
             .UseSkia()
+            .UseReactiveUI(static _ => { })
             .UseHeadless(new AvaloniaHeadlessPlatformOptions
             {
                 UseHeadlessDrawing = false
