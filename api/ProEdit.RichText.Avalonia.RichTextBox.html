@@ -97,7 +97,7 @@ Class RichTextBox  <a class="header-action link-secondary" title="View source" h
   <div class="markdown conceptual"></div>
 
   <div class="codewrapper">
-    <pre><code class="lang-csharp hljs">public sealed class RichTextBox : TemplatedControl, INotifyPropertyChanged, IDataContextProvider, ILogical, IThemeVariantHost, IResourceHost, IResourceNode, IStyleHost, ISetLogicalParent, ISetInheritanceParent, ISupportInitialize, IStyleable, INamed, IInputElement, IDataTemplateHost, ISetterValue</code></pre>
+    <pre><code class="lang-csharp hljs">public sealed class RichTextBox : TemplatedControl, INotifyPropertyChanged, IDataContextProvider, ILogical, IThemeVariantHost, IResourceHost, IResourceNode, IStyleHost, ISetLogicalParent, ISetInheritanceParent, ISupportInitialize, INamed, IInputElement, IDataTemplateHost, ISetterValue</code></pre>
   </div>
 
 
@@ -133,7 +133,6 @@ Class RichTextBox  <a class="header-action link-secondary" title="View source" h
       <div><span class="xref">ISetLogicalParent</span></div>
       <div><span class="xref">ISetInheritanceParent</span></div>
       <div><a class="xref" href="https://learn.microsoft.com/dotnet/api/system.componentmodel.isupportinitialize">ISupportInitialize</a></div>
-      <div><span class="xref">IStyleable</span></div>
       <div><span class="xref">INamed</span></div>
       <div><span class="xref">IInputElement</span></div>
       <div><span class="xref">IDataTemplateHost</span></div>
@@ -180,6 +179,9 @@ Class RichTextBox  <a class="header-action link-secondary" title="View source" h
     </div>
     <div>
       <span class="xref">TemplatedControl.ForegroundProperty</span>
+    </div>
+    <div>
+      <span class="xref">TemplatedControl.LetterSpacingProperty</span>
     </div>
     <div>
       <span class="xref">TemplatedControl.PaddingProperty</span>
@@ -239,6 +241,9 @@ Class RichTextBox  <a class="header-action link-secondary" title="View source" h
       <span class="xref">TemplatedControl.Foreground</span>
     </div>
     <div>
+      <span class="xref">TemplatedControl.LetterSpacing</span>
+    </div>
+    <div>
       <span class="xref">TemplatedControl.Padding</span>
     </div>
     <div>
@@ -261,9 +266,6 @@ Class RichTextBox  <a class="header-action link-secondary" title="View source" h
     </div>
     <div>
       <span class="xref">Control.RequestBringIntoViewEvent</span>
-    </div>
-    <div>
-      <span class="xref">Control.ContextRequestedEvent</span>
     </div>
     <div>
       <span class="xref">Control.LoadedEvent</span>
@@ -291,9 +293,6 @@ Class RichTextBox  <a class="header-action link-secondary" title="View source" h
     </div>
     <div>
       <span class="xref">Control.Tag</span>
-    </div>
-    <div>
-      <span class="xref">Control.ContextRequested</span>
     </div>
     <div>
       <span class="xref">Control.Loaded</span>
@@ -335,7 +334,13 @@ Class RichTextBox  <a class="header-action link-secondary" title="View source" h
       <span class="xref">InputElement.GotFocusEvent</span>
     </div>
     <div>
+      <span class="xref">InputElement.GettingFocusEvent</span>
+    </div>
+    <div>
       <span class="xref">InputElement.LostFocusEvent</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.LosingFocusEvent</span>
     </div>
     <div>
       <span class="xref">InputElement.KeyDownEvent</span>
@@ -374,7 +379,58 @@ Class RichTextBox  <a class="header-action link-secondary" title="View source" h
       <span class="xref">InputElement.PointerWheelChangedEvent</span>
     </div>
     <div>
+      <span class="xref">InputElement.ContextRequestedEvent</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.ContextCanceledEvent</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.IsHoldingEnabledProperty</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.IsHoldWithMouseEnabledProperty</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.PinchEvent</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.PinchEndedEvent</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.PullGestureEvent</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.PullGestureEndedEvent</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.SwipeGestureEvent</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.SwipeGestureEndedEvent</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.ScrollGestureEvent</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.ScrollGestureInertiaStartingEvent</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.ScrollGestureEndedEvent</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.PointerTouchPadGestureMagnifyEvent</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.PointerTouchPadGestureRotateEvent</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.PointerTouchPadGestureSwipeEvent</span>
+    </div>
+    <div>
       <span class="xref">InputElement.TappedEvent</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.RightTappedEvent</span>
     </div>
     <div>
       <span class="xref">InputElement.HoldingEvent</span>
@@ -384,6 +440,18 @@ Class RichTextBox  <a class="header-action link-secondary" title="View source" h
     </div>
     <div>
       <span class="xref">InputElement.Focus(NavigationMethod, KeyModifiers)</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.GetIsHoldingEnabled(StyledElement)</span>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">InputElement.SetIsHoldingEnabled(StyledElement, bool)</a>
+    </div>
+    <div>
+      <span class="xref">InputElement.GetIsHoldWithMouseEnabled(StyledElement)</span>
+    </div>
+    <div>
+      <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.boolean">InputElement.SetIsHoldWithMouseEnabled(StyledElement, bool)</a>
     </div>
     <div>
       <span class="xref">InputElement.Focusable</span>
@@ -425,7 +493,13 @@ Class RichTextBox  <a class="header-action link-secondary" title="View source" h
       <span class="xref">InputElement.GotFocus</span>
     </div>
     <div>
+      <span class="xref">InputElement.GettingFocus</span>
+    </div>
+    <div>
       <span class="xref">InputElement.LostFocus</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.LosingFocus</span>
     </div>
     <div>
       <span class="xref">InputElement.KeyDown</span>
@@ -461,7 +535,52 @@ Class RichTextBox  <a class="header-action link-secondary" title="View source" h
       <span class="xref">InputElement.PointerWheelChanged</span>
     </div>
     <div>
+      <span class="xref">InputElement.ContextRequested</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.ContextCanceled</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.Pinch</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.PinchEnded</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.PullGesture</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.PullGestureEnded</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.ScrollGesture</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.ScrollGestureInertiaStarting</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.ScrollGestureEnded</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.PointerTouchPadGestureMagnify</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.PointerTouchPadGestureRotate</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.SwipeGesture</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.SwipeGestureEnded</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.PointerTouchPadGestureSwipe</span>
+    </div>
+    <div>
       <span class="xref">InputElement.Tapped</span>
+    </div>
+    <div>
+      <span class="xref">InputElement.RightTapped</span>
     </div>
     <div>
       <span class="xref">InputElement.Holding</span>
@@ -596,6 +715,9 @@ Class RichTextBox  <a class="header-action link-secondary" title="View source" h
       <span class="xref">Visual.OpacityMaskProperty</span>
     </div>
     <div>
+      <span class="xref">Visual.CacheModeProperty</span>
+    </div>
+    <div>
       <span class="xref">Visual.EffectProperty</span>
     </div>
     <div>
@@ -648,6 +770,9 @@ Class RichTextBox  <a class="header-action link-secondary" title="View source" h
     </div>
     <div>
       <span class="xref">Visual.OpacityMask</span>
+    </div>
+    <div>
+      <span class="xref">Visual.CacheMode</span>
     </div>
     <div>
       <span class="xref">Visual.Effect</span>
@@ -815,7 +940,7 @@ Class RichTextBox  <a class="header-action link-secondary" title="View source" h
       <span class="xref">AvaloniaObject.SetCurrentValue&lt;T&gt;(StyledProperty&lt;T&gt;, T)</span>
     </div>
     <div>
-      <span class="xref">AvaloniaObject.Bind(AvaloniaProperty, IBinding)</span>
+      <span class="xref">AvaloniaObject.Bind(AvaloniaProperty, BindingBase)</span>
     </div>
     <div>
       <a class="xref" href="https://learn.microsoft.com/dotnet/api/system.iobservable-1">AvaloniaObject.Bind(AvaloniaProperty, IObservable&lt;object&gt;, BindingPriority)</a>
@@ -846,6 +971,9 @@ Class RichTextBox  <a class="header-action link-secondary" title="View source" h
     </div>
     <div>
       <span class="xref">AvaloniaObject.this[IndexerDescriptor]</span>
+    </div>
+    <div>
+      <span class="xref">AvaloniaObject.Dispatcher</span>
     </div>
     <div>
       <span class="xref">AvaloniaObject.PropertyChanged</span>
@@ -1914,23 +2042,25 @@ In simple terms, this means the method is called just before the control is disp
 
   <a id="ProEdit_RichText_Avalonia_RichTextBox_OnGotFocus_" data-uid="ProEdit.RichText.Avalonia.RichTextBox.OnGotFocus*"></a>
 
-  <h3 id="ProEdit_RichText_Avalonia_RichTextBox_OnGotFocus_Avalonia_Input_GotFocusEventArgs_" data-uid="ProEdit.RichText.Avalonia.RichTextBox.OnGotFocus(Avalonia.Input.GotFocusEventArgs)">
-  OnGotFocus(GotFocusEventArgs)
+  <h3 id="ProEdit_RichText_Avalonia_RichTextBox_OnGotFocus_Avalonia_Input_FocusChangedEventArgs_" data-uid="ProEdit.RichText.Avalonia.RichTextBox.OnGotFocus(Avalonia.Input.FocusChangedEventArgs)">
+  OnGotFocus(FocusChangedEventArgs)
   <a class="header-action link-secondary" title="View source" href="https://github.com/wieslawsoltes/ProEdit/blob/main/src/ProEdit.RichText.Avalonia/RichTextBox.cs/#L455"><i class="bi bi-code-slash"></i></a>
   </h3>
 
-  <div class="markdown level1 summary"><p>Called before the <span class="xref">Avalonia.Input.InputElement.GotFocus</span> event occurs.</p>
+  <div class="markdown level1 summary"><p>Invoked when an unhandled <span class="xref">Avalonia.Input.InputElement.GotFocusEvent</span> reaches an element in its
+route that is derived from this class. Implement this method to add class handling
+for this event.</p>
 </div>
   <div class="markdown level1 conceptual"></div>
 
   <div class="codewrapper">
-    <pre><code class="lang-csharp hljs">protected override void OnGotFocus(GotFocusEventArgs e)</code></pre>
+    <pre><code class="lang-csharp hljs">protected override void OnGotFocus(FocusChangedEventArgs e)</code></pre>
   </div>
 
   <h4 class="section">Parameters</h4>
   <dl class="parameters">
-    <dt><code>e</code> <span class="xref">GotFocusEventArgs</span></dt>
-    <dd><p>The event args.</p>
+    <dt><code>e</code> <span class="xref">FocusChangedEventArgs</span></dt>
+    <dd><p>Data about the event.</p>
 </dd>
   </dl>
 
