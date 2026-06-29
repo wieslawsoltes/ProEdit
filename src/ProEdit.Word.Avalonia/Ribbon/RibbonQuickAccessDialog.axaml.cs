@@ -10,6 +10,7 @@ public partial class RibbonQuickAccessDialog : Window
 {
     private readonly RibbonQuickAccessDialogViewModel _viewModel;
     private RibbonQuickAccessCandidate? _dragCandidate;
+    private PointerPressedEventArgs? _dragStartArgs;
     private Point _dragStartPoint;
     private bool _isDragging;
 
@@ -61,6 +62,7 @@ public partial class RibbonQuickAccessDialog : Window
         }
 
         _dragCandidate = candidate;
+        _dragStartArgs = e;
         _dragStartPoint = e.GetPosition(listBox);
     }
 
@@ -76,9 +78,16 @@ public partial class RibbonQuickAccessDialog : Window
             return;
         }
 
+        if (_dragStartArgs is null)
+        {
+            _dragCandidate = null;
+            return;
+        }
+
         if (!_isDragging && !e.GetCurrentPoint(listBox).Properties.IsLeftButtonPressed)
         {
             _dragCandidate = null;
+            _dragStartArgs = null;
             return;
         }
 
@@ -96,14 +105,16 @@ public partial class RibbonQuickAccessDialog : Window
         _isDragging = true;
         var data = new DataTransfer();
         data.Add(DataTransferItem.Create(DragFormat, _dragCandidate.Id));
-        await DragDrop.DoDragDropAsync(e, data, DragDropEffects.Move);
+        await DragDrop.DoDragDropAsync(_dragStartArgs, data, DragDropEffects.Move);
         _isDragging = false;
         _dragCandidate = null;
+        _dragStartArgs = null;
     }
 
     private void OnCandidatePointerReleased(object? sender, PointerReleasedEventArgs e)
     {
         _dragCandidate = null;
+        _dragStartArgs = null;
         _isDragging = false;
     }
 

@@ -13,7 +13,7 @@ public partial class App : Application
 {
     public override void Initialize()
     {
-        RxApp.MainThreadScheduler = AvaloniaScheduler.Instance;
+        RxSchedulers.MainThreadScheduler = AvaloniaScheduler.Instance;
         AvaloniaXamlLoader.Load(this);
     }
 

@@ -1,3 +1,6 @@
+using Avalonia;
+using Avalonia.Headless;
+using Avalonia.Headless.XUnit;
 using System.Text;
 using ProEdit.Documents;
 using ProEdit.FlowDocument;
@@ -7,11 +10,26 @@ using ProEdit.Layout;
 using ProEdit.Pdf;
 using Xunit;
 
+[assembly: AvaloniaTestApplication(typeof(ProEdit.FlowDocument.IO.Tests.HeadlessTestAppBuilder))]
+
 namespace ProEdit.FlowDocument.IO.Tests;
+
+public sealed class HeadlessTestApp : Application
+{
+}
+
+public static class HeadlessTestAppBuilder
+{
+    public static AppBuilder BuildAvaloniaApp()
+    {
+        return AppBuilder.Configure<HeadlessTestApp>()
+            .UseHeadless(new AvaloniaHeadlessPlatformOptions());
+    }
+}
 
 public sealed class FlowDocumentFileConversionServiceTests
 {
-    [Fact]
+    [AvaloniaFact]
     public async Task SaveAndLoadMarkdown_RetainsContent()
     {
         using var fixture = new TempDirectoryFixture();
@@ -71,7 +89,7 @@ public sealed class FlowDocumentFileConversionServiceTests
         Assert.NotNull(firstCell.Background);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task SaveAndLoadRtf_RetainsContent()
     {
         using var fixture = new TempDirectoryFixture();
@@ -167,7 +185,7 @@ public sealed class FlowDocumentFileConversionServiceTests
         Assert.Equal("Visit", ExtractInlineText(loadedHyperlink).Trim());
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task SaveAndLoadRtf_PreservesInlineImage()
     {
         using var fixture = new TempDirectoryFixture();

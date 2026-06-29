@@ -9,6 +9,7 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Markup.Xaml.Styling;
 using Avalonia.Threading;
+using ReactiveUI.Avalonia;
 using ProEdit.Documents;
 using ProEdit.Editing;
 using ProEdit.FlowDocument.Documents;
@@ -37,6 +38,7 @@ public static class HeadlessTestAppBuilder
     public static AppBuilder BuildAvaloniaApp()
     {
         return AppBuilder.Configure<HeadlessTestApp>()
+            .UseReactiveUI(static _ => { })
             .UseHeadless(new AvaloniaHeadlessPlatformOptions());
     }
 }

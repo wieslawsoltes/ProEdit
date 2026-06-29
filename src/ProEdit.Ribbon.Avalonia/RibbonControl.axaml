@@ -4,6 +4,7 @@
              xmlns:local="clr-namespace:ProEdit.Ribbon.Avalonia;assembly=ProEdit.Ribbon.Avalonia"
              xmlns:converters="using:Avalonia.Controls.Converters"
              x:Class="ProEdit.Ribbon.Avalonia.RibbonControl"
+             x:DataType="ribbon:RibbonModel"
              FontFamily="Segoe UI, SF Pro Text, Helvetica, Arial"
              FontSize="12"
              OverflowCollapseThreshold="{DynamicResource RibbonOverflowCollapseThreshold}"
@@ -104,7 +105,8 @@
       </Style>
     </ControlTheme>
 
-    <DataTemplate x:Key="RibbonButtonContentTemplate">
+    <DataTemplate x:Key="RibbonButtonContentTemplate"
+                  x:DataType="ribbon:RibbonControlBase">
       <Grid RowDefinitions="Auto,Auto"
             ColumnDefinitions="Auto,*"
             RowSpacing="{Binding LayoutSize, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=RowSpacing}"
@@ -134,7 +136,8 @@
       </Grid>
     </DataTemplate>
 
-    <DataTemplate x:Key="RibbonDropdownButtonContentTemplate">
+    <DataTemplate x:Key="RibbonDropdownButtonContentTemplate"
+                  x:DataType="ribbon:RibbonControlBase">
       <Grid RowDefinitions="Auto,Auto"
             ColumnDefinitions="Auto,*"
             RowSpacing="{Binding LayoutSize, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=RowSpacing}"
@@ -164,7 +167,8 @@
       </Grid>
     </DataTemplate>
 
-    <DataTemplate x:Key="RibbonToggleGroupItemContentTemplate">
+    <DataTemplate x:Key="RibbonToggleGroupItemContentTemplate"
+                  x:DataType="ribbon:RibbonToggleButton">
       <Grid ColumnDefinitions="Auto,*"
             ColumnSpacing="{DynamicResource RibbonSegmentedItemSpacing}"
             HorizontalAlignment="Center"
@@ -187,7 +191,8 @@
       </Grid>
     </DataTemplate>
 
-    <DataTemplate x:Key="RibbonDropdownContentTemplate">
+    <DataTemplate x:Key="RibbonDropdownContentTemplate"
+                  x:DataType="ribbon:RibbonControlBase">
       <Grid ColumnDefinitions="*,Auto"
             ColumnSpacing="6"
             HorizontalAlignment="Stretch">
@@ -203,7 +208,8 @@
       </Grid>
     </DataTemplate>
 
-    <DataTemplate x:Key="RibbonIconOnlyTemplate">
+    <DataTemplate x:Key="RibbonIconOnlyTemplate"
+                  x:DataType="ribbon:RibbonControlBase">
       <TextBlock Text="{Binding IconKey, Converter={StaticResource RibbonIconConverter}}"
                  FontFamily="Segoe UI Emoji, Apple Color Emoji, Noto Color Emoji"
                  FontSize="{Binding LayoutSize, Converter={StaticResource RibbonSizeConverter}, ConverterParameter=IconFontSize}"
@@ -211,7 +217,8 @@
                  VerticalAlignment="Center" />
     </DataTemplate>
 
-    <DataTemplate x:Key="RibbonColorButtonContentTemplate">
+    <DataTemplate x:Key="RibbonColorButtonContentTemplate"
+                  x:DataType="ribbon:RibbonColorSplitButton">
       <Grid RowDefinitions="Auto,Auto">
         <ContentPresenter Content="{Binding}"
                           ContentTemplate="{StaticResource RibbonButtonContentTemplate}" />
@@ -223,7 +230,8 @@
       </Grid>
     </DataTemplate>
 
-    <DataTemplate x:Key="RibbonComboBoxItemTemplate">
+    <DataTemplate x:Key="RibbonComboBoxItemTemplate"
+                  x:DataType="ribbon:RibbonComboBoxItem">
       <StackPanel Orientation="Horizontal"
                   Spacing="6"
                   VerticalAlignment="Center">
@@ -237,7 +245,8 @@
       </StackPanel>
     </DataTemplate>
 
-    <DataTemplate x:Key="RibbonGalleryItemTemplate">
+    <DataTemplate x:Key="RibbonGalleryItemTemplate"
+                  x:DataType="ribbon:RibbonGalleryItem">
       <Grid Width="{DynamicResource RibbonGalleryTileWidth}">
         <StackPanel Orientation="Vertical"
                     Spacing="{DynamicResource RibbonGalleryPreviewLabelSpacing}"
@@ -327,7 +336,7 @@
       </Setter>
     </ControlTheme>
 
-    <ControlTheme x:Key="RibbonTabItemTheme" TargetType="TabItem">
+    <ControlTheme x:Key="RibbonTabItemTheme" TargetType="TabItem" x:DataType="ribbon:RibbonTab">
       <Setter Property="FontSize" Value="12" />
       <Setter Property="FontWeight" Value="Normal" />
       <Setter Property="Foreground" Value="{DynamicResource RibbonTabForegroundBrush}" />
@@ -609,7 +618,7 @@
     <ControlTheme x:Key="RibbonGalleryPopupItemTheme" TargetType="ListBoxItem">
       <Setter Property="Padding" Value="{DynamicResource RibbonGalleryPopupItemPadding}" />
       <Setter Property="Margin" Value="{DynamicResource RibbonGalleryPopupItemMargin}" />
-      <Setter Property="MinWidth" Value="{Binding DataContext.PopupItemMinWidth, RelativeSource={RelativeSource AncestorType=ListBox}}" />
+      <Setter Property="MinWidth" Value="{Binding MinWidth, RelativeSource={RelativeSource AncestorType=ListBox}}" />
       <Setter Property="HorizontalContentAlignment" Value="Center" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
       <Setter Property="Background" Value="Transparent" />
@@ -783,7 +792,7 @@
       <Setter Property="VerticalAlignment" Value="Center" />
       <Setter Property="Margin" Value="0" />
     </Style>
-    <Style Selector="Border.ribbon-contextual-band">
+    <Style Selector="Border.ribbon-contextual-band" x:DataType="ribbon:RibbonTab">
       <Setter Property="Background" Value="{Binding ContextualSet.AccentKey, Converter={StaticResource RibbonContextualAccentConverter}}" />
       <Setter Property="MinHeight" Value="{DynamicResource RibbonContextualBandHeight}" />
       <Setter Property="CornerRadius" Value="{DynamicResource RibbonContextualBandCornerRadius}" />
@@ -959,7 +968,7 @@
       <Setter Property="Theme" Value="{StaticResource RibbonToggleButtonTheme}" />
       <Setter Property="Margin" Value="0" />
     </Style>
-    <Style Selector="Control.ribbon-control">
+    <Style Selector="Control.ribbon-control" x:DataType="ribbon:RibbonControlBase">
       <Setter Property="ToolTip.Tip" Value="{Binding ToolTipContent}" />
       <Setter Property="AutomationProperties.Name" Value="{Binding Label}" />
     </Style>
@@ -981,7 +990,7 @@
       <Setter Property="CornerRadius" Value="0,3,3,0" />
     </Style>
 
-    <Style Selector="TabControl > TabItem">
+    <Style Selector="TabControl > TabItem" x:DataType="ribbon:RibbonTab">
       <Setter Property="IsVisible" Value="{Binding IsVisible}" />
       <Setter Property="IsEnabled" Value="{Binding IsEnabled}" />
     </Style>
@@ -1223,7 +1232,7 @@
             </ItemsPanelTemplate>
           </ItemsControl.ItemsPanel>
           <ItemsControl.ItemTemplate>
-            <DataTemplate>
+            <DataTemplate x:DataType="ribbon:RibbonToggleButton">
               <Border Classes="ribbon-segmented-item">
                 <ToggleButton Classes="ribbon-button ribbon-segmented ribbon-control"
                               Content="{Binding}"
@@ -1269,7 +1278,7 @@
               </ItemsPanelTemplate>
             </ListBox.ItemsPanel>
             <ListBox.ItemTemplate>
-              <DataTemplate>
+              <DataTemplate x:DataType="ribbon:RibbonGalleryItem">
                 <ContentPresenter Content="{Binding}"
                                   ContentTemplate="{StaticResource RibbonGalleryItemTemplate}" />
               </DataTemplate>
@@ -1302,6 +1311,7 @@
                        SelectionChanged="OnRibbonGalleryPopupSelectionChanged"
                        ScrollViewer.VerticalScrollBarVisibility="Auto"
                        ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                       MinWidth="{Binding PopupItemMinWidth}"
                        MaxHeight="{Binding PopupMaxHeight}"
                        Tag="{Binding ElementName=GalleryDropDownToggle}">
                 <ListBox.ItemsPanel>
@@ -1310,7 +1320,7 @@
                   </ItemsPanelTemplate>
                 </ListBox.ItemsPanel>
                 <ListBox.ItemTemplate>
-                  <DataTemplate>
+                  <DataTemplate x:DataType="ribbon:RibbonGalleryItem">
                     <ContentPresenter Content="{Binding}"
                                       ContentTemplate="{StaticResource RibbonGalleryItemTemplate}" />
                   </DataTemplate>
@@ -1383,7 +1393,7 @@
                     </ItemsPanelTemplate>
                   </ItemsControl.ItemsPanel>
                   <ItemsControl.ItemTemplate>
-                    <DataTemplate>
+                    <DataTemplate x:DataType="ribbon:RibbonQuickAccessItem">
                       <ContentPresenter Content="{Binding Control}" />
                     </DataTemplate>
                   </ItemsControl.ItemTemplate>
@@ -1451,7 +1461,7 @@
             </ItemsPanelTemplate>
           </TabControl.ItemsPanel>
           <TabControl.ItemTemplate>
-            <DataTemplate>
+            <DataTemplate x:DataType="ribbon:RibbonTab">
               <StackPanel Spacing="0">
                 <Border Classes="ribbon-contextual-band"
                         IsVisible="{Binding HasContextualSet}">
@@ -1463,7 +1473,7 @@
             </DataTemplate>
           </TabControl.ItemTemplate>
           <TabControl.ContentTemplate>
-            <DataTemplate>
+            <DataTemplate x:DataType="ribbon:RibbonTab">
           <ScrollViewer x:Name="RibbonGroupsScrollViewer"
                         Theme="{StaticResource RibbonMenuScrollViewerHorizontal}"
                         HorizontalScrollBarVisibility="Auto"
@@ -1475,7 +1485,7 @@
                     </ItemsPanelTemplate>
                   </ItemsControl.ItemsPanel>
                   <ItemsControl.ItemTemplate>
-                    <DataTemplate>
+                    <DataTemplate x:DataType="ribbon:RibbonGroup">
                       <Grid IsVisible="{Binding IsVisible}"
                             IsEnabled="{Binding IsEnabled}">
                         <local:RibbonGroupContainer Tag="{Binding SizeMode}"

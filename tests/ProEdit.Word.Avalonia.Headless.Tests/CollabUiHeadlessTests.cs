@@ -5,6 +5,7 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using Avalonia.LogicalTree;
 using Avalonia.VisualTree;
+using ReactiveUI.Avalonia;
 using ProEdit.Collaboration;
 using ProEdit.Collaboration.UI;
 using ProEdit.Collaboration.UI.ViewModels;
@@ -24,6 +25,7 @@ public static class HeadlessTestAppBuilder
     public static AppBuilder BuildAvaloniaApp()
     {
         return AppBuilder.Configure<HeadlessTestApp>()
+            .UseReactiveUI(static _ => { })
             .UseHeadless(new AvaloniaHeadlessPlatformOptions());
     }
 }

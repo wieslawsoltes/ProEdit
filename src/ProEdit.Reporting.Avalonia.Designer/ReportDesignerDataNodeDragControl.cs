@@ -12,6 +12,7 @@ public sealed class ReportDesignerDataNodeDragControl : ContentControl
     private const double DragThreshold = 4d;
 
     private Point? _dragStartPoint;
+    private PointerPressedEventArgs? _dragStartArgs;
     private bool _isDragging;
 
     /// <summary>
@@ -30,10 +31,12 @@ public sealed class ReportDesignerDataNodeDragControl : ContentControl
             || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
         {
             _dragStartPoint = null;
+            _dragStartArgs = null;
             return;
         }
 
         _dragStartPoint = e.GetPosition(this);
+        _dragStartArgs = e;
     }
 
     protected override async void OnPointerMoved(PointerEventArgs e)
@@ -42,6 +45,7 @@ public sealed class ReportDesignerDataNodeDragControl : ContentControl
 
         if (_isDragging
             || _dragStartPoint is null
+            || _dragStartArgs is null
             || DataContext is not ReportDesignerDataNodeViewModel node)
         {
             return;
@@ -58,6 +62,7 @@ public sealed class ReportDesignerDataNodeDragControl : ContentControl
         if (payload is null)
         {
             _dragStartPoint = null;
+            _dragStartArgs = null;
             return;
         }
 
@@ -66,15 +71,17 @@ public sealed class ReportDesignerDataNodeDragControl : ContentControl
         data.Add(DataTransferItem.Create(
             ReportDesignerDragDataFormats.Payload,
             ReportDesignerDragDataFormats.Serialize(payload)));
-        await DragDrop.DoDragDropAsync(e, data, DragDropEffects.Copy);
+        await DragDrop.DoDragDropAsync(_dragStartArgs, data, DragDropEffects.Copy);
         _isDragging = false;
         _dragStartPoint = null;
+        _dragStartArgs = null;
     }
 
     protected override void OnPointerReleased(PointerReleasedEventArgs e)
     {
         base.OnPointerReleased(e);
         _dragStartPoint = null;
+        _dragStartArgs = null;
         _isDragging = false;
     }
 }

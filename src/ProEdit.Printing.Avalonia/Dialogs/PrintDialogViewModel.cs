@@ -119,7 +119,7 @@ public sealed partial class PrintDialogViewModel : ReactiveObject
             this.WhenAnyValue(vm => vm.CanNavigatePrevious));
 
         this.WhenAnyValue(vm => vm.RangeKind)
-            .ObserveOn(RxApp.MainThreadScheduler)
+            .ObserveOn(RxSchedulers.MainThreadScheduler)
             .Subscribe(_ =>
             {
                 UpdateRangeVisibility();
@@ -129,8 +129,8 @@ public sealed partial class PrintDialogViewModel : ReactiveObject
             });
 
         this.WhenAnyValue(vm => vm.RangeStartText, vm => vm.RangeEndText)
-            .Throttle(TimeSpan.FromMilliseconds(200), RxApp.TaskpoolScheduler)
-            .ObserveOn(RxApp.MainThreadScheduler)
+            .Throttle(TimeSpan.FromMilliseconds(200), RxSchedulers.TaskpoolScheduler)
+            .ObserveOn(RxSchedulers.MainThreadScheduler)
             .Subscribe(_ =>
             {
                 ValidateCustomRange();
@@ -138,7 +138,7 @@ public sealed partial class PrintDialogViewModel : ReactiveObject
             });
 
         this.WhenAnyValue(vm => vm.Scaling)
-            .ObserveOn(RxApp.MainThreadScheduler)
+            .ObserveOn(RxSchedulers.MainThreadScheduler)
             .Subscribe(_ =>
             {
                 UpdateScalingVisibility();
@@ -146,28 +146,28 @@ public sealed partial class PrintDialogViewModel : ReactiveObject
             });
 
         this.WhenAnyValue(vm => vm.Orientation)
-            .ObserveOn(RxApp.MainThreadScheduler)
+            .ObserveOn(RxSchedulers.MainThreadScheduler)
             .Subscribe(_ => QueuePreviewRefresh());
 
         this.WhenAnyValue(vm => vm.ColorMode)
-            .ObserveOn(RxApp.MainThreadScheduler)
+            .ObserveOn(RxSchedulers.MainThreadScheduler)
             .Subscribe(_ => QueuePreviewRefresh());
 
         this.WhenAnyValue(vm => vm.CustomScale)
-            .Throttle(TimeSpan.FromMilliseconds(250), RxApp.TaskpoolScheduler)
-            .ObserveOn(RxApp.MainThreadScheduler)
+            .Throttle(TimeSpan.FromMilliseconds(250), RxSchedulers.TaskpoolScheduler)
+            .ObserveOn(RxSchedulers.MainThreadScheduler)
             .Subscribe(_ => QueuePreviewRefresh());
 
         this.WhenAnyValue(vm => vm.SelectedPaperSize)
-            .ObserveOn(RxApp.MainThreadScheduler)
+            .ObserveOn(RxSchedulers.MainThreadScheduler)
             .Subscribe(_ => QueuePreviewRefresh());
 
         this.WhenAnyValue(vm => vm.OutputKind)
-            .ObserveOn(RxApp.MainThreadScheduler)
+            .ObserveOn(RxSchedulers.MainThreadScheduler)
             .Subscribe(_ => UpdateOutputVisibility());
 
         this.WhenAnyValue(vm => vm.SelectedZoomOption)
-            .ObserveOn(RxApp.MainThreadScheduler)
+            .ObserveOn(RxSchedulers.MainThreadScheduler)
             .Subscribe(option =>
             {
                 if (option is null)
@@ -181,12 +181,12 @@ public sealed partial class PrintDialogViewModel : ReactiveObject
             });
 
         this.WhenAnyValue(vm => vm.SelectedPreviewPage)
-            .ObserveOn(RxApp.MainThreadScheduler)
+            .ObserveOn(RxSchedulers.MainThreadScheduler)
             .Subscribe(OnSelectedPreviewPageChanged);
 
         this.WhenAnyValue(vm => vm.PageNumberText)
-            .Throttle(TimeSpan.FromMilliseconds(200), RxApp.TaskpoolScheduler)
-            .ObserveOn(RxApp.MainThreadScheduler)
+            .Throttle(TimeSpan.FromMilliseconds(200), RxSchedulers.TaskpoolScheduler)
+            .ObserveOn(RxSchedulers.MainThreadScheduler)
             .Subscribe(value =>
             {
                 if (_suppressPageNumberSync)
@@ -1036,7 +1036,7 @@ public sealed partial class PrintDialogViewModel : ReactiveObject
     private static Task RunOnUiAsync(Action action)
     {
         var tcs = new TaskCompletionSource<bool>();
-        RxApp.MainThreadScheduler.Schedule(Unit.Default, (_, _) =>
+        RxSchedulers.MainThreadScheduler.Schedule(Unit.Default, (_, _) =>
         {
             try
             {

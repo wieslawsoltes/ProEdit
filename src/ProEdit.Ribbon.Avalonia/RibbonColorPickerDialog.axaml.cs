@@ -19,24 +19,24 @@ public sealed partial class RibbonColorPickerDialog : Window
     private bool _isUpdating;
     private DocColor _selectedColor;
 
-    private static readonly IReadOnlyList<ColorSwatch> StandardSwatches = new[]
+    private static readonly IReadOnlyList<RibbonColorSwatch> StandardSwatches = new[]
     {
-        new ColorSwatch("Black", new DocColor(0, 0, 0)),
-        new ColorSwatch("Dark Gray", new DocColor(64, 64, 64)),
-        new ColorSwatch("Gray", new DocColor(128, 128, 128)),
-        new ColorSwatch("Light Gray", new DocColor(192, 192, 192)),
-        new ColorSwatch("White", new DocColor(255, 255, 255)),
-        new ColorSwatch("Dark Red", new DocColor(128, 0, 0)),
-        new ColorSwatch("Red", new DocColor(192, 0, 0)),
-        new ColorSwatch("Orange", new DocColor(230, 145, 56)),
-        new ColorSwatch("Yellow", new DocColor(241, 194, 50)),
-        new ColorSwatch("Green", new DocColor(106, 168, 79)),
-        new ColorSwatch("Dark Green", new DocColor(0, 100, 0)),
-        new ColorSwatch("Teal", new DocColor(69, 129, 142)),
-        new ColorSwatch("Blue", new DocColor(61, 133, 198)),
-        new ColorSwatch("Dark Blue", new DocColor(0, 51, 102)),
-        new ColorSwatch("Purple", new DocColor(142, 124, 195)),
-        new ColorSwatch("Dark Purple", new DocColor(76, 0, 130))
+        new RibbonColorSwatch("Black", new DocColor(0, 0, 0)),
+        new RibbonColorSwatch("Dark Gray", new DocColor(64, 64, 64)),
+        new RibbonColorSwatch("Gray", new DocColor(128, 128, 128)),
+        new RibbonColorSwatch("Light Gray", new DocColor(192, 192, 192)),
+        new RibbonColorSwatch("White", new DocColor(255, 255, 255)),
+        new RibbonColorSwatch("Dark Red", new DocColor(128, 0, 0)),
+        new RibbonColorSwatch("Red", new DocColor(192, 0, 0)),
+        new RibbonColorSwatch("Orange", new DocColor(230, 145, 56)),
+        new RibbonColorSwatch("Yellow", new DocColor(241, 194, 50)),
+        new RibbonColorSwatch("Green", new DocColor(106, 168, 79)),
+        new RibbonColorSwatch("Dark Green", new DocColor(0, 100, 0)),
+        new RibbonColorSwatch("Teal", new DocColor(69, 129, 142)),
+        new RibbonColorSwatch("Blue", new DocColor(61, 133, 198)),
+        new RibbonColorSwatch("Dark Blue", new DocColor(0, 51, 102)),
+        new RibbonColorSwatch("Purple", new DocColor(142, 124, 195)),
+        new RibbonColorSwatch("Dark Purple", new DocColor(76, 0, 130))
     };
 
     public RibbonColorPickerDialog()
@@ -69,7 +69,7 @@ public sealed partial class RibbonColorPickerDialog : Window
 
     private void OnSwatchClick(object? sender, RoutedEventArgs e)
     {
-        if (sender is Button { DataContext: ColorSwatch swatch })
+        if (sender is Button { DataContext: RibbonColorSwatch swatch })
         {
             SetColor(swatch.Color);
         }
@@ -168,6 +168,6 @@ public sealed partial class RibbonColorPickerDialog : Window
 
         return false;
     }
-
-    private sealed record ColorSwatch(string Label, DocColor Color);
 }
+
+internal sealed record RibbonColorSwatch(string Label, DocColor Color);

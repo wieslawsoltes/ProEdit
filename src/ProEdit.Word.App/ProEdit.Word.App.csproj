@@ -18,14 +18,15 @@
     <PackageReference Include="Avalonia.Desktop" />
     <PackageReference Include="Avalonia.Themes.Fluent" />
     <PackageReference Include="Avalonia.Fonts.Inter" />
-    <!--Condition below is needed to remove Avalonia.Diagnostics package from build output in Release configuration.-->
-    <PackageReference Include="Avalonia.Diagnostics">
+    <!--Condition below is needed to remove AvaloniaUI.DiagnosticsSupport package from build output in Release configuration.-->
+    <PackageReference Include="AvaloniaUI.DiagnosticsSupport">
       <IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets>
       <PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
     </PackageReference>
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\\ProEdit.Ribbon.Avalonia\\ProEdit.Ribbon.Avalonia.csproj" />
     <ProjectReference Include="..\\ProEdit.Word.Avalonia\\ProEdit.Word.Avalonia.csproj" />
   </ItemGroup>
 </Project>
