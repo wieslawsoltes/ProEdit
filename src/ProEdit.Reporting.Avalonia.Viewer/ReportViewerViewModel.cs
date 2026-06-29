@@ -391,7 +391,7 @@ public sealed class ReportViewerDocumentMapEntryViewModel
         Entry = entry;
         NavigateCommand = ReactiveCommand.Create(
             () => navigate(entry),
-            outputScheduler: RxApp.MainThreadScheduler);
+            outputScheduler: RxSchedulers.MainThreadScheduler);
     }
 
     /// <summary>
@@ -447,7 +447,7 @@ public sealed class ReportViewerSearchResultViewModel
         Entry = entry;
         NavigateCommand = ReactiveCommand.Create(
             () => navigate(entry),
-            outputScheduler: RxApp.MainThreadScheduler);
+            outputScheduler: RxSchedulers.MainThreadScheduler);
     }
 
     /// <summary>
@@ -528,7 +528,7 @@ public sealed class ReportViewerDrillthroughItemViewModel
         Entry = entry;
         NavigateCommand = ReactiveCommand.CreateFromTask(
             () => navigate(entry),
-            outputScheduler: RxApp.MainThreadScheduler);
+            outputScheduler: RxSchedulers.MainThreadScheduler);
     }
 
     /// <summary>
@@ -625,18 +625,18 @@ public sealed partial class ReportViewerViewModel : ReactiveObject, IDisposable
         ZoomLevels = new[] { 0.5f, 0.75f, 1f, 1.25f, 1.5f, 2f };
         SelectedExportFormat = ReportExportFormat.Pdf;
 
-        RefreshCommand = ReactiveCommand.CreateFromTask(RefreshAsync, outputScheduler: RxApp.MainThreadScheduler);
-        ApplyParametersCommand = ReactiveCommand.CreateFromTask(ApplyParametersAsync, outputScheduler: RxApp.MainThreadScheduler);
-        ResetParametersCommand = ReactiveCommand.CreateFromTask(ResetParametersAsync, outputScheduler: RxApp.MainThreadScheduler);
+        RefreshCommand = ReactiveCommand.CreateFromTask(RefreshAsync, outputScheduler: RxSchedulers.MainThreadScheduler);
+        ApplyParametersCommand = ReactiveCommand.CreateFromTask(ApplyParametersAsync, outputScheduler: RxSchedulers.MainThreadScheduler);
+        ResetParametersCommand = ReactiveCommand.CreateFromTask(ResetParametersAsync, outputScheduler: RxSchedulers.MainThreadScheduler);
         PreviousPageCommand = ReactiveCommand.Create(
             () => NavigateToPage(SelectedPage is null ? 0 : SelectedPage.PageIndex - 1),
-            outputScheduler: RxApp.MainThreadScheduler);
+            outputScheduler: RxSchedulers.MainThreadScheduler);
         NextPageCommand = ReactiveCommand.Create(
             () => NavigateToPage(SelectedPage is null ? 0 : SelectedPage.PageIndex + 1),
-            outputScheduler: RxApp.MainThreadScheduler);
-        ExportCommand = ReactiveCommand.CreateFromTask(ExportAsync, outputScheduler: RxApp.MainThreadScheduler);
-        PrintCommand = ReactiveCommand.CreateFromTask(PrintAsync, outputScheduler: RxApp.MainThreadScheduler);
-        GoBackCommand = ReactiveCommand.CreateFromTask(GoBackAsync, outputScheduler: RxApp.MainThreadScheduler);
+            outputScheduler: RxSchedulers.MainThreadScheduler);
+        ExportCommand = ReactiveCommand.CreateFromTask(ExportAsync, outputScheduler: RxSchedulers.MainThreadScheduler);
+        PrintCommand = ReactiveCommand.CreateFromTask(PrintAsync, outputScheduler: RxSchedulers.MainThreadScheduler);
+        GoBackCommand = ReactiveCommand.CreateFromTask(GoBackAsync, outputScheduler: RxSchedulers.MainThreadScheduler);
         InitializeLayoutCommands();
 
         UpdateCommandState();

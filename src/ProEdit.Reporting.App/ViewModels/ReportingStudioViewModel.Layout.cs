@@ -39,7 +39,7 @@ internal sealed partial class ReportingStudioViewModel
     private void InitializeLayoutShell()
     {
         _currentMode = _selectedWorkspaceTabIndex == 1 ? ReportingStudioMode.Run : ReportingStudioMode.Design;
-        ResetActiveLayoutCommand = ReactiveCommand.Create(ResetActiveLayout, outputScheduler: RxApp.MainThreadScheduler);
+        ResetActiveLayoutCommand = ReactiveCommand.Create(ResetActiveLayout, outputScheduler: RxSchedulers.MainThreadScheduler);
     }
 
     private void SynchronizeModeFromWorkspaceIndex()

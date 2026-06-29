@@ -215,13 +215,11 @@
               <CheckBox x:Name="ContextualSpacingCheckBox"
                         Content="Don't add space between paragraphs of the same style"
                         IsThreeState="True"
-                        Checked="OnPreviewToggleChanged"
-                        Unchecked="OnPreviewToggleChanged" />
+                        IsCheckedChanged="OnPreviewToggleChanged" />
               <CheckBox x:Name="RightToLeftCheckBox"
                         Content="Right-to-left"
                         IsThreeState="True"
-                        Checked="OnPreviewToggleChanged"
-                        Unchecked="OnPreviewToggleChanged" />
+                        IsCheckedChanged="OnPreviewToggleChanged" />
             </StackPanel>
 
             <Border BorderBrush="#D0D0D0"

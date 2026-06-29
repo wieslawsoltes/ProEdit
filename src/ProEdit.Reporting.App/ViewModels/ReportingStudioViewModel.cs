@@ -48,23 +48,23 @@ internal sealed partial class ReportingStudioViewModel : ReactiveObject, IDispos
 
         var canOperate = this.WhenAnyValue(static vm => vm.IsBusy)
             .Select(static isBusy => !isBusy)
-            .ObserveOn(RxApp.MainThreadScheduler);
+            .ObserveOn(RxSchedulers.MainThreadScheduler);
         var canOperateWithWorkspace = this.WhenAnyValue(
             static vm => vm.IsBusy,
             static vm => vm.HasWorkspace,
             static (isBusy, hasWorkspace) => !isBusy && hasWorkspace);
-        canOperateWithWorkspace = canOperateWithWorkspace.ObserveOn(RxApp.MainThreadScheduler);
+        canOperateWithWorkspace = canOperateWithWorkspace.ObserveOn(RxSchedulers.MainThreadScheduler);
 
-        NewSampleCommand = ReactiveCommand.CreateFromTask(NewSampleAsync, canOperate, outputScheduler: RxApp.MainThreadScheduler);
-        OpenTemplateCommand = ReactiveCommand.CreateFromTask(OpenTemplateAsync, canOperate, outputScheduler: RxApp.MainThreadScheduler);
-        SaveTemplateCommand = ReactiveCommand.CreateFromTask(SaveTemplateAsync, canOperateWithWorkspace, outputScheduler: RxApp.MainThreadScheduler);
-        SaveTemplateAsCommand = ReactiveCommand.CreateFromTask(SaveTemplateAsAsync, canOperateWithWorkspace, outputScheduler: RxApp.MainThreadScheduler);
-        ImportRdlCommand = ReactiveCommand.CreateFromTask(ImportRdlAsync, canOperate, outputScheduler: RxApp.MainThreadScheduler);
-        ExportRdlCommand = ReactiveCommand.CreateFromTask(ExportRdlAsync, canOperateWithWorkspace, outputScheduler: RxApp.MainThreadScheduler);
-        RefreshPreviewCommand = ReactiveCommand.CreateFromTask(RefreshPreviewAsync, canOperateWithWorkspace, outputScheduler: RxApp.MainThreadScheduler);
-        RunReportCommand = ReactiveCommand.CreateFromTask(RunReportAsync, canOperateWithWorkspace, outputScheduler: RxApp.MainThreadScheduler);
-        ShowDesignCommand = ReactiveCommand.Create(() => { CurrentMode = ReportingStudioMode.Design; }, outputScheduler: RxApp.MainThreadScheduler);
-        ShowRunCommand = ReactiveCommand.Create(() => { CurrentMode = ReportingStudioMode.Run; }, outputScheduler: RxApp.MainThreadScheduler);
+        NewSampleCommand = ReactiveCommand.CreateFromTask(NewSampleAsync, canOperate, outputScheduler: RxSchedulers.MainThreadScheduler);
+        OpenTemplateCommand = ReactiveCommand.CreateFromTask(OpenTemplateAsync, canOperate, outputScheduler: RxSchedulers.MainThreadScheduler);
+        SaveTemplateCommand = ReactiveCommand.CreateFromTask(SaveTemplateAsync, canOperateWithWorkspace, outputScheduler: RxSchedulers.MainThreadScheduler);
+        SaveTemplateAsCommand = ReactiveCommand.CreateFromTask(SaveTemplateAsAsync, canOperateWithWorkspace, outputScheduler: RxSchedulers.MainThreadScheduler);
+        ImportRdlCommand = ReactiveCommand.CreateFromTask(ImportRdlAsync, canOperate, outputScheduler: RxSchedulers.MainThreadScheduler);
+        ExportRdlCommand = ReactiveCommand.CreateFromTask(ExportRdlAsync, canOperateWithWorkspace, outputScheduler: RxSchedulers.MainThreadScheduler);
+        RefreshPreviewCommand = ReactiveCommand.CreateFromTask(RefreshPreviewAsync, canOperateWithWorkspace, outputScheduler: RxSchedulers.MainThreadScheduler);
+        RunReportCommand = ReactiveCommand.CreateFromTask(RunReportAsync, canOperateWithWorkspace, outputScheduler: RxSchedulers.MainThreadScheduler);
+        ShowDesignCommand = ReactiveCommand.Create(() => { CurrentMode = ReportingStudioMode.Design; }, outputScheduler: RxSchedulers.MainThreadScheduler);
+        ShowRunCommand = ReactiveCommand.Create(() => { CurrentMode = ReportingStudioMode.Run; }, outputScheduler: RxSchedulers.MainThreadScheduler);
         InitializeLayoutShell();
 
         _viewerTabSubscription = this.WhenAnyValue(static vm => vm.SelectedWorkspaceTabIndex)

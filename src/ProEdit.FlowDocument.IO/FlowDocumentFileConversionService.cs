@@ -182,7 +182,7 @@ public sealed class FlowDocumentFileConversionService : IFlowDocumentFileConvers
             return converter.Convert(document);
         }
 
-        await using var stream = File.OpenRead(path);
+        using var stream = File.OpenRead(path);
         return await LoadCoreAsync(stream, extension, path, cancellationToken);
     }
 
@@ -414,7 +414,8 @@ public sealed class FlowDocumentFileConversionService : IFlowDocumentFileConvers
                     throw new FlowDocumentFileFormatException($"Unsupported load extension '{extension}'.");
                 }
 
-                document = await Task.Run(() => format.Load(stream), cancellationToken);
+                cancellationToken.ThrowIfCancellationRequested();
+                document = format.Load(stream);
                 break;
             }
         }

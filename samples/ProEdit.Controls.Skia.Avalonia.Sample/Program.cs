@@ -1,4 +1,5 @@
 using Avalonia;
+using ReactiveUI.Avalonia;
 
 namespace ProEdit.Controls.Skia.Avalonia.Sample;
 
@@ -15,6 +16,7 @@ internal static class Program
         return AppBuilder.Configure<App>()
             .UsePlatformDetect()
             .WithInterFont()
+            .UseReactiveUI(static _ => { })
             .LogToTrace();
     }
 }

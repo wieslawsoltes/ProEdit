@@ -21,7 +21,7 @@
               </ItemsPanelTemplate>
             </ItemsControl.ItemsPanel>
             <ItemsControl.ItemTemplate>
-              <DataTemplate>
+              <DataTemplate x:DataType="local:RibbonColorSwatch">
                 <Button Width="28"
                         Height="28"
                         Margin="4"

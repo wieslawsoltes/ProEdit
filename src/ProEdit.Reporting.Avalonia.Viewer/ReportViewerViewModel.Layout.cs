@@ -155,20 +155,20 @@ public sealed partial class ReportViewerViewModel
 
     internal void InitializeLayoutCommands()
     {
-        OpenParametersPaneCommand = ReactiveCommand.Create(() => OpenPane(ReportViewerPane.Parameters), outputScheduler: RxApp.MainThreadScheduler);
-        OpenOutlinePaneCommand = ReactiveCommand.Create(() => OpenPane(ReportViewerPane.Outline), outputScheduler: RxApp.MainThreadScheduler);
-        OpenSearchPaneCommand = ReactiveCommand.Create(() => OpenPane(ReportViewerPane.Search), outputScheduler: RxApp.MainThreadScheduler);
-        OpenDiagnosticsPaneCommand = ReactiveCommand.Create(() => OpenPane(ReportViewerPane.Diagnostics), outputScheduler: RxApp.MainThreadScheduler);
-        OpenDrillthroughPaneCommand = ReactiveCommand.Create(() => OpenPane(ReportViewerPane.Drillthrough), outputScheduler: RxApp.MainThreadScheduler);
-        CloseLeftDrawerCommand = ReactiveCommand.Create(() => { LeftDrawerState = PaneVisibilityState.Closed; }, outputScheduler: RxApp.MainThreadScheduler);
-        TogglePinLeftDrawerCommand = ReactiveCommand.Create(TogglePinLeftDrawer, outputScheduler: RxApp.MainThreadScheduler);
-        ToggleThumbnailsCommand = ReactiveCommand.Create(() => { IsThumbnailTrayOpen = !IsThumbnailTrayOpen; }, outputScheduler: RxApp.MainThreadScheduler);
-        FitWidthCommand = ReactiveCommand.Create(FitWidthToViewport, outputScheduler: RxApp.MainThreadScheduler);
-        FitPageCommand = ReactiveCommand.Create(FitPageToViewport, outputScheduler: RxApp.MainThreadScheduler);
-        ActualSizeCommand = ReactiveCommand.Create(() => { ZoomFactor = 1f; }, outputScheduler: RxApp.MainThreadScheduler);
-        ZoomInCommand = ReactiveCommand.Create(() => { ZoomFactor = GetNearestZoomPreset(stepDirection: +1); }, outputScheduler: RxApp.MainThreadScheduler);
-        ZoomOutCommand = ReactiveCommand.Create(() => { ZoomFactor = GetNearestZoomPreset(stepDirection: -1); }, outputScheduler: RxApp.MainThreadScheduler);
-        ResetLayoutCommand = ReactiveCommand.Create(ResetLayoutState, outputScheduler: RxApp.MainThreadScheduler);
+        OpenParametersPaneCommand = ReactiveCommand.Create(() => OpenPane(ReportViewerPane.Parameters), outputScheduler: RxSchedulers.MainThreadScheduler);
+        OpenOutlinePaneCommand = ReactiveCommand.Create(() => OpenPane(ReportViewerPane.Outline), outputScheduler: RxSchedulers.MainThreadScheduler);
+        OpenSearchPaneCommand = ReactiveCommand.Create(() => OpenPane(ReportViewerPane.Search), outputScheduler: RxSchedulers.MainThreadScheduler);
+        OpenDiagnosticsPaneCommand = ReactiveCommand.Create(() => OpenPane(ReportViewerPane.Diagnostics), outputScheduler: RxSchedulers.MainThreadScheduler);
+        OpenDrillthroughPaneCommand = ReactiveCommand.Create(() => OpenPane(ReportViewerPane.Drillthrough), outputScheduler: RxSchedulers.MainThreadScheduler);
+        CloseLeftDrawerCommand = ReactiveCommand.Create(() => { LeftDrawerState = PaneVisibilityState.Closed; }, outputScheduler: RxSchedulers.MainThreadScheduler);
+        TogglePinLeftDrawerCommand = ReactiveCommand.Create(TogglePinLeftDrawer, outputScheduler: RxSchedulers.MainThreadScheduler);
+        ToggleThumbnailsCommand = ReactiveCommand.Create(() => { IsThumbnailTrayOpen = !IsThumbnailTrayOpen; }, outputScheduler: RxSchedulers.MainThreadScheduler);
+        FitWidthCommand = ReactiveCommand.Create(FitWidthToViewport, outputScheduler: RxSchedulers.MainThreadScheduler);
+        FitPageCommand = ReactiveCommand.Create(FitPageToViewport, outputScheduler: RxSchedulers.MainThreadScheduler);
+        ActualSizeCommand = ReactiveCommand.Create(() => { ZoomFactor = 1f; }, outputScheduler: RxSchedulers.MainThreadScheduler);
+        ZoomInCommand = ReactiveCommand.Create(() => { ZoomFactor = GetNearestZoomPreset(stepDirection: +1); }, outputScheduler: RxSchedulers.MainThreadScheduler);
+        ZoomOutCommand = ReactiveCommand.Create(() => { ZoomFactor = GetNearestZoomPreset(stepDirection: -1); }, outputScheduler: RxSchedulers.MainThreadScheduler);
+        ResetLayoutCommand = ReactiveCommand.Create(ResetLayoutState, outputScheduler: RxSchedulers.MainThreadScheduler);
     }
 
     internal void UpdateViewportSize(double width, double height)

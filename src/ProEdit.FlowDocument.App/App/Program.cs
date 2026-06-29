@@ -1,4 +1,5 @@
 using Avalonia;
+using ReactiveUI.Avalonia;
 using System;
 
 namespace ProEdit.FlowDocument.App;
@@ -13,5 +14,6 @@ public static class Program
         => AppBuilder.Configure<App>()
             .UsePlatformDetect()
             .WithInterFont()
+            .UseReactiveUI(static _ => { })
             .LogToTrace();
 }
